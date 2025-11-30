@@ -22,6 +22,52 @@ Sistema integral de administración de propiedades en alquiler que centraliza y 
 4. **Transparencia**: Proveer acceso en tiempo real a propietarios e inquilinos
 5. **Escalabilidad**: Soportar crecimiento de docenas a miles de unidades
 
+## 🚀 Getting Started
+
+### Configuración Rápida del Entorno Local
+
+El proyecto incluye un entorno de desarrollo local completo con Docker Compose.
+
+#### Requisitos
+
+- Docker 20.10+
+- Docker Compose 2.0+
+- Make
+
+#### Instalación en 3 Pasos
+
+```bash
+# 1. Clonar el repositorio
+git clone <url-del-repositorio>
+cd rent
+
+# 2. Setup automático (crea .env, inicia servicios, verifica conexiones)
+make setup
+
+# 3. Verificar que todo funciona
+make healthcheck
+```
+
+#### Servicios Incluidos
+
+- **PostgreSQL 16** - Base de datos principal (puerto 5432)
+- **Redis 7** - Caché y sesiones (puerto 6379)
+- **RabbitMQ 3** - Message broker (puerto 5672, Management UI: 15672)
+- **pgAdmin 4** - Administración visual de BD (puerto 5050, opcional)
+
+#### Comandos Útiles
+
+```bash
+make help          # Ver todos los comandos disponibles
+make up            # Iniciar servicios
+make down          # Detener servicios
+make logs          # Ver logs
+make db-shell      # Abrir shell de PostgreSQL
+make info          # Ver información de conexión
+```
+
+📖 **Documentación completa**: [Guía de Configuración Local](docs/development/local-setup.md)
+
 ## 📚 Documentación
 
 ### Documentación Funcional

@@ -1,0 +1,206 @@
+# =============================================================================
+# .gitignore - Plataforma de Administración de Alquileres
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Variables de Entorno y Secretos
+# -----------------------------------------------------------------------------
+.env
+.env.local
+.env.development
+.env.production
+.env.*.local
+*.pem
+*.key
+secrets/
+
+# -----------------------------------------------------------------------------
+# Dependencias
+# -----------------------------------------------------------------------------
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# -----------------------------------------------------------------------------
+# IDEs y Editores
+# -----------------------------------------------------------------------------
+# VSCode
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.example.json
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+\#*\#
+.\#*
+
+# -----------------------------------------------------------------------------
+# Sistema Operativo
+# -----------------------------------------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# -----------------------------------------------------------------------------
+# Docker y Contenedores
+# -----------------------------------------------------------------------------
+# Docker volumes (datos locales)
+postgres_data/
+redis_data/
+rabbitmq_data/
+pgadmin_data/
+
+# Docker compose overrides locales
+docker-compose.override.yml
+
+# -----------------------------------------------------------------------------
+# Logs
+# -----------------------------------------------------------------------------
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# -----------------------------------------------------------------------------
+# Build y Distribución
+# -----------------------------------------------------------------------------
+# Node/JS
+dist/
+build/
+.next/
+out/
+.nuxt/
+.cache/
+.parcel-cache/
+
+# Python
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# -----------------------------------------------------------------------------
+# Testing
+# -----------------------------------------------------------------------------
+coverage/
+*.lcov
+.nyc_output/
+.jest/
+test-results/
+playwright-report/
+cypress/videos/
+cypress/screenshots/
+
+# -----------------------------------------------------------------------------
+# Backups y Temporales
+# -----------------------------------------------------------------------------
+backups/
+*.backup
+*.bak
+*.tmp
+*.temp
+.tmp/
+tmp/
+
+# -----------------------------------------------------------------------------
+# Base de Datos (dumps locales)
+# -----------------------------------------------------------------------------
+*.sql.gz
+*.dump
+*.sqlite
+*.sqlite3
+*.db
+
+# Excepto scripts de inicialización
+!scripts/init-db.sql
+!scripts/seeds.sql
+
+# -----------------------------------------------------------------------------
+# Cloud y Terraform
+# -----------------------------------------------------------------------------
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# -----------------------------------------------------------------------------
+# Certificados y Configuraciones Sensibles
+# -----------------------------------------------------------------------------
+*.crt
+*.csr
+*.der
+*.pfx
+*.p12
+
+# -----------------------------------------------------------------------------
+# Documentación Generada
+# -----------------------------------------------------------------------------
+docs/api/
+docs/_build/
+.docusaurus/
+
+# -----------------------------------------------------------------------------
+# Prisma (si se usa)
+# -----------------------------------------------------------------------------
+# migrations/ # Descomentar si quieres ignorar migraciones locales
+
+# -----------------------------------------------------------------------------
+# Otros
+# -----------------------------------------------------------------------------
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
