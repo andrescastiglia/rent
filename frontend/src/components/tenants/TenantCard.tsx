@@ -1,0 +1,52 @@
+import React from 'react';
+import Link from 'next/link';
+import { Tenant } from '@/types/tenant';
+import { User, Mail, Phone, MapPin } from 'lucide-react';
+
+interface TenantCardProps {
+  tenant: Tenant;
+}
+
+export function TenantCard({ tenant }: TenantCardProps) {
+  return (
+    <Link href={`/tenants/${tenant.id}`} className="block group">
+      <div className="bg-white rounded-lg shadow-md overflow-hidden transition-transform duration-300 group-hover:-translate-y-1 group-hover:shadow-lg border border-gray-100 p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center">
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 mr-4">
+              <User size={24} />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">{tenant.firstName} {tenant.lastName}</h3>
+              <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide ${
+                tenant.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 
+                tenant.status === 'INACTIVE' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+              }`}>
+                {tenant.status}
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="space-y-2 text-sm text-gray-600">
+          <div className="flex items-center">
+            <Mail size={16} className="mr-2 text-gray-400" />
+            <span className="truncate">{tenant.email}</span>
+          </div>
+          <div className="flex items-center">
+            <Phone size={16} className="mr-2 text-gray-400" />
+            <span>{tenant.phone}</span>
+          </div>
+          {tenant.address && (
+            <div className="flex items-center">
+              <MapPin size={16} className="mr-2 text-gray-400" />
+              <span className="truncate">
+                {tenant.address.street} {tenant.address.number}, {tenant.address.city}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
+}

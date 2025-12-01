@@ -8,12 +8,20 @@ export default function Home() {
         <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">
           Bienvenido al portal de gestión de propiedades
         </p>
-        <a 
-          href="/properties" 
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-        >
-          Gestionar Propiedades
-        </a>
+        <div className="flex gap-4">
+          <a 
+            href="/properties" 
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+          >
+            Gestionar Propiedades
+          </a>
+          <a 
+            href="/tenants" 
+            className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
+          >
+            Gestionar Inquilinos
+          </a>
+        </div>
       </div>
     </main>
   );
