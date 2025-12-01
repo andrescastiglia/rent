@@ -5,9 +5,15 @@ export default function Home() {
         <h1 className="text-4xl font-bold mb-4">
           Sistema de Gestión de Alquileres
         </h1>
-        <p className="text-lg text-gray-600 dark:text-gray-400">
+        <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">
           Bienvenido al portal de gestión de propiedades
         </p>
+        <a 
+          href="/properties" 
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+        >
+          Gestionar Propiedades
+        </a>
       </div>
     </main>
   );
