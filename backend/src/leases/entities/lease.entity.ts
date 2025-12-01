@@ -1,0 +1,87 @@
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  DeleteDateColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+} from 'typeorm';
+import { Unit } from '../../properties/entities/unit.entity';
+import { User } from '../../users/entities/user.entity';
+import { LeaseAmendment } from './lease-amendment.entity';
+
+export enum PaymentFrequency {
+  MONTHLY = 'monthly',
+  BIWEEKLY = 'biweekly',
+  WEEKLY = 'weekly',
+}
+
+export enum LeaseStatus {
+  DRAFT = 'draft',
+  ACTIVE = 'active',
+  EXPIRED = 'expired',
+  TERMINATED = 'terminated',
+  RENEWED = 'renewed',
+}
+
+@Entity('leases')
+export class Lease {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ name: 'unit_id' })
+  unitId: string;
+
+  @ManyToOne(() => Unit)
+  @JoinColumn({ name: 'unit_id' })
+  unit: Unit;
+
+  @Column({ name: 'tenant_id' })
+  tenantId: string;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: User;
+
+  @Column({ name: 'start_date', type: 'date' })
+  startDate: Date;
+
+  @Column({ name: 'end_date', type: 'date' })
+  endDate: Date;
+
+  @Column({ name: 'rent_amount', type: 'decimal', precision: 10, scale: 2 })
+  rentAmount: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  deposit: number;
+
+  @Column({ default: 'ARS' })
+  currency: string;
+
+  @Column({ name: 'payment_frequency', type: 'enum', enum: PaymentFrequency, default: PaymentFrequency.MONTHLY })
+  paymentFrequency: PaymentFrequency;
+
+  @Column({ type: 'enum', enum: LeaseStatus, default: LeaseStatus.DRAFT })
+  status: LeaseStatus;
+
+  @Column({ name: 'renewal_terms', type: 'text', nullable: true })
+  renewalTerms: string;
+
+  @Column({ type: 'text', nullable: true })
+  notes: string;
+
+  @OneToMany(() => LeaseAmendment, (amendment) => amendment.lease)
+  amendments: LeaseAmendment[];
+
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
+  updatedAt: Date;
+
+  @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz' })
+  deletedAt: Date;
+}

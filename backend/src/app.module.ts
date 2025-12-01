@@ -10,6 +10,7 @@ import { UsersModule } from './users/users.module';
 import { TestModule } from './test/test.module';
 import { PropertiesModule } from './properties/properties.module';
 import { DocumentsModule } from './documents/documents.module';
+import { LeasesModule } from './leases/leases.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 
@@ -29,6 +30,7 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
     TestModule,
     PropertiesModule,
     DocumentsModule,
+    LeasesModule,
   ],
   controllers: [AppController],
   providers: [
