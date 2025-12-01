@@ -11,6 +11,7 @@ import { TestModule } from './test/test.module';
 import { PropertiesModule } from './properties/properties.module';
 import { DocumentsModule } from './documents/documents.module';
 import { LeasesModule } from './leases/leases.module';
+import { TenantsModule } from './tenants/tenants.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 
@@ -31,6 +32,7 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
     PropertiesModule,
     DocumentsModule,
     LeasesModule,
+    TenantsModule,
   ],
   controllers: [AppController],
   providers: [
