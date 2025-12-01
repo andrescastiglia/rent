@@ -47,8 +47,8 @@ export class LeasesController {
 
   @Post(':id/activate')
   @Roles(UserRole.ADMIN, UserRole.OWNER)
-  activate(@Param('id') id: string) {
-    return this.leasesService.activate(id);
+  activate(@Param('id') id: string, @Request() req: any) {
+    return this.leasesService.activate(id, req.user.id);
   }
 
   @Post(':id/terminate')

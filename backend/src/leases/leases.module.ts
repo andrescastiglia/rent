@@ -3,15 +3,22 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Lease } from './entities/lease.entity';
 import { LeaseAmendment } from './entities/lease-amendment.entity';
 import { Unit } from '../properties/entities/unit.entity';
+import { Document } from '../documents/entities/document.entity';
 import { LeasesService } from './leases.service';
 import { AmendmentsService } from './amendments.service';
+import { PdfService } from './pdf.service';
 import { LeasesController } from './leases.controller';
 import { AmendmentsController } from './amendments.controller';
+import { LeasesContractController } from './leases-contract.controller';
+import { DocumentsModule } from '../documents/documents.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Lease, LeaseAmendment, Unit])],
-  controllers: [LeasesController, AmendmentsController],
-  providers: [LeasesService, AmendmentsService],
-  exports: [TypeOrmModule, LeasesService, AmendmentsService],
+  imports: [
+    TypeOrmModule.forFeature([Lease, LeaseAmendment, Unit, Document]),
+    DocumentsModule,
+  ],
+  controllers: [LeasesController, AmendmentsController, LeasesContractController],
+  providers: [LeasesService, AmendmentsService, PdfService],
+  exports: [TypeOrmModule, LeasesService, AmendmentsService, PdfService],
 })
 export class LeasesModule {}

@@ -6,6 +6,7 @@ import { Unit, UnitStatus } from '../properties/entities/unit.entity';
 import { CreateLeaseDto } from './dto/create-lease.dto';
 import { UpdateLeaseDto } from './dto/update-lease.dto';
 import { LeaseFiltersDto } from './dto/lease-filters.dto';
+import { PdfService } from './pdf.service';
 
 @Injectable()
 export class LeasesService {
@@ -14,6 +15,7 @@ export class LeasesService {
     private leasesRepository: Repository<Lease>,
     @InjectRepository(Unit)
     private unitsRepository: Repository<Unit>,
+    private pdfService: PdfService,
   ) {}
 
   async create(createLeaseDto: CreateLeaseDto): Promise<Lease> {
@@ -116,7 +118,7 @@ export class LeasesService {
     return this.leasesRepository.save(lease);
   }
 
-  async activate(id: string): Promise<Lease> {
+  async activate(id: string, userId: string): Promise<Lease> {
     const lease = await this.findOne(id);
 
     if (lease.status !== LeaseStatus.DRAFT) {
@@ -137,7 +139,17 @@ export class LeasesService {
     // Update unit status to occupied
     await this.unitsRepository.update(lease.unitId, { status: UnitStatus.OCCUPIED });
 
-    return this.leasesRepository.save(lease);
+    const savedLease = await this.leasesRepository.save(lease);
+
+    // Generate contract PDF
+    try {
+      await this.pdfService.generateContract(savedLease, userId);
+    } catch (error) {
+      console.error('Failed to generate contract PDF:', error);
+      // Don't fail the activation if PDF generation fails
+    }
+
+    return savedLease;
   }
 
   async terminate(id: string, reason?: string): Promise<Lease> {
