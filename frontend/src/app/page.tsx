@@ -21,6 +21,12 @@ export default function Home() {
           >
             Gestionar Inquilinos
           </a>
+          <a 
+            href="/leases" 
+            className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold"
+          >
+            Gestionar Contratos
+          </a>
         </div>
       </div>
     </main>
