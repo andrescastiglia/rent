@@ -8,6 +8,8 @@ import { getDatabaseConfig } from './config/database.config';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { TestModule } from './test/test.module';
+import { PropertiesModule } from './properties/properties.module';
+import { DocumentsModule } from './documents/documents.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 
@@ -25,6 +27,8 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
     AuthModule,
     UsersModule,
     TestModule,
+    PropertiesModule,
+    DocumentsModule,
   ],
   controllers: [AppController],
   providers: [

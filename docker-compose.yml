@@ -62,6 +62,28 @@ services:
     networks:
       - rent-network
 
+  # MinIO - S3-compatible object storage
+  minio:
+    image: minio/minio:latest
+    container_name: rent-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - rent-network
+
   # pgAdmin - Administración de PostgreSQL (opcional para desarrollo)
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -92,6 +114,8 @@ volumes:
   rabbitmq_data:
     driver: local
   pgadmin_data:
+    driver: local
+  minio_data:
     driver: local
 
 # Red interna para comunicación entre servicios
