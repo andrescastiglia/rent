@@ -269,20 +269,11 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3001
 
-      - name: Start frontend server
-        working-directory: frontend
-        run: |
-          npm run start &
-          echo "Waiting for frontend to start..."
-          npx wait-on http://localhost:3000 --timeout 60000
-          echo "Frontend is ready!"
-        env:
-          PORT: 3000
-
       - name: Run E2E tests
         working-directory: frontend
-        run: npm run test:e2e
+        run: npx playwright test
         env:
+          CI: true
           PLAYWRIGHT_BASE_URL: http://localhost:3000
 
       - name: Upload Playwright report

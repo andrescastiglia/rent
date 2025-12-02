@@ -9,11 +9,13 @@ export default defineConfig({
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 2 : 0,
     workers: process.env.CI ? 1 : undefined,
-    reporter: 'html',
+    reporter: process.env.CI ? 'github' : 'html',
     use: {
         baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
         trace: 'on-first-retry',
         screenshot: 'only-on-failure',
+        // Headless mode for CI
+        headless: true,
     },
 
     projects: [
@@ -24,9 +26,11 @@ export default defineConfig({
     ],
 
     webServer: {
-        command: 'npm run dev',
+        command: process.env.CI ? 'npm run start' : 'npm run dev',
         url: 'http://localhost:3000',
-        reuseExistingServer: true,
+        reuseExistingServer: !process.env.CI,
         timeout: 120000,
+        stdout: 'pipe',
+        stderr: 'pipe',
     },
 });
