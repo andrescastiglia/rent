@@ -1,7 +1,8 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, login } from './fixtures/auth';
 
 test.describe('Lease Creation Flow', () => {
     test.beforeEach(async ({ page }) => {
+        await login(page);
         await page.goto('/leases');
     });
 

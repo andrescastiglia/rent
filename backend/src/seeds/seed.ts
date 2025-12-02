@@ -2,6 +2,7 @@ import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
 import * as bcrypt from 'bcrypt';
 import { User, UserRole } from '../users/entities/user.entity';
+import { Admin } from '../users/entities/admin.entity';
 import { Company, PlanType } from '../companies/entities/company.entity';
 import {
   Property,
@@ -14,7 +15,9 @@ import {
   LeaseStatus,
   PaymentFrequency,
 } from '../leases/entities/lease.entity';
+import { LeaseAmendment } from '../leases/entities/lease-amendment.entity';
 import { PropertyFeature } from '../properties/entities/property-feature.entity';
+import { Document } from '../documents/entities/document.entity';
 import { join } from 'path';
 
 // Load env vars from root .env
@@ -29,14 +32,16 @@ const AppDataSource = new DataSource({
   database: process.env.POSTGRES_DB || 'rent_dev',
   entities: [
     User,
+    Admin,
     Company,
     Property,
     Unit,
     Lease,
+    LeaseAmendment,
     PropertyFeature,
-    // Add other entities if needed
+    Document,
   ],
-  synchronize: false,
+  synchronize: true, // Create tables if they don't exist
   logging: true,
 });
 

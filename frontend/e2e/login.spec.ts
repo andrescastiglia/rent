@@ -1,63 +1,75 @@
 import { test, expect } from '@playwright/test';
+import { login } from './fixtures/auth';
 
 test.describe('Login Flow', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/login');
     });
 
     test('should display login page', async ({ page }) => {
-        await expect(page).toHaveURL('/');
-        await expect(page.getByRole('heading', { name: /sistema de gestión de alquileres/i })).toBeVisible();
+        await expect(page).toHaveURL('/login');
+        await expect(page.getByRole('heading', { name: /iniciar sesión/i })).toBeVisible();
+        await expect(page.getByText(/sistema de gestión de alquileres/i)).toBeVisible();
     });
 
-    test('should navigate to properties after clicking button', async ({ page }) => {
-        // Click on "Gestionar Propiedades" link
-        await page.getByRole('link', { name: /gestionar propiedades/i }).click();
+    test('should show error for invalid credentials', async ({ page }) => {
+        await page.getByLabel(/email/i).fill('invalid@example.com');
+        await page.getByLabel(/contraseña/i).fill('wrongpassword');
+        await page.getByRole('button', { name: /iniciar sesión/i }).click();
 
-        // Should navigate to properties page
+        // Should show error message
+        await expect(page.getByText(/error/i)).toBeVisible({ timeout: 10000 });
+    });
+
+    test('should login with valid credentials and redirect to dashboard', async ({ page }) => {
+        await page.getByLabel(/email/i).fill('admin@example.com');
+        await page.getByLabel(/contraseña/i).fill('admin123');
+        await page.getByRole('button', { name: /iniciar sesión/i }).click();
+
+        // Should redirect to dashboard
+        await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
+    });
+
+    test('should redirect from root to login when not authenticated', async ({ page }) => {
+        await page.goto('/');
+        await expect(page).toHaveURL('/login');
+    });
+});
+
+test.describe('Navigation after login', () => {
+    test.beforeEach(async ({ page }) => {
+        await login(page);
+    });
+
+    test('should navigate to properties page', async ({ page }) => {
+        await page.goto('/properties');
         await expect(page).toHaveURL('/properties');
         await expect(page.getByRole('heading', { name: /properties/i })).toBeVisible();
     });
 
-    test('should navigate to tenants after clicking button', async ({ page }) => {
-        // Click on "Gestionar Inquilinos" link
-        await page.getByRole('link', { name: /gestionar inquilinos/i }).click();
-
-        // Should navigate to tenants page
+    test('should navigate to tenants page', async ({ page }) => {
+        await page.goto('/tenants');
         await expect(page).toHaveURL('/tenants');
         await expect(page.getByRole('heading', { name: /tenants/i })).toBeVisible();
     });
 
-    test('should navigate to leases after clicking button', async ({ page }) => {
-        // Click on "Gestionar Contratos" link
-        await page.getByRole('link', { name: /gestionar contratos/i }).click();
-
-        // Should navigate to leases page
+    test('should navigate to leases page', async ({ page }) => {
+        await page.goto('/leases');
         await expect(page).toHaveURL('/leases');
         await expect(page.getByRole('heading', { name: /leases/i })).toBeVisible();
     });
-});
 
-test.describe('Navigation', () => {
     test('should navigate between different sections', async ({ page }) => {
-        await page.goto('/');
-
         // Navigate to properties
-        await page.getByRole('link', { name: /gestionar propiedades/i }).click();
+        await page.goto('/properties');
         await expect(page).toHaveURL('/properties');
 
-        // Go back to home
-        await page.goto('/');
-
         // Navigate to tenants
-        await page.getByRole('link', { name: /gestionar inquilinos/i }).click();
+        await page.goto('/tenants');
         await expect(page).toHaveURL('/tenants');
 
-        // Go back to home
-        await page.goto('/');
-
         // Navigate to leases
-        await page.getByRole('link', { name: /gestionar contratos/i }).click();
+        await page.goto('/leases');
         await expect(page).toHaveURL('/leases');
     });
 });
