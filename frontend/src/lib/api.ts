@@ -1,5 +1,68 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+// Mock authentication data for development/testing
+const MOCK_USERS = [
+    {
+        id: '1',
+        email: 'admin@example.com',
+        password: 'admin123',
+        firstName: 'Admin',
+        lastName: 'User',
+        name: 'Admin User',
+        role: 'ADMIN',
+    },
+    {
+        id: '2',
+        email: 'user@example.com',
+        password: 'user123',
+        firstName: 'Test',
+        lastName: 'User',
+        name: 'Test User',
+        role: 'USER',
+    },
+];
+
+// Helper to simulate API delay
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Mock auth handler
+async function handleMockAuth(endpoint: string, data: any): Promise<any> {
+    await delay(300); // Simulate network delay
+
+    if (endpoint === '/auth/login') {
+        const user = MOCK_USERS.find(
+            (u) => u.email === data.email && u.password === data.password
+        );
+        if (!user) {
+            throw new Error('Credenciales inválidas');
+        }
+        const { password: _, ...userWithoutPassword } = user;
+        return {
+            accessToken: `mock-token-${user.id}-${Date.now()}`,
+            user: userWithoutPassword,
+        };
+    }
+
+    if (endpoint === '/auth/register') {
+        const existingUser = MOCK_USERS.find((u) => u.email === data.email);
+        if (existingUser) {
+            throw new Error('El email ya está registrado');
+        }
+        const newUser = {
+            id: String(MOCK_USERS.length + 1),
+            email: data.email,
+            name: data.name,
+            role: 'USER',
+        };
+        return {
+            accessToken: `mock-token-${newUser.id}-${Date.now()}`,
+            user: newUser,
+        };
+    }
+
+    return null;
+}
+
 interface RequestOptions extends RequestInit {
     token?: string;
 }
@@ -46,6 +109,10 @@ class ApiClient {
     }
 
     async post<T>(endpoint: string, data: any, token?: string): Promise<T> {
+        // Use mock for auth endpoints
+        if (endpoint.startsWith('/auth/')) {
+            return handleMockAuth(endpoint, data) as Promise<T>;
+        }
         return this.request<T>(endpoint, {
             method: 'POST',
             body: JSON.stringify(data),

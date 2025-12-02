@@ -17,8 +17,8 @@ test.describe('Login Flow', () => {
         await page.getByLabel(/contraseña/i).fill('wrongpassword');
         await page.getByRole('button', { name: /iniciar sesión/i }).click();
 
-        // Should show error message
-        await expect(page.getByText(/error/i)).toBeVisible({ timeout: 10000 });
+        // Should show error message (in Spanish: "Credenciales inválidas")
+        await expect(page.getByText(/credenciales inválidas|error/i)).toBeVisible({ timeout: 10000 });
     });
 
     test('should login with valid credentials and redirect to dashboard', async ({ page }) => {
@@ -39,37 +39,39 @@ test.describe('Login Flow', () => {
 test.describe('Navigation after login', () => {
     test.beforeEach(async ({ page }) => {
         await login(page);
+        // Wait a bit for state to stabilize after login
+        await page.waitForTimeout(500);
     });
 
     test('should navigate to properties page', async ({ page }) => {
-        await page.goto('/properties');
+        await page.goto('/properties', { waitUntil: 'networkidle' });
         await expect(page).toHaveURL('/properties');
         await expect(page.getByRole('heading', { name: /properties/i })).toBeVisible();
     });
 
     test('should navigate to tenants page', async ({ page }) => {
-        await page.goto('/tenants');
+        await page.goto('/tenants', { waitUntil: 'networkidle' });
         await expect(page).toHaveURL('/tenants');
         await expect(page.getByRole('heading', { name: /tenants/i })).toBeVisible();
     });
 
     test('should navigate to leases page', async ({ page }) => {
-        await page.goto('/leases');
+        await page.goto('/leases', { waitUntil: 'networkidle' });
         await expect(page).toHaveURL('/leases');
         await expect(page.getByRole('heading', { name: /leases/i })).toBeVisible();
     });
 
     test('should navigate between different sections', async ({ page }) => {
         // Navigate to properties
-        await page.goto('/properties');
+        await page.goto('/properties', { waitUntil: 'networkidle' });
         await expect(page).toHaveURL('/properties');
 
         // Navigate to tenants
-        await page.goto('/tenants');
+        await page.goto('/tenants', { waitUntil: 'networkidle' });
         await expect(page).toHaveURL('/tenants');
 
         // Navigate to leases
-        await page.goto('/leases');
+        await page.goto('/leases', { waitUntil: 'networkidle' });
         await expect(page).toHaveURL('/leases');
     });
 });
