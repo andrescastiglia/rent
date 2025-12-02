@@ -5,7 +5,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import Footer from '@/components/layout/Footer';
 import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 
 export default function LeasesLayout({
@@ -15,6 +15,7 @@ export default function LeasesLayout({
 }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -36,9 +37,9 @@ export default function LeasesLayout({
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
+      <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
       <div className="flex flex-1">
-        <Sidebar />
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <main className="flex-1 p-6 bg-gray-50 dark:bg-gray-900">
           <div className="max-w-7xl mx-auto">
             {children}
