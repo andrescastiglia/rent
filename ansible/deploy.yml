@@ -5,36 +5,17 @@
   vars:
     deploy_branch: "{{ git_branch | default('main') }}"
     timestamp: "{{ ansible_date_time.epoch }}"
+    current_path: "{{ deploy_path }}/current"
+    ecosystem_path: "{{ deploy_path }}/../ecosystem.config.js"
 
   tasks:
     # ─────────────────────────────────────────────────────────────
-    # PRE-DEPLOYMENT CHECKS
+    # SETUP & PRE-DEPLOYMENT
     # ─────────────────────────────────────────────────────────────
     - name: Check if deploy path exists
       ansible.builtin.stat:
         path: "{{ deploy_path }}"
       register: deploy_dir
-
-    - name: Create deploy directory structure
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: directory
-        mode: "0755"
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-      loop:
-        - "{{ deploy_path }}"
-        - "{{ deploy_path }}/backend"
-        - "{{ deploy_path }}/frontend"
-        - "{{ deploy_path }}/shared"
-        - "{{ deploy_path }}/releases"
-      become: true
-      when: not deploy_dir.stat.exists
-
-    - name: Check if shared .env exists
-      ansible.builtin.stat:
-        path: "{{ deploy_path }}/shared/.env"
-      register: env_file
 
     - name: Fail if .env does not exist
       ansible.builtin.fail:
@@ -42,172 +23,151 @@
       when: not env_file.stat.exists
 
     # ─────────────────────────────────────────────────────────────
-    # BACKEND DEPLOYMENT
+    # CLONE/UPDATE REPOSITORY
     # ─────────────────────────────────────────────────────────────
-    - name: Check if backend repo exists
+    - name: Check if current repo exists
       ansible.builtin.stat:
-        path: "{{ deploy_path }}/backend/.git"
-      register: backend_git
+        path: "{{ current_path }}/.git"
+      register: current_git
 
-    - name: Clone backend repository
+    - name: Clone repository to current directory
       ansible.builtin.git:
         repo: "{{ git_repo }}"
-        dest: "{{ deploy_path }}/backend"
+        dest: "{{ current_path }}"
         version: "{{ deploy_branch }}"
         force: true
-      when: not backend_git.stat.exists
+      when: not current_git.stat.exists
 
-    - name: Pull latest backend changes
+    - name: Pull latest changes
       ansible.builtin.git:
         repo: "{{ git_repo }}"
-        dest: "{{ deploy_path }}/backend"
+        dest: "{{ current_path }}"
         version: "{{ deploy_branch }}"
         force: true
-      when: backend_git.stat.exists
+      when: current_git.stat.exists
 
-    - name: Link backend .env file
+    # ─────────────────────────────────────────────────────────────
+    # BACKEND BUILD
+    # ─────────────────────────────────────────────────────────────
+    - name: Link shared .env to backend
       ansible.builtin.file:
         src: "{{ deploy_path }}/shared/.env"
-        dest: "{{ deploy_path }}/backend/backend/.env"
+        dest: "{{ current_path }}/backend/.env"
         state: link
         force: true
 
     - name: Install backend dependencies
       ansible.builtin.command:
         cmd: npm ci --production
-        chdir: "{{ deploy_path }}/backend/backend"
+        chdir: "{{ current_path }}/backend"
       environment:
         NODE_ENV: production
 
     - name: Build backend
       ansible.builtin.command:
         cmd: npm run build
-        chdir: "{{ deploy_path }}/backend/backend"
+        chdir: "{{ current_path }}/backend"
+
+    - name: Create backend symlink
+      ansible.builtin.file:
+        src: "{{ current_path }}/backend/dist"
+        dest: "{{ deploy_path }}/backend"
+        state: link
+        force: true
 
     - name: Run database migrations
       ansible.builtin.command:
         cmd: npm run migration:run
-        chdir: "{{ deploy_path }}/backend/backend"
+        chdir: "{{ current_path }}/backend"
       ignore_errors: true
 
     # ─────────────────────────────────────────────────────────────
-    # FRONTEND DEPLOYMENT
+    # FRONTEND BUILD
     # ─────────────────────────────────────────────────────────────
-    - name: Check if frontend repo exists
-      ansible.builtin.stat:
-        path: "{{ deploy_path }}/frontend/.git"
-      register: frontend_git
-
-    - name: Clone frontend repository
-      ansible.builtin.git:
-        repo: "{{ git_repo }}"
-        dest: "{{ deploy_path }}/frontend"
-        version: "{{ deploy_branch }}"
-        force: true
-      when: not frontend_git.stat.exists
-
-    - name: Pull latest frontend changes
-      ansible.builtin.git:
-        repo: "{{ git_repo }}"
-        dest: "{{ deploy_path }}/frontend"
-        version: "{{ deploy_branch }}"
-        force: true
-      when: frontend_git.stat.exists
-
-    - name: Create frontend .env.local
+    - name: Create frontend .env
       ansible.builtin.copy:
         content: |
           NEXT_PUBLIC_API_URL=https://{{ app_domain }}/api
-        dest: "{{ deploy_path }}/frontend/frontend/.env.local"
+        dest: "{{ current_path }}/frontend/.env"
         mode: "0644"
 
     - name: Install frontend dependencies
       ansible.builtin.command:
         cmd: npm ci --production
-        chdir: "{{ deploy_path }}/frontend/frontend"
+        chdir: "{{ current_path }}/frontend"
       environment:
         NODE_ENV: production
 
     - name: Build frontend
       ansible.builtin.command:
         cmd: npm run build
-        chdir: "{{ deploy_path }}/frontend/frontend"
+        chdir: "{{ current_path }}/frontend"
       environment:
         NODE_ENV: production
         NEXT_PUBLIC_API_URL: "https://{{ app_domain }}/api"
 
+    - name: Create frontend symlink Next
+      ansible.builtin.file:
+        src: "{{ current_path }}/frontend/.next"
+        dest: "{{ deploy_path }}/frontend/.next"
+        state: link
+        force: true
+
+    - name: Create frontend symlink public
+      ansible.builtin.file:
+        src: "{{ current_path }}/frontend/public"
+        dest: "{{ deploy_path }}/frontend/public"
+        state: link
+        force: true
+
     # ─────────────────────────────────────────────────────────────
     # PM2 PROCESS MANAGEMENT
     # ─────────────────────────────────────────────────────────────
-    - name: Create PM2 ecosystem file
-      ansible.builtin.copy:
-        content: |
-          module.exports = {
-            apps: [
-              {
-                name: 'rent-backend',
-                cwd: '{{ deploy_path }}/backend/backend',
-                script: 'dist/main.js',
-                instances: 1,
-                exec_mode: 'fork',
-                env: {
-                  NODE_ENV: 'production',
-                  PORT: {{ backend_port }}
-                },
-                error_file: '/var/log/rent/backend-error.log',
-                out_file: '/var/log/rent/backend-out.log',
-                log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-                max_memory_restart: '500M',
-                restart_delay: 3000,
-                max_restarts: 10
-              },
-              {
-                name: 'rent-frontend',
-                cwd: '{{ deploy_path }}/frontend/frontend',
-                script: 'node_modules/next/dist/bin/next',
-                args: 'start -p {{ frontend_port }}',
-                instances: 1,
-                exec_mode: 'fork',
-                env: {
-                  NODE_ENV: 'production',
-                  PORT: {{ frontend_port }}
-                },
-                error_file: '/var/log/rent/frontend-error.log',
-                out_file: '/var/log/rent/frontend-out.log',
-                log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-                max_memory_restart: '500M',
-                restart_delay: 3000,
-                max_restarts: 10
-              }
-            ]
-          };
-        dest: "{{ deploy_path }}/ecosystem.config.js"
-        mode: "0644"
-
-    - name: Create log directory
-      ansible.builtin.file:
-        path: /var/log/rent
-        state: directory
-        mode: "0755"
-      become: true
-
-    - name: Set log directory ownership
-      ansible.builtin.file:
-        path: /var/log/rent
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        recurse: true
-      become: true
-
-    - name: Stop existing PM2 processes
+    - name: Stop rent-backend if running
       ansible.builtin.command:
-        cmd: pm2 delete all
+        cmd: pm2 stop rent-backend
       ignore_errors: true
 
-    - name: Start PM2 processes
+    - name: Stop rent-frontend if running
       ansible.builtin.command:
-        cmd: pm2 start ecosystem.config.js
-        chdir: "{{ deploy_path }}"
+        cmd: pm2 stop rent-frontend
+      ignore_errors: true
+
+    - name: Delete rent-backend from PM2
+      ansible.builtin.command:
+        cmd: pm2 delete rent-backend
+      ignore_errors: true
+
+    - name: Delete rent-frontend from PM2
+      ansible.builtin.command:
+        cmd: pm2 delete rent-frontend
+      ignore_errors: true
+
+    - name: Start rent-backend
+      ansible.builtin.command:
+        cmd: >
+          pm2 start {{ deploy_path }}/backend/main.js
+          --name rent-backend
+          --cwd {{ deploy_path }}/backend
+          --log /var/log/rent/backend.log
+          --time
+          --env production
+      environment:
+        NODE_ENV: production
+        PORT: "{{ backend_port }}"
+
+    - name: Start rent-frontend
+      ansible.builtin.command:
+        cmd: >
+          pm2 start npm
+          --name rent-frontend
+          --cwd {{ deploy_path }}/frontend
+          -- start -p {{ frontend_port }}
+          --log /var/log/rent/frontend.log
+          --time
+      environment:
+        NODE_ENV: production
+        PORT: "{{ frontend_port }}"
 
     - name: Save PM2 process list
       ansible.builtin.command:
@@ -242,6 +202,7 @@
       ansible.builtin.command:
         cmd: pm2 status
       register: pm2_status
+      changed_when: false
 
     - name: Show PM2 status
       ansible.builtin.debug:
@@ -252,6 +213,4 @@
         msg:
           - "✅ Deployment completed successfully!"
           - "📦 Branch: {{ deploy_branch }}"
-          - "🌍 Environment: {{ env_name }}"
           - "🔗 URL: https://{{ app_domain }}"
-          - "⏰ Timestamp: {{ timestamp }}"
