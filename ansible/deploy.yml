@@ -20,12 +20,15 @@
         path: "{{ item }}"
         state: directory
         mode: '0755'
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
       loop:
         - "{{ deploy_path }}"
         - "{{ deploy_path }}/backend"
         - "{{ deploy_path }}/frontend"
         - "{{ deploy_path }}/shared"
         - "{{ deploy_path }}/releases"
+      become: true
 
     - name: Check if shared .env exists
       ansible.builtin.stat:
