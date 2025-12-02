@@ -44,7 +44,7 @@ export class UnitsService {
   }
 
   async remove(id: string): Promise<void> {
-    const unit = await this.findOne(id);
+    await this.findOne(id); // Validates unit exists
     await this.unitsRepository.softDelete(id);
   }
 }

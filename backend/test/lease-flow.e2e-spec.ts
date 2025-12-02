@@ -70,7 +70,7 @@ describe('Lease Creation Flow (e2e)', () => {
       await companyRepository.query(
         "DELETE FROM companies WHERE tax_id LIKE '%-lease'",
       );
-    } catch (error) {
+    } catch {
       // Ignore cleanup errors
     }
 

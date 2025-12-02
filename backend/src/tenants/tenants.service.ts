@@ -169,7 +169,7 @@ export class TenantsService {
   }
 
   async remove(id: string): Promise<void> {
-    const user = await this.findOne(id);
+    await this.findOne(id); // Validates tenant exists
     await this.usersRepository.softDelete(id);
   }
 

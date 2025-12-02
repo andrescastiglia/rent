@@ -23,6 +23,7 @@ export class AmendmentsService {
 
   async create(
     createAmendmentDto: CreateAmendmentDto,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     userId: string,
   ): Promise<LeaseAmendment> {
     // Check if lease exists and is active

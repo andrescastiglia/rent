@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { Repository } from 'typeorm';
 import { TenantsService } from './tenants.service';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Lease } from '../leases/entities/lease.entity';

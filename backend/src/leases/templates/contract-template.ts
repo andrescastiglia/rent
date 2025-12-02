@@ -3,7 +3,6 @@ import { Lease } from '../entities/lease.entity';
 
 export function generateContractPdf(lease: Lease): Promise<Buffer> {
   return new Promise<Buffer>((resolve, reject) => {
-    // @ts-ignore
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
     const buffers: Buffer[] = [];
 
