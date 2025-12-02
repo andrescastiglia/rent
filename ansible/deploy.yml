@@ -102,14 +102,12 @@
         chdir: "{{ current_path }}/frontend"
       environment:
         NODE_ENV: production
+        NEXT_PUBLIC_API_URL: "https://{{ app_domain }}/api"
 
     - name: Build frontend
       ansible.builtin.command:
         cmd: npm run build
         chdir: "{{ current_path }}/frontend"
-      environment:
-        NODE_ENV: production
-        NEXT_PUBLIC_API_URL: "https://{{ app_domain }}/api"
 
     - name: Create frontend symlink Next
       ansible.builtin.file:
