@@ -17,6 +17,11 @@
         path: "{{ deploy_path }}"
       register: deploy_dir
 
+    - name: Check if shared .env exists
+      ansible.builtin.stat:
+        path: "{{ deploy_path }}/shared/.env"
+      register: env_file
+
     - name: Fail if .env does not exist
       ansible.builtin.fail:
         msg: "Environment file not found at {{ deploy_path }}/shared/.env. Please create it first."
@@ -117,6 +122,27 @@
       ansible.builtin.file:
         src: "{{ current_path }}/frontend/public"
         dest: "{{ deploy_path }}/frontend/public"
+        state: link
+        force: true
+
+    - name: Create frontend symlink modules
+      ansible.builtin.file:
+        src: "{{ current_path }}/frontend/node_modules"
+        dest: "{{ deploy_path }}/frontend/node_modules"
+        state: link
+        force: true
+
+    - name: Create frontend symlink package.json
+      ansible.builtin.file:
+        src: "{{ current_path }}/frontend/package.json"
+        dest: "{{ deploy_path }}/frontend/package.json"
+        state: link
+        force: true
+
+    - name: Create frontend symlink packagae-lock.json
+      ansible.builtin.file:
+        src: "{{ current_path }}/frontend/package-lock.json"
+        dest: "{{ deploy_path }}/frontend/package-lock.json"
         state: link
         force: true
 
