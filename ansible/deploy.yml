@@ -19,7 +19,7 @@
       ansible.builtin.file:
         path: "{{ item }}"
         state: directory
-        mode: '0755'
+        mode: "0755"
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
       loop:
@@ -29,6 +29,7 @@
         - "{{ deploy_path }}/shared"
         - "{{ deploy_path }}/releases"
       become: true
+      when: not deploy_dir.stat.exists
 
     - name: Check if shared .env exists
       ansible.builtin.stat:
@@ -118,7 +119,7 @@
         content: |
           NEXT_PUBLIC_API_URL=https://{{ app_domain }}/api
         dest: "{{ deploy_path }}/frontend/frontend/.env.local"
-        mode: '0644'
+        mode: "0644"
 
     - name: Install frontend dependencies
       ansible.builtin.command:
@@ -181,13 +182,13 @@
             ]
           };
         dest: "{{ deploy_path }}/ecosystem.config.js"
-        mode: '0644'
+        mode: "0644"
 
     - name: Create log directory
       ansible.builtin.file:
         path: /var/log/rent
         state: directory
-        mode: '0755'
+        mode: "0755"
       become: true
 
     - name: Set log directory ownership
