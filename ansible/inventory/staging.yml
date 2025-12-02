@@ -1,0 +1,16 @@
+all:
+  hosts:
+    staging:
+      ansible_host: "{{ lookup('env', 'SSH_HOST') | default('YOUR_STAGING_IP') }}"
+      ansible_port: "{{ lookup('env', 'SSH_PORT') | default(22) }}"
+      ansible_user: "{{ lookup('env', 'SSH_USER') | default('deploy') }}"
+
+  vars:
+    env_name: staging
+    app_domain: staging.yourdomain.com
+    deploy_path: /opt/rent
+    node_env: production
+    backend_port: 3001
+    frontend_port: 3000
+    git_repo: https://github.com/andrescastiglia/rent.git
+    git_branch: develop

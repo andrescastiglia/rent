@@ -1,0 +1,16 @@
+all:
+  hosts:
+    production:
+      ansible_host: "{{ lookup('env', 'SSH_HOST') | default('YOUR_PRODUCTION_IP') }}"
+      ansible_port: "{{ lookup('env', 'SSH_PORT') | default(22) }}"
+      ansible_user: "{{ lookup('env', 'SSH_USER') | default('deploy') }}"
+
+  vars:
+    env_name: production
+    app_domain: yourdomain.com
+    deploy_path: /opt/rent
+    node_env: production
+    backend_port: 3401
+    frontend_port: 3400
+    git_repo: https://github.com/andrescastiglia/rent.git
+    git_branch: main

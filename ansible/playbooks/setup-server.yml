@@ -1,0 +1,181 @@
+---
+- name: Setup VPS Server for Rent Application
+  hosts: all
+  become: true
+
+  vars:
+    nodejs_version: "20.x"
+    postgresql_version: "16"
+
+  tasks:
+    # ─────────────────────────────────────────────────────────────
+    # SYSTEM UPDATES
+    # ─────────────────────────────────────────────────────────────
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Upgrade all packages
+      ansible.builtin.apt:
+        upgrade: dist
+
+    - name: Install base packages
+      ansible.builtin.apt:
+        name:
+          - curl
+          - wget
+          - git
+          - build-essential
+          - ufw
+          - htop
+          - vim
+        state: present
+
+    # ─────────────────────────────────────────────────────────────
+    # NODE.JS
+    # ─────────────────────────────────────────────────────────────
+    - name: Add NodeSource repository
+      ansible.builtin.shell: |
+        curl -fsSL https://deb.nodesource.com/setup_{{ nodejs_version }} | bash -
+      args:
+        creates: /etc/apt/sources.list.d/nodesource.list
+
+    - name: Install Node.js
+      ansible.builtin.apt:
+        name: nodejs
+        state: present
+        update_cache: true
+
+    - name: Install PM2 globally
+      community.general.npm:
+        name: pm2
+        global: true
+
+    # ─────────────────────────────────────────────────────────────
+    # POSTGRESQL
+    # ─────────────────────────────────────────────────────────────
+    - name: Add PostgreSQL repository key
+      ansible.builtin.apt_key:
+        url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+        state: present
+
+    - name: Add PostgreSQL repository
+      ansible.builtin.apt_repository:
+        repo: "deb http://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main"
+        state: present
+
+    - name: Install PostgreSQL
+      ansible.builtin.apt:
+        name:
+          - "postgresql-{{ postgresql_version }}"
+          - "postgresql-contrib-{{ postgresql_version }}"
+          - python3-psycopg2
+        state: present
+        update_cache: true
+
+    - name: Start PostgreSQL
+      ansible.builtin.systemd:
+        name: postgresql
+        state: started
+        enabled: true
+
+    # ─────────────────────────────────────────────────────────────
+    # REDIS
+    # ─────────────────────────────────────────────────────────────
+    - name: Install Redis
+      ansible.builtin.apt:
+        name: redis-server
+        state: present
+
+    - name: Configure Redis for systemd
+      ansible.builtin.lineinfile:
+        path: /etc/redis/redis.conf
+        regexp: '^supervised'
+        line: 'supervised systemd'
+
+    - name: Start Redis
+      ansible.builtin.systemd:
+        name: redis
+        state: started
+        enabled: true
+
+    # ─────────────────────────────────────────────────────────────
+    # NGINX
+    # ─────────────────────────────────────────────────────────────
+    - name: Install Nginx
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+
+    - name: Start Nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: started
+        enabled: true
+
+    # ─────────────────────────────────────────────────────────────
+    # FIREWALL
+    # ─────────────────────────────────────────────────────────────
+    - name: Configure UFW defaults
+      community.general.ufw:
+        direction: "{{ item.direction }}"
+        policy: "{{ item.policy }}"
+      loop:
+        - { direction: 'incoming', policy: 'deny' }
+        - { direction: 'outgoing', policy: 'allow' }
+
+    - name: Allow SSH
+      community.general.ufw:
+        rule: allow
+        port: '22'
+        proto: tcp
+
+    - name: Allow HTTP
+      community.general.ufw:
+        rule: allow
+        port: '80'
+        proto: tcp
+
+    - name: Allow HTTPS
+      community.general.ufw:
+        rule: allow
+        port: '443'
+        proto: tcp
+
+    - name: Enable UFW
+      community.general.ufw:
+        state: enabled
+
+    # ─────────────────────────────────────────────────────────────
+    # APPLICATION DIRECTORIES
+    # ─────────────────────────────────────────────────────────────
+    - name: Create application directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+      loop:
+        - /opt/rent
+        - /opt/rent/backend
+        - /opt/rent/frontend
+        - /opt/rent/shared
+        - /var/log/rent
+
+    - name: Setup PM2 startup
+      ansible.builtin.command:
+        cmd: "pm2 startup systemd -u {{ ansible_user }} --hp /home/{{ ansible_user }}"
+      become: true
+
+    - name: Display setup summary
+      ansible.builtin.debug:
+        msg:
+          - "✅ Server setup completed!"
+          - "📋 Next steps:"
+          - "   1. Create PostgreSQL database and user"
+          - "   2. Create /opt/rent/shared/.env with credentials"
+          - "   3. Configure Nginx with your domain"
+          - "   4. Configure Cloudflare DNS"
+          - "   5. Run the deploy playbook"
