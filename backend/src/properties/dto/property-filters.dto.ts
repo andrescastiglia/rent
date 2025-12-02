@@ -1,4 +1,12 @@
-import { IsEnum, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 import { PropertyType, PropertyStatus } from '../entities/property.entity';
 import { Type } from 'class-transformer';
 

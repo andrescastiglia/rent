@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -24,7 +28,10 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
-  async findAll(page: number = 1, limit: number = 10): Promise<{ data: User[]; total: number; page: number; limit: number }> {
+  async findAll(
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{ data: User[]; total: number; page: number; limit: number }> {
     const [data, total] = await this.usersRepository.findAndCount({
       skip: (page - 1) * limit,
       take: limit,
@@ -66,14 +73,21 @@ export class UsersService {
     await this.usersRepository.softDelete(id);
   }
 
-  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
     const user = await this.findOneById(userId);
     if (!user) {
       throw new NotFoundException(`User not found`);
     }
 
     // Verify current password
-    const isPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    const isPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.passwordHash,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Current password is incorrect');
     }

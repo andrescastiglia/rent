@@ -18,8 +18,8 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from './entities/user.entity';
 
-@Controller('users')
 @UseGuards(AuthGuard('jwt'))
+@Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
@@ -46,7 +46,10 @@ export class UsersController {
   }
 
   @Post('profile/change-password')
-  async changePassword(@Request() req: any, @Body() changePasswordDto: ChangePasswordDto) {
+  async changePassword(
+    @Request() req: any,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ) {
     await this.usersService.changePassword(
       req.user.id,
       changePasswordDto.currentPassword,

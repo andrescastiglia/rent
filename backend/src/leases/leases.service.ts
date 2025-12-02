@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Lease, LeaseStatus } from './entities/lease.entity';
@@ -33,7 +38,9 @@ export class LeasesService {
     });
 
     if (!unit) {
-      throw new NotFoundException(`Unit with ID ${createLeaseDto.unitId} not found`);
+      throw new NotFoundException(
+        `Unit with ID ${createLeaseDto.unitId} not found`,
+      );
     }
 
     // Create lease in draft status
@@ -45,8 +52,17 @@ export class LeasesService {
     return this.leasesRepository.save(lease);
   }
 
-  async findAll(filters: LeaseFiltersDto): Promise<{ data: Lease[]; total: number; page: number; limit: number }> {
-    const { unitId, tenantId, status, propertyAddress, page = 1, limit = 10 } = filters;
+  async findAll(
+    filters: LeaseFiltersDto,
+  ): Promise<{ data: Lease[]; total: number; page: number; limit: number }> {
+    const {
+      unitId,
+      tenantId,
+      status,
+      propertyAddress,
+      page = 1,
+      limit = 10,
+    } = filters;
 
     const query = this.leasesRepository
       .createQueryBuilder('lease')
@@ -68,7 +84,9 @@ export class LeasesService {
     }
 
     if (propertyAddress) {
-      query.andWhere('property.address ILIKE :address', { address: `%${propertyAddress}%` });
+      query.andWhere('property.address ILIKE :address', {
+        address: `%${propertyAddress}%`,
+      });
     }
 
     query.skip((page - 1) * limit).take(limit);
@@ -101,7 +119,9 @@ export class LeasesService {
 
     // Only allow updates to draft leases
     if (lease.status !== LeaseStatus.DRAFT) {
-      throw new BadRequestException('Only draft leases can be updated. Use amendments for active leases.');
+      throw new BadRequestException(
+        'Only draft leases can be updated. Use amendments for active leases.',
+      );
     }
 
     // Validate dates if provided
@@ -137,7 +157,9 @@ export class LeasesService {
     lease.status = LeaseStatus.ACTIVE;
 
     // Update unit status to occupied
-    await this.unitsRepository.update(lease.unitId, { status: UnitStatus.OCCUPIED });
+    await this.unitsRepository.update(lease.unitId, {
+      status: UnitStatus.OCCUPIED,
+    });
 
     const savedLease = await this.leasesRepository.save(lease);
 
@@ -165,7 +187,9 @@ export class LeasesService {
     }
 
     // Update unit status to available
-    await this.unitsRepository.update(lease.unitId, { status: UnitStatus.AVAILABLE });
+    await this.unitsRepository.update(lease.unitId, {
+      status: UnitStatus.AVAILABLE,
+    });
 
     return this.leasesRepository.save(lease);
   }
@@ -202,7 +226,9 @@ export class LeasesService {
     const lease = await this.findOne(id);
 
     if (lease.status === LeaseStatus.ACTIVE) {
-      throw new BadRequestException('Cannot delete an active lease. Terminate it first.');
+      throw new BadRequestException(
+        'Cannot delete an active lease. Terminate it first.',
+      );
     }
 
     await this.leasesRepository.softDelete(id);

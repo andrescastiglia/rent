@@ -7,274 +7,290 @@ import { User } from '../src/users/entities/user.entity';
 import { Repository } from 'typeorm';
 
 describe('Tenants Management (e2e)', () => {
-    let app: INestApplication;
-    let userRepository: Repository<User>;
-    let ownerToken: string;
+  let app: INestApplication;
+  let userRepository: Repository<User>;
+  let ownerToken: string;
+  let uniqueId: string;
+
+  beforeAll(async () => {
+    uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
+
+    userRepository = moduleFixture.get(getRepositoryToken(User));
+
+    await app.init();
+
+    // Create owner user for authentication with unique email
+    const testEmail = `tenant-manager-${uniqueId}@tenant-${uniqueId}.test`;
+    const ownerRes = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        email: testEmail,
+        password: 'Password123!',
+        firstName: 'Tenant',
+        lastName: 'Manager',
+        role: 'owner',
+      });
+
+    ownerToken = ownerRes.body.access_token;
+
+    if (!ownerToken) {
+      throw new Error(`Failed to setup test user. Status: ${ownerRes.status}`);
+    }
+  });
+
+  afterAll(async () => {
+    // Clean up
+    await userRepository.query(
+      `DELETE FROM tenants WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@tenant-${uniqueId}.test')`,
+    );
+    await userRepository.query(
+      `DELETE FROM users WHERE email LIKE '%@tenant-${uniqueId}.test'`,
+    );
+    await app.close();
+  });
+
+  describe('/tenants (POST)', () => {
+    it('should create a tenant', () => {
+      const tenantDto = {
+        email: `newtenant@tenant-${uniqueId}.test`,
+        password: 'Password123!',
+        firstName: 'New',
+        lastName: 'Tenant',
+        phone: '+5491112345678',
+        dni: `${uniqueId}-test`,
+        emergencyContact: 'Emergency Person',
+        emergencyPhone: '+5491187654321',
+      };
+
+      return request(app.getHttpServer())
+        .post('/tenants')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send(tenantDto)
+        .expect(201)
+        .expect((res) => {
+          expect(res.body).toHaveProperty('id');
+          expect(res.body.email).toBe(tenantDto.email);
+          expect(res.body.role).toBe('tenant');
+        });
+    });
+
+    it('should fail with duplicate DNI', async () => {
+      const tenantDto = {
+        email: `duplicate-dni-1@tenant-${uniqueId}.test`,
+        password: 'Password123!',
+        firstName: 'Dup',
+        lastName: 'DNI',
+        phone: '+123',
+        dni: `DUPLICATE-DNI-${uniqueId}`,
+      };
+
+      // Create first tenant
+      await request(app.getHttpServer())
+        .post('/tenants')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send(tenantDto)
+        .expect(201);
+
+      // Try to create second tenant with same DNI
+      return request(app.getHttpServer())
+        .post('/tenants')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          ...tenantDto,
+          email: `duplicate-dni-2@tenant-${uniqueId}.test`,
+        })
+        .expect(409); // Conflict
+    });
+
+    it('should fail with duplicate email', async () => {
+      const email = `duplicate-email@tenant-${uniqueId}.test`;
+
+      // Create first tenant
+      await request(app.getHttpServer())
+        .post('/tenants')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          email,
+          password: 'Password123!',
+          firstName: 'First',
+          lastName: 'Tenant',
+          phone: '+123',
+          dni: `DNI-001-${uniqueId}`,
+        })
+        .expect(201);
+
+      // Try to create second tenant with same email
+      return request(app.getHttpServer())
+        .post('/tenants')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          email,
+          password: 'Password123!',
+          firstName: 'Second',
+          lastName: 'Tenant',
+          phone: '+456',
+          dni: `DNI-002-${uniqueId}`,
+        })
+        .expect(409);
+    });
+  });
+
+  describe('/tenants (GET)', () => {
+    beforeAll(async () => {
+      // Create test tenants
+      await request(app.getHttpServer())
+        .post('/tenants')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          email: `filter-test-1@tenant-${uniqueId}.test`,
+          password: 'Password123!',
+          firstName: 'Filter',
+          lastName: 'One',
+          phone: '+111',
+          dni: `FILTER-001-${uniqueId}`,
+        });
+
+      await request(app.getHttpServer())
+        .post('/tenants')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          email: `filter-test-2@tenant-${uniqueId}.test`,
+          password: 'Password123!',
+          firstName: 'Filter',
+          lastName: 'Two',
+          phone: '+222',
+          dni: `FILTER-002-${uniqueId}`,
+        });
+    });
+
+    it('should get all tenants', () => {
+      return request(app.getHttpServer())
+        .get('/tenants')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200)
+        .expect((res) => {
+          expect(res.body).toHaveProperty('data');
+          expect(Array.isArray(res.body.data)).toBe(true);
+          expect(res.body).toHaveProperty('total');
+        });
+    });
+
+    it('should filter tenants by name', () => {
+      return request(app.getHttpServer())
+        .get('/tenants?name=Filter')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200)
+        .expect((res) => {
+          expect(res.body.data.length).toBeGreaterThan(0);
+          expect(
+            res.body.data.every(
+              (t: any) =>
+                t.firstName.includes('Filter') || t.lastName.includes('Filter'),
+            ),
+          ).toBe(true);
+        });
+    });
+
+    it('should filter tenants by email', () => {
+      return request(app.getHttpServer())
+        .get('/tenants?email=filter-test-1')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200)
+        .expect((res) => {
+          expect(res.body.data.length).toBeGreaterThan(0);
+          expect(res.body.data[0].email).toContain('filter-test-1');
+        });
+    });
+
+    it('should support pagination', () => {
+      return request(app.getHttpServer())
+        .get('/tenants?page=1&limit=1')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200)
+        .expect((res) => {
+          expect(res.body.data.length).toBeLessThanOrEqual(1);
+          expect(res.body.page).toBe(1);
+          expect(res.body.limit).toBe(1);
+        });
+    });
+  });
+
+  describe('/tenants/:id (GET, PATCH, DELETE)', () => {
+    let tenantId: string;
 
     beforeAll(async () => {
-        const moduleFixture: TestingModule = await Test.createTestingModule({
-            imports: [AppModule],
-        }).compile();
-
-        app = moduleFixture.createNestApplication();
-        app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-
-        userRepository = moduleFixture.get(getRepositoryToken(User));
-
-        await app.init();
-
-        // Create owner user for authentication
-        const ownerRes = await request(app.getHttpServer())
-            .post('/auth/register')
-            .send({
-                email: 'tenant-manager@test-e2e.com',
-                password: 'Password123!',
-                firstName: 'Tenant',
-                lastName: 'Manager',
-                role: 'owner',
-            });
-
-        ownerToken = ownerRes.body.access_token;
-    });
-
-    afterAll(async () => {
-        // Clean up
-        await userRepository.query('DELETE FROM tenants WHERE user_id IN (SELECT id FROM users WHERE email LIKE \'%@test-e2e.com\')');
-        await userRepository.query('DELETE FROM users WHERE email LIKE \'%@test-e2e.com\'');
-        await app.close();
-    });
-
-    describe('/tenants (POST)', () => {
-        it('should create a tenant', () => {
-            const tenantDto = {
-                email: 'newtenant@test-e2e.com',
-                password: 'Password123!',
-                firstName: 'New',
-                lastName: 'Tenant',
-                phone: '+5491112345678',
-                dni: '12345678-test',
-                emergencyContact: 'Emergency Person',
-                emergencyPhone: '+5491187654321',
-            };
-
-            return request(app.getHttpServer())
-                .post('/tenants')
-                .set('Authorization', `Bearer ${ownerToken}`)
-                .send(tenantDto)
-                .expect(201)
-                .expect((res) => {
-                    expect(res.body).toHaveProperty('id');
-                    expect(res.body.email).toBe(tenantDto.email);
-                    expect(res.body.role).toBe('tenant');
-                });
+      const res = await request(app.getHttpServer())
+        .post('/tenants')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          email: `crud-tenant@tenant-${uniqueId}.test`,
+          password: 'Password123!',
+          firstName: 'CRUD',
+          lastName: 'Tenant',
+          phone: '+999',
+          dni: `CRUD-001-${uniqueId}`,
         });
 
-        it('should fail with duplicate DNI', async () => {
-            const tenantDto = {
-                email: 'duplicate-dni-1@test-e2e.com',
-                password: 'Password123!',
-                firstName: 'Dup',
-                lastName: 'DNI',
-                phone: '+123',
-                dni: 'DUPLICATE-DNI',
-            };
+      tenantId = res.body.id;
+    });
 
-            // Create first tenant
-            await request(app.getHttpServer())
-                .post('/tenants')
-                .set('Authorization', `Bearer ${ownerToken}`)
-                .send(tenantDto)
-                .expect(201);
-
-            // Try to create second tenant with same DNI
-            return request(app.getHttpServer())
-                .post('/tenants')
-                .set('Authorization', `Bearer ${ownerToken}`)
-                .send({
-                    ...tenantDto,
-                    email: 'duplicate-dni-2@test-e2e.com',
-                })
-                .expect(409); // Conflict
-        });
-
-        it('should fail with duplicate email', async () => {
-            const email = 'duplicate-email@test-e2e.com';
-
-            // Create first tenant
-            await request(app.getHttpServer())
-                .post('/tenants')
-                .set('Authorization', `Bearer ${ownerToken}`)
-                .send({
-                    email,
-                    password: 'Password123!',
-                    firstName: 'First',
-                    lastName: 'Tenant',
-                    phone: '+123',
-                    dni: 'DNI-001',
-                })
-                .expect(201);
-
-            // Try to create second tenant with same email
-            return request(app.getHttpServer())
-                .post('/tenants')
-                .set('Authorization', `Bearer ${ownerToken}`)
-                .send({
-                    email,
-                    password: 'Password123!',
-                    firstName: 'Second',
-                    lastName: 'Tenant',
-                    phone: '+456',
-                    dni: 'DNI-002',
-                })
-                .expect(409);
+    it('should get tenant by id', () => {
+      return request(app.getHttpServer())
+        .get(`/tenants/${tenantId}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200)
+        .expect((res) => {
+          expect(res.body.id).toBe(tenantId);
+          expect(res.body.email).toBe(`crud-tenant@tenant-${uniqueId}.test`);
         });
     });
 
-    describe('/tenants (GET)', () => {
-        beforeAll(async () => {
-            // Create test tenants
-            await request(app.getHttpServer())
-                .post('/tenants')
-                .set('Authorization', `Bearer ${ownerToken}`)
-                .send({
-                    email: 'filter-test-1@test-e2e.com',
-                    password: 'Password123!',
-                    firstName: 'Filter',
-                    lastName: 'One',
-                    phone: '+111',
-                    dni: 'FILTER-001',
-                });
-
-            await request(app.getHttpServer())
-                .post('/tenants')
-                .set('Authorization', `Bearer ${ownerToken}`)
-                .send({
-                    email: 'filter-test-2@test-e2e.com',
-                    password: 'Password123!',
-                    firstName: 'Filter',
-                    lastName: 'Two',
-                    phone: '+222',
-                    dni: 'FILTER-002',
-                });
-        });
-
-        it('should get all tenants', () => {
-            return request(app.getHttpServer())
-                .get('/tenants')
-                .set('Authorization', `Bearer ${ownerToken}`)
-                .expect(200)
-                .expect((res) => {
-                    expect(res.body).toHaveProperty('data');
-                    expect(Array.isArray(res.body.data)).toBe(true);
-                    expect(res.body).toHaveProperty('total');
-                });
-        });
-
-        it('should filter tenants by name', () => {
-            return request(app.getHttpServer())
-                .get('/tenants?name=Filter')
-                .set('Authorization', `Bearer ${ownerToken}`)
-                .expect(200)
-                .expect((res) => {
-                    expect(res.body.data.length).toBeGreaterThan(0);
-                    expect(res.body.data.every((t: any) =>
-                        t.firstName.includes('Filter') || t.lastName.includes('Filter')
-                    )).toBe(true);
-                });
-        });
-
-        it('should filter tenants by email', () => {
-            return request(app.getHttpServer())
-                .get('/tenants?email=filter-test-1')
-                .set('Authorization', `Bearer ${ownerToken}`)
-                .expect(200)
-                .expect((res) => {
-                    expect(res.body.data.length).toBeGreaterThan(0);
-                    expect(res.body.data[0].email).toContain('filter-test-1');
-                });
-        });
-
-        it('should support pagination', () => {
-            return request(app.getHttpServer())
-                .get('/tenants?page=1&limit=1')
-                .set('Authorization', `Bearer ${ownerToken}`)
-                .expect(200)
-                .expect((res) => {
-                    expect(res.body.data.length).toBeLessThanOrEqual(1);
-                    expect(res.body.page).toBe(1);
-                    expect(res.body.limit).toBe(1);
-                });
+    it('should update tenant information', () => {
+      return request(app.getHttpServer())
+        .patch(`/tenants/${tenantId}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          firstName: 'Updated',
+          phone: '+1111111111',
+        })
+        .expect(200)
+        .expect((res) => {
+          expect(res.body.firstName).toBe('Updated');
+          expect(res.body.phone).toBe('+1111111111');
         });
     });
 
-    describe('/tenants/:id (GET, PATCH, DELETE)', () => {
-        let tenantId: string;
-
-        beforeAll(async () => {
-            const res = await request(app.getHttpServer())
-                .post('/tenants')
-                .set('Authorization', `Bearer ${ownerToken}`)
-                .send({
-                    email: 'crud-tenant@test-e2e.com',
-                    password: 'Password123!',
-                    firstName: 'CRUD',
-                    lastName: 'Tenant',
-                    phone: '+999',
-                    dni: 'CRUD-001',
-                });
-
-            tenantId = res.body.id;
-        });
-
-        it('should get tenant by id', () => {
-            return request(app.getHttpServer())
-                .get(`/tenants/${tenantId}`)
-                .set('Authorization', `Bearer ${ownerToken}`)
-                .expect(200)
-                .expect((res) => {
-                    expect(res.body.id).toBe(tenantId);
-                    expect(res.body.email).toBe('crud-tenant@test-e2e.com');
-                });
-        });
-
-        it('should update tenant information', () => {
-            return request(app.getHttpServer())
-                .patch(`/tenants/${tenantId}`)
-                .set('Authorization', `Bearer ${ownerToken}`)
-                .send({
-                    firstName: 'Updated',
-                    phone: '+1111111111',
-                })
-                .expect(200)
-                .expect((res) => {
-                    expect(res.body.firstName).toBe('Updated');
-                    expect(res.body.phone).toBe('+1111111111');
-                });
-        });
-
-        it('should get tenant lease history', () => {
-            return request(app.getHttpServer())
-                .get(`/tenants/${tenantId}/leases`)
-                .set('Authorization', `Bearer ${ownerToken}`)
-                .expect(200)
-                .expect((res) => {
-                    expect(Array.isArray(res.body)).toBe(true);
-                    // Empty array is fine since we haven't created leases for this tenant
-                });
-        });
-
-        it('should delete tenant', () => {
-            return request(app.getHttpServer())
-                .delete(`/tenants/${tenantId}`)
-                .set('Authorization', `Bearer ${ownerToken}`)
-                .expect(200);
-        });
-
-        it('should not find deleted tenant', () => {
-            return request(app.getHttpServer())
-                .get(`/tenants/${tenantId}`)
-                .set('Authorization', `Bearer ${ownerToken}`)
-                .expect(404);
+    it('should get tenant lease history', () => {
+      return request(app.getHttpServer())
+        .get(`/tenants/${tenantId}/leases`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200)
+        .expect((res) => {
+          expect(Array.isArray(res.body)).toBe(true);
+          // Empty array is fine since we haven't created leases for this tenant
         });
     });
+
+    it('should delete tenant', () => {
+      return request(app.getHttpServer())
+        .delete(`/tenants/${tenantId}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+    });
+
+    it('should not find deleted tenant', () => {
+      return request(app.getHttpServer())
+        .get(`/tenants/${tenantId}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(404);
+    });
+  });
 });

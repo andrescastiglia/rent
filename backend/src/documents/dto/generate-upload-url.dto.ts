@@ -1,4 +1,12 @@
-import { IsEnum, IsNotEmpty, IsNumber, IsString, IsUUID, Max, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+} from 'class-validator';
 import { DocumentType } from '../entities/document.entity';
 
 export class GenerateUploadUrlDto {

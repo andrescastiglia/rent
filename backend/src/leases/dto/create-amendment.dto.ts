@@ -1,4 +1,11 @@
-import { IsDateString, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 import { AmendmentChangeType } from '../entities/lease-amendment.entity';
 
 export class CreateAmendmentDto {

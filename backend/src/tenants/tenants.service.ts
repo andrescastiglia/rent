@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -57,14 +61,21 @@ export class TenantsService {
 
     // Create tenant record (using raw query since we don't have Tenant entity in TypeORM)
     await this.usersRepository.query(
-      `INSERT INTO tenants (user_id, dni, emergency_contact, emergency_phone) VALUES ($1, $2, $3, $4)`,
-      [savedUser.id, createTenantDto.dni, createTenantDto.emergencyContact, createTenantDto.emergencyPhone],
+      `INSERT INTO tenants (user_id, dni, emergency_contact_name, emergency_contact_phone) VALUES ($1, $2, $3, $4)`,
+      [
+        savedUser.id,
+        createTenantDto.dni,
+        createTenantDto.emergencyContact,
+        createTenantDto.emergencyPhone,
+      ],
     );
 
     return savedUser;
   }
 
-  async findAll(filters: TenantFiltersDto): Promise<{ data: User[]; total: number; page: number; limit: number }> {
+  async findAll(
+    filters: TenantFiltersDto,
+  ): Promise<{ data: User[]; total: number; page: number; limit: number }> {
     const { name, dni, email, page = 1, limit = 10 } = filters;
 
     const query = this.usersRepository
@@ -123,7 +134,11 @@ export class TenantsService {
     await this.usersRepository.save(user);
 
     // Update tenant fields if provided
-    if (updateTenantDto.dni || updateTenantDto.emergencyContact || updateTenantDto.emergencyPhone) {
+    if (
+      updateTenantDto.dni ||
+      updateTenantDto.emergencyContact ||
+      updateTenantDto.emergencyPhone
+    ) {
       const updates: string[] = [];
       const values: any[] = [];
       let paramIndex = 1;
@@ -133,11 +148,11 @@ export class TenantsService {
         values.push(updateTenantDto.dni);
       }
       if (updateTenantDto.emergencyContact) {
-        updates.push(`emergency_contact = $${paramIndex++}`);
+        updates.push(`emergency_contact_name = $${paramIndex++}`);
         values.push(updateTenantDto.emergencyContact);
       }
       if (updateTenantDto.emergencyPhone) {
-        updates.push(`emergency_phone = $${paramIndex++}`);
+        updates.push(`emergency_contact_phone = $${paramIndex++}`);
         values.push(updateTenantDto.emergencyPhone);
       }
 

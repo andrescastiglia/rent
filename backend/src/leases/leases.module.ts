@@ -17,7 +17,11 @@ import { DocumentsModule } from '../documents/documents.module';
     TypeOrmModule.forFeature([Lease, LeaseAmendment, Unit, Document]),
     DocumentsModule,
   ],
-  controllers: [LeasesController, AmendmentsController, LeasesContractController],
+  controllers: [
+    LeasesController,
+    AmendmentsController,
+    LeasesContractController,
+  ],
   providers: [LeasesService, AmendmentsService, PdfService],
   exports: [TypeOrmModule, LeasesService, AmendmentsService, PdfService],
 })

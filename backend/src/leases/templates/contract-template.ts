@@ -1,8 +1,9 @@
-import PDFDocument from 'pdfkit';
+import * as PDFDocument from 'pdfkit';
 import { Lease } from '../entities/lease.entity';
 
 export function generateContractPdf(lease: Lease): Promise<Buffer> {
   return new Promise<Buffer>((resolve, reject) => {
+    // @ts-ignore
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
     const buffers: Buffer[] = [];
 
@@ -23,7 +24,9 @@ export function generateContractPdf(lease: Lease): Promise<Buffer> {
     doc
       .fontSize(10)
       .font('Helvetica')
-      .text(`Fecha de emisión: ${new Date().toLocaleDateString('es-AR')}`, { align: 'right' })
+      .text(`Fecha de emisión: ${new Date().toLocaleDateString('es-AR')}`, {
+        align: 'right',
+      })
       .moveDown(2);
 
     // Partes del contrato
@@ -36,23 +39,25 @@ export function generateContractPdf(lease: Lease): Promise<Buffer> {
     doc
       .fontSize(11)
       .font('Helvetica')
-      .text(`Locador (Propietario): ${lease.unit?.property?.owner?.firstName || ''} ${lease.unit?.property?.owner?.lastName || ''}`)
-      .text(`Locatario (Inquilino): ${lease.tenant?.firstName || ''} ${lease.tenant?.lastName || ''}`)
+      .text(
+        `Locador (Propietario): ${lease.unit?.property?.owner?.firstName || ''} ${lease.unit?.property?.owner?.lastName || ''}`,
+      )
+      .text(
+        `Locatario (Inquilino): ${lease.tenant?.firstName || ''} ${lease.tenant?.lastName || ''}`,
+      )
       .text(`Email: ${lease.tenant?.email || ''}`)
       .moveDown(1.5);
 
     // Propiedad
-    doc
-      .fontSize(14)
-      .font('Helvetica-Bold')
-      .text('PROPIEDAD')
-      .moveDown(0.5);
+    doc.fontSize(14).font('Helvetica-Bold').text('PROPIEDAD').moveDown(0.5);
 
     doc
       .fontSize(11)
       .font('Helvetica')
       .text(`Dirección: ${lease.unit?.property?.address || ''}`)
-      .text(`Ciudad: ${lease.unit?.property?.city || ''}, ${lease.unit?.property?.state || ''}`)
+      .text(
+        `Ciudad: ${lease.unit?.property?.city || ''}, ${lease.unit?.property?.state || ''}`,
+      )
       .text(`Código Postal: ${lease.unit?.property?.zipCode || ''}`)
       .text(`Unidad: ${lease.unit?.unitNumber || ''}`)
       .text(`Área: ${lease.unit?.areaSqm || 0} m²`)
@@ -68,19 +73,23 @@ export function generateContractPdf(lease: Lease): Promise<Buffer> {
     doc
       .fontSize(11)
       .font('Helvetica')
-      .text(`Fecha de inicio: ${new Date(lease.startDate).toLocaleDateString('es-AR')}`)
-      .text(`Fecha de finalización: ${new Date(lease.endDate).toLocaleDateString('es-AR')}`)
-      .text(`Renta mensual: ${lease.currency} ${lease.rentAmount.toLocaleString('es-AR')}`)
-      .text(`Depósito: ${lease.currency} ${lease.deposit.toLocaleString('es-AR')}`)
+      .text(
+        `Fecha de inicio: ${new Date(lease.startDate).toLocaleDateString('es-AR')}`,
+      )
+      .text(
+        `Fecha de finalización: ${new Date(lease.endDate).toLocaleDateString('es-AR')}`,
+      )
+      .text(
+        `Renta mensual: ${lease.currency} ${lease.rentAmount.toLocaleString('es-AR')}`,
+      )
+      .text(
+        `Depósito: ${lease.currency} ${lease.deposit.toLocaleString('es-AR')}`,
+      )
       .text(`Frecuencia de pago: ${lease.paymentFrequency}`)
       .moveDown(1.5);
 
     // Cláusulas
-    doc
-      .fontSize(14)
-      .font('Helvetica-Bold')
-      .text('CLÁUSULAS')
-      .moveDown(0.5);
+    doc.fontSize(14).font('Helvetica-Bold').text('CLÁUSULAS').moveDown(0.5);
 
     const clauses = [
       'El locatario se compromete a pagar la renta mensual en la fecha acordada.',
@@ -105,11 +114,7 @@ export function generateContractPdf(lease: Lease): Promise<Buffer> {
         .text('TÉRMINOS DE RENOVACIÓN')
         .moveDown(0.5);
 
-      doc
-        .fontSize(10)
-        .font('Helvetica')
-        .text(lease.renewalTerms)
-        .moveDown(1.5);
+      doc.fontSize(10).font('Helvetica').text(lease.renewalTerms).moveDown(1.5);
     }
 
     // Notas adicionales
@@ -120,11 +125,7 @@ export function generateContractPdf(lease: Lease): Promise<Buffer> {
         .text('NOTAS ADICIONALES')
         .moveDown(0.5);
 
-      doc
-        .fontSize(10)
-        .font('Helvetica')
-        .text(lease.notes)
-        .moveDown(1.5);
+      doc.fontSize(10).font('Helvetica').text(lease.notes).moveDown(1.5);
     }
 
     // Firmas
@@ -144,12 +145,9 @@ export function generateContractPdf(lease: Lease): Promise<Buffer> {
     doc
       .fontSize(8)
       .font('Helvetica')
-      .text(
-        `Contrato ID: ${lease.id}`,
-        50,
-        doc.page.height - 50,
-        { align: 'center' }
-      );
+      .text(`Contrato ID: ${lease.id}`, 50, doc.page.height - 50, {
+        align: 'center',
+      });
 
     doc.end();
   });

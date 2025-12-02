@@ -23,13 +23,13 @@ export class TenantsController {
   constructor(private readonly tenantsService: TenantsService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   create(@Body() createTenantDto: CreateTenantDto) {
     return this.tenantsService.create(createTenantDto);
   }
 
   @Get()
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   findAll(@Query() filters: TenantFiltersDto) {
     return this.tenantsService.findAll(filters);
   }
@@ -45,13 +45,13 @@ export class TenantsController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   update(@Param('id') id: string, @Body() updateTenantDto: UpdateTenantDto) {
     return this.tenantsService.update(id, updateTenantDto);
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   async remove(@Param('id') id: string) {
     await this.tenantsService.remove(id);
     return { message: 'Tenant deleted successfully' };

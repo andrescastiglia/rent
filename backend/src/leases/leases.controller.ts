@@ -18,8 +18,8 @@ import { LeaseFiltersDto } from './dto/lease-filters.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
-@Controller('leases')
 @UseGuards(AuthGuard('jwt'))
+@Controller('leases')
 export class LeasesController {
   constructor(private readonly leasesService: LeasesService) {}
 
@@ -45,19 +45,19 @@ export class LeasesController {
     return this.leasesService.update(id, updateLeaseDto);
   }
 
-  @Post(':id/activate')
+  @Patch(':id/activate')
   @Roles(UserRole.ADMIN, UserRole.OWNER)
   activate(@Param('id') id: string, @Request() req: any) {
     return this.leasesService.activate(id, req.user.id);
   }
 
-  @Post(':id/terminate')
+  @Patch(':id/terminate')
   @Roles(UserRole.ADMIN, UserRole.OWNER)
   terminate(@Param('id') id: string, @Body('reason') reason?: string) {
     return this.leasesService.terminate(id, reason);
   }
 
-  @Post(':id/renew')
+  @Patch(':id/renew')
   @Roles(UserRole.ADMIN, UserRole.OWNER)
   renew(@Param('id') id: string, @Body() newTerms: Partial<CreateLeaseDto>) {
     return this.leasesService.renew(id, newTerms);

@@ -15,8 +15,8 @@ import { GenerateUploadUrlDto } from './dto/generate-upload-url.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
-@Controller('documents')
 @UseGuards(AuthGuard('jwt'))
+@Controller('documents')
 export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 

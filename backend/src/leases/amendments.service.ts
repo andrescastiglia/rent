@@ -1,7 +1,14 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { LeaseAmendment, AmendmentStatus } from './entities/lease-amendment.entity';
+import {
+  LeaseAmendment,
+  AmendmentStatus,
+} from './entities/lease-amendment.entity';
 import { Lease, LeaseStatus } from './entities/lease.entity';
 import { CreateAmendmentDto } from './dto/create-amendment.dto';
 
@@ -14,18 +21,25 @@ export class AmendmentsService {
     private leasesRepository: Repository<Lease>,
   ) {}
 
-  async create(createAmendmentDto: CreateAmendmentDto, userId: string): Promise<LeaseAmendment> {
+  async create(
+    createAmendmentDto: CreateAmendmentDto,
+    userId: string,
+  ): Promise<LeaseAmendment> {
     // Check if lease exists and is active
     const lease = await this.leasesRepository.findOne({
       where: { id: createAmendmentDto.leaseId },
     });
 
     if (!lease) {
-      throw new NotFoundException(`Lease with ID ${createAmendmentDto.leaseId} not found`);
+      throw new NotFoundException(
+        `Lease with ID ${createAmendmentDto.leaseId} not found`,
+      );
     }
 
     if (lease.status !== LeaseStatus.ACTIVE) {
-      throw new BadRequestException('Amendments can only be created for active leases');
+      throw new BadRequestException(
+        'Amendments can only be created for active leases',
+      );
     }
 
     const amendment = this.amendmentsRepository.create({

@@ -70,7 +70,11 @@ export class Property {
   @Column({ type: 'enum', enum: PropertyType })
   type: PropertyType;
 
-  @Column({ type: 'enum', enum: PropertyStatus, default: PropertyStatus.ACTIVE })
+  @Column({
+    type: 'enum',
+    enum: PropertyStatus,
+    default: PropertyStatus.ACTIVE,
+  })
   status: PropertyStatus;
 
   @Column({ type: 'text', nullable: true })
@@ -79,7 +83,13 @@ export class Property {
   @Column({ name: 'year_built', nullable: true })
   yearBuilt: number;
 
-  @Column({ name: 'total_area_sqm', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: 'total_area_sqm',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   totalAreaSqm: number;
 
   @OneToMany(() => Unit, (unit) => unit.property)

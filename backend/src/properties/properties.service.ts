@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Property } from './entities/property.entity';
@@ -21,8 +26,21 @@ export class PropertiesService {
     return this.propertiesRepository.save(property);
   }
 
-  async findAll(filters: PropertyFiltersDto): Promise<{ data: Property[]; total: number; page: number; limit: number }> {
-    const { city, state, type, status, minRent, maxRent, bedrooms, bathrooms, page = 1, limit = 10 } = filters;
+  async findAll(
+    filters: PropertyFiltersDto,
+  ): Promise<{ data: Property[]; total: number; page: number; limit: number }> {
+    const {
+      city,
+      state,
+      type,
+      status,
+      minRent,
+      maxRent,
+      bedrooms,
+      bathrooms,
+      page = 1,
+      limit = 10,
+    } = filters;
 
     const query = this.propertiesRepository
       .createQueryBuilder('property')
@@ -46,7 +64,12 @@ export class PropertiesService {
     }
 
     // Filter by unit specifications
-    if (minRent !== undefined || maxRent !== undefined || bedrooms !== undefined || bathrooms !== undefined) {
+    if (
+      minRent !== undefined ||
+      maxRent !== undefined ||
+      bedrooms !== undefined ||
+      bathrooms !== undefined
+    ) {
       if (minRent !== undefined) {
         query.andWhere('units.monthly_rent >= :minRent', { minRent });
       }
@@ -86,7 +109,12 @@ export class PropertiesService {
     return property;
   }
 
-  async update(id: string, updatePropertyDto: UpdatePropertyDto, userId: string, userRole: string): Promise<Property> {
+  async update(
+    id: string,
+    updatePropertyDto: UpdatePropertyDto,
+    userId: string,
+    userRole: string,
+  ): Promise<Property> {
     const property = await this.findOne(id);
 
     // Check ownership (only owner or admin can update)
@@ -112,7 +140,9 @@ export class PropertiesService {
     });
 
     if (occupiedUnits > 0) {
-      throw new BadRequestException('Cannot delete property with occupied units');
+      throw new BadRequestException(
+        'Cannot delete property with occupied units',
+      );
     }
 
     await this.propertiesRepository.softDelete(id);

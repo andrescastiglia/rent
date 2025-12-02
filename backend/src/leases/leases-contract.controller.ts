@@ -4,8 +4,8 @@ import { Response } from 'express';
 import { PdfService } from './pdf.service';
 import { DocumentsService } from '../documents/documents.service';
 
-@Controller('leases')
 @UseGuards(AuthGuard('jwt'))
+@Controller('leases')
 export class LeasesContractController {
   constructor(
     private readonly pdfService: PdfService,
@@ -21,7 +21,9 @@ export class LeasesContractController {
     }
 
     // Generate download URL
-    const { downloadUrl } = await this.documentsService.generateDownloadUrl(document.id);
+    const { downloadUrl } = await this.documentsService.generateDownloadUrl(
+      document.id,
+    );
 
     // Redirect to S3 pre-signed URL
     return res.redirect(downloadUrl);

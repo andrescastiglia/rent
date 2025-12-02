@@ -61,7 +61,12 @@ export class Lease {
   @Column({ default: 'ARS' })
   currency: string;
 
-  @Column({ name: 'payment_frequency', type: 'enum', enum: PaymentFrequency, default: PaymentFrequency.MONTHLY })
+  @Column({
+    name: 'payment_frequency',
+    type: 'enum',
+    enum: PaymentFrequency,
+    default: PaymentFrequency.MONTHLY,
+  })
   paymentFrequency: PaymentFrequency;
 
   @Column({ type: 'enum', enum: LeaseStatus, default: LeaseStatus.DRAFT })

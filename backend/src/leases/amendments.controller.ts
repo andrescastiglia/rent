@@ -14,8 +14,8 @@ import { CreateAmendmentDto } from './dto/create-amendment.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
-@Controller('amendments')
 @UseGuards(AuthGuard('jwt'))
+@Controller('amendments')
 export class AmendmentsController {
   constructor(private readonly amendmentsService: AmendmentsService) {}
 

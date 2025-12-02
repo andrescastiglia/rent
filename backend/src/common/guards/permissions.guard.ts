@@ -1,6 +1,9 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { PERMISSIONS_KEY, Permission } from '../decorators/permissions.decorator';
+import {
+  PERMISSIONS_KEY,
+  Permission,
+} from '../decorators/permissions.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { PermissionsService } from '../../auth/services/permissions.service';
 
@@ -34,6 +37,12 @@ export class PermissionsGuard implements CanActivate {
 
     // Get user from request
     const { user } = context.switchToHttp().getRequest();
+
+    // If no user found, allow the request to proceed
+    // The AuthGuard at controller level will handle authentication
+    if (!user) {
+      return true;
+    }
 
     // Check if user has all required permissions
     return this.permissionsService.hasAllPermissions(user, requiredPermissions);

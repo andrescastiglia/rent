@@ -4,7 +4,11 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { Lease } from './entities/lease.entity';
-import { Document, DocumentType, DocumentStatus } from '../documents/entities/document.entity';
+import {
+  Document,
+  DocumentType,
+  DocumentStatus,
+} from '../documents/entities/document.entity';
 import { generateContractPdf } from './templates/contract-template';
 import { getS3Config, S3_BUCKET_NAME } from '../config/s3.config';
 

@@ -51,7 +51,11 @@ export class LeaseAmendment {
   @Column({ name: 'new_values', type: 'jsonb', nullable: true })
   newValues: Record<string, any>;
 
-  @Column({ type: 'enum', enum: AmendmentStatus, default: AmendmentStatus.PENDING })
+  @Column({
+    type: 'enum',
+    enum: AmendmentStatus,
+    default: AmendmentStatus.PENDING,
+  })
   status: AmendmentStatus;
 
   @Column({ name: 'approved_by', nullable: true })

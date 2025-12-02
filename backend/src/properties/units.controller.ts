@@ -15,8 +15,8 @@ import { UpdateUnitDto } from './dto/update-unit.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
-@Controller('units')
 @UseGuards(AuthGuard('jwt'))
+@Controller('units')
 export class UnitsController {
   constructor(private readonly unitsService: UnitsService) {}
 

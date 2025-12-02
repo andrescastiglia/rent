@@ -18,8 +18,8 @@ import { PropertyFiltersDto } from './dto/property-filters.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
-@Controller('properties')
 @UseGuards(AuthGuard('jwt'))
+@Controller('properties')
 export class PropertiesController {
   constructor(private readonly propertiesService: PropertiesService) {}
 
@@ -46,7 +46,12 @@ export class PropertiesController {
     @Body() updatePropertyDto: UpdatePropertyDto,
     @Request() req: any,
   ) {
-    return this.propertiesService.update(id, updatePropertyDto, req.user.id, req.user.role);
+    return this.propertiesService.update(
+      id,
+      updatePropertyDto,
+      req.user.id,
+      req.user.role,
+    );
   }
 
   @Delete(':id')

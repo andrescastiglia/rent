@@ -44,7 +44,13 @@ export class Unit {
   @Column({ name: 'area_sqm', type: 'decimal', precision: 10, scale: 2 })
   areaSqm: number;
 
-  @Column({ name: 'monthly_rent', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: 'monthly_rent',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   monthlyRent: number;
 
   @Column({ default: 'ARS' })

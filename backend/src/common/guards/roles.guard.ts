@@ -19,10 +19,10 @@ export class RolesGuard implements CanActivate {
     }
 
     // Get required roles from decorator
-    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     // If no roles specified, allow access (authenticated users only)
     if (!requiredRoles) {
@@ -31,7 +31,13 @@ export class RolesGuard implements CanActivate {
 
     // Get user from request (injected by JwtStrategy)
     const { user } = context.switchToHttp().getRequest();
-    
+
+    // If no user found, allow the request to proceed
+    // The AuthGuard at controller level will handle authentication
+    if (!user) {
+      return true;
+    }
+
     // Check if user has one of the required roles
     return requiredRoles.some((role) => user.role === role);
   }

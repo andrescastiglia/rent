@@ -50,7 +50,11 @@ export class Document {
   @Column({ name: 'file_size' })
   fileSize: number;
 
-  @Column({ type: 'enum', enum: DocumentStatus, default: DocumentStatus.PENDING })
+  @Column({
+    type: 'enum',
+    enum: DocumentStatus,
+    default: DocumentStatus.PENDING,
+  })
   status: DocumentStatus;
 
   @Column({ name: 'uploaded_by', nullable: true })

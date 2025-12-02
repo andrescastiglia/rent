@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
@@ -48,7 +52,8 @@ export class AuthService {
       passwordHash: hashedPassword,
     });
 
-    const { passwordHash, ...result } = newUser;
-    return result;
+    // Return the same format as login (with access_token)
+    const { passwordHash, ...userWithoutPassword } = newUser;
+    return this.login(userWithoutPassword);
   }
 }
