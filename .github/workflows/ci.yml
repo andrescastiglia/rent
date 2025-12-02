@@ -329,15 +329,16 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -p ${{ secrets.SSH_PORT || 22 }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
       - name: Run Ansible playbook
         working-directory: ansible
         run: |
           ansible-playbook -i inventory/staging.yml deploy.yml \
             --private-key ~/.ssh/deploy_key \
+            -e "ansible_host=${{ secrets.SSH_HOST }}" \
             -e "ansible_user=${{ secrets.SSH_USER }}" \
-            -e "ansible_port=${{ secrets.SSH_PORT }}" \
+            -e "ansible_port=${{ secrets.SSH_PORT || 22 }}" \
             -e "deploy_branch=develop"
 
   # ─────────────────────────────────────────────────────────────
@@ -367,13 +368,14 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -p ${{ secrets.SSH_PORT || 22 }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
       - name: Run Ansible playbook
         working-directory: ansible
         run: |
           ansible-playbook -i inventory/production.yml deploy.yml \
             --private-key ~/.ssh/deploy_key \
+            -e "ansible_host=${{ secrets.SSH_HOST }}" \
             -e "ansible_user=${{ secrets.SSH_USER }}" \
-            -e "ansible_port=${{ secrets.SSH_PORT }}" \
+            -e "ansible_port=${{ secrets.SSH_PORT || 22 }}" \
             -e "deploy_branch=main"
