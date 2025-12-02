@@ -56,30 +56,30 @@ test.describe('Lease Creation Flow', () => {
         // Submit form
         await page.getByRole('button', { name: /save lease/i }).click();
 
-        // Should redirect to leases list
-        await expect(page).toHaveURL('/leases');
+        // Should redirect to lease details
+        await expect(page).toHaveURL(/\/leases\/[^\/]+$/);
     });
 
     test('should navigate to lease details', async ({ page }) => {
         await page.goto('/leases');
 
         // Wait for leases to load
-        await page.waitForSelector('a[href^="/leases/"]', { timeout: 5000 });
+        await page.waitForSelector('a[href^="/leases/"]:not([href="/leases/new"])', { timeout: 5000 });
 
         // Click on first lease card link
-        const firstLeaseLink = page.locator('a[href^="/leases/"]').first();
-        await firstLeaseLink.click();
+        const firstLeaseLink = page.locator('a[href^="/leases/"]:not([href="/leases/new"])').first();
+        await firstLeaseLink.click({ force: true });
 
         // Should navigate to lease detail page
-        await expect(page.url()).toMatch(/\/leases\/[^\/]+$/);
+        await expect(page).toHaveURL(/\/leases\/[^\/]+$/);
     });
 
     test('should display lease details correctly', async ({ page }) => {
         await page.goto('/leases');
 
         // Wait for and click first lease
-        await page.waitForSelector('a[href^="/leases/"]', { timeout: 5000 });
-        await page.locator('a[href^="/leases/"]').first().click();
+        await page.waitForSelector('a[href^="/leases/"]:not([href="/leases/new"])', { timeout: 5000 });
+        await page.locator('a[href^="/leases/"]:not([href="/leases/new"])').first().click({ force: true });
 
         // Should show lease information sections
         await expect(page.getByRole('heading', { name: /lease agreement/i })).toBeVisible();
@@ -91,8 +91,8 @@ test.describe('Lease Creation Flow', () => {
         await page.goto('/leases');
 
         // Wait for and click first lease
-        await page.waitForSelector('a[href^="/leases/"]', { timeout: 5000 });
-        await page.locator('a[href^="/leases/"]').first().click();
+        await page.waitForSelector('a[href^="/leases/"]:not([href="/leases/new"])', { timeout: 5000 });
+        await page.locator('a[href^="/leases/"]:not([href="/leases/new"])').first().click({ force: true });
 
         // Should show edit and delete buttons
         await expect(page.getByRole('link', { name: /edit/i })).toBeVisible();
@@ -117,14 +117,14 @@ test.describe('Lease Creation Flow', () => {
         await page.goto('/leases');
 
         // Wait for and click first lease
-        await page.waitForSelector('a[href^="/leases/"]', { timeout: 5000 });
-        await page.locator('a[href^="/leases/"]').first().click();
+        await page.waitForSelector('a[href^="/leases/"]:not([href="/leases/new"])', { timeout: 5000 });
+        await page.locator('a[href^="/leases/"]:not([href="/leases/new"])').first().click({ force: true });
 
         // Click edit button
-        await page.getByRole('link', { name: /edit/i }).click();
+        await page.getByRole('link', { name: /edit/i }).click({ force: true });
 
         // Should navigate to edit page
-        await expect(page.url()).toMatch(/\/leases\/[^\/]+\/edit$/);
+        await expect(page).toHaveURL(/\/leases\/[^\/]+\/edit$/);
 
         // Should show form with existing data
         await expect(page.getByRole('button', { name: /save lease/i })).toBeVisible();

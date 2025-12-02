@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { CreatePropertyInput, Property, PropertyType, PropertyStatus } from '@/types/property';
@@ -42,7 +42,7 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const { register, control, handleSubmit, setValue, watch, formState: { errors } } = useForm<PropertyFormData>({
-    resolver: zodResolver(propertySchema),
+    resolver: zodResolver(propertySchema) as Resolver<PropertyFormData>,
     defaultValues: initialData ? {
       ...initialData,
       features: initialData.features.map(f => ({ name: f.name, value: f.value })),
@@ -72,8 +72,8 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
         await propertiesApi.update(initialData.id, data);
         router.push(`/properties/${initialData.id}`);
       } else {
-        await propertiesApi.create(data);
-        router.push('/properties');
+        const newProperty = await propertiesApi.create(data as CreatePropertyInput);
+        router.push(`/properties/${newProperty.id}`);
       }
       router.refresh();
     } catch (error) {
@@ -94,8 +94,9 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
         <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Basic Information</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Name</label>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700">Name</label>
             <input
+              id="name"
               {...register('name')}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
               placeholder="e.g. Sunset Apartments"
@@ -104,8 +105,9 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700">Type</label>
+            <label htmlFor="type" className="block text-sm font-medium text-gray-700">Type</label>
             <select
+              id="type"
               {...register('type')}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
             >
@@ -121,8 +123,9 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
 
           {isEditing && (
              <div>
-             <label className="block text-sm font-medium text-gray-700">Status</label>
+             <label htmlFor="status" className="block text-sm font-medium text-gray-700">Status</label>
              <select
+               id="status"
                {...register('status')}
                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
              >
@@ -135,8 +138,9 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Description</label>
+          <label htmlFor="description" className="block text-sm font-medium text-gray-700">Description</label>
           <textarea
+            id="description"
             {...register('description')}
             rows={3}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
@@ -149,39 +153,39 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
         <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Location</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Street</label>
-            <input {...register('address.street')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
+            <label htmlFor="street" className="block text-sm font-medium text-gray-700">Street</label>
+            <input id="street" {...register('address.street')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
             {errors.address?.street && <p className="mt-1 text-sm text-red-600">{errors.address.street.message}</p>}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-                <label className="block text-sm font-medium text-gray-700">Number</label>
-                <input {...register('address.number')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
+                <label htmlFor="number" className="block text-sm font-medium text-gray-700">Number</label>
+                <input id="number" {...register('address.number')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
                 {errors.address?.number && <p className="mt-1 text-sm text-red-600">{errors.address.number.message}</p>}
             </div>
             <div>
-                <label className="block text-sm font-medium text-gray-700">Unit (Optional)</label>
-                <input {...register('address.unit')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
+                <label htmlFor="unit" className="block text-sm font-medium text-gray-700">Unit (Optional)</label>
+                <input id="unit" {...register('address.unit')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">City</label>
-            <input {...register('address.city')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
+            <label htmlFor="city" className="block text-sm font-medium text-gray-700">City</label>
+            <input id="city" {...register('address.city')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
             {errors.address?.city && <p className="mt-1 text-sm text-red-600">{errors.address.city.message}</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">State</label>
-            <input {...register('address.state')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
+            <label htmlFor="state" className="block text-sm font-medium text-gray-700">State</label>
+            <input id="state" {...register('address.state')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
             {errors.address?.state && <p className="mt-1 text-sm text-red-600">{errors.address.state.message}</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Zip Code</label>
-            <input {...register('address.zipCode')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
+            <label htmlFor="zipCode" className="block text-sm font-medium text-gray-700">Zip Code</label>
+            <input id="zipCode" {...register('address.zipCode')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
             {errors.address?.zipCode && <p className="mt-1 text-sm text-red-600">{errors.address.zipCode.message}</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Country</label>
-            <input {...register('address.country')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
+            <label htmlFor="country" className="block text-sm font-medium text-gray-700">Country</label>
+            <input id="country" {...register('address.country')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
             {errors.address?.country && <p className="mt-1 text-sm text-red-600">{errors.address.country.message}</p>}
           </div>
         </div>

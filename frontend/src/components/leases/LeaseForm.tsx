@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { CreateLeaseInput, Lease } from '@/types/lease';
@@ -37,7 +37,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const [tenants, setTenants] = useState<Tenant[]>([]);
 
   const { register, handleSubmit, formState: { errors } } = useForm<LeaseFormData>({
-    resolver: zodResolver(leaseSchema),
+    resolver: zodResolver(leaseSchema) as Resolver<LeaseFormData>,
     defaultValues: initialData || {
       status: 'DRAFT',
       rentAmount: 0,
@@ -68,8 +68,8 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
         await leasesApi.update(initialData.id, data);
         router.push(`/leases/${initialData.id}`);
       } else {
-        await leasesApi.create(data as CreateLeaseInput);
-        router.push('/leases');
+        const newLease = await leasesApi.create(data as CreateLeaseInput);
+        router.push(`/leases/${newLease.id}`);
       }
       router.refresh();
     } catch (error) {
@@ -87,8 +87,9 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Property</label>
+            <label htmlFor="propertyId" className="block text-sm font-medium text-gray-700">Property</label>
             <select
+              id="propertyId"
               {...register('propertyId')}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
             >
@@ -101,8 +102,9 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Unit ID</label>
+            <label htmlFor="unitId" className="block text-sm font-medium text-gray-700">Unit ID</label>
             <input
+              id="unitId"
               {...register('unitId')}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
               placeholder="e.g. 101"
@@ -111,8 +113,9 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Tenant</label>
+            <label htmlFor="tenantId" className="block text-sm font-medium text-gray-700">Tenant</label>
             <select
+              id="tenantId"
               {...register('tenantId')}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
             >
@@ -125,8 +128,9 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Status</label>
+            <label htmlFor="status" className="block text-sm font-medium text-gray-700">Status</label>
             <select
+              id="status"
               {...register('status')}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
             >
@@ -140,8 +144,9 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Start Date</label>
+            <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">Start Date</label>
             <input
+              id="startDate"
               type="date"
               {...register('startDate')}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
@@ -150,8 +155,9 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">End Date</label>
+            <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">End Date</label>
             <input
+              id="endDate"
               type="date"
               {...register('endDate')}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
@@ -162,8 +168,9 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Rent Amount ($)</label>
+            <label htmlFor="rentAmount" className="block text-sm font-medium text-gray-700">Rent Amount ($)</label>
             <input
+              id="rentAmount"
               type="number"
               {...register('rentAmount')}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
@@ -172,8 +179,9 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Deposit Amount ($)</label>
+            <label htmlFor="depositAmount" className="block text-sm font-medium text-gray-700">Deposit Amount ($)</label>
             <input
+              id="depositAmount"
               type="number"
               {...register('depositAmount')}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
@@ -183,8 +191,9 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Terms & Conditions</label>
+          <label htmlFor="terms" className="block text-sm font-medium text-gray-700">Terms & Conditions</label>
           <textarea
+            id="terms"
             {...register('terms')}
             rows={4}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"

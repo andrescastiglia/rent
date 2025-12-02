@@ -15,14 +15,20 @@ export default function LeaseDetailPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('LeaseDetailPage mounted, params:', params);
     if (params.id) {
+      console.log('Loading lease with id:', params.id);
       loadLease(params.id as string);
+    } else {
+      console.log('No lease id in params');
     }
   }, [params.id]);
 
   const loadLease = async (id: string) => {
     try {
+      console.log('Calling leasesApi.getById with:', id);
       const data = await leasesApi.getById(id);
+      console.log('leasesApi.getById returned:', data);
       setLease(data);
     } catch (error) {
       console.error('Failed to load lease', error);

@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Property } from '@/types/property';
 import { Building, MapPin, Bed, Bath, Ruler } from 'lucide-react';
 
@@ -13,10 +14,11 @@ export function PropertyCard({ property }: PropertyCardProps) {
       <div className="bg-white rounded-lg shadow-md overflow-hidden transition-transform duration-300 group-hover:-translate-y-1 group-hover:shadow-lg border border-gray-100">
         <div className="relative h-48 bg-gray-200">
           {property.images.length > 0 ? (
-            <img
+            <Image
               src={property.images[0]}
               alt={property.name}
-              className="w-full h-full object-cover"
+              fill
+              className="object-cover"
             />
           ) : (
             <div className="flex items-center justify-center h-full text-gray-400">

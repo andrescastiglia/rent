@@ -65,6 +65,7 @@ export const propertiesApi = {
         await delay(DELAY);
         const newProperty: Property = {
             ...data,
+            images: data.images || [],
             id: Math.random().toString(36).substr(2, 9),
             status: 'ACTIVE',
             features: (data.features || []).map(f => ({ ...f, id: Math.random().toString(36).substr(2, 9) })),
@@ -81,9 +82,14 @@ export const propertiesApi = {
         const index = MOCK_PROPERTIES.findIndex((p) => p.id === id);
         if (index === -1) throw new Error('Property not found');
 
-        const updatedProperty = {
+        const updatedFeatures = data.features 
+            ? data.features.map(f => ({ ...f, id: Math.random().toString(36).substr(2, 9) }))
+            : MOCK_PROPERTIES[index].features;
+
+        const updatedProperty: Property = {
             ...MOCK_PROPERTIES[index],
             ...data,
+            features: updatedFeatures,
             updatedAt: new Date().toISOString(),
         };
         MOCK_PROPERTIES[index] = updatedProperty;

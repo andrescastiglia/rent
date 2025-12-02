@@ -7,7 +7,7 @@ test.describe('Login Flow', () => {
 
     test('should display login page', async ({ page }) => {
         await expect(page).toHaveURL('/');
-        await expect(page.getByRole('heading', { name: /bienvenido/i })).toBeVisible();
+        await expect(page.getByRole('heading', { name: /sistema de gestión de alquileres/i })).toBeVisible();
     });
 
     test('should navigate to properties after clicking button', async ({ page }) => {

@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import Image from 'next/image';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 
 interface ImageUploadProps {
@@ -45,7 +46,7 @@ export function ImageUpload({ images, onChange, onUpload }: ImageUploadProps) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {images.map((url, index) => (
           <div key={index} className="relative group aspect-video bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-            <img src={url} alt={`Property ${index + 1}`} className="w-full h-full object-cover" />
+            <Image src={url} alt={`Property ${index + 1}`} fill className="object-cover" />
             <button
               type="button"
               onClick={() => removeImage(index)}

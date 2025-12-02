@@ -51,7 +51,7 @@ export function TenantForm({ initialData, isEditing = false }: TenantFormProps) 
       }
 
       if (isEditing && initialData) {
-        await tenantsApi.update(initialData.id, cleanData);
+        await tenantsApi.update(initialData.id, cleanData as any);
         router.push(`/tenants/${initialData.id}`);
       } else {
         await tenantsApi.create(cleanData as CreateTenantInput);

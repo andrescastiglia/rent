@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import { Property } from '@/types/property';
 import { propertiesApi } from '@/lib/api/properties';
@@ -73,10 +74,11 @@ export default function PropertyDetailPage() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="relative h-64 md:h-96 bg-gray-200">
           {property.images.length > 0 ? (
-            <img
+            <Image
               src={property.images[0]}
               alt={property.name}
-              className="w-full h-full object-cover"
+              fill
+              className="object-cover"
             />
           ) : (
             <div className="flex items-center justify-center h-full text-gray-400">
@@ -87,6 +89,7 @@ export default function PropertyDetailPage() {
             <Link
               href={`/properties/${property.id}/edit`}
               className="p-2 bg-white/90 backdrop-blur-sm rounded-full text-gray-700 hover:text-blue-600 shadow-sm transition-colors"
+              aria-label="Edit"
             >
               <Edit size={20} />
             </Link>

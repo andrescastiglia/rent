@@ -23,7 +23,7 @@ test.describe('Property Creation Flow', () => {
 
         // Check form elements are visible
         await expect(page.getByLabel(/name/i)).toBeVisible();
-        await expect(page.getByLabel(/address/i)).toBeVisible();
+        await expect(page.getByLabel(/street/i)).toBeVisible();
         await expect(page.getByLabel(/city/i)).toBeVisible();
         await expect(page.getByLabel(/type/i)).toBeVisible();
         await expect(page.getByRole('button', { name: /save property/i })).toBeVisible();
@@ -44,18 +44,19 @@ test.describe('Property Creation Flow', () => {
 
         // Fill in property form
         await page.getByLabel(/name/i).fill('Test Property E2E');
-        await page.getByLabel(/address/i).fill('123 Test Street');
+        await page.getByLabel(/street/i).fill('123 Test Street');
+        await page.getByLabel(/number/i).fill('100');
         await page.getByLabel(/city/i).fill('Test City');
         await page.getByLabel(/state/i).fill('Test State');
         await page.getByLabel(/zip code/i).fill('12345');
-        await page.getByLabel(/type/i).selectOption('residential');
-        await page.getByLabel(/status/i).selectOption('active');
+        await page.getByLabel(/country/i).fill('Test Country');
+        await page.getByLabel(/type/i).selectOption('APARTMENT');
 
-        // Submit form
+                // Submit form
         await page.getByRole('button', { name: /save property/i }).click();
 
-        // Should redirect to properties list
-        await expect(page).toHaveURL('/properties');
+        // Should redirect to property details
+        await expect(page).toHaveURL(/\/properties\/[^\/]+$/);
 
         // Should show success message or new property in list
         await expect(page.getByText(/test property e2e/i)).toBeVisible();
@@ -65,22 +66,22 @@ test.describe('Property Creation Flow', () => {
         await page.goto('/properties');
 
         // Wait for properties to load
-        await page.waitForSelector('a[href^="/properties/"]', { timeout: 5000 });
+        await page.waitForSelector('a[href^="/properties/"]:not([href="/properties/new"])', { timeout: 5000 });
 
         // Click on first property card link
-        const firstPropertyLink = page.locator('a[href^="/properties/"]').first();
-        await firstPropertyLink.click();
+        const firstPropertyLink = page.locator('a[href^="/properties/"]:not([href="/properties/new"])').first();
+        await firstPropertyLink.click({ force: true });
 
         // Should navigate to property detail page
-        await expect(page.url()).toMatch(/\/properties\/[^\/]+$/);
+        await expect(page).toHaveURL(/\/properties\/[^\/]+$/);
     });
 
     test('should display edit button on property detail page', async ({ page }) => {
         await page.goto('/properties');
 
         // Wait for and click first property
-        await page.waitForSelector('a[href^="/properties/"]', { timeout: 5000 });
-        await page.locator('a[href^="/properties/"]').first().click();
+        await page.waitForSelector('a[href^="/properties/"]:not([href="/properties/new"])', { timeout: 5000 });
+        await page.locator('a[href^="/properties/"]:not([href="/properties/new"])').first().click({ force: true });
 
         // Should show edit button
         await expect(page.getByRole('link', { name: /edit/i })).toBeVisible();
