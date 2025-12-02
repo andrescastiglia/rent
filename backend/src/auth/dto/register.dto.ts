@@ -27,8 +27,8 @@ export class RegisterDto {
   lastName: string;
 
   @IsEnum(UserRole)
-  @IsNotEmpty()
-  role: UserRole;
+  @IsOptional()
+  role?: UserRole = UserRole.TENANT;
 
   @IsString()
   @IsOptional()

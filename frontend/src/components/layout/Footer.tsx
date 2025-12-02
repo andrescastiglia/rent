@@ -24,28 +24,34 @@ export default function Footer() {
             </h3>
             <ul className="space-y-2">
               <li>
-                <Link
-                  href="/help"
+                <a
+                  href="https://github.com/andrescastiglia/rent/blob/main/README.md"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
                 >
                   Ayuda
-                </Link>
+                </a>
               </li>
               <li>
-                <Link
-                  href="/terms"
+                <a
+                  href="https://github.com/andrescastiglia/rent/blob/main/TERMS.md"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
                 >
                   Términos y Condiciones
-                </Link>
+                </a>
               </li>
               <li>
-                <Link
-                  href="/privacy"
+                <a
+                  href="https://github.com/andrescastiglia/rent/blob/main/PRIVACY.md"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
                 >
                   Privacidad
-                </Link>
+                </a>
               </li>
             </ul>
           </div>
@@ -56,15 +62,15 @@ export default function Footer() {
               Contacto
             </h3>
             <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-              <li>Email: soporte@rentms.com</li>
-              <li>Tel: +54 11 1234-5678</li>
+              <li>Email: acastiglia@gmail.com</li>
+              <li>Tel: +54 9 2227 44-2981</li>
             </ul>
           </div>
         </div>
 
         <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
           <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-            © {currentYear} RentMS. Todos los derechos reservados.
+            © {currentYear} Rent. Todos los derechos reservados.
           </p>
         </div>
       </div>

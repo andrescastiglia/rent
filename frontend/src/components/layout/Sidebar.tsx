@@ -66,22 +66,37 @@ export default function Sidebar() {
       >
         <nav className="h-full overflow-y-auto p-4 space-y-1">
           {navItems.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setIsOpen(false)}
+            const isActive = pathname.startsWith(item.href);
+            const isDisabled = item.disabled;
+
+            const linkContent = (
+              <span
                 className={`
                   block px-4 py-2 rounded-md text-sm font-medium transition-colors
                   ${
-                    isActive
+                    isActive && !isDisabled
                       ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                      : isDisabled
+                      ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }
                 `}
               >
                 {item.label}
+              </span>
+            );
+
+            return isDisabled ? (
+              <div key={item.href} title="Próximamente">
+                {linkContent}
+              </div>
+            ) : (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setIsOpen(false)}
+              >
+                {linkContent}
               </Link>
             );
           })}

@@ -16,7 +16,7 @@ export default function Header() {
           <div className="flex items-center">
             <Link href="/dashboard" className="flex items-center">
               <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                RentMS
+                Rent
               </span>
             </Link>
           </div>
@@ -59,20 +59,18 @@ export default function Header() {
               {/* Dropdown Menu */}
               {isMenuOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-10 border border-gray-200 dark:border-gray-700">
-                  <Link
-                    href="/dashboard/profile"
-                    className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    onClick={() => setIsMenuOpen(false)}
+                  <div
+                    className="block px-4 py-2 text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                    title="Próximamente"
                   >
                     Mi Perfil
-                  </Link>
-                  <Link
-                    href="/dashboard/settings"
-                    className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    onClick={() => setIsMenuOpen(false)}
+                  </div>
+                  <div
+                    className="block px-4 py-2 text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                    title="Próximamente"
                   >
                     Configuración
-                  </Link>
+                  </div>
                   <hr className="my-1 border-gray-200 dark:border-gray-700" />
                   <button
                     onClick={() => {

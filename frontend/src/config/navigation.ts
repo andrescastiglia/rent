@@ -3,6 +3,7 @@ export interface NavItem {
     href: string;
     roles: string[];
     icon?: string;
+    disabled?: boolean;
 }
 
 export const navigationItems: NavItem[] = [
@@ -13,28 +14,30 @@ export const navigationItems: NavItem[] = [
     },
     {
         label: 'Propiedades',
-        href: '/dashboard/properties',
+        href: '/properties',
         roles: ['admin', 'owner'],
     },
     {
         label: 'Inquilinos',
-        href: '/dashboard/tenants',
+        href: '/tenants',
         roles: ['admin', 'owner'],
     },
     {
         label: 'Contratos',
-        href: '/dashboard/leases',
+        href: '/leases',
         roles: ['admin', 'owner', 'tenant'],
     },
     {
         label: 'Pagos',
-        href: '/dashboard/payments',
+        href: '/payments',
         roles: ['admin', 'owner', 'tenant'],
+        disabled: true,
     },
     {
         label: 'Usuarios',
-        href: '/dashboard/users',
+        href: '/users',
         roles: ['admin'],
+        disabled: true,
     },
 ];
 
