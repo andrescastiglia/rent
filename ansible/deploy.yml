@@ -63,7 +63,7 @@
 
     - name: Install backend dependencies
       ansible.builtin.command:
-        cmd: npm i --production
+        cmd: npm ci
         chdir: "{{ current_path }}/backend"
       environment:
         NODE_ENV: production
@@ -98,7 +98,7 @@
 
     - name: Install frontend dependencies
       ansible.builtin.command:
-        cmd: npm i --production
+        cmd: npm ci
         chdir: "{{ current_path }}/frontend"
       environment:
         NODE_ENV: production
