@@ -231,32 +231,12 @@ jobs:
           retention-days: 1
 
   # ─────────────────────────────────────────────────────────────
-  # E2E TESTS
+  # E2E TESTS (Frontend only - uses mock data)
   # ─────────────────────────────────────────────────────────────
   e2e-tests:
     name: E2E Tests
     runs-on: ubuntu-latest
-    needs: [backend-build, frontend-build]
-
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: rent_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7
-        ports:
-          - 6379:6379
+    needs: [frontend-build]
 
     steps:
       - name: Checkout code
@@ -271,13 +251,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.npm
-          key: ${{ runner.os }}-npm-e2e-${{ hashFiles('backend/package-lock.json', 'frontend/package-lock.json') }}
+          key: ${{ runner.os }}-npm-frontend-${{ hashFiles('frontend/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-npm-e2e-
-
-      - name: Install backend dependencies
-        working-directory: backend
-        run: npm ci
+            ${{ runner.os }}-npm-frontend-
 
       - name: Install frontend dependencies
         working-directory: frontend
@@ -287,61 +263,9 @@ jobs:
         working-directory: frontend
         run: npx playwright install --with-deps chromium
 
-      - name: Download backend artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: backend-dist
-          path: backend/dist
-
-      - name: Seed database (creates tables and test data)
-        working-directory: backend
-        run: npm run seed
-        env:
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: 5432
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: rent_test
-
-      - name: Start backend
-        working-directory: backend
-        run: |
-          npm run start:prod &
-          echo "Waiting for backend to start..."
-          for i in {1..30}; do
-            if curl -s http://localhost:3001 > /dev/null 2>&1; then
-              echo "Backend is ready!"
-              break
-            fi
-            echo "Attempt $i/30 - waiting..."
-            sleep 2
-          done
-        env:
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: 5432
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: rent_test
-          REDIS_URL: redis://localhost:6379
-          JWT_SECRET: test-secret
-          JWT_REFRESH_SECRET: test-refresh-secret
-          NODE_ENV: production
-          PORT: 3001
-
-      - name: Start frontend
+      - name: Build frontend
         working-directory: frontend
-        run: |
-          npm run build
-          npm run start &
-          echo "Waiting for frontend to start..."
-          for i in {1..30}; do
-            if curl -s http://localhost:3000 > /dev/null 2>&1; then
-              echo "Frontend is ready!"
-              break
-            fi
-            echo "Attempt $i/30 - waiting..."
-            sleep 2
-          done
+        run: npm run build
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3001
 
@@ -365,9 +289,8 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: e2e-tests
-    #if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
-    if: false
+    needs: [backend-build, e2e-tests]
+    if: false  # Disabled until staging server is configured
     environment: staging
 
     steps:
@@ -404,7 +327,7 @@ jobs:
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: e2e-tests
+    needs: [backend-build, e2e-tests]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: production
 
