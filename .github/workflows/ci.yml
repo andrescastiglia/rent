@@ -293,13 +293,23 @@ jobs:
           name: backend-dist
           path: backend/dist
 
+      - name: Seed database (creates tables and test data)
+        working-directory: backend
+        run: npm run seed
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: rent_test
+
       - name: Start backend
         working-directory: backend
         run: |
           npm run start:prod &
           echo "Waiting for backend to start..."
           for i in {1..30}; do
-            if curl -s http://localhost:3401 > /dev/null 2>&1; then
+            if curl -s http://localhost:3001 > /dev/null 2>&1; then
               echo "Backend is ready!"
               break
             fi
@@ -316,17 +326,7 @@ jobs:
           JWT_SECRET: test-secret
           JWT_REFRESH_SECRET: test-refresh-secret
           NODE_ENV: production
-          PORT: 3401
-
-      - name: Seed database
-        working-directory: backend
-        run: npm run seed
-        env:
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: 5432
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: rent_test
+          PORT: 3001
 
       - name: Start frontend
         working-directory: frontend
@@ -343,7 +343,7 @@ jobs:
             sleep 2
           done
         env:
-          NEXT_PUBLIC_API_URL: http://localhost:3401
+          NEXT_PUBLIC_API_URL: http://localhost:3001
 
       - name: Run E2E tests
         working-directory: frontend
