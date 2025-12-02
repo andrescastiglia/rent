@@ -4,7 +4,7 @@ all:
       # These values are overridden by CI/CD via -e flags or environment variables
       ansible_host: "{{ ansible_host | default(lookup('env', 'SSH_HOST')) }}"
       ansible_port: "{{ ansible_port | default(lookup('env', 'SSH_PORT') | default(22)) }}"
-      ansible_user: "{{ ansible_user | default(lookup('env', 'SSH_USER') | default('deploy')) }}"
+      ansible_user: "{{ ansible_user | default(lookup('env', 'SSH_USER') | default('github')) }}"
 
   vars:
     env_name: production
