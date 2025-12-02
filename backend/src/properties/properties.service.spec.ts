@@ -52,13 +52,6 @@ describe('PropertiesService', () => {
     status: PropertyStatus.ACTIVE,
   };
 
-  const mockUnit: Partial<Unit> = {
-    id: 'unit-1',
-    propertyId: '1',
-    unitNumber: '101',
-    status: UnitStatus.AVAILABLE,
-  };
-
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [

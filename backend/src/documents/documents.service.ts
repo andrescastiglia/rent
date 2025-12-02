@@ -39,7 +39,7 @@ export class DocumentsService {
       await this.s3Client.send(
         new HeadBucketCommand({ Bucket: this.bucketName }),
       );
-    } catch (error) {
+    } catch {
       // Bucket doesn't exist, create it
       try {
         await this.s3Client.send(
