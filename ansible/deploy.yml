@@ -80,12 +80,6 @@
         state: link
         force: true
 
-    - name: Run database migrations
-      ansible.builtin.command:
-        cmd: npm run migration:run
-        chdir: "{{ current_path }}/backend"
-      ignore_errors: true
-
     # ─────────────────────────────────────────────────────────────
     # FRONTEND BUILD
     # ─────────────────────────────────────────────────────────────
