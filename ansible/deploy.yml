@@ -124,12 +124,12 @@
         state: link
         force: true
 
-    - name: Create frontend symlink public
-      ansible.builtin.file:
-        src: "{{ current_path }}/frontend/public"
-        dest: "{{ deploy_path }}/frontend/public"
-        state: link
-        force: true
+#    - name: Create frontend symlink public
+#      ansible.builtin.file:
+#        src: "{{ current_path }}/frontend/public"
+#        dest: "{{ deploy_path }}/frontend/public"
+#        state: link
+#        force: true
 
     - name: Create frontend symlink modules
       ansible.builtin.file:
@@ -181,7 +181,7 @@
           pm2 start {{ deploy_path }}/backend/main.js
           --name rent-backend
           --cwd {{ deploy_path }}/backend
-          --log /var/log/rent/backend.log
+          --log /var/log/rent/backend/backend.log
           --time
           --env production
       environment:
@@ -194,9 +194,9 @@
           pm2 start npm
           --name rent-frontend
           --cwd {{ deploy_path }}/frontend
-          -- start -p {{ frontend_port }}
-          --log /var/log/rent/frontend.log
+          --log /var/log/rent/frontend/frontend.log
           --time
+          -- start
       environment:
         NODE_ENV: production
         PORT: "{{ frontend_port }}"
