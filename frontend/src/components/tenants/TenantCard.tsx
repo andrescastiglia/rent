@@ -1,34 +1,44 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
 import { Tenant } from '@/types/tenant';
 import { User, Mail, Phone, MapPin } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 interface TenantCardProps {
   tenant: Tenant;
 }
 
 export function TenantCard({ tenant }: TenantCardProps) {
+  const t = useTranslations('tenants');
+
+  const getStatusLabel = (status: string) => {
+    const statusKey = status.toLowerCase() as 'active' | 'inactive' | 'pending';
+    return t(`status.${statusKey}`);
+  };
+
   return (
     <Link href={`/tenants/${tenant.id}`} className="block group">
-      <div className="bg-white rounded-lg shadow-md overflow-hidden transition-transform duration-300 group-hover:-translate-y-1 group-hover:shadow-lg border border-gray-100 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-transform duration-300 group-hover:-translate-y-1 group-hover:shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 mr-4">
+            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-300 mr-4">
               <User size={24} />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-gray-900">{tenant.firstName} {tenant.lastName}</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">{tenant.firstName} {tenant.lastName}</h3>
               <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide ${
-                tenant.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 
-                tenant.status === 'INACTIVE' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                tenant.status === 'ACTIVE' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 
+                tenant.status === 'INACTIVE' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
               }`}>
-                {tenant.status}
+                {getStatusLabel(tenant.status)}
               </span>
             </div>
           </div>
         </div>
         
-        <div className="space-y-2 text-sm text-gray-600">
+        <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
           <div className="flex items-center">
             <Mail size={16} className="mr-2 text-gray-400" />
             <span className="truncate">{tenant.email}</span>

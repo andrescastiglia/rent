@@ -1,0 +1,45 @@
+{
+    "errors": {
+        "notFound": "Recurso no encontrado",
+        "unauthorized": "No autorizado",
+        "forbidden": "Acceso denegado",
+        "badRequest": "Solicitud incorrecta",
+        "internalError": "Error interno del servidor",
+        "invalidCredentials": "Credenciales inválidas",
+        "emailAlreadyExists": "El email ya está registrado",
+        "propertyNotFound": "Propiedad no encontrada",
+        "tenantNotFound": "Inquilino no encontrado",
+        "leaseNotFound": "Contrato no encontrado",
+        "userNotFound": "Usuario no encontrado"
+    },
+    "validation": {
+        "required": "El campo {field} es requerido",
+        "invalidEmail": "Email inválido",
+        "invalidPhone": "Teléfono inválido",
+        "minLength": "Debe tener al menos {min} caracteres",
+        "maxLength": "No puede exceder {max} caracteres"
+    },
+    "contract": {
+        "title": "Contrato de Alquiler",
+        "issueDate": "Fecha de emisión",
+        "parties": "Partes",
+        "lessor": "Arrendador",
+        "lessee": "Arrendatario",
+        "property": "Propiedad",
+        "address": "Dirección",
+        "terms": "Términos y Condiciones",
+        "startDate": "Fecha de inicio",
+        "endDate": "Fecha de finalización",
+        "rentAmount": "Renta mensual",
+        "deposit": "Depósito",
+        "paymentDay": "Día de pago",
+        "signatures": "Firmas",
+        "lessorSignature": "Firma del Arrendador",
+        "lesseeSignature": "Firma del Arrendatario"
+    },
+    "success": {
+        "created": "Creado exitosamente",
+        "updated": "Actualizado exitosamente",
+        "deleted": "Eliminado exitosamente"
+    }
+}

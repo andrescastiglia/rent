@@ -15,12 +15,22 @@ import { TenantsModule } from './tenants/tenants.module';
 import { CompaniesModule } from './companies/companies.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
+import { I18nModule, AcceptLanguageResolver } from 'nestjs-i18n';
+import * as path from 'path';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '../.env', // Path relative to backend/ directory
+    }),
+    I18nModule.forRoot({
+      fallbackLanguage: 'es',
+      loaderOptions: {
+        path: path.join(__dirname, '/i18n/'),
+        watch: true,
+      },
+      resolvers: [AcceptLanguageResolver],
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -49,4 +59,4 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }

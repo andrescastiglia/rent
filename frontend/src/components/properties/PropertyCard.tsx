@@ -3,12 +3,15 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Property } from '@/types/property';
 import { Building, MapPin, Bed, Bath, Ruler } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 interface PropertyCardProps {
   property: Property;
 }
 
 export function PropertyCard({ property }: PropertyCardProps) {
+  const t = useTranslations('properties');
+
   return (
     <Link href={`/properties/${property.id}`} className="block group">
       <div className="bg-white rounded-lg shadow-md overflow-hidden transition-transform duration-300 group-hover:-translate-y-1 group-hover:shadow-lg border border-gray-100">
@@ -26,13 +29,13 @@ export function PropertyCard({ property }: PropertyCardProps) {
             </div>
           )}
           <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded text-xs font-semibold text-gray-700 uppercase tracking-wide">
-            {property.type}
+            {t(`types.${property.type}`)}
           </div>
           <div className={`absolute top-2 left-2 px-2 py-1 rounded text-xs font-semibold text-white uppercase tracking-wide ${
             property.status === 'ACTIVE' ? 'bg-green-500' : 
             property.status === 'MAINTENANCE' ? 'bg-yellow-500' : 'bg-red-500'
           }`}>
-            {property.status}
+            {t(`status.${property.status}`)}
           </div>
         </div>
         
@@ -52,14 +55,14 @@ export function PropertyCard({ property }: PropertyCardProps) {
                 <Bed size={16} className="mr-1 text-blue-500" />
                 <span>{property.units.reduce((acc, unit) => acc + unit.bedrooms, 0)}</span>
               </div>
-              <span className="text-[10px] uppercase text-gray-400">Beds</span>
+              <span className="text-[10px] uppercase text-gray-400">{t('labels.beds')}</span>
             </div>
             <div className="flex flex-col items-center justify-center text-gray-600">
               <div className="flex items-center text-sm font-medium">
                 <Bath size={16} className="mr-1 text-blue-500" />
                 <span>{property.units.reduce((acc, unit) => acc + unit.bathrooms, 0)}</span>
               </div>
-              <span className="text-[10px] uppercase text-gray-400">Baths</span>
+              <span className="text-[10px] uppercase text-gray-400">{t('labels.baths')}</span>
             </div>
             <div className="flex flex-col items-center justify-center text-gray-600">
               <div className="flex items-center text-sm font-medium">

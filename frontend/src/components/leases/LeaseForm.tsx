@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect, useState } from 'react';
 import { useForm, Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,8 +10,9 @@ import { propertiesApi } from '@/lib/api/properties';
 import { tenantsApi } from '@/lib/api/tenants';
 import { Property } from '@/types/property';
 import { Tenant } from '@/types/tenant';
-import { useRouter } from 'next/navigation';
+import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
 import { Loader2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 const leaseSchema = z.object({
   propertyId: z.string().min(1, 'Property is required'),
@@ -31,7 +34,9 @@ interface LeaseFormProps {
 }
 
 export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
-  const router = useRouter();
+  const router = useLocalizedRouter();
+  const t = useTranslations('leases');
+  const tCommon = useTranslations('common');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -74,26 +79,26 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
       router.refresh();
     } catch (error) {
       console.error('Error saving lease:', error);
-      alert('Failed to save lease');
+      alert(tCommon('error'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
       <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Lease Details</h3>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2">{t('leaseDetails')}</h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="propertyId" className="block text-sm font-medium text-gray-700">Property</label>
+            <label htmlFor="propertyId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.property')}</label>
             <select
               id="propertyId"
               {...register('propertyId')}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
             >
-              <option value="">Select Property</option>
+              <option value="">{t('selectProperty')}</option>
               {properties.map(p => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
@@ -102,24 +107,24 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           </div>
 
           <div>
-            <label htmlFor="unitId" className="block text-sm font-medium text-gray-700">Unit ID</label>
+            <label htmlFor="unitId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.unitId')}</label>
             <input
               id="unitId"
               {...register('unitId')}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
-              placeholder="e.g. 101"
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
+              placeholder={t('unitIdPlaceholder')}
             />
             {errors.unitId && <p className="mt-1 text-sm text-red-600">{errors.unitId.message}</p>}
           </div>
 
           <div>
-            <label htmlFor="tenantId" className="block text-sm font-medium text-gray-700">Tenant</label>
+            <label htmlFor="tenantId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.tenant')}</label>
             <select
               id="tenantId"
               {...register('tenantId')}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
             >
-              <option value="">Select Tenant</option>
+              <option value="">{t('selectTenant')}</option>
               {tenants.map(t => (
                 <option key={t.id} value={t.id}>{t.firstName} {t.lastName}</option>
               ))}
@@ -128,39 +133,39 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           </div>
 
           <div>
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700">Status</label>
+            <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.status')}</label>
             <select
               id="status"
               {...register('status')}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
             >
-              <option value="DRAFT">Draft</option>
-              <option value="ACTIVE">Active</option>
-              <option value="ENDED">Ended</option>
-              <option value="TERMINATED">Terminated</option>
+              <option value="DRAFT">{t('status.DRAFT')}</option>
+              <option value="ACTIVE">{t('status.ACTIVE')}</option>
+              <option value="ENDED">{t('status.ENDED')}</option>
+              <option value="TERMINATED">{t('status.TERMINATED')}</option>
             </select>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">Start Date</label>
+            <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.startDate')}</label>
             <input
               id="startDate"
               type="date"
               {...register('startDate')}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
             />
             {errors.startDate && <p className="mt-1 text-sm text-red-600">{errors.startDate.message}</p>}
           </div>
 
           <div>
-            <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">End Date</label>
+            <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.endDate')}</label>
             <input
               id="endDate"
               type="date"
               {...register('endDate')}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
             />
             {errors.endDate && <p className="mt-1 text-sm text-red-600">{errors.endDate.message}</p>}
           </div>
@@ -168,47 +173,47 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="rentAmount" className="block text-sm font-medium text-gray-700">Rent Amount ($)</label>
+            <label htmlFor="rentAmount" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.rentAmount')}</label>
             <input
               id="rentAmount"
               type="number"
               {...register('rentAmount')}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
             />
             {errors.rentAmount && <p className="mt-1 text-sm text-red-600">{errors.rentAmount.message}</p>}
           </div>
 
           <div>
-            <label htmlFor="depositAmount" className="block text-sm font-medium text-gray-700">Deposit Amount ($)</label>
+            <label htmlFor="depositAmount" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.depositAmount')}</label>
             <input
               id="depositAmount"
               type="number"
               {...register('depositAmount')}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
             />
             {errors.depositAmount && <p className="mt-1 text-sm text-red-600">{errors.depositAmount.message}</p>}
           </div>
         </div>
 
         <div>
-          <label htmlFor="terms" className="block text-sm font-medium text-gray-700">Terms & Conditions</label>
+          <label htmlFor="terms" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('termsAndConditions')}</label>
           <textarea
             id="terms"
             {...register('terms')}
             rows={4}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
-            placeholder="Lease terms..."
+            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
+            placeholder={t('leaseTermsPlaceholder')}
           />
         </div>
       </div>
 
-      <div className="flex justify-end pt-4 border-t">
+      <div className="flex justify-end pt-4 border-t dark:border-gray-700">
         <button
           type="button"
           onClick={() => router.back()}
-          className="mr-3 px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className="mr-3 px-4 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
-          Cancel
+          {tCommon('cancel')}
         </button>
         <button
           type="submit"
@@ -218,10 +223,10 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           {isSubmitting ? (
             <>
               <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
-              Saving...
+              {tCommon('saving')}
             </>
           ) : (
-            'Save Lease'
+            t('saveLease')
           )}
         </button>
       </div>

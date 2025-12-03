@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import { getToken, setToken, getUser, setUser, clearAuth } from '@/lib/auth';
 import type { User, LoginRequest, RegisterRequest, AuthResponse } from '@/types/auth';
@@ -22,6 +22,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setTokenState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
+
+  // Extraer el locale del pathname actual
+  const getLocaleFromPath = () => {
+    const segments = pathname.split('/');
+    const locale = segments[1];
+    if (['es', 'pt', 'en'].includes(locale)) {
+      return locale;
+    }
+    return 'es'; // fallback
+  };
 
   useEffect(() => {
     // Load user and token from localStorage on mount
@@ -45,7 +56,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setTokenState(response.accessToken);
       setUserState(response.user);
 
-      router.push('/dashboard');
+      const locale = getLocaleFromPath();
+      router.push(`/${locale}/dashboard`);
     } catch (error) {
       throw error;
     }
@@ -60,7 +72,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setTokenState(response.accessToken);
       setUserState(response.user);
 
-      router.push('/dashboard');
+      const locale = getLocaleFromPath();
+      router.push(`/${locale}/dashboard`);
     } catch (error) {
       throw error;
     }
@@ -70,7 +83,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearAuth();
     setTokenState(null);
     setUserState(null);
-    router.push('/login');
+    const locale = getLocaleFromPath();
+    router.push(`/${locale}/login`);
   };
 
   return (

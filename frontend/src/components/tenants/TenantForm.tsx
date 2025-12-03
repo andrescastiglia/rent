@@ -1,11 +1,14 @@
+'use client';
+
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { CreateTenantInput, Tenant } from '@/types/tenant';
 import { tenantsApi } from '@/lib/api/tenants';
-import { useRouter } from 'next/navigation';
+import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
 import { Loader2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 const tenantSchema = z.object({
   firstName: z.string().min(2, 'First name is required'),
@@ -31,7 +34,9 @@ interface TenantFormProps {
 }
 
 export function TenantForm({ initialData, isEditing = false }: TenantFormProps) {
-  const router = useRouter();
+  const router = useLocalizedRouter();
+  const t = useTranslations('tenants');
+  const tCommon = useTranslations('common');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<TenantFormData>({
@@ -60,112 +65,112 @@ export function TenantForm({ initialData, isEditing = false }: TenantFormProps) 
       router.refresh();
     } catch (error) {
       console.error('Error saving tenant:', error);
-      alert('Failed to save tenant');
+      alert(tCommon('error'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
       <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Personal Information</h3>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2">{t('personalInfo')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">First Name</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.firstName')}</label>
             <input
               {...register('firstName')}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
             />
             {errors.firstName && <p className="mt-1 text-sm text-red-600">{errors.firstName.message}</p>}
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700">Last Name</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.lastName')}</label>
             <input
               {...register('lastName')}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
             />
             {errors.lastName && <p className="mt-1 text-sm text-red-600">{errors.lastName.message}</p>}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Email</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.email')}</label>
             <input
               {...register('email')}
               type="email"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
             />
             {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Phone</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.phone')}</label>
             <input
               {...register('phone')}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
             />
             {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">DNI / ID</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.dni')}</label>
             <input
               {...register('dni')}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
             />
             {errors.dni && <p className="mt-1 text-sm text-red-600">{errors.dni.message}</p>}
           </div>
 
           <div>
-             <label className="block text-sm font-medium text-gray-700">Status</label>
+             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.status')}</label>
              <select
                {...register('status')}
-               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+               className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
              >
-               <option value="PROSPECT">Prospect</option>
-               <option value="ACTIVE">Active</option>
-               <option value="INACTIVE">Inactive</option>
+               <option value="PROSPECT">{t('status.PROSPECT')}</option>
+               <option value="ACTIVE">{t('status.ACTIVE')}</option>
+               <option value="INACTIVE">{t('status.INACTIVE')}</option>
              </select>
            </div>
         </div>
       </div>
 
       <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Address (Optional)</h3>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2">{t('addressOptional')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Street</label>
-            <input {...register('address.street')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.street')}</label>
+            <input {...register('address.street')} className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-                <label className="block text-sm font-medium text-gray-700">Number</label>
-                <input {...register('address.number')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.number')}</label>
+                <input {...register('address.number')} className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white" />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">City</label>
-            <input {...register('address.city')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.city')}</label>
+            <input {...register('address.city')} className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">State</label>
-            <input {...register('address.state')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.state')}</label>
+            <input {...register('address.state')} className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Zip Code</label>
-            <input {...register('address.zipCode')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.zipCode')}</label>
+            <input {...register('address.zipCode')} className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white" />
           </div>
         </div>
       </div>
 
-      <div className="flex justify-end pt-4 border-t">
+      <div className="flex justify-end pt-4 border-t dark:border-gray-700">
         <button
           type="button"
           onClick={() => router.back()}
-          className="mr-3 px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className="mr-3 px-4 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
-          Cancel
+          {tCommon('cancel')}
         </button>
         <button
           type="submit"
@@ -175,10 +180,10 @@ export function TenantForm({ initialData, isEditing = false }: TenantFormProps) 
           {isSubmitting ? (
             <>
               <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
-              Saving...
+              {tCommon('saving')}
             </>
           ) : (
-            'Save Tenant'
+            t('saveTenant')
           )}
         </button>
       </div>

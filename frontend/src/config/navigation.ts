@@ -1,5 +1,5 @@
 export interface NavItem {
-    label: string;
+    labelKey: string; // Clave de traducción en messages/**.json bajo "nav"
     href: string;
     roles: string[];
     icon?: string;
@@ -8,33 +8,33 @@ export interface NavItem {
 
 export const navigationItems: NavItem[] = [
     {
-        label: 'Dashboard',
+        labelKey: 'dashboard',
         href: '/dashboard',
         roles: ['admin', 'owner', 'tenant', 'staff'],
     },
     {
-        label: 'Propiedades',
+        labelKey: 'properties',
         href: '/properties',
         roles: ['admin', 'owner'],
     },
     {
-        label: 'Inquilinos',
+        labelKey: 'tenants',
         href: '/tenants',
         roles: ['admin', 'owner'],
     },
     {
-        label: 'Contratos',
+        labelKey: 'leases',
         href: '/leases',
         roles: ['admin', 'owner', 'tenant'],
     },
     {
-        label: 'Pagos',
+        labelKey: 'payments',
         href: '/payments',
         roles: ['admin', 'owner', 'tenant'],
         disabled: true,
     },
     {
-        label: 'Usuarios',
+        labelKey: 'users',
         href: '/users',
         roles: ['admin'],
         disabled: true,

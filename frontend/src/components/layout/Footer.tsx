@@ -1,7 +1,11 @@
+'use client';
+
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
+  const t = useTranslations('footer');
 
   return (
     <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto">
@@ -10,17 +14,17 @@ export default function Footer() {
           {/* About */}
           <div>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-              Sobre Nosotros
+              {t('aboutUs')}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Sistema de gestión de alquileres profesional para propietarios e inquilinos.
+              {t('description')}
             </p>
           </div>
 
           {/* Links */}
           <div>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-              Enlaces Útiles
+              {t('usefulLinks')}
             </h3>
             <ul className="space-y-2">
               <li>
@@ -30,7 +34,7 @@ export default function Footer() {
                   rel="noopener noreferrer"
                   className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
                 >
-                  Ayuda
+                  {t('help')}
                 </a>
               </li>
               <li>
@@ -40,7 +44,7 @@ export default function Footer() {
                   rel="noopener noreferrer"
                   className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
                 >
-                  Términos y Condiciones
+                  {t('termsAndConditions')}
                 </a>
               </li>
               <li>
@@ -50,7 +54,7 @@ export default function Footer() {
                   rel="noopener noreferrer"
                   className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
                 >
-                  Privacidad
+                  {t('privacy')}
                 </a>
               </li>
             </ul>
@@ -59,7 +63,7 @@ export default function Footer() {
           {/* Contact */}
           <div>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-              Contacto
+              {t('contact')}
             </h3>
             <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
               <li>Email: acastiglia@gmail.com</li>
@@ -70,7 +74,7 @@ export default function Footer() {
 
         <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
           <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-            © {currentYear} Rent. Todos los derechos reservados.
+            {t('copyright', { year: currentYear })}
           </p>
         </div>
       </div>

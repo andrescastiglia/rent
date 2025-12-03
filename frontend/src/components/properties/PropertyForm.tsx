@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect } from 'react';
 import { useForm, useFieldArray, Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -5,8 +7,9 @@ import * as z from 'zod';
 import { CreatePropertyInput, Property, PropertyType, PropertyStatus } from '@/types/property';
 import { ImageUpload } from './ImageUpload';
 import { propertiesApi } from '@/lib/api/properties';
-import { useRouter } from 'next/navigation';
+import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 const propertySchema = z.object({
   name: z.string().min(3, 'Name must be at least 3 characters'),
@@ -38,7 +41,9 @@ interface PropertyFormProps {
 }
 
 export function PropertyForm({ initialData, isEditing = false }: PropertyFormProps) {
-  const router = useRouter();
+  const router = useLocalizedRouter();
+  const t = useTranslations('properties');
+  const tCommon = useTranslations('common');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const { register, control, handleSubmit, setValue, watch, formState: { errors } } = useForm<PropertyFormData>({
@@ -78,7 +83,7 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
       router.refresh();
     } catch (error) {
       console.error('Error saving property:', error);
-      alert('Failed to save property');
+      alert(tCommon('error'));
     } finally {
       setIsSubmitting(false);
     }
@@ -89,110 +94,110 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
       <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Basic Information</h3>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2">{t('basicInfo')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">Name</label>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.name')}</label>
             <input
               id="name"
               {...register('name')}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
-              placeholder="e.g. Sunset Apartments"
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
+              placeholder={t('placeholders.name')}
             />
             {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>}
           </div>
           
           <div>
-            <label htmlFor="type" className="block text-sm font-medium text-gray-700">Type</label>
+            <label htmlFor="type" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.type')}</label>
             <select
               id="type"
               {...register('type')}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
             >
-              <option value="APARTMENT">Apartment</option>
-              <option value="HOUSE">House</option>
-              <option value="COMMERCIAL">Commercial</option>
-              <option value="OFFICE">Office</option>
-              <option value="LAND">Land</option>
-              <option value="OTHER">Other</option>
+              <option value="APARTMENT">{t('types.APARTMENT')}</option>
+              <option value="HOUSE">{t('types.HOUSE')}</option>
+              <option value="COMMERCIAL">{t('types.COMMERCIAL')}</option>
+              <option value="OFFICE">{t('types.OFFICE')}</option>
+              <option value="LAND">{t('types.LAND')}</option>
+              <option value="OTHER">{t('types.OTHER')}</option>
             </select>
             {errors.type && <p className="mt-1 text-sm text-red-600">{errors.type.message}</p>}
           </div>
 
           {isEditing && (
              <div>
-             <label htmlFor="status" className="block text-sm font-medium text-gray-700">Status</label>
+             <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.status')}</label>
              <select
                id="status"
                {...register('status')}
-               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+               className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
              >
-               <option value="ACTIVE">Active</option>
-               <option value="INACTIVE">Inactive</option>
-               <option value="MAINTENANCE">Maintenance</option>
+               <option value="ACTIVE">{t('status.ACTIVE')}</option>
+               <option value="INACTIVE">{t('status.INACTIVE')}</option>
+               <option value="MAINTENANCE">{t('status.MAINTENANCE')}</option>
              </select>
            </div>
           )}
         </div>
 
         <div>
-          <label htmlFor="description" className="block text-sm font-medium text-gray-700">Description</label>
+          <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.description')}</label>
           <textarea
             id="description"
             {...register('description')}
             rows={3}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
-            placeholder="Property description..."
+            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
+            placeholder={t('placeholders.description')}
           />
         </div>
       </div>
 
       <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Location</h3>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2">{t('location')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="street" className="block text-sm font-medium text-gray-700">Street</label>
-            <input id="street" {...register('address.street')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
+            <label htmlFor="street" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.street')}</label>
+            <input id="street" {...register('address.street')} className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white" />
             {errors.address?.street && <p className="mt-1 text-sm text-red-600">{errors.address.street.message}</p>}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-                <label htmlFor="number" className="block text-sm font-medium text-gray-700">Number</label>
-                <input id="number" {...register('address.number')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
+                <label htmlFor="number" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.number')}</label>
+                <input id="number" {...register('address.number')} className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white" />
                 {errors.address?.number && <p className="mt-1 text-sm text-red-600">{errors.address.number.message}</p>}
             </div>
             <div>
-                <label htmlFor="unit" className="block text-sm font-medium text-gray-700">Unit (Optional)</label>
-                <input id="unit" {...register('address.unit')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
+                <label htmlFor="unit" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.unit')} ({tCommon('optional')})</label>
+                <input id="unit" {...register('address.unit')} className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white" />
             </div>
           </div>
           <div>
-            <label htmlFor="city" className="block text-sm font-medium text-gray-700">City</label>
-            <input id="city" {...register('address.city')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
+            <label htmlFor="city" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.city')}</label>
+            <input id="city" {...register('address.city')} className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white" />
             {errors.address?.city && <p className="mt-1 text-sm text-red-600">{errors.address.city.message}</p>}
           </div>
           <div>
-            <label htmlFor="state" className="block text-sm font-medium text-gray-700">State</label>
-            <input id="state" {...register('address.state')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
+            <label htmlFor="state" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.state')}</label>
+            <input id="state" {...register('address.state')} className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white" />
             {errors.address?.state && <p className="mt-1 text-sm text-red-600">{errors.address.state.message}</p>}
           </div>
           <div>
-            <label htmlFor="zipCode" className="block text-sm font-medium text-gray-700">Zip Code</label>
-            <input id="zipCode" {...register('address.zipCode')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
+            <label htmlFor="zipCode" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.zipCode')}</label>
+            <input id="zipCode" {...register('address.zipCode')} className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white" />
             {errors.address?.zipCode && <p className="mt-1 text-sm text-red-600">{errors.address.zipCode.message}</p>}
           </div>
           <div>
-            <label htmlFor="country" className="block text-sm font-medium text-gray-700">Country</label>
-            <input id="country" {...register('address.country')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2" />
+            <label htmlFor="country" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.country')}</label>
+            <input id="country" {...register('address.country')} className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white" />
             {errors.address?.country && <p className="mt-1 text-sm text-red-600">{errors.address.country.message}</p>}
           </div>
         </div>
       </div>
 
       <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Images</h3>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2">{t('fields.images')}</h3>
         <ImageUpload
           images={images}
           onChange={(newImages) => setValue('images', newImages)}
@@ -201,15 +206,15 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
       </div>
 
       <div className="space-y-4">
-        <div className="flex items-center justify-between border-b pb-2">
-            <h3 className="text-lg font-medium text-gray-900">Features</h3>
+        <div className="flex items-center justify-between border-b dark:border-gray-700 pb-2">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('features')}</h3>
             <button
                 type="button"
                 onClick={() => append({ name: '', value: '' })}
-                className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 dark:text-blue-300 dark:bg-blue-900 dark:hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
                 <Plus size={16} className="mr-1" />
-                Add Feature
+                {t('addFeature')}
             </button>
         </div>
         
@@ -219,16 +224,16 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
                     <div className="flex-1">
                         <input
                             {...register(`features.${index}.name`)}
-                            placeholder="Feature Name (e.g. Pool)"
-                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+                            placeholder={t('fields.featureName')}
+                            className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
                         />
                          {errors.features?.[index]?.name && <p className="mt-1 text-sm text-red-600">{errors.features[index]?.name?.message}</p>}
                     </div>
                     <div className="flex-1">
                         <input
                             {...register(`features.${index}.value`)}
-                            placeholder="Value (Optional)"
-                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+                            placeholder={`${t('fields.featureValue')} (${tCommon('optional')})`}
+                            className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
                         />
                     </div>
                     <button
@@ -241,18 +246,18 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
                 </div>
             ))}
             {fields.length === 0 && (
-                <p className="text-sm text-gray-500 italic">No features added yet.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 italic">{t('noFeatures')}</p>
             )}
         </div>
       </div>
 
-      <div className="flex justify-end pt-4 border-t">
+      <div className="flex justify-end pt-4 border-t dark:border-gray-700">
         <button
           type="button"
           onClick={() => router.back()}
-          className="mr-3 px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className="mr-3 px-4 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
-          Cancel
+          {tCommon('cancel')}
         </button>
         <button
           type="submit"
@@ -262,10 +267,10 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
           {isSubmitting ? (
             <>
               <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
-              Saving...
+              {tCommon('saving')}
             </>
           ) : (
-            'Save Property'
+            t('saveProperty')
           )}
         </button>
       </div>

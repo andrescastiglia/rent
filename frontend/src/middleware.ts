@@ -1,29 +1,21 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import createMiddleware from 'next-intl/middleware';
+import { locales, defaultLocale } from './config/locales';
 
-export function middleware(request: NextRequest) {
-    const token = request.cookies.get('auth_token')?.value;
-    const { pathname } = request.nextUrl;
+export default createMiddleware({
+    // Lista de locales soportados
+    locales,
 
-    // Public routes that don't require authentication
-    const publicRoutes = ['/', '/login', '/register'];
-    const isPublicRoute = publicRoutes.includes(pathname);
+    // Locale por defecto
+    defaultLocale,
 
-    // If trying to access protected route without token, redirect to login
-    if (!isPublicRoute && !token) {
-        // Check localStorage token (client-side only, so we'll handle this in the component)
-        // For now, allow access and let client-side handle it
-        return NextResponse.next();
-    }
+    // Estrategia de detección de locale
+    localeDetection: true,
 
-    // If logged in and trying to access auth pages, redirect to dashboard
-    if (token && (pathname === '/login' || pathname === '/register')) {
-        return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-
-    return NextResponse.next();
-}
+    // Siempre incluir el prefijo del locale en la URL
+    localePrefix: 'always',
+});
 
 export const config = {
-    matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+    // Matcher que ignora rutas internas de Next.js y archivos estáticos
+    matcher: ['/((?!api|_next|_vercel|.*\\..*).*)'],
 };

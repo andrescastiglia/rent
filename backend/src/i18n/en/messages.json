@@ -1,0 +1,45 @@
+{
+    "errors": {
+        "notFound": "Resource not found",
+        "unauthorized": "Unauthorized",
+        "forbidden": "Access denied",
+        "badRequest": "Bad request",
+        "internalError": "Internal server error",
+        "invalidCredentials": "Invalid credentials",
+        "emailAlreadyExists": "Email already registered",
+        "propertyNotFound": "Property not found",
+        "tenantNotFound": "Tenant not found",
+        "leaseNotFound": "Lease not found",
+        "userNotFound": "User not found"
+    },
+    "validation": {
+        "required": "The field {field} is required",
+        "invalidEmail": "Invalid email",
+        "invalidPhone": "Invalid phone",
+        "minLength": "Must be at least {min} characters",
+        "maxLength": "Cannot exceed {max} characters"
+    },
+    "contract": {
+        "title": "Rental Agreement",
+        "issueDate": "Issue date",
+        "parties": "Parties",
+        "lessor": "Lessor",
+        "lessee": "Lessee",
+        "property": "Property",
+        "address": "Address",
+        "terms": "Terms and Conditions",
+        "startDate": "Start date",
+        "endDate": "End date",
+        "rentAmount": "Monthly rent",
+        "deposit": "Deposit",
+        "paymentDay": "Payment day",
+        "signatures": "Signatures",
+        "lessorSignature": "Lessor Signature",
+        "lesseeSignature": "Lessee Signature"
+    },
+    "success": {
+        "created": "Created successfully",
+        "updated": "Updated successfully",
+        "deleted": "Deleted successfully"
+    }
+}

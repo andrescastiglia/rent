@@ -124,12 +124,12 @@
         state: link
         force: true
 
-#    - name: Create frontend symlink public
-#      ansible.builtin.file:
-#        src: "{{ current_path }}/frontend/public"
-#        dest: "{{ deploy_path }}/frontend/public"
-#        state: link
-#        force: true
+    - name: Create frontend symlink public
+      ansible.builtin.file:
+        src: "{{ current_path }}/frontend/public"
+        dest: "{{ deploy_path }}/frontend/public"
+        state: link
+        force: true
 
     - name: Create frontend symlink modules
       ansible.builtin.file:
