@@ -122,17 +122,10 @@ jobs:
           retention-days: 1
 
   sonarqube:
-    name: SonarQube (${{ matrix.project }})
+    name: SonarQube Analysis
     runs-on: ubuntu-latest
     needs: [backend-test, frontend-lint]
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
-    strategy:
-      matrix:
-        include:
-          - project: backend
-            has_coverage: true
-          - project: frontend
-            has_coverage: false
 
     steps:
       - name: Checkout code
@@ -141,16 +134,13 @@ jobs:
           fetch-depth: 0
 
       - name: Download coverage artifact
-        if: matrix.has_coverage
         uses: actions/download-artifact@v4
         with:
-          name: ${{ matrix.project }}-coverage
-          path: ${{ matrix.project }}/coverage
+          name: backend-coverage
+          path: backend/coverage
 
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v6
-        with:
-          projectBaseDir: ${{ matrix.project }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
