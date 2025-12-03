@@ -213,7 +213,7 @@ export class LeasesService {
       endDate: newTerms.endDate,
       rentAmount: newTerms.rentAmount || oldLease.rentAmount,
       deposit: newTerms.deposit || oldLease.deposit,
-      currency: newTerms.currency || oldLease.currency,
+      currencyCode: newTerms.currencyCode || oldLease.currencyCode,
       paymentFrequency: newTerms.paymentFrequency || oldLease.paymentFrequency,
       renewalTerms: newTerms.renewalTerms || oldLease.renewalTerms,
       status: LeaseStatus.DRAFT,

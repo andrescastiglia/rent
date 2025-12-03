@@ -45,7 +45,7 @@ export class CreateUnitDto {
 
   @IsString()
   @IsOptional()
-  currency?: string = 'ARS';
+  currencyCode?: string = 'ARS';
 
   @IsEnum(UnitStatus)
   @IsOptional()

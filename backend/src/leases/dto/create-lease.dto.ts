@@ -39,7 +39,7 @@ export class CreateLeaseDto {
 
   @IsString()
   @IsOptional()
-  currency?: string = 'ARS';
+  currencyCode?: string = 'ARS';
 
   @IsEnum(PaymentFrequency)
   @IsOptional()
