@@ -9,6 +9,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Property } from './property.entity';
+import { Currency } from '../../currencies/entities/currency.entity';
 
 export enum UnitStatus {
   AVAILABLE = 'available',
@@ -53,8 +54,12 @@ export class Unit {
   })
   monthlyRent: number;
 
-  @Column({ default: 'ARS' })
-  currency: string;
+  @Column({ name: 'currency_code', default: 'ARS' })
+  currencyCode: string;
+
+  @ManyToOne(() => Currency)
+  @JoinColumn({ name: 'currency_code', referencedColumnName: 'code' })
+  currency: Currency;
 
   @Column({ type: 'enum', enum: UnitStatus, default: UnitStatus.AVAILABLE })
   status: UnitStatus;

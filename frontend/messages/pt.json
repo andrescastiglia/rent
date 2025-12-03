@@ -369,5 +369,12 @@
     "metadata": {
         "title": "Sistema de Gestão de Aluguéis",
         "description": "Plataforma profissional para gestão de imóveis, inquilinos e contratos de aluguel"
+    },
+    "currencies": {
+        "title": "Moeda",
+        "selectCurrency": "Selecionar moeda",
+        "ARS": "Peso Argentino",
+        "BRL": "Real Brasileiro",
+        "USD": "Dólar Americano"
     }
 }

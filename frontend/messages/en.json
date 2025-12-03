@@ -369,5 +369,12 @@
     "metadata": {
         "title": "Rent Management System",
         "description": "Professional platform for managing properties, tenants and rental contracts"
+    },
+    "currencies": {
+        "title": "Currency",
+        "selectCurrency": "Select currency",
+        "ARS": "Argentine Peso",
+        "BRL": "Brazilian Real",
+        "USD": "US Dollar"
     }
 }

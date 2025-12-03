@@ -62,6 +62,7 @@ export const createLeaseSchema = (t: TranslationFunction) => z.object({
   endDate: z.string().min(1, t('endDateRequired')),
   rentAmount: z.coerce.number().min(0, t('rentAmountPositive')),
   depositAmount: z.coerce.number().min(0, t('depositAmountPositive')),
+  currency: z.string().min(1, t('required')).default('ARS'),
   status: z.enum(['DRAFT', 'ACTIVE', 'ENDED', 'TERMINATED'] as const),
   terms: z.string().optional(),
 });

@@ -18,6 +18,7 @@ import {
 import { LeaseAmendment } from '../leases/entities/lease-amendment.entity';
 import { PropertyFeature } from '../properties/entities/property-feature.entity';
 import { Document } from '../documents/entities/document.entity';
+import { Currency } from '../currencies/entities/currency.entity';
 import { join } from 'path';
 
 // Load env vars from root .env
@@ -40,6 +41,7 @@ const AppDataSource = new DataSource({
     LeaseAmendment,
     PropertyFeature,
     Document,
+    Currency,
   ],
   synchronize: true, // Create tables if they don't exist
   logging: true,
@@ -57,6 +59,26 @@ async function seed() {
 
     try {
       console.log('Seeding data...');
+
+      // 0. Create Currencies
+      const currencies = [
+        { code: 'ARS', symbol: '$', decimalPlaces: 2, isActive: true },
+        { code: 'BRL', symbol: 'R$', decimalPlaces: 2, isActive: true },
+        { code: 'USD', symbol: 'US$', decimalPlaces: 2, isActive: true },
+      ];
+
+      for (const currencyData of currencies) {
+        const existing = await queryRunner.manager.findOne(Currency, {
+          where: { code: currencyData.code },
+        });
+        if (!existing) {
+          const currency = queryRunner.manager.create(Currency, currencyData);
+          await queryRunner.manager.save(currency);
+          console.log(`Currency ${currencyData.code} created`);
+        } else {
+          console.log(`Currency ${currencyData.code} already exists`);
+        }
+      }
 
       // 1. Create Admin User
       const adminEmail = 'admin@example.com';

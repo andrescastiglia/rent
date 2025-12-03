@@ -3,6 +3,13 @@ import { Tenant } from './tenant';
 
 export type LeaseStatus = 'DRAFT' | 'ACTIVE' | 'ENDED' | 'TERMINATED';
 
+export interface Currency {
+    code: string;
+    symbol: string;
+    decimalPlaces: number;
+    isActive: boolean;
+}
+
 export interface Lease {
     id: string;
     propertyId: string;
@@ -12,6 +19,8 @@ export interface Lease {
     endDate: string;
     rentAmount: number;
     depositAmount: number;
+    currency: string;
+    currencyData?: Currency;
     status: LeaseStatus;
     terms?: string;
     documents: string[]; // URLs to PDFs
@@ -32,6 +41,7 @@ export interface CreateLeaseInput {
     endDate: string;
     rentAmount: number;
     depositAmount: number;
+    currency: string;
     status: LeaseStatus;
     terms?: string;
 }

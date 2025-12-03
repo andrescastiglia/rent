@@ -12,6 +12,7 @@ import {
 import { Unit } from '../../properties/entities/unit.entity';
 import { User } from '../../users/entities/user.entity';
 import { LeaseAmendment } from './lease-amendment.entity';
+import { Currency } from '../../currencies/entities/currency.entity';
 
 export enum PaymentFrequency {
   MONTHLY = 'monthly',
@@ -58,8 +59,12 @@ export class Lease {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   deposit: number;
 
-  @Column({ default: 'ARS' })
-  currency: string;
+  @Column({ name: 'currency_code', default: 'ARS' })
+  currencyCode: string;
+
+  @ManyToOne(() => Currency)
+  @JoinColumn({ name: 'currency_code', referencedColumnName: 'code' })
+  currency: Currency;
 
   @Column({
     name: 'payment_frequency',

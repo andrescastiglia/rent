@@ -13,6 +13,7 @@ import { DocumentsModule } from './documents/documents.module';
 import { LeasesModule } from './leases/leases.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { CompaniesModule } from './companies/companies.module';
+import { CurrenciesModule } from './currencies/currencies.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { I18nModule, AcceptLanguageResolver } from 'nestjs-i18n';
@@ -45,6 +46,7 @@ import * as path from 'path';
     LeasesModule,
     TenantsModule,
     CompaniesModule,
+    CurrenciesModule,
   ],
   controllers: [AppController],
   providers: [
@@ -59,4 +61,4 @@ import * as path from 'path';
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}

@@ -6,6 +6,7 @@ import { Lease } from '@/types/lease';
 import { LeaseStatusBadge } from './LeaseStatusBadge';
 import { Calendar, DollarSign, Home, User } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
+import { formatMoney } from '@/lib/format-money';
 
 interface LeaseCardProps {
   lease: Lease;
@@ -48,7 +49,7 @@ export function LeaseCard({ lease }: LeaseCardProps) {
           <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
             <DollarSign size={16} className="mr-2 text-gray-400" />
             <span className="font-semibold text-gray-900 dark:text-white">
-              ${lease.rentAmount.toLocaleString(locale)}
+              {formatMoney(lease.rentAmount, lease.currencyData, locale)}
             </span>
             <span className="text-gray-400 ml-1">{t('perMonth')}</span>
           </div>

@@ -13,6 +13,7 @@ import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
 import { Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { createLeaseSchema, LeaseFormData } from '@/lib/validation-schemas';
+import { CurrencySelect } from '@/components/common/CurrencySelect';
 
 interface LeaseFormProps {
   initialData?: Lease;
@@ -24,6 +25,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const t = useTranslations('leases');
   const tCommon = useTranslations('common');
   const tValidation = useTranslations('validation');
+  const tCurrencies = useTranslations('currencies');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -31,12 +33,13 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   // Crear schema con mensajes traducidos
   const leaseSchema = useMemo(() => createLeaseSchema(tValidation), [tValidation]);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<LeaseFormData>({
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<LeaseFormData>({
     resolver: zodResolver(leaseSchema) as Resolver<LeaseFormData>,
     defaultValues: initialData || {
       status: 'DRAFT',
       rentAmount: 0,
       depositAmount: 0,
+      currency: 'ARS',
     },
   });
 
@@ -182,6 +185,17 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
               className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
             />
             {errors.depositAmount && <p className="mt-1 text-sm text-red-600">{errors.depositAmount.message}</p>}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label htmlFor="currency" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{tCurrencies('title')}</label>
+            <CurrencySelect
+              value={watch('currency') || 'ARS'}
+              onChange={(value) => setValue('currency', value)}
+            />
+            {errors.currency && <p className="mt-1 text-sm text-red-600">{errors.currency.message}</p>}
           </div>
         </div>
 

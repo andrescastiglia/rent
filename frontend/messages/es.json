@@ -369,5 +369,12 @@
     "metadata": {
         "title": "Sistema de Gestión de Alquileres",
         "description": "Plataforma profesional para la gestión de propiedades, inquilinos y contratos de alquiler"
+    },
+    "currencies": {
+        "title": "Moneda",
+        "selectCurrency": "Seleccionar moneda",
+        "ARS": "Peso Argentino",
+        "BRL": "Real Brasileño",
+        "USD": "Dólar Estadounidense"
     }
 }
