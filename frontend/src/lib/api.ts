@@ -9,7 +9,8 @@ const MOCK_USERS = [
         firstName: 'Admin',
         lastName: 'User',
         name: 'Admin User',
-        role: 'ADMIN',
+        role: 'admin',
+        isActive: true,
     },
     {
         id: '2',
@@ -18,7 +19,8 @@ const MOCK_USERS = [
         firstName: 'Test',
         lastName: 'User',
         name: 'Test User',
-        role: 'USER',
+        role: 'owner',
+        isActive: true,
     },
 ];
 
@@ -51,8 +53,11 @@ async function handleMockAuth(endpoint: string, data: any): Promise<any> {
         const newUser = {
             id: String(MOCK_USERS.length + 1),
             email: data.email,
-            name: data.name,
-            role: 'USER',
+            firstName: data.firstName,
+            lastName: data.lastName,
+            name: `${data.firstName} ${data.lastName}`,
+            role: 'owner',
+            isActive: true,
         };
         return {
             accessToken: `mock-token-${newUser.id}-${Date.now()}`,
