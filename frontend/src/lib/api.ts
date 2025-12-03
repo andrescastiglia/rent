@@ -1,5 +1,8 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+// Check if we're in development mode (using localhost)
+const IS_MOCK_MODE = API_URL.includes('localhost');
+
 // Mock authentication data for development/testing
 const MOCK_USERS = [
     {
@@ -119,8 +122,8 @@ class ApiClient {
     }
 
     async post<T>(endpoint: string, data: any, token?: string): Promise<T> {
-        // Use mock for auth endpoints
-        if (endpoint.startsWith('/auth/')) {
+        // Use mock for auth endpoints only in development
+        if (IS_MOCK_MODE && endpoint.startsWith('/auth/')) {
             return handleMockAuth(endpoint, data) as Promise<T>;
         }
         return this.request<T>(endpoint, {
