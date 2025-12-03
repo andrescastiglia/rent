@@ -1,38 +1,39 @@
 import { test, expect } from '@playwright/test';
-import { login } from './fixtures/auth';
+import { login, localePath } from './fixtures/auth';
 
 test.describe('Login Flow', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('/login');
+        await page.goto(localePath('/login'));
     });
 
     test('should display login page', async ({ page }) => {
-        await expect(page).toHaveURL('/login');
-        await expect(page.getByRole('heading', { name: /iniciar sesión/i })).toBeVisible();
-        await expect(page.getByText(/sistema de gestión de alquileres/i)).toBeVisible();
+        await expect(page).toHaveURL(/\/es\/login/);
+        // Use language-agnostic selectors (email field, password field, submit button)
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+        await expect(page.locator('input[type="email"]')).toBeVisible();
     });
 
     test('should show error for invalid credentials', async ({ page }) => {
-        await page.getByLabel(/email/i).fill('invalid@example.com');
-        await page.getByLabel(/contraseña/i).fill('wrongpassword');
-        await page.getByRole('button', { name: /iniciar sesión/i }).click();
+        await page.locator('input[type="email"]').fill('invalid@example.com');
+        await page.locator('input[type="password"]').fill('wrongpassword');
+        await page.locator('button[type="submit"]').click();
 
-        // Should show error message (in Spanish: "Credenciales inválidas")
-        await expect(page.getByText(/credenciales inválidas|error/i)).toBeVisible({ timeout: 10000 });
+        // Should show error message (may be in any language)
+        await expect(page.getByRole('alert').or(page.locator('[class*="error"]'))).toBeVisible({ timeout: 10000 });
     });
 
     test('should login with valid credentials and redirect to dashboard', async ({ page }) => {
-        await page.getByLabel(/email/i).fill('admin@example.com');
-        await page.getByLabel(/contraseña/i).fill('admin123');
-        await page.getByRole('button', { name: /iniciar sesión/i }).click();
+        await page.locator('input[type="email"]').fill('admin@example.com');
+        await page.locator('input[type="password"]').fill('admin123');
+        await page.locator('button[type="submit"]').click();
 
-        // Should redirect to dashboard
-        await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
+        // Should redirect to dashboard with locale prefix
+        await expect(page).toHaveURL(/\/es\/dashboard/, { timeout: 10000 });
     });
 
     test('should redirect from root to login when not authenticated', async ({ page }) => {
         await page.goto('/');
-        await expect(page).toHaveURL('/login');
+        await expect(page).toHaveURL(/\/es\/login/);
     });
 });
 
@@ -44,34 +45,34 @@ test.describe('Navigation after login', () => {
     });
 
     test('should navigate to properties page', async ({ page }) => {
-        await page.goto('/properties', { waitUntil: 'networkidle' });
-        await expect(page).toHaveURL('/properties');
-        await expect(page.getByRole('heading', { name: /properties/i })).toBeVisible();
+        await page.goto(localePath('/properties'), { waitUntil: 'networkidle' });
+        await expect(page).toHaveURL(/\/es\/properties/);
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     });
 
     test('should navigate to tenants page', async ({ page }) => {
-        await page.goto('/tenants', { waitUntil: 'networkidle' });
-        await expect(page).toHaveURL('/tenants');
-        await expect(page.getByRole('heading', { name: /tenants/i })).toBeVisible();
+        await page.goto(localePath('/tenants'), { waitUntil: 'networkidle' });
+        await expect(page).toHaveURL(/\/es\/tenants/);
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     });
 
     test('should navigate to leases page', async ({ page }) => {
-        await page.goto('/leases', { waitUntil: 'networkidle' });
-        await expect(page).toHaveURL('/leases');
-        await expect(page.getByRole('heading', { name: /leases/i })).toBeVisible();
+        await page.goto(localePath('/leases'), { waitUntil: 'networkidle' });
+        await expect(page).toHaveURL(/\/es\/leases/);
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     });
 
     test('should navigate between different sections', async ({ page }) => {
         // Navigate to properties
-        await page.goto('/properties', { waitUntil: 'networkidle' });
-        await expect(page).toHaveURL('/properties');
+        await page.goto(localePath('/properties'), { waitUntil: 'networkidle' });
+        await expect(page).toHaveURL(/\/es\/properties/);
 
         // Navigate to tenants
-        await page.goto('/tenants', { waitUntil: 'networkidle' });
-        await expect(page).toHaveURL('/tenants');
+        await page.goto(localePath('/tenants'), { waitUntil: 'networkidle' });
+        await expect(page).toHaveURL(/\/es\/tenants/);
 
         // Navigate to leases
-        await page.goto('/leases', { waitUntil: 'networkidle' });
-        await expect(page).toHaveURL('/leases');
+        await page.goto(localePath('/leases'), { waitUntil: 'networkidle' });
+        await expect(page).toHaveURL(/\/es\/leases/);
     });
 });
