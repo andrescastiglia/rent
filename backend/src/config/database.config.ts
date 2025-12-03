@@ -4,6 +4,8 @@ import { ConfigService } from '@nestjs/config';
 export const getDatabaseConfig = (
   configService: ConfigService,
 ): TypeOrmModuleOptions => {
+  const isProduction = configService.get<string>('NODE_ENV') === 'production';
+  
   return {
     type: 'postgres',
     host: configService.get<string>('POSTGRES_HOST', 'localhost'),
@@ -15,7 +17,9 @@ export const getDatabaseConfig = (
     ),
     database: configService.get<string>('POSTGRES_DB', 'rent_dev'),
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-    synchronize: false, // IMPORTANT: False because we use migrations
-    logging: configService.get<string>('NODE_ENV') === 'development',
+    // Synchronize creates/updates tables automatically
+    // Use TYPEORM_SYNC=true in .env to enable (useful for initial setup)
+    synchronize: configService.get<string>('TYPEORM_SYNC', 'false') === 'true',
+    logging: !isProduction,
   };
 };
