@@ -36,8 +36,8 @@ test.describe('Property Creation Flow', () => {
         // Try to submit empty form
         await page.locator('button[type="submit"]').click();
 
-        // Should show validation errors (look for error-styled elements)
-        await expect(page.locator('[class*="error"], [class*="invalid"], [aria-invalid="true"]').first()).toBeVisible();
+        // Should show validation errors (text-red-600 class for error messages)
+        await expect(page.locator('.text-red-600, p[class*="red"]').first()).toBeVisible();
     });
 
     test('should create a new property with valid data', async ({ page }) => {
@@ -91,8 +91,8 @@ test.describe('Property Creation Flow', () => {
     test('should search properties', async ({ page }) => {
         await page.goto(localePath('/properties'));
 
-        // Type in search box
-        const searchInput = page.locator('input[type="search"], input[placeholder*="earch"]');
+        // Type in search box (it's a text input with a search icon)
+        const searchInput = page.locator('input[type="text"]').first();
         await searchInput.fill('Test');
 
         // Results should filter (this assumes client-side filtering is instant)

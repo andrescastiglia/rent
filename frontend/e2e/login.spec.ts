@@ -9,8 +9,9 @@ test.describe('Login Flow', () => {
     test('should display login page', async ({ page }) => {
         await expect(page).toHaveURL(/\/es\/login/);
         // Use language-agnostic selectors (email field, password field, submit button)
-        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
         await expect(page.locator('input[type="email"]')).toBeVisible();
+        await expect(page.locator('input[type="password"]')).toBeVisible();
+        await expect(page.locator('button[type="submit"]')).toBeVisible();
     });
 
     test('should show error for invalid credentials', async ({ page }) => {
