@@ -53,15 +53,20 @@ async function handleMockAuth(endpoint: string, data: any): Promise<any> {
         const newUser = {
             id: String(MOCK_USERS.length + 1),
             email: data.email,
+            password: data.password,
             firstName: data.firstName,
             lastName: data.lastName,
             name: `${data.firstName} ${data.lastName}`,
-            role: 'owner',
+            role: 'owner' as const,
             isActive: true,
         };
+        // Add user to mock database so login works
+        MOCK_USERS.push(newUser);
+        
+        const { password: _, ...userWithoutPassword } = newUser;
         return {
             accessToken: `mock-token-${newUser.id}-${Date.now()}`,
-            user: newUser,
+            user: userWithoutPassword,
         };
     }
 
