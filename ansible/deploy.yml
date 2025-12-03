@@ -54,13 +54,6 @@
     # ─────────────────────────────────────────────────────────────
     # BACKEND BUILD
     # ─────────────────────────────────────────────────────────────
-    - name: Link shared .env to backend
-      ansible.builtin.file:
-        src: "{{ deploy_path }}/shared/.env"
-        dest: "{{ current_path }}/backend/.env"
-        state: link
-        force: true
-
     - name: Clean backend node_modules and dist
       ansible.builtin.file:
         path: "{{ item }}"
@@ -80,6 +73,13 @@
       ansible.builtin.command:
         cmd: npm run build
         chdir: "{{ current_path }}/backend"
+
+    - name: Link shared .env to backend
+      ansible.builtin.file:
+        src: "{{ deploy_path }}/shared/.env"
+        dest: "{{ current_path }}/backend/dist/.env"
+        state: link
+        force: true
 
     - name: Create backend symlink
       ansible.builtin.file:
@@ -149,6 +149,13 @@
       ansible.builtin.file:
         src: "{{ current_path }}/frontend/package-lock.json"
         dest: "{{ deploy_path }}/frontend/package-lock.json"
+        state: link
+        force: true
+
+    - name: Create frontend symlink env
+      ansible.builtin.file:
+        src: "{{ current_path }}/frontend/.env"
+        dest: "{{ deploy_path }}/frontend/.env"
         state: link
         force: true
 
