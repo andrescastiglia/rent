@@ -1,15 +1,23 @@
 import { NextIntlClientProvider } from 'next-intl';
-import { getMessages } from 'next-intl/server';
+import { getMessages, getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import type { Metadata } from "next";
 import "../../styles/globals.css";
 import { AuthProvider } from "@/contexts/auth-context";
 import { locales } from '@/config/locales';
 
-export const metadata: Metadata = {
-  title: "Rent Management System",
-  description: "Sistema de gestión de alquileres",
+type Props = {
+  params: { locale: string };
 };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const t = await getTranslations({ locale: params.locale, namespace: 'metadata' });
+  
+  return {
+    title: t('title'),
+    description: t('description'),
+  };
+}
 
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));

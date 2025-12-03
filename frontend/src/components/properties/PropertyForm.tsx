@@ -1,39 +1,15 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useForm, useFieldArray, Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
 import { CreatePropertyInput, Property, PropertyType, PropertyStatus } from '@/types/property';
 import { ImageUpload } from './ImageUpload';
 import { propertiesApi } from '@/lib/api/properties';
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-
-const propertySchema = z.object({
-  name: z.string().min(3, 'Name must be at least 3 characters'),
-  description: z.string().optional(),
-  type: z.enum(['APARTMENT', 'HOUSE', 'COMMERCIAL', 'OFFICE', 'LAND', 'OTHER'] as const),
-  status: z.enum(['ACTIVE', 'INACTIVE', 'MAINTENANCE'] as const).optional(),
-  address: z.object({
-    street: z.string().min(1, 'Street is required'),
-    number: z.string().min(1, 'Number is required'),
-    unit: z.string().optional(),
-    city: z.string().min(1, 'City is required'),
-    state: z.string().min(1, 'State is required'),
-    zipCode: z.string().min(1, 'Zip Code is required'),
-    country: z.string().min(1, 'Country is required'),
-  }),
-  features: z.array(z.object({
-    name: z.string().min(1, 'Feature name is required'),
-    value: z.string().optional(),
-  })).optional(),
-  images: z.array(z.string()).optional(),
-  ownerId: z.string().min(1, 'Owner ID is required'),
-});
-
-type PropertyFormData = z.infer<typeof propertySchema>;
+import { createPropertySchema, PropertyFormData } from '@/lib/validation-schemas';
 
 interface PropertyFormProps {
   initialData?: Property;
@@ -44,7 +20,11 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
   const router = useLocalizedRouter();
   const t = useTranslations('properties');
   const tCommon = useTranslations('common');
+  const tValidation = useTranslations('validation');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  // Crear schema con mensajes traducidos
+  const propertySchema = useMemo(() => createPropertySchema(tValidation), [tValidation]);
 
   const { register, control, handleSubmit, setValue, watch, formState: { errors } } = useForm<PropertyFormData>({
     resolver: zodResolver(propertySchema) as Resolver<PropertyFormData>,

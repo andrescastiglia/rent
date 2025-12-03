@@ -26,7 +26,8 @@
         "optional": "Opcional",
         "myProfile": "Meu Perfil",
         "settings": "Configurações",
-        "selectLanguage": "Selecionar idioma"
+        "selectLanguage": "Selecionar idioma",
+        "notImplemented": "Ainda não implementado"
     },
     "nav": {
         "dashboard": "Painel",
@@ -337,5 +338,36 @@
         "privacy": "Privacidade",
         "contact": "Contato",
         "copyright": "© {year} Rent. Todos os direitos reservados."
+    },
+    "validation": {
+        "required": "Este campo é obrigatório",
+        "invalidEmail": "Email inválido",
+        "minLength": "Deve ter pelo menos {min} caracteres",
+        "maxLength": "Deve ter no máximo {max} caracteres",
+        "positive": "Deve ser um número positivo",
+        "invalidPhone": "Número de telefone inválido",
+        "invalidDni": "CPF inválido",
+        "passwordMismatch": "As senhas não coincidem",
+        "invalidDate": "Data inválida",
+        "endDateBeforeStart": "A data de término deve ser posterior à data de início",
+        "nameRequired": "O nome é obrigatório",
+        "streetRequired": "A rua é obrigatória",
+        "numberRequired": "O número é obrigatório",
+        "cityRequired": "A cidade é obrigatória",
+        "stateRequired": "O estado é obrigatório",
+        "zipCodeRequired": "O CEP é obrigatório",
+        "countryRequired": "O país é obrigatório",
+        "propertyRequired": "O imóvel é obrigatório",
+        "unitRequired": "A unidade é obrigatória",
+        "tenantRequired": "O inquilino é obrigatório",
+        "startDateRequired": "A data de início é obrigatória",
+        "endDateRequired": "A data de término é obrigatória",
+        "rentAmountPositive": "O valor do aluguel deve ser positivo",
+        "depositAmountPositive": "O valor do depósito deve ser positivo",
+        "ownerRequired": "O proprietário é obrigatório"
+    },
+    "metadata": {
+        "title": "Sistema de Gestão de Aluguéis",
+        "description": "Plataforma profissional para gestão de imóveis, inquilinos e contratos de aluguel"
     }
 }

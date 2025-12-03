@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useForm, Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
 import { CreateLeaseInput, Lease } from '@/types/lease';
 import { leasesApi } from '@/lib/api/leases';
 import { propertiesApi } from '@/lib/api/properties';
@@ -13,20 +12,7 @@ import { Tenant } from '@/types/tenant';
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
 import { Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-
-const leaseSchema = z.object({
-  propertyId: z.string().min(1, 'Property is required'),
-  unitId: z.string().min(1, 'Unit is required'), // Simplified for now, just text input or select if units available
-  tenantId: z.string().min(1, 'Tenant is required'),
-  startDate: z.string().min(1, 'Start date is required'),
-  endDate: z.string().min(1, 'End date is required'),
-  rentAmount: z.coerce.number().min(0, 'Rent amount must be positive'),
-  depositAmount: z.coerce.number().min(0, 'Deposit amount must be positive'),
-  status: z.enum(['DRAFT', 'ACTIVE', 'ENDED', 'TERMINATED'] as const),
-  terms: z.string().optional(),
-});
-
-type LeaseFormData = z.infer<typeof leaseSchema>;
+import { createLeaseSchema, LeaseFormData } from '@/lib/validation-schemas';
 
 interface LeaseFormProps {
   initialData?: Lease;
@@ -37,9 +23,13 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const router = useLocalizedRouter();
   const t = useTranslations('leases');
   const tCommon = useTranslations('common');
+  const tValidation = useTranslations('validation');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
+
+  // Crear schema con mensajes traducidos
+  const leaseSchema = useMemo(() => createLeaseSchema(tValidation), [tValidation]);
 
   const { register, handleSubmit, formState: { errors } } = useForm<LeaseFormData>({
     resolver: zodResolver(leaseSchema) as Resolver<LeaseFormData>,

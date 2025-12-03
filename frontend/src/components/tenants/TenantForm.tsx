@@ -1,32 +1,32 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
 import { CreateTenantInput, Tenant } from '@/types/tenant';
 import { tenantsApi } from '@/lib/api/tenants';
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
 import { Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { createTenantSchema, TenantFormData } from '@/lib/validation-schemas';
+import * as z from 'zod';
 
-const tenantSchema = z.object({
-  firstName: z.string().min(2, 'First name is required'),
-  lastName: z.string().min(2, 'Last name is required'),
-  email: z.string().email('Invalid email address'),
-  phone: z.string().min(6, 'Phone number is required'),
-  dni: z.string().min(6, 'DNI is required'),
-  status: z.enum(['ACTIVE', 'INACTIVE', 'PROSPECT'] as const),
-  address: z.object({
-    street: z.string().optional(),
-    number: z.string().optional(),
-    city: z.string().optional(),
-    state: z.string().optional(),
-    zipCode: z.string().optional(),
-  }).optional(),
-});
+// Extender el schema base para incluir status y address opcional
+const createExtendedTenantSchema = (t: (key: string, params?: Record<string, string | number>) => string) => {
+  const baseSchema = createTenantSchema(t);
+  return baseSchema.extend({
+    status: z.enum(['ACTIVE', 'INACTIVE', 'PROSPECT'] as const),
+    address: z.object({
+      street: z.string().optional(),
+      number: z.string().optional(),
+      city: z.string().optional(),
+      state: z.string().optional(),
+      zipCode: z.string().optional(),
+    }).optional(),
+  });
+};
 
-type TenantFormData = z.infer<typeof tenantSchema>;
+type ExtendedTenantFormData = z.infer<ReturnType<typeof createExtendedTenantSchema>>;
 
 interface TenantFormProps {
   initialData?: Tenant;
@@ -37,16 +37,20 @@ export function TenantForm({ initialData, isEditing = false }: TenantFormProps) 
   const router = useLocalizedRouter();
   const t = useTranslations('tenants');
   const tCommon = useTranslations('common');
+  const tValidation = useTranslations('validation');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<TenantFormData>({
+  // Crear schema con mensajes traducidos
+  const tenantSchema = useMemo(() => createExtendedTenantSchema(tValidation), [tValidation]);
+
+  const { register, handleSubmit, formState: { errors } } = useForm<ExtendedTenantFormData>({
     resolver: zodResolver(tenantSchema),
     defaultValues: initialData || {
       status: 'PROSPECT',
     },
   });
 
-  const onSubmit = async (data: TenantFormData) => {
+  const onSubmit = async (data: ExtendedTenantFormData) => {
     setIsSubmitting(true);
     try {
       // Clean up empty address fields

@@ -26,7 +26,8 @@
         "optional": "Opcional",
         "myProfile": "Mi Perfil",
         "settings": "Configuración",
-        "selectLanguage": "Seleccionar idioma"
+        "selectLanguage": "Seleccionar idioma",
+        "notImplemented": "Aún no implementado"
     },
     "nav": {
         "dashboard": "Panel",
@@ -337,5 +338,36 @@
         "privacy": "Privacidad",
         "contact": "Contacto",
         "copyright": "© {year} Rent. Todos los derechos reservados."
+    },
+    "validation": {
+        "required": "Este campo es requerido",
+        "invalidEmail": "Email inválido",
+        "minLength": "Debe tener al menos {min} caracteres",
+        "maxLength": "Debe tener como máximo {max} caracteres",
+        "positive": "Debe ser un número positivo",
+        "invalidPhone": "Número de teléfono inválido",
+        "invalidDni": "DNI inválido",
+        "passwordMismatch": "Las contraseñas no coinciden",
+        "invalidDate": "Fecha inválida",
+        "endDateBeforeStart": "La fecha de fin debe ser posterior a la de inicio",
+        "nameRequired": "El nombre es requerido",
+        "streetRequired": "La calle es requerida",
+        "numberRequired": "El número es requerido",
+        "cityRequired": "La ciudad es requerida",
+        "stateRequired": "El estado/provincia es requerido",
+        "zipCodeRequired": "El código postal es requerido",
+        "countryRequired": "El país es requerido",
+        "propertyRequired": "La propiedad es requerida",
+        "unitRequired": "La unidad es requerida",
+        "tenantRequired": "El inquilino es requerido",
+        "startDateRequired": "La fecha de inicio es requerida",
+        "endDateRequired": "La fecha de fin es requerida",
+        "rentAmountPositive": "El monto del alquiler debe ser positivo",
+        "depositAmountPositive": "El monto del depósito debe ser positivo",
+        "ownerRequired": "El propietario es requerido"
+    },
+    "metadata": {
+        "title": "Sistema de Gestión de Alquileres",
+        "description": "Plataforma profesional para la gestión de propiedades, inquilinos y contratos de alquiler"
     }
 }

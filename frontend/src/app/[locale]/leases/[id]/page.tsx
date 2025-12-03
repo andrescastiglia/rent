@@ -188,7 +188,7 @@ export default function LeaseDetailPage() {
                     ) : (
                         <div className="text-center py-4 text-gray-500 dark:text-gray-400">
                             <p className="text-sm italic mb-2">{t('noDocuments')}</p>
-                            <button className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800" disabled title="Not implemented yet">
+                            <button className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800" disabled title={tCommon('notImplemented')}>
                                 <Download size={14} className="mr-1" /> {t('generatePdf')}
                             </button>
                         </div>

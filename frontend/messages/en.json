@@ -26,7 +26,8 @@
         "optional": "Optional",
         "myProfile": "My Profile",
         "settings": "Settings",
-        "selectLanguage": "Select language"
+        "selectLanguage": "Select language",
+        "notImplemented": "Not implemented yet"
     },
     "nav": {
         "dashboard": "Dashboard",
@@ -337,5 +338,36 @@
         "privacy": "Privacy",
         "contact": "Contact",
         "copyright": "© {year} Rent. All rights reserved."
+    },
+    "validation": {
+        "required": "This field is required",
+        "invalidEmail": "Invalid email address",
+        "minLength": "Must be at least {min} characters",
+        "maxLength": "Must be at most {max} characters",
+        "positive": "Must be a positive number",
+        "invalidPhone": "Invalid phone number",
+        "invalidDni": "Invalid ID number",
+        "passwordMismatch": "Passwords do not match",
+        "invalidDate": "Invalid date",
+        "endDateBeforeStart": "End date must be after start date",
+        "nameRequired": "Name is required",
+        "streetRequired": "Street is required",
+        "numberRequired": "Number is required",
+        "cityRequired": "City is required",
+        "stateRequired": "State is required",
+        "zipCodeRequired": "Zip code is required",
+        "countryRequired": "Country is required",
+        "propertyRequired": "Property is required",
+        "unitRequired": "Unit is required",
+        "tenantRequired": "Tenant is required",
+        "startDateRequired": "Start date is required",
+        "endDateRequired": "End date is required",
+        "rentAmountPositive": "Rent amount must be positive",
+        "depositAmountPositive": "Deposit amount must be positive",
+        "ownerRequired": "Owner is required"
+    },
+    "metadata": {
+        "title": "Rent Management System",
+        "description": "Professional platform for managing properties, tenants and rental contracts"
     }
 }
