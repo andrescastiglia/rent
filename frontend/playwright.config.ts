@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Check if we're using mock mode (set by test:e2e script or CI)
+const useMockMode = process.env.NEXT_PUBLIC_MOCK_MODE === 'true' || process.env.CI === 'true';
+
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
@@ -29,11 +32,18 @@ export default defineConfig({
     ],
 
     webServer: {
-        command: process.env.CI ? 'npm run start' : 'npm run dev',
+        // In mock mode or CI, use dev server (mocks work with dev server)
+        // When testing with real backend (test:e2e:real), also use dev server
+        command: 'npm run dev',
         url: 'http://localhost:3000',
+        // Reuse existing server when not in CI (for faster local development)
         reuseExistingServer: !process.env.CI,
         timeout: 120000,
         stdout: 'pipe',
         stderr: 'pipe',
+        // Pass environment variables to the web server
+        env: {
+            NEXT_PUBLIC_MOCK_MODE: useMockMode ? 'true' : 'false',
+        },
     },
 });
