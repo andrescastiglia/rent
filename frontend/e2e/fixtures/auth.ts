@@ -1,9 +1,9 @@
 import { test as base, Page } from '@playwright/test';
 
-// Test user credentials (from mock auth)
+// Test user credentials (real backend user)
 const TEST_USER = {
-    email: 'admin@example.com',
-    password: 'admin123',
+    email: 'test@test.com',
+    password: 'Test123!',
 };
 
 // Default locale for tests

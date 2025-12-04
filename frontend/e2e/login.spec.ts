@@ -24,8 +24,8 @@ test.describe('Login Flow', () => {
     });
 
     test('should login with valid credentials and redirect to dashboard', async ({ page }) => {
-        await page.locator('input[type="email"]').fill('admin@example.com');
-        await page.locator('input[type="password"]').fill('admin123');
+        await page.locator('input[type="email"]').fill('test@test.com');
+        await page.locator('input[type="password"]').fill('Test123!');
         await page.locator('button[type="submit"]').click();
 
         // Should redirect to dashboard with locale prefix
