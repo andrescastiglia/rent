@@ -31,7 +31,11 @@ export const navigationItems: NavItem[] = [
         labelKey: 'payments',
         href: '/payments',
         roles: ['admin', 'owner', 'tenant'],
-        disabled: true,
+    },
+    {
+        labelKey: 'invoices',
+        href: '/invoices',
+        roles: ['admin', 'owner', 'tenant'],
     },
     {
         labelKey: 'users',

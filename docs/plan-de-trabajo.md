@@ -272,14 +272,14 @@ Integrar servicios externos críticos para el negocio.
   - Historial de transacciones
   - Migrations
 
-- **T202**: Integración con Stripe **[8 SP]**
+- **T202**: Integración con Stripe (futuras versiones) **[8 SP]**
   - Configuración de cuenta Stripe
   - Implementar patrón Strategy para PSP
   - API de creación de checkout
   - Webhooks de confirmación
   - Manejo de errores y reintentos
 
-- **T203**: Integración con MercadoPago (opcional) **[6 SP]**
+- **T203**: Integración con MercadoPago **[6 SP]**
   - Implementación de Strategy para MP
   - API de preferencias
   - Webhooks de notificaciones
