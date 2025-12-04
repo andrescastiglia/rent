@@ -191,4 +191,41 @@ export class DocumentsService {
     // Soft delete from DB
     await this.documentsRepository.softDelete(documentId);
   }
+
+  /**
+   * Downloads a file directly from S3 by its key.
+   * @param s3Key The S3 key of the file
+   * @returns Buffer and content type of the file
+   */
+  async downloadByS3Key(
+    s3Key: string,
+  ): Promise<{ buffer: Buffer; contentType: string }> {
+    try {
+      const command = new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: s3Key,
+      });
+
+      const response = await this.s3Client.send(command);
+      const contentType = response.ContentType || 'application/octet-stream';
+      const buffer = await this.streamToBuffer(response.Body as any);
+
+      return { buffer, contentType };
+    } catch (error) {
+      throw new NotFoundException(`File not found in S3: ${s3Key}`);
+    }
+  }
+
+  /**
+   * Converts a stream to a buffer.
+   * @param stream The readable stream
+   * @returns Buffer
+   */
+  private async streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) {
+      chunks.push(Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks);
+  }
 }

@@ -10,7 +10,14 @@
         "propertyNotFound": "Propiedad no encontrada",
         "tenantNotFound": "Inquilino no encontrado",
         "leaseNotFound": "Contrato no encontrado",
-        "userNotFound": "Usuario no encontrado"
+        "userNotFound": "Usuario no encontrado",
+        "paymentNotFound": "Pago no encontrado",
+        "invoiceNotFound": "Factura no encontrada",
+        "receiptNotFound": "Recibo no encontrado",
+        "accountNotFound": "Cuenta corriente no encontrada",
+        "paymentAlreadyCompleted": "El pago ya está completado",
+        "invoiceAlreadyCancelled": "La factura ya está anulada",
+        "cannotCancelPaidInvoice": "No se puede anular una factura pagada"
     },
     "validation": {
         "required": "El campo {field} es requerido",
@@ -37,9 +44,54 @@
         "lessorSignature": "Firma del Arrendador",
         "lesseeSignature": "Firma del Arrendatario"
     },
+    "payment": {
+        "title": "Recibo de Pago",
+        "amount": "Monto",
+        "status": "Estado",
+        "method": "Método de pago",
+        "date": "Fecha de pago",
+        "reference": "Referencia",
+        "cash": "Efectivo",
+        "transfer": "Transferencia bancaria",
+        "check": "Cheque",
+        "debit": "Débito",
+        "credit": "Crédito",
+        "pending": "Pendiente",
+        "completed": "Completado",
+        "cancelled": "Anulado"
+    },
+    "invoice": {
+        "title": "Factura",
+        "invoiceNumber": "Número de factura",
+        "period": "Período",
+        "subtotal": "Subtotal",
+        "lateFee": "Mora",
+        "adjustments": "Ajustes",
+        "total": "Total",
+        "dueDate": "Fecha de vencimiento",
+        "draft": "Borrador",
+        "issued": "Emitida",
+        "paid": "Pagada",
+        "partiallyPaid": "Pago parcial",
+        "overdue": "Vencida"
+    },
+    "receipt": {
+        "title": "Recibo",
+        "receiptNumber": "Número de recibo",
+        "receivedFrom": "Recibido de",
+        "paymentDetails": "Detalle del Pago",
+        "amountReceived": "Monto Recibido"
+    },
+    "account": {
+        "balance": "Saldo",
+        "movements": "Movimientos",
+        "lateFeeCalculated": "Mora calculada"
+    },
     "success": {
         "created": "Creado exitosamente",
         "updated": "Actualizado exitosamente",
-        "deleted": "Eliminado exitosamente"
+        "deleted": "Eliminado exitosamente",
+        "paymentConfirmed": "Pago confirmado exitosamente",
+        "invoiceIssued": "Factura emitida exitosamente"
     }
 }
