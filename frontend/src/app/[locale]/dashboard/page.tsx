@@ -1,12 +1,33 @@
 'use client';
 
 import { useAuth } from '@/contexts/auth-context';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { dashboardApi, DashboardStats } from '@/lib/api/dashboard';
+import { formatMoneyByCode } from '@/lib/format-money';
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const t = useTranslations('dashboard');
+  const locale = useLocale();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const data = await dashboardApi.getStats();
+        setStats(data);
+      } catch (error) {
+        console.error('Error fetching dashboard stats:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -28,7 +49,7 @@ export default function DashboardPage() {
                 {t('stats.properties')}
               </p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                12
+                {loading ? '...' : stats?.totalProperties ?? 0}
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
@@ -56,7 +77,7 @@ export default function DashboardPage() {
                 {t('stats.tenants')}
               </p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                24
+                {loading ? '...' : stats?.totalTenants ?? 0}
               </p>
             </div>
             <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center">
@@ -84,7 +105,7 @@ export default function DashboardPage() {
                 {t('stats.activeLeases')}
               </p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                18
+                {loading ? '...' : stats?.activeLeases ?? 0}
               </p>
             </div>
             <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/20 rounded-full flex items-center justify-center">
@@ -112,7 +133,7 @@ export default function DashboardPage() {
                 {t('stats.monthlyIncome')}
               </p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                $2.4M
+                {loading ? '...' : formatMoneyByCode(stats?.monthlyIncome ?? 0, stats?.currencyCode ?? 'ARS', locale)}
               </p>
             </div>
             <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/20 rounded-full flex items-center justify-center">

@@ -5,7 +5,10 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   DeleteDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
+import { Company } from '../../companies/entities/company.entity';
 
 export enum UserRole {
   ADMIN = 'admin',
@@ -14,10 +17,20 @@ export enum UserRole {
   STAFF = 'staff',
 }
 
+// Default company ID for new users
+export const DEFAULT_COMPANY_ID = '00000000-0000-0000-0000-000000000001';
+
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ name: 'company_id', default: DEFAULT_COMPANY_ID })
+  companyId: string;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company: Company;
 
   @Column({ unique: true })
   email: string;

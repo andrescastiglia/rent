@@ -1,7 +1,7 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-// Check if we're in development mode (using localhost)
-const IS_MOCK_MODE = API_URL.includes('localhost');
+// Mock mode only for unit tests (when NODE_ENV is 'test')
+const IS_MOCK_MODE = process.env.NODE_ENV === 'test';
 
 // Mock authentication data for development/testing
 const MOCK_USERS = [
