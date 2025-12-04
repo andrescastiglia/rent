@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login, localePath } from './fixtures/auth';
+import { login, localePath, TEST_USER } from './fixtures/auth';
 
 test.describe('Login Flow', () => {
     test.beforeEach(async ({ page }) => {
@@ -24,8 +24,8 @@ test.describe('Login Flow', () => {
     });
 
     test('should login with valid credentials and redirect to dashboard', async ({ page }) => {
-        await page.locator('input[type="email"]').fill('test@test.com');
-        await page.locator('input[type="password"]').fill('Test123!');
+        await page.locator('input[type="email"]').fill(TEST_USER.email);
+        await page.locator('input[type="password"]').fill(TEST_USER.password);
         await page.locator('button[type="submit"]').click();
 
         // Should redirect to dashboard with locale prefix

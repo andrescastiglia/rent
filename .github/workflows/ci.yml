@@ -316,6 +316,7 @@ jobs:
         run: npm run build
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3001
+          NEXT_PUBLIC_MOCK_MODE: 'true'
 
       - name: Run E2E tests
         working-directory: frontend
@@ -323,6 +324,7 @@ jobs:
         env:
           CI: true
           PLAYWRIGHT_BASE_URL: http://localhost:3000
+          NEXT_PUBLIC_MOCK_MODE: 'true'
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4

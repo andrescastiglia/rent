@@ -1,7 +1,7 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-// Mock mode only for unit tests (when NODE_ENV is 'test')
-const IS_MOCK_MODE = process.env.NODE_ENV === 'test';
+// Mock mode for unit tests (NODE_ENV === 'test'), CI environment (no backend available), or explicit mock mode
+const IS_MOCK_MODE = process.env.NODE_ENV === 'test' || process.env.NEXT_PUBLIC_MOCK_MODE === 'true' || process.env.CI === 'true';
 
 // Mock authentication data for development/testing
 const MOCK_USERS = [

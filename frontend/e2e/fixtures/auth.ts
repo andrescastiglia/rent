@@ -1,7 +1,13 @@
 import { test as base, Page } from '@playwright/test';
 
-// Test user credentials (real backend user)
-const TEST_USER = {
+// In CI we use mock mode (no backend), locally we use real backend
+const IS_CI = process.env.CI === 'true';
+
+// Test user credentials - mock credentials for CI, real backend credentials for local
+export const TEST_USER = IS_CI ? {
+    email: 'admin@example.com',
+    password: 'admin123',
+} : {
     email: 'test@test.com',
     password: 'Test123!',
 };
