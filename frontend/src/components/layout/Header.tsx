@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuth } from '@/contexts/auth-context';
 import { useState } from 'react';
 import { Menu } from 'lucide-react';
@@ -19,7 +20,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
 
   return (
     <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex items-center h-16">
           {/* Mobile menu button */}
           {user && (
@@ -35,9 +36,13 @@ export default function Header({ onMenuToggle }: HeaderProps) {
           {/* Logo - centered on mobile */}
           <div className="flex-1 flex items-center justify-center lg:justify-start">
             <Link href="/dashboard" className="flex items-center">
-              <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                Rent
-              </span>
+              <Image 
+                src="/logo.svg" 
+                alt="Rent" 
+                width={64} 
+                height={26} 
+                priority
+              />
             </Link>
           </div>
 
