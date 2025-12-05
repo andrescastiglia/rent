@@ -75,7 +75,9 @@
             "properties": "Properties",
             "tenants": "Tenants",
             "activeLeases": "Active Leases",
-            "monthlyIncome": "Monthly Income"
+            "monthlyIncome": "Monthly Income",
+            "payments": "Payments",
+            "invoices": "Invoices"
         },
         "recentActivity": "Recent Activity",
         "noRecentActivity": "No recent activity to display."

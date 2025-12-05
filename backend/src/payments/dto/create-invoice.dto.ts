@@ -1,52 +1,52 @@
 import {
-    IsDateString,
-    IsNotEmpty,
-    IsNumber,
-    IsOptional,
-    IsString,
-    IsUUID,
-    Min,
+  IsDateString,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Min,
 } from 'class-validator';
 
 /**
  * DTO para crear una nueva factura.
  */
 export class CreateInvoiceDto {
-    @IsUUID()
-    @IsNotEmpty()
-    leaseId: string;
+  @IsUUID()
+  @IsNotEmpty()
+  leaseId: string;
 
-    @IsDateString()
-    @IsNotEmpty()
-    periodStart: string;
+  @IsDateString()
+  @IsNotEmpty()
+  periodStart: string;
 
-    @IsDateString()
-    @IsNotEmpty()
-    periodEnd: string;
+  @IsDateString()
+  @IsNotEmpty()
+  periodEnd: string;
 
-    @IsNumber()
-    @Min(0)
-    @IsNotEmpty()
-    subtotal: number;
+  @IsNumber()
+  @Min(0)
+  @IsNotEmpty()
+  subtotal: number;
 
-    @IsNumber()
-    @Min(0)
-    @IsOptional()
-    lateFee?: number = 0;
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  lateFee?: number = 0;
 
-    @IsNumber()
-    @IsOptional()
-    adjustments?: number = 0;
+  @IsNumber()
+  @IsOptional()
+  adjustments?: number = 0;
 
-    @IsDateString()
-    @IsNotEmpty()
-    dueDate: string;
+  @IsDateString()
+  @IsNotEmpty()
+  dueDate: string;
 
-    @IsString()
-    @IsOptional()
-    invoiceNumber?: string;
+  @IsString()
+  @IsOptional()
+  invoiceNumber?: string;
 
-    @IsString()
-    @IsOptional()
-    notes?: string;
+  @IsString()
+  @IsOptional()
+  notes?: string;
 }

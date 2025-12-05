@@ -1,12 +1,12 @@
 import {
-    Entity,
-    Column,
-    PrimaryGeneratedColumn,
-    CreateDateColumn,
-    UpdateDateColumn,
-    OneToOne,
-    OneToMany,
-    JoinColumn,
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToOne,
+  OneToMany,
+  JoinColumn,
 } from 'typeorm';
 import { Lease } from '../../leases/entities/lease.entity';
 import { TenantAccountMovement } from './tenant-account-movement.entity';
@@ -19,34 +19,34 @@ import { Invoice } from './invoice.entity';
  */
 @Entity('tenant_accounts')
 export class TenantAccount {
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-    @Column({ name: 'lease_id' })
-    leaseId: string;
+  @Column({ name: 'lease_id' })
+  leaseId: string;
 
-    @OneToOne(() => Lease)
-    @JoinColumn({ name: 'lease_id' })
-    lease: Lease;
+  @OneToOne(() => Lease)
+  @JoinColumn({ name: 'lease_id' })
+  lease: Lease;
 
-    @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
-    balance: number;
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  balance: number;
 
-    @Column({ name: 'last_calculated_at', type: 'timestamptz', nullable: true })
-    lastCalculatedAt: Date;
+  @Column({ name: 'last_calculated_at', type: 'timestamptz', nullable: true })
+  lastCalculatedAt: Date;
 
-    @OneToMany(() => TenantAccountMovement, (movement) => movement.account)
-    movements: TenantAccountMovement[];
+  @OneToMany(() => TenantAccountMovement, (movement) => movement.account)
+  movements: TenantAccountMovement[];
 
-    @OneToMany(() => Payment, (payment) => payment.tenantAccount)
-    payments: Payment[];
+  @OneToMany(() => Payment, (payment) => payment.tenantAccount)
+  payments: Payment[];
 
-    @OneToMany(() => Invoice, (invoice) => invoice.tenantAccount)
-    invoices: Invoice[];
+  @OneToMany(() => Invoice, (invoice) => invoice.tenantAccount)
+  invoices: Invoice[];
 
-    @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
-    createdAt: Date;
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  createdAt: Date;
 
-    @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
-    updatedAt: Date;
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
+  updatedAt: Date;
 }

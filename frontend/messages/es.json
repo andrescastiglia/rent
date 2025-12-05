@@ -75,7 +75,9 @@
             "properties": "Propiedades",
             "tenants": "Inquilinos",
             "activeLeases": "Contratos Activos",
-            "monthlyIncome": "Ingresos Mensuales"
+            "monthlyIncome": "Ingresos Mensuales",
+            "payments": "Pagos",
+            "invoices": "Facturas"
         },
         "recentActivity": "Actividad Reciente",
         "noRecentActivity": "No hay actividad reciente para mostrar."

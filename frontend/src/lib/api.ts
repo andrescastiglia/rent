@@ -30,6 +30,28 @@ const MOCK_USERS = [
 // Helper to simulate API delay
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Mock dashboard data
+const MOCK_DASHBOARD_STATS = {
+    totalProperties: 5,
+    totalTenants: 12,
+    activeLeases: 8,
+    monthlyIncome: 45000,
+    currencyCode: 'ARS',
+    totalPayments: 24,
+    totalInvoices: 32,
+};
+
+// Mock GET handler for protected endpoints
+async function handleMockGet(endpoint: string): Promise<any> {
+    await delay(200);
+
+    if (endpoint === '/dashboard/stats') {
+        return MOCK_DASHBOARD_STATS;
+    }
+
+    return null;
+}
+
 // Mock auth handler
 async function handleMockAuth(endpoint: string, data: any): Promise<any> {
     await delay(300); // Simulate network delay
@@ -118,6 +140,13 @@ class ApiClient {
     }
 
     async get<T>(endpoint: string, token?: string): Promise<T> {
+        // Use mock for certain endpoints in mock mode
+        if (IS_MOCK_MODE) {
+            const mockResult = await handleMockGet(endpoint);
+            if (mockResult !== null) {
+                return mockResult as T;
+            }
+        }
         return this.request<T>(endpoint, { method: 'GET', token });
     }
 

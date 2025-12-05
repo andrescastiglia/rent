@@ -211,7 +211,7 @@ export class DocumentsService {
       const buffer = await this.streamToBuffer(response.Body as any);
 
       return { buffer, contentType };
-    } catch (error) {
+    } catch {
       throw new NotFoundException(`File not found in S3: ${s3Key}`);
     }
   }

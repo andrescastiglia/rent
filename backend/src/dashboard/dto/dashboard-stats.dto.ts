@@ -4,4 +4,6 @@ export class DashboardStatsDto {
   activeLeases: number;
   monthlyIncome: number;
   currencyCode: string;
+  totalPayments: number;
+  totalInvoices: number;
 }

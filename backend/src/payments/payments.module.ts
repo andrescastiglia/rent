@@ -31,36 +31,36 @@ import { DocumentsModule } from '../documents/documents.module';
  * Gestiona cuentas corrientes, facturas, pagos y recibos.
  */
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([
-            TenantAccount,
-            TenantAccountMovement,
-            Invoice,
-            CommissionInvoice,
-            Payment,
-            Receipt,
-            Lease,
-            Document,
-        ]),
-        DocumentsModule,
-    ],
-    controllers: [
-        TenantAccountsController,
-        InvoicesController,
-        PaymentsController,
-    ],
-    providers: [
-        TenantAccountsService,
-        InvoicesService,
-        PaymentsService,
-        ReceiptPdfService,
-        InvoicePdfService,
-    ],
-    exports: [
-        TypeOrmModule,
-        TenantAccountsService,
-        InvoicesService,
-        PaymentsService,
-    ],
+  imports: [
+    TypeOrmModule.forFeature([
+      TenantAccount,
+      TenantAccountMovement,
+      Invoice,
+      CommissionInvoice,
+      Payment,
+      Receipt,
+      Lease,
+      Document,
+    ]),
+    DocumentsModule,
+  ],
+  controllers: [
+    TenantAccountsController,
+    InvoicesController,
+    PaymentsController,
+  ],
+  providers: [
+    TenantAccountsService,
+    InvoicesService,
+    PaymentsService,
+    ReceiptPdfService,
+    InvoicePdfService,
+  ],
+  exports: [
+    TypeOrmModule,
+    TenantAccountsService,
+    InvoicesService,
+    PaymentsService,
+  ],
 })
-export class PaymentsModule { }
+export class PaymentsModule {}
