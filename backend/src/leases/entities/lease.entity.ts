@@ -47,6 +47,25 @@ export enum BillingFrequency {
   BIMONTHLY = 'bimonthly',
 }
 
+/**
+ * Tipo de ajuste por inflación.
+ */
+export enum AdjustmentType {
+  ICL = 'icl',
+  IGPM = 'igpm',
+  FIXED = 'fixed',
+  NONE = 'none',
+}
+
+/**
+ * Tipo de cláusula de aumento.
+ */
+export enum IncreaseClauseType {
+  PERCENTAGE = 'percentage',
+  FIXED_AMOUNT = 'fixed_amount',
+  INDEX_BASED = 'index_based',
+}
+
 @Entity('leases')
 export class Lease {
   @PrimaryGeneratedColumn('uuid')
@@ -140,6 +159,66 @@ export class Lease {
 
   @Column({ name: 'billing_day', type: 'integer', default: 1 })
   billingDay: number;
+
+  // Adjustment configuration fields
+
+  @Column({
+    name: 'adjustment_type',
+    type: 'enum',
+    enum: AdjustmentType,
+    default: AdjustmentType.NONE,
+  })
+  adjustmentType: AdjustmentType;
+
+  @Column({
+    name: 'adjustment_rate',
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+  })
+  adjustmentRate: number;
+
+  @Column({ name: 'next_adjustment_date', type: 'date', nullable: true })
+  nextAdjustmentDate: Date;
+
+  @Column({ name: 'last_adjustment_date', type: 'date', nullable: true })
+  lastAdjustmentDate: Date;
+
+  @Column({
+    name: 'last_adjustment_rate',
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+  })
+  lastAdjustmentRate: number;
+
+  // Increase clause configuration
+
+  @Column({
+    name: 'increase_clause_type',
+    type: 'enum',
+    enum: IncreaseClauseType,
+    nullable: true,
+  })
+  increaseClauseType: IncreaseClauseType;
+
+  @Column({
+    name: 'increase_clause_value',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
+  increaseClauseValue: number;
+
+  @Column({
+    name: 'increase_clause_frequency_months',
+    type: 'integer',
+    default: 12,
+  })
+  increaseClauseFrequencyMonths: number;
 
   @OneToMany(() => LeaseAmendment, (amendment) => amendment.lease)
   amendments: LeaseAmendment[];

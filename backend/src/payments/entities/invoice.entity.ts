@@ -28,6 +28,21 @@ export enum InvoiceStatus {
 }
 
 /**
+ * Tipo de comprobante ARCA/AFIP.
+ */
+export enum ArcaTipoComprobante {
+  FACTURA_A = 'factura_a',
+  FACTURA_B = 'factura_b',
+  FACTURA_C = 'factura_c',
+  RECIBO_A = 'recibo_a',
+  RECIBO_B = 'recibo_b',
+  RECIBO_C = 'recibo_c',
+  NOTA_CREDITO_A = 'nota_credito_a',
+  NOTA_CREDITO_B = 'nota_credito_b',
+  NOTA_CREDITO_C = 'nota_credito_c',
+}
+
+/**
  * Factura emitida por el propietario al inquilino.
  * La compañía actúa como agente de facturación.
  */
@@ -114,6 +129,121 @@ export class Invoice {
 
   @Column({ type: 'text', nullable: true })
   notes: string;
+
+  // ARCA Electronic Invoicing fields
+
+  @Column({ name: 'arca_cae', length: 14, nullable: true })
+  arcaCae: string;
+
+  @Column({ name: 'arca_cae_expiration', type: 'date', nullable: true })
+  arcaCaeExpiration: Date;
+
+  @Column({
+    name: 'arca_tipo_comprobante',
+    type: 'enum',
+    enum: ArcaTipoComprobante,
+    nullable: true,
+  })
+  arcaTipoComprobante: ArcaTipoComprobante;
+
+  @Column({ name: 'arca_punto_venta', type: 'integer', nullable: true })
+  arcaPuntoVenta: number;
+
+  @Column({ name: 'arca_numero_comprobante', type: 'integer', nullable: true })
+  arcaNumeroComprobante: number;
+
+  @Column({ name: 'arca_qr_data', type: 'text', nullable: true })
+  arcaQrData: string;
+
+  @Column({ name: 'arca_error_log', type: 'text', nullable: true })
+  arcaErrorLog: string;
+
+  // Multi-Currency Support
+
+  @Column({
+    name: 'original_amount',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
+  originalAmount: number;
+
+  @Column({ name: 'original_currency', length: 3, nullable: true })
+  originalCurrency: string;
+
+  @Column({
+    name: 'exchange_rate_used',
+    type: 'decimal',
+    precision: 12,
+    scale: 6,
+    nullable: true,
+  })
+  exchangeRateUsed: number;
+
+  @Column({ name: 'exchange_rate_date', type: 'date', nullable: true })
+  exchangeRateDate: Date;
+
+  // Withholdings
+
+  @Column({
+    name: 'withholding_iibb',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    default: 0,
+  })
+  withholdingIibb: number;
+
+  @Column({
+    name: 'withholding_iva',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    default: 0,
+  })
+  withholdingIva: number;
+
+  @Column({
+    name: 'withholding_ganancias',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    default: 0,
+  })
+  withholdingGanancias: number;
+
+  @Column({
+    name: 'withholdings_total',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    default: 0,
+  })
+  withholdingsTotal: number;
+
+  // Adjustment Tracking
+
+  @Column({
+    name: 'adjustment_applied',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    default: 0,
+  })
+  adjustmentApplied: number;
+
+  @Column({ name: 'adjustment_index_type', length: 10, nullable: true })
+  adjustmentIndexType: string;
+
+  @Column({
+    name: 'adjustment_index_value',
+    type: 'decimal',
+    precision: 8,
+    scale: 4,
+    nullable: true,
+  })
+  adjustmentIndexValue: number;
 
   @OneToOne(() => CommissionInvoice, (ci) => ci.invoice)
   commissionInvoice: CommissionInvoice;
