@@ -53,7 +53,7 @@ export class DashboardService {
 
     // Calculate monthly income (sum of rent amounts from active leases)
     const monthlyIncome = activeLeasesList.reduce((sum, lease) => {
-      return sum + Number(lease.rentAmount);
+      return sum + Number(lease.monthlyRent);
     }, 0);
 
     // Get the most common currency or default to ARS

@@ -152,7 +152,7 @@ describe('Lease Creation Flow (e2e)', () => {
         state: 'Test State',
         zipCode: '12345',
         country: 'Argentina',
-        type: PropertyType.RESIDENTIAL,
+        type: PropertyType.APARTMENT,
         status: PropertyStatus.ACTIVE,
         description: 'Test property for flow',
       };
@@ -307,7 +307,7 @@ describe('Lease Creation Flow (e2e)', () => {
         city: 'Test City',
         state: 'Test State',
         zipCode: '12345',
-        type: PropertyType.RESIDENTIAL,
+        type: PropertyType.APARTMENT,
         status: PropertyStatus.ACTIVE,
       };
       const property = await propertyRepository.save(

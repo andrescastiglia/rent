@@ -10,7 +10,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Lease } from '../../leases/entities/lease.entity';
-import { User } from '../../users/entities/user.entity';
+import { Owner } from '../../owners/entities/owner.entity';
 import { TenantAccount } from './tenant-account.entity';
 import { Currency } from '../../currencies/entities/currency.entity';
 import { CommissionInvoice } from './commission-invoice.entity';
@@ -61,9 +61,9 @@ export class Invoice {
   @Column({ name: 'owner_id' })
   ownerId: string;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => Owner)
   @JoinColumn({ name: 'owner_id' })
-  owner: User;
+  owner: Owner;
 
   @Column({ name: 'tenant_account_id' })
   tenantAccountId: string;

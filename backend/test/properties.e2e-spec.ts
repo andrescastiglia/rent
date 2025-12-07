@@ -113,7 +113,7 @@ describe('Properties Management (e2e)', () => {
         city: 'Buenos Aires',
         state: 'CABA',
         zipCode: '1425',
-        type: PropertyType.RESIDENTIAL,
+        type: PropertyType.APARTMENT,
         status: PropertyStatus.ACTIVE,
         description: 'Test property',
       };
@@ -138,7 +138,7 @@ describe('Properties Management (e2e)', () => {
         city: 'Buenos Aires',
         state: 'CABA',
         zipCode: '1425',
-        type: PropertyType.RESIDENTIAL,
+        type: PropertyType.APARTMENT,
       };
 
       return request(app.getHttpServer())
@@ -159,7 +159,7 @@ describe('Properties Management (e2e)', () => {
           city: 'Buenos Aires',
           state: 'CABA',
           zipCode: '1425',
-          type: PropertyType.RESIDENTIAL,
+          type: PropertyType.APARTMENT,
           status: PropertyStatus.ACTIVE,
         },
         {
@@ -240,7 +240,7 @@ describe('Properties Management (e2e)', () => {
         city: 'Test City',
         state: 'Test State',
         zipCode: '12345',
-        type: PropertyType.RESIDENTIAL,
+        type: PropertyType.APARTMENT,
         status: PropertyStatus.ACTIVE,
       };
       const property = await propertyRepository.save(

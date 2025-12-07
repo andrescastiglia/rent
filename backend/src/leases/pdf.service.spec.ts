@@ -43,7 +43,7 @@ describe('PdfService', () => {
     tenantId: 'tenant-1',
     startDate: new Date('2024-01-01'),
     endDate: new Date('2024-12-31'),
-    rentAmount: 1500,
+    monthlyRent: 1500,
     status: LeaseStatus.ACTIVE,
     paymentFrequency: PaymentFrequency.MONTHLY,
   };

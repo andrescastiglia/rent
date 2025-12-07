@@ -172,41 +172,322 @@ erDiagram
     }
 ```
 
-## 4. Dominio Financiero (Payments & Invoicing)
+## 4. Dominio Financiero (Billing, Payments & Invoicing)
+
+### 4.1 Facturación e Índices
 
 ```mermaid
 erDiagram
-    LEASE ||--|{ PAYMENT : generates
-    PAYMENT ||--o| INVOICE : generates
+    LEASE ||--|{ INVOICE : generates
+    INVOICE ||--o{ PAYMENT : receives
+    COMPANY ||--o| ARCA_CONFIG : has
 
     LEASE {
         uuid id
         decimal rent_amount
-        string currency
-    }
-
-    PAYMENT {
-        uuid id
-        uuid lease_id
-        decimal amount
-        string currency
-        date payment_date
-        string method
-        string status
-        string transaction_ref
-        string failure_reason
+        string currency_code
+        boolean adjustment_enabled
+        string adjustment_index
+        string adjustment_frequency
+        integer adjustment_month
+        date last_adjustment_date
+        decimal last_adjustment_value
+        boolean increase_clause_enabled
+        string increase_clause_type
+        decimal increase_clause_value
+        boolean auto_billing_enabled
+        boolean arca_enabled
+        string arca_invoice_type
     }
 
     INVOICE {
         uuid id
-        uuid payment_id
+        uuid lease_id
         string invoice_number
+        decimal original_amount
         decimal subtotal
         decimal tax_amount
         decimal total
-        string pdf_url
-        date issued_at
+        string currency_code
+        decimal exchange_rate
+        decimal amount_in_original_currency
+        boolean adjustment_applied
+        string adjustment_index
+        decimal adjustment_value
+        decimal retention_iibb
+        decimal retention_iva
+        decimal retention_ganancias
+        decimal net_amount
+        boolean arca_enabled
+        string arca_cae
+        date arca_cae_expiry
+        string arca_invoice_type
+        integer arca_point_of_sale
+        integer arca_receipt_number
+        text arca_qr_data
         string status
+        date due_date
+        date issued_at
+    }
+
+    ARCA_CONFIG {
+        uuid company_id
+        boolean arca_enabled
+        string arca_cuit
+        integer arca_point_of_sale
+        bytea arca_certificate
+        bytea arca_private_key
+        string arca_environment
+    }
+
+    INFLATION_INDEX {
+        uuid id
+        string index_code
+        string country_code
+        date period_date
+        decimal value
+        decimal variation_monthly
+        decimal variation_yearly
+        string source
+        datetime fetched_at
+    }
+
+    EXCHANGE_RATE {
+        uuid id
+        string from_currency
+        string to_currency
+        decimal rate
+        date rate_date
+        string source
+        datetime fetched_at
+    }
+
+    COMPANY ||--o{ INFLATION_INDEX : uses
+    COMPANY ||--o{ EXCHANGE_RATE : uses
+```
+
+### 4.2 Cobranzas y Cuentas
+
+```mermaid
+erDiagram
+    COMPANY ||--o{ BANK_ACCOUNT : has
+    COMPANY ||--o{ CRYPTO_WALLET : has
+    OWNER ||--o{ BANK_ACCOUNT : has
+    OWNER ||--o{ CRYPTO_WALLET : has
+    PROPERTY ||--o| BANK_ACCOUNT : virtual_alias
+    INVOICE ||--o{ PAYMENT : receives
+    PAYMENT ||--o| BANK_ACCOUNT : received_in
+    PAYMENT ||--o| CRYPTO_WALLET : received_in
+    PAYMENT ||--|| RECEIPT : generates
+    TENANT ||--|| TENANT_ACCOUNT : has
+    TENANT_ACCOUNT ||--|{ TENANT_ACCOUNT_MOVEMENT : records
+
+    BANK_ACCOUNT {
+        uuid id
+        string owner_type
+        uuid owner_id
+        string country
+        string account_type
+        string account_number
+        string routing_number
+        string alias
+        string bank_name
+        string holder_name
+        string holder_document
+        boolean is_virtual
+        uuid parent_account_id
+        boolean is_active
+        datetime verified_at
+    }
+
+    CRYPTO_WALLET {
+        uuid id
+        string owner_type
+        uuid owner_id
+        string network
+        string xpub
+        string derivation_path
+        string lightning_node_pubkey
+        string smart_contract_address
+        string current_address
+        string label
+        string wallet_type
+        decimal balance_cached
+        datetime balance_updated_at
+        boolean is_active
+    }
+
+    LIGHTNING_INVOICE {
+        uuid id
+        uuid crypto_wallet_id
+        uuid payment_id
+        string invoice_hash
+        text invoice_string
+        bigint amount_sats
+        string description
+        datetime expires_at
+        string status
+        datetime paid_at
+    }
+
+    PAYMENT {
+        uuid id
+        uuid invoice_id
+        uuid tenant_account_id
+        string payment_method
+        string payment_provider
+        string external_id
+        decimal amount
+        string currency
+        string status
+        datetime received_at
+        uuid bank_account_id
+        uuid crypto_wallet_id
+        string tx_hash
+        integer confirmation_count
+        json metadata
+    }
+
+    RECEIPT {
+        uuid id
+        uuid payment_id
+        string receipt_number
+        uuid tenant_id
+        decimal amount
+        string currency
+        datetime issued_at
+        string pdf_url
+        datetime sent_at
+    }
+
+    TENANT_ACCOUNT {
+        uuid id
+        uuid lease_id
+        uuid tenant_id
+        decimal balance
+        datetime last_movement_at
+    }
+
+    TENANT_ACCOUNT_MOVEMENT {
+        uuid id
+        uuid tenant_account_id
+        string movement_type
+        uuid reference_id
+        decimal amount
+        decimal balance_after
+        string description
+    }
+```
+
+### 4.3 Liquidaciones y Conciliación
+
+```mermaid
+erDiagram
+    OWNER ||--o{ SETTLEMENT : receives
+    SETTLEMENT ||--|{ SETTLEMENT_ITEM : contains
+    SETTLEMENT ||--o| BANK_ACCOUNT : paid_to
+    SETTLEMENT ||--o| CRYPTO_WALLET : paid_to
+    BANK_ACCOUNT ||--|{ BANK_RECONCILIATION : has
+
+    SETTLEMENT {
+        uuid id
+        uuid owner_id
+        uuid contract_id
+        date period_start
+        date period_end
+        decimal gross_amount
+        decimal commission_amount
+        string commission_type
+        decimal commission_rate
+        decimal withholdings_amount
+        decimal net_amount
+        string currency
+        string status
+        date scheduled_date
+        datetime processed_at
+        string payment_method
+        uuid bank_account_id
+        uuid crypto_wallet_id
+        string tx_reference
+    }
+
+    SETTLEMENT_ITEM {
+        uuid id
+        uuid settlement_id
+        uuid invoice_id
+        uuid payment_id
+        decimal amount
+        date payment_date
+        date due_date
+    }
+
+    BANK_RECONCILIATION {
+        uuid id
+        uuid bank_account_id
+        string external_reference
+        decimal amount
+        string currency
+        date transaction_date
+        text description
+        uuid matched_payment_id
+        string status
+    }
+```
+
+### 4.4 Auditoría de Procesos Batch
+
+```mermaid
+erDiagram
+    BILLING_JOB {
+        uuid id
+        string job_type
+        string status
+        datetime started_at
+        datetime completed_at
+        integer records_processed
+        integer records_success
+        integer records_failed
+        text error_message
+        json details
+    }
+
+    REPORT_SCHEDULE ||--|{ REPORT_EXECUTION : generates
+
+    REPORT_SCHEDULE {
+        uuid id
+        string report_type
+        string frequency
+        string recipient_type
+        uuid recipient_id
+        boolean enabled
+        datetime last_run_at
+        datetime next_run_at
+    }
+
+    REPORT_EXECUTION {
+        uuid id
+        uuid schedule_id
+        string report_type
+        string status
+        date period_start
+        date period_end
+        string recipient_email
+        text file_path
+        datetime sent_at
+        text error_message
+    }
+
+    NOTIFICATION_PREFERENCE {
+        uuid id
+        uuid user_id
+        boolean invoice_issued
+        boolean payment_received
+        boolean payment_reminder
+        boolean overdue_notice
+        boolean late_fee_applied
+        boolean adjustment_applied
+        boolean email_enabled
+        integer reminder_days_before
     }
 ```
 
@@ -338,12 +619,19 @@ erDiagram
 ```mermaid
 erDiagram
     COMPANY ||--|{ PROPERTY : manages
+    COMPANY ||--o{ BANK_ACCOUNT : has
     OWNER ||--|{ PROPERTY : owns
+    OWNER ||--o{ BANK_ACCOUNT : has
+    OWNER ||--o{ SETTLEMENT : receives
     PROPERTY ||--|{ UNIT : contains
+    PROPERTY ||--o| BANK_ACCOUNT : virtual_alias
     UNIT ||--|{ LEASE : has
     TENANT ||--|{ LEASE : signs
-    LEASE ||--|{ PAYMENT : generates
-    PAYMENT ||--o| INVOICE : generates
+    TENANT ||--|| TENANT_ACCOUNT : has
+    LEASE ||--|{ INVOICE : generates
+    INVOICE ||--o{ PAYMENT : receives
+    PAYMENT ||--|| RECEIPT : generates
+    PAYMENT ||--o| BANK_ACCOUNT : received_in
     UNIT ||--|{ MAINTENANCE_TICKET : reports
     TENANT ||--|{ MAINTENANCE_TICKET : requests
     STAFF ||--|{ MAINTENANCE_TICKET : assigned_to
@@ -353,6 +641,8 @@ erDiagram
     COMPANY {
         uuid id
         string name
+        boolean arca_enabled
+        string country_code
     }
 
     OWNER {
@@ -376,22 +666,50 @@ erDiagram
         string dni
     }
 
+    TENANT_ACCOUNT {
+        uuid id
+        decimal balance
+    }
+
     LEASE {
         uuid id
         date start_date
         date end_date
         string status
+        string currency_code
+        boolean adjustment_enabled
+    }
+
+    INVOICE {
+        uuid id
+        string invoice_number
+        decimal total
+        string status
+        string arca_cae
     }
 
     PAYMENT {
         uuid id
         decimal amount
         string status
+        string payment_method
     }
 
-    INVOICE {
+    RECEIPT {
         uuid id
-        string invoice_number
+        string receipt_number
+    }
+
+    SETTLEMENT {
+        uuid id
+        decimal net_amount
+        string status
+    }
+
+    BANK_ACCOUNT {
+        uuid id
+        string alias
+        string account_type
     }
 
     MAINTENANCE_TICKET {

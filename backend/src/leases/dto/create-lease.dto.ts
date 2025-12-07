@@ -30,12 +30,12 @@ export class CreateLeaseDto {
   @IsNumber()
   @Min(0)
   @IsNotEmpty()
-  rentAmount: number;
+  monthlyRent: number;
 
   @IsNumber()
   @Min(0)
   @IsNotEmpty()
-  deposit: number;
+  securityDeposit: number;
 
   @IsString()
   @IsOptional()

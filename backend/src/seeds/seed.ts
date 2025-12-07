@@ -154,7 +154,7 @@ async function seed() {
           state: 'CABA',
           zipCode: '1425',
           country: 'Argentina',
-          type: PropertyType.RESIDENTIAL,
+          type: PropertyType.APARTMENT,
           status: PropertyStatus.ACTIVE,
           description: 'Luxury apartment building',
           yearBuilt: 2015,

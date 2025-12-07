@@ -1,53 +1,34 @@
-import {
-  IsEnum,
-  IsOptional,
-  IsInt,
-  IsUUID,
-  IsDateString,
-  Min,
-  Max,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsUUID, IsEnum, IsDateString } from 'class-validator';
 import { PaymentStatus, PaymentMethod } from '../entities/payment.entity';
 
-/**
- * DTO para filtrar pagos.
- */
 export class PaymentFiltersDto {
-  @IsUUID()
   @IsOptional()
+  @IsUUID()
   tenantAccountId?: string;
 
-  @IsUUID()
   @IsOptional()
+  @IsUUID()
   leaseId?: string;
 
-  @IsEnum(PaymentStatus)
   @IsOptional()
+  @IsEnum(PaymentStatus)
   status?: PaymentStatus;
 
-  @IsEnum(PaymentMethod)
   @IsOptional()
+  @IsEnum(PaymentMethod)
   method?: PaymentMethod;
 
-  @IsDateString()
   @IsOptional()
+  @IsDateString()
   fromDate?: string;
 
-  @IsDateString()
   @IsOptional()
+  @IsDateString()
   toDate?: string;
 
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
   @IsOptional()
-  page?: number = 1;
+  page?: number;
 
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
   @IsOptional()
-  limit?: number = 10;
+  limit?: number;
 }

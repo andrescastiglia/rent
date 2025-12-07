@@ -39,12 +39,12 @@ export function generateContractPdf(lease: Lease): Promise<Buffer> {
       .fontSize(11)
       .font('Helvetica')
       .text(
-        `Locador (Propietario): ${lease.unit?.property?.owner?.firstName || ''} ${lease.unit?.property?.owner?.lastName || ''}`,
+        `Locador (Propietario): ${lease.unit?.property?.owner?.user?.firstName || ''} ${lease.unit?.property?.owner?.user?.lastName || ''}`,
       )
       .text(
-        `Locatario (Inquilino): ${lease.tenant?.firstName || ''} ${lease.tenant?.lastName || ''}`,
+        `Locatario (Inquilino): ${lease.tenant?.user?.firstName || ''} ${lease.tenant?.user?.lastName || ''}`,
       )
-      .text(`Email: ${lease.tenant?.email || ''}`)
+      .text(`Email: ${lease.tenant?.user?.email || ''}`)
       .moveDown(1.5);
 
     // Propiedad
@@ -79,10 +79,10 @@ export function generateContractPdf(lease: Lease): Promise<Buffer> {
         `Fecha de finalización: ${new Date(lease.endDate).toLocaleDateString('es-AR')}`,
       )
       .text(
-        `Renta mensual: ${lease.currency} ${lease.rentAmount.toLocaleString('es-AR')}`,
+        `Renta mensual: ${lease.currency} ${Number(lease.monthlyRent).toLocaleString('es-AR')}`,
       )
       .text(
-        `Depósito: ${lease.currency} ${lease.deposit.toLocaleString('es-AR')}`,
+        `Depósito: ${lease.currency} ${Number(lease.securityDeposit).toLocaleString('es-AR')}`,
       )
       .text(`Frecuencia de pago: ${lease.paymentFrequency}`)
       .moveDown(1.5);

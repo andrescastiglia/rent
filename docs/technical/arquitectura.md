@@ -92,11 +92,16 @@ Componentes:
 
 12. **Integraciones externas**
 
-    * Pasarelas de pago (Stripe, MercadoPago, Adyen).
-    * Firmas digitales (DocuSign, Adobe Sign, proveedores locales).
-    * Portales inmobiliarios (APIs de publicación).
-    * Servicios de email/SMS (SendGrid, Twilio).
-    * Sistemas contables (export / SFTP / API).
+    * **Pasarelas de pago**: MercadoPago (AR/BR/MX), Stripe.
+    * **Bancos (Argentina)**: Bind (API bancaria, CVU virtuales), Pomelo (BaaS), Ualá.
+    * **Blockchain/Crypto**: Bitcoin (xpub para direcciones HD), Lightning Network, Ethereum/Polygon (smart contracts).
+    * **Facturación electrónica**: ARCA (ex AFIP) para Argentina - WSAA + WSFEv1.
+    * **Índices de inflación**: BCRA API (ICL para Ley 27.551), BCB/FGV (IGP-M Brasil).
+    * **Tipos de cambio**: BCRA API (USD/ARS, BRL/ARS), BCB (USD/BRL).
+    * **Firmas digitales**: DocuSign, Adobe Sign, proveedores locales.
+    * **Portales inmobiliarios**: APIs de publicación.
+    * **Servicios de email/SMS**: SendGrid, Twilio.
+    * **Sistemas contables**: Export / SFTP / API.
 
 13. **Observability stack**
 
@@ -119,19 +124,30 @@ Componentes:
 
 Entidades principales (resumen):
 
-* `Company` (si multi-tenant)
+* `Company` (si multi-tenant, incluye config ARCA y agente de retención)
 * `Property` (id, dirección, geo, tipo, características, owner_id, estado)
 * `Unit` (si inmuebles tienen múltiples unidades: unidad_id, piso, número)
 * `Owner` / `Propietario` (persona jurídica o natural)
 * `Tenant` / `Inquilino` (persona)
-* `Lease` / `Contract` (propiedad/unidad, tenant_id, inicio, fin, renta, depósito, índice de ajuste)
-* `Payment` (lease_id, monto, fecha, metodo, estado, receipt_id)
-* `Invoice` / `Receipt` (documento fiscal)
+* `TenantAccount` (cuenta corriente del inquilino, balance, movimientos)
+* `Lease` / `Contract` (propiedad/unidad, tenant_id, inicio, fin, renta, depósito, índice de ajuste, multi-moneda, config ARCA)
+* `Invoice` (factura con ajustes, retenciones, CAE ARCA, multi-moneda)
+* `Payment` (invoice_id, monto, método, proveedor, status, crypto: tx_hash, confirmations)
+* `Receipt` (recibo de pago, PDF)
+* `Settlement` (liquidación a propietario, comisiones, retenciones, neto)
+* `BankAccount` (cuentas bancarias propias, de owners, CVU virtuales por propiedad)
+* `CryptoWallet` (Bitcoin xpub, Lightning node, Ethereum smart contracts)
+* `BankReconciliation` (conciliación bancaria)
+* `InflationIndex` (ICL, IGP-M histórico)
+* `ExchangeRate` (USD/ARS, BRL/ARS histórico)
 * `MaintenanceTicket` (property_id/unit, tenant_id, descripción, prioridad, estado, assigned_to, cost)
 * `User` (credenciales, rol, referencia a owner/tenant/staff)
 * `Document` (tipo, link S3, firmado, metadata)
 * `NotificationLog` (tipo, destinatario, canal, status)
+* `NotificationPreference` (preferencias de notificación por usuario)
 * `AuditLog` (entity, action, user, timestamp, diff)
+* `BillingJob` (auditoría de procesos batch)
+* `ReportSchedule` / `ReportExecution` (reportes programados)
 
 Normalizaciones y relaciones: relaciones 1:N entre `Property` y `Unit`; `Lease` linkea `Unit` y `Tenant`; `Payments` es histórico.
 
@@ -156,21 +172,41 @@ Consideraciones multi-tenant: separar datos por `company_id` en cada tabla o usa
 
 1. Worker scheduler (cron) encola jobs diarios para cobros programados.
 2. Worker extrae `Lease` con cobro pendiente y método de pago.
-3. Llamada a PSP (Stripe/MercadoPago).
+3. Llamada a PSP (MercadoPago).
 4. PSP responde success/failure.
 
    * Success: crear `Payment`, generar `Receipt` (PDF), almacenar documento en S3, marcar pago como `pagado`, emitir evento `payment.completed`.
    * Failure: anotar intento, reintentos con backoff, notificar a tenant y administrador, emitir evento `payment.failed`.
 5. Encolar tarea de conciliación contable para conciliación diaria.
 
-### 6.2 Firma digital de contrato
+### 6.2 Facturación por lotes (batch billing)
+
+1. Cron ejecuta `batch billing --date today` diariamente.
+2. Batch CLI busca contratos con facturación programada para hoy.
+3. Para cada contrato:
+   * Si tiene ajuste por índice habilitado: consultar BCRA API para obtener ICL, calcular variación.
+   * Si es multi-moneda (USD/BRL): consultar tipo de cambio del día.
+   * Calcular retenciones si la company es agente de retención (IIBB, IVA, Ganancias).
+   * Crear `Invoice` con todos los campos.
+   * Si ARCA está habilitado: emitir factura electrónica vía WSAA + WSFEv1, obtener CAE.
+   * Enviar factura por email al tenant.
+4. Registrar `BillingJob` con estadísticas de ejecución.
+
+### 6.3 Procesamiento de pagos y liquidaciones
+
+1. **MercadoPago**: Tenant paga → webhook notifica → confirmar pago → generar recibo → programar liquidación.
+2. **Transferencia bancaria**: Batch `reconcile-bank` lee movimientos de Bind API → match por alias o monto → confirmar pago.
+3. **Crypto**: Batch `check-crypto` verifica confirmaciones en blockchain → cuando alcanza threshold → confirmar pago.
+4. **Liquidación**: Batch `process-settlements` procesa liquidaciones programadas → transfiere a owner vía banco o crypto → notifica.
+
+### 6.4 Firma digital de contrato
 
 1. Admin genera `Lease` en estado `pendiente_firma`.
 2. Backend crea documento PDF y solicita firma al proveedor (DocuSign API).
 3. Proveedor envía email al tenant; tenant firma; proveedor notifica webhook a la plataforma.
 4. Backend recibe webhook, descarga documento firmado, lo almacena en S3 y actualiza `Lease` a `vigente`. Emitir evento `contract.signed`.
 
-### 6.3 Solicitud de mantenimiento
+### 6.5 Solicitud de mantenimiento
 
 1. Inquilino crea ticket vía portal (API POST).
 2. API valida y almacena ticket en DB, notifica a queue `maintenance.new`.
@@ -235,9 +271,31 @@ Consideraciones multi-tenant: separar datos por `company_id` en cada tabla o usa
 
 ## 12. Integraciones y contratos API (resumen)
 
+### 12.1 APIs Externas Consumidas
+
+| Integración | Proveedor | Endpoint / Protocolo | Uso |
+|-------------|-----------|---------------------|-----|
+| **Índice ICL** | BCRA | `api.bcra.gob.ar/estadisticas/v2.0/datosvariable/41` | Ajuste por Ley 27.551 |
+| **Índice IGP-M** | BCB | `api.bcb.gov.br/dados/serie/bcdata.sgs.189/dados` | Ajuste alquileres Brasil |
+| **TC USD/ARS** | BCRA | `api.bcra.gob.ar/estadisticas/v2.0/datosvariable/4` | Conversión moneda |
+| **TC BRL/ARS** | BCRA | `api.bcra.gob.ar/estadisticas/v2.0/datosvariable/12` | Conversión moneda |
+| **ARCA Auth** | ARCA (AFIP) | WSAA SOAP | Token para facturación |
+| **ARCA Factura** | ARCA (AFIP) | WSFEv1 SOAP | Emisión CAE |
+| **MercadoPago** | MercadoPago | `api.mercadopago.com` REST | Checkout, webhooks |
+| **Bind API** | Bind | REST API | CVU virtuales, transferencias |
+| **Bitcoin RPC** | Nodo propio / Blockstream | JSON-RPC | Verificar transacciones |
+| **Lightning** | LND / CLN | gRPC / REST | Crear invoices, verificar pagos |
+| **Ethereum RPC** | Infura / Alchemy | JSON-RPC | Verificar transacciones |
+| **Polygon RPC** | Polygon | JSON-RPC | Verificar transacciones |
+| **DocuSign** | DocuSign | REST API | Firma digital |
+| **SendGrid** | SendGrid | REST API | Envío de emails |
+| **Twilio** | Twilio | REST API | SMS |
+
+### 12.2 APIs Expuestas
+
 * **Exponer**: APIs REST/GraphQL públicas para: autenticación, CRUD de propiedades/tenants/leases/payments/tickets, endpoints webhook para PSP y firma digital, endpoints para reportes (CSV/PDF).
 * **Contratos**: usar OpenAPI (Swagger) y versionado de API (`/v1`, `/v2`). Mantener compatibilidad hacia atrás y políticas de deprecación.
-* **Webhooks**: endpoints seguros con HMAC signature para validar origen (p. ej. de Stripe y DocuSign).
+* **Webhooks**: endpoints seguros con HMAC signature para validar origen (p. ej. de MercadoPago, Bind y DocuSign).
 * **Rate limits**: por API key y por IP para evitar abuso.
 
 ---
@@ -281,20 +339,25 @@ Consideraciones multi-tenant: separar datos por `company_id` en cada tabla o usa
 
 ## 15. Tech stack recomendado (ejemplo concreto)
 
-* Backend: **Node.js + NestJS** o **Python + FastAPI**
-* Frontend: **React + Next.js** (PWA)
-* DB relacional: **PostgreSQL** (RDS / CloudSQL)
-* Cache: **Redis** (Elasticache)
-* Cola: **RabbitMQ** o **AWS SQS**
-* Search: **Elasticsearch / OpenSearch**
-* Storage: **S3** (o equivalente)
-* Auth: **Keycloak** o **Cognito / Auth0**
-* Observability: **Prometheus + Grafana**, **Jaeger**, **ELK**
-* Infra: **Kubernetes (EKS/GKE/AKS)**, **Terraform**, **Helm**
-* CI/CD: **GitHub Actions** o **GitLab CI**
-* PSP: **Stripe / MercadoPago** (según región)
-* Firma digital: **DocuSign** / proveedor local
-* Email/SMS: **SendGrid / Twilio**
+* **Backend**: **Node.js + NestJS** o **Python + FastAPI**
+* **Batch CLI**: **Node.js + Commander** (proyecto `/batch` separado)
+* **Frontend**: **React + Next.js** (PWA)
+* **DB relacional**: **PostgreSQL** (RDS / CloudSQL)
+* **Cache**: **Redis** (Elasticache)
+* **Cola**: **RabbitMQ** o **AWS SQS**
+* **Search**: **Elasticsearch / OpenSearch**
+* **Storage**: **S3** (o equivalente)
+* **Auth**: **Keycloak** o **Cognito / Auth0**
+* **Observability**: **Prometheus + Grafana**, **Jaeger**, **ELK**
+* **Infra**: **Kubernetes (EKS/GKE/AKS)**, **Terraform**, **Helm**
+* **CI/CD**: **GitHub Actions** o **GitLab CI**
+* **PSP**: **MercadoPago** (AR/BR/MX)
+* **Bancos**: **Bind** (API bancaria Argentina)
+* **Crypto**: **bitcoinjs-lib**, **ethers.js**, **lnurl-pay**
+* **Facturación electrónica**: **soap** (para ARCA/AFIP)
+* **Firma digital**: **DocuSign** / proveedor local
+* **Email/SMS**: **SendGrid / Twilio**
+* **Índices/TC**: **BCRA API**, **BCB API**
 
 ---
 

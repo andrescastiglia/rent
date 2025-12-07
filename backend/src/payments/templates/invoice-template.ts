@@ -41,24 +41,26 @@ export function generateInvoicePdf(invoice: Invoice): Promise<Buffer> {
 
     // Emisor (Propietario)
     const owner = invoice.owner;
+    const ownerUser = owner?.user;
     doc.fontSize(14).font('Helvetica-Bold').text('EMISOR').moveDown(0.5);
 
     doc
       .fontSize(11)
       .font('Helvetica')
-      .text(`Nombre: ${owner?.firstName || ''} ${owner?.lastName || ''}`)
-      .text(`Email: ${owner?.email || ''}`)
+      .text(`Nombre: ${ownerUser?.firstName || ''} ${ownerUser?.lastName || ''}`)
+      .text(`Email: ${ownerUser?.email || ''}`)
       .moveDown(1.5);
 
     // Cliente (Inquilino)
     const tenant = invoice.lease?.tenant;
+    const tenantUser = tenant?.user;
     doc.fontSize(14).font('Helvetica-Bold').text('CLIENTE').moveDown(0.5);
 
     doc
       .fontSize(11)
       .font('Helvetica')
-      .text(`Nombre: ${tenant?.firstName || ''} ${tenant?.lastName || ''}`)
-      .text(`Email: ${tenant?.email || ''}`)
+      .text(`Nombre: ${tenantUser?.firstName || ''} ${tenantUser?.lastName || ''}`)
+      .text(`Email: ${tenantUser?.email || ''}`)
       .moveDown(1.5);
 
     // Propiedad

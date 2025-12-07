@@ -12,6 +12,8 @@ import { PropertiesModule } from './properties/properties.module';
 import { DocumentsModule } from './documents/documents.module';
 import { LeasesModule } from './leases/leases.module';
 import { TenantsModule } from './tenants/tenants.module';
+import { OwnersModule } from './owners/owners.module';
+import { StaffModule } from './staff/staff.module';
 import { CompaniesModule } from './companies/companies.module';
 import { CurrenciesModule } from './currencies/currencies.module';
 import { DashboardModule } from './dashboard/dashboard.module';
@@ -47,6 +49,8 @@ import * as path from 'path';
     DocumentsModule,
     LeasesModule,
     TenantsModule,
+    OwnersModule,
+    StaffModule,
     CompaniesModule,
     CurrenciesModule,
     DashboardModule,

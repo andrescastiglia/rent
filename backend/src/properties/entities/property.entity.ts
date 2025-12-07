@@ -10,21 +10,26 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Company } from '../../companies/entities/company.entity';
-import { User } from '../../users/entities/user.entity';
+import { Owner } from '../../owners/entities/owner.entity';
 import { Unit } from './unit.entity';
 import { PropertyFeature } from './property-feature.entity';
 
 export enum PropertyType {
-  RESIDENTIAL = 'residential',
+  APARTMENT = 'apartment',
+  HOUSE = 'house',
   COMMERCIAL = 'commercial',
-  VACATION = 'vacation',
-  MIXED = 'mixed',
+  OFFICE = 'office',
+  WAREHOUSE = 'warehouse',
+  LAND = 'land',
+  PARKING = 'parking',
+  OTHER = 'other',
 }
 
 export enum PropertyStatus {
   ACTIVE = 'active',
   INACTIVE = 'inactive',
-  MAINTENANCE = 'maintenance',
+  UNDER_MAINTENANCE = 'under_maintenance',
+  PENDING_APPROVAL = 'pending_approval',
 }
 
 @Entity('properties')
@@ -42,9 +47,9 @@ export class Property {
   @Column({ name: 'owner_id' })
   ownerId: string;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => Owner)
   @JoinColumn({ name: 'owner_id' })
-  owner: User;
+  owner: Owner;
 
   @Column()
   address: string;

@@ -48,7 +48,7 @@ describe('PropertiesService', () => {
     city: 'Test City',
     state: 'Test State',
     zipCode: '12345',
-    type: PropertyType.RESIDENTIAL,
+    type: PropertyType.APARTMENT,
     status: PropertyStatus.ACTIVE,
   };
 
@@ -85,7 +85,7 @@ describe('PropertiesService', () => {
         city: 'Test City',
         state: 'Test State',
         zipCode: '12345',
-        type: PropertyType.RESIDENTIAL,
+        type: PropertyType.APARTMENT,
         status: PropertyStatus.ACTIVE,
       };
 

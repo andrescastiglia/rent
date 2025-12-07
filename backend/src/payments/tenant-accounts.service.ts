@@ -6,7 +6,7 @@ import {
   TenantAccountMovement,
   MovementType,
 } from './entities/tenant-account-movement.entity';
-import { Lease } from '../leases/entities/lease.entity';
+import { Lease, LateFeeType } from '../leases/entities/lease.entity';
 
 /**
  * Servicio para gestionar cuentas corrientes de inquilinos.
@@ -190,13 +190,19 @@ export class TenantAccountsService {
 
       const pendingAmount = Number(invoice.total) - Number(invoice.amountPaid);
 
-      if (lease.lateFeeType === 'daily_rate') {
+      if (lease.lateFeeType === LateFeeType.DAILY_PERCENTAGE) {
         // Tasa diaria (porcentaje)
         const dailyRate = Number(lease.lateFeeValue) / 100;
         totalLateFee += pendingAmount * dailyRate * daysOverdue;
-      } else {
+      } else if (lease.lateFeeType === LateFeeType.DAILY_FIXED) {
         // Monto fijo por día
         totalLateFee += Number(lease.lateFeeValue) * daysOverdue;
+      } else if (lease.lateFeeType === LateFeeType.PERCENTAGE) {
+        // Porcentaje único
+        totalLateFee += pendingAmount * (Number(lease.lateFeeValue) / 100);
+      } else if (lease.lateFeeType === LateFeeType.FIXED) {
+        // Monto fijo único
+        totalLateFee += Number(lease.lateFeeValue);
       }
     }
 

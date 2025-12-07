@@ -39,8 +39,15 @@ C4Context
     System(rental_system, "Plataforma de Alquileres", "Sistema central")
 
     System_Boundary(financial, "Sistemas Financieros") {
-        System_Ext(psp, "Pasarela de Pagos", "Stripe, MercadoPago")
-        System_Ext(accounting, "Sistema Contable", "ERP, AFIP/Hacienda")
+        System_Ext(psp, "Pasarela de Pagos", "MercadoPago")
+        System_Ext(bank, "API Bancaria", "Bind, Pomelo")
+        System_Ext(crypto, "Blockchain", "Bitcoin, Lightning, Ethereum")
+        System_Ext(accounting, "Facturación Electrónica", "ARCA (ex AFIP)")
+    }
+
+    System_Boundary(indices, "Datos Financieros") {
+        System_Ext(bcra, "BCRA API", "ICL, Tipo de Cambio")
+        System_Ext(bcb, "BCB API", "IGP-M Brasil")
     }
 
     System_Boundary(legal, "Sistemas Legales") {
@@ -60,7 +67,13 @@ C4Context
 
     %% Financial
     Rel(rental_system, psp, "Procesa pagos", "API/HTTPS")
-    Rel(rental_system, accounting, "Exporta facturas", "API/SFTP")
+    Rel(rental_system, bank, "Transferencias/CVU", "API/HTTPS")
+    Rel(rental_system, crypto, "Pagos crypto", "RPC/HTTPS")
+    Rel(rental_system, accounting, "Emite facturas", "SOAP/WS")
+
+    %% Indices
+    Rel(rental_system, bcra, "Índices ICL/TC", "API/HTTPS")
+    Rel(rental_system, bcb, "Índice IGP-M", "API/HTTPS")
 
     %% Legal
     Rel(rental_system, docusign, "Firma contratos", "API/HTTPS")
@@ -359,6 +372,75 @@ C4Component
     Rel(api_gateway, maint_ctrl, "HTTPS")
 ```
 
+### 3.3 Módulos de Facturación y Cobranzas (Billing & Payments)
+
+```mermaid
+C4Component
+    title Componentes - Módulos de Facturación y Cobranzas
+
+    Container(batch_cli, "Batch CLI", "Node.js/Commander", "Procesos batch")
+    ContainerDb(db, "Database", "PostgreSQL", "Persistencia")
+    ContainerQueue(queue, "Queue", "RabbitMQ", "Eventos")
+    
+    System_Ext(bcra, "BCRA API", "Índices/TC")
+    System_Ext(arca, "ARCA", "Factura electrónica")
+    System_Ext(mp, "MercadoPago", "Pagos")
+    System_Ext(bank, "Bind API", "Transferencias")
+    System_Ext(blockchain, "Blockchain", "Bitcoin/ETH")
+
+    Container_Boundary(billing, "Billing Module") {
+        Component(billing_cmd, "Billing Command", "CLI", "billing --date")
+        Component(billing_svc, "Billing Service", "Service", "Genera facturas")
+        Component(adjustment_svc, "Adjustment Service", "Service", "Ajustes por índice")
+        Component(exchange_svc, "ExchangeRate Service", "Service", "Tipos de cambio")
+        Component(arca_svc, "ARCA Service", "Service", "Factura electrónica")
+        Component(bcra_svc, "BCRA Service", "Service", "ICL, TC")
+        
+        Rel(billing_cmd, billing_svc, "Ejecuta")
+        Rel(billing_svc, adjustment_svc, "Calcula ajuste")
+        Rel(billing_svc, exchange_svc, "Convierte moneda")
+        Rel(billing_svc, arca_svc, "Emite CAE")
+        Rel(adjustment_svc, bcra_svc, "Obtiene ICL")
+        Rel(exchange_svc, bcra_svc, "Obtiene TC")
+        Rel(bcra_svc, bcra, "API")
+        Rel(arca_svc, arca, "SOAP/WS")
+        Rel(billing_svc, db, "R/W Invoice")
+    }
+
+    Container_Boundary(payments, "Payments Module") {
+        Component(payment_svc, "Payment Service", "Service", "Registra/confirma pagos")
+        Component(mp_svc, "MercadoPago Service", "Service", "Checkout/Webhooks")
+        Component(crypto_svc, "Crypto Service", "Service", "BTC/LN/ETH")
+        Component(bank_svc, "Bank Transfer Service", "Service", "CVU/Alias")
+        Component(receipt_svc, "Receipt Service", "Service", "Genera recibos")
+        
+        Rel(payment_svc, mp_svc, "MercadoPago")
+        Rel(payment_svc, crypto_svc, "Crypto")
+        Rel(payment_svc, bank_svc, "Transferencias")
+        Rel(payment_svc, receipt_svc, "Genera recibo")
+        Rel(mp_svc, mp, "API")
+        Rel(bank_svc, bank, "API")
+        Rel(crypto_svc, blockchain, "RPC")
+        Rel(payment_svc, db, "R/W Payment")
+        Rel(receipt_svc, db, "R/W Receipt")
+    }
+
+    Container_Boundary(settlements, "Settlements Module") {
+        Component(settlement_svc, "Settlement Service", "Service", "Liquidaciones")
+        Component(recon_svc, "Reconciliation Service", "Service", "Conciliación")
+        
+        Rel(payment_svc, settlement_svc, "Programa liquidación")
+        Rel(settlement_svc, bank_svc, "Transfiere")
+        Rel(settlement_svc, crypto_svc, "Transfiere crypto")
+        Rel(recon_svc, bank_svc, "Lee movimientos")
+        Rel(recon_svc, payment_svc, "Confirma pagos")
+        Rel(settlement_svc, db, "R/W Settlement")
+        Rel(recon_svc, db, "R/W Reconciliation")
+    }
+
+    Rel(batch_cli, billing_cmd, "Cron")
+```
+
 ### 3.3 Módulos de Soporte (Reports, Notifications, Documents, Audit)
 
 ```mermaid
@@ -578,10 +660,35 @@ classDiagram
     LeaseService --> PropertyService : Valida disponibilidad
 ```
 
-### 4.2 Módulo Financiero (Payments & Invoicing)
+### 4.2 Módulo Financiero (Billing, Payments & Settlements)
 
 ```mermaid
 classDiagram
+    %% Billing Module
+    class BillingService {
+        +generateInvoice(lease, date)
+        +generateBatch(date)
+        +calculateRetentions(invoice)
+    }
+    class AdjustmentService {
+        +calculateAdjustedRent(lease)
+        +shouldApplyAdjustment(lease)
+        +getLatestIndex(indexCode)
+    }
+    class ExchangeRateService {
+        +getRate(from, to, date)
+        +convertAmount(amount, from, to)
+    }
+    class ArcaService {
+        +emitInvoice(invoice)
+        +getAuthToken()
+        +generateQRData(invoice)
+    }
+    class BcraService {
+        +getICL(fromDate, toDate)
+        +getExchangeRate(currency, date)
+    }
+
     %% Payment Module
     class PaymentController {
         +createPayment(dto)
@@ -589,51 +696,85 @@ classDiagram
         +getPaymentHistory(userId)
     }
     class PaymentService {
-        +processPayment(amount, method)
-        +reconcile(txId)
-        +calculateLateInterest(paymentId)
+        +registerPayment(data)
+        +confirmPayment(paymentId)
+        +applyToInvoices(payment)
     }
-    class PSPFactory {
-        +getProvider(method)
+    class MercadoPagoService {
+        +createPreference(invoice)
+        +handleWebhook(data)
+        +getPaymentStatus(externalId)
     }
-    class PaymentStrategy {
-        <<interface>>
-        +charge(amount, token)
-        +refund(transactionId)
+    class CryptoPaymentService {
+        +checkPendingPayments()
+        +generateBitcoinAddress(invoiceId)
+        +generateLightningInvoice(invoiceId)
+        +checkConfirmations(payment)
     }
-    class StripeStrategy {
-        +charge(amount, token)
-        +refund(transactionId)
+    class BankTransferService {
+        +getMovements(accountId, dateRange)
+        +executeTransfer(settlement)
     }
-    class MercadoPagoStrategy {
-        +charge(amount, token)
-        +refund(transactionId)
+    class ReceiptService {
+        +generate(payment)
+        +generatePDF(receipt)
+        +sendByEmail(receipt)
+    }
+
+    %% Settlement Module
+    class SettlementService {
+        +scheduleForPayment(payment)
+        +processScheduledSettlements()
+        +calculateCommission(amount, type, rate)
+        +transferFunds(settlement)
+    }
+    class ReconciliationService {
+        +reconcileBankMovements(accountId)
+        +findMatchingPayment(movement)
+        +alertUnmatched(movement)
+    }
+
+    %% Repositories
+    class InvoiceRepository {
+        +save(invoice)
+        +findPending(tenantAccountId)
+        +findByLease(leaseId)
     }
     class PaymentRepository {
         +save(payment)
-        +findByLease(leaseId)
+        +findById(id)
+        +findPending(filters)
+        +findByExternalId(provider, externalId)
+    }
+    class SettlementRepository {
+        +save(settlement)
+        +findScheduled(date)
+        +findByOwner(ownerId)
     }
 
-    %% Invoice Module
-    class InvoiceService {
-        +generateInvoice(paymentId)
-        +generateReceipt(paymentId)
-        +exportToAfip(invoiceId)
-    }
-    class InvoiceRepository {
-        +save(invoice)
-        +findByPayment(paymentId)
-    }
+    %% Relationships - Billing
+    BillingService --> AdjustmentService
+    BillingService --> ExchangeRateService
+    BillingService --> ArcaService
+    BillingService --> InvoiceRepository
+    AdjustmentService --> BcraService
+    ExchangeRateService --> BcraService
 
-    %% Relationships
+    %% Relationships - Payments
     PaymentController --> PaymentService
     PaymentService --> PaymentRepository
-    PaymentService --> PSPFactory
-    PaymentService --> InvoiceService
-    PSPFactory ..> PaymentStrategy
-    PaymentStrategy <|.. StripeStrategy
-    PaymentStrategy <|.. MercadoPagoStrategy
-    InvoiceService --> InvoiceRepository
+    PaymentService --> MercadoPagoService
+    PaymentService --> CryptoPaymentService
+    PaymentService --> BankTransferService
+    PaymentService --> ReceiptService
+    PaymentService --> SettlementService
+
+    %% Relationships - Settlements
+    SettlementService --> SettlementRepository
+    SettlementService --> BankTransferService
+    SettlementService --> CryptoPaymentService
+    ReconciliationService --> BankTransferService
+    ReconciliationService --> PaymentService
 ```
 
 ### 4.3 Módulos de Operaciones (CRM, Maintenance, Reports)

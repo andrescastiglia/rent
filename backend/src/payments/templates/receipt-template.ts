@@ -46,14 +46,15 @@ export function generateReceiptPdf(
 
     // Datos del inquilino
     const tenant = payment.tenantAccount?.lease?.tenant;
-    if (tenant) {
+    const tenantUser = tenant?.user;
+    if (tenantUser) {
       doc.fontSize(14).font('Helvetica-Bold').text('RECIBIDO DE').moveDown(0.5);
 
       doc
         .fontSize(11)
         .font('Helvetica')
-        .text(`Nombre: ${tenant.firstName || ''} ${tenant.lastName || ''}`)
-        .text(`Email: ${tenant.email || ''}`)
+        .text(`Nombre: ${tenantUser.firstName || ''} ${tenantUser.lastName || ''}`)
+        .text(`Email: ${tenantUser.email || ''}`)
         .moveDown(1.5);
     }
 

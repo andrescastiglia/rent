@@ -44,8 +44,8 @@ describe('LeasesService', () => {
     tenantId: 'tenant-1',
     startDate: new Date('2024-01-01'),
     endDate: new Date('2024-12-31'),
-    rentAmount: 1500,
-    deposit: 3000,
+    monthlyRent: 1500,
+    securityDeposit: 3000,
     status: LeaseStatus.DRAFT,
     paymentFrequency: PaymentFrequency.MONTHLY,
   };
@@ -96,8 +96,8 @@ describe('LeasesService', () => {
         tenantId: 'tenant-1',
         startDate: '2024-01-01',
         endDate: '2024-12-31',
-        rentAmount: 1500,
-        deposit: 3000,
+        monthlyRent: 1500,
+        securityDeposit: 3000,
       };
 
       unitRepository.findOne!.mockResolvedValue(mockUnit);
@@ -122,8 +122,8 @@ describe('LeasesService', () => {
         tenantId: 'tenant-1',
         startDate: '2024-12-31',
         endDate: '2024-01-01',
-        rentAmount: 1500,
-        deposit: 3000,
+        monthlyRent: 1500,
+        securityDeposit: 3000,
       };
 
       await expect(service.create(createDto)).rejects.toThrow(
@@ -137,8 +137,8 @@ describe('LeasesService', () => {
         tenantId: 'tenant-1',
         startDate: '2024-01-01',
         endDate: '2024-12-31',
-        rentAmount: 1500,
-        deposit: 3000,
+        monthlyRent: 1500,
+        securityDeposit: 3000,
       };
 
       unitRepository.findOne!.mockResolvedValue(null);
@@ -213,17 +213,17 @@ describe('LeasesService', () => {
 
   describe('update', () => {
     it('should update a draft lease', async () => {
-      const updateDto = { rentAmount: 1600 };
+      const updateDto = { monthlyRent: 1600 };
       leaseRepository.findOne!.mockResolvedValue(mockLease);
       leaseRepository.save!.mockResolvedValue({ ...mockLease, ...updateDto });
 
       const result = await service.update('lease-1', updateDto);
 
-      expect(result.rentAmount).toBe(1600);
+      expect(result.monthlyRent).toBe(1600);
     });
 
     it('should throw BadRequestException when updating non-draft lease', async () => {
-      const updateDto = { rentAmount: 1600 };
+      const updateDto = { monthlyRent: 1600 };
       leaseRepository.findOne!.mockResolvedValue({
         ...mockLease,
         status: LeaseStatus.ACTIVE,

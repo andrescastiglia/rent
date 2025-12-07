@@ -4,6 +4,7 @@ import { Lease } from './entities/lease.entity';
 import { LeaseAmendment } from './entities/lease-amendment.entity';
 import { Unit } from '../properties/entities/unit.entity';
 import { Document } from '../documents/entities/document.entity';
+import { Tenant } from '../tenants/entities/tenant.entity';
 import { LeasesService } from './leases.service';
 import { AmendmentsService } from './amendments.service';
 import { PdfService } from './pdf.service';
@@ -14,7 +15,7 @@ import { DocumentsModule } from '../documents/documents.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Lease, LeaseAmendment, Unit, Document]),
+    TypeOrmModule.forFeature([Lease, LeaseAmendment, Unit, Document, Tenant]),
     DocumentsModule,
   ],
   controllers: [
