@@ -17,6 +17,7 @@ export enum BillingJobType {
   SYNC_INDICES = 'sync_indices',
   REPORTS = 'reports',
   EXCHANGE_RATES = 'exchange_rates',
+  PROCESS_SETTLEMENTS = 'process_settlements',
 }
 
 /**

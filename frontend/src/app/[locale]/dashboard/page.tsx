@@ -4,7 +4,13 @@ import { useAuth } from '@/contexts/auth-context';
 import { useTranslations, useLocale } from 'next-intl';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { dashboardApi, DashboardStats } from '@/lib/api/dashboard';
+import {
+  dashboardApi,
+  DashboardStats,
+  RecentActivityResponse,
+  RecentActivityItem,
+  BillingJobStatus,
+} from '@/lib/api/dashboard';
 import { formatMoneyByCode } from '@/lib/format-money';
 
 // Define which stats cards are visible for each role
@@ -15,12 +21,24 @@ const ROLE_STATS: Record<string, string[]> = {
   staff: ['properties', 'tenants', 'leases', 'payments', 'invoices'],
 };
 
+// Status badge colors
+const STATUS_COLORS: Record<BillingJobStatus, string> = {
+  pending: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+  running: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+  completed: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  failed: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+  partial_failure: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+};
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const t = useTranslations('dashboard');
   const locale = useLocale();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [recentActivity, setRecentActivity] = useState<RecentActivityResponse | null>(null);
+  const [activityLoading, setActivityLoading] = useState(true);
+  const [activityLimit, setActivityLimit] = useState<10 | 25 | 50>(10);
 
   // Get visible stats for the current user role
   const visibleStats = ROLE_STATS[user?.role ?? 'tenant'] || ROLE_STATS.tenant;
@@ -39,6 +57,76 @@ export default function DashboardPage() {
 
     fetchStats();
   }, []);
+
+  useEffect(() => {
+    const fetchActivity = async () => {
+      setActivityLoading(true);
+      try {
+        const data = await dashboardApi.getRecentActivity(activityLimit);
+        setRecentActivity(data);
+      } catch (error) {
+        console.error('Error fetching recent activity:', error);
+      } finally {
+        setActivityLoading(false);
+      }
+    };
+
+    fetchActivity();
+  }, [activityLimit]);
+
+  const formatDuration = (ms: number | null): string => {
+    if (ms === null) return '-';
+    if (ms < 1000) return `${ms}ms`;
+    const seconds = Math.floor(ms / 1000);
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}m ${remainingSeconds}s`;
+  };
+
+  const formatDateTime = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    return date.toLocaleString(locale, {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    });
+  };
+
+  const renderActivityItem = (item: RecentActivityItem) => {
+    return (
+      <tr key={item.id} className="border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+          {t(`activity.jobTypes.${item.jobType}`)}
+          {item.dryRun && (
+            <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+              ({t('activity.dryRun')})
+            </span>
+          )}
+        </td>
+        <td className="px-4 py-3">
+          <span className={`px-2 py-1 text-xs font-medium rounded-full ${STATUS_COLORS[item.status]}`}>
+            {t(`activity.statuses.${item.status}`)}
+          </span>
+        </td>
+        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+          {formatDateTime(item.startedAt)}
+        </td>
+        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+          {formatDuration(item.durationMs)}
+        </td>
+        <td className="px-4 py-3 text-sm">
+          <span className="text-green-600 dark:text-green-400">{item.recordsProcessed}</span>
+          {item.recordsFailed > 0 && (
+            <>
+              {' / '}
+              <span className="text-red-600 dark:text-red-400">{item.recordsFailed}</span>
+            </>
+          )}
+          <span className="text-gray-500 dark:text-gray-400"> / {item.recordsTotal}</span>
+        </td>
+      </tr>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -242,15 +330,50 @@ export default function DashboardPage() {
 
       {/* Recent Activity */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             {t('recentActivity')}
           </h2>
+          <select
+            value={activityLimit}
+            onChange={(e) => setActivityLimit(Number(e.target.value) as 10 | 25 | 50)}
+            className="text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+          >
+            <option value={10}>{t('activity.show', { count: 10 })}</option>
+            <option value={25}>{t('activity.show', { count: 25 })}</option>
+            <option value={50}>{t('activity.show', { count: 50 })}</option>
+          </select>
         </div>
         <div className="p-6">
-          <p className="text-gray-600 dark:text-gray-400">
-            {t('noRecentActivity')}
-          </p>
+          {activityLoading ? (
+            <p className="text-gray-600 dark:text-gray-400">{t('loading')}</p>
+          ) : recentActivity && recentActivity.items.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-4 py-2">{t('activity.columns.jobType')}</th>
+                    <th className="px-4 py-2">{t('activity.columns.status')}</th>
+                    <th className="px-4 py-2">{t('activity.columns.startedAt')}</th>
+                    <th className="px-4 py-2">{t('activity.columns.duration')}</th>
+                    <th className="px-4 py-2">{t('activity.columns.records')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentActivity.items.map(renderActivityItem)}
+                </tbody>
+              </table>
+              {recentActivity.total > activityLimit && (
+                <p className="mt-4 text-sm text-gray-500 dark:text-gray-400 text-center">
+                  {t('activity.totalJobs', { shown: recentActivity.items.length, total: recentActivity.total })}
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-gray-600 dark:text-gray-400">
+              {t('noRecentActivity')}
+            </p>
+          )}
         </div>
       </div>
     </div>

@@ -78,6 +78,7 @@
     "dashboard": {
         "title": "Dashboard",
         "welcome": "Welcome, {name}",
+        "loading": "Loading...",
         "stats": {
             "properties": "Properties",
             "tenants": "Tenants",
@@ -87,7 +88,36 @@
             "invoices": "Invoices"
         },
         "recentActivity": "Recent Activity",
-        "noRecentActivity": "No recent activity to display."
+        "noRecentActivity": "No recent activity to display.",
+        "activity": {
+            "show": "Show {count}",
+            "totalJobs": "Showing {shown} of {total} executions",
+            "dryRun": "dry run",
+            "columns": {
+                "jobType": "Type",
+                "status": "Status",
+                "startedAt": "Started",
+                "duration": "Duration",
+                "records": "Records"
+            },
+            "jobTypes": {
+                "billing": "Billing",
+                "overdue": "Overdue",
+                "reminders": "Reminders",
+                "late_fees": "Late Fees",
+                "sync_indices": "Sync Indices",
+                "reports": "Reports",
+                "exchange_rates": "Exchange Rates",
+                "process_settlements": "Settlements"
+            },
+            "statuses": {
+                "pending": "Pending",
+                "running": "Running",
+                "completed": "Completed",
+                "failed": "Failed",
+                "partial_failure": "Partial"
+            }
+        }
     },
     "properties": {
         "title": "Properties",

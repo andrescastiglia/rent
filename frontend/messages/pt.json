@@ -78,6 +78,7 @@
     "dashboard": {
         "title": "Painel",
         "welcome": "Bem-vindo, {name}",
+        "loading": "Carregando...",
         "stats": {
             "properties": "Imóveis",
             "tenants": "Inquilinos",
@@ -87,7 +88,36 @@
             "invoices": "Faturas"
         },
         "recentActivity": "Atividade Recente",
-        "noRecentActivity": "Nenhuma atividade recente para exibir."
+        "noRecentActivity": "Nenhuma atividade recente para exibir.",
+        "activity": {
+            "show": "Mostrar {count}",
+            "totalJobs": "Exibindo {shown} de {total} execuções",
+            "dryRun": "simulação",
+            "columns": {
+                "jobType": "Tipo",
+                "status": "Status",
+                "startedAt": "Início",
+                "duration": "Duração",
+                "records": "Registros"
+            },
+            "jobTypes": {
+                "billing": "Faturamento",
+                "overdue": "Vencimentos",
+                "reminders": "Lembretes",
+                "late_fees": "Juros",
+                "sync_indices": "Sincronizar índices",
+                "reports": "Relatórios",
+                "exchange_rates": "Taxas de câmbio",
+                "process_settlements": "Liquidações"
+            },
+            "statuses": {
+                "pending": "Pendente",
+                "running": "Executando",
+                "completed": "Concluído",
+                "failed": "Falhou",
+                "partial_failure": "Parcial"
+            }
+        }
     },
     "properties": {
         "title": "Imóveis",

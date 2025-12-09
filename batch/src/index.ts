@@ -4,9 +4,13 @@ import { config } from 'dotenv';
 import { Command } from 'commander';
 import { logger } from './shared/logger';
 import { initializeDatabase, closeDatabase } from './shared/database';
+import { BillingJobService, BillingJobType } from './services/billing-job.service';
 
 // Load environment variables
 config();
+
+// Singleton instance for job logging
+let billingJobService: BillingJobService;
 
 const program = new Command();
 
@@ -28,12 +32,21 @@ program
         const { BillingService } = await import('./services/billing.service');
 
         logger.info('Starting billing process', { options });
+        let jobId: string | undefined;
         try {
             await initializeDatabase();
+            billingJobService = new BillingJobService();
 
             const billingDate = options.date
                 ? new Date(options.date)
                 : new Date();
+
+            // Start job logging
+            jobId = await billingJobService.startJob(
+                'billing',
+                { leaseId: options.leaseId, date: options.date },
+                options.dryRun
+            );
 
             const billingService = new BillingService();
             const result = await billingService.runBilling(
@@ -48,6 +61,14 @@ program
                 totalAmount: result.totalAmount,
             });
 
+            // Complete job logging
+            await billingJobService.completeJob(jobId, {
+                recordsTotal: result.processedLeases,
+                recordsProcessed: result.invoicesCreated,
+                recordsFailed: result.invoicesFailed,
+                errorLog: result.errors,
+            });
+
             if (result.errors.length > 0) {
                 logger.warn('Some invoices failed', {
                     errorCount: result.errors.length,
@@ -55,6 +76,12 @@ program
             }
         } catch (error) {
             logger.error('Billing process failed', { error });
+            if (jobId) {
+                await billingJobService.failJob(
+                    jobId,
+                    error instanceof Error ? error.message : 'Unknown error'
+                );
+            }
             process.exit(1);
         } finally {
             await closeDatabase();
@@ -72,8 +99,13 @@ program
         const { BillingService } = await import('./services/billing.service');
 
         logger.info('Starting overdue process', { options });
+        let jobId: string | undefined;
         try {
             await initializeDatabase();
+            billingJobService = new BillingJobService();
+
+            // Start job logging
+            jobId = await billingJobService.startJob('overdue', {}, options.dryRun);
 
             if (options.dryRun) {
                 const { InvoiceService } = await import('./services/invoice.service');
@@ -82,15 +114,33 @@ program
                 logger.info('Dry run: would mark invoices as overdue', {
                     count: overdueInvoices.length,
                 });
+
+                await billingJobService.completeJob(jobId, {
+                    recordsTotal: overdueInvoices.length,
+                    recordsProcessed: 0,
+                    recordsFailed: 0,
+                });
             } else {
                 const billingService = new BillingService();
                 const result = await billingService.processOverdue();
                 logger.info('Overdue process completed', {
                     markedOverdue: result.markedOverdue,
                 });
+
+                await billingJobService.completeJob(jobId, {
+                    recordsTotal: result.markedOverdue,
+                    recordsProcessed: result.markedOverdue,
+                    recordsFailed: 0,
+                });
             }
         } catch (error) {
             logger.error('Overdue process failed', { error });
+            if (jobId) {
+                await billingJobService.failJob(
+                    jobId,
+                    error instanceof Error ? error.message : 'Unknown error'
+                );
+            }
             process.exit(1);
         } finally {
             await closeDatabase();
@@ -110,10 +160,20 @@ program
         const { EmailService } = await import('./services/email.service');
 
         logger.info('Starting reminders process', { options });
+        let jobId: string | undefined;
         try {
             await initializeDatabase();
+            billingJobService = new BillingJobService();
 
             const daysBefore = Number.parseInt(options.daysBefore, 10);
+
+            // Start job logging
+            jobId = await billingJobService.startJob(
+                'reminders',
+                { daysBefore },
+                options.dryRun
+            );
+
             const invoiceService = new InvoiceService();
             const emailService = new EmailService();
 
@@ -151,8 +211,21 @@ program
                 sent,
                 failed,
             });
+
+            // Complete job logging
+            await billingJobService.completeJob(jobId, {
+                recordsTotal: pendingInvoices.length,
+                recordsProcessed: sent,
+                recordsFailed: failed,
+            });
         } catch (error) {
             logger.error('Reminders process failed', { error });
+            if (jobId) {
+                await billingJobService.failJob(
+                    jobId,
+                    error instanceof Error ? error.message : 'Unknown error'
+                );
+            }
             process.exit(1);
         } finally {
             await closeDatabase();
@@ -171,10 +244,19 @@ program
         const { BillingService } = await import('./services/billing.service');
 
         logger.info('Starting late-fees process', { options });
+        let jobId: string | undefined;
         try {
             await initializeDatabase();
+            billingJobService = new BillingJobService();
 
             const rate = Number.parseFloat(options.rate) / 100;
+
+            // Start job logging
+            jobId = await billingJobService.startJob(
+                'late_fees',
+                { rate: options.rate },
+                options.dryRun
+            );
 
             if (options.dryRun) {
                 const { InvoiceService } = await import('./services/invoice.service');
@@ -187,6 +269,12 @@ program
                     invoicesCount: overdueInvoices.length,
                     potentialFees,
                 });
+
+                await billingJobService.completeJob(jobId, {
+                    recordsTotal: overdueInvoices.length,
+                    recordsProcessed: 0,
+                    recordsFailed: 0,
+                });
             } else {
                 const billingService = new BillingService();
                 const result = await billingService.processLateFees(rate);
@@ -194,9 +282,21 @@ program
                     feesApplied: result.feesApplied,
                     totalFees: result.totalFees,
                 });
+
+                await billingJobService.completeJob(jobId, {
+                    recordsTotal: result.feesApplied,
+                    recordsProcessed: result.feesApplied,
+                    recordsFailed: 0,
+                });
             }
         } catch (error) {
             logger.error('Late-fees process failed', { error });
+            if (jobId) {
+                await billingJobService.failJob(
+                    jobId,
+                    error instanceof Error ? error.message : 'Unknown error'
+                );
+            }
             process.exit(1);
         } finally {
             await closeDatabase();
@@ -214,16 +314,31 @@ program
         const { IndicesSyncService } = await import('./services/indices-sync.service');
 
         logger.info('Starting sync-indices process', { options });
+        let jobId: string | undefined;
         try {
             await initializeDatabase();
+            billingJobService = new BillingJobService();
+
+            // Start job logging
+            jobId = await billingJobService.startJob(
+                'sync_indices',
+                { index: options.index },
+                false
+            );
 
             const syncService = new IndicesSyncService();
+            let totalProcessed = 0;
+            let totalInserted = 0;
+            let totalErrors = 0;
+            const errorLog: object[] = [];
 
             if (options.index === 'all') {
                 const results = await syncService.syncAll();
                 for (const result of results) {
                     if (result.error) {
                         logger.error(`${result.indexType.toUpperCase()} sync failed`, { error: result.error });
+                        totalErrors++;
+                        errorLog.push({ indexType: result.indexType, error: result.error });
                     } else {
                         logger.info(`${result.indexType.toUpperCase()} sync completed`, {
                             processed: result.recordsProcessed,
@@ -231,6 +346,8 @@ program
                             skipped: result.recordsSkipped,
                             latestPeriod: result.latestPeriod,
                         });
+                        totalProcessed += result.recordsProcessed || 0;
+                        totalInserted += result.recordsInserted || 0;
                     }
                 }
             } else if (options.index === 'icl') {
@@ -241,6 +358,8 @@ program
                     skipped: result.recordsSkipped,
                     latestPeriod: result.latestPeriod,
                 });
+                totalProcessed = result.recordsProcessed || 0;
+                totalInserted = result.recordsInserted || 0;
             } else if (options.index === 'igpm') {
                 const result = await syncService.syncIgpm();
                 logger.info('IGP-M sync completed', {
@@ -249,14 +368,31 @@ program
                     skipped: result.recordsSkipped,
                     latestPeriod: result.latestPeriod,
                 });
+                totalProcessed = result.recordsProcessed || 0;
+                totalInserted = result.recordsInserted || 0;
             } else {
                 logger.error('Invalid index type', { index: options.index });
+                await billingJobService.failJob(jobId, `Invalid index type: ${options.index}`);
                 process.exit(1);
             }
+
+            // Complete job logging
+            await billingJobService.completeJob(jobId, {
+                recordsTotal: totalProcessed,
+                recordsProcessed: totalInserted,
+                recordsFailed: totalErrors,
+                errorLog,
+            });
 
             logger.info('Sync-indices process completed');
         } catch (error) {
             logger.error('Sync-indices process failed', { error });
+            if (jobId) {
+                await billingJobService.failJob(
+                    jobId,
+                    error instanceof Error ? error.message : 'Unknown error'
+                );
+            }
             process.exit(1);
         } finally {
             await closeDatabase();
@@ -273,8 +409,13 @@ program
         const { ExchangeRateService } = await import('./services/exchange-rate.service');
 
         logger.info('Starting sync-rates process');
+        let jobId: string | undefined;
         try {
             await initializeDatabase();
+            billingJobService = new BillingJobService();
+
+            // Start job logging
+            jobId = await billingJobService.startJob('exchange_rates', {}, false);
 
             const exchangeService = new ExchangeRateService();
             const result = await exchangeService.syncRates();
@@ -285,6 +426,14 @@ program
                 errors: result.errors.length,
             });
 
+            // Complete job logging
+            await billingJobService.completeJob(jobId, {
+                recordsTotal: result.processed,
+                recordsProcessed: result.inserted,
+                recordsFailed: result.errors.length,
+                errorLog: result.errors.map((e) => ({ error: e })),
+            });
+
             if (result.errors.length > 0) {
                 logger.warn('Some exchange rate syncs failed', { errors: result.errors });
             }
@@ -292,6 +441,12 @@ program
             logger.info('Sync-rates process completed');
         } catch (error) {
             logger.error('Sync-rates process failed', { error });
+            if (jobId) {
+                await billingJobService.failJob(
+                    jobId,
+                    error instanceof Error ? error.message : 'Unknown error'
+                );
+            }
             process.exit(1);
         } finally {
             await closeDatabase();
@@ -312,8 +467,17 @@ program
         const { ReportService } = await import('./services/report.service');
 
         logger.info('Starting reports process', { options });
+        let jobId: string | undefined;
         try {
             await initializeDatabase();
+            billingJobService = new BillingJobService();
+
+            // Start job logging
+            jobId = await billingJobService.startJob(
+                'reports',
+                { type: options.type, ownerId: options.ownerId, month: options.month },
+                options.dryRun
+            );
 
             const reportService = new ReportService();
             const now = new Date();
@@ -334,13 +498,30 @@ program
 
             if (result.success) {
                 logger.info('Report generated', { pdfPath: result.pdfPath });
+                await billingJobService.completeJob(jobId, {
+                    recordsTotal: 1,
+                    recordsProcessed: 1,
+                    recordsFailed: 0,
+                });
             } else {
                 logger.error('Report generation failed', { error: result.error });
+                await billingJobService.completeJob(jobId, {
+                    recordsTotal: 1,
+                    recordsProcessed: 0,
+                    recordsFailed: 1,
+                    errorLog: [{ error: result.error }],
+                });
             }
 
             logger.info('Reports process completed');
         } catch (error) {
             logger.error('Reports process failed', { error });
+            if (jobId) {
+                await billingJobService.failJob(
+                    jobId,
+                    error instanceof Error ? error.message : 'Unknown error'
+                );
+            }
             process.exit(1);
         } finally {
             await closeDatabase();
@@ -364,8 +545,17 @@ program
         const { SettlementService } = await import('./services/settlement.service');
 
         logger.info('Starting process-settlements', { options });
+        let jobId: string | undefined;
         try {
             await initializeDatabase();
+            billingJobService = new BillingJobService();
+
+            // Start job logging
+            jobId = await billingJobService.startJob(
+                'process_settlements',
+                { period: options.period, ownerId: options.ownerId, process: options.process },
+                options.dryRun
+            );
 
             const settlementService = new SettlementService();
             const now = new Date();
@@ -395,6 +585,12 @@ program
                     failed,
                     totalAmount,
                 });
+
+                await billingJobService.completeJob(jobId, {
+                    recordsTotal: pending.length,
+                    recordsProcessed: processed,
+                    recordsFailed: failed,
+                });
             } else if (options.ownerId) {
                 // Calculate for specific owner
                 if (options.dryRun) {
@@ -410,6 +606,12 @@ program
                         netAmount: settlement.netAmount,
                         scheduledDate: settlement.scheduledDate,
                     });
+
+                    await billingJobService.completeJob(jobId, {
+                        recordsTotal: 1,
+                        recordsProcessed: 0,
+                        recordsFailed: 0,
+                    });
                 } else {
                     const result = await settlementService.processSettlement(
                         options.ownerId,
@@ -422,6 +624,12 @@ program
                         success: result.success,
                         settlementId: result.settlementId,
                         transferReference: result.transferReference,
+                    });
+
+                    await billingJobService.completeJob(jobId, {
+                        recordsTotal: 1,
+                        recordsProcessed: result.success ? 1 : 0,
+                        recordsFailed: result.success ? 0 : 1,
                     });
                 }
             } else {
@@ -458,11 +666,23 @@ program
                     totalNetAmount,
                     dryRun: options.dryRun,
                 });
+
+                await billingJobService.completeJob(jobId, {
+                    recordsTotal: total,
+                    recordsProcessed: successful,
+                    recordsFailed: failedCount,
+                });
             }
 
             logger.info('Process-settlements completed');
         } catch (error) {
             logger.error('Process-settlements failed', { error });
+            if (jobId) {
+                await billingJobService.failJob(
+                    jobId,
+                    error instanceof Error ? error.message : 'Unknown error'
+                );
+            }
             process.exit(1);
         } finally {
             await closeDatabase();
