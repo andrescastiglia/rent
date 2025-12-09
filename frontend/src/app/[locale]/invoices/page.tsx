@@ -7,8 +7,10 @@ import { invoicesApi } from '@/lib/api/payments';
 import { InvoiceCard } from '@/components/invoices/InvoiceCard';
 import { Search, Loader2, Filter, FileText } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function InvoicesPage() {
+    const { loading: authLoading } = useAuth();
     const t = useTranslations('invoices');
     const tCommon = useTranslations('common');
 
@@ -34,8 +36,9 @@ export default function InvoicesPage() {
     }, [statusFilter]);
 
     useEffect(() => {
+        if (authLoading) return;
         loadInvoices();
-    }, [loadInvoices]);
+    }, [loadInvoices, authLoading]);
 
     const filteredInvoices = invoices.filter((invoice) =>
         invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase())

@@ -9,8 +9,10 @@ import { LeaseStatusBadge } from '@/components/leases/LeaseStatusBadge';
 import { Edit, ArrowLeft, FileText, Trash2, Loader2, Calendar, DollarSign, User, Home, Download } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function LeaseDetailPage() {
+  const { loading: authLoading } = useAuth();
   const t = useTranslations('leases');
   const tCommon = useTranslations('common');
   const locale = useLocale();
@@ -20,10 +22,11 @@ export default function LeaseDetailPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return;
     if (params.id) {
       loadLease(params.id as string);
     }
-  }, [params.id]);
+  }, [params.id, authLoading]);
 
   const loadLease = async (id: string) => {
     try {

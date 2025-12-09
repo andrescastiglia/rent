@@ -7,16 +7,19 @@ import { leasesApi } from '@/lib/api/leases';
 import { LeaseCard } from '@/components/leases/LeaseCard';
 import { Plus, Search, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function LeasesPage() {
+  const { loading: authLoading } = useAuth();
   const t = useTranslations('leases');
   const [leases, setLeases] = useState<Lease[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
+    if (authLoading) return;
     loadLeases();
-  }, []);
+  }, [authLoading]);
 
   const loadLeases = async () => {
     try {

@@ -9,8 +9,10 @@ import { InvoiceStatusBadge } from '@/components/invoices/InvoiceStatusBadge';
 import { formatMoneyByCode } from '@/lib/format-money';
 import { useTranslations } from 'next-intl';
 import { ArrowLeft, Loader2, Calendar, Download } from 'lucide-react';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function InvoiceDetailPage() {
+    const { loading: authLoading } = useAuth();
     const params = useParams();
     const t = useTranslations('invoices');
     const tCommon = useTranslations('common');
@@ -30,8 +32,9 @@ export default function InvoiceDetailPage() {
     }, [params.id]);
 
     useEffect(() => {
+        if (authLoading) return;
         loadInvoice();
-    }, [loadInvoice]);
+    }, [loadInvoice, authLoading]);
 
     if (loading) {
         return (

@@ -8,18 +8,21 @@ import { useParams } from 'next/navigation';
 import { tenantsApi } from '@/lib/api/tenants';
 import { Tenant } from '@/types/tenant';
 import { useTranslations } from 'next-intl';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function EditTenantPage() {
+  const { loading: authLoading } = useAuth();
   const t = useTranslations('tenants');
   const params = useParams();
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return;
     if (params.id) {
       loadTenant(params.id as string);
     }
-  }, [params.id]);
+  }, [params.id, authLoading]);
 
   const loadTenant = async (id: string) => {
     try {

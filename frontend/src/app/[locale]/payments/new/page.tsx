@@ -9,8 +9,10 @@ import { paymentsApi, tenantAccountsApi } from '@/lib/api/payments';
 import { leasesApi } from '@/lib/api/leases';
 import { useTranslations } from 'next-intl';
 import { ArrowLeft, Loader2, Save } from 'lucide-react';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function NewPaymentPage() {
+    const { loading: authLoading } = useAuth();
     const router = useRouter();
     const t = useTranslations('payments');
     const tCommon = useTranslations('common');
@@ -31,8 +33,9 @@ export default function NewPaymentPage() {
     });
 
     useEffect(() => {
+        if (authLoading) return;
         loadLeases();
-    }, []);
+    }, [authLoading]);
 
     useEffect(() => {
         if (selectedLeaseId) {

@@ -7,8 +7,10 @@ import { propertiesApi } from '@/lib/api/properties';
 import { PropertyCard } from '@/components/properties/PropertyCard';
 import { Plus, Search, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function PropertiesPage() {
+  const { loading: authLoading } = useAuth();
   const t = useTranslations('properties');
   const tc = useTranslations('common');
   const [properties, setProperties] = useState<Property[]>([]);
@@ -16,8 +18,9 @@ export default function PropertiesPage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
+    if (authLoading) return;
     loadProperties();
-  }, []);
+  }, [authLoading]);
 
   const loadProperties = async () => {
     try {

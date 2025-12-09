@@ -8,8 +8,10 @@ import { tenantsApi } from '@/lib/api/tenants';
 import { Edit, ArrowLeft, User, Mail, Phone, MapPin, Trash2, Loader2, FileText } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function TenantDetailPage() {
+  const { loading: authLoading } = useAuth();
   const t = useTranslations('tenants');
   const tCommon = useTranslations('common');
   const params = useParams();
@@ -18,10 +20,11 @@ export default function TenantDetailPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return;
     if (params.id) {
       loadTenant(params.id as string);
     }
-  }, [params.id]);
+  }, [params.id, authLoading]);
 
   const loadTenant = async (id: string) => {
     try {

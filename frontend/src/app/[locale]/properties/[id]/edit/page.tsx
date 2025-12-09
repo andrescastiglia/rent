@@ -8,18 +8,21 @@ import { useParams } from 'next/navigation';
 import { propertiesApi } from '@/lib/api/properties';
 import { Property } from '@/types/property';
 import { useTranslations } from 'next-intl';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function EditPropertyPage() {
+  const { loading: authLoading } = useAuth();
   const t = useTranslations('properties');
   const params = useParams();
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return;
     if (params.id) {
       loadProperty(params.id as string);
     }
-  }, [params.id]);
+  }, [params.id, authLoading]);
 
   const loadProperty = async (id: string) => {
     try {

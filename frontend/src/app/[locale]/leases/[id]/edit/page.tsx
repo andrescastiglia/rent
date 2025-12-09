@@ -8,18 +8,21 @@ import { useParams } from 'next/navigation';
 import { leasesApi } from '@/lib/api/leases';
 import { Lease } from '@/types/lease';
 import { useTranslations } from 'next-intl';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function EditLeasePage() {
+  const { loading: authLoading } = useAuth();
   const t = useTranslations('leases');
   const params = useParams();
   const [lease, setLease] = useState<Lease | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return;
     if (params.id) {
       loadLease(params.id as string);
     }
-  }, [params.id]);
+  }, [params.id, authLoading]);
 
   const loadLease = async (id: string) => {
     try {

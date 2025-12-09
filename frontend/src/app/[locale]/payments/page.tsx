@@ -7,8 +7,10 @@ import { paymentsApi } from '@/lib/api/payments';
 import { PaymentCard } from '@/components/payments/PaymentCard';
 import { Plus, Search, Loader2, Filter } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function PaymentsPage() {
+    const { loading: authLoading } = useAuth();
     const t = useTranslations('payments');
     const tCommon = useTranslations('common');
 
@@ -34,8 +36,9 @@ export default function PaymentsPage() {
     }, [statusFilter]);
 
     useEffect(() => {
+        if (authLoading) return;
         loadPayments();
-    }, [loadPayments]);
+    }, [loadPayments, authLoading]);
 
     const filteredPayments = payments.filter((payment) =>
         payment.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||

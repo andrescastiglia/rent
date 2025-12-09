@@ -7,16 +7,19 @@ import { tenantsApi } from '@/lib/api/tenants';
 import { TenantCard } from '@/components/tenants/TenantCard';
 import { Plus, Search, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function TenantsPage() {
+  const { loading: authLoading } = useAuth();
   const t = useTranslations('tenants');
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
+    if (authLoading) return;
     loadTenants();
-  }, []);
+  }, [authLoading]);
 
   const loadTenants = async () => {
     try {

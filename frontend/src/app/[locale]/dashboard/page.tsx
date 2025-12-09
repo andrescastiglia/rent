@@ -31,7 +31,7 @@ const STATUS_COLORS: Record<BillingJobStatus, string> = {
 };
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const t = useTranslations('dashboard');
   const locale = useLocale();
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -44,6 +44,9 @@ export default function DashboardPage() {
   const visibleStats = ROLE_STATS[user?.role ?? 'tenant'] || ROLE_STATS.tenant;
 
   useEffect(() => {
+    // Wait for auth to be ready before fetching
+    if (authLoading) return;
+
     const fetchStats = async () => {
       try {
         const data = await dashboardApi.getStats();
@@ -56,9 +59,12 @@ export default function DashboardPage() {
     };
 
     fetchStats();
-  }, []);
+  }, [authLoading]);
 
   useEffect(() => {
+    // Wait for auth to be ready before fetching
+    if (authLoading) return;
+
     const fetchActivity = async () => {
       setActivityLoading(true);
       try {
@@ -72,7 +78,7 @@ export default function DashboardPage() {
     };
 
     fetchActivity();
-  }, [activityLimit]);
+  }, [activityLimit, authLoading]);
 
   const formatDuration = (ms: number | null): string => {
     if (ms === null) return '-';

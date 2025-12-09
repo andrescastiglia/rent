@@ -9,8 +9,10 @@ import { propertiesApi } from '@/lib/api/properties';
 import { Edit, ArrowLeft, MapPin, Building, Trash2, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function PropertyDetailPage() {
+  const { loading: authLoading } = useAuth();
   const t = useTranslations('properties');
   const tCommon = useTranslations('common');
   const params = useParams();
@@ -19,10 +21,11 @@ export default function PropertyDetailPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return;
     if (params.id) {
       loadProperty(params.id as string);
     }
-  }, [params.id]);
+  }, [params.id, authLoading]);
 
   const loadProperty = async (id: string) => {
     try {

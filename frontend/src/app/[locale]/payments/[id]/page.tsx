@@ -9,8 +9,10 @@ import { PaymentStatusBadge } from '@/components/payments/PaymentStatusBadge';
 import { formatMoneyByCode } from '@/lib/format-money';
 import { useTranslations } from 'next-intl';
 import { ArrowLeft, Loader2, Calendar, CreditCard, FileText, Download, CheckCircle } from 'lucide-react';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function PaymentDetailPage() {
+    const { loading: authLoading } = useAuth();
     const params = useParams();
     const t = useTranslations('payments');
     const tCommon = useTranslations('common');
@@ -31,8 +33,9 @@ export default function PaymentDetailPage() {
     }, [params.id]);
 
     useEffect(() => {
+        if (authLoading) return;
         loadPayment();
-    }, [loadPayment]);
+    }, [loadPayment, authLoading]);
 
     const handleConfirm = async () => {
         if (!payment) return;
