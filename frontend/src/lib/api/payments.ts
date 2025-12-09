@@ -9,7 +9,11 @@ import {
     InvoiceFilters,
     PaginatedResponse,
 } from '@/types/payment';
-import { Lease } from '@/types/lease';
+import { apiClient } from '../api';
+import { getToken } from '../auth';
+
+// Check if we're in mock mode (non-production)
+const IS_MOCK_MODE = process.env.NODE_ENV !== 'production';
 
 // Mock data for development
 const MOCK_TENANT_ACCOUNTS: TenantAccount[] = [
@@ -104,104 +108,141 @@ export const paymentsApi = {
      * Lista pagos con filtros
      */
     getAll: async (filters?: PaymentFilters): Promise<PaginatedResponse<Payment>> => {
-        await delay(DELAY);
-        let filtered = [...MOCK_PAYMENTS];
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            let filtered = [...MOCK_PAYMENTS];
 
-        if (filters?.status) {
-            filtered = filtered.filter((p) => p.status === filters.status);
-        }
-        if (filters?.method) {
-            filtered = filtered.filter((p) => p.method === filters.method);
-        }
-        if (filters?.leaseId) {
-            const account = MOCK_TENANT_ACCOUNTS.find((a) => a.leaseId === filters.leaseId);
-            if (account) {
-                filtered = filtered.filter((p) => p.tenantAccountId === account.id);
+            if (filters?.status) {
+                filtered = filtered.filter((p) => p.status === filters.status);
             }
+            if (filters?.method) {
+                filtered = filtered.filter((p) => p.method === filters.method);
+            }
+            if (filters?.leaseId) {
+                const account = MOCK_TENANT_ACCOUNTS.find((a) => a.leaseId === filters.leaseId);
+                if (account) {
+                    filtered = filtered.filter((p) => p.tenantAccountId === account.id);
+                }
+            }
+
+            return {
+                data: filtered,
+                total: filtered.length,
+                page: filters?.page || 1,
+                limit: filters?.limit || 10,
+            };
         }
 
-        return {
-            data: filtered,
-            total: filtered.length,
-            page: filters?.page || 1,
-            limit: filters?.limit || 10,
-        };
+        const token = getToken();
+        const queryParams = new URLSearchParams();
+        if (filters?.status) queryParams.append('status', filters.status);
+        if (filters?.method) queryParams.append('method', filters.method);
+        if (filters?.leaseId) queryParams.append('leaseId', filters.leaseId);
+        if (filters?.page) queryParams.append('page', String(filters.page));
+        if (filters?.limit) queryParams.append('limit', String(filters.limit));
+        
+        const query = queryParams.toString();
+        return apiClient.get<PaginatedResponse<Payment>>(`/payments${query ? `?${query}` : ''}`, token ?? undefined);
     },
 
     /**
      * Obtiene un pago por ID
      */
     getById: async (id: string): Promise<Payment | null> => {
-        await delay(DELAY);
-        const payment = MOCK_PAYMENTS.find((p) => p.id === id);
-        if (!payment) return null;
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            const payment = MOCK_PAYMENTS.find((p) => p.id === id);
+            if (!payment) return null;
 
-        const account = MOCK_TENANT_ACCOUNTS.find((a) => a.id === payment.tenantAccountId);
-        return { ...payment, tenantAccount: account };
+            const account = MOCK_TENANT_ACCOUNTS.find((a) => a.id === payment.tenantAccountId);
+            return { ...payment, tenantAccount: account };
+        }
+
+        const token = getToken();
+        try {
+            return await apiClient.get<Payment>(`/payments/${id}`, token ?? undefined);
+        } catch {
+            return null;
+        }
     },
 
     /**
      * Crea un nuevo pago
      */
     create: async (data: CreatePaymentInput): Promise<Payment> => {
-        await delay(DELAY);
-        const newPayment: Payment = {
-            id: `pay${Date.now()}`,
-            tenantAccountId: data.tenantAccountId,
-            amount: data.amount,
-            currencyCode: data.currencyCode || 'ARS',
-            paymentDate: data.paymentDate,
-            method: data.method,
-            reference: data.reference || null,
-            status: 'pending',
-            notes: data.notes || null,
-            receivedBy: null,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-        };
-        MOCK_PAYMENTS.push(newPayment);
-        return newPayment;
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            const newPayment: Payment = {
+                id: `pay${Date.now()}`,
+                tenantAccountId: data.tenantAccountId,
+                amount: data.amount,
+                currencyCode: data.currencyCode || 'ARS',
+                paymentDate: data.paymentDate,
+                method: data.method,
+                reference: data.reference || null,
+                status: 'pending',
+                notes: data.notes || null,
+                receivedBy: null,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            };
+            MOCK_PAYMENTS.push(newPayment);
+            return newPayment;
+        }
+
+        const token = getToken();
+        return apiClient.post<Payment>('/payments', data, token ?? undefined);
     },
 
     /**
      * Confirma un pago
      */
     confirm: async (id: string): Promise<Payment> => {
-        await delay(DELAY);
-        const index = MOCK_PAYMENTS.findIndex((p) => p.id === id);
-        if (index === -1) throw new Error('Payment not found');
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            const index = MOCK_PAYMENTS.findIndex((p) => p.id === id);
+            if (index === -1) throw new Error('Payment not found');
 
-        MOCK_PAYMENTS[index] = {
-            ...MOCK_PAYMENTS[index],
-            status: 'completed',
-            updatedAt: new Date().toISOString(),
-            receipt: {
-                id: `rec${Date.now()}`,
-                paymentId: id,
-                receiptNumber: `REC-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(MOCK_PAYMENTS.length).padStart(4, '0')}`,
-                amount: MOCK_PAYMENTS[index].amount,
-                currencyCode: MOCK_PAYMENTS[index].currencyCode,
-                pdfUrl: `/receipts/rec${Date.now()}.pdf`,
-                issuedAt: new Date().toISOString(),
-            },
-        };
-        return MOCK_PAYMENTS[index];
+            MOCK_PAYMENTS[index] = {
+                ...MOCK_PAYMENTS[index],
+                status: 'completed',
+                updatedAt: new Date().toISOString(),
+                receipt: {
+                    id: `rec${Date.now()}`,
+                    paymentId: id,
+                    receiptNumber: `REC-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(MOCK_PAYMENTS.length).padStart(4, '0')}`,
+                    amount: MOCK_PAYMENTS[index].amount,
+                    currencyCode: MOCK_PAYMENTS[index].currencyCode,
+                    pdfUrl: `/receipts/rec${Date.now()}.pdf`,
+                    issuedAt: new Date().toISOString(),
+                },
+            };
+            return MOCK_PAYMENTS[index];
+        }
+
+        const token = getToken();
+        return apiClient.post<Payment>(`/payments/${id}/confirm`, {}, token ?? undefined);
     },
 
     /**
      * Cancela un pago
      */
     cancel: async (id: string): Promise<Payment> => {
-        await delay(DELAY);
-        const index = MOCK_PAYMENTS.findIndex((p) => p.id === id);
-        if (index === -1) throw new Error('Payment not found');
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            const index = MOCK_PAYMENTS.findIndex((p) => p.id === id);
+            if (index === -1) throw new Error('Payment not found');
 
-        MOCK_PAYMENTS[index] = {
-            ...MOCK_PAYMENTS[index],
-            status: 'cancelled',
-            updatedAt: new Date().toISOString(),
-        };
-        return MOCK_PAYMENTS[index];
+            MOCK_PAYMENTS[index] = {
+                ...MOCK_PAYMENTS[index],
+                status: 'cancelled',
+                updatedAt: new Date().toISOString(),
+            };
+            return MOCK_PAYMENTS[index];
+        }
+
+        const token = getToken();
+        return apiClient.post<Payment>(`/payments/${id}/cancel`, {}, token ?? undefined);
     },
 };
 
@@ -210,30 +251,51 @@ export const invoicesApi = {
      * Lista facturas con filtros
      */
     getAll: async (filters?: InvoiceFilters): Promise<PaginatedResponse<Invoice>> => {
-        await delay(DELAY);
-        let filtered = [...MOCK_INVOICES];
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            let filtered = [...MOCK_INVOICES];
 
-        if (filters?.status) {
-            filtered = filtered.filter((i) => i.status === filters.status);
-        }
-        if (filters?.leaseId) {
-            filtered = filtered.filter((i) => i.leaseId === filters.leaseId);
+            if (filters?.status) {
+                filtered = filtered.filter((i) => i.status === filters.status);
+            }
+            if (filters?.leaseId) {
+                filtered = filtered.filter((i) => i.leaseId === filters.leaseId);
+            }
+
+            return {
+                data: filtered,
+                total: filtered.length,
+                page: filters?.page || 1,
+                limit: filters?.limit || 10,
+            };
         }
 
-        return {
-            data: filtered,
-            total: filtered.length,
-            page: filters?.page || 1,
-            limit: filters?.limit || 10,
-        };
+        const token = getToken();
+        const queryParams = new URLSearchParams();
+        if (filters?.status) queryParams.append('status', filters.status);
+        if (filters?.leaseId) queryParams.append('leaseId', filters.leaseId);
+        if (filters?.page) queryParams.append('page', String(filters.page));
+        if (filters?.limit) queryParams.append('limit', String(filters.limit));
+        
+        const query = queryParams.toString();
+        return apiClient.get<PaginatedResponse<Invoice>>(`/invoices${query ? `?${query}` : ''}`, token ?? undefined);
     },
 
     /**
      * Obtiene una factura por ID
      */
     getById: async (id: string): Promise<Invoice | null> => {
-        await delay(DELAY);
-        return MOCK_INVOICES.find((i) => i.id === id) || null;
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            return MOCK_INVOICES.find((i) => i.id === id) || null;
+        }
+
+        const token = getToken();
+        try {
+            return await apiClient.get<Invoice>(`/invoices/${id}`, token ?? undefined);
+        } catch {
+            return null;
+        }
     },
 };
 
@@ -242,54 +304,73 @@ export const tenantAccountsApi = {
      * Obtiene cuenta por lease ID
      */
     getByLease: async (leaseId: string): Promise<TenantAccount | null> => {
-        await delay(DELAY);
-        return MOCK_TENANT_ACCOUNTS.find((a) => a.leaseId === leaseId) || null;
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            return MOCK_TENANT_ACCOUNTS.find((a) => a.leaseId === leaseId) || null;
+        }
+
+        const token = getToken();
+        try {
+            return await apiClient.get<TenantAccount>(`/tenant-accounts/lease/${leaseId}`, token ?? undefined);
+        } catch {
+            return null;
+        }
     },
 
     /**
      * Obtiene balance de cuenta
      */
     getBalance: async (accountId: string): Promise<AccountBalance> => {
-        await delay(DELAY);
-        const account = MOCK_TENANT_ACCOUNTS.find((a) => a.id === accountId);
-        if (!account) throw new Error('Account not found');
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            const account = MOCK_TENANT_ACCOUNTS.find((a) => a.id === accountId);
+            if (!account) throw new Error('Account not found');
 
-        return {
-            balance: account.balance,
-            lateFee: 0, // Calculado en backend
-            total: account.balance,
-        };
+            return {
+                balance: account.balance,
+                lateFee: 0, // Calculado en backend
+                total: account.balance,
+            };
+        }
+
+        const token = getToken();
+        return apiClient.get<AccountBalance>(`/tenant-accounts/${accountId}/balance`, token ?? undefined);
     },
 
     /**
      * Lista movimientos de cuenta
      */
     getMovements: async (accountId: string): Promise<TenantAccountMovement[]> => {
-        await delay(DELAY);
-        // Mock movements
-        return [
-            {
-                id: 'mov1',
-                accountId,
-                movementType: 'invoice',
-                amount: 1500,
-                balanceAfter: 1500,
-                referenceType: 'invoice',
-                referenceId: 'inv1',
-                description: 'Factura INV-202412-0001',
-                createdAt: new Date().toISOString(),
-            },
-            {
-                id: 'mov2',
-                accountId,
-                movementType: 'payment',
-                amount: -1500,
-                balanceAfter: 0,
-                referenceType: 'payment',
-                referenceId: 'pay1',
-                description: 'Pago recibido',
-                createdAt: '2024-11-15T14:30:00Z',
-            },
-        ];
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            // Mock movements
+            return [
+                {
+                    id: 'mov1',
+                    accountId,
+                    movementType: 'invoice',
+                    amount: 1500,
+                    balanceAfter: 1500,
+                    referenceType: 'invoice',
+                    referenceId: 'inv1',
+                    description: 'Factura INV-202412-0001',
+                    createdAt: new Date().toISOString(),
+                },
+                {
+                    id: 'mov2',
+                    accountId,
+                    movementType: 'payment',
+                    amount: -1500,
+                    balanceAfter: 0,
+                    referenceType: 'payment',
+                    referenceId: 'pay1',
+                    description: 'Pago recibido',
+                    createdAt: '2024-11-15T14:30:00Z',
+                },
+            ];
+        }
+
+        const token = getToken();
+        return apiClient.get<TenantAccountMovement[]>(`/tenant-accounts/${accountId}/movements`, token ?? undefined);
     },
 };
