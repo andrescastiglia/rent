@@ -1354,6 +1354,363 @@ INSERT INTO currencies (code, name, symbol, decimal_places, is_active) VALUES
     ('CLP', 'Peso Chileno', 'CLP$', 0, TRUE)
 ON CONFLICT (code) DO NOTHING;
 
+\echo '  ✓ Currencies created'
+
+-- =============================================================================
+-- SECTION 13.1: SAMPLE DATA FOR DEVELOPMENT
+-- =============================================================================
+-- All entities share company_id '11111111-1111-1111-1111-111111111111'
+-- for coherent multi-tenant filtering
+-- =============================================================================
+
+-- Sample Company
+INSERT INTO companies (id, name, legal_name, tax_id, email, phone, country, created_at, updated_at)
+VALUES (
+    '11111111-1111-1111-1111-111111111111',
+    'RentFlow Demo',
+    'RentFlow Demo S.A.',
+    '30-12345678-9',
+    'admin@rentflow.demo',
+    '+54 11 1234-5678',
+    'Argentina',
+    NOW(),
+    NOW()
+) ON CONFLICT (id) DO NOTHING;
+
+\echo '  ✓ Sample company created'
+
+-- Sample Admin User
+INSERT INTO users (id, company_id, email, password_hash, first_name, last_name, role, is_active, created_at, updated_at)
+VALUES (
+    '22222222-2222-2222-2222-222222222222',
+    '11111111-1111-1111-1111-111111111111',
+    'admin@rentflow.demo',
+    '$2b$10$abcdefghijklmnopqrstuvwxyzABCDEF',
+    'Admin',
+    'Demo',
+    'admin',
+    TRUE,
+    NOW(),
+    NOW()
+) ON CONFLICT (id) DO NOTHING;
+
+\echo '  ✓ Sample admin user created'
+
+-- Sample Owner User (owner needs a user first)
+INSERT INTO users (id, company_id, email, password_hash, first_name, last_name, role, is_active, created_at, updated_at)
+VALUES (
+    '33333333-3333-3333-3333-333333333331',
+    '11111111-1111-1111-1111-111111111111',
+    'owner@rentflow.demo',
+    '$2b$10$abcdefghijklmnopqrstuvwxyzABCDEF',
+    'Carlos',
+    'Propietario',
+    'owner',
+    TRUE,
+    NOW(),
+    NOW()
+) ON CONFLICT (id) DO NOTHING;
+
+-- Sample Owner
+INSERT INTO owners (id, company_id, user_id, tax_id, bank_name, bank_account_number, commission_rate, created_at, updated_at)
+VALUES (
+    '33333333-3333-3333-3333-333333333333',
+    '11111111-1111-1111-1111-111111111111',
+    '33333333-3333-3333-3333-333333333331',
+    '20-12345678-9',
+    'Banco Nación',
+    '0110012345678901234567',
+    8.00,
+    NOW(),
+    NOW()
+) ON CONFLICT (id) DO NOTHING;
+
+\echo '  ✓ Sample owner created'
+
+-- Sample Property
+INSERT INTO properties (id, company_id, owner_id, name, property_type, address_street, address_number, address_city, address_state, address_country, address_postal_code, created_at, updated_at)
+VALUES (
+    '44444444-4444-4444-4444-444444444444',
+    '11111111-1111-1111-1111-111111111111',
+    '33333333-3333-3333-3333-333333333333',
+    'Edificio Demo',
+    'apartment',
+    'Av. Corrientes',
+    '1234',
+    'Buenos Aires',
+    'CABA',
+    'Argentina',
+    'C1000AAA',
+    NOW(),
+    NOW()
+) ON CONFLICT (id) DO NOTHING;
+
+\echo '  ✓ Sample property created'
+
+-- Sample Unit
+INSERT INTO units (id, property_id, company_id, unit_number, floor, bedrooms, bathrooms, area, status, created_at, updated_at)
+VALUES (
+    '55555555-5555-5555-5555-555555555555',
+    '44444444-4444-4444-4444-444444444444',
+    '11111111-1111-1111-1111-111111111111',
+    '1A',
+    '1',
+    2,
+    1,
+    60.00,
+    'occupied',
+    NOW(),
+    NOW()
+) ON CONFLICT (id) DO NOTHING;
+
+\echo '  ✓ Sample unit created'
+
+-- Sample Tenant User
+INSERT INTO users (id, company_id, email, password_hash, first_name, last_name, role, is_active, created_at, updated_at)
+VALUES (
+    '66666666-6666-6666-6666-666666666666',
+    '11111111-1111-1111-1111-111111111111',
+    'tenant@example.com',
+    '$2b$10$abcdefghijklmnopqrstuvwxyzABCDEF',
+    'Juan',
+    'Pérez',
+    'tenant',
+    TRUE,
+    NOW(),
+    NOW()
+) ON CONFLICT (id) DO NOTHING;
+
+-- Sample Tenant Profile
+INSERT INTO tenants (id, company_id, user_id, dni, emergency_contact_name, emergency_contact_phone, created_at, updated_at)
+VALUES (
+    '77777777-7777-7777-7777-777777777777',
+    '11111111-1111-1111-1111-111111111111',
+    '66666666-6666-6666-6666-666666666666',
+    '12345678',
+    'María García',
+    '+54 11 5555-1234',
+    NOW(),
+    NOW()
+) ON CONFLICT (id) DO NOTHING;
+
+\echo '  ✓ Sample tenant created'
+
+-- Sample Lease
+INSERT INTO leases (id, company_id, unit_id, tenant_id, owner_id, start_date, end_date, monthly_rent, currency, billing_day, status, adjustment_type, adjustment_frequency_months, created_at, updated_at)
+VALUES (
+    '88888888-8888-8888-8888-888888888888',
+    '11111111-1111-1111-1111-111111111111',
+    '55555555-5555-5555-5555-555555555555',
+    '77777777-7777-7777-7777-777777777777',
+    '33333333-3333-3333-3333-333333333333',
+    '2025-01-01',
+    '2027-01-01',
+    250000.00,
+    'ARS',
+    1,
+    'active',
+    'inflation_index',
+    3,
+    NOW(),
+    NOW()
+) ON CONFLICT (id) DO NOTHING;
+
+\echo '  ✓ Sample lease created'
+
+-- Sample Tenant Account
+INSERT INTO tenant_accounts (id, company_id, lease_id, tenant_id, current_balance, created_at, updated_at)
+VALUES (
+    '99999999-9999-9999-9999-999999999999',
+    '11111111-1111-1111-1111-111111111111',
+    '88888888-8888-8888-8888-888888888888',
+    '77777777-7777-7777-7777-777777777777',
+    0.00,
+    NOW(),
+    NOW()
+) ON CONFLICT (id) DO NOTHING;
+
+\echo '  ✓ Sample tenant account created'
+
+-- Sample Invoices (for current and previous months)
+INSERT INTO invoices (id, company_id, lease_id, owner_id, tenant_account_id, invoice_number, status, issue_date, due_date, period_start, period_end, subtotal, tax_amount, total_amount, currency, created_at, updated_at)
+VALUES
+    -- Current month invoice
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+     '11111111-1111-1111-1111-111111111111',
+     '88888888-8888-8888-8888-888888888888',
+     '33333333-3333-3333-3333-333333333333',
+     '99999999-9999-9999-9999-999999999999',
+     'INV-2025-001',
+     'paid',
+     DATE_TRUNC('month', CURRENT_DATE)::date,
+     (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '10 days')::date,
+     DATE_TRUNC('month', CURRENT_DATE)::date,
+     (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month - 1 day')::date,
+     250000.00,
+     0.00,
+     250000.00,
+     'ARS',
+     NOW(),
+     NOW()),
+    -- Previous month invoice
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+     '11111111-1111-1111-1111-111111111111',
+     '88888888-8888-8888-8888-888888888888',
+     '33333333-3333-3333-3333-333333333333',
+     '99999999-9999-9999-9999-999999999999',
+     'INV-2025-002',
+     'paid',
+     (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')::date,
+     (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month' + INTERVAL '10 days')::date,
+     (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')::date,
+     (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 day')::date,
+     250000.00,
+     0.00,
+     250000.00,
+     'ARS',
+     NOW(),
+     NOW())
+ON CONFLICT (id) DO NOTHING;
+
+\echo '  ✓ Sample invoices created'
+
+-- Sample Payments
+INSERT INTO payments (id, company_id, tenant_id, tenant_account_id, invoice_id, amount, payment_date, payment_method, status, reference_number, created_at, updated_at)
+VALUES
+    -- Payment for current month
+    ('cccccccc-cccc-cccc-cccc-cccccccccccc',
+     '11111111-1111-1111-1111-111111111111',
+     '77777777-7777-7777-7777-777777777777',
+     '99999999-9999-9999-9999-999999999999',
+     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+     250000.00,
+     (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '5 days')::date,
+     'bank_transfer',
+     'completed',
+     'TRF-001',
+     NOW(),
+     NOW()),
+    -- Payment for previous month
+    ('dddddddd-dddd-dddd-dddd-dddddddddddd',
+     '11111111-1111-1111-1111-111111111111',
+     '77777777-7777-7777-7777-777777777777',
+     '99999999-9999-9999-9999-999999999999',
+     'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+     250000.00,
+     (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month' + INTERVAL '5 days')::date,
+     'bank_transfer',
+     'completed',
+     'TRF-002',
+     NOW(),
+     NOW())
+ON CONFLICT (id) DO NOTHING;
+
+\echo '  ✓ Sample payments created'
+
+-- Sample Commission Invoices (paid commissions for current month)
+-- Expected total for current month: ARS 34,400 (20,000 + 14,400)
+INSERT INTO commission_invoices (id, company_id, owner_id, invoice_number, status, period_start, period_end, issue_date, due_date, base_amount, commission_rate, commission_amount, tax_amount, total_amount, currency, paid_amount, paid_at, payment_reference, created_at, updated_at)
+VALUES
+    -- Commission for current month (paid) - 8% of 250,000 = 20,000
+    ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+     '11111111-1111-1111-1111-111111111111',
+     '33333333-3333-3333-3333-333333333333',
+     'COM-2025-001',
+     'paid',
+     DATE_TRUNC('month', CURRENT_DATE)::date,
+     (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month - 1 day')::date,
+     (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '5 days')::date,
+     (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '15 days')::date,
+     250000.00,
+     8.00,
+     20000.00,
+     4200.00,
+     24200.00,
+     'ARS',
+     24200.00,
+     DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '7 days',
+     'COM-PAY-001',
+     NOW(),
+     NOW()),
+    -- Second commission for current month (paid) - another property/invoice
+    ('ffffffff-ffff-ffff-ffff-ffffffffffff',
+     '11111111-1111-1111-1111-111111111111',
+     '33333333-3333-3333-3333-333333333333',
+     'COM-2025-002',
+     'paid',
+     DATE_TRUNC('month', CURRENT_DATE)::date,
+     (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month - 1 day')::date,
+     (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '5 days')::date,
+     (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '15 days')::date,
+     180000.00,
+     8.00,
+     14400.00,
+     3024.00,
+     17424.00,
+     'ARS',
+     17424.00,
+     DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '8 days',
+     'COM-PAY-002',
+     NOW(),
+     NOW()),
+    -- Commission for previous month (paid) - should NOT appear in current month total
+    ('11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+     '11111111-1111-1111-1111-111111111111',
+     '33333333-3333-3333-3333-333333333333',
+     'COM-2024-012',
+     'paid',
+     (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')::date,
+     (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 day')::date,
+     (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '25 days')::date,
+     (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '15 days')::date,
+     250000.00,
+     8.00,
+     20000.00,
+     4200.00,
+     24200.00,
+     'ARS',
+     24200.00,
+     DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '20 days',
+     'COM-PAY-OLD',
+     NOW(),
+     NOW()),
+    -- Commission for current month (pending - should NOT appear in paid commissions total)
+    ('22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+     '11111111-1111-1111-1111-111111111111',
+     '33333333-3333-3333-3333-333333333333',
+     'COM-2025-003',
+     'pending',
+     DATE_TRUNC('month', CURRENT_DATE)::date,
+     (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month - 1 day')::date,
+     (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '10 days')::date,
+     (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '20 days')::date,
+     150000.00,
+     8.00,
+     12000.00,
+     2520.00,
+     14520.00,
+     'ARS',
+     0.00,
+     NULL,
+     NULL,
+     NOW(),
+     NOW())
+ON CONFLICT (id) DO NOTHING;
+
+\echo '  ✓ Sample commission invoices created'
+
+-- Sample Billing Jobs for recent activity display
+INSERT INTO billing_jobs (id, job_type, status, started_at, completed_at, duration_ms, records_total, records_processed, records_failed, records_skipped, parameters, dry_run, created_at, updated_at)
+VALUES
+    ('b0b11111-1111-1111-1111-111111111111', 'billing', 'completed', NOW() - INTERVAL '1 hour', NOW() - INTERVAL '1 hour' + INTERVAL '5 seconds', 5000, 10, 10, 0, 0, '{}', false, NOW(), NOW()),
+    ('b0b22222-2222-2222-2222-222222222222', 'overdue', 'completed', NOW() - INTERVAL '2 hours', NOW() - INTERVAL '2 hours' + INTERVAL '2 seconds', 2000, 5, 5, 0, 0, '{}', false, NOW(), NOW()),
+    ('b0b33333-3333-3333-3333-333333333333', 'sync_indices', 'completed', NOW() - INTERVAL '3 hours', NOW() - INTERVAL '3 hours' + INTERVAL '10 seconds', 10000, 24, 24, 0, 0, '{"index": "icl"}', false, NOW(), NOW()),
+    ('b0b44444-4444-4444-4444-444444444444', 'exchange_rates', 'completed', NOW() - INTERVAL '4 hours', NOW() - INTERVAL '4 hours' + INTERVAL '3 seconds', 3000, 6, 6, 0, 0, '{}', false, NOW(), NOW()),
+    ('b0b55555-5555-5555-5555-555555555555', 'reports', 'partial_failure', NOW() - INTERVAL '5 hours', NOW() - INTERVAL '5 hours' + INTERVAL '15 seconds', 15000, 8, 6, 2, 0, '{"period": "2025-12"}', false, NOW(), NOW())
+ON CONFLICT (id) DO NOTHING;
+
+\echo '  ✓ Sample billing jobs created'
+
 \echo '✓ Datos semilla insertados'
 
 -- =============================================================================
@@ -1391,5 +1748,27 @@ SET TIME ZONE 'America/Argentina/Buenos_Aires';
 \echo '  - Reference: currencies, inflation_indices, exchange_rates'
 \echo '  - System: notification_preferences, billing_jobs'
 \echo '  - Audit: audit.logs'
+\echo ''
+\echo 'Datos de muestra (company_id: 11111111-1111-1111-1111-111111111111):'
+\echo '  - Company: RentFlow Demo'
+\echo '  - Admin: admin@rentflow.demo'
+\echo '  - Owner: 1 (commission rate 8%)'
+\echo '  - Property: 1 (Edificio Demo)'
+\echo '  - Unit: 1 (1A)'
+\echo '  - Tenant: 1 (Juan Pérez)'
+\echo '  - Lease: 1 (active, ARS 250,000/month)'
+\echo '  - Invoices: 2 (current + previous month)'
+\echo '  - Payments: 2'
+\echo '  - Commission Invoices: 4 (2 paid current month, 1 paid previous, 1 pending)'
+\echo '  - Billing Jobs: 5'
+\echo ''
+\echo 'Valores esperados del Dashboard:'
+\echo '  - Total Properties: 1'
+\echo '  - Total Tenants: 1'
+\echo '  - Active Leases: 1'
+\echo '  - Monthly Income: ARS 250,000'
+\echo '  - Monthly Commissions (paid): ARS 34,400'
+\echo '  - Total Payments: 2'
+\echo '  - Total Invoices: 2'
 \echo ''
 \echo '========================================='

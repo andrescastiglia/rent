@@ -15,10 +15,10 @@ import { formatMoneyByCode } from '@/lib/format-money';
 
 // Define which stats cards are visible for each role
 const ROLE_STATS: Record<string, string[]> = {
-  admin: ['properties', 'tenants', 'leases', 'income', 'payments', 'invoices'],
+  admin: ['properties', 'tenants', 'leases', 'income', 'commissions', 'payments', 'invoices'],
   owner: ['properties', 'tenants', 'leases', 'income', 'payments', 'invoices'],
   tenant: ['leases', 'payments', 'invoices'],
-  staff: ['properties', 'tenants', 'leases', 'payments', 'invoices'],
+  staff: ['properties', 'tenants', 'leases', 'commissions', 'payments', 'invoices'],
 };
 
 // Status badge colors
@@ -258,6 +258,37 @@ export default function DashboardPage() {
                     strokeLinejoin="round"
                     strokeWidth={2}
                     d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Monthly Commissions Card */}
+        {visibleStats.includes('commissions') && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  {t('stats.monthlyCommissions')}
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {loading ? '...' : formatMoneyByCode(stats?.monthlyCommissions ?? 0, stats?.currencyCode ?? 'ARS', locale)}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/20 rounded-full flex items-center justify-center">
+                <svg
+                  className="w-6 h-6 text-indigo-600 dark:text-indigo-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
                   />
                 </svg>
               </div>

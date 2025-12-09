@@ -6,13 +6,10 @@ import {
   UpdateDateColumn,
   DeleteDateColumn,
   ManyToOne,
-  OneToOne,
   JoinColumn,
 } from 'typeorm';
 import { Company } from '../../companies/entities/company.entity';
-import { User } from '../../users/entities/user.entity';
-import { Invoice } from './invoice.entity';
-import { Currency } from '../../currencies/entities/currency.entity';
+import { Owner } from '../../owners/entities/owner.entity';
 
 /**
  * Estados de la factura de comisión.
@@ -26,6 +23,7 @@ export enum CommissionInvoiceStatus {
 
 /**
  * Factura de comisión emitida por la compañía al propietario.
+ * Representa la comisión cobrada por la gestión de alquileres.
  */
 @Entity('commission_invoices')
 export class CommissionInvoice {
@@ -42,50 +40,12 @@ export class CommissionInvoice {
   @Column({ name: 'owner_id' })
   ownerId: string;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => Owner)
   @JoinColumn({ name: 'owner_id' })
-  owner: User;
-
-  @Column({ name: 'invoice_id', nullable: true })
-  invoiceId: string;
-
-  @OneToOne(() => Invoice, (invoice) => invoice.commissionInvoice)
-  @JoinColumn({ name: 'invoice_id' })
-  invoice: Invoice;
+  owner: Owner;
 
   @Column({ name: 'invoice_number' })
   invoiceNumber: string;
-
-  @Column({ name: 'commission_rate', type: 'decimal', precision: 5, scale: 2 })
-  commissionRate: number;
-
-  @Column({ name: 'base_amount', type: 'decimal', precision: 12, scale: 2 })
-  baseAmount: number;
-
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
-  subtotal: number;
-
-  @Column({
-    name: 'tax_rate',
-    type: 'decimal',
-    precision: 5,
-    scale: 2,
-    default: 21.0,
-  })
-  taxRate: number;
-
-  @Column({ name: 'tax_amount', type: 'decimal', precision: 12, scale: 2 })
-  taxAmount: number;
-
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
-  total: number;
-
-  @Column({ name: 'currency_code', default: 'ARS' })
-  currencyCode: string;
-
-  @ManyToOne(() => Currency)
-  @JoinColumn({ name: 'currency_code', referencedColumnName: 'code' })
-  currency: Currency;
 
   @Column({
     type: 'enum',
@@ -94,14 +54,64 @@ export class CommissionInvoice {
   })
   status: CommissionInvoiceStatus;
 
-  @Column({ name: 'pdf_url', nullable: true })
-  pdfUrl: string;
+  @Column({ name: 'period_start', type: 'date' })
+  periodStart: Date;
 
-  @Column({ name: 'issued_at', type: 'timestamptz', nullable: true })
-  issuedAt: Date;
+  @Column({ name: 'period_end', type: 'date' })
+  periodEnd: Date;
+
+  @Column({ name: 'issue_date', type: 'date', default: () => 'CURRENT_DATE' })
+  issueDate: Date;
+
+  @Column({ name: 'due_date', type: 'date' })
+  dueDate: Date;
+
+  @Column({ name: 'base_amount', type: 'decimal', precision: 14, scale: 2 })
+  baseAmount: number;
+
+  @Column({ name: 'commission_rate', type: 'decimal', precision: 5, scale: 2 })
+  commissionRate: number;
+
+  @Column({
+    name: 'commission_amount',
+    type: 'decimal',
+    precision: 14,
+    scale: 2,
+  })
+  commissionAmount: number;
+
+  @Column({
+    name: 'tax_amount',
+    type: 'decimal',
+    precision: 14,
+    scale: 2,
+    default: 0,
+  })
+  taxAmount: number;
+
+  @Column({ name: 'total_amount', type: 'decimal', precision: 14, scale: 2 })
+  totalAmount: number;
+
+  @Column({ default: 'ARS' })
+  currency: string;
+
+  @Column({ name: 'related_invoices', type: 'jsonb', default: '[]' })
+  relatedInvoices: object[];
+
+  @Column({
+    name: 'paid_amount',
+    type: 'decimal',
+    precision: 14,
+    scale: 2,
+    default: 0,
+  })
+  paidAmount: number;
 
   @Column({ name: 'paid_at', type: 'timestamptz', nullable: true })
   paidAt: Date;
+
+  @Column({ name: 'payment_reference', nullable: true })
+  paymentReference: string;
 
   @Column({ type: 'text', nullable: true })
   notes: string;

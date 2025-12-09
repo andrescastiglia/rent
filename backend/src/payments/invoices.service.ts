@@ -228,26 +228,38 @@ export class InvoicesService {
     const companyId = lease.unit.property.companyId;
     const commissionRate = Number(lease.owner.commissionRate);
     const baseAmount = Number(invoice.subtotal);
-    const subtotal = (baseAmount * commissionRate) / 100;
+    const commissionAmount = (baseAmount * commissionRate) / 100;
     const taxRate = 21.0; // IVA estándar Argentina
-    const taxAmount = (subtotal * taxRate) / 100;
-    const total = subtotal + taxAmount;
+    const taxAmount = (commissionAmount * taxRate) / 100;
+    const totalAmount = commissionAmount + taxAmount;
 
     const invoiceNumber = await this.generateCommissionInvoiceNumber(companyId);
+
+    // Calcular fechas del período y vencimiento
+    const issueDate = new Date();
+    const periodStart = invoice.periodStart;
+    const periodEnd = invoice.periodEnd;
+    const dueDate = new Date(issueDate);
+    dueDate.setDate(dueDate.getDate() + 15); // Vence en 15 días
 
     const commissionInvoice = this.commissionInvoicesRepository.create({
       companyId,
       ownerId: invoice.ownerId,
-      invoiceId: invoice.id,
       invoiceNumber,
       commissionRate,
       baseAmount,
-      subtotal,
-      taxRate,
+      commissionAmount,
       taxAmount,
-      total,
-      currencyCode: invoice.currencyCode,
+      totalAmount,
+      currency: invoice.currencyCode || 'ARS',
       status: CommissionInvoiceStatus.DRAFT,
+      issueDate,
+      periodStart,
+      periodEnd,
+      dueDate,
+      relatedInvoices: [
+        { invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber },
+      ],
     });
 
     await this.commissionInvoicesRepository.save(commissionInvoice);

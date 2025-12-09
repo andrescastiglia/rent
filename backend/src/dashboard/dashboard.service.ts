@@ -7,6 +7,10 @@ import { User, UserRole } from '../users/entities/user.entity';
 import { Payment } from '../payments/entities/payment.entity';
 import { Invoice } from '../payments/entities/invoice.entity';
 import { BillingJob } from '../payments/entities/billing-job.entity';
+import {
+  CommissionInvoice,
+  CommissionInvoiceStatus,
+} from '../payments/entities/commission-invoice.entity';
 import { DashboardStatsDto } from './dto/dashboard-stats.dto';
 import { RecentActivityDto } from './dto/recent-activity.dto';
 
@@ -25,6 +29,8 @@ export class DashboardService {
     private readonly invoicesRepository: Repository<Invoice>,
     @InjectRepository(BillingJob)
     private readonly billingJobRepository: Repository<BillingJob>,
+    @InjectRepository(CommissionInvoice)
+    private readonly commissionInvoiceRepository: Repository<CommissionInvoice>,
   ) {}
 
   async getStats(companyId: string): Promise<DashboardStatsDto> {
@@ -87,6 +93,23 @@ export class DashboardService {
       .andWhere('invoice.deleted_at IS NULL')
       .getCount();
 
+    // Calculate paid commissions for the current month
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    const commissionResult = await this.commissionInvoiceRepository
+      .createQueryBuilder('ci')
+      .select('COALESCE(SUM(ci.commission_amount), 0)', 'total')
+      .where('ci.company_id = :companyId', { companyId })
+      .andWhere('ci.status = :status', { status: CommissionInvoiceStatus.PAID })
+      .andWhere('ci.paid_at >= :startDate', { startDate: firstDayOfMonth })
+      .andWhere('ci.paid_at <= :endDate', { endDate: lastDayOfMonth })
+      .andWhere('ci.deleted_at IS NULL')
+      .getRawOne();
+
+    const monthlyCommissions = Number(commissionResult?.total ?? 0);
+
     return {
       totalProperties,
       totalTenants,
@@ -95,6 +118,7 @@ export class DashboardService {
       currencyCode,
       totalPayments,
       totalInvoices,
+      monthlyCommissions,
     };
   }
 

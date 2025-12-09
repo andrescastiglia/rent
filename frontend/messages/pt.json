@@ -84,6 +84,7 @@
             "tenants": "Inquilinos",
             "activeLeases": "Contratos Ativos",
             "monthlyIncome": "Renda Mensal",
+            "monthlyCommissions": "Comissões do Mês",
             "payments": "Pagamentos",
             "invoices": "Faturas"
         },

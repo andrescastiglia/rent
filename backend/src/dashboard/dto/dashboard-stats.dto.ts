@@ -6,4 +6,5 @@ export class DashboardStatsDto {
   currencyCode: string;
   totalPayments: number;
   totalInvoices: number;
+  monthlyCommissions: number;
 }

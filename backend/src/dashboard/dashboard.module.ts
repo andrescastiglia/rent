@@ -8,10 +8,19 @@ import { User } from '../users/entities/user.entity';
 import { Payment } from '../payments/entities/payment.entity';
 import { Invoice } from '../payments/entities/invoice.entity';
 import { BillingJob } from '../payments/entities/billing-job.entity';
+import { CommissionInvoice } from '../payments/entities/commission-invoice.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Property, Lease, User, Payment, Invoice, BillingJob]),
+    TypeOrmModule.forFeature([
+      Property,
+      Lease,
+      User,
+      Payment,
+      Invoice,
+      BillingJob,
+      CommissionInvoice,
+    ]),
   ],
   controllers: [DashboardController],
   providers: [DashboardService],

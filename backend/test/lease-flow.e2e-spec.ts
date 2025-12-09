@@ -242,7 +242,7 @@ describe('Lease Creation Flow (e2e)', () => {
         .post('/leases')
         .set('Authorization', `Bearer ${ownerToken}`)
         .send(leaseDto);
-      
+
       console.log('Lease creation response:', res.status, res.body);
       expect(res.status).toBe(201);
 

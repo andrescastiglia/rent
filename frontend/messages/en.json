@@ -84,6 +84,7 @@
             "tenants": "Tenants",
             "activeLeases": "Active Leases",
             "monthlyIncome": "Monthly Income",
+            "monthlyCommissions": "Monthly Commissions",
             "payments": "Payments",
             "invoices": "Invoices"
         },

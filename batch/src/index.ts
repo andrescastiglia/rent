@@ -4,7 +4,7 @@ import { config } from 'dotenv';
 import { Command } from 'commander';
 import { logger } from './shared/logger';
 import { initializeDatabase, closeDatabase } from './shared/database';
-import { BillingJobService, BillingJobType } from './services/billing-job.service';
+import { BillingJobService } from './services/billing-job.service';
 
 // Load environment variables
 config();

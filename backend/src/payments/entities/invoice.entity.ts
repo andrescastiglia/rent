@@ -6,14 +6,12 @@ import {
   UpdateDateColumn,
   DeleteDateColumn,
   ManyToOne,
-  OneToOne,
   JoinColumn,
 } from 'typeorm';
 import { Lease } from '../../leases/entities/lease.entity';
 import { Owner } from '../../owners/entities/owner.entity';
 import { TenantAccount } from './tenant-account.entity';
 import { Currency } from '../../currencies/entities/currency.entity';
-import { CommissionInvoice } from './commission-invoice.entity';
 
 /**
  * Estados de la factura.
@@ -244,9 +242,6 @@ export class Invoice {
     nullable: true,
   })
   adjustmentIndexValue: number;
-
-  @OneToOne(() => CommissionInvoice, (ci) => ci.invoice)
-  commissionInvoice: CommissionInvoice;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

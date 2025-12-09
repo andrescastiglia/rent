@@ -9,6 +9,7 @@ export interface DashboardStats {
   currencyCode: string;
   totalPayments: number;
   totalInvoices: number;
+  monthlyCommissions: number;
 }
 
 export type BillingJobType =
