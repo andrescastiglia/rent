@@ -38,6 +38,13 @@
         "invoices": "Invoices",
         "users": "Users"
     },
+    "breadcrumbs": {
+        "home": "Home",
+        "new": "New",
+        "edit": "Edit",
+        "details": "Details",
+        "ariaLabel": "Navigation"
+    },
     "auth": {
         "login": "Sign In",
         "register": "Sign Up",
