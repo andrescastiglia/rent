@@ -15,6 +15,7 @@ import {
   LateFeeType,
   AdjustmentType,
   IncreaseClauseType,
+  InflationIndexType,
 } from '../entities/lease.entity';
 
 export class CreateLeaseDto {
@@ -88,6 +89,10 @@ export class CreateLeaseDto {
   @IsOptional()
   lateFeeGraceDays?: number;
 
+  @IsNumber()
+  @IsOptional()
+  lateFeeMax?: number;
+
   @IsBoolean()
   @IsOptional()
   autoGenerateInvoices?: boolean;
@@ -103,6 +108,14 @@ export class CreateLeaseDto {
   @IsNumber()
   @IsOptional()
   adjustmentFrequencyMonths?: number;
+
+  @IsDateString()
+  @IsOptional()
+  nextAdjustmentDate?: string;
+
+  @IsEnum(InflationIndexType)
+  @IsOptional()
+  inflationIndexType?: InflationIndexType;
 
   @IsEnum(IncreaseClauseType)
   @IsOptional()

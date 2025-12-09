@@ -90,7 +90,6 @@ export interface LeaseForBilling {
     adjustmentRate?: number;
     nextAdjustmentDate?: Date;
     lastAdjustmentDate?: Date;
-    lastAdjustmentRate?: number;
     // Billing fields
     billingDay?: number;
     nextBillingDate?: Date;
@@ -288,25 +287,23 @@ export class InvoiceService {
                 l.id,
                 l.unit_id as "unitId",
                 l.tenant_id as "tenantId",
-                u.owner_id as "ownerId",
+                l.owner_id as "ownerId",
                 ta.id as "tenantAccountId",
-                l.rent_amount as "rentAmount",
+                l.monthly_rent as "rentAmount",
                 l.currency,
                 l.payment_frequency as "paymentFrequency",
                 l.status,
                 l.start_date as "startDate",
                 l.end_date as "endDate",
                 l.adjustment_type as "adjustmentType",
-                l.adjustment_rate as "adjustmentRate",
+                l.adjustment_value as "adjustmentRate",
                 l.next_adjustment_date as "nextAdjustmentDate",
                 l.last_adjustment_date as "lastAdjustmentDate",
-                l.last_adjustment_rate as "lastAdjustmentRate",
                 l.billing_day as "billingDay",
                 l.next_billing_date as "nextBillingDate",
                 l.last_billing_date as "lastBillingDate",
-                u.company_id as "companyId"
+                l.company_id as "companyId"
              FROM leases l
-             JOIN units u ON u.id = l.unit_id
              JOIN tenant_accounts ta ON ta.tenant_id = l.tenant_id AND ta.lease_id = l.id
              WHERE l.status = 'active'
                AND l.deleted_at IS NULL

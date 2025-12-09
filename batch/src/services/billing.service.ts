@@ -154,7 +154,6 @@ export class BillingService {
             adjustmentRate: lease.adjustmentRate,
             nextAdjustmentDate: lease.nextAdjustmentDate,
             lastAdjustmentDate: lease.lastAdjustmentDate,
-            lastAdjustmentRate: lease.lastAdjustmentRate,
         };
 
         // Calculate adjusted rent

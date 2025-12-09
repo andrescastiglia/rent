@@ -209,13 +209,20 @@
             "email": "Email",
             "phone": "Teléfono",
             "dni": "DNI / ID",
+            "cuil": "CUIL/CUIT",
             "documentType": "Tipo de Documento",
             "documentNumber": "Número de Documento",
             "dateOfBirth": "Fecha de Nacimiento",
             "nationality": "Nacionalidad",
             "occupation": "Ocupación",
+            "employer": "Empleador",
+            "monthlyIncome": "Ingreso Mensual",
+            "employmentStatus": "Estado Laboral",
+            "creditScore": "Puntaje Crediticio",
             "emergencyContact": "Contacto de Emergencia",
-            "emergencyPhone": "Teléfono de Emergencia",
+            "emergencyContactName": "Nombre de Contacto de Emergencia",
+            "emergencyContactPhone": "Teléfono de Emergencia",
+            "emergencyContactRelationship": "Relación con Contacto",
             "notes": "Notas",
             "status": "Estado",
             "street": "Calle",
@@ -223,6 +230,16 @@
             "city": "Ciudad",
             "state": "Provincia/Estado",
             "zipCode": "Código Postal"
+        },
+        "employmentInfo": "Información Laboral",
+        "emergencyContactSection": "Contacto de Emergencia",
+        "creditInfo": "Información Crediticia",
+        "employmentStatuses": {
+            "employed": "Empleado",
+            "self_employed": "Autónomo",
+            "unemployed": "Desempleado",
+            "retired": "Jubilado",
+            "student": "Estudiante"
         },
         "status": {
             "active": "Activo",
@@ -281,6 +298,7 @@
         "fields": {
             "property": "Propiedad",
             "tenant": "Inquilino",
+            "owner": "Propietario",
             "unit": "Unidad",
             "unitId": "ID de Unidad",
             "startDate": "Fecha de Inicio",
@@ -288,10 +306,68 @@
             "rentAmount": "Monto del Alquiler ($)",
             "depositAmount": "Monto del Depósito ($)",
             "paymentDay": "Día de Pago",
+            "paymentDueDay": "Día de Vencimiento",
             "status": "Estado",
             "terms": "Términos y Condiciones",
-            "notes": "Notas"
+            "notes": "Notas",
+            "paymentFrequency": "Frecuencia de Pago",
+            "billingFrequency": "Frecuencia de Facturación",
+            "billingDay": "Día de Facturación",
+            "autoGenerateInvoices": "Generar Facturas Automáticamente",
+            "lateFeeType": "Tipo de Mora",
+            "lateFeeValue": "Valor de Mora",
+            "lateFeeGraceDays": "Días de Gracia",
+            "lateFeeMax": "Mora Máxima",
+            "adjustmentType": "Tipo de Ajuste",
+            "adjustmentValue": "Valor de Ajuste",
+            "adjustmentFrequencyMonths": "Frecuencia de Ajuste (meses)",
+            "inflationIndexType": "Índice de Inflación",
+            "nextAdjustmentDate": "Próxima Fecha de Ajuste"
         },
+        "billing": {
+            "title": "Configuración de Facturación",
+            "description": "Configura cómo se generarán las facturas"
+        },
+        "lateFees": {
+            "title": "Configuración de Mora",
+            "description": "Define las penalidades por pagos atrasados"
+        },
+        "adjustments": {
+            "title": "Configuración de Ajustes",
+            "description": "Define cómo se ajustará el alquiler"
+        },
+        "paymentFrequencies": {
+            "monthly": "Mensual",
+            "bimonthly": "Bimestral",
+            "quarterly": "Trimestral",
+            "semiannual": "Semestral",
+            "annual": "Anual"
+        },
+        "billingFrequencies": {
+            "first_of_month": "Primer día del mes",
+            "last_of_month": "Último día del mes",
+            "contract_date": "Fecha del contrato",
+            "custom": "Personalizado"
+        },
+        "lateFeeTypes": {
+            "none": "Sin mora",
+            "fixed": "Monto fijo",
+            "percentage": "Porcentaje",
+            "daily_fixed": "Monto diario fijo",
+            "daily_percentage": "Porcentaje diario"
+        },
+        "adjustmentTypes": {
+            "fixed": "Sin ajuste",
+            "percentage": "Porcentaje fijo",
+            "inflation_index": "Índice de inflación"
+        },
+        "inflationIndexTypes": {
+            "icl": "ICL (Argentina)",
+            "ipc": "IPC",
+            "igp_m": "IGP-M (Brasil)",
+            "custom": "Personalizado"
+        },
+        "selectOwner": "Seleccionar Propietario",
         "status": {
             "active": "Activo",
             "draft": "Borrador",

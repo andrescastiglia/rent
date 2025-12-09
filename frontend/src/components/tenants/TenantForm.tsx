@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CreateTenantInput, Tenant } from '@/types/tenant';
+import { CreateTenantInput, Tenant, EmploymentStatus } from '@/types/tenant';
 import { tenantsApi } from '@/lib/api/tenants';
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
 import { Loader2 } from 'lucide-react';
@@ -11,11 +11,14 @@ import { useTranslations } from 'next-intl';
 import { createTenantSchema, TenantFormData } from '@/lib/validation-schemas';
 import * as z from 'zod';
 
-// Extender el schema base para incluir status y address opcional
+// Extender el schema base para incluir todos los campos necesarios
 const createExtendedTenantSchema = (t: (key: string, params?: Record<string, string | number>) => string) => {
   const baseSchema = createTenantSchema(t);
   return baseSchema.extend({
     status: z.enum(['ACTIVE', 'INACTIVE', 'PROSPECT'] as const),
+    cuil: z.string().optional(),
+    dateOfBirth: z.string().optional(),
+    nationality: z.string().optional(),
     address: z.object({
       street: z.string().optional(),
       number: z.string().optional(),
@@ -23,6 +26,18 @@ const createExtendedTenantSchema = (t: (key: string, params?: Record<string, str
       state: z.string().optional(),
       zipCode: z.string().optional(),
     }).optional(),
+    // Employment fields
+    occupation: z.string().optional(),
+    employer: z.string().optional(),
+    monthlyIncome: z.coerce.number().min(0).optional(),
+    employmentStatus: z.enum(['employed', 'self_employed', 'unemployed', 'retired', 'student'] as const).optional(),
+    // Emergency contact
+    emergencyContactName: z.string().optional(),
+    emergencyContactPhone: z.string().optional(),
+    emergencyContactRelationship: z.string().optional(),
+    // Credit
+    creditScore: z.coerce.number().min(0).max(1000).optional(),
+    notes: z.string().optional(),
   });
 };
 
@@ -60,7 +75,7 @@ export function TenantForm({ initialData, isEditing = false }: TenantFormProps) 
       }
 
       if (isEditing && initialData) {
-        await tenantsApi.update(initialData.id, cleanData as any);
+        await tenantsApi.update(initialData.id, cleanData as unknown as Partial<CreateTenantInput>);
         router.push(`/tenants/${initialData.id}`);
       } else {
         await tenantsApi.create(cleanData as CreateTenantInput);
@@ -75,63 +90,65 @@ export function TenantForm({ initialData, isEditing = false }: TenantFormProps) 
     }
   };
 
+  const inputClass = "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white";
+  const labelClass = "block text-sm font-medium text-gray-700 dark:text-gray-300";
+  const sectionClass = "space-y-4";
+  const sectionTitleClass = "text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2";
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
-      <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2">{t('personalInfo')}</h3>
+      {/* Personal Information */}
+      <div className={sectionClass}>
+        <h3 className={sectionTitleClass}>{t('personalInfo')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.firstName')}</label>
-            <input
-              {...register('firstName')}
-              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
-            />
+            <label className={labelClass}>{t('fields.firstName')}</label>
+            <input {...register('firstName')} className={inputClass} />
             {errors.firstName && <p className="mt-1 text-sm text-red-600">{errors.firstName.message}</p>}
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.lastName')}</label>
-            <input
-              {...register('lastName')}
-              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
-            />
+            <label className={labelClass}>{t('fields.lastName')}</label>
+            <input {...register('lastName')} className={inputClass} />
             {errors.lastName && <p className="mt-1 text-sm text-red-600">{errors.lastName.message}</p>}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.email')}</label>
-            <input
-              {...register('email')}
-              type="email"
-              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
-            />
+            <label className={labelClass}>{t('fields.email')}</label>
+            <input {...register('email')} type="email" className={inputClass} />
             {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.phone')}</label>
-            <input
-              {...register('phone')}
-              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
-            />
+            <label className={labelClass}>{t('fields.phone')}</label>
+            <input {...register('phone')} className={inputClass} />
             {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.dni')}</label>
-            <input
-              {...register('dni')}
-              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
-            />
+            <label className={labelClass}>{t('fields.dni')}</label>
+            <input {...register('dni')} className={inputClass} />
             {errors.dni && <p className="mt-1 text-sm text-red-600">{errors.dni.message}</p>}
           </div>
 
           <div>
-             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.status')}</label>
-             <select
-               {...register('status')}
-               className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
-             >
+            <label className={labelClass}>{t('fields.cuil')}</label>
+            <input {...register('cuil')} className={inputClass} placeholder="20-12345678-9" />
+          </div>
+
+          <div>
+            <label className={labelClass}>{t('fields.dateOfBirth')}</label>
+            <input {...register('dateOfBirth')} type="date" className={inputClass} />
+          </div>
+
+          <div>
+            <label className={labelClass}>{t('fields.nationality')}</label>
+            <input {...register('nationality')} className={inputClass} />
+          </div>
+
+          <div>
+             <label className={labelClass}>{t('fields.status')}</label>
+             <select {...register('status')} className={inputClass}>
                <option value="PROSPECT">{t('status.PROSPECT')}</option>
                <option value="ACTIVE">{t('status.ACTIVE')}</option>
                <option value="INACTIVE">{t('status.INACTIVE')}</option>
@@ -140,34 +157,105 @@ export function TenantForm({ initialData, isEditing = false }: TenantFormProps) 
         </div>
       </div>
 
-      <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2">{t('addressOptional')}</h3>
+      {/* Employment Information */}
+      <div className={sectionClass}>
+        <h3 className={sectionTitleClass}>{t('employmentInfo')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.street')}</label>
-            <input {...register('address.street')} className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white" />
+            <label className={labelClass}>{t('fields.employmentStatus')}</label>
+            <select {...register('employmentStatus')} className={inputClass}>
+              <option value="">{tCommon('optional')}</option>
+              <option value="employed">{t('employmentStatuses.employed')}</option>
+              <option value="self_employed">{t('employmentStatuses.self_employed')}</option>
+              <option value="unemployed">{t('employmentStatuses.unemployed')}</option>
+              <option value="retired">{t('employmentStatuses.retired')}</option>
+              <option value="student">{t('employmentStatuses.student')}</option>
+            </select>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.number')}</label>
-                <input {...register('address.number')} className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white" />
-            </div>
-          </div>
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.city')}</label>
-            <input {...register('address.city')} className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white" />
+            <label className={labelClass}>{t('fields.occupation')}</label>
+            <input {...register('occupation')} className={inputClass} />
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.state')}</label>
-            <input {...register('address.state')} className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white" />
+            <label className={labelClass}>{t('fields.employer')}</label>
+            <input {...register('employer')} className={inputClass} />
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.zipCode')}</label>
-            <input {...register('address.zipCode')} className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white" />
+            <label className={labelClass}>{t('fields.monthlyIncome')}</label>
+            <input {...register('monthlyIncome')} type="number" min="0" step="0.01" className={inputClass} />
           </div>
         </div>
       </div>
 
+      {/* Credit Information */}
+      <div className={sectionClass}>
+        <h3 className={sectionTitleClass}>{t('creditInfo')}</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className={labelClass}>{t('fields.creditScore')}</label>
+            <input {...register('creditScore')} type="number" min="0" max="1000" className={inputClass} />
+          </div>
+        </div>
+      </div>
+
+      {/* Address */}
+      <div className={sectionClass}>
+        <h3 className={sectionTitleClass}>{t('addressOptional')}</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className={labelClass}>{t('fields.street')}</label>
+            <input {...register('address.street')} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('fields.number')}</label>
+            <input {...register('address.number')} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('fields.city')}</label>
+            <input {...register('address.city')} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('fields.state')}</label>
+            <input {...register('address.state')} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('fields.zipCode')}</label>
+            <input {...register('address.zipCode')} className={inputClass} />
+          </div>
+        </div>
+      </div>
+
+      {/* Emergency Contact */}
+      <div className={sectionClass}>
+        <h3 className={sectionTitleClass}>{t('emergencyContactSection')}</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className={labelClass}>{t('fields.emergencyContactName')}</label>
+            <input {...register('emergencyContactName')} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('fields.emergencyContactPhone')}</label>
+            <input {...register('emergencyContactPhone')} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('fields.emergencyContactRelationship')}</label>
+            <input {...register('emergencyContactRelationship')} className={inputClass} />
+          </div>
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div className={sectionClass}>
+        <div>
+          <label className={labelClass}>{t('fields.notes')}</label>
+          <textarea {...register('notes')} rows={3} className={inputClass} />
+        </div>
+      </div>
+
+      {/* Form Actions */}
       <div className="flex justify-end pt-4 border-t dark:border-gray-700">
         <button
           type="button"

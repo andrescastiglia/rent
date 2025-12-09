@@ -161,6 +161,12 @@ export class Lease {
   @Column({ name: 'billing_day', type: 'integer', nullable: true })
   billingDay: number;
 
+  @Column({ name: 'next_billing_date', type: 'date', nullable: true })
+  nextBillingDate: Date;
+
+  @Column({ name: 'last_billing_date', type: 'date', nullable: true })
+  lastBillingDate: Date;
+
   @Column({
     name: 'late_fee_type',
     type: 'enum',

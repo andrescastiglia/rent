@@ -30,7 +30,6 @@ export interface LeaseAdjustmentData {
     adjustmentRate?: number;
     nextAdjustmentDate?: Date;
     lastAdjustmentDate?: Date;
-    lastAdjustmentRate?: number;
 }
 
 /**

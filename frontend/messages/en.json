@@ -209,13 +209,20 @@
             "email": "Email",
             "phone": "Phone",
             "dni": "DNI / ID",
+            "cuil": "CUIL/CUIT",
             "documentType": "Document Type",
             "documentNumber": "Document Number",
             "dateOfBirth": "Date of Birth",
             "nationality": "Nationality",
             "occupation": "Occupation",
+            "employer": "Employer",
+            "monthlyIncome": "Monthly Income",
+            "employmentStatus": "Employment Status",
+            "creditScore": "Credit Score",
             "emergencyContact": "Emergency Contact",
-            "emergencyPhone": "Emergency Phone",
+            "emergencyContactName": "Emergency Contact Name",
+            "emergencyContactPhone": "Emergency Phone",
+            "emergencyContactRelationship": "Relationship to Contact",
             "notes": "Notes",
             "status": "Status",
             "street": "Street",
@@ -223,6 +230,16 @@
             "city": "City",
             "state": "State",
             "zipCode": "Zip Code"
+        },
+        "employmentInfo": "Employment Information",
+        "emergencyContactSection": "Emergency Contact",
+        "creditInfo": "Credit Information",
+        "employmentStatuses": {
+            "employed": "Employed",
+            "self_employed": "Self-Employed",
+            "unemployed": "Unemployed",
+            "retired": "Retired",
+            "student": "Student"
         },
         "status": {
             "active": "Active",
@@ -281,6 +298,7 @@
         "fields": {
             "property": "Property",
             "tenant": "Tenant",
+            "owner": "Owner",
             "unit": "Unit",
             "unitId": "Unit ID",
             "startDate": "Start Date",
@@ -288,10 +306,68 @@
             "rentAmount": "Rent Amount ($)",
             "depositAmount": "Deposit Amount ($)",
             "paymentDay": "Payment Day",
+            "paymentDueDay": "Payment Due Day",
             "status": "Status",
             "terms": "Terms and Conditions",
-            "notes": "Notes"
+            "notes": "Notes",
+            "paymentFrequency": "Payment Frequency",
+            "billingFrequency": "Billing Frequency",
+            "billingDay": "Billing Day",
+            "autoGenerateInvoices": "Auto Generate Invoices",
+            "lateFeeType": "Late Fee Type",
+            "lateFeeValue": "Late Fee Value",
+            "lateFeeGraceDays": "Grace Days",
+            "lateFeeMax": "Maximum Late Fee",
+            "adjustmentType": "Adjustment Type",
+            "adjustmentValue": "Adjustment Value",
+            "adjustmentFrequencyMonths": "Adjustment Frequency (months)",
+            "inflationIndexType": "Inflation Index",
+            "nextAdjustmentDate": "Next Adjustment Date"
         },
+        "billing": {
+            "title": "Billing Configuration",
+            "description": "Configure how invoices will be generated"
+        },
+        "lateFees": {
+            "title": "Late Fee Configuration",
+            "description": "Define penalties for late payments"
+        },
+        "adjustments": {
+            "title": "Adjustment Configuration",
+            "description": "Define how rent will be adjusted"
+        },
+        "paymentFrequencies": {
+            "monthly": "Monthly",
+            "bimonthly": "Bimonthly",
+            "quarterly": "Quarterly",
+            "semiannual": "Semiannual",
+            "annual": "Annual"
+        },
+        "billingFrequencies": {
+            "first_of_month": "First of month",
+            "last_of_month": "Last of month",
+            "contract_date": "Contract date",
+            "custom": "Custom"
+        },
+        "lateFeeTypes": {
+            "none": "No late fee",
+            "fixed": "Fixed amount",
+            "percentage": "Percentage",
+            "daily_fixed": "Daily fixed amount",
+            "daily_percentage": "Daily percentage"
+        },
+        "adjustmentTypes": {
+            "fixed": "No adjustment",
+            "percentage": "Fixed percentage",
+            "inflation_index": "Inflation index"
+        },
+        "inflationIndexTypes": {
+            "icl": "ICL (Argentina)",
+            "ipc": "IPC",
+            "igp_m": "IGP-M (Brazil)",
+            "custom": "Custom"
+        },
+        "selectOwner": "Select Owner",
         "status": {
             "active": "Active",
             "draft": "Draft",

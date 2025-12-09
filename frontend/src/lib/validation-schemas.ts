@@ -58,6 +58,7 @@ export const createLeaseSchema = (t: TranslationFunction) => z.object({
   propertyId: z.string().min(1, t('propertyRequired')),
   unitId: z.string().min(1, t('unitRequired')),
   tenantId: z.string().min(1, t('tenantRequired')),
+  ownerId: z.string().min(1, t('ownerRequired')),
   startDate: z.string().min(1, t('startDateRequired')),
   endDate: z.string().min(1, t('endDateRequired')),
   rentAmount: z.coerce.number().min(0, t('rentAmountPositive')),
@@ -65,6 +66,26 @@ export const createLeaseSchema = (t: TranslationFunction) => z.object({
   currency: z.string().min(1, t('required')).default('ARS'),
   status: z.enum(['DRAFT', 'ACTIVE', 'ENDED', 'TERMINATED'] as const),
   terms: z.string().optional(),
+  
+  // Billing configuration
+  paymentFrequency: z.enum(['monthly', 'bimonthly', 'quarterly', 'semiannual', 'annual'] as const).optional(),
+  paymentDueDay: z.coerce.number().min(1).max(28).optional(),
+  billingFrequency: z.enum(['first_of_month', 'last_of_month', 'contract_date', 'custom'] as const).optional(),
+  billingDay: z.coerce.number().min(1).max(28).optional(),
+  autoGenerateInvoices: z.boolean().optional(),
+  
+  // Late fee configuration
+  lateFeeType: z.enum(['none', 'fixed', 'percentage', 'daily_fixed', 'daily_percentage'] as const).optional(),
+  lateFeeValue: z.coerce.number().min(0).optional(),
+  lateFeeGraceDays: z.coerce.number().min(0).optional(),
+  lateFeeMax: z.coerce.number().min(0).optional(),
+  
+  // Adjustment configuration
+  adjustmentType: z.enum(['fixed', 'percentage', 'inflation_index'] as const).optional(),
+  adjustmentValue: z.coerce.number().min(0).optional(),
+  adjustmentFrequencyMonths: z.coerce.number().min(1).optional(),
+  inflationIndexType: z.enum(['icl', 'ipc', 'igp_m', 'custom'] as const).optional(),
+  nextAdjustmentDate: z.string().optional(),
 });
 
 // Tipos inferidos de los schemas

@@ -733,6 +733,8 @@ CREATE TABLE leases (
     payment_due_day INTEGER DEFAULT 10,
     billing_frequency billing_frequency NOT NULL DEFAULT 'first_of_month',
     billing_day INTEGER,
+    next_billing_date DATE,
+    last_billing_date DATE,
     late_fee_type late_fee_type NOT NULL DEFAULT 'none',
     late_fee_value DECIMAL(10, 2) DEFAULT 0,
     late_fee_grace_days INTEGER DEFAULT 0,
