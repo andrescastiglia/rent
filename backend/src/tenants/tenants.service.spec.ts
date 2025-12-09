@@ -112,7 +112,11 @@ describe('TenantsService', () => {
       );
       expect(userRepository.query).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO tenants'),
-        expect.arrayContaining([mockUser.id, createDto.companyId, createDto.dni]),
+        expect.arrayContaining([
+          mockUser.id,
+          createDto.companyId,
+          createDto.dni,
+        ]),
       );
       expect(result).toEqual(mockUser);
     });

@@ -322,12 +322,12 @@ export class ArcaService {
      * Signs the TRA with the company's private key and certificate.
      */
     private async signTra(tra: string, config: ArcaConfig): Promise<string> {
-        const cert = fs.readFileSync(config.certificatePath, 'utf8');
+        const _cert = fs.readFileSync(config.certificatePath, 'utf8');
         const key = fs.readFileSync(config.privateKeyPath, 'utf8');
 
         const sign = crypto.createSign('RSA-SHA256');
         sign.update(tra);
-        const signature = sign.sign(key, 'base64');
+        const _signature = sign.sign(key, 'base64');
 
         // Build PKCS#7 / CMS structure (simplified - in production use proper library)
         const cms = Buffer.from(tra).toString('base64');

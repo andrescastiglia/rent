@@ -217,9 +217,9 @@ describe('Properties Management (e2e)', () => {
         .expect(200)
         .expect((res) => {
           expect(res.body.data.length).toBeGreaterThan(0);
-          expect(res.body.data.every((p: any) => p.propertyType === 'commercial')).toBe(
-            true,
-          );
+          expect(
+            res.body.data.every((p: any) => p.propertyType === 'commercial'),
+          ).toBe(true);
         });
     });
 

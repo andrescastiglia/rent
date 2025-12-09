@@ -9,7 +9,13 @@ import {
   IsUUID,
   Min,
 } from 'class-validator';
-import { PaymentFrequency, BillingFrequency, LateFeeType, AdjustmentType, IncreaseClauseType } from '../entities/lease.entity';
+import {
+  PaymentFrequency,
+  BillingFrequency,
+  LateFeeType,
+  AdjustmentType,
+  IncreaseClauseType,
+} from '../entities/lease.entity';
 
 export class CreateLeaseDto {
   @IsUUID()

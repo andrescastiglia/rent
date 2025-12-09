@@ -1,17 +1,17 @@
 import {
-    Entity,
-    Column,
-    PrimaryGeneratedColumn,
-    CreateDateColumn,
-    UpdateDateColumn,
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 
 /**
  * Tipo de índice de inflación.
  */
 export enum InflationIndexType {
-    ICL = 'icl',
-    IGPM = 'igpm',
+  ICL = 'icl',
+  IGPM = 'igpm',
 }
 
 /**
@@ -20,52 +20,52 @@ export enum InflationIndexType {
  */
 @Entity('inflation_indices')
 export class InflationIndex {
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-    @Column({
-        name: 'index_type',
-        type: 'enum',
-        enum: InflationIndexType,
-    })
-    indexType: InflationIndexType;
+  @Column({
+    name: 'index_type',
+    type: 'enum',
+    enum: InflationIndexType,
+  })
+  indexType: InflationIndexType;
 
-    @Column({ type: 'date' })
-    period: Date;
+  @Column({ type: 'date' })
+  period: Date;
 
-    @Column({ type: 'decimal', precision: 12, scale: 6 })
-    value: number;
+  @Column({ type: 'decimal', precision: 12, scale: 6 })
+  value: number;
 
-    @Column({
-        name: 'variation_monthly',
-        type: 'decimal',
-        precision: 8,
-        scale: 4,
-        nullable: true,
-    })
-    variationMonthly: number;
+  @Column({
+    name: 'variation_monthly',
+    type: 'decimal',
+    precision: 8,
+    scale: 4,
+    nullable: true,
+  })
+  variationMonthly: number;
 
-    @Column({
-        name: 'variation_yearly',
-        type: 'decimal',
-        precision: 8,
-        scale: 4,
-        nullable: true,
-    })
-    variationYearly: number;
+  @Column({
+    name: 'variation_yearly',
+    type: 'decimal',
+    precision: 8,
+    scale: 4,
+    nullable: true,
+  })
+  variationYearly: number;
 
-    @Column({ name: 'source_url', nullable: true })
-    sourceUrl: string;
+  @Column({ name: 'source_url', nullable: true })
+  sourceUrl: string;
 
-    @Column({ name: 'source_name', nullable: true })
-    sourceName: string;
+  @Column({ name: 'source_name', nullable: true })
+  sourceName: string;
 
-    @Column({ name: 'fetched_at', type: 'timestamptz' })
-    fetchedAt: Date;
+  @Column({ name: 'fetched_at', type: 'timestamptz' })
+  fetchedAt: Date;
 
-    @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
-    createdAt: Date;
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  createdAt: Date;
 
-    @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
-    updatedAt: Date;
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
+  updatedAt: Date;
 }

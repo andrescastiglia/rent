@@ -55,7 +55,8 @@ export class ReceiptPdfService {
     );
 
     // Crear registro de documento - get companyId from lease via tenantAccount
-    const companyId = payment.tenantAccount?.lease?.companyId || payment.tenantAccountId;
+    const companyId =
+      payment.tenantAccount?.lease?.companyId || payment.tenantAccountId;
     const document = this.documentsRepository.create({
       companyId,
       entityType: 'receipt',

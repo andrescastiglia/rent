@@ -26,7 +26,7 @@ export class PdfService {
     this.bucketName = S3_BUCKET_NAME;
   }
 
-  async generateContract(lease: Lease, userId: string): Promise<Document> {
+  async generateContract(lease: Lease, _userId: string): Promise<Document> {
     // Generate PDF buffer
     const pdfBuffer = await generateContractPdf(lease);
 

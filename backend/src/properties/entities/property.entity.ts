@@ -54,7 +54,12 @@ export class Property {
   @Column()
   name: string;
 
-  @Column({ name: 'property_type', type: 'enum', enum: PropertyType, enumName: 'property_type' })
+  @Column({
+    name: 'property_type',
+    type: 'enum',
+    enum: PropertyType,
+    enumName: 'property_type',
+  })
   propertyType: PropertyType;
 
   @Column({
@@ -95,10 +100,22 @@ export class Property {
   @Column({ type: 'decimal', precision: 11, scale: 8, nullable: true })
   longitude: number;
 
-  @Column({ name: 'total_area', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: 'total_area',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   totalArea: number;
 
-  @Column({ name: 'built_area', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: 'built_area',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   builtArea: number;
 
   @Column({ name: 'year_built', nullable: true })

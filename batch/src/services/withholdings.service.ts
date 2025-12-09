@@ -160,7 +160,7 @@ export class WithholdingsService {
     private calculateIva(
         amount: number,
         config: WithholdingConfig,
-        ownerData: OwnerFiscalData
+        _ownerData: OwnerFiscalData
     ): WithholdingBreakdown {
         const rate = config.ivaRate;
         const withholdingAmount = Math.round(amount * (rate / 100) * 100) / 100;

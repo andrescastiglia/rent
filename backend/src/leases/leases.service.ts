@@ -217,7 +217,8 @@ export class LeasesService {
       securityDeposit: newTerms.securityDeposit || oldLease.securityDeposit,
       currency: newTerms.currency || oldLease.currency,
       paymentFrequency: newTerms.paymentFrequency || oldLease.paymentFrequency,
-      termsAndConditions: newTerms.termsAndConditions || oldLease.termsAndConditions,
+      termsAndConditions:
+        newTerms.termsAndConditions || oldLease.termsAndConditions,
       status: LeaseStatus.DRAFT,
     });
 

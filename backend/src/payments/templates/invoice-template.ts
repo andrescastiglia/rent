@@ -47,7 +47,9 @@ export function generateInvoicePdf(invoice: Invoice): Promise<Buffer> {
     doc
       .fontSize(11)
       .font('Helvetica')
-      .text(`Nombre: ${ownerUser?.firstName || ''} ${ownerUser?.lastName || ''}`)
+      .text(
+        `Nombre: ${ownerUser?.firstName || ''} ${ownerUser?.lastName || ''}`,
+      )
       .text(`Email: ${ownerUser?.email || ''}`)
       .moveDown(1.5);
 
@@ -59,7 +61,9 @@ export function generateInvoicePdf(invoice: Invoice): Promise<Buffer> {
     doc
       .fontSize(11)
       .font('Helvetica')
-      .text(`Nombre: ${tenantUser?.firstName || ''} ${tenantUser?.lastName || ''}`)
+      .text(
+        `Nombre: ${tenantUser?.firstName || ''} ${tenantUser?.lastName || ''}`,
+      )
       .text(`Email: ${tenantUser?.email || ''}`)
       .moveDown(1.5);
 
@@ -72,7 +76,9 @@ export function generateInvoicePdf(invoice: Invoice): Promise<Buffer> {
       doc
         .fontSize(11)
         .font('Helvetica')
-        .text(`Dirección: ${property.addressStreet || ''} ${property.addressNumber || ''}, ${property.addressCity || ''}`)
+        .text(
+          `Dirección: ${property.addressStreet || ''} ${property.addressNumber || ''}, ${property.addressCity || ''}`,
+        )
         .text(`Unidad: ${unit?.unitNumber || ''}`)
         .moveDown(1.5);
     }

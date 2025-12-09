@@ -54,7 +54,9 @@ export function generateContractPdf(lease: Lease): Promise<Buffer> {
     doc
       .fontSize(11)
       .font('Helvetica')
-      .text(`Dirección: ${property?.addressStreet || ''} ${property?.addressNumber || ''}`)
+      .text(
+        `Dirección: ${property?.addressStreet || ''} ${property?.addressNumber || ''}`,
+      )
       .text(
         `Ciudad: ${property?.addressCity || ''}, ${property?.addressState || ''}`,
       )
@@ -114,7 +116,11 @@ export function generateContractPdf(lease: Lease): Promise<Buffer> {
         .text('TÉRMINOS Y CONDICIONES')
         .moveDown(0.5);
 
-      doc.fontSize(10).font('Helvetica').text(lease.termsAndConditions).moveDown(1.5);
+      doc
+        .fontSize(10)
+        .font('Helvetica')
+        .text(lease.termsAndConditions)
+        .moveDown(1.5);
     }
 
     // Notas adicionales

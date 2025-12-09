@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Payment, PaymentFilters } from '@/types/payment';
 import { paymentsApi } from '@/lib/api/payments';
@@ -17,11 +17,7 @@ export default function PaymentsPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('');
 
-    useEffect(() => {
-        loadPayments();
-    }, [statusFilter]);
-
-    const loadPayments = async () => {
+    const loadPayments = useCallback(async () => {
         try {
             setLoading(true);
             const filters: PaymentFilters = {};
@@ -35,7 +31,11 @@ export default function PaymentsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [statusFilter]);
+
+    useEffect(() => {
+        loadPayments();
+    }, [loadPayments]);
 
     const filteredPayments = payments.filter((payment) =>
         payment.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Payment } from '@/types/payment';
@@ -19,11 +19,7 @@ export default function PaymentDetailPage() {
     const [loading, setLoading] = useState(true);
     const [confirming, setConfirming] = useState(false);
 
-    useEffect(() => {
-        loadPayment();
-    }, [params.id]);
-
-    const loadPayment = async () => {
+    const loadPayment = useCallback(async () => {
         try {
             const data = await paymentsApi.getById(params.id as string);
             setPayment(data);
@@ -32,7 +28,11 @@ export default function PaymentDetailPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [params.id]);
+
+    useEffect(() => {
+        loadPayment();
+    }, [loadPayment]);
 
     const handleConfirm = async () => {
         if (!payment) return;

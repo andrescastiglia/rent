@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Invoice, InvoiceFilters } from '@/types/payment';
 import { invoicesApi } from '@/lib/api/payments';
@@ -17,11 +17,7 @@ export default function InvoicesPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('');
 
-    useEffect(() => {
-        loadInvoices();
-    }, [statusFilter]);
-
-    const loadInvoices = async () => {
+    const loadInvoices = useCallback(async () => {
         try {
             setLoading(true);
             const filters: InvoiceFilters = {};
@@ -35,7 +31,11 @@ export default function InvoicesPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [statusFilter]);
+
+    useEffect(() => {
+        loadInvoices();
+    }, [loadInvoices]);
 
     const filteredInvoices = invoices.filter((invoice) =>
         invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase())

@@ -48,15 +48,21 @@ export class PropertiesService {
       .where('property.deleted_at IS NULL');
 
     if (addressCity) {
-      query.andWhere('property.address_city ILIKE :addressCity', { addressCity: `%${addressCity}%` });
+      query.andWhere('property.address_city ILIKE :addressCity', {
+        addressCity: `%${addressCity}%`,
+      });
     }
 
     if (addressState) {
-      query.andWhere('property.address_state ILIKE :addressState', { addressState: `%${addressState}%` });
+      query.andWhere('property.address_state ILIKE :addressState', {
+        addressState: `%${addressState}%`,
+      });
     }
 
     if (propertyType) {
-      query.andWhere('property.property_type = :propertyType', { propertyType });
+      query.andWhere('property.property_type = :propertyType', {
+        propertyType,
+      });
     }
 
     if (status) {

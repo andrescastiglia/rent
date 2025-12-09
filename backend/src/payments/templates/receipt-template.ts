@@ -53,7 +53,9 @@ export function generateReceiptPdf(
       doc
         .fontSize(11)
         .font('Helvetica')
-        .text(`Nombre: ${tenantUser.firstName || ''} ${tenantUser.lastName || ''}`)
+        .text(
+          `Nombre: ${tenantUser.firstName || ''} ${tenantUser.lastName || ''}`,
+        )
         .text(`Email: ${tenantUser.email || ''}`)
         .moveDown(1.5);
     }

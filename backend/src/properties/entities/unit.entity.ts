@@ -10,7 +10,6 @@ import {
 } from 'typeorm';
 import { Property } from './property.entity';
 import { Company } from '../../companies/entities/company.entity';
-import { Currency } from '../../currencies/entities/currency.entity';
 
 export enum UnitStatus {
   AVAILABLE = 'available',
@@ -44,7 +43,12 @@ export class Unit {
   @Column({ nullable: true })
   floor: string;
 
-  @Column({ type: 'enum', enum: UnitStatus, enumName: 'unit_status', default: UnitStatus.AVAILABLE })
+  @Column({
+    type: 'enum',
+    enum: UnitStatus,
+    enumName: 'unit_status',
+    default: UnitStatus.AVAILABLE,
+  })
   status: UnitStatus;
 
   @Column({ name: 'unit_type', nullable: true })
@@ -71,7 +75,13 @@ export class Unit {
   @Column({ name: 'is_furnished', default: false })
   isFurnished: boolean;
 
-  @Column({ name: 'base_rent', type: 'decimal', precision: 12, scale: 2, nullable: true })
+  @Column({
+    name: 'base_rent',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
   baseRent: number;
 
   @Column({ default: 'ARS' })

@@ -1,6 +1,6 @@
 import winston from 'winston';
 import 'winston-daily-rotate-file';
-import * as path from 'path';
+import * as _path from 'path';
 
 const logDir = process.env.LOG_DIR || './logs';
 const logLevel = process.env.LOG_LEVEL || 'info';

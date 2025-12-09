@@ -71,7 +71,11 @@ export class User {
   @Column({ name: 'password_reset_token', nullable: true })
   passwordResetToken: string;
 
-  @Column({ name: 'password_reset_expires', type: 'timestamptz', nullable: true })
+  @Column({
+    name: 'password_reset_expires',
+    type: 'timestamptz',
+    nullable: true,
+  })
   passwordResetExpires: Date;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

@@ -260,7 +260,12 @@ export class Lease {
   })
   securityDeposit: number;
 
-  @Column({ name: 'deposit_currency', type: 'varchar', length: 3, default: 'ARS' })
+  @Column({
+    name: 'deposit_currency',
+    type: 'varchar',
+    length: 3,
+    default: 'ARS',
+  })
   depositCurrency: string;
 
   @Column({ name: 'expenses_included', type: 'boolean', default: false })

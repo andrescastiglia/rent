@@ -52,10 +52,20 @@ export class LeaseAmendment {
   @Column({ name: 'amendment_number' })
   amendmentNumber: number;
 
-  @Column({ name: 'change_type', type: 'enum', enum: AmendmentChangeType, enumName: 'amendment_change_type' })
+  @Column({
+    name: 'change_type',
+    type: 'enum',
+    enum: AmendmentChangeType,
+    enumName: 'amendment_change_type',
+  })
   changeType: AmendmentChangeType;
 
-  @Column({ type: 'enum', enum: AmendmentStatus, enumName: 'amendment_status', default: AmendmentStatus.DRAFT })
+  @Column({
+    type: 'enum',
+    enum: AmendmentStatus,
+    enumName: 'amendment_status',
+    default: AmendmentStatus.DRAFT,
+  })
   status: AmendmentStatus;
 
   @Column({ name: 'effective_date', type: 'date' })

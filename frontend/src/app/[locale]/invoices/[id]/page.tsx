@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Invoice } from '@/types/payment';
@@ -18,11 +18,7 @@ export default function InvoiceDetailPage() {
     const [invoice, setInvoice] = useState<Invoice | null>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        loadInvoice();
-    }, [params.id]);
-
-    const loadInvoice = async () => {
+    const loadInvoice = useCallback(async () => {
         try {
             const data = await invoicesApi.getById(params.id as string);
             setInvoice(data);
@@ -31,7 +27,11 @@ export default function InvoiceDetailPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [params.id]);
+
+    useEffect(() => {
+        loadInvoice();
+    }, [loadInvoice]);
 
     if (loading) {
         return (

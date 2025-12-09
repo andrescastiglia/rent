@@ -15,7 +15,11 @@ import {
   HeadBucketCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { Document, DocumentStatus, DocumentType } from './entities/document.entity';
+import {
+  Document,
+  DocumentStatus,
+  DocumentType,
+} from './entities/document.entity';
 import { GenerateUploadUrlDto } from './dto/generate-upload-url.dto';
 import { getS3Config, S3_BUCKET_NAME } from '../config/s3.config';
 
@@ -53,10 +57,11 @@ export class DocumentsService {
 
   async generateUploadUrl(
     dto: GenerateUploadUrlDto,
-    userId: string,
+    _userId: string,
   ): Promise<{ uploadUrl: string; documentId: string }> {
     // Validate file size based on type
-    const maxSize = dto.documentType === DocumentType.PHOTO ? 5242880 : 10485760; // 5MB for photos, 10MB for docs
+    const maxSize =
+      dto.documentType === DocumentType.PHOTO ? 5242880 : 10485760; // 5MB for photos, 10MB for docs
     if (dto.fileSize > maxSize) {
       throw new BadRequestException(
         `File size exceeds maximum allowed (${maxSize / 1048576}MB)`,
@@ -70,14 +75,39 @@ export class DocumentsService {
         'application/msword',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       ],
-      [DocumentType.ID_DOCUMENT]: ['application/pdf', 'image/jpeg', 'image/png'],
-      [DocumentType.PROOF_OF_INCOME]: ['application/pdf', 'image/jpeg', 'image/png'],
+      [DocumentType.ID_DOCUMENT]: [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+      ],
+      [DocumentType.PROOF_OF_INCOME]: [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+      ],
       [DocumentType.BANK_STATEMENT]: ['application/pdf'],
-      [DocumentType.UTILITY_BILL]: ['application/pdf', 'image/jpeg', 'image/png'],
+      [DocumentType.UTILITY_BILL]: [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+      ],
       [DocumentType.INSURANCE]: ['application/pdf'],
-      [DocumentType.INSPECTION_REPORT]: ['application/pdf', 'image/jpeg', 'image/png'],
-      [DocumentType.MAINTENANCE_RECORD]: ['application/pdf', 'image/jpeg', 'image/png'],
-      [DocumentType.PHOTO]: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
+      [DocumentType.INSPECTION_REPORT]: [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+      ],
+      [DocumentType.MAINTENANCE_RECORD]: [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+      ],
+      [DocumentType.PHOTO]: [
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/webp',
+      ],
       [DocumentType.OTHER]: ['application/pdf', 'image/jpeg', 'image/png'],
     };
 
