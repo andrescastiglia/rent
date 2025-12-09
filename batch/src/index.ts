@@ -373,40 +373,89 @@ program
 
             if (options.process) {
                 // Process pending settlements
-                const result = await settlementService.processPendingSettlements();
+                const pending = await settlementService.getPendingSettlements();
+                let processed = 0;
+                let failed = 0;
+                let totalAmount = 0;
+
+                for (const { ownerId, period: settlementPeriod } of pending) {
+                    const result = await settlementService.processSettlement(ownerId, settlementPeriod, false);
+                    if (result.success) {
+                        processed++;
+                        // Get the calculation to sum up amounts
+                        const calc = await settlementService.calculateSettlement(ownerId, settlementPeriod);
+                        totalAmount += calc.netAmount;
+                    } else {
+                        failed++;
+                    }
+                }
+
                 logger.info('Settlements processed', {
-                    processed: result.processed,
-                    failed: result.failed,
-                    totalAmount: result.totalAmount,
+                    processed,
+                    failed,
+                    totalAmount,
                 });
             } else if (options.ownerId) {
                 // Calculate for specific owner
-                const settlement = await settlementService.calculateSettlement(
-                    options.ownerId,
-                    period,
-                    options.dryRun
-                );
-                logger.info('Settlement calculated', {
-                    ownerId: options.ownerId,
-                    period,
-                    grossAmount: settlement.grossAmount,
-                    commissionAmount: settlement.commissionAmount,
-                    netAmount: settlement.netAmount,
-                    scheduledDate: settlement.scheduledDate,
-                    dryRun: options.dryRun,
-                });
+                if (options.dryRun) {
+                    const settlement = await settlementService.calculateSettlement(
+                        options.ownerId,
+                        period
+                    );
+                    logger.info('Settlement calculated (dry run)', {
+                        ownerId: options.ownerId,
+                        period,
+                        grossAmount: settlement.grossAmount,
+                        commissionAmount: settlement.commission.amount,
+                        netAmount: settlement.netAmount,
+                        scheduledDate: settlement.scheduledDate,
+                    });
+                } else {
+                    const result = await settlementService.processSettlement(
+                        options.ownerId,
+                        period,
+                        false
+                    );
+                    logger.info('Settlement processed', {
+                        ownerId: options.ownerId,
+                        period,
+                        success: result.success,
+                        settlementId: result.settlementId,
+                        transferReference: result.transferReference,
+                    });
+                }
             } else {
                 // Calculate for all owners
-                const result = await settlementService.calculateAllSettlements(
-                    period,
-                    options.dryRun
-                );
+                const pending = await settlementService.getPendingSettlements();
+                let total = 0;
+                let successful = 0;
+                let failedCount = 0;
+                let totalNetAmount = 0;
+
+                for (const { ownerId, period: settlementPeriod } of pending) {
+                    total++;
+                    if (options.dryRun) {
+                        const calc = await settlementService.calculateSettlement(ownerId, settlementPeriod);
+                        totalNetAmount += calc.netAmount;
+                        successful++;
+                    } else {
+                        const result = await settlementService.processSettlement(ownerId, settlementPeriod, false);
+                        if (result.success) {
+                            const calc = await settlementService.calculateSettlement(ownerId, settlementPeriod);
+                            totalNetAmount += calc.netAmount;
+                            successful++;
+                        } else {
+                            failedCount++;
+                        }
+                    }
+                }
+
                 logger.info('All settlements calculated', {
                     period,
-                    total: result.total,
-                    successful: result.successful,
-                    failed: result.failed,
-                    totalNetAmount: result.totalNetAmount,
+                    total,
+                    successful,
+                    failed: failedCount,
+                    totalNetAmount,
                     dryRun: options.dryRun,
                 });
             }
