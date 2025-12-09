@@ -52,12 +52,23 @@ describe('Properties Management (e2e)', () => {
       });
 
     ownerToken = ownerRes.body.access_token;
-    ownerId = ownerRes.body.user.id;
+    const ownerUserId = ownerRes.body.user.id;
 
-    // Create owner record in owners table
-    await userRepository.query('INSERT INTO owners (user_id) VALUES ($1)', [
-      ownerId,
-    ]);
+    // Create company first (needed for owners)
+    const company = companyRepository.create({
+      name: 'Property Test Company',
+      taxId: `${uniqueId}-prop`,
+      plan: PlanType.BASIC,
+    });
+    const savedCompany = await companyRepository.save(company);
+    companyId = savedCompany.id;
+
+    // Create owner record in owners table with company_id and get owner.id
+    const ownerResult = await userRepository.query(
+      'INSERT INTO owners (user_id, company_id) VALUES ($1, $2) RETURNING id',
+      [ownerUserId, companyId],
+    );
+    ownerId = ownerResult[0].id;
 
     // Create another owner for authorization tests
     const otherOwnerRes = await request(app.getHttpServer())
@@ -72,19 +83,11 @@ describe('Properties Management (e2e)', () => {
 
     otherOwnerToken = otherOwnerRes.body.access_token;
 
-    // Create owner record for other owner
-    await userRepository.query('INSERT INTO owners (user_id) VALUES ($1)', [
-      otherOwnerRes.body.user.id,
-    ]);
-
-    // Create company
-    const company = companyRepository.create({
-      name: 'Property Test Company',
-      taxId: `${uniqueId}-prop`,
-      planType: PlanType.BASIC,
-    });
-    const savedCompany = await companyRepository.save(company);
-    companyId = savedCompany.id;
+    // Create owner record for other owner with company_id
+    await userRepository.query(
+      'INSERT INTO owners (user_id, company_id) VALUES ($1, $2)',
+      [otherOwnerRes.body.user.id, companyId],
+    );
   });
 
   afterAll(async () => {
@@ -109,11 +112,12 @@ describe('Properties Management (e2e)', () => {
       const propertyDto = {
         companyId: companyId,
         ownerId: ownerId,
-        address: 'Test Address 123',
-        city: 'Buenos Aires',
-        state: 'CABA',
-        zipCode: '1425',
-        type: PropertyType.APARTMENT,
+        name: 'Test Property',
+        addressStreet: 'Test Address 123',
+        addressCity: 'Buenos Aires',
+        addressState: 'CABA',
+        addressPostalCode: '1425',
+        propertyType: PropertyType.APARTMENT,
         status: PropertyStatus.ACTIVE,
         description: 'Test property',
       };
@@ -125,7 +129,7 @@ describe('Properties Management (e2e)', () => {
         .expect(201)
         .expect((res) => {
           expect(res.body).toHaveProperty('id');
-          expect(res.body.address).toBe(propertyDto.address);
+          expect(res.body.addressStreet).toBe(propertyDto.addressStreet);
           expect(res.body.ownerId).toBe(ownerId);
         });
     });
@@ -134,11 +138,12 @@ describe('Properties Management (e2e)', () => {
       const propertyDto = {
         companyId: companyId,
         ownerId: ownerId,
-        address: 'Unauthorized Address',
-        city: 'Buenos Aires',
-        state: 'CABA',
-        zipCode: '1425',
-        type: PropertyType.APARTMENT,
+        name: 'Unauthorized Property',
+        addressStreet: 'Unauthorized Address',
+        addressCity: 'Buenos Aires',
+        addressState: 'CABA',
+        addressPostalCode: '1425',
+        propertyType: PropertyType.APARTMENT,
       };
 
       return request(app.getHttpServer())
@@ -155,21 +160,23 @@ describe('Properties Management (e2e)', () => {
         {
           companyId,
           ownerId,
-          address: 'Filter Test 1',
-          city: 'Buenos Aires',
-          state: 'CABA',
-          zipCode: '1425',
-          type: PropertyType.APARTMENT,
+          name: 'Filter Test Property 1',
+          addressStreet: 'Filter Test 1',
+          addressCity: 'Buenos Aires',
+          addressState: 'CABA',
+          addressPostalCode: '1425',
+          propertyType: PropertyType.APARTMENT,
           status: PropertyStatus.ACTIVE,
         },
         {
           companyId,
           ownerId,
-          address: 'Filter Test 2',
-          city: 'Córdoba',
-          state: 'Córdoba',
-          zipCode: '5000',
-          type: PropertyType.COMMERCIAL,
+          name: 'Filter Test Property 2',
+          addressStreet: 'Filter Test 2',
+          addressCity: 'Córdoba',
+          addressState: 'Córdoba',
+          addressPostalCode: '5000',
+          propertyType: PropertyType.COMMERCIAL,
           status: PropertyStatus.ACTIVE,
         },
       ];
@@ -192,25 +199,25 @@ describe('Properties Management (e2e)', () => {
 
     it('should filter properties by city', () => {
       return request(app.getHttpServer())
-        .get('/properties?city=Córdoba')
+        .get('/properties?addressCity=Córdoba')
         .set('Authorization', `Bearer ${ownerToken}`)
         .expect(200)
         .expect((res) => {
           expect(res.body.data.length).toBeGreaterThan(0);
           expect(
-            res.body.data.every((p: any) => p.city.includes('Córdoba')),
+            res.body.data.every((p: any) => p.addressCity.includes('Córdoba')),
           ).toBe(true);
         });
     });
 
     it('should filter properties by type', () => {
       return request(app.getHttpServer())
-        .get('/properties?type=commercial')
+        .get('/properties?propertyType=commercial')
         .set('Authorization', `Bearer ${ownerToken}`)
         .expect(200)
         .expect((res) => {
           expect(res.body.data.length).toBeGreaterThan(0);
-          expect(res.body.data.every((p: any) => p.type === 'commercial')).toBe(
+          expect(res.body.data.every((p: any) => p.propertyType === 'commercial')).toBe(
             true,
           );
         });
@@ -236,11 +243,12 @@ describe('Properties Management (e2e)', () => {
       const propertyData = {
         companyId,
         ownerId,
-        address: 'CRUD Test Property',
-        city: 'Test City',
-        state: 'Test State',
-        zipCode: '12345',
-        type: PropertyType.APARTMENT,
+        name: 'CRUD Test Property',
+        addressStreet: 'CRUD Test Address',
+        addressCity: 'Test City',
+        addressState: 'Test State',
+        addressPostalCode: '12345',
+        propertyType: PropertyType.APARTMENT,
         status: PropertyStatus.ACTIVE,
       };
       const property = await propertyRepository.save(
@@ -256,7 +264,7 @@ describe('Properties Management (e2e)', () => {
         .expect(200)
         .expect((res) => {
           expect(res.body.id).toBe(propertyId);
-          expect(res.body.address).toBe('CRUD Test Property');
+          expect(res.body.name).toBe('CRUD Test Property');
         });
     });
 

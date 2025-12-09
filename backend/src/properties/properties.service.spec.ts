@@ -44,12 +44,14 @@ describe('PropertiesService', () => {
     id: '1',
     ownerId: 'owner-1',
     companyId: 'company-1',
-    address: 'Test Address',
-    city: 'Test City',
-    state: 'Test State',
-    zipCode: '12345',
-    type: PropertyType.APARTMENT,
+    name: 'Test Property',
+    addressStreet: 'Test Address',
+    addressCity: 'Test City',
+    addressState: 'Test State',
+    addressPostalCode: '12345',
+    propertyType: PropertyType.APARTMENT,
     status: PropertyStatus.ACTIVE,
+    owner: { userId: 'owner-1' } as any,
   };
 
   beforeEach(async () => {
@@ -81,11 +83,12 @@ describe('PropertiesService', () => {
       const createPropertyDto = {
         ownerId: 'owner-1',
         companyId: 'company-1',
-        address: 'Test Address',
-        city: 'Test City',
-        state: 'Test State',
-        zipCode: '12345',
-        type: PropertyType.APARTMENT,
+        name: 'Test Property',
+        propertyType: PropertyType.APARTMENT,
+        addressStreet: 'Test Address',
+        addressCity: 'Test City',
+        addressState: 'Test State',
+        addressPostalCode: '12345',
         status: PropertyStatus.ACTIVE,
       };
 
@@ -125,7 +128,7 @@ describe('PropertiesService', () => {
     });
 
     it('should filter properties by city', async () => {
-      const filters = { city: 'Test', page: 1, limit: 10 };
+      const filters = { addressCity: 'Test', page: 1, limit: 10 };
       const mockQueryBuilder = {
         leftJoinAndSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
@@ -140,8 +143,8 @@ describe('PropertiesService', () => {
       await service.findAll(filters);
 
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'property.city ILIKE :city',
-        { city: '%Test%' },
+        'property.address_city ILIKE :addressCity',
+        { addressCity: '%Test%' },
       );
     });
   });
@@ -168,7 +171,7 @@ describe('PropertiesService', () => {
 
   describe('update', () => {
     it('should update a property when user is owner', async () => {
-      const updateDto = { address: 'Updated Address' };
+      const updateDto = { addressStreet: 'Updated Address' };
       propertyRepository.findOne!.mockResolvedValue(mockProperty);
       propertyRepository.save!.mockResolvedValue({
         ...mockProperty,
@@ -177,11 +180,11 @@ describe('PropertiesService', () => {
 
       const result = await service.update('1', updateDto, 'owner-1', 'owner');
 
-      expect(result.address).toBe('Updated Address');
+      expect(result.addressStreet).toBe('Updated Address');
     });
 
     it('should update a property when user is admin', async () => {
-      const updateDto = { address: 'Updated Address' };
+      const updateDto = { addressStreet: 'Updated Address' };
       propertyRepository.findOne!.mockResolvedValue(mockProperty);
       propertyRepository.save!.mockResolvedValue({
         ...mockProperty,
@@ -195,11 +198,11 @@ describe('PropertiesService', () => {
         'admin',
       );
 
-      expect(result.address).toBe('Updated Address');
+      expect(result.addressStreet).toBe('Updated Address');
     });
 
     it('should throw ForbiddenException when user is not owner or admin', async () => {
-      const updateDto = { address: 'Updated Address' };
+      const updateDto = { addressStreet: 'Updated Address' };
       propertyRepository.findOne!.mockResolvedValue(mockProperty);
 
       await expect(

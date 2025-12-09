@@ -40,35 +40,36 @@ export class ReceiptPdfService {
     // Generar PDF buffer
     const pdfBuffer = await generateReceiptPdf(receipt, payment);
 
-    // Generar S3 key
+    // Generar file URL (S3 key)
     const timestamp = Date.now();
-    const s3Key = `receipts/${receipt.id}/receipt-${timestamp}.pdf`;
+    const fileUrl = `receipts/${receipt.id}/receipt-${timestamp}.pdf`;
 
     // Subir a S3
     await this.s3Client.send(
       new PutObjectCommand({
         Bucket: this.bucketName,
-        Key: s3Key,
+        Key: fileUrl,
         Body: pdfBuffer,
         ContentType: 'application/pdf',
       }),
     );
 
-    // Crear registro de documento
+    // Crear registro de documento - get companyId from lease via tenantAccount
+    const companyId = payment.tenantAccount?.lease?.companyId || payment.tenantAccountId;
     const document = this.documentsRepository.create({
+      companyId,
       entityType: 'receipt',
       entityId: receipt.id,
-      docType: DocumentType.RECEIPT,
-      s3Key,
-      originalFilename: `recibo-${receipt.receiptNumber}.pdf`,
-      mimeType: 'application/pdf',
+      documentType: DocumentType.OTHER,
+      name: `recibo-${receipt.receiptNumber}.pdf`,
+      fileUrl,
+      fileMimeType: 'application/pdf',
       fileSize: pdfBuffer.length,
-      status: DocumentStatus.UPLOADED,
-      uploadedAt: new Date(),
+      status: DocumentStatus.APPROVED,
     });
 
     await this.documentsRepository.save(document);
 
-    return s3Key;
+    return fileUrl;
   }
 }

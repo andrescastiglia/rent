@@ -13,15 +13,15 @@ import { Type } from 'class-transformer';
 export class PropertyFiltersDto {
   @IsString()
   @IsOptional()
-  city?: string;
+  addressCity?: string;
 
   @IsString()
   @IsOptional()
-  state?: string;
+  addressState?: string;
 
   @IsEnum(PropertyType)
   @IsOptional()
-  type?: PropertyType;
+  propertyType?: PropertyType;
 
   @IsEnum(PropertyStatus)
   @IsOptional()

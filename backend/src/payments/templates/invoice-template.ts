@@ -72,7 +72,7 @@ export function generateInvoicePdf(invoice: Invoice): Promise<Buffer> {
       doc
         .fontSize(11)
         .font('Helvetica')
-        .text(`Dirección: ${property.address || ''}`)
+        .text(`Dirección: ${property.addressStreet || ''} ${property.addressNumber || ''}, ${property.addressCity || ''}`)
         .text(`Unidad: ${unit?.unitNumber || ''}`)
         .moveDown(1.5);
     }

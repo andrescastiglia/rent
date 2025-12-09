@@ -30,15 +30,15 @@ export class PdfService {
     // Generate PDF buffer
     const pdfBuffer = await generateContractPdf(lease);
 
-    // Generate S3 key
+    // Generate S3 key / file URL
     const timestamp = Date.now();
-    const s3Key = `leases/${lease.id}/contract-${timestamp}.pdf`;
+    const fileUrl = `leases/${lease.id}/contract-${timestamp}.pdf`;
 
     // Upload to S3
     await this.s3Client.send(
       new PutObjectCommand({
         Bucket: this.bucketName,
-        Key: s3Key,
+        Key: fileUrl,
         Body: pdfBuffer,
         ContentType: 'application/pdf',
       }),
@@ -46,16 +46,15 @@ export class PdfService {
 
     // Create document record
     const document = this.documentsRepository.create({
+      companyId: lease.companyId,
       entityType: 'lease',
       entityId: lease.id,
-      docType: DocumentType.CONTRACT,
-      s3Key,
-      originalFilename: `contrato-${lease.id}.pdf`,
-      mimeType: 'application/pdf',
+      documentType: DocumentType.LEASE_CONTRACT,
+      name: `contrato-${lease.id}.pdf`,
+      fileUrl,
+      fileMimeType: 'application/pdf',
       fileSize: pdfBuffer.length,
-      status: DocumentStatus.UPLOADED,
-      uploadedBy: userId,
-      uploadedAt: new Date(),
+      status: DocumentStatus.APPROVED,
     });
 
     return this.documentsRepository.save(document);
@@ -66,7 +65,7 @@ export class PdfService {
       where: {
         entityType: 'lease',
         entityId: leaseId,
-        docType: DocumentType.CONTRACT,
+        documentType: DocumentType.LEASE_CONTRACT,
       },
       order: { createdAt: 'DESC' },
     });

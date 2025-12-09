@@ -30,9 +30,9 @@ export class PropertiesService {
     filters: PropertyFiltersDto,
   ): Promise<{ data: Property[]; total: number; page: number; limit: number }> {
     const {
-      city,
-      state,
-      type,
+      addressCity,
+      addressState,
+      propertyType,
       status,
       minRent,
       maxRent,
@@ -47,16 +47,16 @@ export class PropertiesService {
       .leftJoinAndSelect('property.units', 'units')
       .where('property.deleted_at IS NULL');
 
-    if (city) {
-      query.andWhere('property.city ILIKE :city', { city: `%${city}%` });
+    if (addressCity) {
+      query.andWhere('property.address_city ILIKE :addressCity', { addressCity: `%${addressCity}%` });
     }
 
-    if (state) {
-      query.andWhere('property.state ILIKE :state', { state: `%${state}%` });
+    if (addressState) {
+      query.andWhere('property.address_state ILIKE :addressState', { addressState: `%${addressState}%` });
     }
 
-    if (type) {
-      query.andWhere('property.type = :type', { type });
+    if (propertyType) {
+      query.andWhere('property.property_type = :propertyType', { propertyType });
     }
 
     if (status) {
@@ -71,10 +71,10 @@ export class PropertiesService {
       bathrooms !== undefined
     ) {
       if (minRent !== undefined) {
-        query.andWhere('units.monthly_rent >= :minRent', { minRent });
+        query.andWhere('units.base_rent >= :minRent', { minRent });
       }
       if (maxRent !== undefined) {
-        query.andWhere('units.monthly_rent <= :maxRent', { maxRent });
+        query.andWhere('units.base_rent <= :maxRent', { maxRent });
       }
       if (bedrooms !== undefined) {
         query.andWhere('units.bedrooms = :bedrooms', { bedrooms });
@@ -118,7 +118,8 @@ export class PropertiesService {
     const property = await this.findOne(id);
 
     // Check ownership (only owner or admin can update)
-    if (userRole !== 'admin' && property.ownerId !== userId) {
+    // property.owner is loaded via relation and has userId
+    if (userRole !== 'admin' && property.owner?.userId !== userId) {
       throw new ForbiddenException('You can only update your own properties');
     }
 
@@ -130,7 +131,7 @@ export class PropertiesService {
     const property = await this.findOne(id);
 
     // Check ownership
-    if (userRole !== 'admin' && property.ownerId !== userId) {
+    if (userRole !== 'admin' && property.owner?.userId !== userId) {
       throw new ForbiddenException('You can only delete your own properties');
     }
 

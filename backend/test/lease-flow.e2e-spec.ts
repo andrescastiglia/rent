@@ -86,21 +86,23 @@ describe('Lease Creation Flow (e2e)', () => {
       });
 
     ownerToken = ownerRes.body.access_token;
-    ownerId = ownerRes.body.user.id;
+    const ownerUserId = ownerRes.body.user.id;
 
-    // Create owner record in owners table
-    await userRepository.query('INSERT INTO owners (user_id) VALUES ($1)', [
-      ownerId,
-    ]);
-
-    // Create company
+    // Create company first (needed for owners)
     const company = companyRepository.create({
       name: 'Lease Flow Test Company',
       taxId: `${uniqueId}-lease`,
-      planType: PlanType.BASIC,
+      plan: PlanType.BASIC,
     });
     const savedCompany = await companyRepository.save(company);
     companyId = savedCompany.id;
+
+    // Create owner record in owners table with company_id and get owner.id
+    const ownerResult = await userRepository.query(
+      'INSERT INTO owners (user_id, company_id) VALUES ($1, $2) RETURNING id',
+      [ownerUserId, companyId],
+    );
+    ownerId = ownerResult[0].id;
   });
 
   afterAll(async () => {
@@ -147,12 +149,13 @@ describe('Lease Creation Flow (e2e)', () => {
       const propertyDto = {
         companyId: companyId,
         ownerId: ownerId,
-        address: '123 Flow Test Street',
-        city: 'Test City',
-        state: 'Test State',
-        zipCode: '12345',
-        country: 'Argentina',
-        type: PropertyType.APARTMENT,
+        name: 'Flow Test Property',
+        addressStreet: '123 Flow Test Street',
+        addressCity: 'Test City',
+        addressState: 'Test State',
+        addressPostalCode: '12345',
+        addressCountry: 'Argentina',
+        propertyType: PropertyType.APARTMENT,
         status: PropertyStatus.ACTIVE,
         description: 'Test property for flow',
       };
@@ -164,18 +167,19 @@ describe('Lease Creation Flow (e2e)', () => {
         .expect(201);
 
       expect(res.body).toHaveProperty('id');
-      expect(res.body.address).toBe(propertyDto.address);
+      expect(res.body.addressStreet).toBe(propertyDto.addressStreet);
       propertyId = res.body.id;
     });
 
     it('Step 2: Should create a unit in the property', async () => {
       const unitDto = {
         propertyId: propertyId,
+        companyId: companyId,
         unitNumber: '101',
         bedrooms: 2,
         bathrooms: 1,
-        areaSqm: 65,
-        monthlyRent: 1500,
+        area: 65,
+        baseRent: 1500,
         status: 'available',
       };
 
@@ -191,13 +195,15 @@ describe('Lease Creation Flow (e2e)', () => {
     });
 
     it('Step 3: Should create a tenant', async () => {
+      const shortId = uniqueId.slice(-8);
       const tenantDto = {
-        email: `tenant-flow-${uniqueId}@lease-${uniqueId}.test`,
+        companyId: companyId,
+        email: `tenant-flow-${shortId}@lease-${shortId}.test`,
         password: 'Password123!',
         firstName: 'Flow',
         lastName: 'Tenant',
         phone: '+5491112345678',
-        dni: `${uniqueId}-flow`,
+        dni: `DNI${shortId}`,
         emergencyContact: 'Emergency Contact',
         emergencyPhone: '+5491187654321',
       };
@@ -210,17 +216,25 @@ describe('Lease Creation Flow (e2e)', () => {
 
       expect(res.body).toHaveProperty('id');
       expect(res.body.email).toBe(tenantDto.email);
-      tenantId = res.body.id;
+
+      // Get the tenant record ID (not the user ID)
+      const tenantRecord = await userRepository.query(
+        'SELECT id FROM tenants WHERE user_id = $1',
+        [res.body.id],
+      );
+      tenantId = tenantRecord[0].id;
     });
 
     it('Step 4: Should create a lease in draft status', async () => {
       const leaseDto = {
+        companyId: companyId,
         unitId: unitId,
         tenantId: tenantId,
+        ownerId: ownerId,
         startDate: '2024-01-01',
         endDate: '2024-12-31',
-        rentAmount: 1500,
-        deposit: 3000,
+        monthlyRent: 1500,
+        securityDeposit: 3000,
         paymentFrequency: 'monthly',
       };
 
@@ -269,12 +283,14 @@ describe('Lease Creation Flow (e2e)', () => {
 
     it('Step 8: Should prevent creating another active lease for same unit', async () => {
       const leaseDto = {
+        companyId: companyId,
         unitId: unitId,
         tenantId: tenantId,
+        ownerId: ownerId,
         startDate: '2025-01-01',
         endDate: '2025-12-31',
-        rentAmount: 1600,
-        deposit: 3200,
+        monthlyRent: 1600,
+        securityDeposit: 3200,
         paymentFrequency: 'monthly',
       };
 
@@ -303,11 +319,12 @@ describe('Lease Creation Flow (e2e)', () => {
       const propertyData = {
         companyId: companyId,
         ownerId: ownerId,
-        address: 'Lease Test Property',
-        city: 'Test City',
-        state: 'Test State',
-        zipCode: '12345',
-        type: PropertyType.APARTMENT,
+        name: 'Lease Termination Test Property',
+        addressStreet: 'Lease Test Address',
+        addressCity: 'Test City',
+        addressState: 'Test State',
+        addressPostalCode: '12345',
+        propertyType: PropertyType.APARTMENT,
         status: PropertyStatus.ACTIVE,
       };
       const property = await propertyRepository.save(
@@ -317,39 +334,50 @@ describe('Lease Creation Flow (e2e)', () => {
 
       const unitData = {
         propertyId: propertyId,
+        companyId: companyId,
         unitNumber: '201',
         bedrooms: 1,
         bathrooms: 1,
-        areaSqm: 50,
-        monthlyRent: 1200,
+        area: 50,
+        baseRent: 1200,
         status: UnitStatus.AVAILABLE,
       };
       const unit = await unitRepository.save(unitRepository.create(unitData));
       unitId = unit.id;
 
+      const shortTermId = uniqueId.slice(-8);
       const tenantRes = await request(app.getHttpServer())
         .post('/tenants')
         .set('Authorization', `Bearer ${ownerToken}`)
         .send({
-          email: `termination-tenant-${uniqueId}@lease-${uniqueId}.test`,
+          companyId: companyId,
+          email: `term-${shortTermId}@lease-${uniqueId}.test`,
           password: 'Password123!',
           firstName: 'Term',
           lastName: 'Tenant',
           phone: '+123',
-          dni: `${uniqueId}-term`,
+          dni: `TRM${shortTermId}`,
         });
-      tenantId = tenantRes.body.id;
+
+      // Get the tenant record ID (not the user ID)
+      const tenantRecord = await userRepository.query(
+        'SELECT id FROM tenants WHERE user_id = $1',
+        [tenantRes.body.id],
+      );
+      tenantId = tenantRecord[0].id;
 
       const leaseRes = await request(app.getHttpServer())
         .post('/leases')
         .set('Authorization', `Bearer ${ownerToken}`)
         .send({
+          companyId: companyId,
           unitId: unitId,
           tenantId: tenantId,
+          ownerId: ownerId,
           startDate: '2024-01-01',
           endDate: '2024-12-31',
-          rentAmount: 1200,
-          deposit: 2400,
+          monthlyRent: 1200,
+          securityDeposit: 2400,
         });
       leaseId = leaseRes.body.id;
 

@@ -1,5 +1,6 @@
 import {
   IsEnum,
+  IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -21,23 +22,43 @@ export class CreatePropertyDto {
 
   @IsString()
   @IsNotEmpty()
-  address: string;
+  name: string;
+
+  @IsEnum(PropertyType)
+  @IsNotEmpty()
+  propertyType: PropertyType;
 
   @IsString()
   @IsNotEmpty()
-  city: string;
-
-  @IsString()
-  @IsNotEmpty()
-  state: string;
-
-  @IsString()
-  @IsNotEmpty()
-  zipCode: string;
+  addressStreet: string;
 
   @IsString()
   @IsOptional()
-  country?: string;
+  addressNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  addressFloor?: string;
+
+  @IsString()
+  @IsOptional()
+  addressApartment?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  addressCity: string;
+
+  @IsString()
+  @IsOptional()
+  addressState?: string;
+
+  @IsString()
+  @IsOptional()
+  addressCountry?: string;
+
+  @IsString()
+  @IsOptional()
+  addressPostalCode?: string;
 
   @IsNumber()
   @Min(-90)
@@ -51,21 +72,26 @@ export class CreatePropertyDto {
   @IsOptional()
   longitude?: number;
 
-  @IsEnum(PropertyType)
-  @IsNotEmpty()
-  type: PropertyType;
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  totalArea?: number;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  builtArea?: number;
+
+  @IsInt()
+  @Min(1800)
+  @IsOptional()
+  yearBuilt?: number;
 
   @IsString()
   @IsOptional()
   description?: string;
 
-  @IsNumber()
-  @Min(1800)
+  @IsString()
   @IsOptional()
-  yearBuilt?: number;
-
-  @IsNumber()
-  @Min(0)
-  @IsOptional()
-  totalAreaSqm?: number;
+  notes?: string;
 }

@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  IsBoolean,
   Min,
 } from 'class-validator';
 import { UnitStatus } from '../entities/unit.entity';
@@ -15,20 +16,24 @@ export class CreateUnitDto {
   @IsNotEmpty()
   propertyId: string;
 
+  @IsUUID()
+  @IsOptional()
+  companyId?: string;
+
   @IsString()
   @IsNotEmpty()
   unitNumber: string;
 
-  @IsInt()
+  @IsString()
   @IsOptional()
-  floor?: number;
+  floor?: string;
 
   @IsInt()
   @Min(0)
   @IsOptional()
   bedrooms?: number = 0;
 
-  @IsInt()
+  @IsNumber()
   @Min(0)
   @IsOptional()
   bathrooms?: number = 0;
@@ -36,16 +41,40 @@ export class CreateUnitDto {
   @IsNumber()
   @Min(0.01)
   @IsNotEmpty()
-  areaSqm: number;
+  area: number;
 
   @IsNumber()
   @Min(0)
   @IsOptional()
-  monthlyRent?: number;
+  baseRent?: number;
 
   @IsString()
   @IsOptional()
-  currencyCode?: string = 'ARS';
+  currency?: string = 'ARS';
+
+  @IsString()
+  @IsOptional()
+  unitType?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  hasParking?: boolean = false;
+
+  @IsInt()
+  @IsOptional()
+  parkingSpots?: number = 0;
+
+  @IsBoolean()
+  @IsOptional()
+  hasStorage?: boolean = false;
+
+  @IsBoolean()
+  @IsOptional()
+  isFurnished?: boolean = false;
+
+  @IsNumber()
+  @IsOptional()
+  expenses?: number;
 
   @IsEnum(UnitStatus)
   @IsOptional()
@@ -54,4 +83,8 @@ export class CreateUnitDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
 }

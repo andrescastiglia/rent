@@ -35,7 +35,7 @@ describe('AmendmentsService', () => {
     id: 'amendment-1',
     leaseId: 'lease-1',
     description: 'Rent increase',
-    status: AmendmentStatus.PENDING,
+    status: AmendmentStatus.DRAFT,
   };
 
   beforeEach(async () => {
@@ -66,6 +66,7 @@ describe('AmendmentsService', () => {
     it('should create an amendment for active lease', async () => {
       const createDto = {
         leaseId: 'lease-1',
+        companyId: 'company-1',
         effectiveDate: '2024-02-01',
         changeType: AmendmentChangeType.RENT_INCREASE,
         description: 'Rent increase',
@@ -79,16 +80,21 @@ describe('AmendmentsService', () => {
       const result = await service.create(createDto, 'user-1');
 
       expect(leaseRepository.findOne).toHaveBeenCalled();
-      expect(amendmentRepository.create).toHaveBeenCalledWith({
-        ...createDto,
-        status: AmendmentStatus.PENDING,
-      });
+      expect(amendmentRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          leaseId: createDto.leaseId,
+          effectiveDate: createDto.effectiveDate,
+          changeType: createDto.changeType,
+          status: AmendmentStatus.DRAFT,
+        }),
+      );
       expect(result).toEqual(mockAmendment);
     });
 
     it('should throw NotFoundException when lease not found', async () => {
       const createDto = {
         leaseId: 'non-existent',
+        companyId: 'company-1',
         effectiveDate: '2024-02-01',
         changeType: AmendmentChangeType.RENT_INCREASE,
         description: 'Test',
@@ -104,6 +110,7 @@ describe('AmendmentsService', () => {
     it('should throw BadRequestException for non-active lease', async () => {
       const createDto = {
         leaseId: 'lease-1',
+        companyId: 'company-1',
         effectiveDate: '2024-02-01',
         changeType: AmendmentChangeType.RENT_INCREASE,
         description: 'Test',
@@ -155,9 +162,12 @@ describe('AmendmentsService', () => {
   });
 
   describe('approve', () => {
-    it('should approve a pending amendment', async () => {
+    it('should approve a pending_approval amendment', async () => {
       // First call is from findOne() method, second is from the actual save
-      amendmentRepository.findOne!.mockResolvedValue(mockAmendment);
+      amendmentRepository.findOne!.mockResolvedValue({
+        ...mockAmendment,
+        status: AmendmentStatus.PENDING_APPROVAL,
+      });
       amendmentRepository.save!.mockResolvedValue({
         ...mockAmendment,
         status: AmendmentStatus.APPROVED,
@@ -170,7 +180,7 @@ describe('AmendmentsService', () => {
       expect(result.approvedBy).toBe('user-1');
     });
 
-    it('should throw BadRequestException when approving non-pending amendment', async () => {
+    it('should throw BadRequestException when approving non-pending_approval amendment', async () => {
       amendmentRepository.findOne!.mockResolvedValue({
         ...mockAmendment,
         status: AmendmentStatus.APPROVED,
@@ -183,11 +193,11 @@ describe('AmendmentsService', () => {
   });
 
   describe('reject', () => {
-    it('should reject a pending amendment', async () => {
+    it('should reject a pending_approval amendment', async () => {
       // Mock for findOne() call inside reject()
       amendmentRepository.findOne!.mockResolvedValue({
         ...mockAmendment,
-        status: AmendmentStatus.PENDING,
+        status: AmendmentStatus.PENDING_APPROVAL,
       });
       amendmentRepository.save!.mockResolvedValue({
         ...mockAmendment,
@@ -200,7 +210,7 @@ describe('AmendmentsService', () => {
       expect(result.status).toBe(AmendmentStatus.REJECTED);
     });
 
-    it('should throw BadRequestException when rejecting non-pending amendment', async () => {
+    it('should throw BadRequestException when rejecting non-pending_approval amendment', async () => {
       amendmentRepository.findOne!.mockResolvedValue({
         ...mockAmendment,
         status: AmendmentStatus.REJECTED,

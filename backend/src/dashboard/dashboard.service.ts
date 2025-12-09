@@ -59,7 +59,7 @@ export class DashboardService {
     // Get the most common currency or default to ARS
     const currencyCode =
       activeLeasesList.length > 0
-        ? activeLeasesList[0].currencyCode || 'ARS'
+        ? activeLeasesList[0].currency || 'ARS'
         : 'ARS';
 
     // Count payments for the company (through tenant accounts linked to leases)

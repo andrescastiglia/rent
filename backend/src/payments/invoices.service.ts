@@ -75,7 +75,7 @@ export class InvoicesService {
       lateFee: dto.lateFee || 0,
       adjustments: dto.adjustments || 0,
       total,
-      currencyCode: lease.currencyCode,
+      currencyCode: lease.currency,
       dueDate: dto.dueDate,
       status: InvoiceStatus.DRAFT,
       notes: dto.notes,
@@ -218,15 +218,15 @@ export class InvoicesService {
   private async createCommissionInvoice(invoice: Invoice): Promise<void> {
     const lease = await this.leasesRepository.findOne({
       where: { id: invoice.leaseId },
-      relations: ['unit', 'unit.property', 'unit.property.company'],
+      relations: ['unit', 'unit.property', 'unit.property.company', 'owner'],
     });
 
-    if (!lease?.commissionRate || !lease.unit?.property?.companyId) {
+    if (!lease?.owner?.commissionRate || !lease.unit?.property?.companyId) {
       return; // No hay comisión configurada
     }
 
     const companyId = lease.unit.property.companyId;
-    const commissionRate = Number(lease.commissionRate);
+    const commissionRate = Number(lease.owner.commissionRate);
     const baseAmount = Number(invoice.subtotal);
     const subtotal = (baseAmount * commissionRate) / 100;
     const taxRate = 21.0; // IVA estándar Argentina

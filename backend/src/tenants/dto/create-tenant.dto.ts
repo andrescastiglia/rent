@@ -3,10 +3,16 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   MinLength,
 } from 'class-validator';
 
 export class CreateTenantDto {
+  // Company reference
+  @IsUUID()
+  @IsNotEmpty()
+  companyId: string;
+
   // User fields
   @IsEmail()
   @IsNotEmpty()

@@ -27,8 +27,8 @@ describe('UnitsService', () => {
     unitNumber: '101',
     bedrooms: 2,
     bathrooms: 1,
-    areaSqm: 65,
-    monthlyRent: 1500,
+    area: 65,
+    baseRent: 1500,
     status: UnitStatus.AVAILABLE,
   };
 
@@ -58,14 +58,14 @@ describe('UnitsService', () => {
         unitNumber: '101',
         bedrooms: 2,
         bathrooms: 1,
-        areaSqm: 65,
-        monthlyRent: 1500,
+        area: 65,
+        baseRent: 1500,
       };
 
       repository.create!.mockReturnValue(mockUnit);
       repository.save!.mockResolvedValue(mockUnit);
 
-      const result = await service.create(createUnitDto);
+      const result = await service.create(createUnitDto as any);
 
       expect(repository.create).toHaveBeenCalledWith(createUnitDto);
       expect(repository.save).toHaveBeenCalledWith(mockUnit);
@@ -113,14 +113,14 @@ describe('UnitsService', () => {
 
   describe('update', () => {
     it('should update a unit', async () => {
-      const updateDto = { monthlyRent: 1600, status: UnitStatus.OCCUPIED };
+      const updateDto = { baseRent: 1600, status: UnitStatus.OCCUPIED };
       repository.findOne!.mockResolvedValue(mockUnit);
       repository.save!.mockResolvedValue({ ...mockUnit, ...updateDto });
 
       const result = await service.update('unit-1', updateDto);
 
       expect(repository.save).toHaveBeenCalled();
-      expect(result.monthlyRent).toBe(1600);
+      expect(result.baseRent).toBe(1600);
       expect(result.status).toBe(UnitStatus.OCCUPIED);
     });
   });

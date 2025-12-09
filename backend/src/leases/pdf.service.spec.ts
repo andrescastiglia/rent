@@ -52,9 +52,9 @@ describe('PdfService', () => {
     id: 'doc-1',
     entityType: 'lease',
     entityId: 'lease-1',
-    docType: DocumentType.CONTRACT,
-    s3Key: 'leases/lease-1/contract-123.pdf',
-    status: DocumentStatus.UPLOADED,
+    documentType: DocumentType.LEASE_CONTRACT,
+    fileUrl: 'leases/lease-1/contract-123.pdf',
+    status: DocumentStatus.APPROVED,
   };
 
   beforeEach(async () => {
@@ -107,8 +107,7 @@ describe('PdfService', () => {
         expect.objectContaining({
           entityType: 'lease',
           entityId: 'lease-1',
-          docType: DocumentType.CONTRACT,
-          uploadedBy: 'user-1',
+          documentType: DocumentType.LEASE_CONTRACT,
         }),
       );
       expect(result).toEqual(mockDocument);
@@ -128,9 +127,9 @@ describe('PdfService', () => {
 
       expect(documentRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          mimeType: 'application/pdf',
+          fileMimeType: 'application/pdf',
           fileSize: mockPdfBuffer.length,
-          status: DocumentStatus.UPLOADED,
+          status: DocumentStatus.APPROVED,
         }),
       );
     });
@@ -146,7 +145,7 @@ describe('PdfService', () => {
         where: {
           entityType: 'lease',
           entityId: 'lease-1',
-          docType: DocumentType.CONTRACT,
+          documentType: DocumentType.LEASE_CONTRACT,
         },
         order: { createdAt: 'DESC' },
       });

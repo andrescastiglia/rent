@@ -45,7 +45,8 @@ export class AmendmentsService {
 
     const amendment = this.amendmentsRepository.create({
       ...createAmendmentDto,
-      status: AmendmentStatus.PENDING,
+      status: AmendmentStatus.DRAFT,
+      amendmentNumber: 1, // This should be calculated based on existing amendments
     });
 
     return this.amendmentsRepository.save(amendment);
@@ -74,7 +75,7 @@ export class AmendmentsService {
   async approve(id: string, userId: string): Promise<LeaseAmendment> {
     const amendment = await this.findOne(id);
 
-    if (amendment.status !== AmendmentStatus.PENDING) {
+    if (amendment.status !== AmendmentStatus.PENDING_APPROVAL) {
       throw new BadRequestException('Only pending amendments can be approved');
     }
 
@@ -88,7 +89,7 @@ export class AmendmentsService {
   async reject(id: string, userId: string): Promise<LeaseAmendment> {
     const amendment = await this.findOne(id);
 
-    if (amendment.status !== AmendmentStatus.PENDING) {
+    if (amendment.status !== AmendmentStatus.PENDING_APPROVAL) {
       throw new BadRequestException('Only pending amendments can be rejected');
     }
 

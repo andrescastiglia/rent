@@ -19,6 +19,9 @@ import { LeaseAmendment } from '../leases/entities/lease-amendment.entity';
 import { PropertyFeature } from '../properties/entities/property-feature.entity';
 import { Document } from '../documents/entities/document.entity';
 import { Currency } from '../currencies/entities/currency.entity';
+import { Owner } from '../owners/entities/owner.entity';
+import { Tenant } from '../tenants/entities/tenant.entity';
+import { Staff } from '../staff/entities/staff.entity';
 import { join } from 'path';
 
 // Load env vars from root .env
@@ -42,8 +45,11 @@ const AppDataSource = new DataSource({
     PropertyFeature,
     Document,
     Currency,
+    Owner,
+    Tenant,
+    Staff,
   ],
-  synchronize: true, // Create tables if they don't exist
+  synchronize: false, // Don't sync - use the SQL schema
   logging: true,
 });
 
@@ -105,13 +111,13 @@ async function seed() {
 
       // 2. Create Owner User
       const ownerEmail = 'owner@example.com';
-      let owner = await queryRunner.manager.findOne(User, {
+      let ownerUser = await queryRunner.manager.findOne(User, {
         where: { email: ownerEmail },
       });
-      if (!owner) {
+      if (!ownerUser) {
         const salt = await bcrypt.genSalt();
         const passwordHash = await bcrypt.hash('owner123', salt);
-        owner = queryRunner.manager.create(User, {
+        ownerUser = queryRunner.manager.create(User, {
           email: ownerEmail,
           passwordHash,
           firstName: 'John',
@@ -120,7 +126,7 @@ async function seed() {
           isActive: true,
           isEmailVerified: true,
         });
-        await queryRunner.manager.save(owner);
+        await queryRunner.manager.save(ownerUser);
         console.log('Owner user created');
       } else {
         console.log('Owner user already exists');
@@ -134,28 +140,45 @@ async function seed() {
         company = queryRunner.manager.create(Company, {
           name: 'My Rental Company',
           taxId: '20-12345678-9',
-          planType: PlanType.BASIC,
+          plan: PlanType.BASIC,
           isActive: true,
         });
         await queryRunner.manager.save(company);
         console.log('Company created');
       }
 
+      // 3b. Create Owner Record
+      let owner = await queryRunner.manager.findOne(Owner, {
+        where: { userId: ownerUser.id },
+      });
+      if (!owner) {
+        owner = queryRunner.manager.create(Owner, {
+          user: ownerUser,
+          company: company,
+          taxId: '20-12345678-9',
+          taxIdType: 'CUIT',
+        });
+        await queryRunner.manager.save(owner);
+        console.log('Owner record created');
+      }
+
       // 4. Create Property
       let property = await queryRunner.manager.findOne(Property, {
-        where: { address: 'Av. Libertador 1234' },
+        where: { name: 'Edificio Libertador' },
       });
       if (!property) {
         property = queryRunner.manager.create(Property, {
           company: company,
           owner: owner,
-          address: 'Av. Libertador 1234',
-          city: 'Buenos Aires',
-          state: 'CABA',
-          zipCode: '1425',
-          country: 'Argentina',
-          type: PropertyType.APARTMENT,
+          name: 'Edificio Libertador',
+          propertyType: PropertyType.APARTMENT,
           status: PropertyStatus.ACTIVE,
+          addressStreet: 'Av. Libertador',
+          addressNumber: '1234',
+          addressCity: 'Buenos Aires',
+          addressState: 'CABA',
+          addressCountry: 'Argentina',
+          addressPostalCode: '1425',
           description: 'Luxury apartment building',
           yearBuilt: 2015,
         });
@@ -170,12 +193,14 @@ async function seed() {
       if (!unit) {
         unit = queryRunner.manager.create(Unit, {
           property: property,
+          company: company,
           unitNumber: '101',
-          floor: 1,
+          floor: '1',
           bedrooms: 2,
           bathrooms: 1,
-          areaSqm: 65.5,
-          monthlyRent: 1500,
+          area: 65.5,
+          baseRent: 1500,
+          currency: 'USD',
           status: UnitStatus.AVAILABLE,
           hasParking: true,
           parkingSpots: 1,
@@ -204,45 +229,43 @@ async function seed() {
         });
         await queryRunner.manager.save(tenantUser);
         console.log('Tenant user created');
-
-        // 7. Create Tenant Record (Raw SQL)
-        // Check if tenant record exists
-        const existingTenantRecord = await queryRunner.query(
-          `SELECT * FROM tenants WHERE user_id = $1`,
-          [tenantUser.id],
-        );
-
-        if (existingTenantRecord.length === 0) {
-          await queryRunner.query(
-            `INSERT INTO tenants (user_id, dni, emergency_contact, emergency_phone) VALUES ($1, $2, $3, $4)`,
-            [tenantUser.id, '30123456', 'Emergency Contact', '+5491187654321'],
-          );
-          console.log('Tenant record created');
-        }
       } else {
         console.log('Tenant user already exists');
       }
 
-      // 8. Create Lease
-      // We need to fetch the tenantUser again to be sure we have the ID if it already existed
-      tenantUser = await queryRunner.manager.findOne(User, {
-        where: { email: tenantEmail },
+      // 7. Create Tenant Record
+      let tenant = await queryRunner.manager.findOne(Tenant, {
+        where: { userId: tenantUser.id },
       });
+      if (!tenant) {
+        tenant = queryRunner.manager.create(Tenant, {
+          user: tenantUser,
+          company: company,
+          dni: '30123456',
+          emergencyContactName: 'Emergency Contact',
+          emergencyContactPhone: '+5491187654321',
+        });
+        await queryRunner.manager.save(tenant);
+        console.log('Tenant record created');
+      }
 
+      // 8. Create Lease
       // Check if lease exists for this unit and tenant
-      // Note: In a real scenario, we might have multiple leases. Here we check if ANY lease exists for this pair to avoid dupes in seed.
       const existingLease = await queryRunner.manager.findOne(Lease, {
-        where: { unit: { id: unit.id }, tenant: { id: tenantUser!.id } },
+        where: { unit: { id: unit.id }, tenant: { id: tenant.id } },
       });
 
       if (!existingLease) {
         const lease = queryRunner.manager.create(Lease, {
+          company: company,
           unit: unit,
-          tenant: tenantUser!,
+          tenant: tenant,
+          owner: owner,
           startDate: new Date('2024-01-01'),
           endDate: new Date('2024-12-31'),
-          rentAmount: 1500,
-          deposit: 3000,
+          monthlyRent: 1500,
+          currency: 'USD',
+          securityDeposit: 3000,
           status: LeaseStatus.ACTIVE,
           paymentFrequency: PaymentFrequency.MONTHLY,
         });

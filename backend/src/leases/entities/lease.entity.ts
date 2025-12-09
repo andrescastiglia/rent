@@ -11,6 +11,8 @@ import {
 } from 'typeorm';
 import { Unit } from '../../properties/entities/unit.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
+import { Owner } from '../../owners/entities/owner.entity';
+import { Company } from '../../companies/entities/company.entity';
 import { LeaseAmendment } from './lease-amendment.entity';
 import { Currency } from '../../currencies/entities/currency.entity';
 
@@ -72,10 +74,27 @@ export enum IncreaseClauseType {
   CUSTOM_SCHEDULE = 'custom_schedule',
 }
 
+/**
+ * Tipo de índice de inflación.
+ */
+export enum InflationIndexType {
+  ICL = 'icl',
+  IPC = 'ipc',
+  IGP_M = 'igp_m',
+  CUSTOM = 'custom',
+}
+
 @Entity('leases')
 export class Lease {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ name: 'company_id' })
+  companyId: string;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company: Company;
 
   @Column({ name: 'unit_id' })
   unitId: string;
@@ -91,24 +110,34 @@ export class Lease {
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
 
+  @Column({ name: 'owner_id' })
+  ownerId: string;
+
+  @ManyToOne(() => Owner)
+  @JoinColumn({ name: 'owner_id' })
+  owner: Owner;
+
+  @Column({ name: 'lease_number', type: 'varchar', length: 50, nullable: true })
+  leaseNumber: string;
+
+  @Column({ type: 'enum', enum: LeaseStatus, default: LeaseStatus.DRAFT })
+  status: LeaseStatus;
+
   @Column({ name: 'start_date', type: 'date' })
   startDate: Date;
 
   @Column({ name: 'end_date', type: 'date' })
   endDate: Date;
 
-  @Column({ name: 'monthly_rent', type: 'decimal', precision: 10, scale: 2 })
+  @Column({ name: 'monthly_rent', type: 'decimal', precision: 12, scale: 2 })
   monthlyRent: number;
 
-  @Column({ name: 'security_deposit', type: 'decimal', precision: 10, scale: 2 })
-  securityDeposit: number;
-
-  @Column({ name: 'currency_code', default: 'ARS' })
-  currencyCode: string;
+  @Column({ type: 'varchar', length: 3, default: 'ARS' })
+  currency: string;
 
   @ManyToOne(() => Currency)
-  @JoinColumn({ name: 'currency_code', referencedColumnName: 'code' })
-  currency: Currency;
+  @JoinColumn({ name: 'currency', referencedColumnName: 'code' })
+  currencyRef: Currency;
 
   @Column({
     name: 'payment_frequency',
@@ -118,42 +147,8 @@ export class Lease {
   })
   paymentFrequency: PaymentFrequency;
 
-  @Column({ type: 'enum', enum: LeaseStatus, default: LeaseStatus.DRAFT })
-  status: LeaseStatus;
-
-  @Column({ name: 'renewal_terms', type: 'text', nullable: true })
-  renewalTerms: string;
-
-  @Column({ type: 'text', nullable: true })
-  notes: string;
-
-  // Billing configuration fields
-
-  @Column({
-    name: 'late_fee_type',
-    type: 'enum',
-    enum: LateFeeType,
-    nullable: true,
-  })
-  lateFeeType: LateFeeType;
-
-  @Column({
-    name: 'late_fee_value',
-    type: 'decimal',
-    precision: 10,
-    scale: 4,
-    nullable: true,
-  })
-  lateFeeValue: number;
-
-  @Column({
-    name: 'commission_rate',
-    type: 'decimal',
-    precision: 5,
-    scale: 2,
-    nullable: true,
-  })
-  commissionRate: number;
+  @Column({ name: 'payment_due_day', type: 'integer', default: 10 })
+  paymentDueDay: number;
 
   @Column({
     name: 'billing_frequency',
@@ -163,50 +158,72 @@ export class Lease {
   })
   billingFrequency: BillingFrequency;
 
-  @Column({ name: 'billing_day', type: 'integer', default: 1 })
+  @Column({ name: 'billing_day', type: 'integer', nullable: true })
   billingDay: number;
 
-  // Adjustment configuration fields
+  @Column({
+    name: 'late_fee_type',
+    type: 'enum',
+    enum: LateFeeType,
+    default: LateFeeType.NONE,
+  })
+  lateFeeType: LateFeeType;
+
+  @Column({
+    name: 'late_fee_value',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    default: 0,
+  })
+  lateFeeValue: number;
+
+  @Column({ name: 'late_fee_grace_days', type: 'integer', default: 0 })
+  lateFeeGraceDays: number;
+
+  @Column({
+    name: 'late_fee_max',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
+  lateFeeMax: number;
+
+  @Column({ name: 'auto_generate_invoices', type: 'boolean', default: true })
+  autoGenerateInvoices: boolean;
 
   @Column({
     name: 'adjustment_type',
     type: 'enum',
     enum: AdjustmentType,
-    nullable: true,
+    default: AdjustmentType.FIXED,
   })
   adjustmentType: AdjustmentType;
 
   @Column({
-    name: 'adjustment_rate',
+    name: 'adjustment_value',
     type: 'decimal',
-    precision: 5,
-    scale: 2,
+    precision: 10,
+    scale: 4,
     nullable: true,
   })
-  adjustmentRate: number;
+  adjustmentValue: number;
 
-  @Column({ name: 'next_adjustment_date', type: 'date', nullable: true })
-  nextAdjustmentDate: Date;
+  @Column({ name: 'adjustment_frequency_months', type: 'integer', default: 12 })
+  adjustmentFrequencyMonths: number;
 
   @Column({ name: 'last_adjustment_date', type: 'date', nullable: true })
   lastAdjustmentDate: Date;
 
-  @Column({
-    name: 'last_adjustment_rate',
-    type: 'decimal',
-    precision: 5,
-    scale: 2,
-    nullable: true,
-  })
-  lastAdjustmentRate: number;
-
-  // Increase clause configuration
+  @Column({ name: 'next_adjustment_date', type: 'date', nullable: true })
+  nextAdjustmentDate: Date;
 
   @Column({
     name: 'increase_clause_type',
     type: 'enum',
     enum: IncreaseClauseType,
-    nullable: true,
+    default: IncreaseClauseType.NONE,
   })
   increaseClauseType: IncreaseClauseType;
 
@@ -214,17 +231,67 @@ export class Lease {
     name: 'increase_clause_value',
     type: 'decimal',
     precision: 10,
-    scale: 2,
+    scale: 4,
     nullable: true,
   })
   increaseClauseValue: number;
 
   @Column({
-    name: 'increase_clause_frequency_months',
-    type: 'integer',
-    default: 12,
+    name: 'increase_clause_schedule',
+    type: 'jsonb',
+    default: '[]',
   })
-  increaseClauseFrequencyMonths: number;
+  increaseClauseSchedule: object;
+
+  @Column({
+    name: 'inflation_index_type',
+    type: 'enum',
+    enum: InflationIndexType,
+    nullable: true,
+  })
+  inflationIndexType: InflationIndexType;
+
+  @Column({
+    name: 'security_deposit',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
+  securityDeposit: number;
+
+  @Column({ name: 'deposit_currency', type: 'varchar', length: 3, default: 'ARS' })
+  depositCurrency: string;
+
+  @Column({ name: 'expenses_included', type: 'boolean', default: false })
+  expensesIncluded: boolean;
+
+  @Column({
+    name: 'additional_expenses',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    default: 0,
+  })
+  additionalExpenses: number;
+
+  @Column({ name: 'terms_and_conditions', type: 'text', nullable: true })
+  termsAndConditions: string;
+
+  @Column({ name: 'special_clauses', type: 'text', nullable: true })
+  specialClauses: string;
+
+  @Column({ type: 'text', nullable: true })
+  notes: string;
+
+  @Column({ name: 'signed_at', type: 'timestamptz', nullable: true })
+  signedAt: Date;
+
+  @Column({ name: 'signed_by_tenant', type: 'boolean', default: false })
+  signedByTenant: boolean;
+
+  @Column({ name: 'signed_by_owner', type: 'boolean', default: false })
+  signedByOwner: boolean;
 
   @OneToMany(() => LeaseAmendment, (amendment) => amendment.lease)
   amendments: LeaseAmendment[];

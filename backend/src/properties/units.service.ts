@@ -13,7 +13,7 @@ export class UnitsService {
   ) {}
 
   async create(createUnitDto: CreateUnitDto): Promise<Unit> {
-    const unit = this.unitsRepository.create(createUnitDto);
+    const unit = this.unitsRepository.create(createUnitDto as Partial<Unit>);
     return this.unitsRepository.save(unit);
   }
 

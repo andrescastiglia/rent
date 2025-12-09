@@ -98,7 +98,6 @@ export class UsersService {
 
     // Update password
     user.passwordHash = hashedPassword;
-    user.passwordChangedAt = new Date();
     await this.usersRepository.save(user);
   }
 }

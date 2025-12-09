@@ -92,8 +92,10 @@ describe('LeasesService', () => {
   describe('create', () => {
     it('should create a lease in draft status', async () => {
       const createDto = {
+        companyId: 'company-1',
         unitId: 'unit-1',
         tenantId: 'tenant-1',
+        ownerId: 'owner-1',
         startDate: '2024-01-01',
         endDate: '2024-12-31',
         monthlyRent: 1500,
@@ -118,8 +120,10 @@ describe('LeasesService', () => {
 
     it('should throw BadRequestException when end date is before start date', async () => {
       const createDto = {
+        companyId: 'company-1',
         unitId: 'unit-1',
         tenantId: 'tenant-1',
+        ownerId: 'owner-1',
         startDate: '2024-12-31',
         endDate: '2024-01-01',
         monthlyRent: 1500,
@@ -133,8 +137,10 @@ describe('LeasesService', () => {
 
     it('should throw NotFoundException when unit does not exist', async () => {
       const createDto = {
+        companyId: 'company-1',
         unitId: 'non-existent',
         tenantId: 'tenant-1',
+        ownerId: 'owner-1',
         startDate: '2024-01-01',
         endDate: '2024-12-31',
         monthlyRent: 1500,

@@ -4,16 +4,21 @@ import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { User } from '../src/users/entities/user.entity';
+import { Company, PlanType } from '../src/companies/entities/company.entity';
 import { Repository } from 'typeorm';
 
 describe('Tenants Management (e2e)', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
+  let companyRepository: Repository<Company>;
   let ownerToken: string;
   let uniqueId: string;
+  let shortId: string;
+  let companyId: string;
 
   beforeAll(async () => {
     uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    shortId = uniqueId.slice(-8); // Short ID for DNI (max 20 chars)
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -24,11 +29,21 @@ describe('Tenants Management (e2e)', () => {
     );
 
     userRepository = moduleFixture.get(getRepositoryToken(User));
+    companyRepository = moduleFixture.get(getRepositoryToken(Company));
 
     await app.init();
 
+    // Create company first
+    const company = companyRepository.create({
+      name: 'Tenant Test Company',
+      taxId: `${shortId}-tenant`,
+      plan: PlanType.BASIC,
+    });
+    const savedCompany = await companyRepository.save(company);
+    companyId = savedCompany.id;
+
     // Create owner user for authentication with unique email
-    const testEmail = `tenant-manager-${uniqueId}@tenant-${uniqueId}.test`;
+    const testEmail = `tenant-mgr-${shortId}@t-${shortId}.test`;
     const ownerRes = await request(app.getHttpServer())
       .post('/auth/register')
       .send({
@@ -49,10 +64,13 @@ describe('Tenants Management (e2e)', () => {
   afterAll(async () => {
     // Clean up
     await userRepository.query(
-      `DELETE FROM tenants WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@tenant-${uniqueId}.test')`,
+      `DELETE FROM tenants WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@t-${shortId}.test')`,
     );
     await userRepository.query(
-      `DELETE FROM users WHERE email LIKE '%@tenant-${uniqueId}.test'`,
+      `DELETE FROM users WHERE email LIKE '%@t-${shortId}.test'`,
+    );
+    await companyRepository.query(
+      `DELETE FROM companies WHERE tax_id = '${shortId}-tenant'`,
     );
     await app.close();
   });
@@ -60,14 +78,15 @@ describe('Tenants Management (e2e)', () => {
   describe('/tenants (POST)', () => {
     it('should create a tenant', () => {
       const tenantDto = {
-        email: `newtenant@tenant-${uniqueId}.test`,
+        email: `newtenant@t-${shortId}.test`,
         password: 'Password123!',
         firstName: 'New',
         lastName: 'Tenant',
         phone: '+5491112345678',
-        dni: `${uniqueId}-test`,
+        dni: `DNI${shortId}`,
         emergencyContact: 'Emergency Person',
         emergencyPhone: '+5491187654321',
+        companyId,
       };
 
       return request(app.getHttpServer())
@@ -84,12 +103,13 @@ describe('Tenants Management (e2e)', () => {
 
     it('should fail with duplicate DNI', async () => {
       const tenantDto = {
-        email: `duplicate-dni-1@tenant-${uniqueId}.test`,
+        email: `dup-dni-1@t-${shortId}.test`,
         password: 'Password123!',
         firstName: 'Dup',
         lastName: 'DNI',
         phone: '+123',
-        dni: `DUPLICATE-DNI-${uniqueId}`,
+        dni: `DUPDNI${shortId}`,
+        companyId,
       };
 
       // Create first tenant
@@ -105,13 +125,13 @@ describe('Tenants Management (e2e)', () => {
         .set('Authorization', `Bearer ${ownerToken}`)
         .send({
           ...tenantDto,
-          email: `duplicate-dni-2@tenant-${uniqueId}.test`,
+          email: `dup-dni-2@t-${shortId}.test`,
         })
         .expect(409); // Conflict
     });
 
     it('should fail with duplicate email', async () => {
-      const email = `duplicate-email@tenant-${uniqueId}.test`;
+      const email = `dup-email@t-${shortId}.test`;
 
       // Create first tenant
       await request(app.getHttpServer())
@@ -123,7 +143,8 @@ describe('Tenants Management (e2e)', () => {
           firstName: 'First',
           lastName: 'Tenant',
           phone: '+123',
-          dni: `DNI-001-${uniqueId}`,
+          dni: `DNI001${shortId}`,
+          companyId,
         })
         .expect(201);
 
@@ -137,7 +158,8 @@ describe('Tenants Management (e2e)', () => {
           firstName: 'Second',
           lastName: 'Tenant',
           phone: '+456',
-          dni: `DNI-002-${uniqueId}`,
+          dni: `DNI002${shortId}`,
+          companyId,
         })
         .expect(409);
     });
@@ -150,24 +172,26 @@ describe('Tenants Management (e2e)', () => {
         .post('/tenants')
         .set('Authorization', `Bearer ${ownerToken}`)
         .send({
-          email: `filter-test-1@tenant-${uniqueId}.test`,
+          email: `filter-1@t-${shortId}.test`,
           password: 'Password123!',
           firstName: 'Filter',
           lastName: 'One',
           phone: '+111',
-          dni: `FILTER-001-${uniqueId}`,
+          dni: `FLT001${shortId}`,
+          companyId,
         });
 
       await request(app.getHttpServer())
         .post('/tenants')
         .set('Authorization', `Bearer ${ownerToken}`)
         .send({
-          email: `filter-test-2@tenant-${uniqueId}.test`,
+          email: `filter-2@t-${shortId}.test`,
           password: 'Password123!',
           firstName: 'Filter',
           lastName: 'Two',
           phone: '+222',
-          dni: `FILTER-002-${uniqueId}`,
+          dni: `FLT002${shortId}`,
+          companyId,
         });
     });
 
@@ -201,12 +225,12 @@ describe('Tenants Management (e2e)', () => {
 
     it('should filter tenants by email', () => {
       return request(app.getHttpServer())
-        .get('/tenants?email=filter-test-1')
+        .get('/tenants?email=filter-1')
         .set('Authorization', `Bearer ${ownerToken}`)
         .expect(200)
         .expect((res) => {
           expect(res.body.data.length).toBeGreaterThan(0);
-          expect(res.body.data[0].email).toContain('filter-test-1');
+          expect(res.body.data[0].email).toContain('filter-1');
         });
     });
 
@@ -231,12 +255,13 @@ describe('Tenants Management (e2e)', () => {
         .post('/tenants')
         .set('Authorization', `Bearer ${ownerToken}`)
         .send({
-          email: `crud-tenant@tenant-${uniqueId}.test`,
+          email: `crud-t@t-${shortId}.test`,
           password: 'Password123!',
           firstName: 'CRUD',
           lastName: 'Tenant',
           phone: '+999',
-          dni: `CRUD-001-${uniqueId}`,
+          dni: `CRUD${shortId}`,
+          companyId,
         });
 
       tenantId = res.body.id;
@@ -249,7 +274,7 @@ describe('Tenants Management (e2e)', () => {
         .expect(200)
         .expect((res) => {
           expect(res.body.id).toBe(tenantId);
-          expect(res.body.email).toBe(`crud-tenant@tenant-${uniqueId}.test`);
+          expect(res.body.email).toBe(`crud-t@t-${shortId}.test`);
         });
     });
 

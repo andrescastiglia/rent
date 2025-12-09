@@ -13,6 +13,10 @@ export class CreateAmendmentDto {
   @IsNotEmpty()
   leaseId: string;
 
+  @IsUUID()
+  @IsNotEmpty()
+  companyId: string;
+
   @IsDateString()
   @IsNotEmpty()
   effectiveDate: string;
@@ -22,11 +26,11 @@ export class CreateAmendmentDto {
   changeType: AmendmentChangeType;
 
   @IsString()
-  @IsOptional()
-  description?: string;
+  @IsNotEmpty()
+  description: string;
 
   @IsOptional()
-  oldValues?: Record<string, any>;
+  previousValues?: Record<string, any>;
 
   @IsOptional()
   newValues?: Record<string, any>;

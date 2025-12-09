@@ -21,11 +21,20 @@ export class PropertyFeature {
   @JoinColumn({ name: 'property_id' })
   property: Property;
 
-  @Column({ name: 'feature_name' })
-  featureName: string;
+  @Column()
+  category: string;
 
-  @Column({ name: 'feature_value', nullable: true })
-  featureValue: string;
+  @Column()
+  name: string;
+
+  @Column({ nullable: true })
+  value: string;
+
+  @Column({ name: 'is_highlighted', default: false })
+  isHighlighted: boolean;
+
+  @Column({ name: 'display_order', default: 0 })
+  displayOrder: number;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

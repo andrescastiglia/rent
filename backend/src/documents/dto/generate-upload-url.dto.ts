@@ -10,6 +10,10 @@ import {
 import { DocumentType } from '../entities/document.entity';
 
 export class GenerateUploadUrlDto {
+  @IsUUID()
+  @IsNotEmpty()
+  companyId: string;
+
   @IsString()
   @IsNotEmpty()
   entityType: string;
@@ -34,5 +38,5 @@ export class GenerateUploadUrlDto {
 
   @IsEnum(DocumentType)
   @IsNotEmpty()
-  docType: DocumentType;
+  documentType: DocumentType;
 }

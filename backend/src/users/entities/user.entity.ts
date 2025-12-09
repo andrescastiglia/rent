@@ -59,7 +59,7 @@ export class User {
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
-  @Column({ name: 'is_email_verified', default: false })
+  @Column({ name: 'email_verified', default: false })
   isEmailVerified: boolean;
 
   @Column({ name: 'email_verified_at', type: 'timestamptz', nullable: true })
@@ -68,17 +68,11 @@ export class User {
   @Column({ name: 'last_login_at', type: 'timestamptz', nullable: true })
   lastLoginAt: Date;
 
-  @Column({ name: 'last_login_ip', type: 'inet', nullable: true })
-  lastLoginIp: string;
+  @Column({ name: 'password_reset_token', nullable: true })
+  passwordResetToken: string;
 
-  @Column({ name: 'failed_login_attempts', default: 0 })
-  failedLoginAttempts: number;
-
-  @Column({ name: 'locked_until', type: 'timestamptz', nullable: true })
-  lockedUntil: Date;
-
-  @Column({ name: 'password_changed_at', type: 'timestamptz', nullable: true })
-  passwordChangedAt: Date;
+  @Column({ name: 'password_reset_expires', type: 'timestamptz', nullable: true })
+  passwordResetExpires: Date;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

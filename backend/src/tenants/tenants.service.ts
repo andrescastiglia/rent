@@ -61,9 +61,10 @@ export class TenantsService {
 
     // Create tenant record (using raw query since we don't have Tenant entity in TypeORM)
     await this.usersRepository.query(
-      `INSERT INTO tenants (user_id, dni, emergency_contact_name, emergency_contact_phone) VALUES ($1, $2, $3, $4)`,
+      `INSERT INTO tenants (user_id, company_id, dni, emergency_contact_name, emergency_contact_phone) VALUES ($1, $2, $3, $4, $5)`,
       [
         savedUser.id,
+        createTenantDto.companyId,
         createTenantDto.dni,
         createTenantDto.emergencyContact,
         createTenantDto.emergencyPhone,

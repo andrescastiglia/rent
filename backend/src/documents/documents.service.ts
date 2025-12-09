@@ -15,7 +15,7 @@ import {
   HeadBucketCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { Document, DocumentStatus } from './entities/document.entity';
+import { Document, DocumentStatus, DocumentType } from './entities/document.entity';
 import { GenerateUploadUrlDto } from './dto/generate-upload-url.dto';
 import { getS3Config, S3_BUCKET_NAME } from '../config/s3.config';
 
@@ -56,48 +56,53 @@ export class DocumentsService {
     userId: string,
   ): Promise<{ uploadUrl: string; documentId: string }> {
     // Validate file size based on type
-    const maxSize = dto.docType === 'image' ? 5242880 : 10485760; // 5MB for images, 10MB for docs
+    const maxSize = dto.documentType === DocumentType.PHOTO ? 5242880 : 10485760; // 5MB for photos, 10MB for docs
     if (dto.fileSize > maxSize) {
       throw new BadRequestException(
         `File size exceeds maximum allowed (${maxSize / 1048576}MB)`,
       );
     }
 
-    // Validate mime type
-    const allowedMimeTypes = {
-      image: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
-      contract: [
+    // Validate mime type by document category
+    const allowedMimeTypes: Record<string, string[]> = {
+      [DocumentType.LEASE_CONTRACT]: [
         'application/pdf',
         'application/msword',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       ],
-      invoice: ['application/pdf'],
-      receipt: ['application/pdf', 'image/jpeg', 'image/png'],
-      other: ['application/pdf'],
+      [DocumentType.ID_DOCUMENT]: ['application/pdf', 'image/jpeg', 'image/png'],
+      [DocumentType.PROOF_OF_INCOME]: ['application/pdf', 'image/jpeg', 'image/png'],
+      [DocumentType.BANK_STATEMENT]: ['application/pdf'],
+      [DocumentType.UTILITY_BILL]: ['application/pdf', 'image/jpeg', 'image/png'],
+      [DocumentType.INSURANCE]: ['application/pdf'],
+      [DocumentType.INSPECTION_REPORT]: ['application/pdf', 'image/jpeg', 'image/png'],
+      [DocumentType.MAINTENANCE_RECORD]: ['application/pdf', 'image/jpeg', 'image/png'],
+      [DocumentType.PHOTO]: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
+      [DocumentType.OTHER]: ['application/pdf', 'image/jpeg', 'image/png'],
     };
 
-    if (!allowedMimeTypes[dto.docType]?.includes(dto.mimeType)) {
+    if (!allowedMimeTypes[dto.documentType]?.includes(dto.mimeType)) {
       throw new BadRequestException(
-        `Invalid mime type for document type ${dto.docType}`,
+        `Invalid mime type for document type ${dto.documentType}`,
       );
     }
 
-    // Generate unique S3 key
+    // Generate unique file URL (S3 key)
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(7);
-    const s3Key = `${dto.entityType}/${dto.entityId}/${timestamp}-${randomString}-${dto.fileName}`;
+    const fileUrl = `${dto.entityType}/${dto.entityId}/${timestamp}-${randomString}-${dto.fileName}`;
 
     // Create document record
     const document = this.documentsRepository.create({
+      companyId: dto.companyId,
       entityType: dto.entityType,
       entityId: dto.entityId,
-      docType: dto.docType,
-      s3Key,
-      originalFilename: dto.fileName,
-      mimeType: dto.mimeType,
+      documentType: dto.documentType,
+      name: dto.fileName,
+      fileUrl,
+      fileMimeType: dto.mimeType,
       fileSize: dto.fileSize,
       status: DocumentStatus.PENDING,
-      uploadedBy: userId,
     });
 
     await this.documentsRepository.save(document);
@@ -105,7 +110,7 @@ export class DocumentsService {
     // Generate pre-signed URL for upload
     const command = new PutObjectCommand({
       Bucket: this.bucketName,
-      Key: s3Key,
+      Key: fileUrl,
       ContentType: dto.mimeType,
     });
 
@@ -132,7 +137,7 @@ export class DocumentsService {
 
     const command = new GetObjectCommand({
       Bucket: this.bucketName,
-      Key: document.s3Key,
+      Key: document.fileUrl,
     });
 
     const downloadUrl = await getSignedUrl(this.s3Client, command, {
@@ -151,8 +156,7 @@ export class DocumentsService {
       throw new NotFoundException(`Document with ID ${documentId} not found`);
     }
 
-    document.status = DocumentStatus.UPLOADED;
-    document.uploadedAt = new Date();
+    document.status = DocumentStatus.APPROVED;
 
     return this.documentsRepository.save(document);
   }
@@ -181,7 +185,7 @@ export class DocumentsService {
       await this.s3Client.send(
         new DeleteObjectCommand({
           Bucket: this.bucketName,
-          Key: document.s3Key,
+          Key: document.fileUrl,
         }),
       );
     } catch (error) {

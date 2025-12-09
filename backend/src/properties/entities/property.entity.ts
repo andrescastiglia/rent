@@ -52,19 +52,42 @@ export class Property {
   owner: Owner;
 
   @Column()
-  address: string;
+  name: string;
 
-  @Column()
-  city: string;
+  @Column({ name: 'property_type', type: 'enum', enum: PropertyType, enumName: 'property_type' })
+  propertyType: PropertyType;
 
-  @Column()
-  state: string;
+  @Column({
+    type: 'enum',
+    enum: PropertyStatus,
+    enumName: 'property_status',
+    default: PropertyStatus.ACTIVE,
+  })
+  status: PropertyStatus;
 
-  @Column({ name: 'zip_code' })
-  zipCode: string;
+  @Column({ name: 'address_street' })
+  addressStreet: string;
 
-  @Column({ default: 'Argentina' })
-  country: string;
+  @Column({ name: 'address_number', nullable: true })
+  addressNumber: string;
+
+  @Column({ name: 'address_floor', nullable: true })
+  addressFloor: string;
+
+  @Column({ name: 'address_apartment', nullable: true })
+  addressApartment: string;
+
+  @Column({ name: 'address_city' })
+  addressCity: string;
+
+  @Column({ name: 'address_state' })
+  addressState: string;
+
+  @Column({ name: 'address_country', default: 'Argentina' })
+  addressCountry: string;
+
+  @Column({ name: 'address_postal_code', nullable: true })
+  addressPostalCode: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 8, nullable: true })
   latitude: number;
@@ -72,30 +95,32 @@ export class Property {
   @Column({ type: 'decimal', precision: 11, scale: 8, nullable: true })
   longitude: number;
 
-  @Column({ type: 'enum', enum: PropertyType })
-  type: PropertyType;
+  @Column({ name: 'total_area', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  totalArea: number;
 
-  @Column({
-    type: 'enum',
-    enum: PropertyStatus,
-    default: PropertyStatus.ACTIVE,
-  })
-  status: PropertyStatus;
-
-  @Column({ type: 'text', nullable: true })
-  description: string;
+  @Column({ name: 'built_area', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  builtArea: number;
 
   @Column({ name: 'year_built', nullable: true })
   yearBuilt: number;
 
-  @Column({
-    name: 'total_area_sqm',
-    type: 'decimal',
-    precision: 10,
-    scale: 2,
-    nullable: true,
-  })
-  totalAreaSqm: number;
+  @Column({ name: 'total_units', default: 1 })
+  totalUnits: number;
+
+  @Column({ type: 'text', nullable: true })
+  description: string;
+
+  @Column({ type: 'text', array: true, nullable: true })
+  amenities: string[];
+
+  @Column({ type: 'jsonb', default: '[]' })
+  images: any[];
+
+  @Column({ type: 'jsonb', default: '[]' })
+  documents: any[];
+
+  @Column({ type: 'text', nullable: true })
+  notes: string;
 
   @OneToMany(() => Unit, (unit) => unit.property)
   units: Unit[];

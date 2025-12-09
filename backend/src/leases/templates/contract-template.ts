@@ -50,16 +50,17 @@ export function generateContractPdf(lease: Lease): Promise<Buffer> {
     // Propiedad
     doc.fontSize(14).font('Helvetica-Bold').text('PROPIEDAD').moveDown(0.5);
 
+    const property = lease.unit?.property;
     doc
       .fontSize(11)
       .font('Helvetica')
-      .text(`Dirección: ${lease.unit?.property?.address || ''}`)
+      .text(`Dirección: ${property?.addressStreet || ''} ${property?.addressNumber || ''}`)
       .text(
-        `Ciudad: ${lease.unit?.property?.city || ''}, ${lease.unit?.property?.state || ''}`,
+        `Ciudad: ${property?.addressCity || ''}, ${property?.addressState || ''}`,
       )
-      .text(`Código Postal: ${lease.unit?.property?.zipCode || ''}`)
+      .text(`Código Postal: ${property?.addressPostalCode || ''}`)
       .text(`Unidad: ${lease.unit?.unitNumber || ''}`)
-      .text(`Área: ${lease.unit?.areaSqm || 0} m²`)
+      .text(`Área: ${lease.unit?.area || 0} m²`)
       .moveDown(1.5);
 
     // Términos del contrato
@@ -105,15 +106,15 @@ export function generateContractPdf(lease: Lease): Promise<Buffer> {
 
     doc.moveDown(1.5);
 
-    // Términos de renovación
-    if (lease.renewalTerms) {
+    // Términos y condiciones
+    if (lease.termsAndConditions) {
       doc
         .fontSize(14)
         .font('Helvetica-Bold')
-        .text('TÉRMINOS DE RENOVACIÓN')
+        .text('TÉRMINOS Y CONDICIONES')
         .moveDown(0.5);
 
-      doc.fontSize(10).font('Helvetica').text(lease.renewalTerms).moveDown(1.5);
+      doc.fontSize(10).font('Helvetica').text(lease.termsAndConditions).moveDown(1.5);
     }
 
     // Notas adicionales

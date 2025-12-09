@@ -74,6 +74,7 @@ describe('TenantsService', () => {
 
   describe('create', () => {
     const createDto = {
+      companyId: 'test-company-id',
       email: 'tenant@example.com',
       password: 'password123',
       firstName: 'John',
@@ -111,7 +112,7 @@ describe('TenantsService', () => {
       );
       expect(userRepository.query).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO tenants'),
-        expect.arrayContaining([mockUser.id, createDto.dni]),
+        expect.arrayContaining([mockUser.id, createDto.companyId, createDto.dni]),
       );
       expect(result).toEqual(mockUser);
     });

@@ -207,19 +207,22 @@ export class LeasesService {
 
     // Create new lease with updated terms
     const newLease = this.leasesRepository.create({
+      companyId: oldLease.companyId,
       unitId: oldLease.unitId,
       tenantId: oldLease.tenantId,
+      ownerId: oldLease.ownerId,
       startDate: newTerms.startDate || oldLease.endDate,
       endDate: newTerms.endDate,
       monthlyRent: newTerms.monthlyRent || oldLease.monthlyRent,
       securityDeposit: newTerms.securityDeposit || oldLease.securityDeposit,
-      currencyCode: newTerms.currencyCode || oldLease.currencyCode,
+      currency: newTerms.currency || oldLease.currency,
       paymentFrequency: newTerms.paymentFrequency || oldLease.paymentFrequency,
-      renewalTerms: newTerms.renewalTerms || oldLease.renewalTerms,
+      termsAndConditions: newTerms.termsAndConditions || oldLease.termsAndConditions,
       status: LeaseStatus.DRAFT,
     });
 
-    return this.leasesRepository.save(newLease);
+    const savedLease = await this.leasesRepository.save(newLease);
+    return savedLease as Lease;
   }
 
   async remove(id: string): Promise<void> {
