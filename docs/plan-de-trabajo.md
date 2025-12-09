@@ -48,14 +48,14 @@ Establecer la base técnica y organizativa del proyecto.
   - PostgreSQL + Redis + RabbitMQ + MinIO
   - Scripts de inicialización
 
-- **T005**: Crear infraestructura cloud con Terraform
+- ⏸️ **T005**: Crear infraestructura cloud con Terraform (SUSPENDIDO)
   - VPC, subnets, security groups
   - RDS PostgreSQL (staging + prod)
   - ElastiCache Redis
   - S3 buckets para documentos
   - SQS/RabbitMQ para mensajería
   
-- **T006**: Configurar Kubernetes (EKS/GKE/AKS)
+- ⏸️ **T006**: Configurar Kubernetes (EKS/GKE/AKS) (SUSPENDIDO)
   - Cluster staging y production
   - Namespaces por entorno
   - Ingress controller
@@ -81,7 +81,7 @@ Establecer la base técnica y organizativa del proyecto.
   - Kibana para visualización
   - Configurar índices y retención
 
-- **T010**: Configurar métricas y monitoreo
+- ⏸️ **T010**: Configurar métricas y monitoreo (SUSPENDIDO)
   - Prometheus para métricas
   - Grafana dashboards
   - Alertas básicas (CPU, memoria, disco)
@@ -190,18 +190,11 @@ Implementar la funcionalidad mínima viable con los módulos core del negocio.
   - Rutas protegidas
   - Refresh token automático
 
-- **T143**: Layout y navegación principal **[4 SP]**
-  - Header con menú
-  - Sidebar de navegación
-  - Breadcrumbs
-  - Responsive design
-
-- **T144**: Módulo de Propiedades (UI) **[8 SP]**
 - ✅ **T015**: Layout y navegación principal
-  - Header con menú
-  - Sidebar de navegación
-  - Breadcrumbs
-  - Responsive design
+  - ✅ Header con menú
+  - ✅ Sidebar de navegación
+  - ✅ Breadcrumbs
+  - ✅ Responsive design
 
 - ✅ **T016**: Módulo de Propiedades (UI)
   - Lista de propiedades
