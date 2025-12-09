@@ -1202,6 +1202,139 @@ CREATE TRIGGER update_billing_jobs_updated_at
 
 COMMENT ON TABLE billing_jobs IS 'Tracking table for batch billing job executions';
 
+-- -----------------------------------------------------------------------------
+-- Bank Accounts (T811)
+-- -----------------------------------------------------------------------------
+CREATE TABLE bank_accounts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    owner_id UUID REFERENCES owners(user_id) ON DELETE CASCADE,
+    company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
+    property_id UUID REFERENCES properties(id) ON DELETE SET NULL,
+    account_type VARCHAR(20) NOT NULL CHECK (account_type IN ('cbu', 'cvu', 'alias')),
+    bank_name VARCHAR(100),
+    account_number VARCHAR(50) NOT NULL,
+    cbu_cvu VARCHAR(22),
+    alias VARCHAR(50),
+    holder_name VARCHAR(200) NOT NULL,
+    holder_cuit VARCHAR(20),
+    is_virtual_alias BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ,
+    
+    CONSTRAINT chk_bank_account_owner CHECK (
+        (owner_id IS NOT NULL AND company_id IS NULL) OR
+        (owner_id IS NULL AND company_id IS NOT NULL)
+    )
+);
+
+CREATE INDEX idx_bank_accounts_owner ON bank_accounts(owner_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_bank_accounts_company ON bank_accounts(company_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_bank_accounts_property ON bank_accounts(property_id) WHERE is_virtual_alias = TRUE;
+
+CREATE TRIGGER update_bank_accounts_updated_at
+    BEFORE UPDATE ON bank_accounts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE bank_accounts IS 'Bank accounts for owners and companies (CBU/CVU/Alias)';
+
+-- -----------------------------------------------------------------------------
+-- Crypto Wallets (T812)
+-- -----------------------------------------------------------------------------
+CREATE TABLE crypto_wallets (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    owner_id UUID REFERENCES owners(user_id) ON DELETE CASCADE,
+    company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
+    wallet_type VARCHAR(20) NOT NULL CHECK (wallet_type IN ('bitcoin', 'ethereum', 'lightning')),
+    address VARCHAR(200) NOT NULL,
+    derivation_path VARCHAR(100),
+    is_hot_wallet BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    label VARCHAR(100),
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ,
+    
+    CONSTRAINT chk_crypto_wallet_owner CHECK (
+        (owner_id IS NOT NULL AND company_id IS NULL) OR
+        (owner_id IS NULL AND company_id IS NOT NULL)
+    )
+);
+
+CREATE INDEX idx_crypto_wallets_owner ON crypto_wallets(owner_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_crypto_wallets_company ON crypto_wallets(company_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_crypto_wallets_address ON crypto_wallets(address);
+
+CREATE TRIGGER update_crypto_wallets_updated_at
+    BEFORE UPDATE ON crypto_wallets FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE crypto_wallets IS 'Cryptocurrency wallets for owners and companies';
+
+-- -----------------------------------------------------------------------------
+-- Lightning Invoices (T812)
+-- -----------------------------------------------------------------------------
+CREATE TABLE lightning_invoices (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    invoice_id UUID REFERENCES invoices(id) ON DELETE CASCADE,
+    payment_hash VARCHAR(64) NOT NULL UNIQUE,
+    payment_request TEXT NOT NULL,
+    amount_sats BIGINT NOT NULL,
+    amount_fiat DECIMAL(15, 2),
+    fiat_currency VARCHAR(3) DEFAULT 'ARS',
+    exchange_rate DECIMAL(20, 8),
+    description VARCHAR(500),
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'expired', 'cancelled')),
+    expires_at TIMESTAMPTZ NOT NULL,
+    paid_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_lightning_invoices_hash ON lightning_invoices(payment_hash);
+CREATE INDEX idx_lightning_invoices_invoice ON lightning_invoices(invoice_id);
+CREATE INDEX idx_lightning_invoices_status ON lightning_invoices(status) WHERE status = 'pending';
+
+CREATE TRIGGER update_lightning_invoices_updated_at
+    BEFORE UPDATE ON lightning_invoices FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE lightning_invoices IS 'Bitcoin Lightning Network invoices for payments';
+
+-- -----------------------------------------------------------------------------
+-- Settlements (T881)
+-- -----------------------------------------------------------------------------
+CREATE TYPE settlement_status AS ENUM ('pending', 'processing', 'completed', 'failed');
+
+CREATE TABLE settlements (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    owner_id UUID NOT NULL REFERENCES owners(user_id) ON DELETE RESTRICT,
+    period VARCHAR(7) NOT NULL, -- YYYY-MM
+    gross_amount DECIMAL(15, 2) NOT NULL,
+    commission_amount DECIMAL(15, 2) NOT NULL DEFAULT 0,
+    withholdings_amount DECIMAL(15, 2) NOT NULL DEFAULT 0,
+    net_amount DECIMAL(15, 2) NOT NULL,
+    currency VARCHAR(3) DEFAULT 'ARS',
+    status settlement_status DEFAULT 'pending',
+    scheduled_date DATE NOT NULL,
+    processed_at TIMESTAMPTZ,
+    transfer_reference VARCHAR(100),
+    bank_account_id UUID REFERENCES bank_accounts(id),
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT uq_settlement_owner_period UNIQUE(owner_id, period)
+);
+
+CREATE INDEX idx_settlements_owner ON settlements(owner_id);
+CREATE INDEX idx_settlements_status ON settlements(status) WHERE status IN ('pending', 'processing');
+CREATE INDEX idx_settlements_scheduled ON settlements(scheduled_date) WHERE status = 'pending';
+CREATE INDEX idx_settlements_period ON settlements(period);
+
+CREATE TRIGGER update_settlements_updated_at
+    BEFORE UPDATE ON settlements FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE settlements IS 'Owner settlements/liquidations for collected rent payments';
+
 \echo '✓ Tablas del sistema creadas'
 
 -- =============================================================================
@@ -1251,6 +1384,8 @@ SET TIME ZONE 'America/Argentina/Buenos_Aires';
 \echo '  - Leases: leases, lease_amendments'
 \echo '  - Financial: tenant_accounts, movements, invoices,'
 \echo '               commission_invoices, payments, receipts'
+\echo '  - Banking: bank_accounts, crypto_wallets, lightning_invoices'
+\echo '  - Settlements: settlements'
 \echo '  - Reference: currencies, inflation_indices, exchange_rates'
 \echo '  - System: notification_preferences, billing_jobs'
 \echo '  - Audit: audit.logs'

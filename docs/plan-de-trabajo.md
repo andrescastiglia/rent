@@ -267,7 +267,7 @@ Integrar servicios externos críticos para el negocio.
   - Métodos de pago
   - Migrations
 
-- **T212**: Integración con Stripe (futuras versiones)
+- ⏸️ **T212**: Integración con Stripe (SUSPENDIDO)
   - Configuración de cuenta Stripe
   - Implementar Strategy pattern para PSPs
   - Crear payment intents
@@ -676,12 +676,12 @@ Implementar sistema de cobranza multicanal y liquidación a propietarios.
 
 ### 8.1 Modelo de Datos Cobranzas
 
-- **T811**: Migraciones cuentas bancarias
+- ✅ **T811**: Migraciones cuentas bancarias
   - Tabla `bank_accounts` (CBU/CVU)
   - Alias virtuales por propiedad
   - Cuentas de propietarios
 
-- **T812**: Migraciones crypto
+- ✅ **T812**: Migraciones crypto
   - Tabla `crypto_wallets`
   - Tabla `lightning_invoices`
   - Hot/cold wallet flags
@@ -772,18 +772,18 @@ Implementar sistema de cobranza multicanal y liquidación a propietarios.
 
 ### 8.8 Liquidaciones
 
-- **T881**: Servicio de liquidaciones
+- ✅ **T881**: Servicio de liquidaciones
   - SettlementService
   - Cálculo de comisión (% o fijo)
   - Descuento de retenciones
   - Programación según vencimiento
 
-- **T882**: Comando `process-settlements`
+- ✅ **T882**: Comando `process-settlements`
   - Procesar liquidaciones programadas
   - Transferir fondos
   - Notificar a propietario
 
-- **T883**: Lógica de fecha de liquidación
+- ✅ **T883**: Lógica de fecha de liquidación
   - Si pago antes de vencimiento → liquidar en vencimiento
   - Si pago después → liquidar mismo día
 
@@ -803,8 +803,8 @@ Implementar sistema de cobranza multicanal y liquidación a propietarios.
 - ⏳ Pagos MP se confirman automáticamente
 - ⏳ Transferencias bancarias se concilian <24h
 - ✅ Recibos se envían automáticamente
-- ⏳ Liquidaciones respetan fecha de vencimiento
-- ⏳ Propietarios reciben notificación de liquidación
+- ✅ Liquidaciones respetan fecha de vencimiento
+- ✅ Propietarios reciben notificación de liquidación
 
 ### Configuración Crontab (Fase 8)
 

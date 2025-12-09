@@ -347,6 +347,79 @@ program
         }
     });
 
+/**
+ * Process-settlements command - Calculate and process owner settlements.
+ * T881: Settlement Service
+ * T882: Settlement Command
+ * T883: Settlement scheduled date logic (5th business day)
+ */
+program
+    .command('process-settlements')
+    .description('Calculate and process settlements for property owners')
+    .option('--period <period>', 'Settlement period (YYYY-MM)', '')
+    .option('--owner-id <id>', 'Process for specific owner only')
+    .option('-d, --dry-run', 'Calculate without creating settlements', false)
+    .option('--process', 'Process pending settlements (mark as paid)', false)
+    .action(async (options) => {
+        const { SettlementService } = await import('./services/settlement.service');
+
+        logger.info('Starting process-settlements', { options });
+        try {
+            await initializeDatabase();
+
+            const settlementService = new SettlementService();
+            const now = new Date();
+            const period = options.period || `${now.getFullYear()}-${String(now.getMonth()).padStart(2, '0')}`;
+
+            if (options.process) {
+                // Process pending settlements
+                const result = await settlementService.processPendingSettlements();
+                logger.info('Settlements processed', {
+                    processed: result.processed,
+                    failed: result.failed,
+                    totalAmount: result.totalAmount,
+                });
+            } else if (options.ownerId) {
+                // Calculate for specific owner
+                const settlement = await settlementService.calculateSettlement(
+                    options.ownerId,
+                    period,
+                    options.dryRun
+                );
+                logger.info('Settlement calculated', {
+                    ownerId: options.ownerId,
+                    period,
+                    grossAmount: settlement.grossAmount,
+                    commissionAmount: settlement.commissionAmount,
+                    netAmount: settlement.netAmount,
+                    scheduledDate: settlement.scheduledDate,
+                    dryRun: options.dryRun,
+                });
+            } else {
+                // Calculate for all owners
+                const result = await settlementService.calculateAllSettlements(
+                    period,
+                    options.dryRun
+                );
+                logger.info('All settlements calculated', {
+                    period,
+                    total: result.total,
+                    successful: result.successful,
+                    failed: result.failed,
+                    totalNetAmount: result.totalNetAmount,
+                    dryRun: options.dryRun,
+                });
+            }
+
+            logger.info('Process-settlements completed');
+        } catch (error) {
+            logger.error('Process-settlements failed', { error });
+            process.exit(1);
+        } finally {
+            await closeDatabase();
+        }
+    });
+
 // Parse command line arguments
 program.parse(process.argv);
 
