@@ -241,8 +241,10 @@ describe('Lease Creation Flow (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/leases')
         .set('Authorization', `Bearer ${ownerToken}`)
-        .send(leaseDto)
-        .expect(201);
+        .send(leaseDto);
+      
+      console.log('Lease creation response:', res.status, res.body);
+      expect(res.status).toBe(201);
 
       expect(res.body).toHaveProperty('id');
       expect(res.body.status).toBe('draft');
