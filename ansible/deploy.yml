@@ -89,6 +89,36 @@
         force: true
 
     # ─────────────────────────────────────────────────────────────
+    # BATCH BUILD
+    # ─────────────────────────────────────────────────────────────
+    - name: Clean batch node_modules and dist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ current_path }}/batch/node_modules"
+        - "{{ current_path }}/batch/dist"
+
+    - name: Install batch dependencies
+      ansible.builtin.command:
+        cmd: npm ci
+        chdir: "{{ current_path }}/batch"
+      environment:
+        NODE_ENV: production
+
+    - name: Build batch
+      ansible.builtin.command:
+        cmd: npm run build
+        chdir: "{{ current_path }}/batch"
+
+    - name: Create batch symlink
+      ansible.builtin.file:
+        src: "{{ current_path }}/batch/dist"
+        dest: "{{ deploy_path }}/batch
+        state: link
+        force: true
+
+    # ─────────────────────────────────────────────────────────────
     # FRONTEND BUILD
     # ─────────────────────────────────────────────────────────────
     - name: Create frontend .env
