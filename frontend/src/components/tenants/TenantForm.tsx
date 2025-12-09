@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CreateTenantInput, Tenant, EmploymentStatus } from '@/types/tenant';
 import { tenantsApi } from '@/lib/api/tenants';
@@ -59,7 +59,7 @@ export function TenantForm({ initialData, isEditing = false }: TenantFormProps) 
   const tenantSchema = useMemo(() => createExtendedTenantSchema(tValidation), [tValidation]);
 
   const { register, handleSubmit, formState: { errors } } = useForm<ExtendedTenantFormData>({
-    resolver: zodResolver(tenantSchema),
+    resolver: zodResolver(tenantSchema) as Resolver<ExtendedTenantFormData>,
     defaultValues: initialData || {
       status: 'PROSPECT',
     },
