@@ -74,17 +74,17 @@
         cmd: npm run build
         chdir: "{{ current_path }}/backend"
 
-    - name: Link shared .env to backend
-      ansible.builtin.file:
-        src: "{{ deploy_path }}/shared/.env"
-        dest: "{{ current_path }}/backend/dist/.env"
-        state: link
-        force: true
-
     - name: Create backend symlink
       ansible.builtin.file:
         src: "{{ current_path }}/backend/dist"
         dest: "{{ deploy_path }}/backend"
+        state: link
+        force: true
+
+    - name: Link shared .env to backend root
+      ansible.builtin.file:
+        src: "{{ deploy_path }}/shared/.env"
+        dest: "{{ current_path }}/backend/.env"
         state: link
         force: true
 
@@ -114,7 +114,7 @@
     - name: Create batch symlink
       ansible.builtin.file:
         src: "{{ current_path }}/batch/dist"
-        dest: "{{ deploy_path }}/batch
+        dest: "{{ deploy_path }}/batch"
         state: link
         force: true
 
