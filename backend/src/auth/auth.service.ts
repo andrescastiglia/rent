@@ -28,7 +28,7 @@ export class AuthService {
       companyId: user.companyId,
     };
     return {
-      access_token: this.jwtService.sign(payload),
+      accessToken: this.jwtService.sign(payload),
       user: {
         id: user.id,
         email: user.email,
@@ -54,7 +54,7 @@ export class AuthService {
       passwordHash: hashedPassword,
     });
 
-    // Return the same format as login (with access_token)
+    // Return the same format as login (with accessToken)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash, ...userWithoutPassword } = newUser;
     return this.login(userWithoutPassword);
