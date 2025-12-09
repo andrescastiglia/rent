@@ -43,19 +43,19 @@ Establecer la base técnica y organizativa del proyecto.
 
 #### 0.2 Infraestructura Base (IaC)
 
-- ✅ **T004**: Configurar entorno de desarrollo local
+- ✅ **T021**: Configurar entorno de desarrollo local
   - Docker Compose para servicios locales
   - PostgreSQL + Redis + RabbitMQ + MinIO
   - Scripts de inicialización
 
-- ⏸️ **T005**: Crear infraestructura cloud con Terraform (SUSPENDIDO)
+- ⏸️ **T022**: Crear infraestructura cloud con Terraform (SUSPENDIDO)
   - VPC, subnets, security groups
   - RDS PostgreSQL (staging + prod)
   - ElastiCache Redis
   - S3 buckets para documentos
   - SQS/RabbitMQ para mensajería
   
-- ⏸️ **T006**: Configurar Kubernetes (EKS/GKE/AKS) (SUSPENDIDO)
+- ⏸️ **T023**: Configurar Kubernetes (EKS/GKE/AKS) (SUSPENDIDO)
   - Cluster staging y production
   - Namespaces por entorno
   - Ingress controller
@@ -63,25 +63,25 @@ Establecer la base técnica y organizativa del proyecto.
 
 #### 0.3 CI/CD Pipeline
 
-- ✅ **T007**: Configurar GitHub Actions
+- ✅ **T031**: Configurar GitHub Actions
   - Pipeline de build
   - Tests unitarios automáticos
   - Análisis de código (SonarQube)
   - Build y push de imágenes Docker
 
-- ✅ **T008**: Implementar CD con Ansible
+- ✅ **T032**: Implementar CD con Ansible
   - Deploy automático
   - Playbooks de deployment
   - Configuración de inventarios
 
 #### 0.4 Observabilidad
 
-- **T009**: Implementar stack de logging
+- **T041**: Implementar stack de logging
   - Fluentd/Logstash → Elasticsearch
   - Kibana para visualización
   - Configurar índices y retención
 
-- ⏸️ **T010**: Configurar métricas y monitoreo (SUSPENDIDO)
+- ⏸️ **T042**: Configurar métricas y monitoreo (SUSPENDIDO)
   - Prometheus para métricas
   - Grafana dashboards
   - Alertas básicas (CPU, memoria, disco)
@@ -101,25 +101,25 @@ Implementar la funcionalidad mínima viable con los módulos core del negocio.
 
 ### 1.1 Backend Core - Autenticación y Usuarios
 
-- ✅ **T001**: Diseño e implementación del modelo de datos core
+- ✅ **T111**: Diseño e implementación del modelo de datos core
   - Migrations de PostgreSQL
   - Entidades: User, Role, Permission
   - Índices y constraints
 
-- ✅ **T002**: Módulo de Autenticación
+- ✅ **T112**: Módulo de Autenticación
   - Registro de usuarios
   - Login con JWT
   - Refresh tokens
   - Recuperación de contraseña
   - Tests unitarios e integración
 
-- ✅ **T003**: Sistema RBAC (Control de Acceso)
+- ✅ **T113**: Sistema RBAC (Control de Acceso)
   - Definición de roles y permisos
   - Guards y decorators
   - Middleware de autorización
   - Tests de autorización
 
-- ✅ **T004**: API de gestión de usuarios
+- ✅ **T114**: API de gestión de usuarios
   - CRUD de usuarios
   - Cambio de contraseña
   - Perfil de usuario
@@ -127,50 +127,50 @@ Implementar la funcionalidad mínima viable con los módulos core del negocio.
 
 ### 1.2 Backend Core - Propiedades
 
-- ✅ **T005**: Modelo de datos de propiedades
+- ✅ **T121**: Modelo de datos de propiedades
   - Entidades: Property, Unit, PropertyFeature
   - Tipos de propiedades
   - Migrations y seeds de prueba
 
-- ✅ **T006**: API de Propiedades
+- ✅ **T123**: API de Propiedades
   - CRUD de propiedades
   - Gestión de unidades
   - Búsqueda y filtros
   - Validaciones de negocio
 
-- ✅ **T007**: Gestión de imágenes y documentos
+- ✅ **T124**: Gestión de imágenes y documentos
   - Upload a S3/MinIO con pre-signed URLs
   - Asociación con propiedades
   - Límites de tamaño y formatos
 
 ### 1.3 Backend Core - Inquilinos
 
-- ✅ **T008**: Modelo de datos de inquilinos
+- ✅ **T131**: Modelo de datos de inquilinos
   - Entidad Tenant con datos personales
   - Documentos de identidad
   - Historial y referencias
 
-- ✅ **T009**: API de Inquilinos
+- ✅ **T132**: API de Inquilinos
   - CRUD de inquilinos
   - Búsqueda por nombre/documento
   - Historial de pagos (vista)
 
 ### 1.4 Backend Core - Contratos (Leases)
 
-- ✅ **T010**: Modelo de datos de contratos
+- ✅ **T141**: Modelo de datos de contratos
   - Entidades: Lease, LeaseAmendment
   - Estados del contrato
   - Cláusulas y condiciones
   - Migrations
 
-- ✅ **T011**: API de Contratos
+- ✅ **T142**: API de Contratos
   - Crear contrato (draft)
   - Activar contrato
   - Renovar contrato
   - Terminar contrato
   - Enmiendas al contrato
 
-- ✅ **T012**: Generación de documentos PDF (contratos)
+- ✅ **T143**: Generación de documentos PDF (contratos)
   - Integración con PDFKit
   - Templates de contrato
   - Variables dinámicas
@@ -178,38 +178,38 @@ Implementar la funcionalidad mínima viable con los módulos core del negocio.
 
 ### 1.5 Frontend Base - Portal Web
 
-- ✅ **T013**: Setup del proyecto frontend
+- ✅ **T151**: Setup del proyecto frontend
   - Next.js + React
   - Tailwind CSS
   - Estructura de carpetas
   - Routing
 
-- ✅ **T014**: Sistema de autenticación frontend
+- ✅ **T152**: Sistema de autenticación frontend
   - Páginas de login/registro
   - Manejo de tokens
   - Rutas protegidas
   - Refresh token automático
 
-- ✅ **T015**: Layout y navegación principal
+- ✅ **T153**: Layout y navegación principal
   - ✅ Header con menú
   - ✅ Sidebar de navegación
   - ✅ Breadcrumbs
   - ✅ Responsive design
 
-- ✅ **T016**: Módulo de Propiedades (UI)
+- ✅ **T154**: Módulo de Propiedades (UI)
   - Lista de propiedades
   - Detalle de propiedad
   - Formulario crear/editar
   - Upload de imágenes
   - Integración con API
 
-- ✅ **T017**: Módulo de Inquilinos (UI)
+- ✅ **T155**: Módulo de Inquilinos (UI)
   - Lista de inquilinos
   - Detalle de inquilino
   - Formulario crear/editar
   - Búsqueda y filtros
 
-- ✅ **T018**: Módulo de Contratos (UI)
+- ✅ **T156**: Módulo de Contratos (UI)
   - Lista de contratos
   - Detalle de contrato
   - Wizard de creación
@@ -218,7 +218,7 @@ Implementar la funcionalidad mínima viable con los módulos core del negocio.
 
 ### 1.6 Base de Datos y Seeds
 
-- ✅ **T019**: Scripts de seeds de datos de prueba
+- ✅ **T161**: Scripts de seeds de datos de prueba
   - Usuarios de diferentes roles
   - Propiedades de ejemplo
   - Inquilinos de prueba
@@ -226,21 +226,24 @@ Implementar la funcionalidad mínima viable con los módulos core del negocio.
 
 ### 1.7 Testing MVP
 
-- ✅ **T020**: Tests unitarios backend (70% coverage)
+- ✅ **T171**: Tests unitarios backend (70% coverage)
   - Tests de servicios
   - Tests de controladores
   - Tests de autenticación/autorización
 
-- ✅ **T021**: Tests de integración API
+- ✅ **T172**: Tests de integración API
   - Tests end-to-end de flujos principales
   - Tests de creación de propiedad
   - Tests de creación de contrato
 
-- **T022**: Tests E2E frontend críticos
+- ✅ **T173**: Tests E2E frontend críticos
   - Login flow
   - Crear propiedad
+  - Crear inquilino
   - Crear contrato
-  - Cypress/Playwright
+  - Flujos de facturas
+  - Flujos de pagos
+  - Playwright
 
 **Criterios de Éxito**:
 - ✅ Usuarios pueden autenticarse
@@ -258,46 +261,46 @@ Integrar servicios externos críticos para el negocio.
 
 ### 2.1 Módulo de Pagos Básico
 
-- ✅ **T001**: Modelo de datos de pagos
+- ✅ **T211**: Modelo de datos de pagos
   - Entidades: Payment, Invoice, TenantAccount, TenantAccountMovement
   - Estados de pago
   - Métodos de pago
   - Migrations
 
-- **T002**: Integración con Stripe (futuras versiones)
+- **T212**: Integración con Stripe (futuras versiones)
   - Configuración de cuenta Stripe
   - Implementar Strategy pattern para PSPs
   - Crear payment intents
   - Webhooks de confirmación
   - Manejo de errores y reintentos
 
-- **T003**: Integración con MercadoPago
+- **T213**: Integración con MercadoPago
   - Implementación de Strategy para MP
   - Checkout Pro
   - Webhooks IPN
   - Testing en sandbox
 
-- ✅ **T004**: API de Pagos
+- ✅ **T214**: API de Pagos
   - Registrar pago manual
   - Consultar estado de pago
   - Historial de pagos
   - Cuenta corriente de inquilinos
 
-- ✅ **T005**: Generación de facturas/recibos PDF
+- ✅ **T215**: Generación de facturas/recibos PDF
   - Template de factura/recibo
   - Numeración automática
   - API para descargar
 
 ### 2.2 Firma Digital
 
-- **T006**: Integración con DocuSign
+- **T221**: Integración con DocuSign
   - Configuración de cuenta
   - API de creación de sobres
   - Envío de documentos para firma
   - Webhook de firma completada
   - Descarga de documento firmado
 
-- **T007**: Flujo de firma de contrato
+- **T222**: Flujo de firma de contrato
   - Generar PDF de contrato
   - Enviar para firma
   - Actualizar estado cuando se firma
@@ -305,30 +308,30 @@ Integrar servicios externos críticos para el negocio.
 
 ### 2.3 Notificaciones
 
-- **T008**: Servicio de notificaciones
+- **T231**: Servicio de notificaciones
   - Abstraer NotificationService
   - Plantillas de emails
   - Sistema de cola para notificaciones
 
-- **T009**: Integración con SendGrid (Email)
+- **T232**: Integración con SendGrid (Email)
   - Configuración de API key
   - Templates en SendGrid
   - Envío de emails transaccionales
   - Tracking de envíos
 
-- **T010**: Integración con Twilio (SMS)
+- **T233**: Integración con Twilio (SMS)
   - Configuración de cuenta
   - Envío de SMS
   - Log de mensajes enviados
 
-- **T011**: Push Notifications setup (Firebase)
+- **T234**: Push Notifications setup (Firebase)
   - Configuración básica
   - Registro de dispositivos
   - Envío de notificaciones (preparación para mobile)
 
 ### 2.4 UI Módulo de Pagos
 
-- ✅ **T012**: Módulo de Pagos (Frontend)
+- ✅ **T241**: Módulo de Pagos (Frontend)
   - Lista de pagos por contrato
   - Registrar pago manual
   - Visualizar recibo
@@ -336,12 +339,12 @@ Integrar servicios externos críticos para el negocio.
 
 ### 2.5 Testing Integraciones
 
-- **T013**: Tests de integración con PSPs
+- **T251**: Tests de integración con PSPs
   - Mocks de Stripe/MercadoPago
   - Tests de webhooks
   - Tests de errores de pago
 
-- **T014**: Tests de notificaciones
+- **T252**: Tests de notificaciones
   - Mocks de SendGrid/Twilio
   - Verificar envío correcto
   - Templates rendering
@@ -361,43 +364,43 @@ Completar módulos restantes y funcionalidades avanzadas.
 
 ### 3.1 CRM y Gestión Comercial
 
-- **T001**: Modelo de datos CRM
-- **T002**: API de CRM
-- **T003**: UI de CRM
+- **T311**: Modelo de datos CRM
+- **T312**: API de CRM
+- **T313**: UI de CRM
 
 ### 3.2 Mantenimiento
 
-- **T004**: Modelo de datos de mantenimiento
-- **T005**: API de Mantenimiento
-- **T006**: UI de Mantenimiento
+- **T321**: Modelo de datos de mantenimiento
+- **T322**: API de Mantenimiento
+- **T323**: UI de Mantenimiento
 
 ### 3.3 Reportes
 
-- **T007**: Modelo de datos de reportes
-- **T008**: Motor de generación de reportes
-- **T009**: Reportes predefinidos
-- **T010**: UI de Reportes
+- **T331**: Modelo de datos de reportes
+- **T332**: Motor de generación de reportes
+- **T333**: Reportes predefinidos
+- **T334**: UI de Reportes
 
 ### 3.4 Portal de Propietarios
 
-- **T011**: Portal específico para propietarios
+- **T341**: Portal específico para propietarios
 
 ### 3.5 Portal de Inquilinos
 
-- **T012**: Portal específico para inquilinos
+- **T351**: Portal específico para inquilinos
 
 ### 3.6 Mobile App (PWA básica)
 
-- **T013**: Convertir web a PWA
+- **T361**: Convertir web a PWA
 
 ### 3.7 Auditoría
 
-- **T014**: Sistema de auditoría
+- **T371**: Sistema de auditoría
 
 ### 3.8 Testing Fase 3
 
-- **T015**: Tests de CRM, Mantenimiento, Reportes
-- **T016**: Tests E2E de flujos completos
+- **T381**: Tests de CRM, Mantenimiento, Reportes
+- **T382**: Tests E2E de flujos completos
 
 ---
 
@@ -407,30 +410,30 @@ Completar módulos restantes y funcionalidades avanzadas.
 Mejorar performance, escalabilidad y experiencia de usuario.
 
 ### 4.1 Performance y Caching
-- **T001**: Implementar caché con Redis
-- **T002**: Optimización de queries DB
-- **T003**: Implementar paginación eficiente
+- **T411**: Implementar caché con Redis
+- **T412**: Optimización de queries DB
+- **T413**: Implementar paginación eficiente
 
 ### 4.2 Búsqueda Avanzada
-- **T004**: Integración con Elasticsearch
-- **T005**: UI de búsqueda avanzada
+- **T421**: Integración con Elasticsearch
+- **T422**: UI de búsqueda avanzada
 
 ### 4.3 Workers Asíncronos
-- **T006**: Implementar workers para tareas pesadas
-- **T007**: Cobros recurrentes automáticos
+- **T431**: Implementar workers para tareas pesadas
+- **T432**: Cobros recurrentes automáticos
 
 ### 4.4 Mejoras de UX
-- **T008**: Dashboards interactivos
-- **T009**: Notificaciones en tiempo real
+- **T441**: Dashboards interactivos
+- **T442**: Notificaciones en tiempo real
 
 ### 4.5 Seguridad Avanzada
-- **T010**: Implementar 2FA
-- **T011**: Rate limiting y throttling
-- **T012**: Security headers y WAF básico
+- **T451**: Implementar 2FA
+- **T452**: Rate limiting y throttling
+- **T453**: Security headers y WAF básico
 
 ### 4.6 Testing y Load Testing
-- **T013**: Load testing con k6/Gatling
-- **T014**: Security testing básico
+- **T461**: Load testing con k6/Gatling
+- **T462**: Security testing básico
 
 ---
 
@@ -440,31 +443,31 @@ Mejorar performance, escalabilidad y experiencia de usuario.
 Endurecer el sistema para producción y establecer procesos operativos.
 
 ### 5.1 Hardening de Seguridad
-- **T001**: Auditoría de seguridad completa
-- **T002**: Gestión de secrets con Vault
-- **T003**: Backups automatizados
+- **T511**: Auditoría de seguridad completa
+- **T512**: Gestión de secrets con Vault
+- **T513**: Backups automatizados
 
 ### 5.2 Documentación
-- **T004**: Documentación técnica completa
-- **T005**: Documentación de API (OpenAPI/Swagger)
-- **T006**: Manual de usuario
+- **T521**: Documentación técnica completa
+- **T522**: Documentación de API (OpenAPI/Swagger)
+- **T523**: Manual de usuario
 
 ### 5.3 Monitoreo y Alertas
-- **T007**: Configurar alertas de producción
-- **T008**: Dashboards de producción
+- **T531**: Configurar alertas de producción
+- **T532**: Dashboards de producción
 
 ### 5.4 Disaster Recovery
-- **T009**: Plan de DR y tests
+- **T541**: Plan de DR y tests
 
 ### 5.5 Ambiente de Producción
-- **T010**: Configurar ambiente de producción
-- **T011**: Pipeline de CD a producción
+- **T551**: Configurar ambiente de producción
+- **T552**: Pipeline de CD a producción
 
 ### 5.6 UAT
-- **T012**: Sesiones de UAT con usuarios reales
+- **T561**: Sesiones de UAT con usuarios reales
 
 ### 5.7 Capacitación
-- **T013**: Capacitación a usuarios
+- **T571**: Capacitación a usuarios
 
 ---
 
@@ -474,19 +477,19 @@ Endurecer el sistema para producción y establecer procesos operativos.
 Lanzar a producción y estabilizar el sistema.
 
 ### 6.1 Migración de Datos
-- **T001**: Scripts de migración de datos existentes
+- **T611**: Scripts de migración de datos existentes
 
 ### 6.2 Go-Live
-- **T002**: Deployment a producción
-- **T003**: Comunicación de lanzamiento
+- **T621**: Deployment a producción
+- **T622**: Comunicación de lanzamiento
 
 ### 6.3 Estabilización
-- **T004**: Monitoreo y corrección de bugs críticos
-- **T005**: Optimizaciones post-lanzamiento
+- **T631**: Monitoreo y corrección de bugs críticos
+- **T632**: Optimizaciones post-lanzamiento
 
 ### 6.4 Retrospectiva
-- **T006**: Retrospectiva del proyecto
-- **T007**: Plan de roadmap futuro
+- **T641**: Retrospectiva del proyecto
+- **T642**: Plan de roadmap futuro
 
 ---
 
@@ -499,132 +502,132 @@ Implementar sistema de facturación automatizada ejecutado por crontab.
 
 ### 7.1 Infraestructura Batch
 
-- ✅ **T001**: Setup proyecto `/batch`
+- ✅ **T711**: Setup proyecto `/batch`
   - Proyecto Node.js CLI independiente
   - Estructura de carpetas (commands, services, shared)
   - Configuración TypeScript
   - Logger (Winston)
 
-- ✅ **T002**: Conexión a base de datos compartida
+- ✅ **T712**: Conexión a base de datos compartida
   - Pool de conexiones PostgreSQL
   - Manejo de transacciones
   - Variables de entorno
 
 ### 7.2 Modelo de Datos Facturación
 
-- ✅ **T003**: Migraciones para ajustes por inflación
+- ✅ **T721**: Migraciones para ajustes por inflación
   - Campos en `leases`: adjustment_index, adjustment_month, etc.
   - Tabla `inflation_indices` (ICL, IGP-M)
   - Tabla `exchange_rates` (USD, BRL → ARS)
 
-- **T004**: Migraciones para ARCA/factura electrónica
+- **T722**: Migraciones para ARCA/factura electrónica
   - Campos en `companies`: arca_cuit, arca_certificate, etc.
   - Campos en `invoices`: arca_cae, arca_qr_data, etc.
   - Campos para retenciones (IIBB, IVA, Ganancias)
 
-- ✅ **T005**: Migraciones para reportes
+- ✅ **T723**: Migraciones para reportes
   - Tabla `billing_jobs` (auditoría)
 
 ### 7.3 Servicios de Índices
 
-- ✅ **T006**: Servicio BCRA (Argentina)
+- ✅ **T731**: Servicio BCRA (Argentina)
   - API de índices (ICL - variable 41)
   - API de tipos de cambio (USD, BRL)
   - Cache de valores diarios
   - Manejo de errores y reintentos
 
-- ✅ **T007**: Servicio BCB/FGV (Brasil)
+- ✅ **T732**: Servicio BCB/FGV (Brasil)
   - API de IGP-M
   - Parsing de respuestas
   - Sincronización diaria
 
 ### 7.4 Multi-Moneda
 
-- ✅ **T008**: Servicio de tipos de cambio
+- ✅ **T741**: Servicio de tipos de cambio
   - ExchangeRateService
   - Cache en base de datos
   - Conversión USD/BRL → ARS
 
-- ✅ **T009**: Lógica de facturación multi-moneda
+- ✅ **T742**: Lógica de facturación multi-moneda
   - Contratos en USD/BRL
   - Conversión al facturar
   - Guardar monto original y convertido
 
 ### 7.5 Billing Core
 
-- ✅ **T010**: Servicio de ajustes
+- ✅ **T751**: Servicio de ajustes
   - AdjustmentService
   - Cálculo por índice (ICL, IGP-M)
   - Cláusulas de aumento personalizadas
   - Actualización de monto de alquiler
 
-- ✅ **T011**: Comando `billing`
+- ✅ **T752**: Comando `billing`
   - Generar facturas según frecuencia
   - Aplicar ajustes si corresponde
   - Cargar a cuenta corriente
   - Opción --dry-run
 
-- ✅ **T012**: Comando `overdue`
+- ✅ **T753**: Comando `overdue`
   - Marcar facturas vencidas
   - Cambiar estado invoice.status
 
-- ✅ **T013**: Comando `late-fees`
+- ✅ **T754**: Comando `late-fees`
   - Calcular intereses por mora
   - Crear movimiento en cuenta corriente
   - Notificar al inquilino
 
-- ✅ **T014**: Comando `reminders`
+- ✅ **T755**: Comando `reminders`
   - Enviar recordatorios N días antes
   - Respetar preferencias de notificación
 
 ### 7.6 Integración ARCA (ex AFIP)
 
-- ✅ **T015**: Servicio ARCA
+- ✅ **T761**: Servicio ARCA
   - Autenticación WSAA (LoginCMS)
   - Emisión de factura (FECAESolicitar)
   - Manejo de token y sign
   - Generación de QR
 
-- ✅ **T016**: Cálculo de retenciones
+- ✅ **T762**: Cálculo de retenciones
   - WithholdingsService
   - IIBB, IVA, Ganancias
   - Según configuración de company
 
 ### 7.7 Notificaciones Facturación
 
-- ✅ **T017**: Templates de email facturación
+- ✅ **T771**: Templates de email facturación
   - Factura emitida (Handlebars)
   - Recordatorio de pago
   - Aviso de mora
 
-- ✅ **T018**: Comando `sync-indices`
+- ✅ **T772**: Comando `sync-indices`
   - Sincronizar ICL, IGP-M diariamente
   - Guardar en inflation_indices
 
-- ✅ **T019**: Comando `sync-rates`
+- ✅ **T773**: Comando `sync-rates`
   - Sincronizar tipos de cambio
   - Guardar en exchange_rates
 
 ### 7.8 Reportes Automáticos
 
-- ✅ **T020**: Servicio de reportes
+- ✅ **T781**: Servicio de reportes
   - ReportService
   - Generación de PDF (Puppeteer)
   - Templates Handlebars
 
-- ✅ **T021**: Comando `reports`
+- ✅ **T782**: Comando `reports`
   - Generar reportes programados
   - Envío por email
   - Resumen mensual propietarios
 
 ### 7.9 Testing Facturación
 
-- ✅ **T022**: Tests unitarios servicios
+- ✅ **T791**: Tests unitarios servicios
   - Tests de AdjustmentService
   - Tests de BillingService
   - Mocks de APIs externas
 
-- **T023**: Tests de integración
+- **T792**: Tests de integración
   - Flujo completo de facturación
   - Tests de ARCA en sandbox
   - Tests de notificaciones
@@ -673,125 +676,125 @@ Implementar sistema de cobranza multicanal y liquidación a propietarios.
 
 ### 8.1 Modelo de Datos Cobranzas
 
-- **T001**: Migraciones cuentas bancarias
+- **T811**: Migraciones cuentas bancarias
   - Tabla `bank_accounts` (CBU/CVU)
   - Alias virtuales por propiedad
   - Cuentas de propietarios
 
-- **T002**: Migraciones crypto
+- **T812**: Migraciones crypto
   - Tabla `crypto_wallets`
   - Tabla `lightning_invoices`
   - Hot/cold wallet flags
 
-- ✅ **T003**: Migraciones pagos y liquidaciones
+- ✅ **T813**: Migraciones pagos y liquidaciones
   - Tabla `payments` (extendida)
   - Tabla `receipts`
 
-- ✅ **T004**: Migraciones conciliación
+- ✅ **T814**: Migraciones conciliación
   - Tabla `tenant_accounts` (cuenta corriente)
   - Tabla `tenant_account_movements`
 
 ### 8.2 Integración MercadoPago
 
-- **T005**: Servicio MercadoPago
+- **T821**: Servicio MercadoPago
   - MercadoPagoService
   - Crear preferencia de pago
   - Webhooks IPN
   - Testing sandbox
 
-- **T006**: Link de pago en facturas
+- **T822**: Link de pago en facturas
   - Incluir link MP en email de factura
   - QR code en PDF de factura
 
 ### 8.3 Integración Bancaria
 
-- **T007**: Servicio de transferencias
+- **T831**: Servicio de transferencias
   - BankTransferService
   - Integración con proveedor (Bind/Pomelo)
   - Webhooks de movimientos
 
-- **T008**: Cuentas virtuales por propiedad
+- **T832**: Cuentas virtuales por propiedad
   - Crear alias virtual
   - Asociar a propiedad
   - Identificación automática
 
 ### 8.4 Integración Crypto
 
-- **T009**: Servicio de wallets crypto
+- **T841**: Servicio de wallets crypto
   - WalletService
   - Derivación de direcciones HD (Bitcoin)
   - Smart contract Ethereum
 
-- **T010**: Lightning Network
+- **T842**: Lightning Network
   - Generación de invoices
   - Verificación de pagos
   - Integración con LND
 
-- **T011**: Verificación de confirmaciones
+- **T843**: Verificación de confirmaciones
   - Bitcoin: 3 confirmaciones
   - Ethereum: 12 confirmaciones
   - Actualizar estado de pago
 
 ### 8.5 Conciliación
 
-- **T012**: Servicio de conciliación
+- **T851**: Servicio de conciliación
   - ReconciliationService
   - Matching por alias
   - Matching por monto/fecha
   - Alertas de no conciliados
 
-- **T013**: Comando `reconcile-bank`
+- **T852**: Comando `reconcile-bank`
   - Procesar movimientos bancarios
   - Match con pagos pendientes
   - Generar alertas
 
 ### 8.6 Cuenta Corriente
 
-- ✅ **T014**: Servicio de cuenta corriente
+- ✅ **T861**: Servicio de cuenta corriente
   - TenantAccountService
   - Aplicación FIFO de pagos
   - Cálculo de balance
 
-- **T015**: Comando `process-payments`
+- **T862**: Comando `process-payments`
   - Procesar webhooks pendientes
   - Confirmar pagos
 
 ### 8.7 Recibos
 
-- ✅ **T016**: Servicio de recibos
+- ✅ **T871**: Servicio de recibos
   - ReceiptService
   - Generación de PDF
   - Numeración automática
 
-- **T017**: Comando `send-receipts`
+- **T872**: Comando `send-receipts`
   - Enviar recibos pendientes
   - Email con PDF adjunto
 
 ### 8.8 Liquidaciones
 
-- **T018**: Servicio de liquidaciones
+- **T881**: Servicio de liquidaciones
   - SettlementService
   - Cálculo de comisión (% o fijo)
   - Descuento de retenciones
   - Programación según vencimiento
 
-- **T019**: Comando `process-settlements`
+- **T882**: Comando `process-settlements`
   - Procesar liquidaciones programadas
   - Transferir fondos
   - Notificar a propietario
 
-- **T020**: Lógica de fecha de liquidación
+- **T883**: Lógica de fecha de liquidación
   - Si pago antes de vencimiento → liquidar en vencimiento
   - Si pago después → liquidar mismo día
 
 ### 8.9 Testing Cobranzas
 
-- **T021**: Tests unitarios servicios
+- **T891**: Tests unitarios servicios
   - Tests de PaymentService
   - Tests de SettlementService
   - Mocks de MercadoPago/bancos
 
-- **T022**: Tests de integración
+- **T892**: Tests de integración
   - Flujo completo de pago
   - Conciliación
   - Liquidación
