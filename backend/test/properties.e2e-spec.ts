@@ -51,7 +51,7 @@ describe('Properties Management (e2e)', () => {
         role: 'owner',
       });
 
-    ownerToken = ownerRes.body.access_token;
+    ownerToken = ownerRes.body.accessToken;
     const ownerUserId = ownerRes.body.user.id;
 
     // Create company first (needed for owners)
@@ -81,7 +81,7 @@ describe('Properties Management (e2e)', () => {
         role: 'owner',
       });
 
-    otherOwnerToken = otherOwnerRes.body.access_token;
+    otherOwnerToken = otherOwnerRes.body.accessToken;
 
     // Create owner record for other owner with company_id
     await userRepository.query(

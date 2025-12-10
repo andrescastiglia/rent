@@ -85,7 +85,7 @@ describe('Lease Creation Flow (e2e)', () => {
         role: 'owner',
       });
 
-    ownerToken = ownerRes.body.access_token;
+    ownerToken = ownerRes.body.accessToken;
     const ownerUserId = ownerRes.body.user.id;
 
     // Create company first (needed for owners)

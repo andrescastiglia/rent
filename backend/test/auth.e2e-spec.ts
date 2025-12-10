@@ -54,7 +54,7 @@ describe('Authentication (e2e)', () => {
         .expect(201)
         .expect((res) => {
           expect(res.body).toHaveProperty('user');
-          expect(res.body).toHaveProperty('access_token');
+          expect(res.body).toHaveProperty('accessToken');
           expect(res.body.user.email).toBe(registerDto.email);
           expect(res.body.user).not.toHaveProperty('passwordHash');
         });
@@ -137,7 +137,7 @@ describe('Authentication (e2e)', () => {
         })
         .expect(200)
         .expect((res) => {
-          expect(res.body).toHaveProperty('access_token');
+          expect(res.body).toHaveProperty('accessToken');
           expect(res.body).toHaveProperty('user');
           expect(res.body.user.email).toBe(testUser.email);
         });
@@ -182,7 +182,7 @@ describe('Authentication (e2e)', () => {
         .post('/auth/register')
         .send(testUser);
 
-      accessToken = registerRes.body.access_token;
+      accessToken = registerRes.body.accessToken;
     });
 
     it('should access protected route with valid token', () => {

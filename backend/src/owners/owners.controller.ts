@@ -25,7 +25,7 @@ interface AuthenticatedRequest {
 @UseGuards(JwtAuthGuard)
 @Roles(UserRole.ADMIN)
 export class OwnersController {
-  constructor(private readonly ownersService: OwnersService) { }
+  constructor(private readonly ownersService: OwnersService) {}
 
   /**
    * Get all owners for the authenticated user's company.

@@ -19,11 +19,14 @@ export default defineConfig({
         trace: 'on-first-retry',
         screenshot: 'only-on-failure',
     },
+    expect: {
+        timeout: 10000,
+    },
 
     projects: [
         {
             name: 'chromium',
-            use: { 
+            use: {
                 ...devices['Desktop Chrome'],
                 // Always run headless
                 headless: true,

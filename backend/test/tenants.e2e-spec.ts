@@ -54,7 +54,7 @@ describe('Tenants Management (e2e)', () => {
         role: 'owner',
       });
 
-    ownerToken = ownerRes.body.access_token;
+    ownerToken = ownerRes.body.accessToken;
 
     if (!ownerToken) {
       throw new Error(`Failed to setup test user. Status: ${ownerRes.status}`);
