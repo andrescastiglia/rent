@@ -19,6 +19,7 @@ import { CurrenciesModule } from './currencies/currencies.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { PaymentsModule } from './payments/payments.module';
 import { RolesGuard } from './common/guards/roles.guard';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { I18nModule, AcceptLanguageResolver } from 'nestjs-i18n';
 import * as path from 'path';
@@ -61,6 +62,10 @@ import * as path from 'path';
     AppService,
     {
       provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
       useClass: RolesGuard,
     },
     {
@@ -69,4 +74,4 @@ import * as path from 'path';
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }

@@ -7,6 +7,8 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { UserRole } from '../users/entities/user.entity';
 import { OwnersService } from './owners.service';
 import { Owner } from './entities/owner.entity';
 
@@ -21,8 +23,9 @@ interface AuthenticatedRequest {
 
 @Controller('owners')
 @UseGuards(JwtAuthGuard)
+@Roles(UserRole.ADMIN)
 export class OwnersController {
-  constructor(private readonly ownersService: OwnersService) {}
+  constructor(private readonly ownersService: OwnersService) { }
 
   /**
    * Get all owners for the authenticated user's company.

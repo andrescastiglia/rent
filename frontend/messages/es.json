@@ -27,7 +27,9 @@
         "myProfile": "Mi Perfil",
         "settings": "Configuración",
         "selectLanguage": "Seleccionar idioma",
-        "notImplemented": "Aún no implementado"
+        "notImplemented": "Aún no implementado",
+        "accessDenied": "Acceso denegado",
+        "accessDeniedMessage": "No tienes permiso para acceder a esta sección. Contacta al administrador si crees que esto es un error."
     },
     "nav": {
         "dashboard": "Panel",

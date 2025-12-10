@@ -30,12 +30,12 @@ export const navigationItems: NavItem[] = [
     {
         labelKey: 'payments',
         href: '/payments',
-        roles: ['admin', 'owner', 'tenant'],
+        roles: ['admin', 'owner', 'tenant', 'staff'],
     },
     {
         labelKey: 'invoices',
         href: '/invoices',
-        roles: ['admin', 'owner', 'tenant'],
+        roles: ['admin', 'owner', 'tenant', 'staff'],
     },
     {
         labelKey: 'users',

@@ -27,7 +27,9 @@
         "myProfile": "My Profile",
         "settings": "Settings",
         "selectLanguage": "Select language",
-        "notImplemented": "Not implemented yet"
+        "notImplemented": "Not implemented yet",
+        "accessDenied": "Access Denied",
+        "accessDeniedMessage": "You don't have permission to access this section. Contact your administrator if you believe this is an error."
     },
     "nav": {
         "dashboard": "Dashboard",
