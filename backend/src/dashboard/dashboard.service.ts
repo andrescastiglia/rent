@@ -31,7 +31,7 @@ export class DashboardService {
     private readonly billingJobRepository: Repository<BillingJob>,
     @InjectRepository(CommissionInvoice)
     private readonly commissionInvoiceRepository: Repository<CommissionInvoice>,
-  ) {}
+  ) { }
 
   async getStats(companyId: string): Promise<DashboardStatsDto> {
     // Count properties for the company
@@ -53,7 +53,6 @@ export class DashboardService {
       .createQueryBuilder('lease')
       .innerJoin('lease.unit', 'unit')
       .innerJoin('unit.property', 'property')
-      .leftJoinAndSelect('lease.currency', 'currency')
       .where('property.company_id = :companyId', { companyId })
       .andWhere('lease.status = :status', { status: LeaseStatus.ACTIVE })
       .andWhere('lease.deleted_at IS NULL')
