@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import "../../styles/globals.css";
 import { AuthProvider } from "@/contexts/auth-context";
 import { locales } from '@/config/locales';
+import { ToastHost } from '@/components/common/ToastHost';
 
 type Props = {
   params: { locale: string };
@@ -46,6 +47,7 @@ export default async function LocaleLayout({
       <body>
         <NextIntlClientProvider messages={messages}>
           <AuthProvider>
+            <ToastHost />
             {children}
           </AuthProvider>
         </NextIntlClientProvider>

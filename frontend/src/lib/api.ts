@@ -1,7 +1,11 @@
+import { isTokenExpired } from '@/lib/auth';
+import { forceLogout } from '@/lib/forceLogout';
+import { emitToast } from '@/lib/toastBus';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 // Mock mode for unit tests (NODE_ENV === 'test'), CI environment (no backend available), or explicit mock mode
-const IS_MOCK_MODE = process.env.NODE_ENV === 'test' || process.env.NEXT_PUBLIC_MOCK_MODE === 'true' || process.env.CI === 'true';
+export const IS_MOCK_MODE = process.env.NODE_ENV === 'test' || process.env.NEXT_PUBLIC_MOCK_MODE === 'true' || process.env.CI === 'true';
 
 // Mock authentication data for development/testing
 const MOCK_USERS = [
@@ -115,6 +119,13 @@ class ApiClient {
     ): Promise<T> {
         const { token, ...fetchOptions } = options;
 
+        // Auth guard: if token is expired/invalid, force logoff and do NOT attempt request.
+        // Skip entirely in mock mode.
+        if (!IS_MOCK_MODE && token && isTokenExpired(token)) {
+            forceLogout();
+            throw new Error('SESSION_EXPIRED');
+        }
+
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
             ...(fetchOptions.headers as Record<string, string>),
@@ -129,10 +140,15 @@ class ApiClient {
             headers,
         });
 
+        if (response.status === 401) {
+            // Spec: 401 -> toast (internationalized) WITHOUT logoff.
+            emitToast({ kind: 'error', namespace: 'auth', key: 'errors.unauthorized' });
+        }
+
         if (!response.ok) {
-            const error = await response.json().catch(() => ({
-                message: response.statusText,
-            }));
+            const error = await response
+                .json()
+                .catch(() => ({ message: response.statusText }));
             throw new Error(error.message || 'API request failed');
         }
 
@@ -175,6 +191,12 @@ class ApiClient {
     }
 
     async upload<T>(endpoint: string, formData: FormData, token?: string): Promise<T> {
+        // Auth guard: skip in mock mode
+        if (!IS_MOCK_MODE && token && isTokenExpired(token)) {
+            forceLogout();
+            throw new Error('SESSION_EXPIRED');
+        }
+
         const headers: Record<string, string> = {};
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
@@ -185,6 +207,10 @@ class ApiClient {
             headers,
             body: formData,
         });
+
+        if (response.status === 401) {
+            emitToast({ kind: 'error', namespace: 'auth', key: 'errors.unauthorized' });
+        }
 
         if (!response.ok) {
             const error = await response.json().catch(() => ({

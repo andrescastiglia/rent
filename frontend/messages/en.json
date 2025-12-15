@@ -70,7 +70,8 @@
             "loginError": "Error signing in",
             "registerError": "Error registering user",
             "passwordMismatch": "Passwords do not match",
-            "passwordTooShort": "Password must be at least 8 characters"
+            "passwordTooShort": "Password must be at least 8 characters",
+            "unauthorized": "Unauthorized. Please sign in to continue."
         },
         "placeholders": {
             "email": "your@email.com",

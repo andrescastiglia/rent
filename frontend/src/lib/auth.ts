@@ -32,11 +32,27 @@ export function removeUser(): void {
     localStorage.removeItem(USER_KEY);
 }
 
+function base64UrlDecode(input: string): string {
+    // Convert base64url -> base64
+    const base64 = input.replace(/-/g, '+').replace(/_/g, '/');
+    // Pad with '='
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+    return atob(padded);
+}
+
 export function isTokenExpired(token: string): boolean {
     try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const exp = payload.exp * 1000; // Convert to milliseconds
-        return Date.now() >= exp;
+        const parts = token.split('.');
+        if (parts.length < 2) return true;
+
+        const payload = JSON.parse(base64UrlDecode(parts[1]));
+        const expSeconds = payload?.exp;
+
+        // If token has no exp, treat it as expired/invalid.
+        if (typeof expSeconds !== 'number' || !Number.isFinite(expSeconds)) return true;
+
+        const expMs = expSeconds * 1000;
+        return Date.now() >= expMs;
     } catch {
         return true;
     }

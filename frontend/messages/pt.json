@@ -70,7 +70,8 @@
             "loginError": "Erro ao entrar",
             "registerError": "Erro ao cadastrar usuário",
             "passwordMismatch": "As senhas não coincidem",
-            "passwordTooShort": "A senha deve ter pelo menos 8 caracteres"
+            "passwordTooShort": "A senha deve ter pelo menos 8 caracteres",
+            "unauthorized": "Não autorizado. Faça login para continuar."
         },
         "placeholders": {
             "email": "seu@email.com",
