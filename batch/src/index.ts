@@ -24,8 +24,32 @@ for (let i = 0; i < rawArgs.length; i++) {
 }
 
 // Import logger after potential `process.env.LOG_FILE` is set.
-// Use require so import happens after env setup.
-const { logger } = require('./shared/logger');
+// Use dynamic import inside main() so ESLint does not complain about require().
+let logger: any;
+
+async function main() {
+    const mod = await import('./shared/logger');
+    logger = mod.logger;
+
+    // Parse command line arguments
+    program.parse(process.argv);
+
+    // Show help if no command provided
+    if (!process.argv.slice(2).length) {
+        program.outputHelp();
+    }
+}
+
+main().catch((err) => {
+    // If logger isn't available, fallback to console
+    if (logger && typeof logger.error === 'function') {
+        logger.error('Fatal error starting batch', { error: err });
+    } else {
+        // eslint-disable-next-line no-console
+        console.error('Fatal error starting batch', err);
+    }
+    process.exit(1);
+});
 
 // Singleton instance for job logging
 let billingJobService: BillingJobService;
@@ -707,10 +731,4 @@ program
         }
     });
 
-// Parse command line arguments
-program.parse(process.argv);
-
-// Show help if no command provided
-if (!process.argv.slice(2).length) {
-    program.outputHelp();
-}
+// program.parse() is invoked from main()
