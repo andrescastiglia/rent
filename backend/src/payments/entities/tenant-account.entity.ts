@@ -29,10 +29,10 @@ export class TenantAccount {
   @JoinColumn({ name: 'lease_id' })
   lease: Lease;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({ name: 'current_balance', type: 'decimal', precision: 12, scale: 2, default: 0 })
   balance: number;
 
-  @Column({ name: 'last_calculated_at', type: 'timestamptz', nullable: true })
+  @Column({ name: 'last_movement_at', type: 'timestamptz', nullable: true })
   lastCalculatedAt: Date;
 
   @OneToMany(() => TenantAccountMovement, (movement) => movement.account)
