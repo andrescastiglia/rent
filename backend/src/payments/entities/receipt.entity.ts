@@ -32,20 +32,20 @@ export class Receipt {
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   amount: number;
 
-  @Column({ name: 'currency_code', default: 'ARS' })
+  @Column({ name: 'currency', default: 'ARS' })
   currencyCode: string;
 
   @ManyToOne(() => Currency)
-  @JoinColumn({ name: 'currency_code', referencedColumnName: 'code' })
+  @JoinColumn({ name: 'currency', referencedColumnName: 'code' })
   currency: Currency;
 
   @Column({ name: 'pdf_url', nullable: true })
   pdfUrl: string;
 
   @Column({
-    name: 'issued_at',
-    type: 'timestamptz',
-    default: () => 'CURRENT_TIMESTAMP',
+    name: 'issue_date',
+    type: 'date',
+    default: () => 'CURRENT_DATE',
   })
   issuedAt: Date;
 

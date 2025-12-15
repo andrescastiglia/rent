@@ -83,7 +83,7 @@ export class Invoice {
   subtotal: number;
 
   @Column({
-    name: 'late_fee',
+    name: 'late_fee_amount',
     type: 'decimal',
     precision: 12,
     scale: 2,
@@ -91,21 +91,21 @@ export class Invoice {
   })
   lateFee: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({ name: 'discount_amount', type: 'decimal', precision: 12, scale: 2, default: 0 })
   adjustments: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  @Column({ name: 'total_amount', type: 'decimal', precision: 12, scale: 2 })
   total: number;
 
-  @Column({ name: 'currency_code', default: 'ARS' })
+  @Column({ name: 'currency', default: 'ARS' })
   currencyCode: string;
 
   @ManyToOne(() => Currency)
-  @JoinColumn({ name: 'currency_code', referencedColumnName: 'code' })
+  @JoinColumn({ name: 'currency', referencedColumnName: 'code' })
   currency: Currency;
 
   @Column({
-    name: 'amount_paid',
+    name: 'paid_amount',
     type: 'decimal',
     precision: 12,
     scale: 2,
@@ -122,7 +122,7 @@ export class Invoice {
   @Column({ name: 'pdf_url', nullable: true })
   pdfUrl: string;
 
-  @Column({ name: 'issued_at', type: 'timestamptz', nullable: true })
+  @Column({ name: 'issue_date', type: 'date', nullable: true })
   issuedAt: Date;
 
   @Column({ type: 'text', nullable: true })
@@ -133,7 +133,7 @@ export class Invoice {
   @Column({ name: 'arca_cae', length: 14, nullable: true })
   arcaCae: string;
 
-  @Column({ name: 'arca_cae_expiration', type: 'date', nullable: true })
+  @Column({ name: 'arca_cae_vencimiento', type: 'date', nullable: true })
   arcaCaeExpiration: Date;
 
   @Column({
@@ -150,10 +150,10 @@ export class Invoice {
   @Column({ name: 'arca_numero_comprobante', type: 'integer', nullable: true })
   arcaNumeroComprobante: number;
 
-  @Column({ name: 'arca_qr_data', type: 'text', nullable: true })
+  @Column({ name: 'arca_qr_data', type: 'text', nullable: true, select: false, insert: false, update: false })
   arcaQrData: string;
 
-  @Column({ name: 'arca_error_log', type: 'text', nullable: true })
+  @Column({ name: 'arca_error_log', type: 'text', nullable: true, select: false, insert: false, update: false })
   arcaErrorLog: string;
 
   // Multi-Currency Support
@@ -171,7 +171,7 @@ export class Invoice {
   originalCurrency: string;
 
   @Column({
-    name: 'exchange_rate_used',
+    name: 'exchange_rate',
     type: 'decimal',
     precision: 12,
     scale: 6,
@@ -199,6 +199,9 @@ export class Invoice {
     precision: 12,
     scale: 2,
     default: 0,
+    select: false,
+    insert: false,
+    update: false,
   })
   withholdingIva: number;
 
@@ -217,6 +220,9 @@ export class Invoice {
     precision: 12,
     scale: 2,
     default: 0,
+    select: false,
+    insert: false,
+    update: false,
   })
   withholdingsTotal: number;
 
@@ -228,10 +234,13 @@ export class Invoice {
     precision: 12,
     scale: 2,
     default: 0,
+    select: false,
+    insert: false,
+    update: false,
   })
   adjustmentApplied: number;
 
-  @Column({ name: 'adjustment_index_type', length: 10, nullable: true })
+  @Column({ name: 'adjustment_index_type', length: 10, nullable: true, select: false, insert: false, update: false })
   adjustmentIndexType: string;
 
   @Column({
@@ -240,6 +249,9 @@ export class Invoice {
     precision: 8,
     scale: 4,
     nullable: true,
+    select: false,
+    insert: false,
+    update: false,
   })
   adjustmentIndexValue: number;
 
