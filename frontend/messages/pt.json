@@ -454,6 +454,7 @@
         "method": {
             "label": "Método de Pagamento",
             "cash": "Dinheiro",
+            "bank_transfer": "Transferência bancária",
             "transfer": "Transferência",
             "check": "Cheque",
             "debit": "Débito",
