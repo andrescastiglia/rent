@@ -64,10 +64,10 @@ export class Payment {
   @Column({ name: 'payment_date', type: 'date' })
   paymentDate: Date;
 
-  @Column({ type: 'enum', enum: PaymentMethod })
+  @Column({ name: 'payment_method', type: 'enum', enum: PaymentMethod })
   method: PaymentMethod;
 
-  @Column({ nullable: true })
+  @Column({ name: 'reference_number', nullable: true })
   reference: string;
 
   @Column({ type: 'enum', enum: PaymentStatus, default: PaymentStatus.PENDING })
@@ -76,7 +76,13 @@ export class Payment {
   @Column({ type: 'text', nullable: true })
   notes: string;
 
-  @Column({ name: 'received_by', nullable: true })
+  @Column({
+    name: 'received_by',
+    nullable: true,
+    select: false,
+    insert: false,
+    update: false,
+  })
   receivedBy: string;
 
   @ManyToOne(() => User, { nullable: true })

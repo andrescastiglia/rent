@@ -119,7 +119,13 @@ export class Invoice {
   @Column({ type: 'enum', enum: InvoiceStatus, default: InvoiceStatus.DRAFT })
   status: InvoiceStatus;
 
-  @Column({ name: 'pdf_url', nullable: true })
+  @Column({
+    name: 'pdf_url',
+    nullable: true,
+    select: false,
+    insert: false,
+    update: false,
+  })
   pdfUrl: string;
 
   @Column({ name: 'issue_date', type: 'date', nullable: true })

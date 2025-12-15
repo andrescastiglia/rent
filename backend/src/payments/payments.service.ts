@@ -198,7 +198,6 @@ export class PaymentsService {
         'tenantAccount',
         'tenantAccount.lease',
         'tenantAccount.lease.tenant',
-        'receiver',
         'receipt',
         'currency',
       ],
