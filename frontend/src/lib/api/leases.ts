@@ -1,8 +1,198 @@
 import { Lease, CreateLeaseInput, UpdateLeaseInput } from '@/types/lease';
+import type { Property } from '@/types/property';
+import type { Tenant } from '@/types/tenant';
 import { apiClient } from '../api';
 import { getToken } from '../auth';
 import { propertiesApi } from './properties';
 import { tenantsApi } from './tenants';
+
+type PaginatedResponse<T> = { data: T[]; total: number; page: number; limit: number };
+
+type BackendUser = {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    isActive?: boolean | null;
+};
+
+type BackendTenant = {
+    id: string;
+    dni?: string | null;
+    user?: BackendUser | null;
+};
+
+type BackendUnit = {
+    id: string;
+    propertyId?: string | null;
+    unitNumber?: string | null;
+    floor?: string | null;
+    bedrooms?: number | null;
+    bathrooms?: number | null;
+    area?: number | null;
+    status?: string | null;
+    baseRent?: number | null;
+    property?: any;
+};
+
+type BackendLease = {
+    id: string;
+    unitId: string;
+    tenantId: string;
+    ownerId: string;
+    startDate: string | Date;
+    endDate: string | Date;
+    monthlyRent?: number | null;
+    securityDeposit?: number | null;
+    currency?: string | null;
+    status?: string | null;
+    createdAt?: string | Date;
+    updatedAt?: string | Date;
+    paymentFrequency?: string | null;
+    paymentDueDay?: number | null;
+    billingFrequency?: string | null;
+    billingDay?: number | null;
+    autoGenerateInvoices?: boolean | null;
+    lateFeeType?: string | null;
+    lateFeeValue?: number | null;
+    lateFeeGraceDays?: number | null;
+    lateFeeMax?: number | null;
+    adjustmentType?: string | null;
+    adjustmentValue?: number | null;
+    adjustmentFrequencyMonths?: number | null;
+    inflationIndexType?: string | null;
+    nextAdjustmentDate?: string | Date | null;
+    lastAdjustmentDate?: string | Date | null;
+    termsAndConditions?: string | null;
+    documents?: any[] | null;
+    unit?: BackendUnit | null;
+    tenant?: BackendTenant | null;
+};
+
+const isPaginatedResponse = <T,>(value: any): value is PaginatedResponse<T> => {
+    return !!value && typeof value === 'object' && Array.isArray(value.data);
+};
+
+const normalizeDate = (value: string | Date | null | undefined): string => {
+    if (!value) return new Date().toISOString();
+    return new Date(value).toISOString();
+};
+
+const mapLeaseStatus = (value: string | null | undefined): Lease['status'] => {
+    switch ((value ?? '').toLowerCase()) {
+        case 'active':
+            return 'ACTIVE';
+        case 'terminated':
+            return 'TERMINATED';
+        case 'expired':
+        case 'ended':
+            return 'ENDED';
+        case 'draft':
+        default:
+            return 'DRAFT';
+    }
+};
+
+const mapBackendLeaseToLease = (raw: BackendLease): Lease => {
+    const unit = raw.unit ?? null;
+    const propertyId = unit?.propertyId ?? '';
+
+    const tenantUser = raw.tenant?.user ?? null;
+    const tenant: Tenant | undefined = tenantUser
+        ? {
+              id: raw.tenantId,
+              firstName: tenantUser.firstName ?? '',
+              lastName: tenantUser.lastName ?? '',
+              email: tenantUser.email ?? '',
+              phone: tenantUser.phone ?? '',
+              dni: raw.tenant?.dni ?? raw.tenantId,
+              status: (tenantUser.isActive ?? true) ? 'ACTIVE' : 'INACTIVE',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+          }
+        : undefined;
+
+    const property: Property | undefined = unit?.property
+        ? {
+              id: unit.property.id,
+              name: unit.property.name ?? '',
+              description: unit.property.description ?? undefined,
+              type: 'OTHER',
+              status: 'ACTIVE',
+              address: {
+                  street: unit.property.addressStreet ?? '',
+                  number: unit.property.addressNumber ?? '',
+                  unit: undefined,
+                  city: unit.property.addressCity ?? '',
+                  state: unit.property.addressState ?? '',
+                  zipCode: unit.property.addressPostalCode ?? '',
+                  country: unit.property.addressCountry ?? 'Argentina',
+              },
+              features: [],
+              units: [],
+              images: Array.isArray(unit.property.images)
+                  ? unit.property.images
+                        .map((img: any) => (typeof img === 'string' ? img : img?.url))
+                        .filter((v: any) => typeof v === 'string' && v.length > 0)
+                  : [],
+              ownerId: unit.property.ownerId ?? raw.ownerId,
+              createdAt: unit.property.createdAt
+                  ? new Date(unit.property.createdAt).toISOString()
+                  : new Date().toISOString(),
+              updatedAt: unit.property.updatedAt
+                  ? new Date(unit.property.updatedAt).toISOString()
+                  : new Date().toISOString(),
+          }
+        : undefined;
+
+    return {
+        id: raw.id,
+        propertyId,
+        unitId: raw.unitId,
+        tenantId: raw.tenantId,
+        ownerId: raw.ownerId,
+        startDate: normalizeDate(raw.startDate),
+        endDate: normalizeDate(raw.endDate),
+        rentAmount: Number(raw.monthlyRent ?? 0),
+        depositAmount: Number(raw.securityDeposit ?? 0),
+        currency: raw.currency ?? 'ARS',
+        status: mapLeaseStatus(raw.status),
+        terms: raw.termsAndConditions ?? undefined,
+        documents: Array.isArray(raw.documents) ? raw.documents.filter((d) => typeof d === 'string') : [],
+        createdAt: normalizeDate(raw.createdAt),
+        updatedAt: normalizeDate(raw.updatedAt),
+        paymentFrequency: (raw.paymentFrequency as any) ?? undefined,
+        paymentDueDay: raw.paymentDueDay ?? undefined,
+        billingFrequency: (raw.billingFrequency as any) ?? undefined,
+        billingDay: raw.billingDay ?? undefined,
+        autoGenerateInvoices: raw.autoGenerateInvoices ?? undefined,
+        lateFeeType: (raw.lateFeeType as any) ?? undefined,
+        lateFeeValue: raw.lateFeeValue ?? undefined,
+        lateFeeGraceDays: raw.lateFeeGraceDays ?? undefined,
+        lateFeeMax: raw.lateFeeMax ?? undefined,
+        adjustmentType: (raw.adjustmentType as any) ?? undefined,
+        adjustmentValue: raw.adjustmentValue ?? undefined,
+        adjustmentFrequencyMonths: raw.adjustmentFrequencyMonths ?? undefined,
+        inflationIndexType: (raw.inflationIndexType as any) ?? undefined,
+        nextAdjustmentDate: raw.nextAdjustmentDate ? normalizeDate(raw.nextAdjustmentDate) : undefined,
+        lastAdjustmentDate: raw.lastAdjustmentDate ? normalizeDate(raw.lastAdjustmentDate) : undefined,
+        property,
+        unit: unit
+            ? {
+                  id: unit.id,
+                  unitNumber: unit.unitNumber ?? '',
+                  floor: unit.floor ?? undefined,
+                  bedrooms: Number(unit.bedrooms ?? 0),
+                  bathrooms: Number(unit.bathrooms ?? 0),
+                  area: Number(unit.area ?? 0),
+                  status: (unit.status ?? 'available').toUpperCase() as any,
+                  rentAmount: Number(unit.baseRent ?? 0),
+              }
+            : undefined,
+        tenant,
+    };
+};
 
 // Mock data for development/testing
 const MOCK_LEASES: Lease[] = [
@@ -64,7 +254,20 @@ export const leasesApi = {
         }
         
         const token = getToken();
-        return apiClient.get<Lease[]>('/leases', token ?? undefined);
+        const result = await apiClient.get<PaginatedResponse<BackendLease> | BackendLease[] | any>(
+            '/leases',
+            token ?? undefined,
+        );
+
+        if (Array.isArray(result)) {
+            return result.map(mapBackendLeaseToLease);
+        }
+
+        if (isPaginatedResponse<BackendLease>(result)) {
+            return result.data.map(mapBackendLeaseToLease);
+        }
+
+        throw new Error('Unexpected response shape from /leases');
     },
 
     getById: async (id: string): Promise<Lease | null> => {
@@ -80,7 +283,8 @@ export const leasesApi = {
         
         const token = getToken();
         try {
-            return await apiClient.get<Lease>(`/leases/${id}`, token ?? undefined);
+            const result = await apiClient.get<BackendLease>(`/leases/${id}`, token ?? undefined);
+            return mapBackendLeaseToLease(result);
         } catch {
             return null;
         }

@@ -2,6 +2,52 @@ import { Tenant, CreateTenantInput, UpdateTenantInput } from '@/types/tenant';
 import { apiClient } from '../api';
 import { getToken } from '../auth';
 
+type PaginatedResponse<T> = { data: T[]; total: number; page: number; limit: number };
+
+type BackendTenantLike = {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    isActive?: boolean | null;
+    dni?: string | null;
+    createdAt?: string | Date;
+    updatedAt?: string | Date;
+    user?: {
+        firstName?: string | null;
+        lastName?: string | null;
+        email?: string | null;
+        phone?: string | null;
+        isActive?: boolean | null;
+    } | null;
+};
+
+const isPaginatedResponse = <T,>(value: any): value is PaginatedResponse<T> => {
+    return !!value && typeof value === 'object' && Array.isArray(value.data);
+};
+
+const mapBackendTenantToTenant = (raw: BackendTenantLike): Tenant => {
+    const user = raw.user ?? null;
+    const firstName = (raw.firstName ?? user?.firstName ?? '') as string;
+    const lastName = (raw.lastName ?? user?.lastName ?? '') as string;
+    const email = (raw.email ?? user?.email ?? '') as string;
+    const phone = (raw.phone ?? user?.phone ?? '') as string;
+    const isActive = raw.isActive ?? user?.isActive ?? true;
+
+    return {
+        id: raw.id,
+        firstName,
+        lastName,
+        email,
+        phone,
+        dni: (raw.dni ?? raw.id) as string,
+        status: isActive ? 'ACTIVE' : 'INACTIVE',
+        createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : new Date().toISOString(),
+        updatedAt: raw.updatedAt ? new Date(raw.updatedAt).toISOString() : new Date().toISOString(),
+    };
+};
+
 // Mock data for development/testing
 const MOCK_TENANTS: Tenant[] = [
     {
@@ -51,7 +97,20 @@ export const tenantsApi = {
         }
         
         const token = getToken();
-        return apiClient.get<Tenant[]>('/tenants', token ?? undefined);
+        const result = await apiClient.get<PaginatedResponse<BackendTenantLike> | BackendTenantLike[] | any>(
+            '/tenants',
+            token ?? undefined,
+        );
+
+        if (Array.isArray(result)) {
+            return result.map(mapBackendTenantToTenant);
+        }
+
+        if (isPaginatedResponse<BackendTenantLike>(result)) {
+            return result.data.map(mapBackendTenantToTenant);
+        }
+
+        throw new Error('Unexpected response shape from /tenants');
     },
 
     getById: async (id: string): Promise<Tenant | null> => {
@@ -62,7 +121,8 @@ export const tenantsApi = {
         
         const token = getToken();
         try {
-            return await apiClient.get<Tenant>(`/tenants/${id}`, token ?? undefined);
+            const result = await apiClient.get<BackendTenantLike>(`/tenants/${id}`, token ?? undefined);
+            return mapBackendTenantToTenant(result);
         } catch {
             return null;
         }

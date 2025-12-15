@@ -33,9 +33,9 @@ export default function LeasesPage() {
   };
 
   const filteredLeases = leases.filter(lease =>
-    lease.property?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    lease.tenant?.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    lease.tenant?.lastName.toLowerCase().includes(searchTerm.toLowerCase())
+    lease.property?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    lease.tenant?.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    lease.tenant?.lastName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
