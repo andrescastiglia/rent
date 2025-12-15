@@ -2,12 +2,30 @@
 import 'reflect-metadata';
 import { config } from 'dotenv';
 import { Command } from 'commander';
-import { logger } from './shared/logger';
 import { initializeDatabase, closeDatabase } from './shared/database';
 import { BillingJobService } from './services/billing-job.service';
 
 // Load environment variables
 config();
+
+// Early CLI parsing for `--log <file>` so logger can pick it up on import.
+// Supports `--log=/path/to/file.log` or `--log /path/to/file.log`.
+const rawArgs = process.argv.slice(2);
+for (let i = 0; i < rawArgs.length; i++) {
+    const a = rawArgs[i];
+    if (a.startsWith('--log=')) {
+        process.env.LOG_FILE = a.split('=')[1];
+        break;
+    }
+    if (a === '--log' && i + 1 < rawArgs.length) {
+        process.env.LOG_FILE = rawArgs[i + 1];
+        break;
+    }
+}
+
+// Import logger after potential `process.env.LOG_FILE` is set.
+// Use require so import happens after env setup.
+const { logger } = require('./shared/logger');
 
 // Singleton instance for job logging
 let billingJobService: BillingJobService;

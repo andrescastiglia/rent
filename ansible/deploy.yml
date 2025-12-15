@@ -225,7 +225,7 @@
           pm2 start {{ deploy_path }}/backend/main.js
           --name rent-backend
           --cwd {{ deploy_path }}/backend
-          --log /var/log/rent/backend/backend.log
+          --log /var/log/rent/backend.log
           --time
           --env production
       environment:
@@ -238,7 +238,7 @@
           pm2 start npm
           --name rent-frontend
           --cwd {{ deploy_path }}/frontend
-          --log /var/log/rent/frontend/frontend.log
+          --log /var/log/rent/frontend.log
           --time
           -- start
       environment:

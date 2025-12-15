@@ -80,25 +80,25 @@ Editar crontab con `crontab -e`:
 # ===================
 
 # Sincronizar índices de inflación (diario 6:00 AM)
-0 6 * * * cd /opt/rent/batch && npm run start -- sync-indices >> /var/log/batch/sync-indices.log 2>&1
+0 6 * * * cd /opt/rent/batch && npm run start -- sync-indices --log /var/log/batch/sync-indices.log
 
 # Sincronizar tipos de cambio (diario 6:30 AM)
-30 6 * * * cd /opt/rent/batch && npm run start -- sync-rates >> /var/log/batch/sync-rates.log 2>&1
+30 6 * * * cd /opt/rent/batch && npm run start -- sync-rates --log /var/log/batch/sync-rates.log
 
 # Generar facturas (diario 7:00 AM)
-0 7 * * * cd /opt/rent/batch && npm run start -- billing >> /var/log/batch/billing.log 2>&1
+0 7 * * * cd /opt/rent/batch && npm run start -- billing --log /var/log/batch/billing.log
 
 # Marcar facturas vencidas (diario 8:00 AM)
-0 8 * * * cd /opt/rent/batch && npm run start -- overdue >> /var/log/batch/overdue.log 2>&1
+0 8 * * * cd /opt/rent/batch && npm run start -- overdue --log /var/log/batch/overdue.log
 
 # Aplicar cargos por mora (diario 8:30 AM)
-30 8 * * * cd /opt/rent/batch && npm run start -- late-fees >> /var/log/batch/late-fees.log 2>&1
+30 8 * * * cd /opt/rent/batch && npm run start -- late-fees --log /var/log/batch/late-fees.log
 
 # Enviar recordatorios (diario 9:00 AM)
-0 9 * * * cd /opt/rent/batch && npm run start -- reminders >> /var/log/batch/reminders.log 2>&1
+0 9 * * * cd /opt/rent/batch && npm run start -- reminders --log /var/log/batch/reminders.log
 
 # Generar reportes mensuales (día 1 de cada mes, 10:00 AM)
-0 10 1 * * cd /opt/rent/batch && /opt/rent/batch/scripts/generate-all-reports.sh >> /var/log/batch/reports.log 2>&1
+0 10 1 * * cd /opt/rent/batch && /opt/rent/batch/scripts/generate-all-reports.sh --log /var/log/batch/reports.log
 ```
 
 ---
