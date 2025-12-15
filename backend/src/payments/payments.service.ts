@@ -265,7 +265,8 @@ export class PaymentsService {
     }
 
     query
-      .orderBy('payment.payment_date', 'DESC')
+      .orderBy('payment.paymentDate', 'DESC')
+      .addOrderBy('payment.id', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 

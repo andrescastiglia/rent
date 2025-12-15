@@ -175,7 +175,8 @@ export class InvoicesService {
     }
 
     query
-      .orderBy('invoice.issued_at', 'DESC')
+      .orderBy('invoice.issuedAt', 'DESC')
+      .addOrderBy('invoice.id', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 

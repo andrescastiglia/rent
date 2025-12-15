@@ -31,7 +31,7 @@ export class DashboardService {
     private readonly billingJobRepository: Repository<BillingJob>,
     @InjectRepository(CommissionInvoice)
     private readonly commissionInvoiceRepository: Repository<CommissionInvoice>,
-  ) { }
+  ) {}
 
   async getStats(companyId: string): Promise<DashboardStatsDto> {
     // Count properties for the company
