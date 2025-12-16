@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import createMiddleware from 'next-intl/middleware';
 import { locales, defaultLocale } from './config/locales';
 
@@ -17,12 +17,12 @@ const i18nMiddleware = createMiddleware({
 });
 
 // Wrap the generated middleware so we can bypass it for operational routes like /health
-export default function middleware(request: Request, event: any) {
-    const pathname = (request as any).nextUrl?.pathname || new URL(request.url).pathname;
+export default function middleware(request: NextRequest) {
+    const pathname = request.nextUrl?.pathname || new URL(request.url).pathname;
     if (pathname === '/health' || pathname.startsWith('/health/')) {
         return NextResponse.next();
     }
-    return i18nMiddleware(request, event);
+    return i18nMiddleware(request);
 }
 
 export const config = {

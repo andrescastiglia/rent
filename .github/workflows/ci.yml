@@ -124,7 +124,7 @@ jobs:
   sonarqube:
     name: SonarQube Analysis
     runs-on: ubuntu-latest
-    needs: [backend-test, batch-test, e2e-tests]
+    needs: [backend-test, batch-test, frontend-test]
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
 
     steps:
@@ -271,10 +271,10 @@ jobs:
         run: npm run type-check
 
   # ─────────────────────────────────────────────────────────────
-  # E2E TESTS (Frontend only - uses mock data)
+  # FRONTEND TESTS (Frontend only - uses mock data)
   # ─────────────────────────────────────────────────────────────
-  e2e-tests:
-    name: E2E Tests
+  frontend-test:
+    name: Frontend Test
     needs: frontend-lint
     runs-on: ubuntu-latest
 
@@ -354,7 +354,7 @@ jobs:
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [backend-test, batch-test, e2e-tests]
+    needs: [backend-test, batch-test, frontend-test]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: production
 
