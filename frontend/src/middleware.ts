@@ -1,7 +1,8 @@
+import { NextResponse } from 'next/server';
 import createMiddleware from 'next-intl/middleware';
 import { locales, defaultLocale } from './config/locales';
 
-export default createMiddleware({
+const i18nMiddleware = createMiddleware({
     // Lista de locales soportados
     locales,
 
@@ -15,7 +16,16 @@ export default createMiddleware({
     localePrefix: 'always',
 });
 
+// Wrap the generated middleware so we can bypass it for operational routes like /health
+export default function middleware(request: Request, event: any) {
+    const pathname = (request as any).nextUrl?.pathname || new URL(request.url).pathname;
+    if (pathname === '/health' || pathname.startsWith('/health/')) {
+        return NextResponse.next();
+    }
+    return i18nMiddleware(request, event);
+}
+
 export const config = {
-    // Matcher que ignora rutas internas de Next.js y archivos estáticos
+    // Matcher that ignores internal Next.js routes and static files (we handle /health in code)
     matcher: ['/((?!api|_next|_vercel|.*\\..*).*)'],
 };
