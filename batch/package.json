@@ -6,7 +6,6 @@
     "private": true,
     "license": "UNLICENSED",
     "main": "dist/index.js",
-    "type": "module",
     "bin": {
         "billing-batch": "dist/index.js"
     },
