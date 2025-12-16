@@ -1,5 +1,6 @@
 import 'reflect-metadata';
-import { DataSource, DataSourceOptions } from 'typeorm';
+import { DataSource } from 'typeorm';
+import type { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions';
 import * as path from 'path';
 import { logger } from './logger';
 
@@ -7,23 +8,31 @@ import { logger } from './logger';
  * TypeORM DataSource configuration for batch processing.
  * Shares the same database as the backend.
  */
-const dataSourceOptions: DataSourceOptions = {
+const entities = [
+    path.join(__dirname, '../../backend/src/**/entities/*.entity.{ts,js}'),
+    path.join(__dirname, './entities/*.entity.{ts,js}'),
+];
+
+const databaseUrl = process.env.DATABASE_URL;
+
+const ssl =
+    process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false;
+
+const dataSourceOptions: PostgresConnectionOptions = {
     type: 'postgres',
-    host: process.env.POSTGRES_HOST || 'localhost',
-    port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
-    username: process.env.POSTGRES_USER || 'rent_user',
-    password: process.env.POSTGRES_PASSWORD || 'rent_dev_password',
-    database: process.env.POSTGRES_DB || 'rent_dev',
-    entities: [
-        path.join(__dirname, '../../backend/src/**/entities/*.entity.{ts,js}'),
-        path.join(__dirname, './entities/*.entity.{ts,js}'),
-    ],
+    ...(databaseUrl
+        ? { url: databaseUrl }
+        : {
+              host: process.env.POSTGRES_HOST || 'localhost',
+              port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
+              username: process.env.POSTGRES_USER || 'rent_user',
+              password: process.env.POSTGRES_PASSWORD || 'rent_dev_password',
+              database: process.env.POSTGRES_DB || 'rent_dev',
+          }),
+    entities,
     synchronize: false, // Never auto-sync in production
     logging: process.env.LOG_LEVEL === 'debug',
-    ssl:
-        process.env.NODE_ENV === 'production'
-            ? { rejectUnauthorized: false }
-            : false,
+    ssl,
 };
 
 export const AppDataSource = new DataSource(dataSourceOptions);

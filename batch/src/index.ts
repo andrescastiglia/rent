@@ -23,38 +23,14 @@ for (let i = 0; i < rawArgs.length; i++) {
     }
 }
 
-// Import logger after potential `process.env.LOG_FILE` is set.
-// Use dynamic import inside main() so ESLint does not complain about require().
-let logger: any;
-
-async function main() {
-    const mod = await import('./shared/logger');
-    logger = mod.logger;
-
-    // Parse command line arguments
-    program.parse(process.argv);
-
-    // Show help if no command provided
-    if (!process.argv.slice(2).length) {
-        program.outputHelp();
-    }
-}
-
-main().catch((err) => {
-    // If logger isn't available, fallback to console
-    if (logger && typeof logger.error === 'function') {
-        logger.error('Fatal error starting batch', { error: err });
-    } else {
-        // eslint-disable-next-line no-console
-        console.error('Fatal error starting batch', err);
-    }
-    process.exit(1);
-});
-
 // Singleton instance for job logging
 let billingJobService: BillingJobService;
 
 const program = new Command();
+
+// Import logger after potential `process.env.LOG_FILE` is set.
+// Use dynamic import inside main() so ESLint does not complain about require().
+let logger: any;
 
 program
     .name('billing-batch')
@@ -67,6 +43,7 @@ program
 program
     .command('billing')
     .description('Generate invoices for active leases based on billing frequency')
+    .option('--log <file>', 'Write logs to the given file (no rotation)')
     .option('-d, --dry-run', 'Run without making changes', false)
     .option('--lease-id <id>', 'Process specific lease only')
     .option('--date <date>', 'Process for specific date (YYYY-MM-DD)')
@@ -136,6 +113,7 @@ program
 program
     .command('overdue')
     .description('Mark invoices as overdue based on due date')
+    .option('--log <file>', 'Write logs to the given file (no rotation)')
     .option('-d, --dry-run', 'Run without making changes', false)
     .action(async (options) => {
         const { BillingService } = await import('./services/billing.service');
@@ -195,6 +173,7 @@ program
 program
     .command('reminders')
     .description('Send payment reminder emails for upcoming due dates')
+    .option('--log <file>', 'Write logs to the given file (no rotation)')
     .option('-d, --dry-run', 'Run without sending emails', false)
     .option('--days-before <days>', 'Days before due date to send reminder', '3')
     .action(async (options) => {
@@ -280,6 +259,7 @@ program
 program
     .command('late-fees')
     .description('Calculate and apply late fees to overdue invoices')
+    .option('--log <file>', 'Write logs to the given file (no rotation)')
     .option('-d, --dry-run', 'Run without making changes', false)
     .option('--rate <rate>', 'Late fee rate percentage', '2')
     .action(async (options) => {
@@ -351,6 +331,7 @@ program
 program
     .command('sync-indices')
     .description('Fetch and store latest inflation indices (ICL, IGP-M)')
+    .option('--log <file>', 'Write logs to the given file (no rotation)')
     .option('--index <type>', 'Specific index to sync (icl, igpm)', 'all')
     .action(async (options) => {
         const { IndicesSyncService } = await import('./services/indices-sync.service');
@@ -447,6 +428,7 @@ program
 program
     .command('sync-rates')
     .description('Fetch and store latest exchange rates (USD/ARS, BRL/ARS, USD/BRL)')
+    .option('--log <file>', 'Write logs to the given file (no rotation)')
     .action(async () => {
         const { ExchangeRateService } = await import('./services/exchange-rate.service');
 
@@ -501,6 +483,7 @@ program
 program
     .command('reports')
     .description('Generate and send monthly reports to property owners')
+    .option('--log <file>', 'Write logs to the given file (no rotation)')
     .option('--type <type>', 'Report type (monthly, settlement)', 'monthly')
     .option('--owner-id <id>', 'Generate for specific owner only')
     .option('--month <month>', 'Report month (YYYY-MM)', '')
@@ -579,6 +562,7 @@ program
 program
     .command('process-settlements')
     .description('Calculate and process settlements for property owners')
+    .option('--log <file>', 'Write logs to the given file (no rotation)')
     .option('--period <period>', 'Settlement period (YYYY-MM)', '')
     .option('--owner-id <id>', 'Process for specific owner only')
     .option('-d, --dry-run', 'Calculate without creating settlements', false)
@@ -731,4 +715,26 @@ program
         }
     });
 
-// program.parse() is invoked from main()
+async function main() {
+    const mod = await import('./shared/logger');
+    logger = mod.logger;
+
+    // Parse command line arguments
+    program.parse(process.argv);
+
+    // Show help if no command provided
+    if (!process.argv.slice(2).length) {
+        program.outputHelp();
+    }
+}
+
+main().catch((err) => {
+    // If logger isn't available, fallback to console
+    if (logger && typeof logger.error === 'function') {
+        logger.error('Fatal error starting batch', { error: err });
+    } else {
+        // eslint-disable-next-line no-console
+        console.error('Fatal error starting batch', err);
+    }
+    process.exit(1);
+});

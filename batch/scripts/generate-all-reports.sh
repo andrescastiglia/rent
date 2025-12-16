@@ -9,6 +9,28 @@ BATCH_DIR="$(dirname "$SCRIPT_DIR")"
 
 cd "$BATCH_DIR"
 
+LOG_ARG=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --log)
+            if [[ -z "${2:-}" ]]; then
+                echo "Missing value for --log" >&2
+                exit 1
+            fi
+            LOG_ARG=(--log "$2")
+            shift 2
+            ;;
+        --log=*)
+            LOG_ARG=(--log "${1#*=}")
+            shift
+            ;;
+        *)
+            echo "Unknown argument: $1" >&2
+            exit 1
+            ;;
+    esac
+done
+
 # Get current month in YYYY-MM format
 CURRENT_MONTH=$(date +%Y-%m)
 
@@ -28,10 +50,10 @@ for OWNER_ID in $OWNERS; do
     fi
     
     echo "Generating monthly summary for owner: $OWNER_ID"
-    npm run start -- reports --type monthly --owner-id "$OWNER_ID" --month "$PREV_MONTH"
+    npm run start -- reports "${LOG_ARG[@]}" --type monthly --owner-id "$OWNER_ID" --month "$PREV_MONTH"
     
     echo "Generating settlement for owner: $OWNER_ID"
-    npm run start -- reports --type settlement --owner-id "$OWNER_ID" --month "$PREV_MONTH"
+    npm run start -- reports "${LOG_ARG[@]}" --type settlement --owner-id "$OWNER_ID" --month "$PREV_MONTH"
 done
 
 echo "Report generation completed!"

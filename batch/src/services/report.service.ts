@@ -1,6 +1,6 @@
-import * as puppeteer from 'puppeteer';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import PDFDocument from 'pdfkit';
 import { AppDataSource } from '../shared/database';
 import { logger } from '../shared/logger';
 
@@ -110,9 +110,8 @@ export class ReportService {
 
         try {
             const data = await this.fetchMonthlySummaryData(ownerId, year, month);
-            const html = this.renderMonthlySummaryTemplate(data);
             const filename = `monthly_summary_${ownerId}_${year}_${month}.pdf`;
-            const pdfPath = await this.generatePdf(html, filename);
+            const pdfPath = await this.generateMonthlySummaryPdf(data, filename);
 
             return { success: true, pdfPath };
         } catch (error) {
@@ -137,9 +136,8 @@ export class ReportService {
 
         try {
             const data = await this.fetchSettlementData(ownerId, period);
-            const html = this.renderSettlementTemplate(data);
             const filename = `settlement_${ownerId}_${period}.pdf`;
-            const pdfPath = await this.generatePdf(html, filename);
+            const pdfPath = await this.generateSettlementPdf(data, filename);
 
             return { success: true, pdfPath };
         } catch (error) {
@@ -150,31 +148,267 @@ export class ReportService {
     }
 
     /**
-     * Generates PDF from HTML using Puppeteer.
+     * Generates PDF for a monthly summary.
      */
-    private async generatePdf(html: string, filename: string): Promise<string> {
-        const browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    private async generateMonthlySummaryPdf(
+        data: MonthlySummaryData,
+        filename: string
+    ): Promise<string> {
+        const pdfPath = path.join(this.outputDir, filename);
+        await this.writePdf(pdfPath, (doc) => {
+            const monthNames = [
+                'Enero',
+                'Febrero',
+                'Marzo',
+                'Abril',
+                'Mayo',
+                'Junio',
+                'Julio',
+                'Agosto',
+                'Septiembre',
+                'Octubre',
+                'Noviembre',
+                'Diciembre',
+            ];
+
+            doc.fontSize(18).text('Resumen Mensual', { align: 'center' });
+            doc.moveDown(0.25);
+            doc.fontSize(12).text(`${monthNames[data.month - 1]} ${data.year}`, {
+                align: 'center',
+            });
+            doc.moveDown(0.25);
+            doc.fontSize(12).text(data.ownerName, { align: 'center' });
+            doc.moveDown();
+
+            const tableTop = doc.y;
+            const left = doc.page.margins.left;
+            const right = doc.page.width - doc.page.margins.right;
+            const rowHeight = 16;
+
+            const columns = {
+                invoice: left,
+                tenant: left + 70,
+                property: left + 190,
+                subtotal: right - 220,
+                withholdings: right - 160,
+                total: right - 100,
+                status: right - 40,
+            };
+
+            const drawHeader = () => {
+                doc.fontSize(9).font('Helvetica-Bold');
+                doc.text('Factura', columns.invoice, doc.y, { width: 70 });
+                doc.text('Inquilino', columns.tenant, doc.y, { width: 120 });
+                doc.text('Propiedad', columns.property, doc.y, { width: 180 });
+                doc.text('Subtotal', columns.subtotal, doc.y, { width: 60, align: 'right' });
+                doc.text('Ret.', columns.withholdings, doc.y, { width: 60, align: 'right' });
+                doc.text('Total', columns.total, doc.y, { width: 60, align: 'right' });
+                doc.text('Est.', columns.status, doc.y, { width: 40, align: 'right' });
+                doc.moveDown(0.5);
+                doc
+                    .moveTo(left, doc.y)
+                    .lineTo(right, doc.y)
+                    .strokeColor('#CCCCCC')
+                    .stroke();
+                doc.moveDown(0.25);
+                doc.font('Helvetica');
+            };
+
+            const ensureSpace = () => {
+                if (doc.y + rowHeight * 2 > doc.page.height - doc.page.margins.bottom) {
+                    doc.addPage();
+                    drawHeader();
+                }
+            };
+
+            const truncate = (value: string, max: number) =>
+                value.length > max ? `${value.slice(0, Math.max(0, max - 1))}…` : value;
+
+            doc.y = tableTop;
+            drawHeader();
+
+            for (const inv of data.invoices) {
+                ensureSpace();
+                const y = doc.y;
+                doc.fontSize(9);
+                doc.text(truncate(inv.invoiceNumber, 14), columns.invoice, y, {
+                    width: 70,
+                });
+                doc.text(truncate(inv.tenantName, 22), columns.tenant, y, {
+                    width: 120,
+                });
+                doc.text(truncate(inv.propertyAddress, 34), columns.property, y, {
+                    width: 180,
+                });
+                doc.text(this.formatCurrency(inv.subtotal), columns.subtotal, y, {
+                    width: 60,
+                    align: 'right',
+                });
+                doc.text(this.formatCurrency(inv.withholdings), columns.withholdings, y, {
+                    width: 60,
+                    align: 'right',
+                });
+                doc.text(this.formatCurrency(inv.total), columns.total, y, {
+                    width: 60,
+                    align: 'right',
+                });
+                doc.text(truncate(inv.status, 8), columns.status, y, {
+                    width: 40,
+                    align: 'right',
+                });
+                doc.y = y + rowHeight;
+            }
+
+            doc.moveDown(0.5);
+            doc
+                .moveTo(left, doc.y)
+                .lineTo(right, doc.y)
+                .strokeColor('#CCCCCC')
+                .stroke();
+            doc.moveDown();
+
+            doc.font('Helvetica-Bold');
+            doc.text(`Totales`, left, doc.y);
+            doc.font('Helvetica');
+            doc.text(`Subtotal: ${this.formatCurrency(data.totals.subtotal)}`);
+            doc.text(`Retenciones: ${this.formatCurrency(data.totals.withholdings)}`);
+            doc.text(`Total: ${this.formatCurrency(data.totals.total)}`);
+            doc.moveDown(0.25);
+            doc.text(`Cobrado: ${this.formatCurrency(data.totals.paid)}`);
+            doc.text(`Pendiente: ${this.formatCurrency(data.totals.pending)}`);
         });
 
-        try {
-            const page = await browser.newPage();
-            await page.setContent(html, { waitUntil: 'networkidle0' });
+        logger.info('PDF generated', { pdfPath });
+        return pdfPath;
+    }
 
-            const pdfPath = path.join(this.outputDir, filename);
-            await page.pdf({
-                path: pdfPath,
-                format: 'A4',
-                margin: { top: '20mm', right: '15mm', bottom: '20mm', left: '15mm' },
-                printBackground: true,
+    /**
+     * Generates PDF for a settlement.
+     */
+    private async generateSettlementPdf(
+        data: SettlementData,
+        filename: string
+    ): Promise<string> {
+        const pdfPath = path.join(this.outputDir, filename);
+        await this.writePdf(pdfPath, (doc) => {
+            doc.fontSize(18).text('Liquidación', { align: 'center' });
+            doc.moveDown(0.25);
+            doc.fontSize(12).text(`Período: ${data.period}`, { align: 'center' });
+            doc.moveDown(0.25);
+            doc.fontSize(12).text(data.ownerName, { align: 'center' });
+            if (data.ownerCuit) {
+                doc.fontSize(10).text(`CUIT: ${data.ownerCuit}`, { align: 'center' });
+            }
+            doc.moveDown();
+
+            const left = doc.page.margins.left;
+            const right = doc.page.width - doc.page.margins.right;
+            const rowHeight = 16;
+
+            doc.fontSize(12).font('Helvetica-Bold').text('Detalle de Cobros');
+            doc.font('Helvetica');
+            doc.moveDown(0.5);
+
+            const columns = {
+                invoice: left,
+                tenant: left + 80,
+                property: left + 210,
+                amount: right - 80,
+            };
+
+            const drawHeader = () => {
+                doc.fontSize(9).font('Helvetica-Bold');
+                doc.text('Factura', columns.invoice, doc.y, { width: 80 });
+                doc.text('Inquilino', columns.tenant, doc.y, { width: 130 });
+                doc.text('Propiedad', columns.property, doc.y, { width: 220 });
+                doc.text('Monto', columns.amount, doc.y, { width: 80, align: 'right' });
+                doc.moveDown(0.5);
+                doc
+                    .moveTo(left, doc.y)
+                    .lineTo(right, doc.y)
+                    .strokeColor('#CCCCCC')
+                    .stroke();
+                doc.moveDown(0.25);
+                doc.font('Helvetica');
+            };
+
+            const ensureSpace = () => {
+                if (doc.y + rowHeight * 2 > doc.page.height - doc.page.margins.bottom) {
+                    doc.addPage();
+                    drawHeader();
+                }
+            };
+
+            const truncate = (value: string, max: number) =>
+                value.length > max ? `${value.slice(0, Math.max(0, max - 1))}…` : value;
+
+            drawHeader();
+            for (const inv of data.invoices) {
+                ensureSpace();
+                const y = doc.y;
+                doc.fontSize(9);
+                doc.text(truncate(inv.invoiceNumber, 16), columns.invoice, y, { width: 80 });
+                doc.text(truncate(inv.tenant, 24), columns.tenant, y, { width: 130 });
+                doc.text(truncate(inv.property, 40), columns.property, y, { width: 220 });
+                doc.text(this.formatCurrency(inv.amount), columns.amount, y, {
+                    width: 80,
+                    align: 'right',
+                });
+                doc.y = y + rowHeight;
+            }
+
+            doc.moveDown();
+            doc.font('Helvetica-Bold').text('Deducciones');
+            doc.font('Helvetica');
+            for (const d of data.deductions) {
+                doc.text(`${d.description}: -${this.formatCurrency(d.amount)}`);
+            }
+            doc.moveDown(0.5);
+            doc
+                .moveTo(left, doc.y)
+                .lineTo(right, doc.y)
+                .strokeColor('#CCCCCC')
+                .stroke();
+            doc.moveDown(0.5);
+
+            doc.font('Helvetica-Bold');
+            doc.text(`Total Bruto: ${this.formatCurrency(data.summary.grossAmount)}`);
+            doc.text(`Total Deducciones: ${this.formatCurrency(data.summary.totalDeductions)}`);
+            doc.text(`Neto a Depositar: ${this.formatCurrency(data.summary.netAmount)}`);
+            doc.font('Helvetica');
+        });
+
+        logger.info('PDF generated', { pdfPath });
+        return pdfPath;
+    }
+
+    private async writePdf(
+        pdfPath: string,
+        render: (doc: InstanceType<typeof PDFDocument>) => void
+    ): Promise<void> {
+        await new Promise<void>((resolve, reject) => {
+            const doc = new PDFDocument({
+                size: 'A4',
+                margin: 50,
+                autoFirstPage: true,
             });
 
-            logger.info('PDF generated', { pdfPath });
-            return pdfPath;
-        } finally {
-            await browser.close();
-        }
+            const stream = fs.createWriteStream(pdfPath);
+            stream.on('finish', () => resolve());
+            stream.on('error', (e) => reject(e));
+
+            doc.pipe(stream);
+            try {
+                render(doc);
+                doc.end();
+            } catch (e) {
+                reject(e);
+            }
+        });
+    }
+
+    private formatCurrency(value: number): string {
+        return `$${value.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
     }
 
     /**
@@ -331,153 +565,4 @@ export class ReportService {
         };
     }
 
-    /**
-     * Renders monthly summary template.
-     */
-    private renderMonthlySummaryTemplate(data: MonthlySummaryData): string {
-        const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-
-        return `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <style>
-        body { font-family: Arial, sans-serif; font-size: 12px; color: #333; }
-        .header { text-align: center; margin-bottom: 30px; }
-        .header h1 { color: #2563eb; margin: 0; }
-        .header p { color: #6b7280; }
-        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; }
-        th { background: #f3f4f6; font-weight: bold; }
-        .text-right { text-align: right; }
-        .totals { background: #eff6ff; }
-        .totals td { font-weight: bold; }
-        .status { padding: 2px 8px; border-radius: 4px; font-size: 11px; }
-        .status-paid { background: #d1fae5; color: #065f46; }
-        .status-pending { background: #fef3c7; color: #92400e; }
-        .status-overdue { background: #fee2e2; color: #991b1b; }
-        .amount { font-family: monospace; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>Resumen Mensual</h1>
-        <p>${monthNames[data.month - 1]} ${data.year}</p>
-        <p><strong>${data.ownerName}</strong></p>
-    </div>
-
-    <table>
-        <thead>
-            <tr>
-                <th>Factura</th>
-                <th>Inquilino</th>
-                <th>Propiedad</th>
-                <th class="text-right">Subtotal</th>
-                <th class="text-right">Ret.</th>
-                <th class="text-right">Total</th>
-                <th>Estado</th>
-            </tr>
-        </thead>
-        <tbody>
-            ${data.invoices.map(inv => `
-            <tr>
-                <td>${inv.invoiceNumber}</td>
-                <td>${inv.tenantName}</td>
-                <td>${inv.propertyAddress}</td>
-                <td class="text-right amount">$${inv.subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                <td class="text-right amount">$${inv.withholdings.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                <td class="text-right amount">$${inv.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                <td><span class="status status-${inv.status}">${inv.status}</span></td>
-            </tr>
-            `).join('')}
-            <tr class="totals">
-                <td colspan="3"><strong>TOTALES</strong></td>
-                <td class="text-right amount">$${data.totals.subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                <td class="text-right amount">$${data.totals.withholdings.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                <td class="text-right amount">$${data.totals.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                <td></td>
-            </tr>
-        </tbody>
-    </table>
-
-    <p><strong>Cobrado:</strong> $${data.totals.paid.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
-    <p><strong>Pendiente:</strong> $${data.totals.pending.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
-</body>
-</html>`;
-    }
-
-    /**
-     * Renders settlement template.
-     */
-    private renderSettlementTemplate(data: SettlementData): string {
-        return `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <style>
-        body { font-family: Arial, sans-serif; font-size: 12px; color: #333; }
-        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #2563eb; padding-bottom: 20px; }
-        .header h1 { color: #2563eb; margin: 0; }
-        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; }
-        th { background: #f3f4f6; }
-        .text-right { text-align: right; }
-        .summary { margin-top: 30px; padding: 20px; background: #f9fafb; border-radius: 8px; }
-        .summary-row { display: flex; justify-content: space-between; padding: 5px 0; }
-        .summary-total { font-size: 18px; font-weight: bold; color: #2563eb; border-top: 2px solid #2563eb; margin-top: 10px; padding-top: 10px; }
-        .amount { font-family: monospace; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>Liquidación</h1>
-        <p>Período: ${data.period}</p>
-        <p><strong>${data.ownerName}</strong></p>
-        ${data.ownerCuit ? `<p>CUIT: ${data.ownerCuit}</p>` : ''}
-    </div>
-
-    <h3>Detalle de Cobros</h3>
-    <table>
-        <thead>
-            <tr>
-                <th>Factura</th>
-                <th>Inquilino</th>
-                <th>Propiedad</th>
-                <th class="text-right">Monto</th>
-            </tr>
-        </thead>
-        <tbody>
-            ${data.invoices.map(inv => `
-            <tr>
-                <td>${inv.invoiceNumber}</td>
-                <td>${inv.tenant}</td>
-                <td>${inv.property}</td>
-                <td class="text-right amount">$${inv.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-            </tr>
-            `).join('')}
-        </tbody>
-    </table>
-
-    <div class="summary">
-        <div class="summary-row">
-            <span>Total Bruto:</span>
-            <span class="amount">$${data.summary.grossAmount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
-        </div>
-        ${data.deductions.map(d => `
-        <div class="summary-row">
-            <span>${d.description}:</span>
-            <span class="amount">-$${d.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
-        </div>
-        `).join('')}
-        <div class="summary-row summary-total">
-            <span>NETO A DEPOSITAR:</span>
-            <span class="amount">$${data.summary.netAmount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
-        </div>
-    </div>
-</body>
-</html>`;
-    }
 }
