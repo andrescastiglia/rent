@@ -275,6 +275,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────
   e2e-tests:
     name: E2E Tests
+    needs: frontend-lint
     runs-on: ubuntu-latest
 
     steps:
