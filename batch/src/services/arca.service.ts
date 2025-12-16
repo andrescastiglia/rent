@@ -1,7 +1,7 @@
 import * as fs from 'fs';
-import * as crypto from 'crypto';
 import * as soap from 'soap';
 import * as QRCode from 'qrcode';
+import * as forge from 'node-forge';
 import { AppDataSource } from '../shared/database';
 import { logger } from '../shared/logger';
 
@@ -320,19 +320,65 @@ export class ArcaService {
 
     /**
      * Signs the TRA with the company's private key and certificate.
+     * Creates a CMS (PKCS#7) signed message as required by AFIP WSAA.
      */
     private async signTra(tra: string, config: ArcaConfig): Promise<string> {
-        const _cert = fs.readFileSync(config.certificatePath, 'utf8');
-        const key = fs.readFileSync(config.privateKeyPath, 'utf8');
+        try {
+            // Read certificate and private key
+            const certPem = fs.readFileSync(config.certificatePath, 'utf8');
+            const keyPem = fs.readFileSync(config.privateKeyPath, 'utf8');
 
-        const sign = crypto.createSign('RSA-SHA256');
-        sign.update(tra);
-        const _signature = sign.sign(key, 'base64');
+            // Parse certificate and private key with node-forge
+            const cert = forge.pki.certificateFromPem(certPem);
+            const privateKey = forge.pki.privateKeyFromPem(keyPem);
 
-        // Build PKCS#7 / CMS structure (simplified - in production use proper library)
-        const cms = Buffer.from(tra).toString('base64');
+            // Create PKCS#7 signed data
+            const p7 = forge.pkcs7.createSignedData();
 
-        return cms;
+            // Set the content to sign (the TRA XML)
+            p7.content = forge.util.createBuffer(tra, 'utf8');
+
+            // Add the certificate
+            p7.addCertificate(cert);
+
+            // Add signer with SHA-256
+            p7.addSigner({
+                key: privateKey,
+                certificate: cert,
+                digestAlgorithm: forge.pki.oids.sha256,
+                authenticatedAttributes: [
+                    {
+                        type: forge.pki.oids.contentType,
+                        value: forge.pki.oids.data,
+                    },
+                    {
+                        type: forge.pki.oids.messageDigest,
+                        // value will be auto-populated at signing time
+                    },
+                    {
+                        type: forge.pki.oids.signingTime,
+                        value: new Date().toISOString(),
+                    },
+                ],
+            });
+
+            // Sign the data
+            p7.sign();
+
+            // Convert to DER format and then to Base64
+            const asn1 = p7.toAsn1();
+            const der = forge.asn1.toDer(asn1);
+            const cms = forge.util.encode64(der.getBytes());
+
+            return cms;
+        } catch (error) {
+            logger.error('Failed to sign TRA', {
+                error: error instanceof Error ? error.message : error,
+            });
+            throw new Error(
+                `Failed to sign TRA: ${error instanceof Error ? error.message : 'Unknown error'}`
+            );
+        }
     }
 
     /**

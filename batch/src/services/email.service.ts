@@ -195,7 +195,7 @@ export class EmailService {
      * Renders invoice issued template.
      */
     private renderInvoiceTemplate(data: InvoiceEmailData): string {
-        const { invoice, tenant, owner: _owner } = data;
+        const { invoice, tenant } = data;
 
         return `
 <!DOCTYPE html>

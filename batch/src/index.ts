@@ -755,7 +755,7 @@ main().catch((err) => {
     if (logger && typeof logger.error === 'function') {
         logger.error('Fatal error starting batch', { error: err });
     } else {
-        // eslint-disable-next-line no-console
+         
         console.error('Fatal error starting batch', err);
     }
     process.exit(1);

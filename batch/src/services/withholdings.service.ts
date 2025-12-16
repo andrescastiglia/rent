@@ -107,7 +107,7 @@ export class WithholdingsService {
 
         // Calculate IVA withholding
         if (!ownerData.ivaExempt && config.ivaRate > 0) {
-            const iva = this.calculateIva(amount, config, ownerData);
+            const iva = this.calculateIva(amount, config);
             result.iva = iva.amount;
             result.breakdown.push(iva);
         }
@@ -160,7 +160,6 @@ export class WithholdingsService {
     private calculateIva(
         amount: number,
         config: WithholdingConfig,
-        _ownerData: OwnerFiscalData
     ): WithholdingBreakdown {
         const rate = config.ivaRate;
         const withholdingAmount = Math.round(amount * (rate / 100) * 100) / 100;

@@ -101,7 +101,7 @@
 
     - name: Install batch dependencies
       ansible.builtin.command:
-        cmd: npm ci
+        cmd: npm ci --include=dev
         chdir: "{{ current_path }}/batch"
       environment:
         NODE_ENV: production
