@@ -274,7 +274,7 @@ jobs:
   # FRONTEND TESTS (Frontend only - uses mock data)
   # ─────────────────────────────────────────────────────────────
   frontend-test:
-    name: Frontend Test
+    name: Frontend Tests
     needs: frontend-lint
     runs-on: ubuntu-latest
 
