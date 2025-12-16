@@ -18,6 +18,7 @@ import { CompaniesModule } from './companies/companies.module';
 import { CurrenciesModule } from './currencies/currencies.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { PaymentsModule } from './payments/payments.module';
+import { HealthModule } from './health/health.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -56,6 +57,7 @@ import * as path from 'path';
     CurrenciesModule,
     DashboardModule,
     PaymentsModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [

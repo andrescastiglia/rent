@@ -91,7 +91,13 @@ export class Invoice {
   })
   lateFee: number;
 
-  @Column({ name: 'discount_amount', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({
+    name: 'discount_amount',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    default: 0,
+  })
   adjustments: number;
 
   @Column({ name: 'total_amount', type: 'decimal', precision: 12, scale: 2 })
@@ -156,10 +162,24 @@ export class Invoice {
   @Column({ name: 'arca_numero_comprobante', type: 'integer', nullable: true })
   arcaNumeroComprobante: number;
 
-  @Column({ name: 'arca_qr_data', type: 'text', nullable: true, select: false, insert: false, update: false })
+  @Column({
+    name: 'arca_qr_data',
+    type: 'text',
+    nullable: true,
+    select: false,
+    insert: false,
+    update: false,
+  })
   arcaQrData: string;
 
-  @Column({ name: 'arca_error_log', type: 'text', nullable: true, select: false, insert: false, update: false })
+  @Column({
+    name: 'arca_error_log',
+    type: 'text',
+    nullable: true,
+    select: false,
+    insert: false,
+    update: false,
+  })
   arcaErrorLog: string;
 
   // Multi-Currency Support
@@ -246,7 +266,14 @@ export class Invoice {
   })
   adjustmentApplied: number;
 
-  @Column({ name: 'adjustment_index_type', length: 10, nullable: true, select: false, insert: false, update: false })
+  @Column({
+    name: 'adjustment_index_type',
+    length: 10,
+    nullable: true,
+    select: false,
+    insert: false,
+    update: false,
+  })
   adjustmentIndexType: string;
 
   @Column({
