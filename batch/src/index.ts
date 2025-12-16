@@ -2,8 +2,7 @@
 import 'reflect-metadata';
 import { config } from 'dotenv';
 import { Command } from 'commander';
-import { initializeDatabase, closeDatabase } from './shared/database';
-import { BillingJobService } from './services/billing-job.service';
+import type { BillingJobService } from './services/billing-job.service';
 
 // Load environment variables
 config();
@@ -25,6 +24,22 @@ for (let i = 0; i < rawArgs.length; i++) {
 
 // Singleton instance for job logging
 let billingJobService: BillingJobService;
+
+let BillingJobServiceCtor: (new () => BillingJobService) | undefined;
+
+function newBillingJobService(): BillingJobService {
+    if (!BillingJobServiceCtor) {
+        throw new Error('BillingJobService not loaded');
+    }
+    return new BillingJobServiceCtor();
+}
+
+let initializeDatabase: () => Promise<unknown> = async () => {
+    throw new Error('Database module not loaded');
+};
+let closeDatabase: () => Promise<void> = async () => {
+    // no-op until loaded
+};
 
 const program = new Command();
 
@@ -54,7 +69,7 @@ program
         let jobId: string | undefined;
         try {
             await initializeDatabase();
-            billingJobService = new BillingJobService();
+            billingJobService = newBillingJobService();
 
             const billingDate = options.date
                 ? new Date(options.date)
@@ -122,7 +137,7 @@ program
         let jobId: string | undefined;
         try {
             await initializeDatabase();
-            billingJobService = new BillingJobService();
+            billingJobService = newBillingJobService();
 
             // Start job logging
             jobId = await billingJobService.startJob('overdue', {}, options.dryRun);
@@ -184,7 +199,7 @@ program
         let jobId: string | undefined;
         try {
             await initializeDatabase();
-            billingJobService = new BillingJobService();
+            billingJobService = newBillingJobService();
 
             const daysBefore = Number.parseInt(options.daysBefore, 10);
 
@@ -269,7 +284,7 @@ program
         let jobId: string | undefined;
         try {
             await initializeDatabase();
-            billingJobService = new BillingJobService();
+            billingJobService = newBillingJobService();
 
             const rate = Number.parseFloat(options.rate) / 100;
 
@@ -340,7 +355,7 @@ program
         let jobId: string | undefined;
         try {
             await initializeDatabase();
-            billingJobService = new BillingJobService();
+            billingJobService = newBillingJobService();
 
             // Start job logging
             jobId = await billingJobService.startJob(
@@ -436,7 +451,7 @@ program
         let jobId: string | undefined;
         try {
             await initializeDatabase();
-            billingJobService = new BillingJobService();
+            billingJobService = newBillingJobService();
 
             // Start job logging
             jobId = await billingJobService.startJob('exchange_rates', {}, false);
@@ -495,7 +510,7 @@ program
         let jobId: string | undefined;
         try {
             await initializeDatabase();
-            billingJobService = new BillingJobService();
+            billingJobService = newBillingJobService();
 
             // Start job logging
             jobId = await billingJobService.startJob(
@@ -504,22 +519,22 @@ program
                 options.dryRun
             );
 
-            const reportService = new ReportService();
-            const now = new Date();
-            const month = options.month || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-            const [year, mon] = month.split('-').map(Number);
-
             if (!options.ownerId) {
                 logger.error('Owner ID required. Use --owner-id <id>');
                 process.exit(1);
             }
 
-            let result;
-            if (options.type === 'settlement') {
-                result = await reportService.generateSettlement(options.ownerId, month);
-            } else {
-                result = await reportService.generateMonthlySummary(options.ownerId, year, mon);
-            }
+            const reportService = new ReportService();
+            const now = new Date();
+            const month =
+                options.month ||
+                `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            const [year, mon] = month.split('-').map(Number);
+
+            const result =
+                options.type === 'settlement'
+                    ? await reportService.generateSettlement(options.ownerId, month)
+                    : await reportService.generateMonthlySummary(options.ownerId, year, mon);
 
             if (result.success) {
                 logger.info('Report generated', { pdfPath: result.pdfPath });
@@ -574,7 +589,7 @@ program
         let jobId: string | undefined;
         try {
             await initializeDatabase();
-            billingJobService = new BillingJobService();
+            billingJobService = newBillingJobService();
 
             // Start job logging
             jobId = await billingJobService.startJob(
@@ -718,6 +733,13 @@ program
 async function main() {
     const mod = await import('./shared/logger');
     logger = mod.logger;
+
+    const db = await import('./shared/database');
+    initializeDatabase = db.initializeDatabase;
+    closeDatabase = db.closeDatabase;
+
+    const job = await import('./services/billing-job.service');
+    BillingJobServiceCtor = job.BillingJobService;
 
     // Parse command line arguments
     program.parse(process.argv);

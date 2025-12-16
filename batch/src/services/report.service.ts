@@ -422,7 +422,7 @@ export class ReportService {
         const ownerResult = await AppDataSource.query(
             `SELECT u.first_name, u.last_name FROM users u
              JOIN owners o ON o.user_id = u.id
-             WHERE o.user_id = $1`,
+             WHERE o.id = $1`,
             [ownerId]
         );
 
@@ -434,18 +434,18 @@ export class ReportService {
             `SELECT 
                 i.invoice_number as "invoiceNumber",
                 CONCAT(tu.first_name, ' ', tu.last_name) as "tenantName",
-                CONCAT(p.address, ' - ', un.unit_number) as "propertyAddress",
+                                CONCAT(concat_ws(' ', p.address_street, p.address_number), ' - ', un.unit_number) as "propertyAddress",
                 i.subtotal,
-                i.withholdings_total as withholdings,
-                i.total,
+                                (COALESCE(i.withholding_iibb, 0) + COALESCE(i.withholding_ganancias, 0) + COALESCE(i.withholding_other, 0)) as withholdings,
+                                i.total_amount as total,
                 i.status,
-                i.amount_paid as "amountPaid"
+                                i.paid_amount as "amountPaid"
              FROM invoices i
              JOIN leases l ON l.id = i.lease_id
              JOIN units un ON un.id = l.unit_id
              JOIN properties p ON p.id = un.property_id
              JOIN tenant_accounts ta ON ta.id = i.tenant_account_id
-             JOIN tenants t ON t.user_id = ta.tenant_id
+                         JOIN tenants t ON t.id = ta.tenant_id
              JOIN users tu ON tu.id = t.user_id
              WHERE i.owner_id = $1
                AND EXTRACT(YEAR FROM i.period_start) = $2
@@ -496,30 +496,30 @@ export class ReportService {
         const [year, month] = period.split('-').map(Number);
 
         const ownerResult = await AppDataSource.query(
-            `SELECT u.first_name, u.last_name, o.cuit 
+            `SELECT u.first_name, u.last_name, o.tax_id 
              FROM users u
              JOIN owners o ON o.user_id = u.id
-             WHERE o.user_id = $1`,
+             WHERE o.id = $1`,
             [ownerId]
         );
 
         const ownerName = ownerResult.length > 0
             ? `${ownerResult[0].first_name} ${ownerResult[0].last_name}`
             : 'Propietario';
-        const ownerCuit = ownerResult[0]?.cuit;
+        const ownerCuit = ownerResult[0]?.tax_id;
 
         const invoicesResult = await AppDataSource.query(
             `SELECT 
                 i.invoice_number,
                 CONCAT(tu.first_name, ' ', tu.last_name) as tenant,
-                CONCAT(p.address, ' - ', un.unit_number) as property,
-                i.total as amount
+                CONCAT(concat_ws(' ', p.address_street, p.address_number), ' - ', un.unit_number) as property,
+                i.total_amount as amount
              FROM invoices i
              JOIN leases l ON l.id = i.lease_id
              JOIN units un ON un.id = l.unit_id
              JOIN properties p ON p.id = un.property_id
              JOIN tenant_accounts ta ON ta.id = i.tenant_account_id
-             JOIN tenants t ON t.user_id = ta.tenant_id
+             JOIN tenants t ON t.id = ta.tenant_id
              JOIN users tu ON tu.id = t.user_id
              WHERE i.owner_id = $1
                AND EXTRACT(YEAR FROM i.period_start) = $2
