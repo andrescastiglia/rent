@@ -12,8 +12,15 @@ export default defineConfig({
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 2 : 0,
     workers: process.env.CI ? 1 : undefined,
-    // Don't auto-open report in CI, use 'list' for simple output
-    reporter: process.env.CI ? 'list' : [['html', { open: 'never' }]],
+    reporter: process.env.CI 
+        ? [
+            ['list'], 
+            ['@bdellegrazie/playwright-sonar-reporter', {
+                outputFile: 'playwright-report/playwright-sonar-report.xml', 
+                sonarcloud: true,
+            }],
+          ]
+        : [['html', { open: 'never' }]],
     use: {
         baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
         trace: 'on-first-retry',
