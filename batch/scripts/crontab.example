@@ -8,34 +8,34 @@
 # Environment
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-BATCH_DIR=/app/batch
-LOG_DIR=/var/log/batch
+BATCH_DIR=/opt/rent/batch
+LOG_DIR=/var/log/rent
 
 # -----------------------------------------------------------------------------
 # Daily Jobs
 # -----------------------------------------------------------------------------
 
 # Billing: Generate invoices for due leases (03:00 AM)
-0 3 * * * cd $BATCH_DIR && node dist/index.js billing --log $LOG_DIR/billing.log
+0 3 * * * cd $BATCH_DIR && node index.js billing --log $LOG_DIR/billing.log
 
 # Overdue: Mark overdue invoices (09:00 AM)
-0 9 * * * cd $BATCH_DIR && node dist/index.js overdue --log $LOG_DIR/overdue.log
+0 9 * * * cd $BATCH_DIR && node index.js overdue --log $LOG_DIR/overdue.log
 
 # Reminders: Send payment reminders (10:00 AM)
-0 10 * * * cd $BATCH_DIR && node dist/index.js reminders --log $LOG_DIR/reminders.log
+0 10 * * * cd $BATCH_DIR && node index.js reminders --log $LOG_DIR/reminders.log
 
 # Late Fees: Apply late fees (10:30 AM)
-30 10 * * * cd $BATCH_DIR && node dist/index.js late-fees --log $LOG_DIR/late-fees.log
+30 10 * * * cd $BATCH_DIR && node index.js late-fees --log $LOG_DIR/late-fees.log
 
 # -----------------------------------------------------------------------------
 # Monthly Jobs
 # -----------------------------------------------------------------------------
 
 # Sync Indices: Fetch inflation indices (1st of month, 01:00 AM)
-0 1 1 * * cd $BATCH_DIR && node dist/index.js sync-indices --log $LOG_DIR/sync-indices.log
+0 1 1 * * cd $BATCH_DIR && node index.js sync-indices --log $LOG_DIR/sync-indices.log
 
 # Reports: Generate monthly owner reports (1st of month, 06:00 AM)
-0 6 1 * * cd $BATCH_DIR && node dist/index.js reports --type=monthly --log $LOG_DIR/reports.log
+0 6 1 * * cd $BATCH_DIR && node index.js reports --type=monthly --log $LOG_DIR/reports.log
 
 # -----------------------------------------------------------------------------
 # Maintenance Jobs
@@ -45,4 +45,4 @@ LOG_DIR=/var/log/batch
 0 2 * * 0 find $LOG_DIR -name "*.log" -mtime +30 -delete
 
 # Health Check: Verify batch system is operational (every 6 hours)
-0 */6 * * * cd $BATCH_DIR && node dist/index.js --version >> /dev/null 2>&1 || echo "Batch system health check failed" | mail -s "ALERT: Batch System Down" admin@rent.local
+0 */6 * * * cd $BATCH_DIR && node index.js --version >> /dev/null 2>&1 || echo "Batch system health check failed" | mail -s "ALERT: Batch System Down" admin@rent.local
