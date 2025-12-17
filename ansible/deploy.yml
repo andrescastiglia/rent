@@ -259,20 +259,20 @@
         status_code: 200
       register: backend_health
       until: backend_health.status == 200
-      retries: 30
-      delay: 2
-      ignore_errors: true
+      retries: 10
+      delay: 3
+      #ignore_errors: true
 
     - name: Wait for frontend to be healthy
       ansible.builtin.uri:
-        url: "http://127.0.0.1:{{ frontend_port }}"
+        url: "http://127.0.0.1:{{ frontend_port }}/health"
         method: GET
         status_code: 200
       register: frontend_health
       until: frontend_health.status == 200
-      retries: 30
-      delay: 2
-      ignore_errors: true
+      retries: 10
+      delay: 3
+      #ignore_errors: true
 
     - name: Display PM2 status
       ansible.builtin.command:
