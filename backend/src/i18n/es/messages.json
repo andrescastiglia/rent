@@ -87,6 +87,14 @@
         "movements": "Movimientos",
         "lateFeeCalculated": "Mora calculada"
     },
+    "user": {
+        "passwordChanged": "Contraseña cambiada exitosamente",
+        "deleted": "Usuario eliminado exitosamente",
+        "notFound": "Usuario no encontrado",
+        "currentPasswordIncorrect": "La contraseña actual es incorrecta",
+        "staffCodeMessage": "Envíe este código de autorización a {email}",
+        "blocked": "Usuario bloqueado. Contáctese con el administrador."
+    },
     "success": {
         "created": "Creado exitosamente",
         "updated": "Actualizado exitosamente",

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { I18nService } from 'nestjs-i18n';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -25,6 +26,7 @@ export class ReceiptPdfService {
     @InjectRepository(Document)
     private documentsRepository: Repository<Document>,
     private configService: ConfigService,
+    private readonly i18n: I18nService,
   ) {
     this.s3Client = getS3Config(configService);
     this.bucketName = S3_BUCKET_NAME;
@@ -37,8 +39,15 @@ export class ReceiptPdfService {
    * @returns URL del PDF en S3
    */
   async generate(receipt: Receipt, payment: Payment): Promise<string> {
+    // Obtener idioma preferido del usuario o default
+    const lang = payment.tenantAccount?.lease?.tenant?.user?.language || 'es';
     // Generar PDF buffer
-    const pdfBuffer = await generateReceiptPdf(receipt, payment);
+    const pdfBuffer = await generateReceiptPdf(
+      receipt,
+      payment,
+      this.i18n,
+      lang,
+    );
 
     // Generar file URL (S3 key)
     const timestamp = Date.now();

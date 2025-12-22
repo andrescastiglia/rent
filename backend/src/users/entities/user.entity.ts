@@ -56,6 +56,9 @@ export class User {
   })
   role: UserRole;
 
+  @Column({ name: 'language', type: 'varchar', length: 8, default: 'es' })
+  language: string;
+
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 

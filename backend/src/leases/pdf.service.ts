@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { I18nService } from 'nestjs-i18n';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -21,14 +22,17 @@ export class PdfService {
     @InjectRepository(Document)
     private documentsRepository: Repository<Document>,
     private configService: ConfigService,
+    private readonly i18n: I18nService,
   ) {
     this.s3Client = getS3Config(configService);
     this.bucketName = S3_BUCKET_NAME;
   }
 
   async generateContract(lease: Lease, _userId: string): Promise<Document> {
+    // Obtener idioma preferido del usuario o default
+    const lang = lease.tenant?.user?.language || 'es';
     // Generate PDF buffer
-    const pdfBuffer = await generateContractPdf(lease);
+    const pdfBuffer = await generateContractPdf(lease, this.i18n, lang);
 
     // Generate S3 key / file URL
     const timestamp = Date.now();

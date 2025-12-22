@@ -1,18 +1,22 @@
 import * as PDFDocument from 'pdfkit';
 import { Receipt } from '../entities/receipt.entity';
 import { Payment } from '../entities/payment.entity';
+import { I18nService } from 'nestjs-i18n';
 
 /**
- * Genera el PDF de un recibo de pago.
- * @param receipt Recibo
- * @param payment Pago asociado
- * @returns Buffer del PDF
+ * Generate payment receipt PDF with multilingual support.
+ * @param receipt Receipt entity
+ * @param payment Payment entity
+ * @param i18n I18nService instance
+ * @param lang Language code (e.g. 'es', 'en', 'pt')
  */
 export function generateReceiptPdf(
   receipt: Receipt,
   payment: Payment,
+  i18n: I18nService,
+  lang: string = 'es',
 ): Promise<Buffer> {
-  return new Promise<Buffer>((resolve, reject) => {
+  return new Promise<Buffer>(async (resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
     const buffers: Buffer[] = [];
 
@@ -23,40 +27,49 @@ export function generateReceiptPdf(
     });
     doc.on('error', reject);
 
-    // Header
+    // Header (multilingual)
     doc
       .fontSize(20)
       .font('Helvetica-Bold')
-      .text('RECIBO DE PAGO', { align: 'center' })
+      .text(await i18n.t('payment.title', { lang }), { align: 'center' })
       .moveDown();
 
     doc
       .fontSize(12)
       .font('Helvetica')
-      .text(`Nº ${receipt.receiptNumber}`, { align: 'right' })
+      .text(
+        `${await i18n.t('payment.receiptNumber', { lang })} ${receipt.receiptNumber}`,
+        { align: 'right' },
+      )
       .moveDown(0.5);
 
     doc
       .fontSize(10)
       .text(
-        `Fecha de emisión: ${new Date(receipt.issuedAt).toLocaleDateString('es-AR')}`,
+        `${await i18n.t('payment.issueDate', { lang })}: ${new Date(receipt.issuedAt).toLocaleDateString(lang)}`,
         { align: 'right' },
       )
       .moveDown(2);
 
-    // Datos del inquilino
+    // Tenant data (multilingual)
     const tenant = payment.tenantAccount?.lease?.tenant;
     const tenantUser = tenant?.user;
     if (tenantUser) {
-      doc.fontSize(14).font('Helvetica-Bold').text('RECIBIDO DE').moveDown(0.5);
+      doc
+        .fontSize(14)
+        .font('Helvetica-Bold')
+        .text(await i18n.t('payment.receivedFrom', { lang }))
+        .moveDown(0.5);
 
       doc
         .fontSize(11)
         .font('Helvetica')
         .text(
-          `Nombre: ${tenantUser.firstName || ''} ${tenantUser.lastName || ''}`,
+          `${await i18n.t('payment.name', { lang })}: ${tenantUser.firstName || ''} ${tenantUser.lastName || ''}`,
         )
-        .text(`Email: ${tenantUser.email || ''}`)
+        .text(
+          `${await i18n.t('payment.email', { lang })}: ${tenantUser.email || ''}`,
+        )
         .moveDown(1.5);
     }
 

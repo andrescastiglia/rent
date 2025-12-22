@@ -6,15 +6,22 @@
         "badRequest": "Solicitação incorreta",
         "internalError": "Erro interno do servidor",
         "invalidCredentials": "Credenciais inválidas",
-        "emailAlreadyExists": "O email já está registrado",
+        "emailAlreadyExists": "O e-mail já está registrado",
         "propertyNotFound": "Propriedade não encontrada",
         "tenantNotFound": "Inquilino não encontrado",
         "leaseNotFound": "Contrato não encontrado",
-        "userNotFound": "Usuário não encontrado"
+        "userNotFound": "Usuário não encontrado",
+        "paymentNotFound": "Pagamento não encontrado",
+        "invoiceNotFound": "Fatura não encontrada",
+        "receiptNotFound": "Recibo não encontrado",
+        "accountNotFound": "Conta corrente não encontrada",
+        "paymentAlreadyCompleted": "O pagamento já foi concluído",
+        "invoiceAlreadyCancelled": "A fatura já foi cancelada",
+        "cannotCancelPaidInvoice": "Não é possível cancelar uma fatura paga"
     },
     "validation": {
         "required": "O campo {field} é obrigatório",
-        "invalidEmail": "Email inválido",
+        "invalidEmail": "E-mail inválido",
         "invalidPhone": "Telefone inválido",
         "minLength": "Deve ter pelo menos {min} caracteres",
         "maxLength": "Não pode exceder {max} caracteres"
@@ -37,9 +44,62 @@
         "lessorSignature": "Assinatura do Locador",
         "lesseeSignature": "Assinatura do Locatário"
     },
+    "payment": {
+        "title": "Recibo de Pagamento",
+        "amount": "Valor",
+        "status": "Status",
+        "method": "Método de pagamento",
+        "date": "Data de pagamento",
+        "reference": "Referência",
+        "cash": "Dinheiro",
+        "transfer": "Transferência bancária",
+        "check": "Cheque",
+        "debit": "Débito",
+        "credit": "Crédito",
+        "pending": "Pendente",
+        "completed": "Concluído",
+        "cancelled": "Cancelado"
+    },
+    "invoice": {
+        "title": "Fatura",
+        "invoiceNumber": "Número da fatura",
+        "period": "Período",
+        "subtotal": "Subtotal",
+        "lateFee": "Multa por atraso",
+        "adjustments": "Ajustes",
+        "total": "Total",
+        "dueDate": "Data de vencimento",
+        "draft": "Rascunho",
+        "issued": "Emitida",
+        "paid": "Paga",
+        "partiallyPaid": "Pagamento parcial",
+        "overdue": "Vencida"
+    },
+    "receipt": {
+        "title": "Recibo",
+        "receiptNumber": "Número do recibo",
+        "receivedFrom": "Recebido de",
+        "paymentDetails": "Detalhes do pagamento",
+        "amountReceived": "Valor recebido"
+    },
+    "account": {
+        "balance": "Saldo",
+        "movements": "Movimentações",
+        "lateFeeCalculated": "Multa calculada"
+    },
+    "user": {
+        "passwordChanged": "Senha alterada com sucesso",
+        "deleted": "Usuário excluído com sucesso",
+        "notFound": "Usuário não encontrado",
+        "currentPasswordIncorrect": "A senha atual está incorreta",
+        "staffCodeMessage": "Envie este código de autorização para {email}",
+        "blocked": "Usuário bloqueado. Entre em contato com o administrador."
+    },
     "success": {
         "created": "Criado com sucesso",
         "updated": "Atualizado com sucesso",
-        "deleted": "Excluído com sucesso"
+        "deleted": "Excluído com sucesso",
+        "paymentConfirmed": "Pagamento confirmado com sucesso",
+        "invoiceIssued": "Fatura emitida com sucesso"
     }
 }

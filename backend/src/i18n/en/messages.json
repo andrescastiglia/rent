@@ -10,7 +10,14 @@
         "propertyNotFound": "Property not found",
         "tenantNotFound": "Tenant not found",
         "leaseNotFound": "Lease not found",
-        "userNotFound": "User not found"
+        "userNotFound": "User not found",
+        "paymentNotFound": "Payment not found",
+        "invoiceNotFound": "Invoice not found",
+        "receiptNotFound": "Receipt not found",
+        "accountNotFound": "Account not found",
+        "paymentAlreadyCompleted": "Payment already completed",
+        "invoiceAlreadyCancelled": "Invoice already cancelled",
+        "cannotCancelPaidInvoice": "Cannot cancel a paid invoice"
     },
     "validation": {
         "required": "The field {field} is required",
@@ -37,9 +44,62 @@
         "lessorSignature": "Lessor Signature",
         "lesseeSignature": "Lessee Signature"
     },
+    "payment": {
+        "title": "Payment Receipt",
+        "amount": "Amount",
+        "status": "Status",
+        "method": "Payment method",
+        "date": "Payment date",
+        "reference": "Reference",
+        "cash": "Cash",
+        "transfer": "Bank transfer",
+        "check": "Check",
+        "debit": "Debit",
+        "credit": "Credit",
+        "pending": "Pending",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
+    },
+    "invoice": {
+        "title": "Invoice",
+        "invoiceNumber": "Invoice number",
+        "period": "Period",
+        "subtotal": "Subtotal",
+        "lateFee": "Late fee",
+        "adjustments": "Adjustments",
+        "total": "Total",
+        "dueDate": "Due date",
+        "draft": "Draft",
+        "issued": "Issued",
+        "paid": "Paid",
+        "partiallyPaid": "Partially paid",
+        "overdue": "Overdue"
+    },
+    "receipt": {
+        "title": "Receipt",
+        "receiptNumber": "Receipt number",
+        "receivedFrom": "Received from",
+        "paymentDetails": "Payment details",
+        "amountReceived": "Amount received"
+    },
+    "account": {
+        "balance": "Balance",
+        "movements": "Movements",
+        "lateFeeCalculated": "Late fee calculated"
+    },
+    "user": {
+        "passwordChanged": "Password changed successfully",
+        "deleted": "User deleted successfully",
+        "notFound": "User not found",
+        "currentPasswordIncorrect": "Current password is incorrect",
+        "staffCodeMessage": "Send this authorization code to {email}",
+        "blocked": "User blocked. Please contact the administrator."
+    },
     "success": {
         "created": "Created successfully",
         "updated": "Updated successfully",
-        "deleted": "Deleted successfully"
+        "deleted": "Deleted successfully",
+        "paymentConfirmed": "Payment confirmed successfully",
+        "invoiceIssued": "Invoice issued successfully"
     }
 }

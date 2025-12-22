@@ -1,13 +1,19 @@
 import * as PDFDocument from 'pdfkit';
 import { Invoice } from '../entities/invoice.entity';
+import { I18nService } from 'nestjs-i18n';
 
 /**
- * Genera el PDF de una factura.
- * @param invoice Factura
- * @returns Buffer del PDF
+ * Generate invoice PDF with multilingual support.
+ * @param invoice Invoice entity
+ * @param i18n I18nService instance
+ * @param lang Language code (e.g. 'es', 'en', 'pt')
  */
-export function generateInvoicePdf(invoice: Invoice): Promise<Buffer> {
-  return new Promise<Buffer>((resolve, reject) => {
+export function generateInvoicePdf(
+  invoice: Invoice,
+  i18n: I18nService,
+  lang: string = 'es',
+): Promise<Buffer> {
+  return new Promise<Buffer>(async (resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
     const buffers: Buffer[] = [];
 
@@ -18,53 +24,68 @@ export function generateInvoicePdf(invoice: Invoice): Promise<Buffer> {
     });
     doc.on('error', reject);
 
-    // Header
+    // Header (multilingual)
     doc
       .fontSize(20)
       .font('Helvetica-Bold')
-      .text('FACTURA', { align: 'center' })
+      .text(await i18n.t('invoice.title', { lang }), { align: 'center' })
       .moveDown();
 
     doc
       .fontSize(12)
       .font('Helvetica')
-      .text(`Nº ${invoice.invoiceNumber}`, { align: 'right' })
+      .text(
+        `${await i18n.t('invoice.invoiceNumber', { lang })} ${invoice.invoiceNumber}`,
+        { align: 'right' },
+      )
       .moveDown(0.5);
 
     doc
       .fontSize(10)
       .text(
-        `Fecha de emisión: ${invoice.issuedAt ? new Date(invoice.issuedAt).toLocaleDateString('es-AR') : 'Borrador'}`,
+        `${await i18n.t('invoice.issueDate', { lang })}: ${invoice.issuedAt ? new Date(invoice.issuedAt).toLocaleDateString(lang) : await i18n.t('invoice.draft', { lang })}`,
         { align: 'right' },
       )
       .moveDown(2);
 
-    // Emisor (Propietario)
+    // Owner (multilingual)
     const owner = invoice.owner;
     const ownerUser = owner?.user;
-    doc.fontSize(14).font('Helvetica-Bold').text('EMISOR').moveDown(0.5);
+    doc
+      .fontSize(14)
+      .font('Helvetica-Bold')
+      .text(await i18n.t('invoice.issuer', { lang }))
+      .moveDown(0.5);
 
     doc
       .fontSize(11)
       .font('Helvetica')
       .text(
-        `Nombre: ${ownerUser?.firstName || ''} ${ownerUser?.lastName || ''}`,
+        `${await i18n.t('invoice.name', { lang })}: ${ownerUser?.firstName || ''} ${ownerUser?.lastName || ''}`,
       )
-      .text(`Email: ${ownerUser?.email || ''}`)
+      .text(
+        `${await i18n.t('invoice.email', { lang })}: ${ownerUser?.email || ''}`,
+      )
       .moveDown(1.5);
 
-    // Cliente (Inquilino)
+    // Tenant (multilingual)
     const tenant = invoice.lease?.tenant;
     const tenantUser = tenant?.user;
-    doc.fontSize(14).font('Helvetica-Bold').text('CLIENTE').moveDown(0.5);
+    doc
+      .fontSize(14)
+      .font('Helvetica-Bold')
+      .text(await i18n.t('invoice.client', { lang }))
+      .moveDown(0.5);
 
     doc
       .fontSize(11)
       .font('Helvetica')
       .text(
-        `Nombre: ${tenantUser?.firstName || ''} ${tenantUser?.lastName || ''}`,
+        `${await i18n.t('invoice.name', { lang })}: ${tenantUser?.firstName || ''} ${tenantUser?.lastName || ''}`,
       )
-      .text(`Email: ${tenantUser?.email || ''}`)
+      .text(
+        `${await i18n.t('invoice.email', { lang })}: ${tenantUser?.email || ''}`,
+      )
       .moveDown(1.5);
 
     // Propiedad

@@ -17,6 +17,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from './entities/user.entity';
+import { I18n, I18nContext } from 'nestjs-i18n';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('users')
@@ -49,13 +50,14 @@ export class UsersController {
   async changePassword(
     @Request() req: any,
     @Body() changePasswordDto: ChangePasswordDto,
+    @I18n() i18n: I18nContext,
   ) {
     await this.usersService.changePassword(
       req.user.id,
       changePasswordDto.currentPassword,
       changePasswordDto.newPassword,
     );
-    return { message: 'Password changed successfully' };
+    return { message: await i18n.t('user.passwordChanged') };
   }
 
   @Get(':id')
@@ -72,8 +74,8 @@ export class UsersController {
 
   @Delete(':id')
   @Roles(UserRole.ADMIN)
-  async remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string, @I18n() i18n: I18nContext) {
     await this.usersService.remove(id);
-    return { message: 'User deleted successfully' };
+    return { message: await i18n.t('user.deleted') };
   }
 }

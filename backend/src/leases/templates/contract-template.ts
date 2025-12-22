@@ -1,8 +1,19 @@
 import * as PDFDocument from 'pdfkit';
 import { Lease } from '../entities/lease.entity';
+import { I18nService } from 'nestjs-i18n';
 
-export function generateContractPdf(lease: Lease): Promise<Buffer> {
-  return new Promise<Buffer>((resolve, reject) => {
+/**
+ * Generate contract PDF with multilingual support.
+ * @param lease Lease entity
+ * @param i18n I18nService instance
+ * @param lang Language code (e.g. 'es', 'en', 'pt')
+ */
+export function generateContractPdf(
+  lease: Lease,
+  i18n: I18nService,
+  lang: string = 'es',
+): Promise<Buffer> {
+  return new Promise<Buffer>(async (resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
     const buffers: Buffer[] = [];
 
@@ -13,107 +24,120 @@ export function generateContractPdf(lease: Lease): Promise<Buffer> {
     });
     doc.on('error', reject);
 
-    // Header
+    // Header (multilingual)
     doc
       .fontSize(20)
       .font('Helvetica-Bold')
-      .text('CONTRATO DE ALQUILER', { align: 'center' })
+      .text(await i18n.t('contract.header', { lang }), { align: 'center' })
       .moveDown();
 
     doc
       .fontSize(10)
       .font('Helvetica')
-      .text(`Fecha de emisión: ${new Date().toLocaleDateString('es-AR')}`, {
-        align: 'right',
-      })
+      .text(
+        `${await i18n.t('contract.issued_date', { lang })}: ${new Date().toLocaleDateString(lang)}`,
+        { align: 'right' },
+      )
       .moveDown(2);
 
-    // Partes del contrato
+    // Contract parties (multilingual)
     doc
       .fontSize(14)
       .font('Helvetica-Bold')
-      .text('PARTES DEL CONTRATO')
+      .text(await i18n.t('contract.parties', { lang }))
       .moveDown(0.5);
 
     doc
       .fontSize(11)
       .font('Helvetica')
       .text(
-        `Locador (Propietario): ${lease.unit?.property?.owner?.user?.firstName || ''} ${lease.unit?.property?.owner?.user?.lastName || ''}`,
+        `${await i18n.t('contract.landlord', { lang })}: ${lease.unit?.property?.owner?.user?.firstName || ''} ${lease.unit?.property?.owner?.user?.lastName || ''}`,
       )
       .text(
-        `Locatario (Inquilino): ${lease.tenant?.user?.firstName || ''} ${lease.tenant?.user?.lastName || ''}`,
+        `${await i18n.t('contract.tenant', { lang })}: ${lease.tenant?.user?.firstName || ''} ${lease.tenant?.user?.lastName || ''}`,
       )
-      .text(`Email: ${lease.tenant?.user?.email || ''}`)
+      .text(
+        `${await i18n.t('contract.email', { lang })}: ${lease.tenant?.user?.email || ''}`,
+      )
       .moveDown(1.5);
 
-    // Propiedad
-    doc.fontSize(14).font('Helvetica-Bold').text('PROPIEDAD').moveDown(0.5);
+    // Property (multilingual)
+    doc
+      .fontSize(14)
+      .font('Helvetica-Bold')
+      .text(await i18n.t('contract.property', { lang }))
+      .moveDown(0.5);
 
     const property = lease.unit?.property;
     doc
       .fontSize(11)
       .font('Helvetica')
       .text(
-        `Dirección: ${property?.addressStreet || ''} ${property?.addressNumber || ''}`,
+        `${await i18n.t('contract.address', { lang })}: ${property?.addressStreet || ''} ${property?.addressNumber || ''}`,
       )
       .text(
-        `Ciudad: ${property?.addressCity || ''}, ${property?.addressState || ''}`,
+        `${await i18n.t('contract.city', { lang })}: ${property?.addressCity || ''}, ${property?.addressState || ''}`,
       )
-      .text(`Código Postal: ${property?.addressPostalCode || ''}`)
-      .text(`Unidad: ${lease.unit?.unitNumber || ''}`)
-      .text(`Área: ${lease.unit?.area || 0} m²`)
+      .text(
+        `${await i18n.t('contract.postal_code', { lang })}: ${property?.addressPostalCode || ''}`,
+      )
+      .text(
+        `${await i18n.t('contract.unit', { lang })}: ${lease.unit?.unitNumber || ''}`,
+      )
+      .text(
+        `${await i18n.t('contract.area', { lang })}: ${lease.unit?.area || 0} m²`,
+      )
       .moveDown(1.5);
 
-    // Términos del contrato
+    // Contract terms (multilingual)
     doc
       .fontSize(14)
       .font('Helvetica-Bold')
-      .text('TÉRMINOS DEL CONTRATO')
+      .text(await i18n.t('contract.terms', { lang }))
       .moveDown(0.5);
 
     doc
       .fontSize(11)
       .font('Helvetica')
       .text(
-        `Fecha de inicio: ${new Date(lease.startDate).toLocaleDateString('es-AR')}`,
+        `${await i18n.t('contract.start_date', { lang })}: ${new Date(lease.startDate).toLocaleDateString(lang)}`,
       )
       .text(
-        `Fecha de finalización: ${new Date(lease.endDate).toLocaleDateString('es-AR')}`,
+        `${await i18n.t('contract.end_date', { lang })}: ${new Date(lease.endDate).toLocaleDateString(lang)}`,
       )
       .text(
-        `Renta mensual: ${lease.currency} ${Number(lease.monthlyRent).toLocaleString('es-AR')}`,
+        `${await i18n.t('contract.monthly_rent', { lang })}: ${lease.currency} ${Number(lease.monthlyRent).toLocaleString(lang)}`,
       )
       .text(
-        `Depósito: ${lease.currency} ${Number(lease.securityDeposit).toLocaleString('es-AR')}`,
+        `${await i18n.t('contract.deposit', { lang })}: ${lease.currency} ${Number(lease.securityDeposit).toLocaleString(lang)}`,
       )
-      .text(`Frecuencia de pago: ${lease.paymentFrequency}`)
+      .text(
+        `${await i18n.t('contract.payment_frequency', { lang })}: ${lease.paymentFrequency}`,
+      )
       .moveDown(1.5);
 
-    // Cláusulas
-    doc.fontSize(14).font('Helvetica-Bold').text('CLÁUSULAS').moveDown(0.5);
+    // Clauses (multilingual)
+    doc
+      .fontSize(14)
+      .font('Helvetica-Bold')
+      .text(await i18n.t('contract.clauses', { lang }))
+      .moveDown(0.5);
 
-    const clauses = [
-      'El locatario se compromete a pagar la renta mensual en la fecha acordada.',
-      'El locatario se compromete a mantener la propiedad en buen estado.',
-      'El locador se compromete a realizar las reparaciones necesarias.',
-      'El depósito será devuelto al finalizar el contrato, sujeto a inspección.',
-      'Cualquier modificación al contrato debe ser acordada por escrito.',
-    ];
-
+    // NOTA: nestjs-i18n no soporta returnObjects, así que contract.clauses_list debe ser un string con saltos de línea o manejarse de otra forma.
+    const clausesRaw: string = await i18n.t('contract.clauses_list', { lang });
+    const clauses = clausesRaw.split('\n');
     doc.fontSize(10).font('Helvetica');
     clauses.forEach((clause, index) => {
       doc.text(`${index + 1}. ${clause}`, { indent: 20 }).moveDown(0.3);
     });
-
     doc.moveDown(1.5);
 
-    // Términos y condiciones
+    // Terms and conditions (multilingual)
     if (lease.termsAndConditions) {
       doc
         .fontSize(14)
         .font('Helvetica-Bold')
-        .text('TÉRMINOS Y CONDICIONES')
+        .text(await i18n.t('contract.terms_and_conditions', { lang }))
         .moveDown(0.5);
 
       doc
@@ -123,18 +147,18 @@ export function generateContractPdf(lease: Lease): Promise<Buffer> {
         .moveDown(1.5);
     }
 
-    // Notas adicionales
+    // Additional notes (multilingual)
     if (lease.notes) {
       doc
         .fontSize(14)
         .font('Helvetica-Bold')
-        .text('NOTAS ADICIONALES')
+        .text(await i18n.t('contract.additional_notes', { lang }))
         .moveDown(0.5);
 
       doc.fontSize(10).font('Helvetica').text(lease.notes).moveDown(1.5);
     }
 
-    // Firmas
+    // Signatures (multilingual)
     doc.moveDown(3);
     doc
       .fontSize(11)
@@ -144,16 +168,29 @@ export function generateContractPdf(lease: Lease): Promise<Buffer> {
 
     doc
       .fontSize(10)
-      .text('Firma del Locador', 100, doc.y + 5)
-      .text('Firma del Locatario', 350, doc.y - 10);
+      .text(
+        await i18n.t('contract.landlord_signature', { lang }),
+        100,
+        doc.y + 5,
+      )
+      .text(
+        await i18n.t('contract.tenant_signature', { lang }),
+        350,
+        doc.y - 10,
+      );
 
-    // Footer
+    // Footer (multilingual)
     doc
       .fontSize(8)
       .font('Helvetica')
-      .text(`Contrato ID: ${lease.id}`, 50, doc.page.height - 50, {
-        align: 'center',
-      });
+      .text(
+        `${await i18n.t('contract.contract_id', { lang })}: ${lease.id}`,
+        50,
+        doc.page.height - 50,
+        {
+          align: 'center',
+        },
+      );
 
     doc.end();
   });

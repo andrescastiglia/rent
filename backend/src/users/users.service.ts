@@ -57,7 +57,7 @@ export class UsersService {
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
     const user = await this.findOneById(id);
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      throw new NotFoundException('user.notFound');
     }
 
     Object.assign(user, updateUserDto);
@@ -67,7 +67,7 @@ export class UsersService {
   async remove(id: string): Promise<void> {
     const user = await this.findOneById(id);
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      throw new NotFoundException('user.notFound');
     }
 
     await this.usersRepository.softDelete(id);
@@ -80,7 +80,7 @@ export class UsersService {
   ): Promise<void> {
     const user = await this.findOneById(userId);
     if (!user) {
-      throw new NotFoundException(`User not found`);
+      throw new NotFoundException('user.notFound');
     }
 
     // Verify current password
@@ -89,7 +89,7 @@ export class UsersService {
       user.passwordHash,
     );
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Current password is incorrect');
+      throw new UnauthorizedException('user.currentPasswordIncorrect');
     }
 
     // Hash new password
