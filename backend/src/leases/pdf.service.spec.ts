@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { PdfService } from './pdf.service';
+import { I18nService } from 'nestjs-i18n';
 import {
   Document,
   DocumentType,
@@ -26,6 +27,7 @@ describe('PdfService', () => {
   let service: PdfService;
   let documentRepository: MockRepository<Document>;
   let configService: jest.Mocked<ConfigService>;
+  let i18nService: Partial<I18nService>;
 
   type MockRepository<T extends Record<string, any> = any> = Partial<
     Record<keyof Repository<T>, jest.Mock>
@@ -61,6 +63,9 @@ describe('PdfService', () => {
     configService = {
       get: jest.fn(),
     } as any;
+    i18nService = {
+      t: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -72,6 +77,10 @@ describe('PdfService', () => {
         {
           provide: ConfigService,
           useValue: configService,
+        },
+        {
+          provide: I18nService,
+          useValue: i18nService,
         },
       ],
     }).compile();
@@ -101,7 +110,11 @@ describe('PdfService', () => {
         'user-1',
       );
 
-      expect(generateContractPdf).toHaveBeenCalledWith(mockLease);
+      expect(generateContractPdf).toHaveBeenCalledWith(
+        mockLease,
+        i18nService,
+        'es',
+      );
       expect(mockS3Send).toHaveBeenCalled();
       expect(documentRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({

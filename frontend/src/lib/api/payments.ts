@@ -8,6 +8,7 @@ import {
     PaymentFilters,
     InvoiceFilters,
     PaginatedResponse,
+    TenantReceiptSummary,
 } from '@/types/payment';
 import { apiClient } from '../api';
 import { getToken } from '../auth';
@@ -21,7 +22,7 @@ const MOCK_TENANT_ACCOUNTS: TenantAccount[] = [
         id: 'ta1',
         leaseId: '1',
         balance: 1500,
-        lastCalculatedAt: new Date().toISOString(),
+        lastMovementAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
     },
@@ -43,7 +44,7 @@ const MOCK_INVOICES: Invoice[] = [
         currencyCode: 'ARS',
         amountPaid: 0,
         dueDate: '2024-12-10',
-        status: 'issued',
+        status: 'pending',
         pdfUrl: null,
         issuedAt: new Date().toISOString(),
         notes: null,
@@ -78,14 +79,24 @@ const MOCK_PAYMENTS: Payment[] = [
     {
         id: 'pay1',
         tenantAccountId: 'ta1',
+        tenantId: '1',
         amount: 1500,
         currencyCode: 'ARS',
         paymentDate: '2024-11-15',
-        method: 'transfer',
+        method: 'bank_transfer',
         reference: 'TRF-12345',
         status: 'completed',
         notes: 'Pago noviembre',
-        receivedBy: 'admin1',
+        items: [
+            {
+                id: 'item1',
+                paymentId: 'pay1',
+                description: 'Alquiler',
+                amount: 1500,
+                quantity: 1,
+                type: 'charge',
+            },
+        ],
         receipt: {
             id: 'rec1',
             paymentId: 'pay1',
@@ -182,7 +193,14 @@ export const paymentsApi = {
                 reference: data.reference || null,
                 status: 'pending',
                 notes: data.notes || null,
-                receivedBy: null,
+                items: (data.items || []).map((item, index) => ({
+                    id: `item-${Date.now()}-${index}`,
+                    paymentId: `pay${Date.now()}`,
+                    description: item.description,
+                    amount: item.amount,
+                    quantity: item.quantity ?? 1,
+                    type: item.type ?? 'charge',
+                })),
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
             };
@@ -243,6 +261,45 @@ export const paymentsApi = {
 
         const token = getToken();
         return apiClient.post<Payment>(`/payments/${id}/cancel`, {}, token ?? undefined);
+    },
+
+    update: async (id: string, data: Partial<CreatePaymentInput>): Promise<Payment> => {
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            const index = MOCK_PAYMENTS.findIndex((p) => p.id === id);
+            if (index === -1) throw new Error('Payment not found');
+            if (MOCK_PAYMENTS[index].status !== 'pending') {
+                throw new Error('Only pending payments can be edited');
+            }
+            const items = data.items
+                ? data.items.map((item, itemIndex) => ({
+                      id: `item-${Date.now()}-${itemIndex}`,
+                      paymentId: id,
+                      description: item.description,
+                      amount: item.amount,
+                      quantity: item.quantity ?? 1,
+                      type: item.type ?? 'charge',
+                  }))
+                : MOCK_PAYMENTS[index].items;
+            const amountFromItems = items && items.length > 0
+                ? items.reduce((acc, item) => {
+                      const sign = item.type === 'discount' ? -1 : 1;
+                      return acc + sign * item.amount * (item.quantity ?? 1);
+                  }, 0)
+                : MOCK_PAYMENTS[index].amount;
+
+            MOCK_PAYMENTS[index] = {
+                ...MOCK_PAYMENTS[index],
+                ...data,
+                items,
+                amount: data.amount ?? amountFromItems,
+                updatedAt: new Date().toISOString(),
+            };
+            return MOCK_PAYMENTS[index];
+        }
+
+        const token = getToken();
+        return apiClient.patch<Payment>(`/payments/${id}`, data, token ?? undefined);
     },
 };
 
@@ -347,24 +404,28 @@ export const tenantAccountsApi = {
             return [
                 {
                     id: 'mov1',
-                    accountId,
-                    movementType: 'invoice',
+                    tenantAccountId: accountId,
+                    movementType: 'charge',
                     amount: 1500,
                     balanceAfter: 1500,
                     referenceType: 'invoice',
                     referenceId: 'inv1',
                     description: 'Factura INV-202412-0001',
+                    movementDate: new Date().toISOString().split('T')[0],
+                    createdBy: null,
                     createdAt: new Date().toISOString(),
                 },
                 {
                     id: 'mov2',
-                    accountId,
+                    tenantAccountId: accountId,
                     movementType: 'payment',
                     amount: -1500,
                     balanceAfter: 0,
                     referenceType: 'payment',
                     referenceId: 'pay1',
                     description: 'Pago recibido',
+                    movementDate: '2024-11-15',
+                    createdBy: null,
                     createdAt: '2024-11-15T14:30:00Z',
                 },
             ];
@@ -372,5 +433,40 @@ export const tenantAccountsApi = {
 
         const token = getToken();
         return apiClient.get<TenantAccountMovement[]>(`/tenant-accounts/${accountId}/movements`, token ?? undefined);
+    },
+
+    /**
+     * Lista recibos por inquilino
+     */
+    getReceiptsByTenant: async (tenantId: string): Promise<TenantReceiptSummary[]> => {
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            const receipts: TenantReceiptSummary[] = [];
+            for (const payment of MOCK_PAYMENTS) {
+                if (
+                    payment.tenantAccountId &&
+                    payment.receipt &&
+                    (!payment.tenantId || payment.tenantId === tenantId)
+                ) {
+                    receipts.push({
+                        id: payment.receipt.id,
+                        paymentId: payment.id,
+                        receiptNumber: payment.receipt.receiptNumber,
+                        amount: payment.receipt.amount,
+                        currencyCode: payment.receipt.currencyCode,
+                        issuedAt: payment.receipt.issuedAt,
+                        paymentDate: payment.paymentDate,
+                        pdfUrl: payment.receipt.pdfUrl,
+                    });
+                }
+            }
+            return receipts;
+        }
+
+        const token = getToken();
+        return apiClient.get<TenantReceiptSummary[]>(
+            `/payments/tenant/${tenantId}/receipts`,
+            token ?? undefined,
+        );
     },
 };

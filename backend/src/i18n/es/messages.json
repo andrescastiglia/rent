@@ -52,12 +52,17 @@
         "date": "Fecha de pago",
         "reference": "Referencia",
         "cash": "Efectivo",
-        "transfer": "Transferencia bancaria",
+        "bank_transfer": "Transferencia bancaria",
         "check": "Cheque",
-        "debit": "Débito",
-        "credit": "Crédito",
+        "debit_card": "Tarjeta de débito",
+        "credit_card": "Tarjeta de crédito",
+        "digital_wallet": "Billetera digital",
+        "crypto": "Cripto",
         "pending": "Pendiente",
+        "processing": "Procesando",
         "completed": "Completado",
+        "failed": "Fallido",
+        "refunded": "Reintegrado",
         "cancelled": "Anulado"
     },
     "invoice": {
@@ -70,10 +75,13 @@
         "total": "Total",
         "dueDate": "Fecha de vencimiento",
         "draft": "Borrador",
-        "issued": "Emitida",
+        "pending": "Pendiente",
+        "sent": "Enviada",
+        "partial": "Pago parcial",
         "paid": "Pagada",
-        "partiallyPaid": "Pago parcial",
-        "overdue": "Vencida"
+        "overdue": "Vencida",
+        "cancelled": "Anulada",
+        "refunded": "Reintegrada"
     },
     "receipt": {
         "title": "Recibo",

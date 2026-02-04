@@ -8,21 +8,27 @@ import {
   ManyToOne,
   OneToOne,
   JoinColumn,
+  OneToMany,
 } from 'typeorm';
 import { TenantAccount } from './tenant-account.entity';
-import { User } from '../../users/entities/user.entity';
 import { Currency } from '../../currencies/entities/currency.entity';
 import { Receipt } from './receipt.entity';
+import { PaymentItem } from './payment-item.entity';
+import { Company } from '../../companies/entities/company.entity';
+import { Invoice } from './invoice.entity';
+import { Tenant } from '../../tenants/entities/tenant.entity';
 
 /**
  * Métodos de pago disponibles.
  */
 export enum PaymentMethod {
   CASH = 'cash',
-  TRANSFER = 'transfer',
+  BANK_TRANSFER = 'bank_transfer',
+  CREDIT_CARD = 'credit_card',
+  DEBIT_CARD = 'debit_card',
   CHECK = 'check',
-  DEBIT = 'debit',
-  CREDIT = 'credit',
+  DIGITAL_WALLET = 'digital_wallet',
+  CRYPTO = 'crypto',
   OTHER = 'other',
 }
 
@@ -31,9 +37,11 @@ export enum PaymentMethod {
  */
 export enum PaymentStatus {
   PENDING = 'pending',
+  PROCESSING = 'processing',
   COMPLETED = 'completed',
+  FAILED = 'failed',
+  REFUNDED = 'refunded',
   CANCELLED = 'cancelled',
-  REVERSED = 'reversed',
 }
 
 /**
@@ -44,14 +52,40 @@ export class Payment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'tenant_account_id' })
+  @Column({ name: 'company_id' })
+  companyId: string;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company: Company;
+
+  @Column({ name: 'invoice_id', nullable: true })
+  invoiceId: string;
+
+  @ManyToOne(() => Invoice, { nullable: true })
+  @JoinColumn({ name: 'invoice_id' })
+  invoice: Invoice;
+
+  @Column({ name: 'tenant_account_id', nullable: true })
   tenantAccountId: string;
 
-  @ManyToOne(() => TenantAccount, (account) => account.payments)
+  @ManyToOne(() => TenantAccount, (account) => account.payments, {
+    nullable: true,
+  })
   @JoinColumn({ name: 'tenant_account_id' })
   tenantAccount: TenantAccount;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  @Column({ name: 'tenant_id' })
+  tenantId: string;
+
+  @ManyToOne(() => Tenant)
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: Tenant;
+
+  @Column({ name: 'payment_number', nullable: true })
+  paymentNumber: string;
+
+  @Column({ type: 'decimal', precision: 14, scale: 2 })
   amount: number;
 
   @Column({ name: 'currency', default: 'ARS' })
@@ -64,11 +98,29 @@ export class Payment {
   @Column({ name: 'payment_date', type: 'date' })
   paymentDate: Date;
 
+  @Column({ name: 'processed_at', type: 'timestamptz', nullable: true })
+  processedAt: Date;
+
   @Column({ name: 'payment_method', type: 'enum', enum: PaymentMethod })
   method: PaymentMethod;
 
   @Column({ name: 'reference_number', nullable: true })
   reference: string;
+
+  @Column({ name: 'bank_name', nullable: true })
+  bankName: string;
+
+  @Column({ name: 'account_last_digits', length: 4, nullable: true })
+  accountLastDigits: string;
+
+  @Column({ name: 'authorization_code', nullable: true })
+  authorizationCode: string;
+
+  @Column({ name: 'external_transaction_id', nullable: true })
+  externalTransactionId: string;
+
+  @Column({ name: 'gateway_response', type: 'jsonb', default: {} })
+  gatewayResponse: Record<string, any>;
 
   @Column({ type: 'enum', enum: PaymentStatus, default: PaymentStatus.PENDING })
   status: PaymentStatus;
@@ -76,21 +128,11 @@ export class Payment {
   @Column({ type: 'text', nullable: true })
   notes: string;
 
-  @Column({
-    name: 'received_by',
-    nullable: true,
-    select: false,
-    insert: false,
-    update: false,
-  })
-  receivedBy: string;
-
-  @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'received_by' })
-  receiver: User;
-
   @OneToOne(() => Receipt, (receipt) => receipt.payment)
   receipt: Receipt;
+
+  @OneToMany(() => PaymentItem, (item) => item.payment)
+  items: PaymentItem[];
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

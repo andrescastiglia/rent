@@ -198,6 +198,21 @@ describe('TenantsService', () => {
         { name: '%John%' },
       );
     });
+
+    it('should support searching by last name', async () => {
+      const filters = { name: 'Doe', page: 1, limit: 10 };
+      const mockQueryBuilder = createMockQueryBuilder();
+      mockQueryBuilder.getManyAndCount.mockResolvedValue([[mockUser], 1]);
+
+      userRepository.createQueryBuilder!.mockReturnValue(mockQueryBuilder);
+
+      await service.findAll(filters);
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        '(user.first_name ILIKE :name OR user.last_name ILIKE :name)',
+        { name: '%Doe%' },
+      );
+    });
   });
 
   describe('findOne', () => {

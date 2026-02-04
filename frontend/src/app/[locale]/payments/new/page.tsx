@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { CreatePaymentInput, PaymentMethod, TenantAccount } from '@/types/payment';
+import { CreatePaymentInput, PaymentMethod, TenantAccount, PaymentItemType } from '@/types/payment';
 import { Lease } from '@/types/lease';
 import { paymentsApi, tenantAccountsApi } from '@/lib/api/payments';
 import { leasesApi } from '@/lib/api/leases';
@@ -20,6 +20,8 @@ export default function NewPaymentPage() {
     const [leases, setLeases] = useState<Lease[]>([]);
     const [selectedLeaseId, setSelectedLeaseId] = useState('');
     const [account, setAccount] = useState<TenantAccount | null>(null);
+    const [balanceInfo, setBalanceInfo] = useState<{ balance: number; lateFee: number; total: number } | null>(null);
+    const [applyLateFee, setApplyLateFee] = useState(false);
     const [loading, setLoading] = useState(false);
     const [loadingLeases, setLoadingLeases] = useState(true);
 
@@ -27,10 +29,33 @@ export default function NewPaymentPage() {
         amount: 0,
         currencyCode: 'ARS',
         paymentDate: new Date().toISOString().split('T')[0],
-        method: 'transfer',
+        method: 'bank_transfer',
         reference: '',
         notes: '',
+        items: [],
     });
+
+    const items = formData.items || [];
+    const lateFeeItem = balanceInfo?.lateFee && balanceInfo.lateFee > 0
+        ? {
+              description: t('items.lateFee'),
+              amount: balanceInfo.lateFee,
+              quantity: 1,
+              type: 'charge' as PaymentItemType,
+          }
+        : null;
+
+    const effectiveItems = applyLateFee && lateFeeItem
+        ? [...items, lateFeeItem]
+        : items;
+
+    const totalFromItems = effectiveItems.length > 0
+        ? effectiveItems.reduce((acc, item) => {
+              const sign = item.type === 'discount' ? -1 : 1;
+              const quantity = item.quantity ?? 1;
+              return acc + sign * Number(item.amount || 0) * quantity;
+          }, 0)
+        : formData.amount || 0;
 
     useEffect(() => {
         if (authLoading) return;
@@ -42,6 +67,14 @@ export default function NewPaymentPage() {
             loadAccount(selectedLeaseId);
         }
     }, [selectedLeaseId]);
+
+    useEffect(() => {
+        if (!account) return;
+        tenantAccountsApi
+            .getBalance(account.id)
+            .then(setBalanceInfo)
+            .catch(() => setBalanceInfo(null));
+    }, [account]);
 
     const loadLeases = async () => {
         try {
@@ -74,12 +107,13 @@ export default function NewPaymentPage() {
             setLoading(true);
             const payment = await paymentsApi.create({
                 tenantAccountId: account.id,
-                amount: formData.amount!,
+                amount: totalFromItems,
                 currencyCode: formData.currencyCode,
                 paymentDate: formData.paymentDate!,
                 method: formData.method as PaymentMethod,
                 reference: formData.reference,
                 notes: formData.notes,
+                items: effectiveItems.length > 0 ? effectiveItems : undefined,
             });
             router.push(`/payments/${payment.id}`);
         } catch (error) {
@@ -89,7 +123,16 @@ export default function NewPaymentPage() {
         }
     };
 
-    const paymentMethods: PaymentMethod[] = ['cash', 'transfer', 'check', 'debit', 'credit', 'other'];
+    const paymentMethods: PaymentMethod[] = [
+        'cash',
+        'bank_transfer',
+        'check',
+        'debit_card',
+        'credit_card',
+        'digital_wallet',
+        'crypto',
+        'other',
+    ];
 
     return (
         <div className="container mx-auto px-4 py-8 max-w-2xl">
@@ -140,6 +183,11 @@ export default function NewPaymentPage() {
                                     ${account.balance.toLocaleString('es-AR')}
                                 </span>
                             </p>
+                            {balanceInfo && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                                    {t('lateFee')}: {balanceInfo.lateFee.toLocaleString('es-AR')}
+                                </p>
+                            )}
                         </div>
                     )}
                 </div>
@@ -160,10 +208,16 @@ export default function NewPaymentPage() {
                                 step="0.01"
                                 min="0.01"
                                 required
-                                value={formData.amount}
+                                value={totalFromItems}
                                 onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) })}
-                                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                disabled={items.length > 0}
+                                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-800"
                             />
+                            {items.length > 0 && (
+                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    {t('items.totalAuto')}
+                                </p>
+                            )}
                         </div>
 
                         <div>
@@ -222,6 +276,124 @@ export default function NewPaymentPage() {
                             className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         />
                     </div>
+                </div>
+
+                {/* Variable Items */}
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            {t('items.title')}
+                        </h2>
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setFormData((prev) => ({
+                                    ...prev,
+                                    items: [
+                                        ...(prev.items || []),
+                                        { description: '', amount: 0, quantity: 1, type: 'charge' as PaymentItemType },
+                                    ],
+                                }))
+                            }
+                            className="px-3 py-1 text-sm rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
+                        >
+                            {t('items.add')}
+                        </button>
+                    </div>
+
+                    {items.length === 0 ? (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('items.empty')}</p>
+                    ) : (
+                        <div className="space-y-3">
+                            {items.map((item, index) => (
+                                <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                                    <input
+                                        type="text"
+                                        placeholder={t('items.description')}
+                                        value={item.description}
+                                        onChange={(e) =>
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                items: prev.items?.map((it, i) =>
+                                                    i === index ? { ...it, description: e.target.value } : it,
+                                                ),
+                                            }))
+                                        }
+                                        className="md:col-span-2 w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                                    />
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={item.amount}
+                                        onChange={(e) =>
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                items: prev.items?.map((it, i) =>
+                                                    i === index ? { ...it, amount: Number(e.target.value) } : it,
+                                                ),
+                                            }))
+                                        }
+                                        className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                                    />
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        value={item.quantity ?? 1}
+                                        onChange={(e) =>
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                items: prev.items?.map((it, i) =>
+                                                    i === index ? { ...it, quantity: Number(e.target.value) } : it,
+                                                ),
+                                            }))
+                                        }
+                                        className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                                    />
+                                    <div className="flex gap-2">
+                                        <select
+                                            value={item.type ?? 'charge'}
+                                            onChange={(e) =>
+                                                setFormData((prev) => ({
+                                                    ...prev,
+                                                    items: prev.items?.map((it, i) =>
+                                                        i === index ? { ...it, type: e.target.value as PaymentItemType } : it,
+                                                    ),
+                                                }))
+                                            }
+                                            className="flex-1 rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                                        >
+                                            <option value="charge">{t('items.charge')}</option>
+                                            <option value="discount">{t('items.discount')}</option>
+                                        </select>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setFormData((prev) => ({
+                                                    ...prev,
+                                                    items: prev.items?.filter((_, i) => i !== index),
+                                                }))
+                                            }
+                                            className="px-2 text-sm text-red-600 hover:text-red-700"
+                                        >
+                                            {t('items.remove')}
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {lateFeeItem && (
+                        <label className="mt-4 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                            <input
+                                type="checkbox"
+                                checked={applyLateFee}
+                                onChange={(e) => setApplyLateFee(e.target.checked)}
+                            />
+                            {t('items.applyLateFee')}
+                        </label>
+                    )}
                 </div>
 
                 {/* Actions */}

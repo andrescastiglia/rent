@@ -38,6 +38,8 @@
         "leases": "Contratos",
         "payments": "Pagos",
         "invoices": "Facturas",
+        "sales": "Ventas",
+        "interested": "Interesados",
         "users": "Usuarios"
     },
     "breadcrumbs": {
@@ -151,10 +153,22 @@
         "noFeatures": "Sin características listadas.",
         "addFeature": "Agregar Característica",
         "propertyStats": "Estadísticas de la Propiedad",
+        "ownerContact": "Contacto del Propietario",
         "totalUnits": "Unidades Totales",
         "occupied": "Ocupadas",
         "vacant": "Vacantes",
+        "visits": "Visitas",
+        "noVisits": "Sin visitas registradas.",
+        "saveVisit": "Registrar visita",
+        "noOwnerWhatsapp": "No registrado",
         "noDescription": "Sin descripción proporcionada.",
+        "filters": {
+            "title": "Filtros",
+            "investmentMin": "Inversión mínima (venta)",
+            "investmentMax": "Inversión máxima (venta)",
+            "apply": "Aplicar",
+            "clear": "Limpiar"
+        },
         "fields": {
             "name": "Nombre",
             "type": "Tipo",
@@ -172,6 +186,19 @@
             "bathrooms": "Baños",
             "area": "Área (m²)",
             "description": "Descripción",
+            "ownerWhatsapp": "WhatsApp del propietario",
+            "salePrice": "Precio de venta",
+            "saleCurrency": "Moneda de venta",
+            "allowsPets": "Permite mascotas",
+            "requiresWhiteIncome": "Requiere ingresos en blanco",
+            "acceptedGuaranteeTypes": "Garantías aceptadas",
+            "maxOccupants": "Máx. ocupantes",
+            "visitedAt": "Fecha",
+            "interested": "Interesado",
+            "comments": "Comentarios",
+            "hasOffer": "Hubo oferta",
+            "offerAmount": "Monto de oferta",
+            "offerCurrency": "Moneda",
             "images": "Imágenes",
             "featureName": "Nombre",
             "featureValue": "Valor"
@@ -206,7 +233,86 @@
         },
         "placeholders": {
             "name": "ej. Apartamentos del Sol",
-            "description": "Descripción de la propiedad..."
+            "description": "Descripción de la propiedad...",
+            "ownerWhatsapp": "Ej. +54 9 11 5555-1234",
+            "salePrice": "Ej. 120000",
+            "acceptedGuaranteeTypes": "Ej. garante, propietaria",
+            "maxOccupants": "Ej. 4",
+            "interested": "Nombre del interesado",
+            "comments": "Notas de la visita..."
+        },
+        "visitErrors": {
+            "interestedRequired": "El interesado es requerido",
+            "offerAmountRequired": "El monto de la oferta es requerido",
+            "invalidDate": "Fecha inválida"
+        }
+    },
+    "interested": {
+        "title": "Interesados",
+        "subtitle": "Registra perfiles de interesados para matching",
+        "newTitle": "Nuevo interesado",
+        "listTitle": "Perfiles registrados",
+        "matchesTitle": "Propiedades sugeridas",
+        "matchesHint": "Selecciona un interesado para ver coincidencias.",
+        "noMatches": "No hay coincidencias para este perfil.",
+        "empty": "No hay interesados registrados.",
+        "fields": {
+            "firstName": "Nombre",
+            "lastName": "Apellido",
+            "phone": "Teléfono",
+            "email": "Email",
+            "peopleCount": "Cantidad de personas",
+            "maxAmount": "Monto máximo",
+            "hasPets": "Tiene mascotas",
+            "whiteIncome": "Ingresos en blanco",
+            "guaranteeTypes": "Tipos de garantía (separados por coma)",
+            "notes": "Notas"
+        },
+        "operations": {
+            "rent": "Alquiler",
+            "sale": "Compra"
+        },
+        "propertyTypes": {
+            "apartment": "Departamento",
+            "house": "Casa"
+        },
+        "operationsLabel": "Operación: {op}",
+        "actions": {
+            "save": "Guardar interesado"
+        },
+        "errors": {
+            "phoneRequired": "El teléfono es requerido"
+        }
+    },
+    "sales": {
+        "title": "Ventas en cuotas",
+        "subtitle": "Gestiona loteos y recibos de cuotas",
+        "folders": {
+            "new": "Nueva carpeta",
+            "name": "Nombre del loteo",
+            "description": "Descripción",
+            "list": "Carpetas",
+            "empty": "No hay carpetas creadas."
+        },
+        "agreements": {
+            "new": "Nuevo plan de cuotas",
+            "selectFolder": "Selecciona un loteo",
+            "buyerName": "Cliente",
+            "buyerPhone": "Teléfono",
+            "totalAmount": "Monto total",
+            "installmentAmount": "Monto cuota",
+            "installmentCount": "Cantidad de cuotas",
+            "balance": "Saldo",
+            "installments": "Cuotas"
+        },
+        "receipts": {
+            "create": "Registrar cuota",
+            "amount": "Monto",
+            "download": "Descargar recibo PDF",
+            "duplicate": "Impresión duplicada obligatoria",
+            "empty": "Sin recibos aún.",
+            "overdue": "Atraso",
+            "balanceAfter": "Saldo"
         }
     },
     "tenants": {
@@ -225,7 +331,7 @@
         "notFound": "Inquilino no encontrado",
         "noTenants": "No hay inquilinos registrados",
         "noTenantsDescription": "Comienza agregando un nuevo inquilino.",
-        "searchPlaceholder": "Buscar inquilinos por nombre o email...",
+        "searchPlaceholder": "Buscar inquilinos por apellido...",
         "deleteConfirm": "¿Estás seguro que deseas eliminar este inquilino?",
         "confirmDelete": "¿Estás seguro que deseas eliminar este inquilino?",
         "deleteError": "Error al eliminar el inquilino",
@@ -236,6 +342,18 @@
         "contactInfo": "Información de Contacto",
         "address": "Dirección",
         "leaseHistory": "Historial de Contratos",
+        "receiptsHistory": "Historial de recibos",
+        "noReceipts": "Sin recibos registrados.",
+        "leaseStart": "Inicio",
+        "leaseEnd": "Fin",
+        "leaseProperty": "Propiedad",
+        "leaseStatus": "Estado",
+        "leaseStatusLabels": {
+            "active": "Vigente",
+            "ended": "Finalizado",
+            "terminated": "Rescindido",
+            "draft": "Borrador"
+        },
         "noActiveLeases": "No hay contratos activos.",
         "fields": {
             "firstName": "Nombre",
@@ -399,6 +517,7 @@
             "icl": "ICL (Argentina)",
             "ipc": "IPC",
             "igp_m": "IGP-M (Brasil)",
+            "casa_propia": "Casa Propia",
             "custom": "Personalizado"
         },
         "selectOwner": "Seleccionar Propietario",
@@ -434,9 +553,11 @@
         "currentBalance": "Saldo actual",
         "savePayment": "Guardar Pago",
         "confirmPayment": "Confirmar Pago",
+        "editDraft": "Editar pago pendiente",
         "notFound": "Pago no encontrado",
         "amount": "Monto",
         "date": "Fecha",
+        "lateFee": "Mora",
         "reference": "Referencia",
         "referencePlaceholder": "ej. TRF-12345",
         "notes": "Notas",
@@ -446,20 +567,35 @@
         "downloadReceipt": "Descargar Recibo",
         "receiptPendingDescription": "El recibo se generará al confirmar el pago.",
         "noReceipt": "Sin recibo",
+        "items": {
+            "title": "Items variables",
+            "add": "Agregar item",
+            "remove": "Quitar",
+            "description": "Descripción",
+            "charge": "Cargo",
+            "discount": "Descuento",
+            "empty": "Sin items cargados.",
+            "totalAuto": "El monto se calcula desde los items.",
+            "lateFee": "Mora",
+            "applyLateFee": "Aplicar mora"
+        },
         "status": {
             "pending": "Pendiente",
+            "processing": "Procesando",
             "completed": "Completado",
-            "cancelled": "Anulado",
-            "reversed": "Revertido"
+            "failed": "Fallido",
+            "refunded": "Reintegrado",
+            "cancelled": "Anulado"
         },
         "method": {
             "label": "Método de Pago",
             "cash": "Efectivo",
             "bank_transfer": "Transferencia bancaria",
-            "transfer": "Transferencia",
             "check": "Cheque",
-            "debit": "Débito",
-            "credit": "Crédito",
+            "debit_card": "Tarjeta de débito",
+            "credit_card": "Tarjeta de crédito",
+            "digital_wallet": "Billetera digital",
+            "crypto": "Cripto",
             "other": "Otro"
         }
     },
@@ -492,11 +628,13 @@
         "registerPayment": "Registrar Pago",
         "status": {
             "draft": "Borrador",
-            "issued": "Emitida",
+            "pending": "Pendiente",
+            "sent": "Enviada",
+            "partial": "Pago Parcial",
             "paid": "Pagada",
-            "partially_paid": "Pago Parcial",
+            "overdue": "Vencida",
             "cancelled": "Anulada",
-            "overdue": "Vencida"
+            "refunded": "Reintegrada"
         }
     },
     "users": {

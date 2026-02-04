@@ -5,7 +5,10 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Tenant } from '@/types/tenant';
 import { tenantsApi } from '@/lib/api/tenants';
+import { paymentsApi } from '@/lib/api/payments';
 import { Edit, ArrowLeft, User, Mail, Phone, MapPin, Trash2, Loader2, FileText } from 'lucide-react';
+import { Lease } from '@/types/lease';
+import { TenantReceiptSummary } from '@/types/payment';
 import { useTranslations } from 'next-intl';
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
 import { useAuth } from '@/contexts/auth-context';
@@ -17,6 +20,8 @@ export default function TenantDetailPage() {
   const params = useParams();
   const router = useLocalizedRouter();
   const [tenant, setTenant] = useState<Tenant | null>(null);
+  const [leases, setLeases] = useState<Lease[]>([]);
+  const [receipts, setReceipts] = useState<TenantReceiptSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,8 +33,14 @@ export default function TenantDetailPage() {
 
   const loadTenant = async (id: string) => {
     try {
-      const data = await tenantsApi.getById(id);
+      const [data, leaseHistory, receiptHistory] = await Promise.all([
+        tenantsApi.getById(id),
+        tenantsApi.getLeaseHistory(id),
+        paymentsApi.getReceiptsByTenant(id),
+      ]);
       setTenant(data);
+      setLeases(leaseHistory);
+      setReceipts(receiptHistory);
     } catch (error) {
       console.error('Failed to load tenant', error);
     } finally {
@@ -53,6 +64,8 @@ export default function TenantDetailPage() {
     const statusKey = status.toLowerCase() as 'active' | 'inactive' | 'pending';
     return t(`status.${statusKey}`);
   };
+
+  const activeLease = leases.find((lease) => lease.status === 'ACTIVE') ?? leases[0];
 
   if (loading) {
     return (
@@ -151,12 +164,61 @@ export default function TenantDetailPage() {
             </div>
 
             <div className="space-y-6">
-               <section>
+              <section>
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('leaseHistory')}</h2>
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-8 text-center text-gray-500 dark:text-gray-400 italic border-2 border-dashed border-gray-200 dark:border-gray-600">
-                   <FileText size={32} className="mx-auto mb-2 text-gray-400" />
-                   {t('noActiveLeases')}
-                </div>
+                {activeLease ? (
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">{t('leaseStart')}</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{new Date(activeLease.startDate).toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">{t('leaseEnd')}</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{new Date(activeLease.endDate).toLocaleDateString()}</span>
+                    </div>
+                    {activeLease.property?.name && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-500 dark:text-gray-400">{t('leaseProperty')}</span>
+                        <span className="font-medium text-gray-900 dark:text-white">{activeLease.property.name}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">{t('leaseStatus')}</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{t(`leaseStatusLabels.${activeLease.status.toLowerCase()}`)}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-8 text-center text-gray-500 dark:text-gray-400 italic border-2 border-dashed border-gray-200 dark:border-gray-600">
+                     <FileText size={32} className="mx-auto mb-2 text-gray-400" />
+                     {t('noActiveLeases')}
+                  </div>
+                )}
+              </section>
+
+              <section>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('receiptsHistory')}</h2>
+                {receipts.length > 0 ? (
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 space-y-3">
+                    {receipts.map((receipt) => (
+                      <div key={receipt.id} className="flex items-center justify-between text-sm">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-gray-900 dark:text-white">{receipt.receiptNumber}</span>
+                          <span className="text-gray-500 dark:text-gray-400">
+                            {receipt.paymentDate ? new Date(receipt.paymentDate).toLocaleDateString() : new Date(receipt.issuedAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <span className="font-semibold text-gray-900 dark:text-white">
+                          {receipt.currencyCode} {receipt.amount.toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-8 text-center text-gray-500 dark:text-gray-400 italic border-2 border-dashed border-gray-200 dark:border-gray-600">
+                    <FileText size={32} className="mx-auto mb-2 text-gray-400" />
+                    {t('noReceipts')}
+                  </div>
+                )}
               </section>
             </div>
           </div>

@@ -21,9 +21,18 @@ export default function TenantsPage() {
     loadTenants();
   }, [authLoading]);
 
-  const loadTenants = async () => {
+  useEffect(() => {
+    if (authLoading) return;
+    const handle = setTimeout(() => {
+      setLoading(true);
+      loadTenants(searchTerm.trim() ? { name: searchTerm.trim() } : undefined);
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [searchTerm, authLoading]);
+
+  const loadTenants = async (filters?: { name?: string }) => {
     try {
-      const data = await tenantsApi.getAll();
+      const data = await tenantsApi.getAll(filters);
       setTenants(data);
     } catch (error) {
       console.error('Failed to load tenants', error);
@@ -32,11 +41,7 @@ export default function TenantsPage() {
     }
   };
 
-  const filteredTenants = tenants.filter(tenant =>
-    tenant.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    tenant.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    tenant.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredTenants = tenants;
 
   return (
     <div className="container mx-auto px-4 py-8">

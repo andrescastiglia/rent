@@ -13,7 +13,10 @@ import {
 import { Lease } from '../leases/entities/lease.entity';
 import { TenantAccountsService } from './tenant-accounts.service';
 import { MovementType } from './entities/tenant-account-movement.entity';
-import { CreateInvoiceDto } from './dto';
+import { CreateInvoiceDto, GenerateInvoiceDto } from './dto';
+import { InflationIndex } from './entities/inflation-index.entity';
+import { InflationIndexType as IndexTypeEntity } from './entities/inflation-index.entity';
+import { AdjustmentType, InflationIndexType } from '../leases/entities/lease.entity';
 
 /**
  * Servicio para gestionar facturas.
@@ -27,6 +30,8 @@ export class InvoicesService {
     private commissionInvoicesRepository: Repository<CommissionInvoice>,
     @InjectRepository(Lease)
     private leasesRepository: Repository<Lease>,
+    @InjectRepository(InflationIndex)
+    private inflationIndexRepository: Repository<InflationIndex>,
     private tenantAccountsService: TenantAccountsService,
   ) {}
 
@@ -65,6 +70,7 @@ export class InvoicesService {
       dto.invoiceNumber || (await this.generateInvoiceNumber(ownerId));
 
     const invoice = this.invoicesRepository.create({
+      companyId: lease.companyId,
       leaseId: dto.leaseId,
       ownerId,
       tenantAccountId: account.id,
@@ -85,7 +91,75 @@ export class InvoicesService {
   }
 
   /**
-   * Emite una factura (cambia estado a ISSUED).
+   * Genera una factura mensual con fechas automáticas.
+   */
+  async generateForLease(
+    leaseId: string,
+    dto: GenerateInvoiceDto,
+  ): Promise<Invoice> {
+    const lease = await this.leasesRepository.findOne({
+      where: { id: leaseId },
+      relations: ['unit', 'unit.property', 'unit.property.owner'],
+    });
+
+    if (!lease) {
+      throw new NotFoundException(`Lease with ID ${leaseId} not found`);
+    }
+
+    const account = await this.tenantAccountsService.findByLease(leaseId);
+
+    const { periodStart, periodEnd, dueDate } =
+      this.computeBillingPeriod(lease, dto);
+
+    const baseRent = await this.applyAdjustmentIfNeeded(
+      lease,
+      periodStart,
+      dto.applyAdjustment !== false,
+    );
+
+    const subtotal = Number(baseRent) + Number(lease.additionalExpenses || 0);
+    const lateFee =
+      dto.applyLateFee === true
+        ? await this.tenantAccountsService.calculateLateFee(account.id)
+        : 0;
+
+    const total = subtotal + Number(lateFee || 0);
+
+    const invoiceNumber = await this.generateInvoiceNumber(lease.ownerId);
+
+    const invoice = this.invoicesRepository.create({
+      companyId: lease.companyId,
+      leaseId,
+      ownerId: lease.ownerId,
+      tenantAccountId: account.id,
+      invoiceNumber,
+      periodStart,
+      periodEnd,
+      subtotal,
+      lateFee,
+      adjustments: 0,
+      total,
+      currencyCode: lease.currency,
+      dueDate,
+      status: InvoiceStatus.DRAFT,
+      notes: '',
+    });
+
+    const saved = await this.invoicesRepository.save(invoice);
+
+    lease.lastBillingDate = periodStart;
+    lease.nextBillingDate = this.addDays(periodEnd, 1);
+    await this.leasesRepository.save(lease);
+
+    if (dto.issue) {
+      return this.issue(saved.id);
+    }
+
+    return saved;
+  }
+
+  /**
+   * Emite una factura (cambia estado a PENDING).
    * @param id ID de la factura
    * @returns La factura emitida
    */
@@ -96,7 +170,7 @@ export class InvoicesService {
       throw new BadRequestException('Only draft invoices can be issued');
     }
 
-    invoice.status = InvoiceStatus.ISSUED;
+    invoice.status = InvoiceStatus.PENDING;
     invoice.issuedAt = new Date();
 
     const savedInvoice = await this.invoicesRepository.save(invoice);
@@ -104,7 +178,7 @@ export class InvoicesService {
     // Registrar movimiento en cuenta corriente (aumenta deuda)
     await this.tenantAccountsService.addMovement(
       invoice.tenantAccountId,
-      MovementType.INVOICE,
+      MovementType.CHARGE,
       Number(invoice.total),
       'invoice',
       invoice.id,
@@ -183,6 +257,121 @@ export class InvoicesService {
     const [data, total] = await query.getManyAndCount();
 
     return { data, total, page, limit };
+  }
+
+  private computeBillingPeriod(
+    lease: Lease,
+    dto: GenerateInvoiceDto,
+  ): { periodStart: Date; periodEnd: Date; dueDate: Date } {
+    if (dto.periodStart && dto.periodEnd && dto.dueDate) {
+      return {
+        periodStart: new Date(dto.periodStart),
+        periodEnd: new Date(dto.periodEnd),
+        dueDate: new Date(dto.dueDate),
+      };
+    }
+
+    const start = lease.nextBillingDate
+      ? new Date(lease.nextBillingDate)
+      : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+    const months = this.getFrequencyMonths(lease.paymentFrequency);
+    const end = this.addDays(this.addMonths(start, months), -1);
+
+    const due = new Date(start);
+    due.setDate(lease.paymentDueDay || 10);
+    if (due < start) {
+      due.setMonth(due.getMonth() + 1);
+    }
+
+    return { periodStart: start, periodEnd: end, dueDate: due };
+  }
+
+  private async applyAdjustmentIfNeeded(
+    lease: Lease,
+    periodStart: Date,
+    apply: boolean,
+  ): Promise<number> {
+    if (!apply || !lease.nextAdjustmentDate) {
+      return Number(lease.monthlyRent);
+    }
+
+    const nextAdjustment = new Date(lease.nextAdjustmentDate);
+    if (periodStart < nextAdjustment) {
+      return Number(lease.monthlyRent);
+    }
+
+    let newRent = Number(lease.monthlyRent);
+
+    if (lease.adjustmentType === AdjustmentType.FIXED) {
+      newRent += Number(lease.adjustmentValue || 0);
+    } else if (lease.adjustmentType === AdjustmentType.PERCENTAGE) {
+      newRent += newRent * (Number(lease.adjustmentValue || 0) / 100);
+    } else if (
+      lease.adjustmentType === AdjustmentType.INFLATION_INDEX &&
+      lease.inflationIndexType
+    ) {
+      const index = await this.findLatestIndex(lease.inflationIndexType);
+      if (index?.variationMonthly) {
+        newRent += newRent * (Number(index.variationMonthly) / 100);
+      }
+    }
+
+    lease.monthlyRent = Number(newRent.toFixed(2));
+    lease.lastAdjustmentDate = periodStart;
+    lease.nextAdjustmentDate = this.addMonths(
+      periodStart,
+      lease.adjustmentFrequencyMonths || 12,
+    );
+    await this.leasesRepository.save(lease);
+
+    return Number(lease.monthlyRent);
+  }
+
+  private async findLatestIndex(type: InflationIndexType) {
+    let mapped = IndexTypeEntity.ICL;
+    if (type === InflationIndexType.IGP_M) {
+      mapped = IndexTypeEntity.IGPM;
+    } else if (type === InflationIndexType.IPC) {
+      mapped = IndexTypeEntity.IPC;
+    } else if (type === InflationIndexType.CASA_PROPIA) {
+      mapped = IndexTypeEntity.CASA_PROPIA;
+    } else if (type === InflationIndexType.CUSTOM) {
+      mapped = IndexTypeEntity.CUSTOM;
+    }
+
+    return this.inflationIndexRepository.findOne({
+      where: { indexType: mapped },
+      order: { periodDate: 'DESC' },
+    });
+  }
+
+  private getFrequencyMonths(frequency: any): number {
+    switch (frequency) {
+      case 'bimonthly':
+        return 2;
+      case 'quarterly':
+        return 3;
+      case 'semiannual':
+        return 6;
+      case 'annual':
+        return 12;
+      case 'monthly':
+      default:
+        return 1;
+    }
+  }
+
+  private addMonths(date: Date, months: number): Date {
+    const next = new Date(date);
+    next.setMonth(next.getMonth() + months);
+    return next;
+  }
+
+  private addDays(date: Date, days: number): Date {
+    const next = new Date(date);
+    next.setDate(next.getDate() + days);
+    return next;
   }
 
   /**
@@ -307,7 +496,14 @@ export class InvoicesService {
     }
 
     // Si ya estaba emitida, revertir el movimiento en cuenta
-    if (invoice.status === InvoiceStatus.ISSUED) {
+    if (
+      [
+        InvoiceStatus.PENDING,
+        InvoiceStatus.SENT,
+        InvoiceStatus.PARTIAL,
+        InvoiceStatus.OVERDUE,
+      ].includes(invoice.status)
+    ) {
       await this.tenantAccountsService.addMovement(
         invoice.tenantAccountId,
         MovementType.ADJUSTMENT,

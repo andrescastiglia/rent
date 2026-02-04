@@ -82,7 +82,7 @@ describe('AdjustmentService', () => {
             const lease = {
                 id: 'lease-1',
                 rentAmount: 50000,
-                adjustmentType: 'igpm' as const,
+                adjustmentType: 'igp_m' as const,
                 nextAdjustmentDate: new Date('2024-12-01'),
                 lastAdjustmentDate: new Date('2024-06-01'),
             };
@@ -98,6 +98,27 @@ describe('AdjustmentService', () => {
 
             // 10% increase (550/500 = 1.1)
             expect(result.adjustedAmount).toBeCloseTo(55000, 0);
+
+            jest.useRealTimers();
+        });
+
+        it('should calculate Casa Propia adjustment', async () => {
+            const lease = {
+                id: 'lease-1',
+                rentAmount: 80000,
+                adjustmentType: 'casa_propia' as const,
+                nextAdjustmentDate: new Date('2024-12-01'),
+                lastAdjustmentDate: new Date('2024-06-01'),
+            };
+
+            mockQuery.mockResolvedValueOnce([{ value: '110.00' }]);
+            mockQuery.mockResolvedValueOnce([{ value: '100.00' }]);
+
+            jest.useFakeTimers().setSystemTime(new Date('2024-12-15'));
+
+            const result = await service.calculateAdjustedRent(lease);
+
+            expect(result.adjustedAmount).toBeCloseTo(88000, 0);
 
             jest.useRealTimers();
         });
@@ -120,7 +141,7 @@ describe('AdjustmentService', () => {
         it('should return null when no index found', async () => {
             mockQuery.mockResolvedValueOnce([]);
 
-            const result = await service.getLatestIndex('igpm');
+            const result = await service.getLatestIndex('igp_m');
 
             expect(result).toBeNull();
         });

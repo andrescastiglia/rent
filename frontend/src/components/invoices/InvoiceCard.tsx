@@ -22,7 +22,7 @@ export function InvoiceCard({ invoice }: InvoiceCardProps) {
     const periodStart = new Date(invoice.periodStart).toLocaleDateString('es-AR');
     const periodEnd = new Date(invoice.periodEnd).toLocaleDateString('es-AR');
 
-    const isPending = invoice.status === 'issued' || invoice.status === 'partially_paid';
+    const isPending = invoice.status === 'pending' || invoice.status === 'sent' || invoice.status === 'partial';
     const isOverdue = invoice.status === 'overdue';
 
     return (

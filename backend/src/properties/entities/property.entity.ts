@@ -51,6 +51,9 @@ export class Property {
   @JoinColumn({ name: 'owner_id' })
   owner: Owner;
 
+  @Column({ name: 'owner_whatsapp', nullable: true })
+  ownerWhatsapp: string;
+
   @Column()
   name: string;
 
@@ -126,6 +129,30 @@ export class Property {
 
   @Column({ type: 'text', nullable: true })
   description: string;
+
+  @Column({
+    name: 'sale_price',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
+  salePrice: number;
+
+  @Column({ name: 'sale_currency', default: 'ARS' })
+  saleCurrency: string;
+
+  @Column({ name: 'allows_pets', default: true })
+  allowsPets: boolean;
+
+  @Column({ name: 'requires_white_income', default: false })
+  requiresWhiteIncome: boolean;
+
+  @Column({ name: 'accepted_guarantee_types', type: 'text', array: true, nullable: true })
+  acceptedGuaranteeTypes: string[];
+
+  @Column({ name: 'max_occupants', type: 'integer', nullable: true })
+  maxOccupants: number;
 
   @Column({ type: 'text', array: true, nullable: true })
   amenities: string[];

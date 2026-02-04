@@ -233,9 +233,11 @@ export function generateInvoicePdf(
 function formatInvoiceStatus(status: string): string {
   const statuses: Record<string, string> = {
     draft: 'Borrador',
-    issued: 'Emitida',
+    pending: 'Pendiente',
+    sent: 'Enviada',
+    partial: 'Pago parcial',
     paid: 'Pagada',
-    partially_paid: 'Pago parcial',
+    refunded: 'Reintegrada',
     cancelled: 'Anulada',
     overdue: 'Vencida',
   };

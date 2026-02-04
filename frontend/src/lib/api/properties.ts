@@ -1,4 +1,11 @@
-import { Property, CreatePropertyInput, UpdatePropertyInput } from '@/types/property';
+import {
+    Property,
+    CreatePropertyInput,
+    UpdatePropertyInput,
+    PropertyVisit,
+    CreatePropertyVisitInput,
+    PropertyFilters,
+} from '@/types/property';
 import { apiClient } from '../api';
 import { getToken } from '../auth';
 
@@ -29,8 +36,28 @@ type BackendProperty = {
     addressCountry?: string | null;
     images?: any[] | null;
     ownerId?: string | null;
+    ownerWhatsapp?: string | null;
+    salePrice?: number | string | null;
+    saleCurrency?: string | null;
+    allowsPets?: boolean | null;
+    requiresWhiteIncome?: boolean | null;
+    acceptedGuaranteeTypes?: string[] | null;
+    maxOccupants?: number | null;
     units?: BackendUnit[] | null;
     features?: any[] | null;
+    createdAt?: string | Date;
+    updatedAt?: string | Date;
+};
+
+type BackendPropertyVisit = {
+    id: string;
+    propertyId: string;
+    visitedAt: string | Date;
+    interestedName: string;
+    comments?: string | null;
+    hasOffer?: boolean | null;
+    offerAmount?: number | string | null;
+    offerCurrency?: string | null;
     createdAt?: string | Date;
     updatedAt?: string | Date;
 };
@@ -137,6 +164,31 @@ const mapBackendPropertyToProperty = (raw: BackendProperty): Property => {
         units: Array.isArray(raw.units) ? raw.units.map(mapBackendUnitToUnit) : [],
         images: normalizeImages(raw.images),
         ownerId: raw.ownerId ?? '',
+        ownerWhatsapp: raw.ownerWhatsapp ?? undefined,
+        salePrice:
+            raw.salePrice !== undefined && raw.salePrice !== null
+                ? Number(raw.salePrice)
+                : undefined,
+        saleCurrency: raw.saleCurrency ?? undefined,
+        allowsPets: raw.allowsPets ?? true,
+        requiresWhiteIncome: raw.requiresWhiteIncome ?? false,
+        acceptedGuaranteeTypes: Array.isArray(raw.acceptedGuaranteeTypes) ? raw.acceptedGuaranteeTypes : [],
+        maxOccupants: raw.maxOccupants !== undefined && raw.maxOccupants !== null ? Number(raw.maxOccupants) : undefined,
+        createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : new Date().toISOString(),
+        updatedAt: raw.updatedAt ? new Date(raw.updatedAt).toISOString() : new Date().toISOString(),
+    };
+};
+
+const mapBackendVisitToVisit = (raw: BackendPropertyVisit): PropertyVisit => {
+    return {
+        id: raw.id,
+        propertyId: raw.propertyId,
+        visitedAt: raw.visitedAt ? new Date(raw.visitedAt).toISOString() : new Date().toISOString(),
+        interestedName: raw.interestedName,
+        comments: raw.comments ?? undefined,
+        hasOffer: raw.hasOffer ?? undefined,
+        offerAmount: raw.offerAmount !== undefined && raw.offerAmount !== null ? Number(raw.offerAmount) : undefined,
+        offerCurrency: raw.offerCurrency ?? undefined,
         createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : new Date().toISOString(),
         updatedAt: raw.updatedAt ? new Date(raw.updatedAt).toISOString() : new Date().toISOString(),
     };
@@ -162,6 +214,13 @@ const MOCK_PROPERTIES: Property[] = [
         units: [],
         images: ['/placeholder-property.svg'],
         ownerId: 'owner1',
+        ownerWhatsapp: '+54 9 11 5555-1234',
+        salePrice: 150000,
+        saleCurrency: 'USD',
+        allowsPets: true,
+        requiresWhiteIncome: false,
+        acceptedGuaranteeTypes: ['Garantía propietaria'],
+        maxOccupants: 10,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
     },
@@ -183,10 +242,33 @@ const MOCK_PROPERTIES: Property[] = [
         units: [],
         images: ['/placeholder-property.svg'],
         ownerId: 'owner2',
+        ownerWhatsapp: '+54 9 11 5555-5678',
+        salePrice: 98000,
+        saleCurrency: 'USD',
+        allowsPets: false,
+        requiresWhiteIncome: true,
+        acceptedGuaranteeTypes: ['Seguro de caución'],
+        maxOccupants: 5,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
     },
 ];
+
+const MOCK_VISITS: Record<string, PropertyVisit[]> = {
+    '1': [
+        {
+            id: 'visit-1',
+            propertyId: '1',
+            visitedAt: new Date().toISOString(),
+            interestedName: 'Mariana López',
+            comments: 'Le gustó la ubicación. Pide segunda visita.',
+            hasOffer: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+        },
+    ],
+    '2': [],
+};
 
 // Use mock data in test/CI environments, real API in production
 const IS_MOCK_MODE = process.env.NODE_ENV === 'test' || 
@@ -197,15 +279,37 @@ const DELAY = 500;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const propertiesApi = {
-    getAll: async (): Promise<Property[]> => {
+    getAll: async (filters?: PropertyFilters): Promise<Property[]> => {
         if (IS_MOCK_MODE) {
             await delay(DELAY);
-            return MOCK_PROPERTIES;
+            let filtered = [...MOCK_PROPERTIES];
+            if (filters?.minSalePrice !== undefined) {
+                filtered = filtered.filter((p) => (p.salePrice ?? 0) >= filters.minSalePrice!);
+            }
+            if (filters?.maxSalePrice !== undefined) {
+                filtered = filtered.filter((p) => (p.salePrice ?? 0) <= filters.maxSalePrice!);
+            }
+            return filtered;
         }
         
         const token = getToken();
+        const queryParams = new URLSearchParams();
+        if (filters?.addressCity) queryParams.append('addressCity', filters.addressCity);
+        if (filters?.addressState) queryParams.append('addressState', filters.addressState);
+        if (filters?.propertyType) queryParams.append('propertyType', filters.propertyType);
+        if (filters?.status) queryParams.append('status', filters.status);
+        if (filters?.minRent !== undefined) queryParams.append('minRent', String(filters.minRent));
+        if (filters?.maxRent !== undefined) queryParams.append('maxRent', String(filters.maxRent));
+        if (filters?.minSalePrice !== undefined) queryParams.append('minSalePrice', String(filters.minSalePrice));
+        if (filters?.maxSalePrice !== undefined) queryParams.append('maxSalePrice', String(filters.maxSalePrice));
+        if (filters?.bedrooms !== undefined) queryParams.append('bedrooms', String(filters.bedrooms));
+        if (filters?.bathrooms !== undefined) queryParams.append('bathrooms', String(filters.bathrooms));
+        if (filters?.page) queryParams.append('page', String(filters.page));
+        if (filters?.limit) queryParams.append('limit', String(filters.limit));
+
+        const endpoint = queryParams.toString().length > 0 ? `/properties?${queryParams.toString()}` : '/properties';
         const result = await apiClient.get<PaginatedResponse<BackendProperty> | BackendProperty[] | any>(
-            '/properties',
+            endpoint,
             token ?? undefined,
         );
 
@@ -278,6 +382,51 @@ export const propertiesApi = {
         
         const token = getToken();
         return apiClient.patch<Property>(`/properties/${id}`, data, token ?? undefined);
+    },
+
+    getVisits: async (propertyId: string): Promise<PropertyVisit[]> => {
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            return MOCK_VISITS[propertyId] ?? [];
+        }
+
+        const token = getToken();
+        const result = await apiClient.get<BackendPropertyVisit[]>(
+            `/properties/${propertyId}/visits`,
+            token ?? undefined,
+        );
+        return Array.isArray(result) ? result.map(mapBackendVisitToVisit) : [];
+    },
+
+    createVisit: async (
+        propertyId: string,
+        data: CreatePropertyVisitInput,
+    ): Promise<PropertyVisit> => {
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            const newVisit: PropertyVisit = {
+                id: `visit-${Math.random().toString(36).slice(2)}`,
+                propertyId,
+                visitedAt: data.visitedAt ?? new Date().toISOString(),
+                interestedName: data.interestedName,
+                comments: data.comments,
+                hasOffer: data.hasOffer,
+                offerAmount: data.offerAmount,
+                offerCurrency: data.offerCurrency,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            };
+            MOCK_VISITS[propertyId] = [newVisit, ...(MOCK_VISITS[propertyId] ?? [])];
+            return newVisit;
+        }
+
+        const token = getToken();
+        const result = await apiClient.post<BackendPropertyVisit>(
+            `/properties/${propertyId}/visits`,
+            data,
+            token ?? undefined,
+        );
+        return mapBackendVisitToVisit(result);
     },
 
     delete: async (id: string): Promise<void> => {

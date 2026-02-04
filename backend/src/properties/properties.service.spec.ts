@@ -101,6 +101,34 @@ describe('PropertiesService', () => {
       expect(propertyRepository.save).toHaveBeenCalledWith(mockProperty);
       expect(result).toEqual(mockProperty);
     });
+
+    it('should allow owner WhatsApp contact', async () => {
+      const createPropertyDto = {
+        ownerId: 'owner-1',
+        companyId: 'company-1',
+        name: 'Test Property',
+        propertyType: PropertyType.APARTMENT,
+        addressStreet: 'Test Address',
+        addressCity: 'Test City',
+        addressState: 'Test State',
+        addressPostalCode: '12345',
+        status: PropertyStatus.ACTIVE,
+        ownerWhatsapp: '+54 9 11 1234-5678',
+      };
+
+      const propertyWithWhatsapp = {
+        ...mockProperty,
+        ownerWhatsapp: '+54 9 11 1234-5678',
+      };
+
+      propertyRepository.create!.mockReturnValue(propertyWithWhatsapp);
+      propertyRepository.save!.mockResolvedValue(propertyWithWhatsapp);
+
+      const result = await service.create(createPropertyDto);
+
+      expect(propertyRepository.create).toHaveBeenCalledWith(createPropertyDto);
+      expect(result.ownerWhatsapp).toBe('+54 9 11 1234-5678');
+    });
   });
 
   describe('findAll', () => {
@@ -145,6 +173,31 @@ describe('PropertiesService', () => {
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
         'property.address_city ILIKE :addressCity',
         { addressCity: '%Test%' },
+      );
+    });
+
+    it('should filter properties by sale price range', async () => {
+      const filters = { minSalePrice: 100000, maxSalePrice: 200000, page: 1, limit: 10 };
+      const mockQueryBuilder = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[mockProperty], 1]),
+      };
+
+      propertyRepository.createQueryBuilder!.mockReturnValue(mockQueryBuilder);
+
+      await service.findAll(filters);
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'property.sale_price >= :minSalePrice',
+        { minSalePrice: 100000 },
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'property.sale_price <= :maxSalePrice',
+        { maxSalePrice: 200000 },
       );
     });
   });

@@ -6,7 +6,7 @@ export type PaymentFrequency = 'monthly' | 'bimonthly' | 'quarterly' | 'semiannu
 export type BillingFrequency = 'first_of_month' | 'last_of_month' | 'contract_date' | 'custom';
 export type LateFeeType = 'none' | 'fixed' | 'percentage' | 'daily_fixed' | 'daily_percentage';
 export type AdjustmentType = 'fixed' | 'percentage' | 'inflation_index';
-export type InflationIndexType = 'icl' | 'ipc' | 'igp_m' | 'custom';
+export type InflationIndexType = 'icl' | 'ipc' | 'igp_m' | 'casa_propia' | 'custom';
 
 export interface Currency {
     code: string;

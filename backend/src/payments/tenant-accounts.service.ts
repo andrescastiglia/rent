@@ -7,6 +7,7 @@ import {
   MovementType,
 } from './entities/tenant-account-movement.entity';
 import { Lease, LateFeeType } from '../leases/entities/lease.entity';
+import { InvoiceStatus } from './entities/invoice.entity';
 
 /**
  * Servicio para gestionar cuentas corrientes de inquilinos.
@@ -45,8 +46,11 @@ export class TenantAccountsService {
     }
 
     const account = this.accountsRepository.create({
+      companyId: lease.companyId,
+      tenantId: lease.tenantId,
       leaseId,
       balance: 0,
+      currencyCode: lease.currency,
     });
 
     return this.accountsRepository.save(account);
@@ -97,7 +101,7 @@ export class TenantAccountsService {
    */
   async getMovements(accountId: string): Promise<TenantAccountMovement[]> {
     return this.movementsRepository.find({
-      where: { accountId },
+      where: { tenantAccountId: accountId },
       order: { createdAt: 'DESC' },
     });
   }
@@ -127,18 +131,18 @@ export class TenantAccountsService {
 
     await this.accountsRepository.update(accountId, {
       balance: newBalance,
-      lastCalculatedAt: new Date(),
+      lastMovementAt: new Date(),
     });
 
     // Crear movimiento
     const movement = this.movementsRepository.create({
-      accountId,
+      tenantAccountId: accountId,
       movementType: type,
       amount,
       balanceAfter: newBalance,
       referenceType,
       referenceId,
-      description,
+      description: description || '',
     });
 
     return this.movementsRepository.save(movement);
@@ -169,8 +173,9 @@ export class TenantAccountsService {
     // Buscar facturas vencidas no pagadas
     const overdueInvoices = account.invoices?.filter(
       (inv) =>
-        inv.status !== 'paid' &&
-        inv.status !== 'cancelled' &&
+        inv.status !== InvoiceStatus.PAID &&
+        inv.status !== InvoiceStatus.CANCELLED &&
+        inv.status !== InvoiceStatus.REFUNDED &&
         new Date(inv.dueDate) < new Date(),
     );
 

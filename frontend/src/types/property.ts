@@ -28,6 +28,19 @@ export interface Unit {
     rentAmount: number;
 }
 
+export interface PropertyVisit {
+    id: string;
+    propertyId: string;
+    visitedAt: string;
+    interestedName: string;
+    comments?: string;
+    hasOffer?: boolean;
+    offerAmount?: number;
+    offerCurrency?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export interface Property {
     id: string;
     name: string;
@@ -39,6 +52,13 @@ export interface Property {
     units: Unit[];
     images: string[];
     ownerId: string;
+    ownerWhatsapp?: string;
+    salePrice?: number;
+    saleCurrency?: string;
+    allowsPets?: boolean;
+    requiresWhiteIncome?: boolean;
+    acceptedGuaranteeTypes?: string[];
+    maxOccupants?: number;
     createdAt: string;
     updatedAt: string;
 }
@@ -51,8 +71,39 @@ export interface CreatePropertyInput {
     features?: Omit<PropertyFeature, 'id'>[];
     images?: string[];
     ownerId: string;
+    ownerWhatsapp?: string;
+    salePrice?: number;
+    saleCurrency?: string;
+    allowsPets?: boolean;
+    requiresWhiteIncome?: boolean;
+    acceptedGuaranteeTypes?: string[];
+    maxOccupants?: number;
 }
 
 export interface UpdatePropertyInput extends Partial<CreatePropertyInput> {
     status?: PropertyStatus;
+}
+
+export interface CreatePropertyVisitInput {
+    visitedAt?: string;
+    interestedName: string;
+    comments?: string;
+    hasOffer?: boolean;
+    offerAmount?: number;
+    offerCurrency?: string;
+}
+
+export interface PropertyFilters {
+    addressCity?: string;
+    addressState?: string;
+    propertyType?: PropertyType;
+    status?: PropertyStatus;
+    minRent?: number;
+    maxRent?: number;
+    minSalePrice?: number;
+    maxSalePrice?: number;
+    bedrooms?: number;
+    bathrooms?: number;
+    page?: number;
+    limit?: number;
 }

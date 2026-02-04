@@ -198,7 +198,9 @@ export default function InvoiceDetailPage() {
                     )}
 
                     {/* Actions */}
-                    {(invoice.status === 'issued' || invoice.status === 'partially_paid') && (
+                    {(invoice.status === 'pending' ||
+                        invoice.status === 'sent' ||
+                        invoice.status === 'partial') && (
                         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                             <Link
                                 href={`/payments/new?leaseId=${invoice.leaseId}`}

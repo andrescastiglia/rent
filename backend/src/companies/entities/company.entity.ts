@@ -76,6 +76,49 @@ export class Company {
   @Column({ type: 'jsonb', default: {} })
   settings: Record<string, any>;
 
+  @Column({ name: 'arca_enabled', default: false })
+  arcaEnabled: boolean;
+
+  @Column({ name: 'arca_cuit', nullable: true })
+  arcaCuit: string;
+
+  @Column({ name: 'arca_razon_social', nullable: true })
+  arcaRazonSocial: string;
+
+  @Column({ name: 'arca_condicion_iva', nullable: true })
+  arcaCondicionIva: string;
+
+  @Column({ name: 'arca_punto_venta', type: 'integer', nullable: true })
+  arcaPuntoVenta: number;
+
+  @Column({ name: 'arca_certificate_path', nullable: true })
+  arcaCertificatePath: string;
+
+  @Column({ name: 'arca_certificate_password_hash', nullable: true })
+  arcaCertificatePasswordHash: string;
+
+  @Column({
+    name: 'arca_certificate_expires_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  arcaCertificateExpiresAt: Date;
+
+  @Column({ name: 'arca_production_mode', default: false })
+  arcaProductionMode: boolean;
+
+  @Column({ name: 'arca_last_sync_at', type: 'timestamptz', nullable: true })
+  arcaLastSyncAt: Date;
+
+  @Column({ name: 'withholding_agent_iibb', default: false })
+  withholdingAgentIibb: boolean;
+
+  @Column({ name: 'withholding_agent_ganancias', default: false })
+  withholdingAgentGanancias: boolean;
+
+  @Column({ name: 'withholding_rates', type: 'jsonb', default: {} })
+  withholdingRates: Record<string, any>;
+
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 

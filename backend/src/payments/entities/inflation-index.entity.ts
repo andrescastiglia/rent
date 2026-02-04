@@ -11,7 +11,10 @@ import {
  */
 export enum InflationIndexType {
   ICL = 'icl',
-  IGPM = 'igpm',
+  IPC = 'ipc',
+  IGPM = 'igp_m',
+  CASA_PROPIA = 'casa_propia',
+  CUSTOM = 'custom',
 }
 
 /**
@@ -30,8 +33,8 @@ export class InflationIndex {
   })
   indexType: InflationIndexType;
 
-  @Column({ type: 'date' })
-  period: Date;
+  @Column({ name: 'period_date', type: 'date' })
+  periodDate: Date;
 
   @Column({ type: 'decimal', precision: 12, scale: 6 })
   value: number;
@@ -54,14 +57,14 @@ export class InflationIndex {
   })
   variationYearly: number;
 
+  @Column({ nullable: false })
+  source: string;
+
   @Column({ name: 'source_url', nullable: true })
   sourceUrl: string;
 
-  @Column({ name: 'source_name', nullable: true })
-  sourceName: string;
-
-  @Column({ name: 'fetched_at', type: 'timestamptz' })
-  fetchedAt: Date;
+  @Column({ name: 'published_at', type: 'date', nullable: true })
+  publishedAt: Date;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

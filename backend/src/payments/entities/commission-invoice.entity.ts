@@ -16,7 +16,8 @@ import { Owner } from '../../owners/entities/owner.entity';
  */
 export enum CommissionInvoiceStatus {
   DRAFT = 'draft',
-  ISSUED = 'issued',
+  PENDING = 'pending',
+  SENT = 'sent',
   PAID = 'paid',
   CANCELLED = 'cancelled',
 }

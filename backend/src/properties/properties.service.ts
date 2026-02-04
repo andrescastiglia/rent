@@ -36,6 +36,8 @@ export class PropertiesService {
       status,
       minRent,
       maxRent,
+      minSalePrice,
+      maxSalePrice,
       bedrooms,
       bathrooms,
       page = 1,
@@ -73,6 +75,8 @@ export class PropertiesService {
     if (
       minRent !== undefined ||
       maxRent !== undefined ||
+      minSalePrice !== undefined ||
+      maxSalePrice !== undefined ||
       bedrooms !== undefined ||
       bathrooms !== undefined
     ) {
@@ -81,6 +85,16 @@ export class PropertiesService {
       }
       if (maxRent !== undefined) {
         query.andWhere('units.base_rent <= :maxRent', { maxRent });
+      }
+      if (minSalePrice !== undefined) {
+        query.andWhere('property.sale_price >= :minSalePrice', {
+          minSalePrice,
+        });
+      }
+      if (maxSalePrice !== undefined) {
+        query.andWhere('property.sale_price <= :maxSalePrice', {
+          maxSalePrice,
+        });
       }
       if (bedrooms !== undefined) {
         query.andWhere('units.bedrooms = :bedrooms', { bedrooms });

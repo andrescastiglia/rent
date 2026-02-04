@@ -4,13 +4,15 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Payment, PaymentStatus } from './entities/payment.entity';
+import { PaymentItem, PaymentItemType } from './entities/payment-item.entity';
 import { Receipt } from './entities/receipt.entity';
 import { Invoice, InvoiceStatus } from './entities/invoice.entity';
 import { TenantAccountsService } from './tenant-accounts.service';
 import { MovementType } from './entities/tenant-account-movement.entity';
 import { CreatePaymentDto, PaymentFiltersDto } from './dto';
+import { UpdatePaymentDto } from './dto';
 import { ReceiptPdfService } from './receipt-pdf.service';
 
 /**
@@ -21,6 +23,8 @@ export class PaymentsService {
   constructor(
     @InjectRepository(Payment)
     private paymentsRepository: Repository<Payment>,
+    @InjectRepository(PaymentItem)
+    private paymentItemsRepository: Repository<PaymentItem>,
     @InjectRepository(Receipt)
     private receiptsRepository: Repository<Receipt>,
     @InjectRepository(Invoice)
@@ -37,24 +41,83 @@ export class PaymentsService {
    */
   async create(dto: CreatePaymentDto, userId?: string): Promise<Payment> {
     // Verificar que la cuenta existe (throws NotFoundException if not found)
-    await this.tenantAccountsService.findOne(dto.tenantAccountId);
+    const account = await this.tenantAccountsService.findOne(
+      dto.tenantAccountId,
+    );
 
     // Crear pago
+    const computedAmount = this.computePaymentAmount(dto);
+
     const payment = this.paymentsRepository.create({
+      companyId: account.companyId,
+      tenantId: account.tenantId,
       tenantAccountId: dto.tenantAccountId,
-      amount: dto.amount,
+      amount: computedAmount,
       currencyCode: dto.currencyCode || 'ARS',
       paymentDate: dto.paymentDate,
       method: dto.method,
       reference: dto.reference,
       status: PaymentStatus.PENDING,
       notes: dto.notes,
-      receivedBy: userId,
     });
 
     const savedPayment = await this.paymentsRepository.save(payment);
 
+    if (dto.items && dto.items.length > 0) {
+      const items = dto.items.map((item) =>
+        this.paymentItemsRepository.create({
+          paymentId: savedPayment.id,
+          description: item.description,
+          amount: item.amount,
+          quantity: item.quantity ?? 1,
+          type: item.type ?? PaymentItemType.CHARGE,
+        }),
+      );
+      await this.paymentItemsRepository.save(items);
+    }
+
     return savedPayment;
+  }
+
+  /**
+   * Actualiza un pago pendiente antes de emitir el recibo.
+   * @param id ID del pago
+   * @param dto Datos a actualizar
+   */
+  async update(id: string, dto: UpdatePaymentDto): Promise<Payment> {
+    const payment = await this.findOne(id);
+
+    if (payment.status !== PaymentStatus.PENDING) {
+      throw new BadRequestException('Only pending payments can be edited');
+    }
+
+    if (dto.paymentDate) payment.paymentDate = new Date(dto.paymentDate) as any;
+    if (dto.method) payment.method = dto.method;
+    if (dto.reference !== undefined) payment.reference = dto.reference;
+    if (dto.notes !== undefined) payment.notes = dto.notes;
+    if (dto.currencyCode) payment.currencyCode = dto.currencyCode;
+
+    if (dto.items) {
+      await this.paymentItemsRepository.delete({ paymentId: payment.id });
+      if (dto.items.length > 0) {
+        const items = dto.items.map((item) =>
+          this.paymentItemsRepository.create({
+            paymentId: payment.id,
+            description: item.description,
+            amount: item.amount,
+            quantity: item.quantity ?? 1,
+            type: item.type ?? PaymentItemType.CHARGE,
+          }),
+        );
+        await this.paymentItemsRepository.save(items);
+        payment.amount = this.computePaymentAmount(dto);
+      }
+    } else if (dto.amount !== undefined) {
+      payment.amount = dto.amount;
+    }
+
+    await this.paymentsRepository.save(payment);
+    return this.findOne(id);
   }
 
   /**
@@ -100,7 +163,12 @@ export class PaymentsService {
     const pendingInvoices = await this.invoicesRepository.find({
       where: {
         tenantAccountId: payment.tenantAccountId,
-        status: InvoiceStatus.ISSUED,
+        status: In([
+          InvoiceStatus.PENDING,
+          InvoiceStatus.SENT,
+          InvoiceStatus.PARTIAL,
+          InvoiceStatus.OVERDUE,
+        ]),
       },
       order: { dueDate: 'ASC' },
     });
@@ -121,7 +189,7 @@ export class PaymentsService {
       if (invoice.amountPaid >= invoice.total) {
         invoice.status = InvoiceStatus.PAID;
       } else {
-        invoice.status = InvoiceStatus.PARTIALLY_PAID;
+        invoice.status = InvoiceStatus.PARTIAL;
       }
 
       await this.invoicesRepository.save(invoice);
@@ -138,6 +206,7 @@ export class PaymentsService {
     const receiptNumber = await this.generateReceiptNumber();
 
     const receipt = this.receiptsRepository.create({
+      companyId: payment.companyId,
       paymentId: payment.id,
       receiptNumber,
       amount: payment.amount,
@@ -198,6 +267,7 @@ export class PaymentsService {
         'tenantAccount',
         'tenantAccount.lease',
         'tenantAccount.lease.tenant',
+        'items',
         'receipt',
         'currency',
       ],
@@ -208,6 +278,15 @@ export class PaymentsService {
     }
 
     return payment;
+  }
+
+  async findReceiptsByTenant(tenantId: string): Promise<Receipt[]> {
+    return this.receiptsRepository
+      .createQueryBuilder('receipt')
+      .leftJoinAndSelect('receipt.payment', 'payment')
+      .where('payment.tenant_id = :tenantId', { tenantId })
+      .orderBy('receipt.issue_date', 'DESC')
+      .getMany();
   }
 
   /**
@@ -235,6 +314,7 @@ export class PaymentsService {
       .leftJoinAndSelect('account.lease', 'lease')
       .leftJoinAndSelect('lease.tenant', 'tenant')
       .leftJoinAndSelect('payment.receipt', 'receipt')
+      .leftJoinAndSelect('payment.items', 'items')
       .where('payment.deleted_at IS NULL');
 
     if (tenantAccountId) {
@@ -300,5 +380,32 @@ export class PaymentsService {
 
     payment.status = PaymentStatus.CANCELLED;
     return this.paymentsRepository.save(payment);
+  }
+
+  private computePaymentAmount(
+    dto: Pick<CreatePaymentDto, 'items' | 'amount'>,
+  ): number {
+    if (!dto.items || dto.items.length === 0) {
+      if (dto.amount === undefined || dto.amount === null) {
+        throw new BadRequestException('Amount is required without items');
+      }
+      return dto.amount;
+    }
+
+    const sum = dto.items.reduce((acc, item) => {
+      const quantity = item.quantity ?? 1;
+      const sign = item.type === PaymentItemType.DISCOUNT ? -1 : 1;
+      return acc + sign * Number(item.amount) * quantity;
+    }, 0);
+
+    if (sum <= 0) {
+      throw new BadRequestException('Total amount must be greater than zero');
+    }
+
+    if (dto.amount !== undefined && Math.abs(dto.amount - sum) > 0.01) {
+      throw new BadRequestException('Amount does not match items total');
+    }
+
+    return Number(sum.toFixed(2));
   }
 }

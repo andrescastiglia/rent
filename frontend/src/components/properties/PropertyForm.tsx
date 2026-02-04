@@ -31,12 +31,26 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
     defaultValues: initialData ? {
       ...initialData,
       features: initialData.features.map(f => ({ name: f.name, value: f.value })),
+      ownerWhatsapp: initialData.ownerWhatsapp ?? '',
+      salePrice: initialData.salePrice ?? undefined,
+      saleCurrency: initialData.saleCurrency ?? 'ARS',
+      allowsPets: initialData.allowsPets ?? true,
+      requiresWhiteIncome: initialData.requiresWhiteIncome ?? false,
+      acceptedGuaranteeTypes: initialData.acceptedGuaranteeTypes ?? [],
+      maxOccupants: initialData.maxOccupants ?? undefined,
     } : {
       type: 'APARTMENT',
       status: 'ACTIVE',
       images: [],
       features: [],
       ownerId: 'current-user-id', // TODO: Get from auth context
+      ownerWhatsapp: '',
+      salePrice: undefined,
+      saleCurrency: 'ARS',
+      allowsPets: true,
+      requiresWhiteIncome: false,
+      acceptedGuaranteeTypes: [],
+      maxOccupants: undefined,
       address: {
           country: 'Argentina' // Default
       }
@@ -88,7 +102,18 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
             />
             {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>}
           </div>
-          
+
+          <div>
+            <label htmlFor="ownerWhatsapp" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.ownerWhatsapp')}</label>
+            <input
+              id="ownerWhatsapp"
+              {...register('ownerWhatsapp')}
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
+              placeholder={t('placeholders.ownerWhatsapp')}
+            />
+            {errors.ownerWhatsapp && <p className="mt-1 text-sm text-red-600">{errors.ownerWhatsapp.message}</p>}
+          </div>
+
           <div>
             <label htmlFor="type" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.type')}</label>
             <select
@@ -104,6 +129,84 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
               <option value="OTHER">{t('types.OTHER')}</option>
             </select>
             {errors.type && <p className="mt-1 text-sm text-red-600">{errors.type.message}</p>}
+          </div>
+
+          <div>
+            <label htmlFor="salePrice" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.salePrice')}</label>
+            <input
+              id="salePrice"
+              type="number"
+              min="0"
+              step="0.01"
+              {...register('salePrice')}
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
+              placeholder={t('placeholders.salePrice')}
+            />
+            {errors.salePrice && <p className="mt-1 text-sm text-red-600">{errors.salePrice.message}</p>}
+          </div>
+
+          <div>
+            <label htmlFor="saleCurrency" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.saleCurrency')}</label>
+            <input
+              id="saleCurrency"
+              {...register('saleCurrency')}
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              id="allowsPets"
+              type="checkbox"
+              {...register('allowsPets')}
+              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="allowsPets" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('fields.allowsPets')}
+            </label>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              id="requiresWhiteIncome"
+              type="checkbox"
+              {...register('requiresWhiteIncome')}
+              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="requiresWhiteIncome" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('fields.requiresWhiteIncome')}
+            </label>
+          </div>
+
+          <div>
+            <label htmlFor="acceptedGuaranteeTypes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.acceptedGuaranteeTypes')}</label>
+            <input
+              id="acceptedGuaranteeTypes"
+              {...register('acceptedGuaranteeTypes')}
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
+              placeholder={t('placeholders.acceptedGuaranteeTypes')}
+              onChange={(event) =>
+                setValue(
+                  'acceptedGuaranteeTypes',
+                  event.target.value
+                    .split(',')
+                    .map((value) => value.trim())
+                    .filter(Boolean),
+                )
+              }
+            />
+          </div>
+
+          <div>
+            <label htmlFor="maxOccupants" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.maxOccupants')}</label>
+            <input
+              id="maxOccupants"
+              type="number"
+              min="1"
+              {...register('maxOccupants')}
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
+              placeholder={t('placeholders.maxOccupants')}
+            />
           </div>
 
           {isEditing && (

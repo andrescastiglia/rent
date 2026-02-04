@@ -52,12 +52,17 @@
         "date": "Payment date",
         "reference": "Reference",
         "cash": "Cash",
-        "transfer": "Bank transfer",
+        "bank_transfer": "Bank transfer",
         "check": "Check",
-        "debit": "Debit",
-        "credit": "Credit",
+        "debit_card": "Debit Card",
+        "credit_card": "Credit Card",
+        "digital_wallet": "Digital Wallet",
+        "crypto": "Crypto",
         "pending": "Pending",
+        "processing": "Processing",
         "completed": "Completed",
+        "failed": "Failed",
+        "refunded": "Refunded",
         "cancelled": "Cancelled"
     },
     "invoice": {
@@ -70,10 +75,13 @@
         "total": "Total",
         "dueDate": "Due date",
         "draft": "Draft",
-        "issued": "Issued",
+        "pending": "Pending",
+        "sent": "Sent",
+        "partial": "Partially paid",
         "paid": "Paid",
-        "partiallyPaid": "Partially paid",
-        "overdue": "Overdue"
+        "overdue": "Overdue",
+        "cancelled": "Cancelled",
+        "refunded": "Refunded"
     },
     "receipt": {
         "title": "Receipt",

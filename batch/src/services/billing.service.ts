@@ -150,7 +150,7 @@ export class BillingService {
         const adjustmentData: LeaseAdjustmentData = {
             id: lease.id,
             rentAmount: lease.rentAmount,
-            adjustmentType: (lease.adjustmentType as 'icl' | 'igpm' | 'fixed' | 'none') || 'none',
+            adjustmentType: this.mapAdjustmentType(lease.adjustmentType, lease.inflationIndexType),
             adjustmentRate: lease.adjustmentRate,
             nextAdjustmentDate: lease.nextAdjustmentDate,
             lastAdjustmentDate: lease.lastAdjustmentDate,
@@ -240,6 +240,36 @@ export class BillingService {
         );
 
         return invoice;
+    }
+
+    private mapAdjustmentType(
+        adjustmentType?: string,
+        inflationIndexType?: string
+    ): LeaseAdjustmentData['adjustmentType'] {
+        if (!adjustmentType) {
+            return 'none';
+        }
+
+        if (adjustmentType === 'inflation_index') {
+            if (!inflationIndexType) {
+                return 'none';
+            }
+            if (inflationIndexType === 'igp_m') return 'igp_m';
+            if (inflationIndexType === 'igpm') return 'igp_m';
+            if (inflationIndexType === 'ipc') return 'ipc';
+            if (inflationIndexType === 'casa_propia') return 'casa_propia';
+            return 'icl';
+        }
+
+        if (adjustmentType === 'percentage') {
+            return 'fixed';
+        }
+
+        if (adjustmentType === 'fixed') {
+            return 'fixed';
+        }
+
+        return 'none';
     }
 
     /**

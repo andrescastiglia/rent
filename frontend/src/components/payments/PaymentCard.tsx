@@ -14,10 +14,12 @@ interface PaymentCardProps {
 
 const methodIcons: Record<string, React.ReactNode> = {
     cash: '💵',
-    transfer: '🏦',
+    bank_transfer: '🏦',
     check: '📝',
-    debit: '💳',
-    credit: '💳',
+    debit_card: '💳',
+    credit_card: '💳',
+    digital_wallet: '📱',
+    crypto: '₿',
     other: '💰',
 };
 

@@ -80,9 +80,13 @@ export default function InvoicesPage() {
                     >
                         <option value="">{t('allStatuses')}</option>
                         <option value="draft">{t('status.draft')}</option>
-                        <option value="issued">{t('status.issued')}</option>
+                        <option value="pending">{t('status.pending')}</option>
+                        <option value="sent">{t('status.sent')}</option>
+                        <option value="partial">{t('status.partial')}</option>
                         <option value="paid">{t('status.paid')}</option>
                         <option value="overdue">{t('status.overdue')}</option>
+                        <option value="cancelled">{t('status.cancelled')}</option>
+                        <option value="refunded">{t('status.refunded')}</option>
                     </select>
                 </div>
             </div>

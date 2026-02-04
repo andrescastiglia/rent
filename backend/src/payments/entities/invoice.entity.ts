@@ -12,17 +12,20 @@ import { Lease } from '../../leases/entities/lease.entity';
 import { Owner } from '../../owners/entities/owner.entity';
 import { TenantAccount } from './tenant-account.entity';
 import { Currency } from '../../currencies/entities/currency.entity';
+import { Company } from '../../companies/entities/company.entity';
 
 /**
  * Estados de la factura.
  */
 export enum InvoiceStatus {
   DRAFT = 'draft',
-  ISSUED = 'issued',
+  PENDING = 'pending',
+  SENT = 'sent',
+  PARTIAL = 'partial',
   PAID = 'paid',
-  PARTIALLY_PAID = 'partially_paid',
-  CANCELLED = 'cancelled',
   OVERDUE = 'overdue',
+  CANCELLED = 'cancelled',
+  REFUNDED = 'refunded',
 }
 
 /**
@@ -32,12 +35,15 @@ export enum ArcaTipoComprobante {
   FACTURA_A = 'factura_a',
   FACTURA_B = 'factura_b',
   FACTURA_C = 'factura_c',
-  RECIBO_A = 'recibo_a',
-  RECIBO_B = 'recibo_b',
-  RECIBO_C = 'recibo_c',
   NOTA_CREDITO_A = 'nota_credito_a',
   NOTA_CREDITO_B = 'nota_credito_b',
   NOTA_CREDITO_C = 'nota_credito_c',
+  NOTA_DEBITO_A = 'nota_debito_a',
+  NOTA_DEBITO_B = 'nota_debito_b',
+  NOTA_DEBITO_C = 'nota_debito_c',
+  RECIBO_A = 'recibo_a',
+  RECIBO_B = 'recibo_b',
+  RECIBO_C = 'recibo_c',
 }
 
 /**
@@ -48,6 +54,13 @@ export enum ArcaTipoComprobante {
 export class Invoice {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ name: 'company_id' })
+  companyId: string;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company: Company;
 
   @Column({ name: 'lease_id' })
   leaseId: string;
@@ -63,10 +76,12 @@ export class Invoice {
   @JoinColumn({ name: 'owner_id' })
   owner: Owner;
 
-  @Column({ name: 'tenant_account_id' })
+  @Column({ name: 'tenant_account_id', nullable: true })
   tenantAccountId: string;
 
-  @ManyToOne(() => TenantAccount, (account) => account.invoices)
+  @ManyToOne(() => TenantAccount, (account) => account.invoices, {
+    nullable: true,
+  })
   @JoinColumn({ name: 'tenant_account_id' })
   tenantAccount: TenantAccount;
 
@@ -79,13 +94,28 @@ export class Invoice {
   @Column({ name: 'period_end', type: 'date' })
   periodEnd: Date;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  @Column({ name: 'issue_date', type: 'date', default: () => 'CURRENT_DATE' })
+  issuedAt: Date;
+
+  @Column({ name: 'due_date', type: 'date' })
+  dueDate: Date;
+
+  @Column({ type: 'decimal', precision: 14, scale: 2 })
   subtotal: number;
+
+  @Column({
+    name: 'tax_amount',
+    type: 'decimal',
+    precision: 14,
+    scale: 2,
+    default: 0,
+  })
+  taxAmount: number;
 
   @Column({
     name: 'late_fee_amount',
     type: 'decimal',
-    precision: 12,
+    precision: 14,
     scale: 2,
     default: 0,
   })
@@ -94,14 +124,23 @@ export class Invoice {
   @Column({
     name: 'discount_amount',
     type: 'decimal',
-    precision: 12,
+    precision: 14,
     scale: 2,
     default: 0,
   })
   adjustments: number;
 
-  @Column({ name: 'total_amount', type: 'decimal', precision: 12, scale: 2 })
+  @Column({ name: 'total_amount', type: 'decimal', precision: 14, scale: 2 })
   total: number;
+
+  @Column({
+    name: 'net_amount',
+    type: 'decimal',
+    precision: 14,
+    scale: 2,
+    nullable: true,
+  })
+  netAmount: number;
 
   @Column({ name: 'currency', default: 'ARS' })
   currencyCode: string;
@@ -113,14 +152,23 @@ export class Invoice {
   @Column({
     name: 'paid_amount',
     type: 'decimal',
-    precision: 12,
+    precision: 14,
     scale: 2,
     default: 0,
   })
   amountPaid: number;
 
-  @Column({ name: 'due_date', type: 'date' })
-  dueDate: Date;
+  @Column({
+    name: 'balance_due',
+    type: 'decimal',
+    precision: 14,
+    scale: 2,
+    nullable: true,
+  })
+  balanceDue: number;
+
+  @Column({ name: 'last_payment_date', type: 'date', nullable: true })
+  lastPaymentDate: Date;
 
   @Column({ type: 'enum', enum: InvoiceStatus, default: InvoiceStatus.DRAFT })
   status: InvoiceStatus;
@@ -128,17 +176,14 @@ export class Invoice {
   @Column({
     name: 'pdf_url',
     nullable: true,
-    select: false,
-    insert: false,
-    update: false,
   })
   pdfUrl: string;
 
-  @Column({ name: 'issue_date', type: 'date', nullable: true })
-  issuedAt: Date;
-
   @Column({ type: 'text', nullable: true })
   notes: string;
+
+  @Column({ name: 'internal_notes', type: 'text', nullable: true })
+  internalNotes: string;
 
   // ARCA Electronic Invoicing fields
 
@@ -159,35 +204,38 @@ export class Invoice {
   @Column({ name: 'arca_punto_venta', type: 'integer', nullable: true })
   arcaPuntoVenta: number;
 
-  @Column({ name: 'arca_numero_comprobante', type: 'integer', nullable: true })
-  arcaNumeroComprobante: number;
+  @Column({ name: 'arca_numero_comprobante', type: 'bigint', nullable: true })
+  arcaNumeroComprobante: string;
 
   @Column({
     name: 'arca_qr_data',
     type: 'text',
     nullable: true,
-    select: false,
-    insert: false,
-    update: false,
   })
   arcaQrData: string;
 
   @Column({
-    name: 'arca_error_log',
+    name: 'arca_error_message',
     type: 'text',
     nullable: true,
-    select: false,
-    insert: false,
-    update: false,
   })
-  arcaErrorLog: string;
+  arcaErrorMessage: string;
+
+  @Column({ name: 'arca_request_xml', type: 'text', nullable: true })
+  arcaRequestXml: string;
+
+  @Column({ name: 'arca_response_xml', type: 'text', nullable: true })
+  arcaResponseXml: string;
+
+  @Column({ name: 'arca_submitted_at', type: 'timestamptz', nullable: true })
+  arcaSubmittedAt: Date;
 
   // Multi-Currency Support
 
   @Column({
     name: 'original_amount',
     type: 'decimal',
-    precision: 12,
+    precision: 14,
     scale: 2,
     nullable: true,
   })
@@ -199,7 +247,7 @@ export class Invoice {
   @Column({
     name: 'exchange_rate',
     type: 'decimal',
-    precision: 12,
+    precision: 14,
     scale: 6,
     nullable: true,
   })
@@ -213,7 +261,7 @@ export class Invoice {
   @Column({
     name: 'withholding_iibb',
     type: 'decimal',
-    precision: 12,
+    precision: 14,
     scale: 2,
     default: 0,
   })
@@ -222,47 +270,38 @@ export class Invoice {
   @Column({
     name: 'withholding_iva',
     type: 'decimal',
-    precision: 12,
+    precision: 14,
     scale: 2,
     default: 0,
-    select: false,
-    insert: false,
-    update: false,
   })
   withholdingIva: number;
 
   @Column({
     name: 'withholding_ganancias',
     type: 'decimal',
-    precision: 12,
+    precision: 14,
     scale: 2,
     default: 0,
   })
   withholdingGanancias: number;
 
   @Column({
-    name: 'withholdings_total',
+    name: 'withholding_other',
     type: 'decimal',
-    precision: 12,
+    precision: 14,
     scale: 2,
-    default: 0,
-    select: false,
-    insert: false,
-    update: false,
+    nullable: true,
   })
-  withholdingsTotal: number;
+  withholdingOther: number;
 
   // Adjustment Tracking
 
   @Column({
     name: 'adjustment_applied',
     type: 'decimal',
-    precision: 12,
+    precision: 14,
     scale: 2,
     default: 0,
-    select: false,
-    insert: false,
-    update: false,
   })
   adjustmentApplied: number;
 
@@ -270,9 +309,6 @@ export class Invoice {
     name: 'adjustment_index_type',
     length: 10,
     nullable: true,
-    select: false,
-    insert: false,
-    update: false,
   })
   adjustmentIndexType: string;
 
@@ -282,11 +318,11 @@ export class Invoice {
     precision: 8,
     scale: 4,
     nullable: true,
-    select: false,
-    insert: false,
-    update: false,
   })
   adjustmentIndexValue: number;
+
+  @Column({ name: 'line_items', type: 'jsonb', default: [] })
+  lineItems: Array<Record<string, any>>;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

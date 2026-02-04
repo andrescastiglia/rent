@@ -7,8 +7,11 @@ import {
   IsString,
   IsUUID,
   Min,
+  ValidateNested,
 } from 'class-validator';
 import { PaymentMethod } from '../entities/payment.entity';
+import { PaymentItemDto } from './payment-item.dto';
+import { Type } from 'class-transformer';
 
 /**
  * DTO para crear un nuevo pago.
@@ -20,8 +23,8 @@ export class CreatePaymentDto {
 
   @IsNumber()
   @Min(0.01)
-  @IsNotEmpty()
-  amount: number;
+  @IsOptional()
+  amount?: number;
 
   @IsString()
   @IsOptional()
@@ -42,4 +45,9 @@ export class CreatePaymentDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @ValidateNested({ each: true })
+  @Type(() => PaymentItemDto)
+  @IsOptional()
+  items?: PaymentItemDto[];
 }

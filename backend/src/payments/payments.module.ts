@@ -7,9 +7,11 @@ import { TenantAccountMovement } from './entities/tenant-account-movement.entity
 import { Invoice } from './entities/invoice.entity';
 import { CommissionInvoice } from './entities/commission-invoice.entity';
 import { Payment } from './entities/payment.entity';
+import { PaymentItem } from './entities/payment-item.entity';
 import { Receipt } from './entities/receipt.entity';
 import { Lease } from '../leases/entities/lease.entity';
 import { Document } from '../documents/entities/document.entity';
+import { InflationIndex } from './entities/inflation-index.entity';
 
 // Services
 import { TenantAccountsService } from './tenant-accounts.service';
@@ -38,7 +40,9 @@ import { DocumentsModule } from '../documents/documents.module';
       Invoice,
       CommissionInvoice,
       Payment,
+      PaymentItem,
       Receipt,
+      InflationIndex,
       Lease,
       Document,
     ]),

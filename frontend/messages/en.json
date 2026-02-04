@@ -38,6 +38,8 @@
         "leases": "Leases",
         "payments": "Payments",
         "invoices": "Invoices",
+        "sales": "Sales",
+        "interested": "Interested",
         "users": "Users"
     },
     "breadcrumbs": {
@@ -151,10 +153,22 @@
         "noFeatures": "No features listed.",
         "addFeature": "Add Feature",
         "propertyStats": "Property Stats",
+        "ownerContact": "Owner Contact",
         "totalUnits": "Total Units",
         "occupied": "Occupied",
         "vacant": "Vacant",
+        "visits": "Visits",
+        "noVisits": "No visits recorded.",
+        "saveVisit": "Log visit",
+        "noOwnerWhatsapp": "Not registered",
         "noDescription": "No description provided.",
+        "filters": {
+            "title": "Filters",
+            "investmentMin": "Min investment (sale)",
+            "investmentMax": "Max investment (sale)",
+            "apply": "Apply",
+            "clear": "Clear"
+        },
         "fields": {
             "name": "Name",
             "type": "Type",
@@ -172,6 +186,19 @@
             "bathrooms": "Bathrooms",
             "area": "Area (m²)",
             "description": "Description",
+            "ownerWhatsapp": "Owner WhatsApp",
+            "salePrice": "Sale price",
+            "saleCurrency": "Sale currency",
+            "allowsPets": "Allows pets",
+            "requiresWhiteIncome": "Requires white income",
+            "acceptedGuaranteeTypes": "Accepted guarantees",
+            "maxOccupants": "Max occupants",
+            "visitedAt": "Date",
+            "interested": "Interested",
+            "comments": "Comments",
+            "hasOffer": "Offer made",
+            "offerAmount": "Offer amount",
+            "offerCurrency": "Currency",
             "images": "Images",
             "featureName": "Name",
             "featureValue": "Value"
@@ -206,7 +233,86 @@
         },
         "placeholders": {
             "name": "e.g. Sunset Apartments",
-            "description": "Property description..."
+            "description": "Property description...",
+            "ownerWhatsapp": "e.g. +54 9 11 5555-1234",
+            "salePrice": "e.g. 120000",
+            "acceptedGuaranteeTypes": "e.g. guarantor, property",
+            "maxOccupants": "e.g. 4",
+            "interested": "Interested name",
+            "comments": "Visit notes..."
+        },
+        "visitErrors": {
+            "interestedRequired": "Interested is required",
+            "offerAmountRequired": "Offer amount is required",
+            "invalidDate": "Invalid date"
+        }
+    },
+    "interested": {
+        "title": "Interested Profiles",
+        "subtitle": "Register interested profiles for matching",
+        "newTitle": "New interested profile",
+        "listTitle": "Registered profiles",
+        "matchesTitle": "Suggested properties",
+        "matchesHint": "Select a profile to see matches.",
+        "noMatches": "No matches for this profile.",
+        "empty": "No interested profiles yet.",
+        "fields": {
+            "firstName": "First name",
+            "lastName": "Last name",
+            "phone": "Phone",
+            "email": "Email",
+            "peopleCount": "People count",
+            "maxAmount": "Max amount",
+            "hasPets": "Has pets",
+            "whiteIncome": "White income",
+            "guaranteeTypes": "Guarantee types (comma separated)",
+            "notes": "Notes"
+        },
+        "operations": {
+            "rent": "Rent",
+            "sale": "Buy"
+        },
+        "propertyTypes": {
+            "apartment": "Apartment",
+            "house": "House"
+        },
+        "operationsLabel": "Operation: {op}",
+        "actions": {
+            "save": "Save profile"
+        },
+        "errors": {
+            "phoneRequired": "Phone is required"
+        }
+    },
+    "sales": {
+        "title": "Installment Sales",
+        "subtitle": "Manage loteos and installment receipts",
+        "folders": {
+            "new": "New folder",
+            "name": "Loteo name",
+            "description": "Description",
+            "list": "Folders",
+            "empty": "No folders created yet."
+        },
+        "agreements": {
+            "new": "New installment plan",
+            "selectFolder": "Select a loteo",
+            "buyerName": "Buyer",
+            "buyerPhone": "Phone",
+            "totalAmount": "Total amount",
+            "installmentAmount": "Installment amount",
+            "installmentCount": "Installment count",
+            "balance": "Balance",
+            "installments": "Installments"
+        },
+        "receipts": {
+            "create": "Log installment",
+            "amount": "Amount",
+            "download": "Download receipt PDF",
+            "duplicate": "Duplicate printing required",
+            "empty": "No receipts yet.",
+            "overdue": "Overdue",
+            "balanceAfter": "Balance"
         }
     },
     "tenants": {
@@ -225,7 +331,7 @@
         "notFound": "Tenant not found",
         "noTenants": "No tenants registered",
         "noTenantsDescription": "Get started by adding a new tenant.",
-        "searchPlaceholder": "Search tenants by name or email...",
+        "searchPlaceholder": "Search tenants by last name...",
         "deleteConfirm": "Are you sure you want to delete this tenant?",
         "confirmDelete": "Are you sure you want to delete this tenant?",
         "deleteError": "Failed to delete tenant",
@@ -236,6 +342,18 @@
         "contactInfo": "Contact Information",
         "address": "Address",
         "leaseHistory": "Lease History",
+        "receiptsHistory": "Receipts History",
+        "noReceipts": "No receipts registered.",
+        "leaseStart": "Start",
+        "leaseEnd": "End",
+        "leaseProperty": "Property",
+        "leaseStatus": "Status",
+        "leaseStatusLabels": {
+            "active": "Active",
+            "ended": "Ended",
+            "terminated": "Terminated",
+            "draft": "Draft"
+        },
         "noActiveLeases": "No active leases found.",
         "fields": {
             "firstName": "First Name",
@@ -399,6 +517,7 @@
             "icl": "ICL (Argentina)",
             "ipc": "IPC",
             "igp_m": "IGP-M (Brazil)",
+            "casa_propia": "Casa Propia",
             "custom": "Custom"
         },
         "selectOwner": "Select Owner",
@@ -434,9 +553,11 @@
         "currentBalance": "Current Balance",
         "savePayment": "Save Payment",
         "confirmPayment": "Confirm Payment",
+        "editDraft": "Edit pending payment",
         "notFound": "Payment not found",
         "amount": "Amount",
         "date": "Date",
+        "lateFee": "Late fee",
         "reference": "Reference",
         "referencePlaceholder": "e.g. TRF-12345",
         "notes": "Notes",
@@ -446,20 +567,35 @@
         "downloadReceipt": "Download Receipt",
         "receiptPendingDescription": "Receipt will be generated upon payment confirmation.",
         "noReceipt": "No receipt",
+        "items": {
+            "title": "Variable items",
+            "add": "Add item",
+            "remove": "Remove",
+            "description": "Description",
+            "charge": "Charge",
+            "discount": "Discount",
+            "empty": "No items added.",
+            "totalAuto": "Total is calculated from items.",
+            "lateFee": "Late fee",
+            "applyLateFee": "Apply late fee"
+        },
         "status": {
             "pending": "Pending",
+            "processing": "Processing",
             "completed": "Completed",
-            "cancelled": "Cancelled",
-            "reversed": "Reversed"
+            "failed": "Failed",
+            "refunded": "Refunded",
+            "cancelled": "Cancelled"
         },
         "method": {
             "label": "Payment Method",
             "cash": "Cash",
             "bank_transfer": "Bank transfer",
-            "transfer": "Transfer",
             "check": "Check",
-            "debit": "Debit Card",
-            "credit": "Credit Card",
+            "debit_card": "Debit Card",
+            "credit_card": "Credit Card",
+            "digital_wallet": "Digital Wallet",
+            "crypto": "Crypto",
             "other": "Other"
         }
     },
@@ -492,11 +628,13 @@
         "registerPayment": "Register Payment",
         "status": {
             "draft": "Draft",
-            "issued": "Issued",
+            "pending": "Pending",
+            "sent": "Sent",
+            "partial": "Partially Paid",
             "paid": "Paid",
-            "partially_paid": "Partially Paid",
+            "overdue": "Overdue",
             "cancelled": "Cancelled",
-            "overdue": "Overdue"
+            "refunded": "Refunded"
         }
     },
     "users": {

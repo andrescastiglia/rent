@@ -39,6 +39,18 @@ export class PropertyFiltersDto {
   @Type(() => Number)
   maxRent?: number;
 
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  minSalePrice?: number;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  maxSalePrice?: number;
+
   @IsInt()
   @Min(0)
   @IsOptional()

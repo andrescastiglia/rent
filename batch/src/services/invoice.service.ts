@@ -88,6 +88,7 @@ export interface LeaseForBilling {
     // Adjustment fields
     adjustmentType?: string;
     adjustmentRate?: number;
+    inflationIndexType?: string;
     nextAdjustmentDate?: Date;
     lastAdjustmentDate?: Date;
     // Billing fields
@@ -297,6 +298,7 @@ export class InvoiceService {
                 l.end_date as "endDate",
                 l.adjustment_type as "adjustmentType",
                 l.adjustment_value as "adjustmentRate",
+                l.inflation_index_type as "inflationIndexType",
                 l.next_adjustment_date as "nextAdjustmentDate",
                 l.last_adjustment_date as "lastAdjustmentDate",
                 l.billing_day as "billingDay",

@@ -12,11 +12,13 @@ import { TenantAccount } from './tenant-account.entity';
  * Tipos de movimiento en la cuenta corriente.
  */
 export enum MovementType {
-  INVOICE = 'invoice',
+  CHARGE = 'charge',
   PAYMENT = 'payment',
-  LATE_FEE = 'late_fee',
   ADJUSTMENT = 'adjustment',
-  CREDIT = 'credit',
+  REFUND = 'refund',
+  INTEREST = 'interest',
+  LATE_FEE = 'late_fee',
+  DISCOUNT = 'discount',
 }
 
 /**
@@ -28,11 +30,11 @@ export class TenantAccountMovement {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'account_id' })
-  accountId: string;
+  @Column({ name: 'tenant_account_id' })
+  tenantAccountId: string;
 
   @ManyToOne(() => TenantAccount, (account) => account.movements)
-  @JoinColumn({ name: 'account_id' })
+  @JoinColumn({ name: 'tenant_account_id' })
   account: TenantAccount;
 
   @Column({
@@ -42,10 +44,10 @@ export class TenantAccountMovement {
   })
   movementType: MovementType;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  @Column({ type: 'decimal', precision: 14, scale: 2 })
   amount: number;
 
-  @Column({ name: 'balance_after', type: 'decimal', precision: 12, scale: 2 })
+  @Column({ name: 'balance_after', type: 'decimal', precision: 14, scale: 2 })
   balanceAfter: number;
 
   @Column({ name: 'reference_type', nullable: true })
@@ -54,8 +56,14 @@ export class TenantAccountMovement {
   @Column({ name: 'reference_id', type: 'uuid', nullable: true })
   referenceId: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text' })
   description: string;
+
+  @Column({ name: 'movement_date', type: 'date', default: () => 'CURRENT_DATE' })
+  movementDate: Date;
+
+  @Column({ name: 'created_by', type: 'uuid', nullable: true })
+  createdBy: string;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

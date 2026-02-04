@@ -32,6 +32,18 @@ export const createPropertySchema = (t: TranslationFunction) => z.object({
   })).optional(),
   images: z.array(z.string()).optional(),
   ownerId: z.string().min(1, t('ownerRequired')),
+  ownerWhatsapp: z
+    .string()
+    .optional()
+    .refine((value) => !value || value.length >= 6, {
+      message: t('invalidPhone'),
+    }),
+  salePrice: z.coerce.number().min(0, t('positive')).optional(),
+  saleCurrency: z.string().optional(),
+  allowsPets: z.boolean().optional(),
+  requiresWhiteIncome: z.boolean().optional(),
+  acceptedGuaranteeTypes: z.array(z.string()).optional(),
+  maxOccupants: z.coerce.number().min(1).optional(),
 });
 
 /**
@@ -84,7 +96,7 @@ export const createLeaseSchema = (t: TranslationFunction) => z.object({
   adjustmentType: z.enum(['fixed', 'percentage', 'inflation_index'] as const).optional(),
   adjustmentValue: z.coerce.number().min(0).optional(),
   adjustmentFrequencyMonths: z.coerce.number().min(1).optional(),
-  inflationIndexType: z.enum(['icl', 'ipc', 'igp_m', 'custom'] as const).optional(),
+  inflationIndexType: z.enum(['icl', 'ipc', 'igp_m', 'casa_propia', 'custom'] as const).optional(),
   nextAdjustmentDate: z.string().optional(),
 });
 

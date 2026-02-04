@@ -16,21 +16,40 @@ export default function PropertiesPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [minInvestment, setMinInvestment] = useState('');
+  const [maxInvestment, setMaxInvestment] = useState('');
 
   useEffect(() => {
     if (authLoading) return;
     loadProperties();
   }, [authLoading]);
 
-  const loadProperties = async () => {
+  const loadProperties = async (filters?: { minSalePrice?: number; maxSalePrice?: number }) => {
     try {
-      const data = await propertiesApi.getAll();
+      const data = await propertiesApi.getAll(filters);
       setProperties(data);
     } catch (error) {
       console.error('Failed to load properties', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleApplyFilters = () => {
+    const min = minInvestment ? Number(minInvestment) : undefined;
+    const max = maxInvestment ? Number(maxInvestment) : undefined;
+    setLoading(true);
+    loadProperties({
+      minSalePrice: Number.isNaN(min ?? NaN) ? undefined : min,
+      maxSalePrice: Number.isNaN(max ?? NaN) ? undefined : max,
+    });
+  };
+
+  const handleClearFilters = () => {
+    setMinInvestment('');
+    setMaxInvestment('');
+    setLoading(true);
+    loadProperties();
   };
 
   const filteredProperties = properties.filter(property =>
@@ -65,6 +84,52 @@ export default function PropertiesPage() {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
+      </div>
+
+      <div className="mb-8 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">{t('filters.title')}</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          <div>
+            <label htmlFor="minInvestment" className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('filters.investmentMin')}</label>
+            <input
+              id="minInvestment"
+              type="number"
+              min="0"
+              step="0.01"
+              value={minInvestment}
+              onChange={(e) => setMinInvestment(e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm text-gray-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label htmlFor="maxInvestment" className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('filters.investmentMax')}</label>
+            <input
+              id="maxInvestment"
+              type="number"
+              min="0"
+              step="0.01"
+              value={maxInvestment}
+              onChange={(e) => setMaxInvestment(e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm text-gray-900 dark:text-white"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleApplyFilters}
+              className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+            >
+              {t('filters.apply')}
+            </button>
+            <button
+              type="button"
+              onClick={handleClearFilters}
+              className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+            >
+              {t('filters.clear')}
+            </button>
+          </div>
+        </div>
       </div>
 
       {loading ? (

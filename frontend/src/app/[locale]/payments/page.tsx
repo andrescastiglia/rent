@@ -88,7 +88,10 @@ export default function PaymentsPage() {
                     >
                         <option value="">{t('allStatuses')}</option>
                         <option value="pending">{t('status.pending')}</option>
+                        <option value="processing">{t('status.processing')}</option>
                         <option value="completed">{t('status.completed')}</option>
+                        <option value="failed">{t('status.failed')}</option>
+                        <option value="refunded">{t('status.refunded')}</option>
                         <option value="cancelled">{t('status.cancelled')}</option>
                     </select>
                 </div>

@@ -155,7 +155,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit.logs(created_at DESC)
 \echo 'Creando tipos ENUM...'
 
 -- Company plan types
-CREATE TYPE plan_type AS ENUM ('free', 'basic', 'professional', 'enterprise');
+CREATE TYPE plan_type AS ENUM ('free', 'basic', 'premium', 'enterprise');
 
 -- User roles
 CREATE TYPE user_role AS ENUM ('admin', 'owner', 'tenant', 'staff');
@@ -246,6 +246,10 @@ CREATE TYPE payment_status AS ENUM (
     'pending', 'processing', 'completed', 'failed', 'refunded', 'cancelled'
 );
 
+-- Payment item type
+CREATE TYPE payment_item_type AS ENUM ('charge', 'discount');
+
+
 -- Adjustment types for rent increases
 CREATE TYPE adjustment_type AS ENUM ('fixed', 'percentage', 'inflation_index');
 
@@ -263,7 +267,7 @@ CREATE TYPE arca_tipo_comprobante AS ENUM (
 );
 
 -- Inflation index types
-CREATE TYPE inflation_index_type AS ENUM ('icl', 'ipc', 'igp_m', 'custom');
+CREATE TYPE inflation_index_type AS ENUM ('icl', 'ipc', 'igp_m', 'casa_propia', 'custom');
 
 -- Notification types
 CREATE TYPE notification_type AS ENUM (
@@ -273,6 +277,14 @@ CREATE TYPE notification_type AS ENUM (
 
 -- Notification frequency
 CREATE TYPE notification_frequency AS ENUM ('immediate', 'daily_digest', 'weekly_digest', 'disabled');
+
+-- Visit notification channel/status
+CREATE TYPE visit_notification_channel AS ENUM ('whatsapp', 'email');
+CREATE TYPE visit_notification_status AS ENUM ('queued', 'sent', 'failed');
+
+-- Interested profiles
+CREATE TYPE interested_operation AS ENUM ('rent', 'sale');
+CREATE TYPE interested_property_type AS ENUM ('apartment', 'house');
 
 -- Billing job types
 CREATE TYPE billing_job_type AS ENUM (
@@ -368,10 +380,11 @@ COMMENT ON TABLE currencies IS 'Supported currencies for multi-currency support'
 -- -----------------------------------------------------------------------------
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
+    company_id UUID REFERENCES companies(id) ON DELETE CASCADE DEFAULT '00000000-0000-0000-0000-000000000001',
     email VARCHAR(255) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role user_role NOT NULL,
+    language VARCHAR(8) DEFAULT 'es',
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     phone VARCHAR(50),
@@ -478,6 +491,40 @@ CREATE TRIGGER update_tenants_updated_at
 COMMENT ON TABLE tenants IS 'Tenants with extended profile and employment information';
 
 -- -----------------------------------------------------------------------------
+-- Interested Profiles (Leads)
+-- -----------------------------------------------------------------------------
+CREATE TABLE interested_profiles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    phone VARCHAR(50) NOT NULL,
+    email VARCHAR(255),
+    people_count INTEGER,
+    max_amount DECIMAL(12, 2),
+    has_pets BOOLEAN DEFAULT FALSE,
+    white_income BOOLEAN DEFAULT FALSE,
+    guarantee_types TEXT[],
+    property_type_preference interested_property_type,
+    operation interested_operation NOT NULL DEFAULT 'rent',
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_interested_company ON interested_profiles(company_id);
+CREATE INDEX idx_interested_phone ON interested_profiles(phone);
+CREATE INDEX idx_interested_operation ON interested_profiles(operation);
+CREATE INDEX idx_interested_property_type ON interested_profiles(property_type_preference);
+CREATE INDEX idx_interested_deleted ON interested_profiles(deleted_at) WHERE deleted_at IS NULL;
+
+CREATE TRIGGER update_interested_profiles_updated_at
+    BEFORE UPDATE ON interested_profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE interested_profiles IS 'Interested profiles for matching properties';
+
+-- -----------------------------------------------------------------------------
 -- Staff (Maintenance and support staff)
 -- -----------------------------------------------------------------------------
 CREATE TABLE staff (
@@ -527,6 +574,8 @@ CREATE TABLE admins (
     }',
     department VARCHAR(100),
     notes TEXT,
+    ip_whitelist TEXT[] DEFAULT '{}',
+    allowed_modules TEXT[] DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMPTZ,
@@ -557,6 +606,7 @@ CREATE TABLE properties (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
     owner_id UUID NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    owner_whatsapp VARCHAR(40),
     name VARCHAR(255) NOT NULL,
     property_type property_type NOT NULL,
     status property_status NOT NULL DEFAULT 'active',
@@ -579,6 +629,12 @@ CREATE TABLE properties (
     images JSONB DEFAULT '[]',
     documents JSONB DEFAULT '[]',
     notes TEXT,
+    sale_price DECIMAL(12, 2),
+    sale_currency VARCHAR(3) DEFAULT 'ARS',
+    allows_pets BOOLEAN DEFAULT TRUE,
+    requires_white_income BOOLEAN DEFAULT FALSE,
+    accepted_guarantee_types TEXT[],
+    max_occupants INTEGER,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMPTZ
@@ -664,6 +720,55 @@ CREATE TRIGGER update_property_features_updated_at
     BEFORE UPDATE ON property_features FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 COMMENT ON TABLE property_features IS 'Detailed features and characteristics of properties';
+
+-- -----------------------------------------------------------------------------
+-- Property Visits
+-- -----------------------------------------------------------------------------
+CREATE TABLE property_visits (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+    visited_at TIMESTAMPTZ NOT NULL,
+    interested_name VARCHAR(255) NOT NULL,
+    comments TEXT,
+    has_offer BOOLEAN DEFAULT FALSE,
+    offer_amount DECIMAL(12, 2),
+    offer_currency VARCHAR(3) DEFAULT 'ARS',
+    created_by_user_id UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_property_visits_property ON property_visits(property_id);
+CREATE INDEX idx_property_visits_date ON property_visits(visited_at);
+
+CREATE TRIGGER update_property_visits_updated_at
+    BEFORE UPDATE ON property_visits FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE property_visits IS 'Visit log for properties';
+
+-- -----------------------------------------------------------------------------
+-- Property Visit Notifications
+-- -----------------------------------------------------------------------------
+CREATE TABLE property_visit_notifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    visit_id UUID NOT NULL REFERENCES property_visits(id) ON DELETE CASCADE,
+    channel visit_notification_channel NOT NULL,
+    recipient VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    status visit_notification_status NOT NULL DEFAULT 'queued',
+    error TEXT,
+    sent_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_property_visit_notifications_visit ON property_visit_notifications(visit_id);
+CREATE INDEX idx_property_visit_notifications_status ON property_visit_notifications(status);
+
+CREATE TRIGGER update_property_visit_notifications_updated_at
+    BEFORE UPDATE ON property_visit_notifications FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE property_visit_notifications IS 'Notification log for property visits';
 
 \echo '✓ Tablas de propiedades creadas'
 
@@ -917,6 +1022,7 @@ CREATE TABLE invoices (
     exchange_rate DECIMAL(12, 6),
     exchange_rate_date DATE,
     withholding_iibb DECIMAL(14, 2) DEFAULT 0,
+    withholding_iva DECIMAL(14, 2) DEFAULT 0,
     withholding_ganancias DECIMAL(14, 2) DEFAULT 0,
     withholding_other DECIMAL(14, 2) DEFAULT 0,
     net_amount DECIMAL(14, 2),
@@ -932,6 +1038,11 @@ CREATE TABLE invoices (
     arca_response_xml TEXT,
     arca_submitted_at TIMESTAMPTZ,
     arca_error_message TEXT,
+    arca_qr_data TEXT,
+    pdf_url VARCHAR(500),
+    adjustment_applied DECIMAL(14, 2) DEFAULT 0,
+    adjustment_index_type VARCHAR(10),
+    adjustment_index_value DECIMAL(8, 4),
     line_items JSONB DEFAULT '[]',
     notes TEXT,
     internal_notes TEXT,
@@ -1036,6 +1147,100 @@ CREATE INDEX idx_payments_invoice ON payments(invoice_id);
 CREATE INDEX idx_payments_tenant_account ON payments(tenant_account_id);
 CREATE INDEX idx_payments_tenant ON payments(tenant_id);
 CREATE INDEX idx_payments_status ON payments(status);
+
+-- -----------------------------------------------------------------------------
+-- Payment Items
+-- -----------------------------------------------------------------------------
+CREATE TABLE payment_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    payment_id UUID NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
+    description TEXT NOT NULL,
+    amount DECIMAL(12, 2) NOT NULL,
+    quantity INTEGER DEFAULT 1,
+    type payment_item_type NOT NULL DEFAULT 'charge',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_payment_items_payment ON payment_items(payment_id);
+
+CREATE TRIGGER update_payment_items_updated_at
+    BEFORE UPDATE ON payment_items FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE payment_items IS 'Variable items for payment receipts';
+
+-- -----------------------------------------------------------------------------
+-- Sales & Installments (Loteos)
+-- -----------------------------------------------------------------------------
+CREATE TABLE sale_folders (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    name VARCHAR(200) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_sale_folders_company ON sale_folders(company_id);
+CREATE INDEX idx_sale_folders_deleted ON sale_folders(deleted_at) WHERE deleted_at IS NULL;
+
+CREATE TRIGGER update_sale_folders_updated_at
+    BEFORE UPDATE ON sale_folders FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE sale_folders IS 'Folders (loteos) for installment sales';
+
+CREATE TABLE sale_agreements (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    folder_id UUID NOT NULL REFERENCES sale_folders(id) ON DELETE CASCADE,
+    buyer_name VARCHAR(200) NOT NULL,
+    buyer_phone VARCHAR(50) NOT NULL,
+    total_amount DECIMAL(14, 2) NOT NULL,
+    currency VARCHAR(3) DEFAULT 'ARS',
+    installment_amount DECIMAL(14, 2) NOT NULL,
+    installment_count INTEGER NOT NULL,
+    start_date DATE NOT NULL,
+    due_day INTEGER DEFAULT 10,
+    paid_amount DECIMAL(14, 2) DEFAULT 0,
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_sale_agreements_company ON sale_agreements(company_id);
+CREATE INDEX idx_sale_agreements_folder ON sale_agreements(folder_id);
+CREATE INDEX idx_sale_agreements_deleted ON sale_agreements(deleted_at) WHERE deleted_at IS NULL;
+
+CREATE TRIGGER update_sale_agreements_updated_at
+    BEFORE UPDATE ON sale_agreements FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE sale_agreements IS 'Installment sale agreements for loteos';
+
+CREATE TABLE sale_receipts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    agreement_id UUID NOT NULL REFERENCES sale_agreements(id) ON DELETE CASCADE,
+    receipt_number VARCHAR(50) NOT NULL,
+    installment_number INTEGER NOT NULL,
+    amount DECIMAL(14, 2) NOT NULL,
+    currency VARCHAR(3) DEFAULT 'ARS',
+    payment_date DATE NOT NULL,
+    balance_after DECIMAL(14, 2) NOT NULL,
+    overdue_amount DECIMAL(14, 2) NOT NULL,
+    copy_count INTEGER DEFAULT 2,
+    pdf_url VARCHAR(500),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_sale_receipts_agreement ON sale_receipts(agreement_id);
+CREATE INDEX idx_sale_receipts_payment_date ON sale_receipts(payment_date);
+
+CREATE TRIGGER update_sale_receipts_updated_at
+    BEFORE UPDATE ON sale_receipts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE sale_receipts IS 'Receipts for installment sales (duplicate required)';
 CREATE INDEX idx_payments_method ON payments(payment_method);
 CREATE INDEX idx_payments_date ON payments(payment_date DESC);
 CREATE INDEX idx_payments_deleted ON payments(deleted_at) WHERE deleted_at IS NULL;

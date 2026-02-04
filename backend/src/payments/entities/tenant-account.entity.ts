@@ -4,11 +4,15 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   OneToOne,
   OneToMany,
   JoinColumn,
+  ManyToOne,
 } from 'typeorm';
 import { Lease } from '../../leases/entities/lease.entity';
+import { Tenant } from '../../tenants/entities/tenant.entity';
+import { Company } from '../../companies/entities/company.entity';
 import { TenantAccountMovement } from './tenant-account-movement.entity';
 import { Payment } from './payment.entity';
 import { Invoice } from './invoice.entity';
@@ -22,6 +26,20 @@ export class TenantAccount {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ name: 'company_id' })
+  companyId: string;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company: Company;
+
+  @Column({ name: 'tenant_id' })
+  tenantId: string;
+
+  @ManyToOne(() => Tenant)
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: Tenant;
+
   @Column({ name: 'lease_id' })
   leaseId: string;
 
@@ -32,14 +50,23 @@ export class TenantAccount {
   @Column({
     name: 'current_balance',
     type: 'decimal',
-    precision: 12,
+    precision: 14,
     scale: 2,
     default: 0,
   })
   balance: number;
 
+  @Column({ name: 'currency', default: 'ARS' })
+  currencyCode: string;
+
+  @Column({ name: 'is_active', default: true })
+  isActive: boolean;
+
   @Column({ name: 'last_movement_at', type: 'timestamptz', nullable: true })
-  lastCalculatedAt: Date;
+  lastMovementAt: Date;
+
+  @Column({ type: 'text', nullable: true })
+  notes: string;
 
   @OneToMany(() => TenantAccountMovement, (movement) => movement.account)
   movements: TenantAccountMovement[];
@@ -55,4 +82,7 @@ export class TenantAccount {
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
+
+  @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz' })
+  deletedAt: Date;
 }

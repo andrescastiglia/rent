@@ -13,7 +13,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Response } from 'express';
 import { InvoicesService } from './invoices.service';
 import { InvoicePdfService } from './invoice-pdf.service';
-import { CreateInvoiceDto } from './dto';
+import { CreateInvoiceDto, GenerateInvoiceDto } from './dto';
 import { InvoiceStatus } from './entities/invoice.entity';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
@@ -38,6 +38,18 @@ export class InvoicesController {
   @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
   create(@Body() dto: CreateInvoiceDto) {
     return this.invoicesService.create(dto);
+  }
+
+  /**
+   * Genera factura mensual para un contrato con fechas automáticas.
+   */
+  @Post('lease/:leaseId/generate')
+  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  generateForLease(
+    @Param('leaseId') leaseId: string,
+    @Body() dto: GenerateInvoiceDto,
+  ) {
+    return this.invoicesService.generateForLease(leaseId, dto);
   }
 
   /**

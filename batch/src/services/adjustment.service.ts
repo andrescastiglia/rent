@@ -6,7 +6,7 @@ import { FgvService } from './indices/fgv.service';
 /**
  * Supported adjustment types for lease contracts.
  */
-export type AdjustmentType = 'icl' | 'igpm' | 'fixed' | 'none';
+export type AdjustmentType = 'icl' | 'igp_m' | 'ipc' | 'casa_propia' | 'fixed' | 'none' | 'igpm';
 
 /**
  * Result of an adjustment calculation.
@@ -76,11 +76,19 @@ export class AdjustmentService {
         }
 
         if (lease.adjustmentType === 'icl') {
-            return this.applyIclAdjustment(lease, result);
+            return this.applyIndexAdjustment('icl', lease, result);
         }
 
-        if (lease.adjustmentType === 'igpm') {
-            return this.applyIgpmAdjustment(lease, result);
+        if (lease.adjustmentType === 'igp_m' || lease.adjustmentType === 'igpm') {
+            return this.applyIndexAdjustment('igp_m', lease, result);
+        }
+
+        if (lease.adjustmentType === 'ipc') {
+            return this.applyIndexAdjustment('ipc', lease, result);
+        }
+
+        if (lease.adjustmentType === 'casa_propia') {
+            return this.applyIndexAdjustment('casa_propia', lease, result);
         }
 
         return result;
@@ -102,16 +110,17 @@ export class AdjustmentService {
     /**
      * Applies ICL-based adjustment for Argentina.
      */
-    private async applyIclAdjustment(
+    private async applyIndexAdjustment(
+        indexType: 'icl' | 'igp_m' | 'ipc' | 'casa_propia',
         lease: LeaseAdjustmentData,
         result: AdjustmentResult
     ): Promise<AdjustmentResult> {
         try {
-            const currentIndex = await this.getLatestIndex('icl');
-            const baseIndex = await this.getBaseIndex('icl', lease);
+            const currentIndex = await this.getLatestIndex(indexType);
+            const baseIndex = await this.getBaseIndex(indexType, lease);
 
             if (!currentIndex || !baseIndex) {
-                logger.warn('ICL indices not available for adjustment', {
+                logger.warn(`${indexType} indices not available for adjustment`, {
                     leaseId: lease.id,
                 });
                 return result;
@@ -125,41 +134,7 @@ export class AdjustmentService {
 
             return result;
         } catch (error) {
-            logger.error('Failed to apply ICL adjustment', {
-                leaseId: lease.id,
-                error: error instanceof Error ? error.message : error,
-            });
-            return result;
-        }
-    }
-
-    /**
-     * Applies IGP-M based adjustment for Brazil.
-     */
-    private async applyIgpmAdjustment(
-        lease: LeaseAdjustmentData,
-        result: AdjustmentResult
-    ): Promise<AdjustmentResult> {
-        try {
-            const currentIndex = await this.getLatestIndex('igpm');
-            const baseIndex = await this.getBaseIndex('igpm', lease);
-
-            if (!currentIndex || !baseIndex) {
-                logger.warn('IGP-M indices not available for adjustment', {
-                    leaseId: lease.id,
-                });
-                return result;
-            }
-
-            const variation = (currentIndex.value / baseIndex.value - 1) * 100;
-            result.adjustmentRate = variation;
-            result.baseIndexValue = baseIndex.value;
-            result.currentIndexValue = currentIndex.value;
-            result.adjustedAmount = lease.rentAmount * (1 + variation / 100);
-
-            return result;
-        } catch (error) {
-            logger.error('Failed to apply IGP-M adjustment', {
+            logger.error(`Failed to apply ${indexType} adjustment`, {
                 leaseId: lease.id,
                 error: error instanceof Error ? error.message : error,
             });
@@ -174,15 +149,16 @@ export class AdjustmentService {
      * @returns Latest index data or null if not found.
      */
     async getLatestIndex(
-        indexType: 'icl' | 'igpm'
+        indexType: 'icl' | 'igp_m' | 'ipc' | 'casa_propia' | 'igpm'
     ): Promise<{ value: number; period: Date } | null> {
+        const normalizedIndexType = this.normalizeIndexType(indexType);
         const result = await AppDataSource.query(
             `SELECT value, period 
              FROM inflation_indices 
              WHERE index_type = $1 
              ORDER BY period DESC 
              LIMIT 1`,
-            [indexType]
+            [normalizedIndexType]
         );
 
         if (result.length === 0) {
@@ -204,9 +180,10 @@ export class AdjustmentService {
      * @returns Base index data or null if not found.
      */
     private async getBaseIndex(
-        indexType: 'icl' | 'igpm',
+        indexType: 'icl' | 'igp_m' | 'ipc' | 'casa_propia' | 'igpm',
         lease: LeaseAdjustmentData
     ): Promise<{ value: number; period: Date } | null> {
+        const normalizedIndexType = this.normalizeIndexType(indexType);
         const baseDate = lease.lastAdjustmentDate || new Date();
         const startOfMonth = new Date(
             baseDate.getFullYear(),
@@ -220,7 +197,7 @@ export class AdjustmentService {
              WHERE index_type = $1 AND period <= $2
              ORDER BY period DESC 
              LIMIT 1`,
-            [indexType, startOfMonth]
+            [normalizedIndexType, startOfMonth]
         );
 
         if (result.length === 0) {
@@ -231,6 +208,13 @@ export class AdjustmentService {
             value: Number.parseFloat(result[0].value),
             period: new Date(result[0].period),
         };
+    }
+
+    private normalizeIndexType(indexType: string): string {
+        if (indexType === 'igpm') {
+            return 'igp_m';
+        }
+        return indexType;
     }
 
     /**

@@ -88,7 +88,33 @@ export function generateReceiptPdf(
       )
       .text(`Método: ${formatPaymentMethod(payment.method)}`)
       .text(`Referencia: ${payment.reference || 'N/A'}`)
-      .moveDown(1.5);
+      .moveDown(1);
+
+    // Items variables
+    if (payment.items && payment.items.length > 0) {
+      doc
+        .fontSize(11)
+        .font('Helvetica-Bold')
+        .text('ITEMS')
+        .moveDown(0.3);
+
+      payment.items.forEach((item) => {
+        const sign = item.type === 'discount' ? '-' : '';
+        const total = Number(item.amount) * Number(item.quantity || 1);
+        doc
+          .fontSize(10)
+          .font('Helvetica')
+          .text(
+            `${item.description} x${item.quantity || 1} - ${sign}${getCurrencySymbol(
+              receipt.currencyCode,
+            )} ${total.toLocaleString('es-AR', {
+              minimumFractionDigits: 2,
+            })}`,
+          );
+      });
+
+      doc.moveDown(1);
+    }
 
     // Monto
     doc
@@ -145,10 +171,12 @@ export function generateReceiptPdf(
 function formatPaymentMethod(method: string): string {
   const methods: Record<string, string> = {
     cash: 'Efectivo',
-    transfer: 'Transferencia bancaria',
+    bank_transfer: 'Transferencia bancaria',
     check: 'Cheque',
-    debit: 'Débito',
-    credit: 'Crédito',
+    debit_card: 'Tarjeta de débito',
+    credit_card: 'Tarjeta de crédito',
+    digital_wallet: 'Billetera digital',
+    crypto: 'Cripto',
     other: 'Otro',
   };
   return methods[method] || method;

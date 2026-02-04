@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -10,6 +11,7 @@ import {
   Min,
 } from 'class-validator';
 import { PropertyType } from '../entities/property.entity';
+import { Type } from 'class-transformer';
 
 export class CreatePropertyDto {
   @IsUUID()
@@ -23,6 +25,10 @@ export class CreatePropertyDto {
   @IsString()
   @IsNotEmpty()
   name: string;
+
+  @IsString()
+  @IsOptional()
+  ownerWhatsapp?: string;
 
   @IsEnum(PropertyType)
   @IsNotEmpty()
@@ -94,4 +100,30 @@ export class CreatePropertyDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  salePrice?: number;
+
+  @IsString()
+  @IsOptional()
+  saleCurrency?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  allowsPets?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  requiresWhiteIncome?: boolean;
+
+  @IsOptional()
+  acceptedGuaranteeTypes?: string[];
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxOccupants?: number;
 }
