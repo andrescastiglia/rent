@@ -8,8 +8,8 @@ all:
 
   vars:
     env_name: staging
-    app_domain: staging.yourdomain.com
-    deploy_path: /opt/rent
+    app_domain: staging.maese.com.ar
+    deploy_path: /var/www/rent
     node_env: production
     backend_port: 3001
     frontend_port: 3000
