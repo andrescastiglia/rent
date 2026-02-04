@@ -39,7 +39,12 @@ export class SaleAgreement {
   @Column({ name: 'currency', default: 'ARS' })
   currency: string;
 
-  @Column({ name: 'installment_amount', type: 'decimal', precision: 14, scale: 2 })
+  @Column({
+    name: 'installment_amount',
+    type: 'decimal',
+    precision: 14,
+    scale: 2,
+  })
   installmentAmount: number;
 
   @Column({ name: 'installment_count', type: 'integer' })
@@ -51,7 +56,13 @@ export class SaleAgreement {
   @Column({ name: 'due_day', type: 'integer', default: 10 })
   dueDay: number;
 
-  @Column({ name: 'paid_amount', type: 'decimal', precision: 14, scale: 2, default: 0 })
+  @Column({
+    name: 'paid_amount',
+    type: 'decimal',
+    precision: 14,
+    scale: 2,
+    default: 0,
+  })
   paidAmount: number;
 
   @Column({ type: 'text', nullable: true })

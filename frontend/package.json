@@ -6,7 +6,7 @@
         "dev": "next dev",
         "build": "next build",
         "start": "next start",
-        "lint": "next lint",
+        "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
         "type-check": "tsc --noEmit",
         "test:e2e": "cross-env NEXT_PUBLIC_MOCK_MODE=true playwright test",
         "test:e2e:ui": "cross-env NEXT_PUBLIC_MOCK_MODE=true playwright test --ui",

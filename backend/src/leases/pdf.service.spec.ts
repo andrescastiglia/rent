@@ -67,7 +67,7 @@ describe('PdfService', () => {
       t: jest.fn((key: string) => key),
       translate: jest.fn(),
     } as any;
-    
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PdfService,

@@ -9,7 +9,7 @@ import { SaleReceiptPdfService } from './sale-receipt-pdf.service';
 
 describe('SalesService', () => {
   let service: SalesService;
-  let foldersRepository: MockRepository<SaleFolder>;
+  let _foldersRepository: MockRepository<SaleFolder>;
   let agreementsRepository: MockRepository<SaleAgreement>;
   let receiptsRepository: MockRepository<SaleReceipt>;
   let receiptPdfService: Partial<SaleReceiptPdfService>;
@@ -34,15 +34,24 @@ describe('SalesService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SalesService,
-        { provide: getRepositoryToken(SaleFolder), useValue: createMockRepository() },
-        { provide: getRepositoryToken(SaleAgreement), useValue: createMockRepository() },
-        { provide: getRepositoryToken(SaleReceipt), useValue: createMockRepository() },
+        {
+          provide: getRepositoryToken(SaleFolder),
+          useValue: createMockRepository(),
+        },
+        {
+          provide: getRepositoryToken(SaleAgreement),
+          useValue: createMockRepository(),
+        },
+        {
+          provide: getRepositoryToken(SaleReceipt),
+          useValue: createMockRepository(),
+        },
         { provide: SaleReceiptPdfService, useValue: receiptPdfService },
       ],
     }).compile();
 
     service = module.get(SalesService);
-    foldersRepository = module.get(getRepositoryToken(SaleFolder));
+    _foldersRepository = module.get(getRepositoryToken(SaleFolder));
     agreementsRepository = module.get(getRepositoryToken(SaleAgreement));
     receiptsRepository = module.get(getRepositoryToken(SaleReceipt));
   });
@@ -66,7 +75,10 @@ describe('SalesService', () => {
     agreementsRepository.findOne!.mockResolvedValue(agreement);
     receiptsRepository.count!.mockResolvedValue(2);
     agreementsRepository.save!.mockResolvedValue(agreement);
-    receiptsRepository.create!.mockImplementation((data) => ({ id: 'rec-1', ...data }));
+    receiptsRepository.create!.mockImplementation((data) => ({
+      id: 'rec-1',
+      ...data,
+    }));
     receiptsRepository.save!.mockImplementation(async (data) => data);
 
     const receipt = await service.createReceipt(

@@ -35,7 +35,10 @@ export class SalesController {
 
   @Post('folders')
   @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
-  createFolder(@Body() dto: CreateSaleFolderDto, @Request() req: AuthenticatedRequest) {
+  createFolder(
+    @Body() dto: CreateSaleFolderDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
     return this.salesService.createFolder(dto, req.user);
   }
 

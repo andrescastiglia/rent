@@ -64,9 +64,8 @@ export class PropertyVisitsService {
 
     const notifications = this.buildNotifications(property, savedVisit);
     if (notifications.length > 0) {
-      const savedNotifications = await this.notificationsRepository.save(
-        notifications,
-      );
+      const savedNotifications =
+        await this.notificationsRepository.save(notifications);
       savedVisit.notifications = savedNotifications;
       await this.dispatchNotifications(savedNotifications);
     }

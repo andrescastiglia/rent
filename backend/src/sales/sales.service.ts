@@ -61,7 +61,11 @@ export class SalesService {
     }
 
     const folder = await this.foldersRepository.findOne({
-      where: { id: dto.folderId, companyId: user.companyId, deletedAt: IsNull() },
+      where: {
+        id: dto.folderId,
+        companyId: user.companyId,
+        deletedAt: IsNull(),
+      },
     });
 
     if (!folder) {
@@ -149,10 +153,7 @@ export class SalesService {
     const paidAmount = Number(agreement.paidAmount) + Number(dto.amount);
 
     const balanceAfter = Number(agreement.totalAmount) - paidAmount;
-    const expectedPaid = this.calculateExpectedPaid(
-      agreement,
-      paymentDate,
-    );
+    const expectedPaid = this.calculateExpectedPaid(agreement, paymentDate);
     const overdueAmount = Number(expectedPaid) - paidAmount;
 
     agreement.paidAmount = Number(paidAmount.toFixed(2));
@@ -236,7 +237,10 @@ export class SalesService {
       installmentsDue += 1;
     }
 
-    installmentsDue = Math.max(0, Math.min(installmentsDue, agreement.installmentCount));
+    installmentsDue = Math.max(
+      0,
+      Math.min(installmentsDue, agreement.installmentCount),
+    );
 
     return Number(agreement.installmentAmount) * installmentsDue;
   }

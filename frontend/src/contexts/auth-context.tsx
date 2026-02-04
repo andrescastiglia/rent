@@ -18,9 +18,9 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUserState] = useState<User | null>(null);
-  const [token, setTokenState] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUserState] = useState<User | null>(() => getUser());
+  const [token, setTokenState] = useState<string | null>(() => getToken());
+  const [loading] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -35,16 +35,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    // Load user and token from localStorage on mount
-    const storedToken = getToken();
-    const storedUser = getUser();
+    // Keep state in sync if auth is updated elsewhere (e.g. login/logout in another tab).
+    const handleStorage = () => {
+      setTokenState(getToken());
+      setUserState(getUser());
+    };
 
-    if (storedToken && storedUser) {
-      setTokenState(storedToken);
-      setUserState(storedUser);
-    }
-
-    setLoading(false);
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
   const login = async (credentials: LoginRequest) => {

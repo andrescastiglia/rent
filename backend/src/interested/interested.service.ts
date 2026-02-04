@@ -5,11 +5,19 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
-import { InterestedProfile, InterestedOperation, InterestedPropertyType } from './entities/interested-profile.entity';
+import {
+  InterestedProfile,
+  InterestedOperation,
+  InterestedPropertyType,
+} from './entities/interested-profile.entity';
 import { CreateInterestedProfileDto } from './dto/create-interested-profile.dto';
 import { UpdateInterestedProfileDto } from './dto/update-interested-profile.dto';
 import { InterestedFiltersDto } from './dto/interested-filters.dto';
-import { Property, PropertyType, PropertyStatus } from '../properties/entities/property.entity';
+import {
+  Property,
+  PropertyType,
+  PropertyStatus,
+} from '../properties/entities/property.entity';
 import { UnitStatus } from '../properties/entities/unit.entity';
 
 interface UserContext {
@@ -45,21 +53,35 @@ export class InterestedService {
   async findAll(
     filters: InterestedFiltersDto,
     user: UserContext,
-  ): Promise<{ data: InterestedProfile[]; total: number; page: number; limit: number }> {
+  ): Promise<{
+    data: InterestedProfile[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
     if (!user.companyId) {
       throw new ForbiddenException('Company scope required');
     }
 
-    const { name, phone, operation, propertyTypePreference, page = 1, limit = 10 } = filters;
+    const {
+      name,
+      phone,
+      operation,
+      propertyTypePreference,
+      page = 1,
+      limit = 10,
+    } = filters;
 
     const query = this.interestedRepository
       .createQueryBuilder('interested')
       .where('interested.deleted_at IS NULL')
-      .andWhere('interested.company_id = :companyId', { companyId: user.companyId });
+      .andWhere('interested.company_id = :companyId', {
+        companyId: user.companyId,
+      });
 
     if (name) {
       query.andWhere(
-        "(interested.first_name ILIKE :name OR interested.last_name ILIKE :name)",
+        '(interested.first_name ILIKE :name OR interested.last_name ILIKE :name)',
         { name: `%${name}%` },
       );
     }
@@ -73,12 +95,18 @@ export class InterestedService {
     }
 
     if (propertyTypePreference) {
-      query.andWhere('interested.property_type_preference = :propertyTypePreference', {
-        propertyTypePreference,
-      });
+      query.andWhere(
+        'interested.property_type_preference = :propertyTypePreference',
+        {
+          propertyTypePreference,
+        },
+      );
     }
 
-    query.orderBy('interested.created_at', 'DESC').skip((page - 1) * limit).take(limit);
+    query
+      .orderBy('interested.created_at', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
 
     const [data, total] = await query.getManyAndCount();
 
@@ -123,28 +151,38 @@ export class InterestedService {
       .createQueryBuilder('property')
       .leftJoinAndSelect('property.units', 'units')
       .where('property.deleted_at IS NULL')
-      .andWhere('property.company_id = :companyId', { companyId: profile.companyId })
+      .andWhere('property.company_id = :companyId', {
+        companyId: profile.companyId,
+      })
       .andWhere('property.status = :status', { status: PropertyStatus.ACTIVE });
 
     const propertyType = this.mapPreferenceToPropertyType(
       profile.propertyTypePreference,
     );
     if (propertyType) {
-      query.andWhere('property.property_type = :propertyType', { propertyType });
+      query.andWhere('property.property_type = :propertyType', {
+        propertyType,
+      });
     }
 
     if (profile.operation === InterestedOperation.RENT) {
-      query.andWhere('units.status = :unitStatus', { unitStatus: UnitStatus.AVAILABLE });
+      query.andWhere('units.status = :unitStatus', {
+        unitStatus: UnitStatus.AVAILABLE,
+      });
       query.andWhere('units.base_rent IS NOT NULL');
       if (profile.maxAmount !== null && profile.maxAmount !== undefined) {
-        query.andWhere('units.base_rent <= :maxAmount', { maxAmount: profile.maxAmount });
+        query.andWhere('units.base_rent <= :maxAmount', {
+          maxAmount: profile.maxAmount,
+        });
       }
     }
 
     if (profile.operation === InterestedOperation.SALE) {
       query.andWhere('property.sale_price IS NOT NULL');
       if (profile.maxAmount !== null && profile.maxAmount !== undefined) {
-        query.andWhere('property.sale_price <= :maxAmount', { maxAmount: profile.maxAmount });
+        query.andWhere('property.sale_price <= :maxAmount', {
+          maxAmount: profile.maxAmount,
+        });
       }
     }
 
@@ -180,7 +218,8 @@ export class InterestedService {
     preference?: InterestedPropertyType,
   ): PropertyType | null {
     if (!preference) return null;
-    if (preference === InterestedPropertyType.APARTMENT) return PropertyType.APARTMENT;
+    if (preference === InterestedPropertyType.APARTMENT)
+      return PropertyType.APARTMENT;
     if (preference === InterestedPropertyType.HOUSE) return PropertyType.HOUSE;
     return null;
   }

@@ -14,7 +14,7 @@ describe('PaymentsService', () => {
   let paymentsRepository: MockRepository<Payment>;
   let paymentItemsRepository: MockRepository<PaymentItem>;
   let receiptsRepository: MockRepository<Receipt>;
-  let invoicesRepository: MockRepository<Invoice>;
+  let _invoicesRepository: MockRepository<Invoice>;
   let tenantAccountsService: Partial<TenantAccountsService>;
 
   type MockRepository<T extends Record<string, any> = any> = Partial<
@@ -40,10 +40,22 @@ describe('PaymentsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PaymentsService,
-        { provide: getRepositoryToken(Payment), useValue: createMockRepository() },
-        { provide: getRepositoryToken(PaymentItem), useValue: createMockRepository() },
-        { provide: getRepositoryToken(Receipt), useValue: createMockRepository() },
-        { provide: getRepositoryToken(Invoice), useValue: createMockRepository() },
+        {
+          provide: getRepositoryToken(Payment),
+          useValue: createMockRepository(),
+        },
+        {
+          provide: getRepositoryToken(PaymentItem),
+          useValue: createMockRepository(),
+        },
+        {
+          provide: getRepositoryToken(Receipt),
+          useValue: createMockRepository(),
+        },
+        {
+          provide: getRepositoryToken(Invoice),
+          useValue: createMockRepository(),
+        },
         { provide: TenantAccountsService, useValue: tenantAccountsService },
         { provide: ReceiptPdfService, useValue: { generate: jest.fn() } },
       ],
@@ -53,7 +65,7 @@ describe('PaymentsService', () => {
     paymentsRepository = module.get(getRepositoryToken(Payment));
     paymentItemsRepository = module.get(getRepositoryToken(PaymentItem));
     receiptsRepository = module.get(getRepositoryToken(Receipt));
-    invoicesRepository = module.get(getRepositoryToken(Invoice));
+    _invoicesRepository = module.get(getRepositoryToken(Invoice));
   });
 
   it('should compute payment amount from variable items', async () => {
@@ -64,8 +76,18 @@ describe('PaymentsService', () => {
       paymentDate: '2025-01-10',
       method: 'cash',
       items: [
-        { description: 'Alquiler', amount: 100, quantity: 1, type: PaymentItemType.CHARGE },
-        { description: 'Descuento', amount: 20, quantity: 1, type: PaymentItemType.DISCOUNT },
+        {
+          description: 'Alquiler',
+          amount: 100,
+          quantity: 1,
+          type: PaymentItemType.CHARGE,
+        },
+        {
+          description: 'Descuento',
+          amount: 20,
+          quantity: 1,
+          type: PaymentItemType.DISCOUNT,
+        },
       ],
     };
 
@@ -75,7 +97,10 @@ describe('PaymentsService', () => {
       tenantId: 'tenant-1',
     });
 
-    paymentsRepository.create!.mockImplementation((data) => ({ id: 'pay-1', ...data }));
+    paymentsRepository.create!.mockImplementation((data) => ({
+      id: 'pay-1',
+      ...data,
+    }));
     paymentsRepository.save!.mockResolvedValue({ id: 'pay-1' });
     paymentItemsRepository.create!.mockImplementation((data) => ({ ...data }));
     paymentItemsRepository.save!.mockResolvedValue([]);
@@ -107,11 +132,18 @@ describe('PaymentsService', () => {
 
     const result = await service.update('pay-1', {
       items: [
-        { description: 'Alquiler', amount: 200, quantity: 1, type: PaymentItemType.CHARGE },
+        {
+          description: 'Alquiler',
+          amount: 200,
+          quantity: 1,
+          type: PaymentItemType.CHARGE,
+        },
       ],
     } as any);
 
-    expect(paymentItemsRepository.delete).toHaveBeenCalledWith({ paymentId: 'pay-1' });
+    expect(paymentItemsRepository.delete).toHaveBeenCalledWith({
+      paymentId: 'pay-1',
+    });
     expect(result.amount).toBe(200);
   });
 

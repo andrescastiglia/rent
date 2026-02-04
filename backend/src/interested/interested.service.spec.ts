@@ -2,7 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InterestedService } from './interested.service';
-import { InterestedProfile, InterestedOperation, InterestedPropertyType } from './entities/interested-profile.entity';
+import {
+  InterestedProfile,
+  InterestedOperation,
+  InterestedPropertyType,
+} from './entities/interested-profile.entity';
 import { Property } from '../properties/entities/property.entity';
 
 describe('InterestedService', () => {
@@ -56,7 +60,11 @@ describe('InterestedService', () => {
       operation: InterestedOperation.RENT,
     };
 
-    const created = { id: 'int-1', ...dto, companyId: 'company-1' } as InterestedProfile;
+    const created = {
+      id: 'int-1',
+      ...dto,
+      companyId: 'company-1',
+    } as InterestedProfile;
 
     interestedRepository.create!.mockReturnValue(created);
     interestedRepository.save!.mockResolvedValue(created);

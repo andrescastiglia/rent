@@ -14,7 +14,8 @@ export async function generateSaleReceiptPdf(
     doc.on('end', () => resolve(Buffer.concat(buffers)));
     doc.on('error', (err) => reject(err));
 
-    const copies = receipt.copyCount && receipt.copyCount > 0 ? receipt.copyCount : 2;
+    const copies =
+      receipt.copyCount && receipt.copyCount > 0 ? receipt.copyCount : 2;
 
     for (let i = 0; i < copies; i += 1) {
       const label = i === 0 ? 'ORIGINAL' : 'DUPLICADO';
@@ -28,16 +29,24 @@ export async function generateSaleReceiptPdf(
       doc.fontSize(12).font('Helvetica');
       doc.text(`Recibo N°: ${receipt.receiptNumber}`);
       doc.text(`Cuota N°: ${receipt.installmentNumber}`);
-      doc.text(`Fecha de pago: ${new Date(receipt.paymentDate).toLocaleDateString('es-AR')}`);
+      doc.text(
+        `Fecha de pago: ${new Date(receipt.paymentDate).toLocaleDateString('es-AR')}`,
+      );
       doc.moveDown(0.5);
 
       doc.text(`Comprador: ${agreement.buyerName}`);
       doc.text(`Teléfono: ${agreement.buyerPhone}`);
       doc.moveDown(0.5);
 
-      doc.text(`Monto cuota: ${agreement.currency} ${Number(receipt.amount).toLocaleString('es-AR')}`);
-      doc.text(`Saldo luego del pago: ${agreement.currency} ${Number(receipt.balanceAfter).toLocaleString('es-AR')}`);
-      doc.text(`Atraso: ${agreement.currency} ${Number(receipt.overdueAmount).toLocaleString('es-AR')}`);
+      doc.text(
+        `Monto cuota: ${agreement.currency} ${Number(receipt.amount).toLocaleString('es-AR')}`,
+      );
+      doc.text(
+        `Saldo luego del pago: ${agreement.currency} ${Number(receipt.balanceAfter).toLocaleString('es-AR')}`,
+      );
+      doc.text(
+        `Atraso: ${agreement.currency} ${Number(receipt.overdueAmount).toLocaleString('es-AR')}`,
+      );
 
       doc.moveDown(2);
       doc.text('_________________________', { align: 'center' });

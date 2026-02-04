@@ -39,7 +39,7 @@ export class PaymentsService {
    * @param userId ID del usuario que registra
    * @returns El pago creado con su recibo
    */
-  async create(dto: CreatePaymentDto, userId?: string): Promise<Payment> {
+  async create(dto: CreatePaymentDto, _userId?: string): Promise<Payment> {
     // Verificar que la cuenta existe (throws NotFoundException if not found)
     const account = await this.tenantAccountsService.findOne(
       dto.tenantAccountId,

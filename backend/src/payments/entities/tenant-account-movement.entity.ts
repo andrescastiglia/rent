@@ -59,7 +59,11 @@ export class TenantAccountMovement {
   @Column({ type: 'text' })
   description: string;
 
-  @Column({ name: 'movement_date', type: 'date', default: () => 'CURRENT_DATE' })
+  @Column({
+    name: 'movement_date',
+    type: 'date',
+    default: () => 'CURRENT_DATE',
+  })
   movementDate: Date;
 
   @Column({ name: 'created_by', type: 'uuid', nullable: true })

@@ -64,10 +64,16 @@ describe('PropertyVisitsService', () => {
 
     propertiesRepository.findOne!.mockResolvedValue(property);
 
-    visitsRepository.create!.mockImplementation((data) => ({ id: 'visit-1', ...data }));
+    visitsRepository.create!.mockImplementation((data) => ({
+      id: 'visit-1',
+      ...data,
+    }));
     visitsRepository.save!.mockImplementation(async (data) => data);
 
-    notificationsRepository.create!.mockImplementation((data) => ({ id: 'notif-1', ...data }));
+    notificationsRepository.create!.mockImplementation((data) => ({
+      id: 'notif-1',
+      ...data,
+    }));
     notificationsRepository.save!.mockImplementation(async (data) => data);
 
     const result = await service.create(
@@ -103,7 +109,10 @@ describe('PropertyVisitsService', () => {
     } as Property;
 
     propertiesRepository.findOne!.mockResolvedValue(property);
-    visitsRepository.create!.mockImplementation((data) => ({ id: 'visit-1', ...data }));
+    visitsRepository.create!.mockImplementation((data) => ({
+      id: 'visit-1',
+      ...data,
+    }));
     visitsRepository.save!.mockImplementation(async (data) => data);
     notificationsRepository.save!.mockImplementation(async (data) => data);
 

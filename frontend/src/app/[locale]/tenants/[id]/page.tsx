@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Tenant } from '@/types/tenant';
@@ -27,14 +27,7 @@ export default function TenantDetailPage() {
   const [receipts, setReceipts] = useState<TenantReceiptSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (authLoading) return;
-    if (tenantId) {
-      loadTenant(tenantId);
-    }
-  }, [tenantId, authLoading]);
-
-  const loadTenant = async (id: string) => {
+  const loadTenant = useCallback(async (id: string) => {
     setLoading(true);
     try {
       const normalizedId = typeof id === 'string' ? id : String(id);
@@ -93,7 +86,14 @@ export default function TenantDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (tenantId) {
+      loadTenant(tenantId);
+    }
+  }, [tenantId, authLoading, loadTenant]);
 
   const handleDelete = async () => {
     if (!tenant || !confirm(t('confirmDelete'))) return;

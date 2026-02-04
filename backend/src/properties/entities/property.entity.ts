@@ -148,7 +148,12 @@ export class Property {
   @Column({ name: 'requires_white_income', default: false })
   requiresWhiteIncome: boolean;
 
-  @Column({ name: 'accepted_guarantee_types', type: 'text', array: true, nullable: true })
+  @Column({
+    name: 'accepted_guarantee_types',
+    type: 'text',
+    array: true,
+    nullable: true,
+  })
   acceptedGuaranteeTypes: string[];
 
   @Column({ name: 'max_occupants', type: 'integer', nullable: true })

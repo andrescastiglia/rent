@@ -47,7 +47,13 @@ export class InterestedProfile {
   @Column({ name: 'people_count', type: 'int', nullable: true })
   peopleCount: number;
 
-  @Column({ name: 'max_amount', type: 'decimal', precision: 12, scale: 2, nullable: true })
+  @Column({
+    name: 'max_amount',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
   maxAmount: number;
 
   @Column({ name: 'has_pets', default: false })
@@ -56,7 +62,12 @@ export class InterestedProfile {
   @Column({ name: 'white_income', default: false })
   whiteIncome: boolean;
 
-  @Column({ name: 'guarantee_types', type: 'text', array: true, nullable: true })
+  @Column({
+    name: 'guarantee_types',
+    type: 'text',
+    array: true,
+    nullable: true,
+  })
   guaranteeTypes: string[];
 
   @Column({

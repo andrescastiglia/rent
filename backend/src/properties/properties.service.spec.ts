@@ -177,7 +177,12 @@ describe('PropertiesService', () => {
     });
 
     it('should filter properties by sale price range', async () => {
-      const filters = { minSalePrice: 100000, maxSalePrice: 200000, page: 1, limit: 10 };
+      const filters = {
+        minSalePrice: 100000,
+        maxSalePrice: 200000,
+        page: 1,
+        limit: 10,
+      };
       const mockQueryBuilder = {
         leftJoinAndSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),

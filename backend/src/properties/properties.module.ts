@@ -24,8 +24,17 @@ import { PropertyVisitsController } from './property-visits.controller';
       Owner,
     ]),
   ],
-  controllers: [PropertiesController, UnitsController, PropertyVisitsController],
+  controllers: [
+    PropertiesController,
+    UnitsController,
+    PropertyVisitsController,
+  ],
   providers: [PropertiesService, UnitsService, PropertyVisitsService],
-  exports: [TypeOrmModule, PropertiesService, UnitsService, PropertyVisitsService],
+  exports: [
+    TypeOrmModule,
+    PropertiesService,
+    UnitsService,
+    PropertyVisitsService,
+  ],
 })
 export class PropertiesModule {}

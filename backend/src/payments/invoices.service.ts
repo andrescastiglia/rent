@@ -16,7 +16,10 @@ import { MovementType } from './entities/tenant-account-movement.entity';
 import { CreateInvoiceDto, GenerateInvoiceDto } from './dto';
 import { InflationIndex } from './entities/inflation-index.entity';
 import { InflationIndexType as IndexTypeEntity } from './entities/inflation-index.entity';
-import { AdjustmentType, InflationIndexType } from '../leases/entities/lease.entity';
+import {
+  AdjustmentType,
+  InflationIndexType,
+} from '../leases/entities/lease.entity';
 
 /**
  * Servicio para gestionar facturas.
@@ -108,8 +111,10 @@ export class InvoicesService {
 
     const account = await this.tenantAccountsService.findByLease(leaseId);
 
-    const { periodStart, periodEnd, dueDate } =
-      this.computeBillingPeriod(lease, dto);
+    const { periodStart, periodEnd, dueDate } = this.computeBillingPeriod(
+      lease,
+      dto,
+    );
 
     const baseRent = await this.applyAdjustmentIfNeeded(
       lease,

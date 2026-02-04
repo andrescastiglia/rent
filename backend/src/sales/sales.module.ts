@@ -11,7 +11,12 @@ import { Document } from '../documents/entities/document.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([SaleFolder, SaleAgreement, SaleReceipt, Document]),
+    TypeOrmModule.forFeature([
+      SaleFolder,
+      SaleAgreement,
+      SaleReceipt,
+      Document,
+    ]),
     DocumentsModule,
   ],
   controllers: [SalesController],

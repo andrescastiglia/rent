@@ -92,11 +92,7 @@ export function generateReceiptPdf(
 
     // Items variables
     if (payment.items && payment.items.length > 0) {
-      doc
-        .fontSize(11)
-        .font('Helvetica-Bold')
-        .text('ITEMS')
-        .moveDown(0.3);
+      doc.fontSize(11).font('Helvetica-Bold').text('ITEMS').moveDown(0.3);
 
       payment.items.forEach((item) => {
         const sign = item.type === 'discount' ? '-' : '';
