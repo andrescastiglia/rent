@@ -206,8 +206,8 @@
       ansible.builtin.file:
         path: /var/log/rent
         state: directory
-        owner: "{{ deploy_user }}"
-        group: "{{ deploy_user }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
         mode: "0755"
       become: true
 
