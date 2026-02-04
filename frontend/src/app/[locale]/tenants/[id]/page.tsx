@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Tenant } from '@/types/tenant';
 import { tenantsApi } from '@/lib/api/tenants';
-import { paymentsApi } from '@/lib/api/payments';
+import { tenantAccountsApi } from '@/lib/api/payments';
 import { Edit, ArrowLeft, User, Mail, Phone, MapPin, Trash2, Loader2, FileText } from 'lucide-react';
 import { Lease } from '@/types/lease';
 import { TenantReceiptSummary } from '@/types/payment';
@@ -72,7 +72,7 @@ export default function TenantDetailPage() {
 
       const [leaseHistoryResult, receiptHistoryResult] = await Promise.allSettled([
         tenantsApi.getLeaseHistory(data.id),
-        paymentsApi.getReceiptsByTenant(data.id),
+        tenantAccountsApi.getReceiptsByTenant(data.id),
       ]);
 
       setTenant(data);

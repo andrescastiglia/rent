@@ -145,16 +145,17 @@ export class SalesService {
     });
     const installmentNumber = dto.installmentNumber ?? existingCount + 1;
 
-    const paymentDate = new Date(dto.paymentDate);
+    const paymentDate = this.parseDateOnly(dto.paymentDate);
     if (Number.isNaN(paymentDate.getTime())) {
       throw new BadRequestException('Invalid payment date');
     }
 
-    const paidAmount = Number(agreement.paidAmount) + Number(dto.amount);
+    const previousPaid = Number(agreement.paidAmount);
+    const paidAmount = previousPaid + Number(dto.amount);
 
     const balanceAfter = Number(agreement.totalAmount) - paidAmount;
     const expectedPaid = this.calculateExpectedPaid(agreement, paymentDate);
-    const overdueAmount = Number(expectedPaid) - paidAmount;
+    const overdueAmount = Number(expectedPaid) - previousPaid;
 
     agreement.paidAmount = Number(paidAmount.toFixed(2));
     await this.agreementsRepository.save(agreement);
@@ -224,7 +225,7 @@ export class SalesService {
   }
 
   private calculateExpectedPaid(agreement: SaleAgreement, paymentDate: Date) {
-    const start = new Date(agreement.startDate);
+    const start = this.parseDateOnly(agreement.startDate);
     const dueDay = agreement.dueDay || 10;
 
     const monthsDiff =
@@ -243,5 +244,23 @@ export class SalesService {
     );
 
     return Number(agreement.installmentAmount) * installmentsDue;
+  }
+
+  private parseDateOnly(value: string | Date) {
+    if (value instanceof Date) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const [datePart] = value.split('T');
+      const [year, month, day] = datePart.split('-').map(Number);
+      if (
+        Number.isFinite(year) &&
+        Number.isFinite(month) &&
+        Number.isFinite(day)
+      ) {
+        return new Date(year, month - 1, day);
+      }
+    }
+    return new Date(value as string);
   }
 }

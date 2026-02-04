@@ -151,7 +151,7 @@ const mapBackendLeaseToLease = (raw: BackendLease): Lease => {
 
     return {
         id: raw.id,
-        propertyId: unit?.propertyId ?? property?.id ?? '',
+        propertyId: property?.id ?? '',
         unitId: raw.unitId,
         tenantId: raw.tenantId,
         ownerId: raw.ownerId,
