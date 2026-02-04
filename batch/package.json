@@ -10,7 +10,7 @@
         "billing-batch": "dist/index.js"
     },
     "scripts": {
-        "build": "rm *.tsbuildinfo && npx tsc -p tsconfig.build.json --outDir ./dist --listEmittedFiles",
+    "build": "rm -f *.tsbuildinfo && npx tsc -p tsconfig.build.json --outDir ./dist --listEmittedFiles",
         "start": "node dist/index.js",
         "dev": "npx ts-node src/index.ts",
         "lint": "eslint \"src/**/*.ts\" --fix",
