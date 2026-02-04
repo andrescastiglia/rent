@@ -6,13 +6,14 @@ import { Property } from '@/types/property';
 import { propertiesApi } from '@/lib/api/properties';
 import { PropertyCard } from '@/components/properties/PropertyCard';
 import { Plus, Search, Loader2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/auth-context';
 
 export default function PropertiesPage() {
   const { loading: authLoading } = useAuth();
   const t = useTranslations('properties');
   const tc = useTranslations('common');
+  const locale = useLocale();
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -65,7 +66,7 @@ export default function PropertiesPage() {
           <p className="text-gray-500 dark:text-gray-400 mt-1">{t('subtitle')}</p>
         </div>
         <Link
-          href="/properties/new"
+          href={`/${locale}/properties/new`}
           className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
           <Plus size={18} className="mr-2" />
@@ -148,7 +149,7 @@ export default function PropertiesPage() {
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('noPropertiesDescription')}</p>
           <div className="mt-6">
             <Link
-              href="/properties/new"
+              href={`/${locale}/properties/new`}
               className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <Plus size={18} className="mr-2" />

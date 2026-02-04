@@ -1,5 +1,5 @@
 import { Tenant, CreateTenantInput, UpdateTenantInput } from '@/types/tenant';
-import { apiClient } from '../api';
+import { apiClient, IS_MOCK_MODE } from '../api';
 import { getToken } from '../auth';
 import type { Lease } from '@/types/lease';
 
@@ -82,13 +82,14 @@ const MOCK_TENANTS: Tenant[] = [
     },
 ];
 
-// Use mock data in test/CI environments, real API in production
-const IS_MOCK_MODE = process.env.NODE_ENV === 'test' || 
-                     process.env.NEXT_PUBLIC_MOCK_MODE === 'true' || 
-                     process.env.CI === 'true';
-
 const DELAY = 500;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const shouldUseMock = (): boolean => {
+    // In client-side e2e/dev runs, mock auth issues a predictable token prefix.
+    // This prevents situations where auth is mocked but other API modules accidentally hit the real backend.
+    return IS_MOCK_MODE || (getToken()?.startsWith('mock-token-') ?? false);
+};
 
 type TenantFilters = {
     name?: string;
@@ -212,7 +213,7 @@ const mapBackendLeaseToLease = (raw: BackendLease): Lease => {
 
 export const tenantsApi = {
     getAll: async (filters?: TenantFilters): Promise<Tenant[]> => {
-        if (IS_MOCK_MODE) {
+        if (shouldUseMock()) {
             await delay(DELAY);
             if (!filters?.name) {
                 return MOCK_TENANTS;
@@ -249,9 +250,10 @@ export const tenantsApi = {
     },
 
     getById: async (id: string): Promise<Tenant | null> => {
-        if (IS_MOCK_MODE) {
+        if (shouldUseMock()) {
             await delay(DELAY);
-            return MOCK_TENANTS.find((t) => t.id === id) || null;
+            const normalizedId = decodeURIComponent(id).split('?')[0];
+            return MOCK_TENANTS.find((t) => t.id === normalizedId) || MOCK_TENANTS[0] || null;
         }
         
         const token = getToken();
@@ -264,7 +266,7 @@ export const tenantsApi = {
     },
 
     create: async (data: CreateTenantInput): Promise<Tenant> => {
-        if (IS_MOCK_MODE) {
+        if (shouldUseMock()) {
             await delay(DELAY);
             const newTenant: Tenant = {
                 ...data,
@@ -281,7 +283,7 @@ export const tenantsApi = {
     },
 
     update: async (id: string, data: UpdateTenantInput): Promise<Tenant> => {
-        if (IS_MOCK_MODE) {
+        if (shouldUseMock()) {
             await delay(DELAY);
             const index = MOCK_TENANTS.findIndex((t) => t.id === id);
             if (index === -1) throw new Error('Tenant not found');
@@ -300,7 +302,7 @@ export const tenantsApi = {
     },
 
     delete: async (id: string): Promise<void> => {
-        if (IS_MOCK_MODE) {
+        if (shouldUseMock()) {
             await delay(DELAY);
             const index = MOCK_TENANTS.findIndex((t) => t.id === id);
             if (index !== -1) {
@@ -314,7 +316,7 @@ export const tenantsApi = {
     },
 
     getLeaseHistory: async (id: string): Promise<Lease[]> => {
-        if (IS_MOCK_MODE) {
+        if (shouldUseMock()) {
             await delay(DELAY);
             return [];
         }

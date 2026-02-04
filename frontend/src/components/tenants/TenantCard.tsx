@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Tenant } from '@/types/tenant';
 import { User, Mail, Phone, MapPin } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 
 interface TenantCardProps {
   tenant: Tenant;
@@ -12,6 +12,7 @@ interface TenantCardProps {
 
 export function TenantCard({ tenant }: TenantCardProps) {
   const t = useTranslations('tenants');
+  const locale = useLocale();
 
   const getStatusLabel = (status: string) => {
     const statusKey = status.toLowerCase() as 'active' | 'inactive' | 'pending';
@@ -19,7 +20,7 @@ export function TenantCard({ tenant }: TenantCardProps) {
   };
 
   return (
-    <Link href={`/tenants/${tenant.id}`} className="block group">
+    <Link href={`/${locale}/tenants/${tenant.id}`} className="block group">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-transform duration-300 group-hover:-translate-y-1 group-hover:shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center">

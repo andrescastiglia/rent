@@ -7,22 +7,24 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { propertiesApi } from '@/lib/api/properties';
 import { Property } from '@/types/property';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/auth-context';
 
 export default function EditPropertyPage() {
   const { loading: authLoading } = useAuth();
   const t = useTranslations('properties');
+  const locale = useLocale();
   const params = useParams();
+  const propertyId = Array.isArray(params.id) ? params.id[0] : params.id;
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (authLoading) return;
-    if (params.id) {
-      loadProperty(params.id as string);
+    if (propertyId) {
+      loadProperty(propertyId);
     }
-  }, [params.id, authLoading]);
+  }, [propertyId, authLoading]);
 
   const loadProperty = async (id: string) => {
     try {
@@ -47,7 +49,7 @@ export default function EditPropertyPage() {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('notFound')}</h1>
-        <Link href="/properties" className="text-blue-600 hover:underline mt-4 inline-block">
+        <Link href={`/${locale}/properties`} className="text-blue-600 hover:underline mt-4 inline-block">
           {t('backToList')}
         </Link>
       </div>
@@ -57,7 +59,7 @@ export default function EditPropertyPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
-        <Link href={`/properties/${property.id}`} className="inline-flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+        <Link href={`/${locale}/properties/${property.id}`} className="inline-flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
           <ArrowLeft size={16} className="mr-1" />
           {t('backToDetails')}
         </Link>

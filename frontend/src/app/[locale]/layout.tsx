@@ -8,11 +8,12 @@ import { locales } from '@/config/locales';
 import { ToastHost } from '@/components/common/ToastHost';
 
 type Props = {
-  params: { locale: string };
+  params: Promise<{ locale: string }>;
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const t = await getTranslations({ locale: params.locale, namespace: 'metadata' });
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'metadata' });
   
   return {
     title: t('title'),
@@ -29,11 +30,12 @@ export function generateStaticParams() {
 
 export default async function LocaleLayout({
   children,
-  params: { locale }
+  params
 }: {
   children: React.ReactNode;
-  params: { locale: string };
+  params: Promise<{ locale: string }>;
 }) {
+  const { locale } = await params;
   // Validar que el locale es soportado
   if (!locales.includes(locale as any)) {
     notFound();

@@ -17,7 +17,7 @@ const i18nMiddleware = createMiddleware({
 });
 
 // Wrap the generated middleware so we can bypass it for operational routes like /health
-export default function middleware(request: NextRequest) {
+export default function proxy(request: NextRequest) {
     const pathname = request.nextUrl?.pathname || new URL(request.url).pathname;
     if (pathname === '/health' || pathname.startsWith('/health/')) {
         return NextResponse.next();

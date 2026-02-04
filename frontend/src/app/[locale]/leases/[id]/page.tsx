@@ -17,16 +17,17 @@ export default function LeaseDetailPage() {
   const tCommon = useTranslations('common');
   const locale = useLocale();
   const params = useParams();
+  const leaseId = Array.isArray(params.id) ? params.id[0] : params.id;
   const router = useLocalizedRouter();
   const [lease, setLease] = useState<Lease | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (authLoading) return;
-    if (params.id) {
-      loadLease(params.id as string);
+    if (leaseId) {
+      loadLease(leaseId);
     }
-  }, [params.id, authLoading]);
+  }, [leaseId, authLoading]);
 
   const loadLease = async (id: string) => {
     try {

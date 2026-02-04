@@ -7,17 +7,20 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { tenantsApi } from '@/lib/api/tenants';
 import { Tenant } from '@/types/tenant';
+import { useLocale } from 'next-intl';
 
 export default function EditTenantPage() {
   const params = useParams();
+  const locale = useLocale();
+  const tenantId = Array.isArray(params.id) ? params.id[0] : params.id;
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (params.id) {
-      loadTenant(params.id as string);
+    if (tenantId) {
+      loadTenant(tenantId);
     }
-  }, [params.id]);
+  }, [tenantId]);
 
   const loadTenant = async (id: string) => {
     try {
@@ -42,7 +45,7 @@ export default function EditTenantPage() {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
         <h1 className="text-2xl font-bold text-gray-900">Tenant not found</h1>
-        <Link href="/tenants" className="text-blue-600 hover:underline mt-4 inline-block">
+        <Link href={`/${locale}/tenants`} className="text-blue-600 hover:underline mt-4 inline-block">
           Back to Tenants
         </Link>
       </div>

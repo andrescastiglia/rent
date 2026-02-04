@@ -5,7 +5,20 @@ const withNextIntl = createNextIntlPlugin('./src/i18n.ts');
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     images: {
-        domains: ['localhost', 'rent.maese.com.ar'],
+        remotePatterns: [
+            {
+                protocol: 'http',
+                hostname: 'localhost',
+            },
+            {
+                protocol: 'https',
+                hostname: 'localhost',
+            },
+            {
+                protocol: 'https',
+                hostname: 'rent.maese.com.ar',
+            },
+        ],
     },
     async headers() {
         return [

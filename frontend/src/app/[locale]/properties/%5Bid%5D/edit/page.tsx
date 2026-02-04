@@ -7,17 +7,20 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { propertiesApi } from '@/lib/api/properties';
 import { Property } from '@/types/property';
+import { useLocale } from 'next-intl';
 
 export default function EditPropertyPage() {
   const params = useParams();
+  const locale = useLocale();
+  const propertyId = Array.isArray(params.id) ? params.id[0] : params.id;
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (params.id) {
-      loadProperty(params.id as string);
+    if (propertyId) {
+      loadProperty(propertyId);
     }
-  }, [params.id]);
+  }, [propertyId]);
 
   const loadProperty = async (id: string) => {
     try {
@@ -42,7 +45,7 @@ export default function EditPropertyPage() {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
         <h1 className="text-2xl font-bold text-gray-900">Property not found</h1>
-        <Link href="/properties" className="text-blue-600 hover:underline mt-4 inline-block">
+        <Link href={`/${locale}/properties`} className="text-blue-600 hover:underline mt-4 inline-block">
           Back to Properties
         </Link>
       </div>
@@ -52,7 +55,7 @@ export default function EditPropertyPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
-        <Link href={`/properties/${property.id}`} className="inline-flex items-center text-gray-500 hover:text-gray-700">
+        <Link href={`/${locale}/properties/${property.id}`} className="inline-flex items-center text-gray-500 hover:text-gray-700">
           <ArrowLeft size={16} className="mr-1" />
           Back to Property Details
         </Link>

@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/auth-context';
 export default function PaymentDetailPage() {
     const { loading: authLoading } = useAuth();
     const params = useParams();
+    const paymentId = Array.isArray(params.id) ? params.id[0] : params.id;
     const t = useTranslations('payments');
     const tCommon = useTranslations('common');
 
@@ -31,14 +32,15 @@ export default function PaymentDetailPage() {
 
     const loadPayment = useCallback(async () => {
         try {
-            const data = await paymentsApi.getById(params.id as string);
+            if (!paymentId) return;
+            const data = await paymentsApi.getById(paymentId);
             setPayment(data);
         } catch (error) {
             console.error('Failed to load payment', error);
         } finally {
             setLoading(false);
         }
-    }, [params.id]);
+    }, [paymentId]);
 
     useEffect(() => {
         if (authLoading) return;

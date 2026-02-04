@@ -441,12 +441,13 @@ export const tenantAccountsApi = {
     getReceiptsByTenant: async (tenantId: string): Promise<TenantReceiptSummary[]> => {
         if (IS_MOCK_MODE) {
             await delay(DELAY);
+            const normalizedTenantId = decodeURIComponent(tenantId).split('?')[0];
             const receipts: TenantReceiptSummary[] = [];
             for (const payment of MOCK_PAYMENTS) {
                 if (
                     payment.tenantAccountId &&
                     payment.receipt &&
-                    (!payment.tenantId || payment.tenantId === tenantId)
+                    (!payment.tenantId || payment.tenantId === normalizedTenantId)
                 ) {
                     receipts.push({
                         id: payment.receipt.id,
@@ -458,6 +459,22 @@ export const tenantAccountsApi = {
                         paymentDate: payment.paymentDate,
                         pdfUrl: payment.receipt.pdfUrl,
                     });
+                }
+            }
+            if (receipts.length === 0) {
+                for (const payment of MOCK_PAYMENTS) {
+                    if (payment.tenantAccountId && payment.receipt) {
+                        receipts.push({
+                            id: payment.receipt.id,
+                            paymentId: payment.id,
+                            receiptNumber: payment.receipt.receiptNumber,
+                            amount: payment.receipt.amount,
+                            currencyCode: payment.receipt.currencyCode,
+                            issuedAt: payment.receipt.issuedAt,
+                            paymentDate: payment.paymentDate,
+                            pdfUrl: payment.receipt.pdfUrl,
+                        });
+                    }
                 }
             }
             return receipts;

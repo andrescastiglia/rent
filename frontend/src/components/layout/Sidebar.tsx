@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { getNavigationForRole } from '@/config/navigation';
 import { X } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -17,6 +17,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const t = useTranslations('nav');
   const tCommon = useTranslations('common');
+  const locale = useLocale();
 
   if (!user) return null;
 
@@ -53,7 +54,8 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
         <nav className="h-full overflow-y-auto p-4 space-y-1 pt-8 lg:pt-4">
           {navItems.map((item) => {
-            const isActive = pathname.startsWith(item.href);
+            const localizedHref = `/${locale}${item.href}`;
+            const isActive = pathname.startsWith(localizedHref);
             const isDisabled = item.disabled;
 
             const linkContent = (
@@ -80,7 +82,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             ) : (
               <Link
                 key={item.href}
-                href={item.href}
+                href={localizedHref}
                 onClick={onClose}
               >
                 {linkContent}

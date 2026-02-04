@@ -17,7 +17,7 @@ export function LeaseCard({ lease }: LeaseCardProps) {
   const locale = useLocale();
 
   return (
-    <Link href={`/leases/${lease.id}`} className="block group">
+    <Link href={`/${locale}/leases/${lease.id}`} className="block group">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-transform duration-300 group-hover:-translate-y-1 group-hover:shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <div className="flex justify-between items-start mb-4">
           <div>

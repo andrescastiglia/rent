@@ -327,7 +327,8 @@ export const propertiesApi = {
     getById: async (id: string): Promise<Property | null> => {
         if (IS_MOCK_MODE) {
             await delay(DELAY);
-            return MOCK_PROPERTIES.find((p) => p.id === id) || null;
+            const normalizedId = decodeURIComponent(id).split('?')[0];
+            return MOCK_PROPERTIES.find((p) => p.id === normalizedId) || null;
         }
         
         const token = getToken();

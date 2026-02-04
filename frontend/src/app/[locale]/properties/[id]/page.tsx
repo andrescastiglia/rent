@@ -7,7 +7,7 @@ import { useParams } from 'next/navigation';
 import { Property, PropertyVisit, CreatePropertyVisitInput } from '@/types/property';
 import { propertiesApi } from '@/lib/api/properties';
 import { Edit, ArrowLeft, MapPin, Building, Trash2, Loader2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -15,7 +15,9 @@ export default function PropertyDetailPage() {
   const { loading: authLoading } = useAuth();
   const t = useTranslations('properties');
   const tCommon = useTranslations('common');
+  const locale = useLocale();
   const params = useParams();
+  const propertyId = Array.isArray(params.id) ? params.id[0] : params.id;
   const router = useLocalizedRouter();
   const [property, setProperty] = useState<Property | null>(null);
   const [visits, setVisits] = useState<PropertyVisit[]>([]);
@@ -41,10 +43,10 @@ export default function PropertyDetailPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (params.id) {
-      loadProperty(params.id as string);
+    if (propertyId) {
+      loadProperty(propertyId);
     }
-  }, [params.id, authLoading]);
+  }, [propertyId, authLoading]);
 
   const loadProperty = async (id: string) => {
     try {
@@ -149,7 +151,7 @@ export default function PropertyDetailPage() {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('notFound')}</h1>
-        <Link href="/properties" className="text-blue-600 hover:underline mt-4 inline-block">
+        <Link href={`/${locale}/properties`} className="text-blue-600 hover:underline mt-4 inline-block">
           {t('backToList')}
         </Link>
       </div>
@@ -159,7 +161,7 @@ export default function PropertyDetailPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
-        <Link href="/properties" className="inline-flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+        <Link href={`/${locale}/properties`} className="inline-flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
           <ArrowLeft size={16} className="mr-1" />
           {t('backToList')}
         </Link>
@@ -181,7 +183,7 @@ export default function PropertyDetailPage() {
           )}
           <div className="absolute top-4 right-4 flex space-x-2">
             <Link
-              href={`/properties/${property.id}/edit`}
+              href={`/${locale}/properties/${property.id}/edit`}
               className="p-2 bg-white/90 backdrop-blur-sm rounded-full text-gray-700 hover:text-blue-600 shadow-sm transition-colors"
               aria-label={tCommon('edit')}
             >

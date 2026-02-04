@@ -46,8 +46,9 @@ export default defineConfig({
         // When testing with real backend (test:e2e:real), also use dev server
         command: 'npm run dev -- -H 127.0.0.1 -p 3000',
         url: 'http://localhost:3000',
-        // Reuse existing server when not in CI (for faster local development)
-        reuseExistingServer: !process.env.CI,
+        // In mock-mode, always start a fresh server so env flags are applied deterministically.
+        // (If we reuse a manually-started dev server, it may not have NEXT_PUBLIC_MOCK_MODE enabled.)
+        reuseExistingServer: !process.env.CI && !useMockMode,
         timeout: 120000,
         stdout: 'pipe',
         stderr: 'pipe',

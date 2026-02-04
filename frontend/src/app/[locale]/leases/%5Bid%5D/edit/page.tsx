@@ -10,14 +10,15 @@ import { Lease } from '@/types/lease';
 
 export default function EditLeasePage() {
   const params = useParams();
+  const leaseId = Array.isArray(params.id) ? params.id[0] : params.id;
   const [lease, setLease] = useState<Lease | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (params.id) {
-      loadLease(params.id as string);
+    if (leaseId) {
+      loadLease(leaseId);
     }
-  }, [params.id]);
+  }, [leaseId]);
 
   const loadLease = async (id: string) => {
     try {

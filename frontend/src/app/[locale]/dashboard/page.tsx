@@ -149,7 +149,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Properties Card */}
         {visibleStats.includes('properties') && (
-          <Link href="/properties" className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hover:shadow-md transition-shadow cursor-pointer">
+          <Link href={`/${locale}/properties`} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hover:shadow-md transition-shadow cursor-pointer">
             <div className="flex items-center">
               <div className="flex-1">
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -180,7 +180,7 @@ export default function DashboardPage() {
 
         {/* Tenants Card */}
         {visibleStats.includes('tenants') && (
-          <Link href="/tenants" className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hover:shadow-md transition-shadow cursor-pointer">
+          <Link href={`/${locale}/tenants`} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hover:shadow-md transition-shadow cursor-pointer">
             <div className="flex items-center">
               <div className="flex-1">
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">

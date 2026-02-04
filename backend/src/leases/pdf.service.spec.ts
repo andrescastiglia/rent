@@ -27,7 +27,7 @@ describe('PdfService', () => {
   let service: PdfService;
   let documentRepository: MockRepository<Document>;
   let configService: jest.Mocked<ConfigService>;
-  let i18nService: Partial<I18nService>;
+  let i18nService: jest.Mocked<I18nService>;
 
   type MockRepository<T extends Record<string, any> = any> = Partial<
     Record<keyof Repository<T>, jest.Mock>
@@ -64,9 +64,10 @@ describe('PdfService', () => {
       get: jest.fn(),
     } as any;
     i18nService = {
-      t: jest.fn(),
-    };
-
+      t: jest.fn((key: string) => key),
+      translate: jest.fn(),
+    } as any;
+    
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PdfService,

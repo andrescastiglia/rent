@@ -1,9 +1,11 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Property } from '@/types/property';
 import { Building, MapPin, Bed, Bath, Ruler } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 
 interface PropertyCardProps {
   property: Property;
@@ -11,9 +13,10 @@ interface PropertyCardProps {
 
 export function PropertyCard({ property }: PropertyCardProps) {
   const t = useTranslations('properties');
+  const locale = useLocale();
 
   return (
-    <Link href={`/properties/${property.id}`} className="block group">
+    <Link href={`/${locale}/properties/${property.id}`} className="block group">
       <div className="bg-white rounded-lg shadow-md overflow-hidden transition-transform duration-300 group-hover:-translate-y-1 group-hover:shadow-lg border border-gray-100">
         <div className="relative h-48 bg-gray-200">
           {property.images.length > 0 ? (

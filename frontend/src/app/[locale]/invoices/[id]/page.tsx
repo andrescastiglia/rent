@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/auth-context';
 export default function InvoiceDetailPage() {
     const { loading: authLoading } = useAuth();
     const params = useParams();
+    const invoiceId = Array.isArray(params.id) ? params.id[0] : params.id;
     const t = useTranslations('invoices');
     const tCommon = useTranslations('common');
 
@@ -22,14 +23,15 @@ export default function InvoiceDetailPage() {
 
     const loadInvoice = useCallback(async () => {
         try {
-            const data = await invoicesApi.getById(params.id as string);
+            if (!invoiceId) return;
+            const data = await invoicesApi.getById(invoiceId);
             setInvoice(data);
         } catch (error) {
             console.error('Failed to load invoice', error);
         } finally {
             setLoading(false);
         }
-    }, [params.id]);
+    }, [invoiceId]);
 
     useEffect(() => {
         if (authLoading) return;

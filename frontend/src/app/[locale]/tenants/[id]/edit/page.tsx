@@ -7,22 +7,24 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { tenantsApi } from '@/lib/api/tenants';
 import { Tenant } from '@/types/tenant';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/auth-context';
 
 export default function EditTenantPage() {
   const { loading: authLoading } = useAuth();
   const t = useTranslations('tenants');
+  const locale = useLocale();
   const params = useParams();
+  const tenantId = Array.isArray(params.id) ? params.id[0] : params.id;
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (authLoading) return;
-    if (params.id) {
-      loadTenant(params.id as string);
+    if (tenantId) {
+      loadTenant(tenantId);
     }
-  }, [params.id, authLoading]);
+  }, [tenantId, authLoading]);
 
   const loadTenant = async (id: string) => {
     try {
@@ -47,7 +49,7 @@ export default function EditTenantPage() {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('notFound')}</h1>
-        <Link href="/tenants" className="text-blue-600 hover:underline mt-4 inline-block">
+        <Link href={`/${locale}/tenants`} className="text-blue-600 hover:underline mt-4 inline-block">
           {t('backToList')}
         </Link>
       </div>
