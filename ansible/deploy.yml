@@ -64,14 +64,17 @@
 
     - name: Install backend dependencies
       ansible.builtin.command:
-        cmd: npm ci
+        cmd: npm ci --include=dev
         chdir: "{{ current_path }}/backend"
-      environment:
-        NODE_ENV: production
 
     - name: Build backend
       ansible.builtin.command:
         cmd: npm run build
+        chdir: "{{ current_path }}/backend"
+
+    - name: Prune backend dev dependencies
+      ansible.builtin.command:
+        cmd: npm prune --omit=dev
         chdir: "{{ current_path }}/backend"
 
     - name: Create backend symlink
