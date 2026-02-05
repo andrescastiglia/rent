@@ -202,15 +202,6 @@
     # ─────────────────────────────────────────────────────────────
     # PM2 PROCESS MANAGEMENT
     # ─────────────────────────────────────────────────────────────
-    - name: Ensure PM2 log directory exists
-      ansible.builtin.file:
-        path: /var/log/rent
-        state: directory
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        mode: "0755"
-      become: true
-
     - name: Stop rent-backend if running
       ansible.builtin.command:
         cmd: pm2 stop rent-backend
