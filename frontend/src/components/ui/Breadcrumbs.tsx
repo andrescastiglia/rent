@@ -13,6 +13,8 @@ const segmentTranslationMap: Record<string, { namespace: string; key: string }> 
   leases: { namespace: 'nav', key: 'leases' },
   payments: { namespace: 'nav', key: 'payments' },
   invoices: { namespace: 'nav', key: 'invoices' },
+  sales: { namespace: 'nav', key: 'sales' },
+  interested: { namespace: 'nav', key: 'interested' },
   users: { namespace: 'nav', key: 'users' },
   new: { namespace: 'breadcrumbs', key: 'new' },
   edit: { namespace: 'breadcrumbs', key: 'edit' },
