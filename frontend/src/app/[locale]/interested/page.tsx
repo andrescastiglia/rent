@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Clock3, Loader2, Percent, RefreshCw, Trophy, Users } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { interestedApi } from '@/lib/api/interested';
 import {
@@ -43,11 +43,14 @@ const emptyForm: CreateInterestedProfileInput = {
   phone: '',
   email: '',
   peopleCount: undefined,
+  minAmount: undefined,
   maxAmount: undefined,
   hasPets: false,
   whiteIncome: false,
   guaranteeTypes: [],
   preferredZones: [],
+  preferredCity: '',
+  desiredFeatures: [],
   propertyTypePreference: 'apartment',
   operation: 'rent',
   status: 'new',
@@ -75,6 +78,7 @@ export default function InterestedPage() {
   const [saving, setSaving] = useState(false);
   const [refreshingMatches, setRefreshingMatches] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [stageFilter, setStageFilter] = useState<InterestedStatus | 'all'>('all');
 
@@ -109,6 +113,32 @@ export default function InterestedPage() {
         );
       });
   }, [profiles, searchTerm, stageFilter]);
+
+  const profileToForm = useCallback(
+    (profile: InterestedProfile): CreateInterestedProfileInput => ({
+      firstName: profile.firstName ?? '',
+      lastName: profile.lastName ?? '',
+      phone: profile.phone ?? '',
+      email: profile.email ?? '',
+      peopleCount: profile.peopleCount,
+      minAmount: profile.minAmount,
+      maxAmount: profile.maxAmount,
+      hasPets: profile.hasPets ?? false,
+      whiteIncome: profile.whiteIncome ?? false,
+      guaranteeTypes: profile.guaranteeTypes ?? [],
+      preferredZones: profile.preferredZones ?? [],
+      preferredCity: profile.preferredCity ?? '',
+      desiredFeatures: profile.desiredFeatures ?? [],
+      propertyTypePreference: profile.propertyTypePreference ?? 'apartment',
+      operation: profile.operation ?? 'rent',
+      status: profile.status ?? 'new',
+      qualificationLevel: profile.qualificationLevel ?? 'mql',
+      source: profile.source ?? 'manual',
+      consentContact: profile.consentContact ?? true,
+      notes: profile.notes ?? '',
+    }),
+    [],
+  );
 
   const loadInitial = useCallback(async () => {
     setLoading(true);
@@ -157,7 +187,19 @@ export default function InterestedPage() {
     }
   }
 
-  async function handleCreateProfile(event: React.FormEvent) {
+  function handleNewProspect() {
+    setEditingProfileId(null);
+    setForm(emptyForm);
+    setShowCreateForm((prev) => !prev);
+  }
+
+  function handleEditProfile(profile: InterestedProfile) {
+    setEditingProfileId(profile.id);
+    setForm(profileToForm(profile));
+    setShowCreateForm(true);
+  }
+
+  async function handleSaveProfile(event: React.FormEvent) {
     event.preventDefault();
     if (!form.phone?.trim()) {
       alert(t('errors.phoneRequired'));
@@ -172,20 +214,30 @@ export default function InterestedPage() {
         lastName: form.lastName?.trim() || undefined,
         phone: form.phone.trim(),
         email: form.email?.trim() || undefined,
+        preferredCity: form.preferredCity?.trim() || undefined,
         notes: form.notes?.trim() || undefined,
         guaranteeTypes: form.guaranteeTypes?.filter((g) => g.trim().length > 0),
         preferredZones: form.preferredZones?.filter((g) => g.trim().length > 0),
+        desiredFeatures: form.desiredFeatures?.filter((g) => g.trim().length > 0),
       };
 
-      const created = await interestedApi.create(payload);
-      setProfiles((prev) => [created, ...prev]);
+      if (editingProfileId) {
+        const updated = await interestedApi.update(editingProfileId, payload);
+        setProfiles((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+        await selectProfile(updated);
+      } else {
+        const created = await interestedApi.create(payload);
+        setProfiles((prev) => [created, ...prev]);
+        await selectProfile(created);
+      }
+
       setForm(emptyForm);
+      setEditingProfileId(null);
       setShowCreateForm(false);
-      await selectProfile(created);
       const metricsResult = await interestedApi.getMetrics();
       setMetrics(metricsResult);
     } catch (error) {
-      console.error('Failed to create interested profile', error);
+      console.error('Failed to save interested profile', error);
       alert(tc('error'));
     } finally {
       setSaving(false);
@@ -349,7 +401,7 @@ export default function InterestedPage() {
         </div>
         <button
           type="button"
-          onClick={() => setShowCreateForm((prev) => !prev)}
+          onClick={handleNewProspect}
           className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm"
         >
           {showCreateForm ? t('actions.closeNew') : t('actions.new')}
@@ -358,20 +410,48 @@ export default function InterestedPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-          <p className="text-xs text-gray-500 dark:text-gray-400">{t('metrics.totalLeads')}</p>
-          <p className="text-2xl font-semibold text-gray-900 dark:text-white">{metrics?.totalLeads ?? 0}</p>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
+              <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('metrics.totalLeads')}</p>
+              <p className="text-2xl font-semibold text-gray-900 dark:text-white">{metrics?.totalLeads ?? 0}</p>
+            </div>
+          </div>
         </div>
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-          <p className="text-xs text-gray-500 dark:text-gray-400">{t('metrics.conversionRate')}</p>
-          <p className="text-2xl font-semibold text-gray-900 dark:text-white">{metrics?.conversionRate?.toFixed(2) ?? '0.00'}%</p>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/20 rounded-full flex items-center justify-center">
+              <Percent className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('metrics.conversionRate')}</p>
+              <p className="text-2xl font-semibold text-gray-900 dark:text-white">{metrics?.conversionRate?.toFixed(2) ?? '0.00'}%</p>
+            </div>
+          </div>
         </div>
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-          <p className="text-xs text-gray-500 dark:text-gray-400">{t('metrics.avgCloseHours')}</p>
-          <p className="text-2xl font-semibold text-gray-900 dark:text-white">{metrics?.avgHoursToClose?.toFixed(1) ?? '0.0'}h</p>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/20 rounded-full flex items-center justify-center">
+              <Clock3 className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('metrics.avgCloseHours')}</p>
+              <p className="text-2xl font-semibold text-gray-900 dark:text-white">{metrics?.avgHoursToClose?.toFixed(1) ?? '0.0'}h</p>
+            </div>
+          </div>
         </div>
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-          <p className="text-xs text-gray-500 dark:text-gray-400">{t('metrics.won')}</p>
-          <p className="text-2xl font-semibold text-gray-900 dark:text-white">{metrics?.byStage?.won ?? 0}</p>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-violet-100 dark:bg-violet-900/20 rounded-full flex items-center justify-center">
+              <Trophy className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('metrics.won')}</p>
+              <p className="text-2xl font-semibold text-gray-900 dark:text-white">{metrics?.byStage?.won ?? 0}</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -384,10 +464,12 @@ export default function InterestedPage() {
           <div className="xl:col-span-4 space-y-6">
             {showCreateForm ? (
               <form
-                onSubmit={handleCreateProfile}
+                onSubmit={handleSaveProfile}
                 className="space-y-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4"
               >
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('newTitle')}</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {editingProfileId ? t('editTitle') : t('newTitle')}
+                </h2>
                 <div className="grid grid-cols-1 gap-3">
                   <input
                     type="text"
@@ -432,7 +514,115 @@ export default function InterestedPage() {
                   >
                     <option value="apartment">{t('propertyTypes.apartment')}</option>
                     <option value="house">{t('propertyTypes.house')}</option>
+                    <option value="commercial">{t('propertyTypes.commercial')}</option>
+                    <option value="office">{t('propertyTypes.office')}</option>
+                    <option value="warehouse">{t('propertyTypes.warehouse')}</option>
+                    <option value="land">{t('propertyTypes.land')}</option>
+                    <option value="parking">{t('propertyTypes.parking')}</option>
+                    <option value="other">{t('propertyTypes.other')}</option>
                   </select>
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder={t('fields.peopleCount')}
+                    value={form.peopleCount ?? ''}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        peopleCount: e.target.value ? Number(e.target.value) : undefined,
+                      }))
+                    }
+                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder={t('fields.minAmount')}
+                    value={form.minAmount ?? ''}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        minAmount: e.target.value ? Number(e.target.value) : undefined,
+                      }))
+                    }
+                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder={t('fields.maxAmount')}
+                    value={form.maxAmount ?? ''}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        maxAmount: e.target.value ? Number(e.target.value) : undefined,
+                      }))
+                    }
+                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                  />
+                  <input
+                    type="text"
+                    placeholder={t('fields.preferredCity')}
+                    value={form.preferredCity ?? ''}
+                    onChange={(e) => setForm((prev) => ({ ...prev, preferredCity: e.target.value }))}
+                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                  />
+                  <input
+                    type="text"
+                    placeholder={t('fields.preferredZones')}
+                    value={(form.preferredZones ?? []).join(', ')}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        preferredZones: e.target.value.split(',').map((item) => item.trim()),
+                      }))
+                    }
+                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                  />
+                  <input
+                    type="text"
+                    placeholder={t('fields.guaranteeTypes')}
+                    value={(form.guaranteeTypes ?? []).join(', ')}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        guaranteeTypes: e.target.value.split(',').map((item) => item.trim()),
+                      }))
+                    }
+                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                  />
+                  <input
+                    type="text"
+                    placeholder={t('fields.desiredFeatures')}
+                    value={(form.desiredFeatures ?? []).join(', ')}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        desiredFeatures: e.target.value.split(',').map((item) => item.trim()),
+                      }))
+                    }
+                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                  />
+                  <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={form.hasPets ?? false}
+                      onChange={(e) => setForm((prev) => ({ ...prev, hasPets: e.target.checked }))}
+                      className="rounded border-gray-300 dark:border-gray-600"
+                    />
+                    {t('fields.hasPets')}
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={form.whiteIncome ?? false}
+                      onChange={(e) => setForm((prev) => ({ ...prev, whiteIncome: e.target.checked }))}
+                      className="rounded border-gray-300 dark:border-gray-600"
+                    />
+                    {t('fields.whiteIncome')}
+                  </label>
                   <textarea
                     placeholder={t('fields.notes')}
                     value={form.notes ?? ''}
@@ -528,6 +718,13 @@ export default function InterestedPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleEditProfile(selectedProfile)}
+                        className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm"
+                      >
+                        {t('actions.edit')}
+                      </button>
                       <select
                         value={pendingStage}
                         onChange={(e) => setPendingStage(e.target.value as InterestedStatus)}
@@ -584,7 +781,9 @@ export default function InterestedPage() {
                               <p className="text-sm font-medium text-gray-900 dark:text-white">
                                 {match.property?.name ?? match.propertyId}
                               </p>
-                              <span className="text-xs text-gray-500 dark:text-gray-400">{t('labels.score')}: {match.score ?? 0}</span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {t('labels.score')}: {(match.score ?? 0).toFixed(2)}%
+                              </span>
                             </div>
                             <select
                               value={match.status}

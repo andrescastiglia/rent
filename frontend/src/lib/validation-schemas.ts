@@ -15,7 +15,16 @@ type TranslationFunction = (key: string, params?: Record<string, string | number
 export const createPropertySchema = (t: TranslationFunction) => z.object({
   name: z.string().min(3, t('minLength', { min: 3 })),
   description: z.string().optional(),
-  type: z.enum(['APARTMENT', 'HOUSE', 'COMMERCIAL', 'OFFICE', 'LAND', 'OTHER'] as const),
+  type: z.enum([
+    'APARTMENT',
+    'HOUSE',
+    'COMMERCIAL',
+    'OFFICE',
+    'WAREHOUSE',
+    'LAND',
+    'PARKING',
+    'OTHER',
+  ] as const),
   status: z.enum(['ACTIVE', 'INACTIVE', 'MAINTENANCE'] as const).optional(),
   address: z.object({
     street: z.string().min(1, t('streetRequired')),

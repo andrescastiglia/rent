@@ -90,8 +90,12 @@ const mapPropertyType = (value: string | null | undefined): Property['type'] => 
             return 'COMMERCIAL';
         case 'office':
             return 'OFFICE';
+        case 'warehouse':
+            return 'WAREHOUSE';
         case 'land':
             return 'LAND';
+        case 'parking':
+            return 'PARKING';
         default:
             return 'OTHER';
     }

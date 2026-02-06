@@ -1,4 +1,12 @@
-export type PropertyType = 'APARTMENT' | 'HOUSE' | 'COMMERCIAL' | 'OFFICE' | 'LAND' | 'OTHER';
+export type PropertyType =
+    | 'APARTMENT'
+    | 'HOUSE'
+    | 'COMMERCIAL'
+    | 'OFFICE'
+    | 'WAREHOUSE'
+    | 'LAND'
+    | 'PARKING'
+    | 'OTHER';
 export type PropertyStatus = 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE';
 
 export interface Address {

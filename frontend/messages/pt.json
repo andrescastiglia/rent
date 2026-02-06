@@ -208,7 +208,9 @@
             "house": "Casa",
             "commercial": "Comercial",
             "office": "Escritório",
+            "warehouse": "Depósito",
             "land": "Terreno",
+            "parking": "Garagem",
             "other": "Outro"
         },
         "types": {
@@ -216,7 +218,9 @@
             "HOUSE": "Casa",
             "COMMERCIAL": "Comercial",
             "OFFICE": "Escritório",
+            "WAREHOUSE": "Depósito",
             "LAND": "Terreno",
+            "PARKING": "Garagem",
             "OTHER": "Outro"
         },
         "status": {
@@ -249,8 +253,9 @@
     },
     "interested": {
         "title": "Prospectos",
-        "subtitle": "CRM integrado para gestao comercial",
+        "subtitle": "Gestao comercial",
         "newTitle": "Novo interessado",
+        "editTitle": "Editar interessado",
         "listTitle": "Perfis cadastrados",
         "listSearchPlaceholder": "Buscar por nome, telefone ou email...",
         "matchesTitle": "Imóveis sugeridos",
@@ -337,10 +342,14 @@
             "phone": "Telefone",
             "email": "Email",
             "peopleCount": "Quantidade de pessoas",
+            "minAmount": "Valor mínimo",
             "maxAmount": "Valor máximo",
             "hasPets": "Tem pets",
             "whiteIncome": "Renda formal",
             "guaranteeTypes": "Tipos de garantia (separados por vírgula)",
+            "preferredCity": "Cidade preferida",
+            "preferredZones": "Zonas preferidas (separadas por vírgula)",
+            "desiredFeatures": "Características obrigatórias (separadas por vírgula)",
             "stageReason": "Motivo da mudanca de etapa",
             "notes": "Notas"
         },
@@ -350,7 +359,13 @@
         },
         "propertyTypes": {
             "apartment": "Apartamento",
-            "house": "Casa"
+            "house": "Casa",
+            "commercial": "Comercial",
+            "office": "Escritório",
+            "warehouse": "Depósito",
+            "land": "Terreno",
+            "parking": "Garagem",
+            "other": "Outro"
         },
         "operationsLabel": "Operação: {op}",
         "filters": {
@@ -363,6 +378,7 @@
             "closeNew": "Cancelar",
             "reload": "Recarregar",
             "changeStage": "Mudar etapa",
+            "edit": "Editar prospecto",
             "refreshMatches": "Atualizar matches",
             "markDone": "Marcar concluida"
         },

@@ -208,7 +208,9 @@
             "house": "Casa",
             "commercial": "Comercial",
             "office": "Oficina",
+            "warehouse": "Depósito",
             "land": "Terreno",
+            "parking": "Cochera",
             "other": "Otro"
         },
         "types": {
@@ -216,7 +218,9 @@
             "HOUSE": "Casa",
             "COMMERCIAL": "Comercial",
             "OFFICE": "Oficina",
+            "WAREHOUSE": "Depósito",
             "LAND": "Terreno",
+            "PARKING": "Cochera",
             "OTHER": "Otro"
         },
         "status": {
@@ -249,8 +253,9 @@
     },
     "interested": {
         "title": "Prospectos",
-        "subtitle": "CRM comercial integrado para interesados",
+        "subtitle": "Gestión comercial",
         "newTitle": "Nuevo interesado",
+        "editTitle": "Editar interesado",
         "listTitle": "Perfiles registrados",
         "listSearchPlaceholder": "Buscar por nombre, telefono o email...",
         "matchesTitle": "Propiedades sugeridas",
@@ -305,7 +310,7 @@
             "cancelled": "Cancelada"
         },
         "metrics": {
-            "totalLeads": "Total leads",
+            "totalLeads": "Clientes potenciales",
             "conversionRate": "Tasa de conversion",
             "avgCloseHours": "Tiempo medio de cierre",
             "won": "Ganados"
@@ -337,10 +342,14 @@
             "phone": "Teléfono",
             "email": "Email",
             "peopleCount": "Cantidad de personas",
+            "minAmount": "Monto mínimo",
             "maxAmount": "Monto máximo",
             "hasPets": "Tiene mascotas",
             "whiteIncome": "Ingresos en blanco",
             "guaranteeTypes": "Tipos de garantía (separados por coma)",
+            "preferredCity": "Ciudad preferida",
+            "preferredZones": "Zonas preferidas (separadas por coma)",
+            "desiredFeatures": "Características requeridas (separadas por coma)",
             "stageReason": "Motivo del cambio de etapa",
             "notes": "Notas"
         },
@@ -350,7 +359,13 @@
         },
         "propertyTypes": {
             "apartment": "Departamento",
-            "house": "Casa"
+            "house": "Casa",
+            "commercial": "Comercial",
+            "office": "Oficina",
+            "warehouse": "Depósito",
+            "land": "Terreno",
+            "parking": "Cochera",
+            "other": "Otro"
         },
         "operationsLabel": "Operación: {op}",
         "filters": {
@@ -363,6 +378,7 @@
             "closeNew": "Cancelar alta",
             "reload": "Recargar",
             "changeStage": "Cambiar etapa",
+            "edit": "Editar prospecto",
             "refreshMatches": "Actualizar matches",
             "markDone": "Marcar realizada"
         },

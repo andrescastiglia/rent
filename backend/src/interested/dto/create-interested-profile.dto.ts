@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsBoolean,
   IsEmail,
   IsEnum,
@@ -46,6 +47,12 @@ export class CreateInterestedProfileDto {
   @Min(0)
   @IsOptional()
   @Type(() => Number)
+  minAmount?: number;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
   maxAmount?: number;
 
   @IsBoolean()
@@ -58,11 +65,22 @@ export class CreateInterestedProfileDto {
 
   @IsString({ each: true })
   @IsOptional()
+  @IsArray()
   guaranteeTypes?: string[];
 
   @IsString({ each: true })
   @IsOptional()
+  @IsArray()
   preferredZones?: string[];
+
+  @IsString()
+  @IsOptional()
+  preferredCity?: string;
+
+  @IsString({ each: true })
+  @IsOptional()
+  @IsArray()
+  desiredFeatures?: string[];
 
   @IsEnum(InterestedPropertyType)
   @IsOptional()

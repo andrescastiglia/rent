@@ -1,7 +1,15 @@
 import { Property } from './property';
 
 export type InterestedOperation = 'rent' | 'sale';
-export type InterestedPropertyType = 'apartment' | 'house';
+export type InterestedPropertyType =
+  | 'apartment'
+  | 'house'
+  | 'commercial'
+  | 'office'
+  | 'warehouse'
+  | 'land'
+  | 'parking'
+  | 'other';
 export type InterestedStatus =
   | 'new'
   | 'qualified'
@@ -37,11 +45,14 @@ export interface InterestedProfile {
   phone: string;
   email?: string;
   peopleCount?: number;
+  minAmount?: number;
   maxAmount?: number;
   hasPets?: boolean;
   whiteIncome?: boolean;
   guaranteeTypes?: string[];
   preferredZones?: string[];
+  preferredCity?: string;
+  desiredFeatures?: string[];
   propertyTypePreference?: InterestedPropertyType;
   operation?: InterestedOperation;
   status?: InterestedStatus;
@@ -69,11 +80,14 @@ export interface CreateInterestedProfileInput {
   phone: string;
   email?: string;
   peopleCount?: number;
+  minAmount?: number;
   maxAmount?: number;
   hasPets?: boolean;
   whiteIncome?: boolean;
   guaranteeTypes?: string[];
   preferredZones?: string[];
+  preferredCity?: string;
+  desiredFeatures?: string[];
   propertyTypePreference?: InterestedPropertyType;
   operation?: InterestedOperation;
   status?: InterestedStatus;

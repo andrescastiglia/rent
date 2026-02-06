@@ -126,7 +126,9 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
               <option value="HOUSE">{t('types.HOUSE')}</option>
               <option value="COMMERCIAL">{t('types.COMMERCIAL')}</option>
               <option value="OFFICE">{t('types.OFFICE')}</option>
+              <option value="WAREHOUSE">{t('types.WAREHOUSE')}</option>
               <option value="LAND">{t('types.LAND')}</option>
+              <option value="PARKING">{t('types.PARKING')}</option>
               <option value="OTHER">{t('types.OTHER')}</option>
             </select>
             {errors.type && <p className="mt-1 text-sm text-red-600">{errors.type.message}</p>}

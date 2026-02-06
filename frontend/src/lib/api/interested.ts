@@ -29,10 +29,13 @@ const MOCK_INTERESTED: InterestedProfile[] = [
     lastName: 'Perez',
     phone: '+54 9 11 5555-1111',
     peopleCount: 3,
+    minAmount: 70000,
     maxAmount: 120000,
     hasPets: true,
     whiteIncome: true,
     guaranteeTypes: ['Garantia propietaria'],
+    preferredCity: 'CABA',
+    desiredFeatures: ['balcon', 'pileta'],
     propertyTypePreference: 'house',
     operation: 'sale',
     status: 'new',
@@ -50,11 +53,14 @@ const mapProfile = (raw: any): InterestedProfile => ({
   phone: raw.phone,
   email: raw.email,
   peopleCount: raw.peopleCount === null || raw.peopleCount === undefined ? undefined : Number(raw.peopleCount),
+  minAmount: raw.minAmount === null || raw.minAmount === undefined ? undefined : Number(raw.minAmount),
   maxAmount: raw.maxAmount === null || raw.maxAmount === undefined ? undefined : Number(raw.maxAmount),
   hasPets: raw.hasPets,
   whiteIncome: raw.whiteIncome,
   guaranteeTypes: Array.isArray(raw.guaranteeTypes) ? raw.guaranteeTypes : [],
   preferredZones: Array.isArray(raw.preferredZones) ? raw.preferredZones : [],
+  preferredCity: raw.preferredCity,
+  desiredFeatures: Array.isArray(raw.desiredFeatures) ? raw.desiredFeatures : [],
   propertyTypePreference: raw.propertyTypePreference,
   operation: raw.operation,
   status: raw.status,
@@ -105,8 +111,12 @@ const mapProperty = (raw: any): Property => ({
           ? 'COMMERCIAL'
           : raw.propertyType === 'office'
             ? 'OFFICE'
+            : raw.propertyType === 'warehouse'
+              ? 'WAREHOUSE'
             : raw.propertyType === 'land'
               ? 'LAND'
+              : raw.propertyType === 'parking'
+                ? 'PARKING'
               : 'OTHER',
   status: (raw.status === 'active' ? 'ACTIVE' : raw.status === 'under_maintenance' ? 'MAINTENANCE' : 'INACTIVE'),
   address: {
@@ -205,11 +215,14 @@ export const interestedApi = {
         phone: data.phone,
         email: data.email,
         peopleCount: data.peopleCount,
+        minAmount: data.minAmount,
         maxAmount: data.maxAmount,
         hasPets: data.hasPets,
         whiteIncome: data.whiteIncome,
         guaranteeTypes: data.guaranteeTypes,
         preferredZones: data.preferredZones,
+        preferredCity: data.preferredCity,
+        desiredFeatures: data.desiredFeatures,
         propertyTypePreference: data.propertyTypePreference,
         operation: data.operation,
         status: data.status,

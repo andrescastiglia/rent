@@ -17,6 +17,7 @@ import { User } from '../users/entities/user.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { SaleAgreement } from '../sales/entities/sale-agreement.entity';
 import { SaleFolder } from '../sales/entities/sale-folder.entity';
+import { I18nService } from 'nestjs-i18n';
 
 describe('InterestedService', () => {
   let service: InterestedService;
@@ -83,6 +84,12 @@ describe('InterestedService', () => {
           provide: DataSource,
           useValue: {
             transaction: jest.fn(),
+          },
+        },
+        {
+          provide: I18nService,
+          useValue: {
+            t: jest.fn((key: string) => key),
           },
         },
       ],

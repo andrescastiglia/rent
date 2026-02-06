@@ -109,5 +109,42 @@
         "deleted": "Eliminado exitosamente",
         "paymentConfirmed": "Pago confirmado exitosamente",
         "invoiceIssued": "Factura emitida exitosamente"
+    },
+    "interested": {
+        "reasons": {
+            "leadCreated": "Lead creado",
+            "matchesRefreshed": "Coincidencias actualizadas",
+            "convertedToTenant": "Convertido a inquilino",
+            "convertedToBuyer": "Convertido a comprador"
+        },
+        "activities": {
+            "matchContactSubject": "Contacto por match",
+            "matchContactBody": "Se contactó propiedad {propertyId}",
+            "closeRentSubject": "Cierre por alquiler",
+            "closeSaleSubject": "Cierre por compra",
+            "closeSaleDefaultBody": "Requiere conversión a comprador",
+            "convertedToTenantSubject": "Lead convertido a inquilino",
+            "convertedToTenantBody": "Inquilino {tenantId} / Usuario {userEmail}"
+        },
+        "matchReasons": {
+            "propertyTypeMatches": "Tipo de propiedad coincide",
+            "priceWithinRange": "Precio dentro del rango",
+            "capacityAdequate": "Capacidad adecuada",
+            "petsAllowed": "Acepta mascotas",
+            "cityMatches": "La ciudad coincide",
+            "featuresMatch": "Coinciden las características solicitadas",
+            "guaranteeMatches": "Condiciones de garantía compatibles",
+            "partialMatch": "Coincidencia parcial de criterios"
+        },
+        "timeline": {
+            "stageTitle": "Etapa: {fromStatus} -> {toStatus}",
+            "activityTitle": "{type}: {subject}",
+            "matchTitle": "Match propiedad {propertyName}",
+            "visitTitle": "Visita a {propertyName}"
+        },
+        "names": {
+            "defaultFirstName": "Interesado",
+            "defaultLastName": "CRM"
+        }
     }
 }

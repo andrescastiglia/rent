@@ -109,5 +109,42 @@
         "deleted": "Deleted successfully",
         "paymentConfirmed": "Payment confirmed successfully",
         "invoiceIssued": "Invoice issued successfully"
+    },
+    "interested": {
+        "reasons": {
+            "leadCreated": "Lead created",
+            "matchesRefreshed": "Matches refreshed",
+            "convertedToTenant": "Converted to tenant",
+            "convertedToBuyer": "Converted to buyer"
+        },
+        "activities": {
+            "matchContactSubject": "Match contact",
+            "matchContactBody": "Contacted property {propertyId}",
+            "closeRentSubject": "Closed by rent",
+            "closeSaleSubject": "Closed by purchase",
+            "closeSaleDefaultBody": "Requires conversion to buyer",
+            "convertedToTenantSubject": "Lead converted to tenant",
+            "convertedToTenantBody": "Tenant {tenantId} / User {userEmail}"
+        },
+        "matchReasons": {
+            "propertyTypeMatches": "Property type matches",
+            "priceWithinRange": "Price within range",
+            "capacityAdequate": "Capacity adequate",
+            "petsAllowed": "Pets allowed",
+            "cityMatches": "City matches",
+            "featuresMatch": "Requested features match",
+            "guaranteeMatches": "Guarantee conditions match",
+            "partialMatch": "Partial criteria match"
+        },
+        "timeline": {
+            "stageTitle": "Stage: {fromStatus} -> {toStatus}",
+            "activityTitle": "{type}: {subject}",
+            "matchTitle": "Property match {propertyName}",
+            "visitTitle": "Visit to {propertyName}"
+        },
+        "names": {
+            "defaultFirstName": "Interested",
+            "defaultLastName": "CRM"
+        }
     }
 }

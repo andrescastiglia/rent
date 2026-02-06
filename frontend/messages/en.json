@@ -208,7 +208,9 @@
             "house": "House",
             "commercial": "Commercial",
             "office": "Office",
+            "warehouse": "Warehouse",
             "land": "Land",
+            "parking": "Parking",
             "other": "Other"
         },
         "types": {
@@ -216,7 +218,9 @@
             "HOUSE": "House",
             "COMMERCIAL": "Commercial",
             "OFFICE": "Office",
+            "WAREHOUSE": "Warehouse",
             "LAND": "Land",
+            "PARKING": "Parking",
             "OTHER": "Other"
         },
         "status": {
@@ -249,8 +253,9 @@
     },
     "interested": {
         "title": "Prospects",
-        "subtitle": "Integrated CRM for lead management",
+        "subtitle": "Lead management",
         "newTitle": "New interested profile",
+        "editTitle": "Edit interested profile",
         "listTitle": "Registered profiles",
         "listSearchPlaceholder": "Search by name, phone or email...",
         "matchesTitle": "Suggested properties",
@@ -337,10 +342,14 @@
             "phone": "Phone",
             "email": "Email",
             "peopleCount": "People count",
+            "minAmount": "Min amount",
             "maxAmount": "Max amount",
             "hasPets": "Has pets",
             "whiteIncome": "White income",
             "guaranteeTypes": "Guarantee types (comma separated)",
+            "preferredCity": "Preferred city",
+            "preferredZones": "Preferred zones (comma separated)",
+            "desiredFeatures": "Required features (comma separated)",
             "stageReason": "Stage change reason",
             "notes": "Notes"
         },
@@ -350,7 +359,13 @@
         },
         "propertyTypes": {
             "apartment": "Apartment",
-            "house": "House"
+            "house": "House",
+            "commercial": "Commercial",
+            "office": "Office",
+            "warehouse": "Warehouse",
+            "land": "Land",
+            "parking": "Parking",
+            "other": "Other"
         },
         "operationsLabel": "Operation: {op}",
         "filters": {
@@ -363,6 +378,7 @@
             "closeNew": "Cancel",
             "reload": "Reload",
             "changeStage": "Change stage",
+            "edit": "Edit prospect",
             "refreshMatches": "Refresh matches",
             "markDone": "Mark done"
         },

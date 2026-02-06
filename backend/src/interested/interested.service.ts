@@ -5,8 +5,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, IsNull, Repository } from 'typeorm';
+import { Brackets, DataSource, IsNull, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { I18nContext, I18nService } from 'nestjs-i18n';
 import {
   InterestedProfile,
   InterestedOperation,
@@ -97,6 +98,7 @@ export class InterestedService {
     private readonly saleFoldersRepository: Repository<SaleFolder>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
+    private readonly i18n: I18nService,
   ) {}
 
   async create(
@@ -121,7 +123,7 @@ export class InterestedService {
         interestedProfileId: created.id,
         fromStatus: created.status,
         toStatus: created.status,
-        reason: 'Lead created',
+        reason: this.t('interested.reasons.leadCreated'),
         changedByUserId: user.id,
       }),
     );
@@ -276,6 +278,7 @@ export class InterestedService {
     const query = this.propertiesRepository
       .createQueryBuilder('property')
       .leftJoinAndSelect('property.units', 'units')
+      .leftJoinAndSelect('property.features', 'features')
       .where('property.deleted_at IS NULL')
       .andWhere('property.company_id = :companyId', {
         companyId: profile.companyId,
@@ -296,6 +299,11 @@ export class InterestedService {
         unitStatus: UnitStatus.AVAILABLE,
       });
       query.andWhere('units.base_rent IS NOT NULL');
+      if (profile.minAmount !== null && profile.minAmount !== undefined) {
+        query.andWhere('units.base_rent >= :minAmount', {
+          minAmount: profile.minAmount,
+        });
+      }
       if (profile.maxAmount !== null && profile.maxAmount !== undefined) {
         query.andWhere('units.base_rent <= :maxAmount', {
           maxAmount: profile.maxAmount,
@@ -305,6 +313,11 @@ export class InterestedService {
 
     if (profile.operation === InterestedOperation.SALE) {
       query.andWhere('property.sale_price IS NOT NULL');
+      if (profile.minAmount !== null && profile.minAmount !== undefined) {
+        query.andWhere('property.sale_price >= :minAmount', {
+          minAmount: profile.minAmount,
+        });
+      }
       if (profile.maxAmount !== null && profile.maxAmount !== undefined) {
         query.andWhere('property.sale_price <= :maxAmount', {
           maxAmount: profile.maxAmount,
@@ -336,8 +349,49 @@ export class InterestedService {
       );
     }
 
+    if (profile.preferredCity?.trim()) {
+      query.andWhere('property.address_city ILIKE :preferredCity', {
+        preferredCity: profile.preferredCity.trim(),
+      });
+    }
+
+    if (profile.preferredZones && profile.preferredZones.length > 0) {
+      const zones = profile.preferredZones
+        .map((zone) => zone.trim())
+        .filter((zone) => zone.length > 0);
+
+      if (zones.length > 0) {
+        query.andWhere(
+          new Brackets((qb) => {
+            zones.forEach((zone, index) => {
+              qb.orWhere(
+                "concat_ws(' ', property.address_city, property.address_state, property.address_street, property.address_postal_code) ILIKE :zone" +
+                  index,
+                { [`zone${index}`]: `%${zone}%` },
+              );
+            });
+          }),
+        );
+      }
+    }
+
     const properties = await query.getMany();
-    return properties;
+
+    if (!profile.desiredFeatures || profile.desiredFeatures.length === 0) {
+      return properties;
+    }
+
+    const requiredFeatures = profile.desiredFeatures
+      .map((feature) => feature.trim().toLowerCase())
+      .filter((feature) => feature.length > 0);
+
+    if (requiredFeatures.length === 0) {
+      return properties;
+    }
+
+    return properties.filter((property) =>
+      this.matchesDesiredFeatures(requiredFeatures, property),
+    );
   }
 
   async refreshMatches(
@@ -352,6 +406,17 @@ export class InterestedService {
       where: { interestedProfileId: profile.id, deletedAt: IsNull() },
     });
     const existingByProperty = new Map(existing.map((m) => [m.propertyId, m]));
+
+    const matchedPropertyIds = new Set(
+      properties.map((property) => property.id),
+    );
+    const staleMatchIds = existing
+      .filter((item) => !matchedPropertyIds.has(item.propertyId))
+      .map((item) => item.id);
+
+    if (staleMatchIds.length > 0) {
+      await this.matchRepository.softDelete(staleMatchIds);
+    }
 
     const toSave: InterestedPropertyMatch[] = [];
     for (const property of properties) {
@@ -381,12 +446,16 @@ export class InterestedService {
       );
     }
 
-    const saved = await this.matchRepository.save(toSave);
+    const saved =
+      toSave.length > 0 ? await this.matchRepository.save(toSave) : [];
 
     if (saved.length > 0) {
       await this.changeStage(
         profile.id,
-        { toStatus: InterestedStatus.MATCHING, reason: 'Matches refreshed' },
+        {
+          toStatus: InterestedStatus.MATCHING,
+          reason: this.t('interested.reasons.matchesRefreshed'),
+        },
         user,
       );
     }
@@ -442,8 +511,10 @@ export class InterestedService {
         profile.id,
         {
           type: InterestedActivityType.WHATSAPP,
-          subject: 'Contacto por match',
-          body: `Se contacto propiedad ${match.propertyId}`,
+          subject: this.t('interested.activities.matchContactSubject'),
+          body: this.t('interested.activities.matchContactBody', {
+            propertyId: match.propertyId,
+          }),
           status: InterestedActivityStatus.COMPLETED,
           completedAt: new Date().toISOString(),
         },
@@ -488,7 +559,7 @@ export class InterestedService {
             id,
             {
               type: InterestedActivityType.NOTE,
-              subject: 'Cierre por alquiler',
+              subject: this.t('interested.activities.closeRentSubject'),
               body: dto.reason,
               status: InterestedActivityStatus.COMPLETED,
               completedAt: new Date().toISOString(),
@@ -507,8 +578,10 @@ export class InterestedService {
           id,
           {
             type: InterestedActivityType.NOTE,
-            subject: 'Cierre por compra',
-            body: dto.reason ?? 'Requiere conversion a comprador',
+            subject: this.t('interested.activities.closeSaleSubject'),
+            body:
+              dto.reason ??
+              this.t('interested.activities.closeSaleDefaultBody'),
             status: InterestedActivityStatus.COMPLETED,
             completedAt: new Date().toISOString(),
           },
@@ -671,7 +744,10 @@ export class InterestedService {
       id: item.id,
       type: 'stage',
       at: item.changedAt.toISOString(),
-      title: `Etapa: ${item.fromStatus} -> ${item.toStatus}`,
+      title: this.t('interested.timeline.stageTitle', {
+        fromStatus: item.fromStatus,
+        toStatus: item.toStatus,
+      }),
       detail: item.reason ?? undefined,
       metadata: {
         fromStatus: item.fromStatus,
@@ -683,7 +759,10 @@ export class InterestedService {
       id: item.id,
       type: 'activity',
       at: item.createdAt.toISOString(),
-      title: `${item.type.toUpperCase()}: ${item.subject}`,
+      title: this.t('interested.timeline.activityTitle', {
+        type: item.type.toUpperCase(),
+        subject: item.subject,
+      }),
       detail: item.body ?? undefined,
       metadata: {
         activityType: item.type,
@@ -697,7 +776,9 @@ export class InterestedService {
       id: item.id,
       type: 'match',
       at: item.updatedAt.toISOString(),
-      title: `Match propiedad ${item.property?.name ?? item.propertyId}`,
+      title: this.t('interested.timeline.matchTitle', {
+        propertyName: item.property?.name ?? item.propertyId,
+      }),
       detail: item.notes ?? undefined,
       metadata: {
         status: item.status,
@@ -711,7 +792,9 @@ export class InterestedService {
       id: item.id,
       type: 'visit',
       at: item.visitedAt.toISOString(),
-      title: `Visita a ${item.property?.name ?? item.propertyId}`,
+      title: this.t('interested.timeline.visitTitle', {
+        propertyName: item.property?.name ?? item.propertyId,
+      }),
       detail: item.comments ?? undefined,
       metadata: {
         propertyName: item.property?.name,
@@ -832,7 +915,7 @@ export class InterestedService {
           interestedProfileId: profile.id,
           fromStatus: previousStatus,
           toStatus: InterestedStatus.WON,
-          reason: 'Converted to tenant',
+          reason: this.t('interested.reasons.convertedToTenant'),
           changedByUserId: user.id,
         }),
       );
@@ -842,8 +925,11 @@ export class InterestedService {
           interestedProfileId: profile.id,
           type: InterestedActivityType.NOTE,
           status: InterestedActivityStatus.COMPLETED,
-          subject: 'Lead convertido a inquilino',
-          body: `Tenant ${createdTenant.id} / User ${createdUser.email}`,
+          subject: this.t('interested.activities.convertedToTenantSubject'),
+          body: this.t('interested.activities.convertedToTenantBody', {
+            tenantId: createdTenant.id,
+            userEmail: createdUser.email,
+          }),
           createdByUserId: user.id,
           completedAt: new Date(),
         } as Partial<InterestedActivity>),
@@ -910,7 +996,7 @@ export class InterestedService {
         interestedProfileId: profile.id,
         fromStatus: previousStatus,
         toStatus: InterestedStatus.WON,
-        reason: 'Converted to buyer',
+        reason: this.t('interested.reasons.convertedToBuyer'),
         changedByUserId: user.id,
       }),
     );
@@ -991,9 +1077,30 @@ export class InterestedService {
     preference?: InterestedPropertyType,
   ): PropertyType | null {
     if (!preference) return null;
-    if (preference === InterestedPropertyType.APARTMENT)
+    if (preference === InterestedPropertyType.APARTMENT) {
       return PropertyType.APARTMENT;
-    if (preference === InterestedPropertyType.HOUSE) return PropertyType.HOUSE;
+    }
+    if (preference === InterestedPropertyType.HOUSE) {
+      return PropertyType.HOUSE;
+    }
+    if (preference === InterestedPropertyType.COMMERCIAL) {
+      return PropertyType.COMMERCIAL;
+    }
+    if (preference === InterestedPropertyType.OFFICE) {
+      return PropertyType.OFFICE;
+    }
+    if (preference === InterestedPropertyType.WAREHOUSE) {
+      return PropertyType.WAREHOUSE;
+    }
+    if (preference === InterestedPropertyType.LAND) {
+      return PropertyType.LAND;
+    }
+    if (preference === InterestedPropertyType.PARKING) {
+      return PropertyType.PARKING;
+    }
+    if (preference === InterestedPropertyType.OTHER) {
+      return PropertyType.OTHER;
+    }
     return null;
   }
 
@@ -1042,40 +1149,111 @@ export class InterestedService {
     profile: InterestedProfile,
     property: Property,
   ): number {
-    let score = 35;
+    let totalWeight = 0;
+    let matchedWeight = 0;
 
-    if (profile.propertyTypePreference) {
-      const mappedType = this.mapPreferenceToPropertyType(
-        profile.propertyTypePreference,
-      );
-      if (mappedType && property.propertyType === mappedType) {
-        score += 25;
+    const addCriterion = (
+      enabled: boolean,
+      matched: boolean,
+      weight: number,
+    ) => {
+      if (!enabled) {
+        return;
       }
-    }
-
-    if (
-      profile.operation === InterestedOperation.SALE &&
-      profile.maxAmount &&
-      property.salePrice
-    ) {
-      const diff = Math.max(
-        0,
-        Number(property.salePrice) - Number(profile.maxAmount),
-      );
-      score += diff === 0 ? 25 : Math.max(0, 25 - diff / 10000);
-    }
-
-    if (profile.peopleCount && property.maxOccupants) {
-      if (property.maxOccupants >= profile.peopleCount) {
-        score += 10;
+      totalWeight += weight;
+      if (matched) {
+        matchedWeight += weight;
       }
+    };
+
+    const hasRentPrice = this.getAvailableRentPrice(property) !== null;
+    const hasSalePrice =
+      property.salePrice !== null && property.salePrice !== undefined;
+    const operationMatches =
+      profile.operation === InterestedOperation.RENT
+        ? hasRentPrice
+        : hasSalePrice;
+    addCriterion(true, operationMatches, 15);
+
+    const mappedType = this.mapPreferenceToPropertyType(
+      profile.propertyTypePreference,
+    );
+    addCriterion(
+      !!mappedType,
+      !!mappedType && property.propertyType === mappedType,
+      15,
+    );
+
+    const preferredCity = profile.preferredCity?.trim().toLowerCase();
+    const propertyCity = property.addressCity?.trim().toLowerCase() ?? '';
+    addCriterion(
+      !!preferredCity,
+      !!preferredCity && propertyCity === preferredCity,
+      10,
+    );
+
+    const preferredZones = (profile.preferredZones ?? [])
+      .map((item) => item.trim().toLowerCase())
+      .filter((item) => item.length > 0);
+    const propertyLocation = [
+      property.addressCity,
+      property.addressState,
+      property.addressStreet,
+      property.addressPostalCode,
+    ]
+      .filter((item) => !!item)
+      .join(' ')
+      .toLowerCase();
+    addCriterion(
+      preferredZones.length > 0,
+      preferredZones.length > 0 &&
+        preferredZones.some((zone) => propertyLocation.includes(zone)),
+      10,
+    );
+
+    const hasMinAmount =
+      profile.minAmount !== null && profile.minAmount !== undefined;
+    const hasMaxAmount =
+      profile.maxAmount !== null && profile.maxAmount !== undefined;
+    addCriterion(
+      hasMinAmount || hasMaxAmount,
+      this.isPriceInRange(profile, property),
+      20,
+    );
+
+    addCriterion(
+      profile.peopleCount !== null && profile.peopleCount !== undefined,
+      this.hasEnoughOccupants(profile, property),
+      10,
+    );
+
+    addCriterion(profile.hasPets === true, property.allowsPets === true, 5);
+    addCriterion(
+      profile.whiteIncome === false,
+      property.requiresWhiteIncome !== true,
+      5,
+    );
+
+    addCriterion(
+      (profile.guaranteeTypes ?? []).length > 0,
+      this.matchesGuaranteeTypes(profile, property),
+      5,
+    );
+
+    const desiredFeatures = (profile.desiredFeatures ?? [])
+      .map((feature) => feature.trim().toLowerCase())
+      .filter((feature) => feature.length > 0);
+    addCriterion(
+      desiredFeatures.length > 0,
+      this.matchesDesiredFeatures(desiredFeatures, property),
+      5,
+    );
+
+    if (totalWeight === 0) {
+      return 0;
     }
 
-    if (profile.hasPets && property.allowsPets) {
-      score += 5;
-    }
-
-    return Number(Math.min(100, score).toFixed(2));
+    return Number(((matchedWeight / totalWeight) * 100).toFixed(2));
   }
 
   private buildMatchReasons(
@@ -1088,32 +1266,46 @@ export class InterestedService {
       profile.propertyTypePreference,
     );
     if (mappedType && property.propertyType === mappedType) {
-      reasons.push('Tipo de propiedad coincide');
+      reasons.push(this.t('interested.matchReasons.propertyTypeMatches'));
     }
 
-    if (
-      profile.operation === InterestedOperation.SALE &&
-      profile.maxAmount &&
-      property.salePrice &&
-      Number(property.salePrice) <= Number(profile.maxAmount)
-    ) {
-      reasons.push('Precio de venta dentro del rango');
+    if (this.isPriceInRange(profile, property)) {
+      reasons.push(this.t('interested.matchReasons.priceWithinRange'));
     }
 
-    if (
-      profile.peopleCount &&
-      property.maxOccupants &&
-      property.maxOccupants >= profile.peopleCount
-    ) {
-      reasons.push('Capacidad adecuada');
+    if (this.hasEnoughOccupants(profile, property)) {
+      reasons.push(this.t('interested.matchReasons.capacityAdequate'));
     }
 
     if (profile.hasPets && property.allowsPets) {
-      reasons.push('Acepta mascotas');
+      reasons.push(this.t('interested.matchReasons.petsAllowed'));
+    }
+
+    if (
+      profile.preferredCity &&
+      property.addressCity &&
+      profile.preferredCity.trim().toLowerCase() ===
+        property.addressCity.trim().toLowerCase()
+    ) {
+      reasons.push(this.t('interested.matchReasons.cityMatches'));
+    }
+
+    const desiredFeatures = (profile.desiredFeatures ?? [])
+      .map((feature) => feature.trim().toLowerCase())
+      .filter((feature) => feature.length > 0);
+    if (
+      desiredFeatures.length > 0 &&
+      this.matchesDesiredFeatures(desiredFeatures, property)
+    ) {
+      reasons.push(this.t('interested.matchReasons.featuresMatch'));
+    }
+
+    if (this.matchesGuaranteeTypes(profile, property)) {
+      reasons.push(this.t('interested.matchReasons.guaranteeMatches'));
     }
 
     if (reasons.length === 0) {
-      reasons.push('Coincidencia parcial de criterios');
+      reasons.push(this.t('interested.matchReasons.partialMatch'));
     }
 
     return reasons;
@@ -1125,8 +1317,12 @@ export class InterestedService {
     fullName: string;
   } {
     const firstName =
-      (profile.firstName ?? 'Interesado').trim() || 'Interesado';
-    const lastName = (profile.lastName ?? 'CRM').trim() || 'CRM';
+      (
+        profile.firstName ?? this.t('interested.names.defaultFirstName')
+      ).trim() || this.t('interested.names.defaultFirstName');
+    const lastName =
+      (profile.lastName ?? this.t('interested.names.defaultLastName')).trim() ||
+      this.t('interested.names.defaultLastName');
     return {
       firstName,
       lastName,
@@ -1141,5 +1337,138 @@ export class InterestedService {
 
   private generateRandomPassword(): string {
     return `Tmp!${Math.random().toString(36).slice(2, 10)}1`;
+  }
+
+  private isPriceInRange(
+    profile: InterestedProfile,
+    property: Property,
+  ): boolean {
+    const minAmount =
+      profile.minAmount === null || profile.minAmount === undefined
+        ? null
+        : Number(profile.minAmount);
+    const maxAmount =
+      profile.maxAmount === null || profile.maxAmount === undefined
+        ? null
+        : Number(profile.maxAmount);
+
+    if (minAmount === null && maxAmount === null) {
+      return true;
+    }
+
+    const price =
+      profile.operation === InterestedOperation.RENT
+        ? this.getAvailableRentPrice(property)
+        : property.salePrice !== null && property.salePrice !== undefined
+          ? Number(property.salePrice)
+          : null;
+
+    if (price === null) {
+      return false;
+    }
+    if (minAmount !== null && price < minAmount) {
+      return false;
+    }
+    if (maxAmount !== null && price > maxAmount) {
+      return false;
+    }
+    return true;
+  }
+
+  private getAvailableRentPrice(property: Property): number | null {
+    const availableRentValues = (property.units ?? [])
+      .filter((unit) => unit.status === UnitStatus.AVAILABLE)
+      .map((unit) =>
+        unit.baseRent === null || unit.baseRent === undefined
+          ? null
+          : Number(unit.baseRent),
+      )
+      .filter((value): value is number => value !== null);
+
+    if (availableRentValues.length === 0) {
+      return null;
+    }
+
+    return Math.min(...availableRentValues);
+  }
+
+  private hasEnoughOccupants(
+    profile: InterestedProfile,
+    property: Property,
+  ): boolean {
+    if (profile.peopleCount === null || profile.peopleCount === undefined) {
+      return true;
+    }
+    if (property.maxOccupants === null || property.maxOccupants === undefined) {
+      return true;
+    }
+    return property.maxOccupants >= profile.peopleCount;
+  }
+
+  private matchesGuaranteeTypes(
+    profile: InterestedProfile,
+    property: Property,
+  ): boolean {
+    const desiredGuarantees = (profile.guaranteeTypes ?? [])
+      .map((item) => item.trim().toLowerCase())
+      .filter((item) => item.length > 0);
+
+    if (desiredGuarantees.length === 0) {
+      return false;
+    }
+
+    const acceptedGuarantees = (property.acceptedGuaranteeTypes ?? [])
+      .map((item) => item.trim().toLowerCase())
+      .filter((item) => item.length > 0);
+
+    if (acceptedGuarantees.length === 0) {
+      return true;
+    }
+
+    return desiredGuarantees.some((item) => acceptedGuarantees.includes(item));
+  }
+
+  private matchesDesiredFeatures(
+    desiredFeatures: string[],
+    property: Property,
+  ): boolean {
+    if (desiredFeatures.length === 0) {
+      return true;
+    }
+
+    const searchableFeatures = this.buildPropertyFeaturePool(property);
+    return desiredFeatures.every((feature) => searchableFeatures.has(feature));
+  }
+
+  private buildPropertyFeaturePool(property: Property): Set<string> {
+    const pool = new Set<string>();
+
+    (property.amenities ?? []).forEach((item) => {
+      const normalized = item?.trim().toLowerCase();
+      if (normalized) {
+        pool.add(normalized);
+      }
+    });
+
+    (property.features ?? []).forEach((feature) => {
+      const name = feature.name?.trim().toLowerCase();
+      const value = feature.value?.trim().toLowerCase();
+      if (name) {
+        pool.add(name);
+      }
+      if (value) {
+        pool.add(value);
+      }
+      if (name && value) {
+        pool.add(`${name}:${value}`);
+      }
+    });
+
+    return pool;
+  }
+
+  private t(key: string, args?: Record<string, unknown>): string {
+    const lang = I18nContext.current()?.lang;
+    return this.i18n.t(key, { lang, args });
   }
 }

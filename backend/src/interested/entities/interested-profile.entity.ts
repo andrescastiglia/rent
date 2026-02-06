@@ -25,6 +25,12 @@ export enum InterestedOperation {
 export enum InterestedPropertyType {
   APARTMENT = 'apartment',
   HOUSE = 'house',
+  COMMERCIAL = 'commercial',
+  OFFICE = 'office',
+  WAREHOUSE = 'warehouse',
+  LAND = 'land',
+  PARKING = 'parking',
+  OTHER = 'other',
 }
 
 export enum InterestedStatus {
@@ -71,6 +77,15 @@ export class InterestedProfile {
   peopleCount: number;
 
   @Column({
+    name: 'min_amount',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
+  minAmount: number;
+
+  @Column({
     name: 'max_amount',
     type: 'decimal',
     precision: 12,
@@ -100,6 +115,17 @@ export class InterestedProfile {
     nullable: true,
   })
   preferredZones: string[];
+
+  @Column({ name: 'preferred_city', nullable: true })
+  preferredCity: string;
+
+  @Column({
+    name: 'desired_features',
+    type: 'text',
+    array: true,
+    nullable: true,
+  })
+  desiredFeatures: string[];
 
   @Column({
     name: 'property_type_preference',
