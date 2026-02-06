@@ -24,10 +24,20 @@ export class InterestedStageHistory {
   @JoinColumn({ name: 'interested_profile_id' })
   interestedProfile: InterestedProfile;
 
-  @Column({ name: 'from_status', type: 'enum', enum: InterestedStatus })
+  @Column({
+    name: 'from_status',
+    type: 'enum',
+    enum: InterestedStatus,
+    enumName: 'interested_status',
+  })
   fromStatus: InterestedStatus;
 
-  @Column({ name: 'to_status', type: 'enum', enum: InterestedStatus })
+  @Column({
+    name: 'to_status',
+    type: 'enum',
+    enum: InterestedStatus,
+    enumName: 'interested_status',
+  })
   toStatus: InterestedStatus;
 
   @Column({ type: 'text', nullable: true })
