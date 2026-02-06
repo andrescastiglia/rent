@@ -97,9 +97,6 @@ export class InterestedProfile {
   @Column({ name: 'has_pets', default: false })
   hasPets: boolean;
 
-  @Column({ name: 'white_income', default: false })
-  whiteIncome: boolean;
-
   @Column({
     name: 'guarantee_types',
     type: 'text',

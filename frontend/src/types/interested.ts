@@ -48,7 +48,6 @@ export interface InterestedProfile {
   minAmount?: number;
   maxAmount?: number;
   hasPets?: boolean;
-  whiteIncome?: boolean;
   guaranteeTypes?: string[];
   preferredZones?: string[];
   preferredCity?: string;
@@ -83,7 +82,6 @@ export interface CreateInterestedProfileInput {
   minAmount?: number;
   maxAmount?: number;
   hasPets?: boolean;
-  whiteIncome?: boolean;
   guaranteeTypes?: string[];
   preferredZones?: string[];
   preferredCity?: string;

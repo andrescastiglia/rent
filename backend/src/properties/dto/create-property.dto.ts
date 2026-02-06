@@ -116,10 +116,6 @@ export class CreatePropertyDto {
   allowsPets?: boolean;
 
   @IsOptional()
-  @IsBoolean()
-  requiresWhiteIncome?: boolean;
-
-  @IsOptional()
   acceptedGuaranteeTypes?: string[];
 
   @IsOptional()

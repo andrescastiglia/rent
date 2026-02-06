@@ -145,9 +145,6 @@ export class Property {
   @Column({ name: 'allows_pets', default: true })
   allowsPets: boolean;
 
-  @Column({ name: 'requires_white_income', default: false })
-  requiresWhiteIncome: boolean;
-
   @Column({
     name: 'accepted_guarantee_types',
     type: 'text',

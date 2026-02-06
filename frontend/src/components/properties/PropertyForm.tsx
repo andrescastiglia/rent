@@ -35,7 +35,6 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
       salePrice: initialData.salePrice ?? undefined,
       saleCurrency: initialData.saleCurrency ?? 'ARS',
       allowsPets: initialData.allowsPets ?? true,
-      requiresWhiteIncome: initialData.requiresWhiteIncome ?? false,
       acceptedGuaranteeTypes: initialData.acceptedGuaranteeTypes ?? [],
       maxOccupants: initialData.maxOccupants ?? undefined,
     } : {
@@ -48,7 +47,6 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
       salePrice: undefined,
       saleCurrency: 'ARS',
       allowsPets: true,
-      requiresWhiteIncome: false,
       acceptedGuaranteeTypes: [],
       maxOccupants: undefined,
       address: {
@@ -168,18 +166,6 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
             />
             <label htmlFor="allowsPets" className="text-sm font-medium text-gray-700 dark:text-gray-300">
               {t('fields.allowsPets')}
-            </label>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              id="requiresWhiteIncome"
-              type="checkbox"
-              {...register('requiresWhiteIncome')}
-              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <label htmlFor="requiresWhiteIncome" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t('fields.requiresWhiteIncome')}
             </label>
           </div>
 

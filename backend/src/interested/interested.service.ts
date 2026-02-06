@@ -336,12 +336,6 @@ export class InterestedService {
       query.andWhere('property.allows_pets = TRUE');
     }
 
-    if (profile.whiteIncome === false) {
-      query.andWhere(
-        '(property.requires_white_income = FALSE OR property.requires_white_income IS NULL)',
-      );
-    }
-
     if (profile.guaranteeTypes && profile.guaranteeTypes.length > 0) {
       query.andWhere(
         '(property.accepted_guarantee_types IS NULL OR array_length(property.accepted_guarantee_types, 1) = 0 OR property.accepted_guarantee_types && :guaranteeTypes)',
@@ -1228,12 +1222,6 @@ export class InterestedService {
     );
 
     addCriterion(profile.hasPets === true, property.allowsPets === true, 5);
-    addCriterion(
-      profile.whiteIncome === false,
-      property.requiresWhiteIncome !== true,
-      5,
-    );
-
     addCriterion(
       (profile.guaranteeTypes ?? []).length > 0,
       this.matchesGuaranteeTypes(profile, property),

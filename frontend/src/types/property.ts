@@ -64,7 +64,6 @@ export interface Property {
     salePrice?: number;
     saleCurrency?: string;
     allowsPets?: boolean;
-    requiresWhiteIncome?: boolean;
     acceptedGuaranteeTypes?: string[];
     maxOccupants?: number;
     createdAt: string;
@@ -83,7 +82,6 @@ export interface CreatePropertyInput {
     salePrice?: number;
     saleCurrency?: string;
     allowsPets?: boolean;
-    requiresWhiteIncome?: boolean;
     acceptedGuaranteeTypes?: string[];
     maxOccupants?: number;
 }

@@ -26,7 +26,7 @@
 
 **ID: US-SEARCH-02 - Perfilado Detallado de Interesado**
 *Como* agente comercial,
-*quiero* registrar interesados (compra o alquiler) con detalles específicos: número de teléfono, cantidad de personas, monto máximo a abonar, tenencia de mascotas, ingresos en blanco, tipos de garantías y tipo de inmueble (casa/depto),
+*quiero* registrar interesados (compra o alquiler) con detalles específicos: número de teléfono, cantidad de personas, monto máximo a abonar, tenencia de mascotas, tipos de garantías y tipo de inmueble (casa/depto),
 *para* tener una base de datos cualificada para cruzar con el inventario.
 
 **ID: US-SEARCH-03 - Búsqueda Cruzada (Match)**

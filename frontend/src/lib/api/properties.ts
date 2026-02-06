@@ -40,7 +40,6 @@ type BackendProperty = {
     salePrice?: number | string | null;
     saleCurrency?: string | null;
     allowsPets?: boolean | null;
-    requiresWhiteIncome?: boolean | null;
     acceptedGuaranteeTypes?: string[] | null;
     maxOccupants?: number | null;
     units?: BackendUnit[] | null;
@@ -175,7 +174,6 @@ const mapBackendPropertyToProperty = (raw: BackendProperty): Property => {
                 : undefined,
         saleCurrency: raw.saleCurrency ?? undefined,
         allowsPets: raw.allowsPets ?? true,
-        requiresWhiteIncome: raw.requiresWhiteIncome ?? false,
         acceptedGuaranteeTypes: Array.isArray(raw.acceptedGuaranteeTypes) ? raw.acceptedGuaranteeTypes : [],
         maxOccupants: raw.maxOccupants !== undefined && raw.maxOccupants !== null ? Number(raw.maxOccupants) : undefined,
         createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : new Date().toISOString(),
@@ -222,7 +220,6 @@ const MOCK_PROPERTIES: Property[] = [
         salePrice: 150000,
         saleCurrency: 'USD',
         allowsPets: true,
-        requiresWhiteIncome: false,
         acceptedGuaranteeTypes: ['Garantía propietaria'],
         maxOccupants: 10,
         createdAt: new Date().toISOString(),
@@ -250,7 +247,6 @@ const MOCK_PROPERTIES: Property[] = [
         salePrice: 98000,
         saleCurrency: 'USD',
         allowsPets: false,
-        requiresWhiteIncome: true,
         acceptedGuaranteeTypes: ['Seguro de caución'],
         maxOccupants: 5,
         createdAt: new Date().toISOString(),

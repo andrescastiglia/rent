@@ -113,7 +113,6 @@ describe('InterestedService', () => {
       minAmount: 80000,
       maxAmount: 250000,
       hasPets: true,
-      whiteIncome: true,
       guaranteeTypes: ['seguro_caucion'],
       preferredCity: 'CABA',
       desiredFeatures: ['balcon', 'pileta'],
@@ -164,7 +163,6 @@ describe('InterestedService', () => {
       maxAmount: 1500,
       peopleCount: 4,
       hasPets: true,
-      whiteIncome: false,
       guaranteeTypes: ['propietaria', 'seguro_caucion'],
       propertyTypePreference: InterestedPropertyType.HOUSE,
     } as InterestedProfile;
@@ -192,9 +190,6 @@ describe('InterestedService', () => {
     );
     expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
       'property.allows_pets = TRUE',
-    );
-    expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-      '(property.requires_white_income = FALSE OR property.requires_white_income IS NULL)',
     );
     expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
       '(property.accepted_guarantee_types IS NULL OR array_length(property.accepted_guarantee_types, 1) = 0 OR property.accepted_guarantee_types && :guaranteeTypes)',

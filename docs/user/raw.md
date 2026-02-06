@@ -3,7 +3,7 @@
 ## PROPIEDADES:
 Las propiedades que ingresan para VENTA O ALQUILER debemos cargarlas a la plataforma y que nos permita agregar el whatsapp del  propietario, donde nosotros registremos la visita a la misma y a el se le pueda enviar un msj automatico con el aviso de que se visito y si se hizo una oferta en que fecha y valor (a modo de información para que la persona sepa que se esta trabajando en su propiedad)
 En venta poder filtar los montos ( donde nosotros podamos buscar según el rango que quiere invertir)
-FILTRO donde nosotros agreguemos tanto en COMPRA COMO INTERESADOS EN ALQUILER con numero de teléfono, cantidad de personas, hasta que monto pueden abonar, mascotas, ingresos en blanco, garantes y si es casa o depto. Nosotros en base a eso poder filtrar la busqueda del inquilino o interesado en venta.
+FILTRO donde nosotros agreguemos tanto en COMPRA COMO INTERESADOS EN ALQUILER con numero de teléfono, cantidad de personas, hasta que monto pueden abonar, mascotas, garantes y si es casa o depto. Nosotros en base a eso poder filtrar la busqueda del inquilino o interesado en venta.
 INQUILINOS = PAGOS (ES SUMAMENTE IMPORTANTE REDUCIR MOVIMIENTOS A LA HORA DE COBRAR). El ingreso tiene que ser fluido donde sea fácil de encontrar al inquilino por Apellido, ahí tiene que estar el recibo con el monto que abona donde nostros podamos por cualquier eventualidad modificar, ya sea importe, servicios o algún dato para agregar.
 Los recibos NO se deben pisar, tienen que quedar en cada carpeta de los inquilinos un registro de cada mes pudiendo imprimir enviar o lo que fuese el recibo del mes que neceitamos.
 En cada pestaña donde esta cada inquilino tiene que permitir ver la fecha de contrato de inicio y finalización asi es practico cuando te preguntan. 

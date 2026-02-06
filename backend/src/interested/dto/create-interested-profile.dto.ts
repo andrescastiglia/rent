@@ -59,10 +59,6 @@ export class CreateInterestedProfileDto {
   @IsOptional()
   hasPets?: boolean;
 
-  @IsBoolean()
-  @IsOptional()
-  whiteIncome?: boolean;
-
   @IsString({ each: true })
   @IsOptional()
   @IsArray()
