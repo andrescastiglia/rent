@@ -410,46 +410,46 @@ export default function InterestedPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
-              <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
+          <div className="flex items-center">
+            <div className="flex-1">
               <p className="text-xs text-gray-500 dark:text-gray-400">{t('metrics.totalLeads')}</p>
               <p className="text-2xl font-semibold text-gray-900 dark:text-white">{metrics?.totalLeads ?? 0}</p>
             </div>
+            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
+              <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
           </div>
         </div>
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/20 rounded-full flex items-center justify-center">
-              <Percent className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <div>
+          <div className="flex items-center">
+            <div className="flex-1">
               <p className="text-xs text-gray-500 dark:text-gray-400">{t('metrics.conversionRate')}</p>
               <p className="text-2xl font-semibold text-gray-900 dark:text-white">{metrics?.conversionRate?.toFixed(2) ?? '0.00'}%</p>
             </div>
+            <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/20 rounded-full flex items-center justify-center">
+              <Percent className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+            </div>
           </div>
         </div>
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/20 rounded-full flex items-center justify-center">
-              <Clock3 className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-            </div>
-            <div>
+          <div className="flex items-center">
+            <div className="flex-1">
               <p className="text-xs text-gray-500 dark:text-gray-400">{t('metrics.avgCloseHours')}</p>
               <p className="text-2xl font-semibold text-gray-900 dark:text-white">{metrics?.avgHoursToClose?.toFixed(1) ?? '0.0'}h</p>
             </div>
+            <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/20 rounded-full flex items-center justify-center">
+              <Clock3 className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+            </div>
           </div>
         </div>
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-violet-100 dark:bg-violet-900/20 rounded-full flex items-center justify-center">
-              <Trophy className="w-5 h-5 text-violet-600 dark:text-violet-400" />
-            </div>
-            <div>
+          <div className="flex items-center">
+            <div className="flex-1">
               <p className="text-xs text-gray-500 dark:text-gray-400">{t('metrics.won')}</p>
               <p className="text-2xl font-semibold text-gray-900 dark:text-white">{metrics?.byStage?.won ?? 0}</p>
+            </div>
+            <div className="w-10 h-10 bg-violet-100 dark:bg-violet-900/20 rounded-full flex items-center justify-center">
+              <Trophy className="w-5 h-5 text-violet-600 dark:text-violet-400" />
             </div>
           </div>
         </div>
