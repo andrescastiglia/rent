@@ -81,7 +81,7 @@ export interface CreatePropertyInput {
     address: Address;
     features?: Omit<PropertyFeature, 'id'>[];
     images?: string[];
-    ownerId: string;
+    ownerId?: string;
     ownerWhatsapp?: string;
     salePrice?: number;
     saleCurrency?: string;

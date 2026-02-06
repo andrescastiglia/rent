@@ -21,12 +21,12 @@ import { Type } from 'class-transformer';
 
 export class CreatePropertyDto {
   @IsUUID()
-  @IsNotEmpty()
-  companyId: string;
+  @IsOptional()
+  companyId?: string;
 
   @IsUUID()
-  @IsNotEmpty()
-  ownerId: string;
+  @IsOptional()
+  ownerId?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -61,8 +61,8 @@ export class CreatePropertyDto {
   addressCity: string;
 
   @IsString()
-  @IsOptional()
-  addressState?: string;
+  @IsNotEmpty()
+  addressState: string;
 
   @IsString()
   @IsOptional()

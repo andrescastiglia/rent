@@ -25,8 +25,12 @@ export class PropertiesController {
 
   @Post()
   @Roles(UserRole.ADMIN, UserRole.OWNER)
-  create(@Body() createPropertyDto: CreatePropertyDto) {
-    return this.propertiesService.create(createPropertyDto);
+  create(@Body() createPropertyDto: CreatePropertyDto, @Request() req: any) {
+    return this.propertiesService.create(createPropertyDto, {
+      id: req.user.id,
+      role: req.user.role,
+      companyId: req.user.companyId,
+    });
   }
 
   @Get()

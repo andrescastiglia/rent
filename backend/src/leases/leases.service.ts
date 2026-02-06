@@ -84,9 +84,17 @@ export class LeasesService {
     }
 
     if (propertyAddress) {
-      query.andWhere('property.address ILIKE :address', {
-        address: `%${propertyAddress}%`,
-      });
+      query.andWhere(
+        `(
+          property.address_street ILIKE :address OR
+          property.address_city ILIKE :address OR
+          property.address_state ILIKE :address OR
+          property.address_postal_code ILIKE :address
+        )`,
+        {
+          address: `%${propertyAddress}%`,
+        },
+      );
     }
 
     query.skip((page - 1) * limit).take(limit);

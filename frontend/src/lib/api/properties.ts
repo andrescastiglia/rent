@@ -7,7 +7,7 @@ import {
     PropertyFilters,
 } from '@/types/property';
 import { apiClient } from '../api';
-import { getToken } from '../auth';
+import { getToken, getUser } from '../auth';
 
 type PaginatedResponse<T> = { data: T[]; total: number; page: number; limit: number };
 
@@ -63,9 +63,43 @@ type BackendPropertyVisit = {
     updatedAt?: string | Date;
 };
 
+type BackendCreatePropertyPayload = {
+    companyId?: string;
+    ownerId?: string;
+    name: string;
+    ownerWhatsapp?: string;
+    propertyType: string;
+    addressStreet: string;
+    addressNumber?: string;
+    addressApartment?: string;
+    addressCity: string;
+    addressState?: string;
+    addressCountry?: string;
+    addressPostalCode?: string;
+    description?: string;
+    salePrice?: number;
+    saleCurrency?: string;
+    operations?: Array<'rent' | 'sale' | 'leasing'>;
+    operationState?: 'available' | 'rented' | 'leased' | 'sold';
+    allowsPets?: boolean;
+    acceptedGuaranteeTypes?: string[];
+    maxOccupants?: number;
+};
+
+type BackendUpdatePropertyPayload = Partial<
+    Omit<BackendCreatePropertyPayload, 'companyId' | 'ownerId'>
+> & {
+    ownerId?: string;
+    status?: 'active' | 'inactive' | 'under_maintenance';
+};
+
 const isPaginatedResponse = <T,>(value: any): value is PaginatedResponse<T> => {
     return !!value && typeof value === 'object' && Array.isArray(value.data);
 };
+
+const isUuid = (value: string | null | undefined): value is string =>
+    typeof value === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
 const normalizeImages = (images: any[] | null | undefined): string[] => {
     if (!Array.isArray(images)) return [];
@@ -112,6 +146,111 @@ const mapPropertyStatus = (value: string | null | undefined): Property['status']
         default:
             return 'INACTIVE';
     }
+};
+
+const mapFrontendPropertyTypeToBackend = (
+    value: Property['type'] | undefined,
+): string | undefined => {
+    switch (value) {
+        case 'APARTMENT':
+            return 'apartment';
+        case 'HOUSE':
+            return 'house';
+        case 'COMMERCIAL':
+            return 'commercial';
+        case 'OFFICE':
+            return 'office';
+        case 'WAREHOUSE':
+            return 'warehouse';
+        case 'LAND':
+            return 'land';
+        case 'PARKING':
+            return 'parking';
+        case 'OTHER':
+            return 'other';
+        default:
+            return undefined;
+    }
+};
+
+const mapFrontendPropertyStatusToBackend = (
+    value: Property['status'] | undefined,
+): 'active' | 'inactive' | 'under_maintenance' | undefined => {
+    switch (value) {
+        case 'ACTIVE':
+            return 'active';
+        case 'INACTIVE':
+            return 'inactive';
+        case 'MAINTENANCE':
+            return 'under_maintenance';
+        default:
+            return undefined;
+    }
+};
+
+const getCurrentCompanyId = (): string | undefined => {
+    const user = getUser();
+    return user?.companyId;
+};
+
+const serializeCreatePayload = (
+    data: CreatePropertyInput,
+): BackendCreatePropertyPayload => {
+    const backendType = mapFrontendPropertyTypeToBackend(data.type) ?? 'other';
+    const ownerId = isUuid(data.ownerId) ? data.ownerId : undefined;
+    return {
+        companyId: getCurrentCompanyId(),
+        ownerId,
+        name: data.name,
+        ownerWhatsapp: data.ownerWhatsapp,
+        propertyType: backendType,
+        addressStreet: data.address.street,
+        addressNumber: data.address.number,
+        addressApartment: data.address.unit,
+        addressCity: data.address.city,
+        addressState: data.address.state,
+        addressCountry: data.address.country,
+        addressPostalCode: data.address.zipCode,
+        description: data.description,
+        salePrice: data.salePrice,
+        saleCurrency: data.saleCurrency,
+        operations: data.operations,
+        operationState: data.operationState,
+        allowsPets: data.allowsPets,
+        acceptedGuaranteeTypes: data.acceptedGuaranteeTypes,
+        maxOccupants: data.maxOccupants,
+    };
+};
+
+const serializeUpdatePayload = (
+    data: UpdatePropertyInput,
+): BackendUpdatePropertyPayload => {
+    const payload: BackendUpdatePropertyPayload = {};
+    const backendType = mapFrontendPropertyTypeToBackend(data.type);
+    if (backendType) payload.propertyType = backendType;
+    const backendStatus = mapFrontendPropertyStatusToBackend(data.status);
+    if (backendStatus) payload.status = backendStatus;
+    if (data.name !== undefined) payload.name = data.name;
+    if (data.ownerWhatsapp !== undefined) payload.ownerWhatsapp = data.ownerWhatsapp;
+    if (data.address?.street !== undefined) payload.addressStreet = data.address.street;
+    if (data.address?.number !== undefined) payload.addressNumber = data.address.number;
+    if (data.address?.unit !== undefined) payload.addressApartment = data.address.unit;
+    if (data.address?.city !== undefined) payload.addressCity = data.address.city;
+    if (data.address?.state !== undefined) payload.addressState = data.address.state;
+    if (data.address?.country !== undefined) payload.addressCountry = data.address.country;
+    if (data.address?.zipCode !== undefined) payload.addressPostalCode = data.address.zipCode;
+    if (data.description !== undefined) payload.description = data.description;
+    if (data.salePrice !== undefined) payload.salePrice = data.salePrice;
+    if (data.saleCurrency !== undefined) payload.saleCurrency = data.saleCurrency;
+    if (data.operations !== undefined) payload.operations = data.operations;
+    if (data.operationState !== undefined) payload.operationState = data.operationState;
+    if (data.allowsPets !== undefined) payload.allowsPets = data.allowsPets;
+    if (data.acceptedGuaranteeTypes !== undefined) payload.acceptedGuaranteeTypes = data.acceptedGuaranteeTypes;
+    if (data.maxOccupants !== undefined) payload.maxOccupants = data.maxOccupants;
+    if (isUuid(data.ownerId)) {
+        payload.ownerId = data.ownerId;
+    }
+    return payload;
 };
 
 const mapUnitStatus = (value: string | null | undefined): Property['units'][number]['status'] => {
@@ -334,8 +473,18 @@ export const propertiesApi = {
         const queryParams = new URLSearchParams();
         if (filters?.addressCity) queryParams.append('addressCity', filters.addressCity);
         if (filters?.addressState) queryParams.append('addressState', filters.addressState);
-        if (filters?.propertyType) queryParams.append('propertyType', filters.propertyType);
-        if (filters?.status) queryParams.append('status', filters.status);
+        if (filters?.propertyType) {
+            const backendType = mapFrontendPropertyTypeToBackend(filters.propertyType);
+            if (backendType) {
+                queryParams.append('propertyType', backendType);
+            }
+        }
+        if (filters?.status) {
+            const backendStatus = mapFrontendPropertyStatusToBackend(filters.status);
+            if (backendStatus) {
+                queryParams.append('status', backendStatus);
+            }
+        }
         if (filters?.minRent !== undefined) queryParams.append('minRent', String(filters.minRent));
         if (filters?.maxRent !== undefined) queryParams.append('maxRent', String(filters.maxRent));
         if (filters?.minSalePrice !== undefined) queryParams.append('minSalePrice', String(filters.minSalePrice));
@@ -381,11 +530,13 @@ export const propertiesApi = {
     create: async (data: CreatePropertyInput): Promise<Property> => {
         if (IS_MOCK_MODE) {
             await delay(DELAY);
+            const currentUserId = getUser()?.id;
             const newProperty: Property = {
                 ...data,
                 images: data.images || [],
                 id: Math.random().toString(36).substr(2, 9),
                 status: 'ACTIVE',
+                ownerId: data.ownerId ?? currentUserId ?? 'owner-1',
                 features: (data.features || []).map(f => ({ ...f, id: Math.random().toString(36).substr(2, 9) })),
                 units: [],
                 createdAt: new Date().toISOString(),
@@ -396,7 +547,13 @@ export const propertiesApi = {
         }
         
         const token = getToken();
-        return apiClient.post<Property>('/properties', data, token ?? undefined);
+        const payload = serializeCreatePayload(data);
+        const result = await apiClient.post<BackendProperty>(
+            '/properties',
+            payload,
+            token ?? undefined,
+        );
+        return mapBackendPropertyToProperty(result);
     },
 
     update: async (id: string, data: UpdatePropertyInput): Promise<Property> => {
@@ -420,7 +577,13 @@ export const propertiesApi = {
         }
         
         const token = getToken();
-        return apiClient.patch<Property>(`/properties/${id}`, data, token ?? undefined);
+        const payload = serializeUpdatePayload(data);
+        const result = await apiClient.patch<BackendProperty>(
+            `/properties/${id}`,
+            payload,
+            token ?? undefined,
+        );
+        return mapBackendPropertyToProperty(result);
     },
 
     getVisits: async (propertyId: string): Promise<PropertyVisit[]> => {

@@ -44,6 +44,10 @@ test.describe('Property Creation Flow', () => {
         await page.goto(localePath('/properties/new'));
 
         // Fill in property form using name attributes
+        const ownerSelect = page.locator('select[name="ownerId"]');
+        if (await ownerSelect.count()) {
+            await ownerSelect.selectOption({ index: 1 });
+        }
         await page.locator('input[name="name"]').fill('Test Property E2E');
         await page.locator('input[name="address.street"]').fill('123 Test Street');
         await page.locator('input[name="address.number"]').fill('100');

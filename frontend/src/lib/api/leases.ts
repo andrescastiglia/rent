@@ -2,7 +2,7 @@ import { Lease, CreateLeaseInput, UpdateLeaseInput } from '@/types/lease';
 import type { Property } from '@/types/property';
 import type { Tenant } from '@/types/tenant';
 import { apiClient } from '../api';
-import { getToken } from '../auth';
+import { getToken, getUser } from '../auth';
 import { propertiesApi } from './properties';
 import { tenantsApi } from './tenants';
 
@@ -70,6 +70,33 @@ type BackendLease = {
     tenant?: BackendTenant | null;
 };
 
+type BackendLeasePayload = {
+    companyId?: string;
+    unitId?: string;
+    tenantId?: string;
+    ownerId?: string;
+    startDate?: string;
+    endDate?: string;
+    monthlyRent?: number;
+    securityDeposit?: number;
+    currency?: string;
+    paymentFrequency?: string;
+    paymentDueDay?: number;
+    billingFrequency?: string;
+    billingDay?: number;
+    autoGenerateInvoices?: boolean;
+    lateFeeType?: string;
+    lateFeeValue?: number;
+    lateFeeGraceDays?: number;
+    lateFeeMax?: number;
+    adjustmentType?: string;
+    adjustmentValue?: number;
+    adjustmentFrequencyMonths?: number;
+    inflationIndexType?: string;
+    nextAdjustmentDate?: string;
+    termsAndConditions?: string;
+};
+
 const isPaginatedResponse = <T,>(value: any): value is PaginatedResponse<T> => {
     return !!value && typeof value === 'object' && Array.isArray(value.data);
 };
@@ -77,6 +104,47 @@ const isPaginatedResponse = <T,>(value: any): value is PaginatedResponse<T> => {
 const normalizeDate = (value: string | Date | null | undefined): string => {
     if (!value) return new Date().toISOString();
     return new Date(value).toISOString();
+};
+
+const getCurrentCompanyId = (): string | undefined => {
+    const user = getUser();
+    return user?.companyId;
+};
+
+const toBackendLeasePayload = (
+    data: Partial<CreateLeaseInput | UpdateLeaseInput>,
+    includeCompanyId: boolean,
+): BackendLeasePayload => {
+    const payload: BackendLeasePayload = {};
+    if (includeCompanyId) {
+        payload.companyId = getCurrentCompanyId();
+    }
+    if (data.unitId !== undefined) payload.unitId = data.unitId;
+    if (data.tenantId !== undefined) payload.tenantId = data.tenantId;
+    if (data.ownerId !== undefined) payload.ownerId = data.ownerId;
+    if (data.startDate !== undefined) payload.startDate = data.startDate;
+    if (data.endDate !== undefined) payload.endDate = data.endDate;
+    if (data.rentAmount !== undefined) payload.monthlyRent = data.rentAmount;
+    if (data.depositAmount !== undefined) payload.securityDeposit = data.depositAmount;
+    if (data.currency !== undefined) payload.currency = data.currency;
+    if (data.paymentFrequency !== undefined) payload.paymentFrequency = data.paymentFrequency;
+    if (data.paymentDueDay !== undefined) payload.paymentDueDay = data.paymentDueDay;
+    if (data.billingFrequency !== undefined) payload.billingFrequency = data.billingFrequency;
+    if (data.billingDay !== undefined) payload.billingDay = data.billingDay;
+    if (data.autoGenerateInvoices !== undefined) payload.autoGenerateInvoices = data.autoGenerateInvoices;
+    if (data.lateFeeType !== undefined) payload.lateFeeType = data.lateFeeType;
+    if (data.lateFeeValue !== undefined) payload.lateFeeValue = data.lateFeeValue;
+    if (data.lateFeeGraceDays !== undefined) payload.lateFeeGraceDays = data.lateFeeGraceDays;
+    if (data.lateFeeMax !== undefined) payload.lateFeeMax = data.lateFeeMax;
+    if (data.adjustmentType !== undefined) payload.adjustmentType = data.adjustmentType;
+    if (data.adjustmentValue !== undefined) payload.adjustmentValue = data.adjustmentValue;
+    if (data.adjustmentFrequencyMonths !== undefined) {
+        payload.adjustmentFrequencyMonths = data.adjustmentFrequencyMonths;
+    }
+    if (data.inflationIndexType !== undefined) payload.inflationIndexType = data.inflationIndexType;
+    if (data.nextAdjustmentDate !== undefined) payload.nextAdjustmentDate = data.nextAdjustmentDate;
+    if (data.terms !== undefined) payload.termsAndConditions = data.terms;
+    return payload;
 };
 
 const mapLeaseStatus = (value: string | null | undefined): Lease['status'] => {
@@ -305,7 +373,13 @@ export const leasesApi = {
         }
         
         const token = getToken();
-        return apiClient.post<Lease>('/leases', data, token ?? undefined);
+        const payload = toBackendLeasePayload(data, true);
+        const result = await apiClient.post<BackendLease>(
+            '/leases',
+            payload,
+            token ?? undefined,
+        );
+        return mapBackendLeaseToLease(result);
     },
 
     update: async (id: string, data: UpdateLeaseInput): Promise<Lease> => {
@@ -324,7 +398,13 @@ export const leasesApi = {
         }
         
         const token = getToken();
-        return apiClient.patch<Lease>(`/leases/${id}`, data, token ?? undefined);
+        const payload = toBackendLeasePayload(data, false);
+        const result = await apiClient.patch<BackendLease>(
+            `/leases/${id}`,
+            payload,
+            token ?? undefined,
+        );
+        return mapBackendLeaseToLease(result);
     },
 
     delete: async (id: string): Promise<void> => {

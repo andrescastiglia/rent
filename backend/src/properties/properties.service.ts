@@ -5,12 +5,19 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { Property } from './entities/property.entity';
 import { Unit, UnitStatus } from './entities/unit.entity';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
 import { PropertyFiltersDto } from './dto/property-filters.dto';
+import { Owner } from '../owners/entities/owner.entity';
+
+interface UserContext {
+  id: string;
+  role: string;
+  companyId?: string;
+}
 
 @Injectable()
 export class PropertiesService {
@@ -19,10 +26,28 @@ export class PropertiesService {
     private propertiesRepository: Repository<Property>,
     @InjectRepository(Unit)
     private unitsRepository: Repository<Unit>,
+    @InjectRepository(Owner)
+    private ownersRepository: Repository<Owner>,
   ) {}
 
-  async create(createPropertyDto: CreatePropertyDto): Promise<Property> {
-    const property = this.propertiesRepository.create(createPropertyDto);
+  async create(
+    createPropertyDto: CreatePropertyDto,
+    user: UserContext,
+  ): Promise<Property> {
+    if (!user.companyId) {
+      throw new ForbiddenException('Company scope required');
+    }
+
+    const owner = await this.resolveOwnerForCreate(
+      createPropertyDto.ownerId,
+      user,
+    );
+
+    const property = this.propertiesRepository.create({
+      ...createPropertyDto,
+      companyId: user.companyId,
+      ownerId: owner.id,
+    });
     return this.propertiesRepository.save(property);
   }
 
@@ -167,5 +192,52 @@ export class PropertiesService {
     }
 
     await this.propertiesRepository.softDelete(id);
+  }
+
+  private async resolveOwnerForCreate(
+    ownerId: string | undefined,
+    user: UserContext,
+  ): Promise<Owner> {
+    if (!user.companyId) {
+      throw new ForbiddenException('Company scope required');
+    }
+
+    if (ownerId) {
+      const selectedOwner = await this.ownersRepository.findOne({
+        where: { id: ownerId, companyId: user.companyId, deletedAt: IsNull() },
+      });
+      if (!selectedOwner) {
+        throw new NotFoundException('Owner not found for this company');
+      }
+
+      if (user.role !== 'admin' && selectedOwner.userId !== user.id) {
+        throw new ForbiddenException(
+          'You can only create properties for your own owner profile',
+        );
+      }
+      return selectedOwner;
+    }
+
+    const ownerByUser = await this.ownersRepository.findOne({
+      where: {
+        userId: user.id,
+        companyId: user.companyId,
+        deletedAt: IsNull(),
+      },
+    });
+
+    if (ownerByUser) {
+      return ownerByUser;
+    }
+
+    if (user.role === 'admin') {
+      throw new BadRequestException(
+        'ownerId is required for admin users when creating properties',
+      );
+    }
+
+    throw new NotFoundException(
+      'Owner profile for current user was not found in this company',
+    );
   }
 }

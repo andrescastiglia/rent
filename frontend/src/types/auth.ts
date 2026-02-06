@@ -5,6 +5,7 @@ export interface User {
     lastName: string;
     role: 'admin' | 'owner' | 'tenant' | 'staff';
     isActive: boolean;
+    companyId?: string;
 }
 
 export interface LoginRequest {

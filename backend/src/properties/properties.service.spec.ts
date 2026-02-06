@@ -8,6 +8,7 @@ import {
   PropertyStatus,
 } from './entities/property.entity';
 import { Unit, UnitStatus } from './entities/unit.entity';
+import { Owner } from '../owners/entities/owner.entity';
 import {
   NotFoundException,
   ForbiddenException,
@@ -18,6 +19,7 @@ describe('PropertiesService', () => {
   let service: PropertiesService;
   let propertyRepository: MockRepository<Property>;
   let unitRepository: MockRepository<Unit>;
+  let ownerRepository: MockRepository<Owner>;
 
   type MockRepository<T extends Record<string, any> = any> = Partial<
     Record<keyof Repository<T>, jest.Mock>
@@ -38,6 +40,7 @@ describe('PropertiesService', () => {
       take: jest.fn().mockReturnThis(),
       getManyAndCount: jest.fn(),
     })),
+    findOneBy: jest.fn(),
   });
 
   const mockProperty: Partial<Property> = {
@@ -66,12 +69,17 @@ describe('PropertiesService', () => {
           provide: getRepositoryToken(Unit),
           useValue: createMockRepository(),
         },
+        {
+          provide: getRepositoryToken(Owner),
+          useValue: createMockRepository(),
+        },
       ],
     }).compile();
 
     service = module.get<PropertiesService>(PropertiesService);
     propertyRepository = module.get(getRepositoryToken(Property));
     unitRepository = module.get(getRepositoryToken(Unit));
+    ownerRepository = module.get(getRepositoryToken(Owner));
   });
 
   it('should be defined', () => {
@@ -94,10 +102,23 @@ describe('PropertiesService', () => {
 
       propertyRepository.create!.mockReturnValue(mockProperty);
       propertyRepository.save!.mockResolvedValue(mockProperty);
+      ownerRepository.findOne!.mockResolvedValue({
+        id: 'owner-1',
+        companyId: 'company-1',
+        userId: 'owner-user-1',
+      } as any);
 
-      const result = await service.create(createPropertyDto);
+      const result = await service.create(createPropertyDto, {
+        id: 'admin-user',
+        role: 'admin',
+        companyId: 'company-1',
+      });
 
-      expect(propertyRepository.create).toHaveBeenCalledWith(createPropertyDto);
+      expect(propertyRepository.create).toHaveBeenCalledWith({
+        ...createPropertyDto,
+        companyId: 'company-1',
+        ownerId: 'owner-1',
+      });
       expect(propertyRepository.save).toHaveBeenCalledWith(mockProperty);
       expect(result).toEqual(mockProperty);
     });
@@ -123,10 +144,23 @@ describe('PropertiesService', () => {
 
       propertyRepository.create!.mockReturnValue(propertyWithWhatsapp);
       propertyRepository.save!.mockResolvedValue(propertyWithWhatsapp);
+      ownerRepository.findOne!.mockResolvedValue({
+        id: 'owner-1',
+        companyId: 'company-1',
+        userId: 'owner-user-1',
+      } as any);
 
-      const result = await service.create(createPropertyDto);
+      const result = await service.create(createPropertyDto, {
+        id: 'admin-user',
+        role: 'admin',
+        companyId: 'company-1',
+      });
 
-      expect(propertyRepository.create).toHaveBeenCalledWith(createPropertyDto);
+      expect(propertyRepository.create).toHaveBeenCalledWith({
+        ...createPropertyDto,
+        companyId: 'company-1',
+        ownerId: 'owner-1',
+      });
       expect(result.ownerWhatsapp).toBe('+54 9 11 1234-5678');
     });
   });

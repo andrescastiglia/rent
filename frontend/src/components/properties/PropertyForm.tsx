@@ -6,10 +6,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { CreatePropertyInput, Property, PropertyType, PropertyStatus } from '@/types/property';
 import { ImageUpload } from './ImageUpload';
 import { propertiesApi } from '@/lib/api/properties';
+import { ownersApi } from '@/lib/api/owners';
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { createPropertySchema, PropertyFormData } from '@/lib/validation-schemas';
+import { Owner } from '@/types/owner';
+import { useAuth } from '@/contexts/auth-context';
 
 interface PropertyFormProps {
   initialData?: Property;
@@ -18,10 +21,12 @@ interface PropertyFormProps {
 
 export function PropertyForm({ initialData, isEditing = false }: PropertyFormProps) {
   const router = useLocalizedRouter();
+  const { user } = useAuth();
   const t = useTranslations('properties');
   const tCommon = useTranslations('common');
   const tValidation = useTranslations('validation');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [owners, setOwners] = React.useState<Owner[]>([]);
 
   // Crear schema con mensajes traducidos
   const propertySchema = useMemo(() => createPropertySchema(tValidation), [tValidation]);
@@ -44,7 +49,7 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
       status: 'ACTIVE',
       images: [],
       features: [],
-      ownerId: 'current-user-id', // TODO: Get from auth context
+      ownerId: '',
       ownerWhatsapp: '',
       salePrice: undefined,
       saleCurrency: 'ARS',
@@ -67,6 +72,21 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
   const images = watch('images') || [];
   const selectedOperations = watch('operations') || [];
 
+  useEffect(() => {
+    const loadOwners = async () => {
+      if (user?.role !== 'admin') {
+        return;
+      }
+      try {
+        const data = await ownersApi.getAll();
+        setOwners(data);
+      } catch (error) {
+        console.error('Failed to load owners', error);
+      }
+    };
+    void loadOwners();
+  }, [user?.role]);
+
   const handleToggleOperation = (operation: 'rent' | 'sale' | 'leasing') => {
     const nextOperations = selectedOperations.includes(operation)
       ? selectedOperations.filter((item) => item !== operation)
@@ -75,6 +95,11 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
   };
 
   const onSubmit = async (data: PropertyFormData) => {
+    if (user?.role === 'admin' && !data.ownerId) {
+      alert(tValidation('ownerRequired'));
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       if (isEditing && initialData) {
@@ -124,6 +149,24 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
             />
             {errors.ownerWhatsapp && <p className="mt-1 text-sm text-red-600">{errors.ownerWhatsapp.message}</p>}
           </div>
+
+          {user?.role === 'admin' && (
+            <div>
+              <label htmlFor="ownerId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.owner')}</label>
+              <select
+                id="ownerId"
+                {...register('ownerId')}
+                className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
+              >
+                <option value="">{t('selectOwner')}</option>
+                {owners.map((owner) => (
+                  <option key={owner.id} value={owner.id}>
+                    {owner.firstName} {owner.lastName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label htmlFor="type" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.type')}</label>

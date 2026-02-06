@@ -40,7 +40,7 @@ export const createPropertySchema = (t: TranslationFunction) => z.object({
     value: z.string().optional(),
   })).optional(),
   images: z.array(z.string()).optional(),
-  ownerId: z.string().min(1, t('ownerRequired')),
+  ownerId: z.string().optional(),
   ownerWhatsapp: z
     .string()
     .optional()
