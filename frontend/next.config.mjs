@@ -27,7 +27,15 @@ const nextConfig = {
                 headers: [
                     {
                         key: 'Content-Security-Policy',
-                        value: "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://static.cloudflareinsights.com; object-src 'none';",
+                        value: "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; object-src 'none'; base-uri 'none';",
+                    },
+                    {
+                        key: 'Strict-Transport-Security',
+                        value: 'max-age=31536000; includeSubDomains',
+                    },
+                    {
+                        key: 'Referrer-Policy',
+                        value: 'strict-origin-when-cross-origin',
                     },
                 ],
             },

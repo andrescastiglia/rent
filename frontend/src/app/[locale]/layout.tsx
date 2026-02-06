@@ -46,6 +46,9 @@ export default async function LocaleLayout({
 
   return (
     <html lang={locale}>
+      <head>
+        <meta name="referrer" content="strict-origin-when-cross-origin" />
+      </head>
       <body>
         <NextIntlClientProvider messages={messages}>
           <AuthProvider>

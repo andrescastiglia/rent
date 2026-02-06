@@ -42,13 +42,6 @@ export default function LanguageSelector() {
       const finalPath = currentPath.startsWith(`/${locale}`) 
         ? newPath 
         : `/${newLocale}${currentPath}`;
-      // Also set a cookie so server-side middleware picks up the preference
-      try {
-        document.cookie = `NEXT_LOCALE=${newLocale}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
-      } catch (e) {
-        // ignore if cookies are not available
-      }
-
       // Perform a full navigation so the app is reloaded with the new locale
       if (typeof window !== 'undefined') {
         window.location.assign(finalPath);

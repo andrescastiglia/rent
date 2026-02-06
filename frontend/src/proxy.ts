@@ -10,7 +10,7 @@ const i18nMiddleware = createMiddleware({
     defaultLocale,
 
     // Estrategia de detección de locale
-    localeDetection: true,
+    localeDetection: false,
 
     // Siempre incluir el prefijo del locale en la URL
     localePrefix: 'always',
