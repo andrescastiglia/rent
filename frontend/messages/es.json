@@ -39,7 +39,7 @@
         "payments": "Pagos",
         "invoices": "Facturas",
         "sales": "Ventas",
-        "interested": "Interesados",
+        "interested": "Prospectos",
         "users": "Usuarios"
     },
     "breadcrumbs": {
@@ -248,14 +248,16 @@
         }
     },
     "interested": {
-        "title": "Interesados",
+        "title": "Prospectos",
         "subtitle": "CRM comercial integrado para interesados",
         "newTitle": "Nuevo interesado",
         "listTitle": "Perfiles registrados",
+        "listSearchPlaceholder": "Buscar por nombre, telefono o email...",
         "matchesTitle": "Propiedades sugeridas",
         "matchesHint": "Selecciona un interesado para ver coincidencias.",
         "noMatches": "No hay coincidencias para este perfil.",
         "empty": "No hay interesados registrados.",
+        "noResults": "No se encontraron prospectos con ese criterio.",
         "timelineTitle": "Linea de tiempo",
         "timelineEmpty": "Sin eventos para este perfil.",
         "duplicateWarning": "Este lead tiene posibles duplicados ({count}). Revisar y consolidar.",
@@ -344,6 +346,8 @@
         "actions": {
             "save": "Guardar interesado",
             "saving": "Guardando...",
+            "new": "Nuevo prospecto",
+            "closeNew": "Cancelar alta",
             "reload": "Recargar",
             "changeStage": "Cambiar etapa",
             "refreshMatches": "Actualizar matches",

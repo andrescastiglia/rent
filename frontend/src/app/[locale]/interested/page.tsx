@@ -73,6 +73,8 @@ export default function InterestedPage() {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [saving, setSaving] = useState(false);
   const [refreshingMatches, setRefreshingMatches] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [form, setForm] = useState<CreateInterestedProfileInput>(emptyForm);
   const [stageReason, setStageReason] = useState('');
@@ -105,6 +107,21 @@ export default function InterestedPage() {
     if (!selectedProfile) return null;
     return duplicates.find((item) => item.profileIds.includes(selectedProfile.id)) ?? null;
   }, [duplicates, selectedProfile]);
+
+  const filteredProfiles = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return [...profiles]
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .filter((profile) => {
+        if (!term) return true;
+        const fullName = `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.toLowerCase();
+        return (
+          fullName.includes(term) ||
+          (profile.phone ?? '').toLowerCase().includes(term) ||
+          (profile.email ?? '').toLowerCase().includes(term)
+        );
+      });
+  }, [profiles, searchTerm]);
 
   const loadInitial = useCallback(async () => {
     setLoading(true);
@@ -176,6 +193,7 @@ export default function InterestedPage() {
       const created = await interestedApi.create(payload);
       setProfiles((prev) => [created, ...prev]);
       setForm(emptyForm);
+      setShowCreateForm(false);
       await selectProfile(created);
       const metricsResult = await interestedApi.getMetrics();
       setMetrics(metricsResult);
@@ -335,11 +353,10 @@ export default function InterestedPage() {
         </div>
         <button
           type="button"
-          onClick={() => void loadInitial()}
+          onClick={() => setShowCreateForm((prev) => !prev)}
           className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm"
         >
-          <RefreshCw className="h-4 w-4" />
-          {t('actions.reload')}
+          {showCreateForm ? t('actions.closeNew') : t('actions.new')}
         </button>
       </div>
 
@@ -369,77 +386,86 @@ export default function InterestedPage() {
       ) : (
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
           <div className="xl:col-span-4 space-y-6">
-            <form
-              onSubmit={handleCreateProfile}
-              className="space-y-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4"
-            >
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('newTitle')}</h2>
-              <div className="grid grid-cols-1 gap-3">
-                <input
-                  type="text"
-                  placeholder={t('fields.firstName')}
-                  value={form.firstName ?? ''}
-                  onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
-                  className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                />
-                <input
-                  type="text"
-                  placeholder={t('fields.lastName')}
-                  value={form.lastName ?? ''}
-                  onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
-                  className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                />
-                <input
-                  type="text"
-                  placeholder={t('fields.phone')}
-                  value={form.phone ?? ''}
-                  onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
-                  className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                />
-                <input
-                  type="email"
-                  placeholder={t('fields.email')}
-                  value={form.email ?? ''}
-                  onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-                  className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                />
-                <select
-                  value={form.operation}
-                  onChange={(e) => setForm((prev) => ({ ...prev, operation: e.target.value as any }))}
-                  className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                >
-                  <option value="rent">{t('operations.rent')}</option>
-                  <option value="sale">{t('operations.sale')}</option>
-                </select>
-                <select
-                  value={form.propertyTypePreference}
-                  onChange={(e) => setForm((prev) => ({ ...prev, propertyTypePreference: e.target.value as any }))}
-                  className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                >
-                  <option value="apartment">{t('propertyTypes.apartment')}</option>
-                  <option value="house">{t('propertyTypes.house')}</option>
-                </select>
-                <textarea
-                  placeholder={t('fields.notes')}
-                  value={form.notes ?? ''}
-                  onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
-                  rows={3}
-                  className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={saving}
-                className="w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60"
+            {showCreateForm ? (
+              <form
+                onSubmit={handleCreateProfile}
+                className="space-y-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4"
               >
-                {saving ? t('actions.saving') : t('actions.save')}
-              </button>
-            </form>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('newTitle')}</h2>
+                <div className="grid grid-cols-1 gap-3">
+                  <input
+                    type="text"
+                    placeholder={t('fields.firstName')}
+                    value={form.firstName ?? ''}
+                    onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
+                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                  />
+                  <input
+                    type="text"
+                    placeholder={t('fields.lastName')}
+                    value={form.lastName ?? ''}
+                    onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
+                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                  />
+                  <input
+                    type="text"
+                    placeholder={t('fields.phone')}
+                    value={form.phone ?? ''}
+                    onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
+                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                  />
+                  <input
+                    type="email"
+                    placeholder={t('fields.email')}
+                    value={form.email ?? ''}
+                    onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                  />
+                  <select
+                    value={form.operation}
+                    onChange={(e) => setForm((prev) => ({ ...prev, operation: e.target.value as any }))}
+                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                  >
+                    <option value="rent">{t('operations.rent')}</option>
+                    <option value="sale">{t('operations.sale')}</option>
+                  </select>
+                  <select
+                    value={form.propertyTypePreference}
+                    onChange={(e) => setForm((prev) => ({ ...prev, propertyTypePreference: e.target.value as any }))}
+                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                  >
+                    <option value="apartment">{t('propertyTypes.apartment')}</option>
+                    <option value="house">{t('propertyTypes.house')}</option>
+                  </select>
+                  <textarea
+                    placeholder={t('fields.notes')}
+                    value={form.notes ?? ''}
+                    onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
+                    rows={3}
+                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {saving ? t('actions.saving') : t('actions.save')}
+                </button>
+              </form>
+            ) : null}
 
             <div className="space-y-3">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('listTitle')}</h2>
-              {profiles.length > 0 ? (
-                profiles.map((profile) => (
+              <input
+                type="text"
+                placeholder={t('listSearchPlaceholder')}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+              />
+              {filteredProfiles.length > 0 ? (
+                filteredProfiles.map((profile) => (
                   <button
                     key={profile.id}
                     onClick={() => void selectProfile(profile)}
@@ -466,7 +492,9 @@ export default function InterestedPage() {
                   </button>
                 ))
               ) : (
-                <p className="text-sm text-gray-500 dark:text-gray-400">{t('empty')}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {profiles.length > 0 ? t('noResults') : t('empty')}
+                </p>
               )}
             </div>
           </div>

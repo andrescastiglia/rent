@@ -39,7 +39,7 @@
         "payments": "Payments",
         "invoices": "Invoices",
         "sales": "Sales",
-        "interested": "Interested",
+        "interested": "Prospects",
         "users": "Users"
     },
     "breadcrumbs": {
@@ -248,14 +248,16 @@
         }
     },
     "interested": {
-        "title": "Interested Profiles",
+        "title": "Prospects",
         "subtitle": "Integrated CRM for lead management",
         "newTitle": "New interested profile",
         "listTitle": "Registered profiles",
+        "listSearchPlaceholder": "Search by name, phone or email...",
         "matchesTitle": "Suggested properties",
         "matchesHint": "Select a profile to see matches.",
         "noMatches": "No matches for this profile.",
         "empty": "No interested profiles yet.",
+        "noResults": "No prospects found with that criteria.",
         "timelineTitle": "Timeline",
         "timelineEmpty": "No events for this profile.",
         "duplicateWarning": "This lead has potential duplicates ({count}). Review and merge.",
@@ -344,6 +346,8 @@
         "actions": {
             "save": "Save profile",
             "saving": "Saving...",
+            "new": "New prospect",
+            "closeNew": "Cancel",
             "reload": "Reload",
             "changeStage": "Change stage",
             "refreshMatches": "Refresh matches",

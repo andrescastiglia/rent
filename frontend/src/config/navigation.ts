@@ -44,7 +44,7 @@ export const navigationItems: NavItem[] = [
     },
     {
         labelKey: 'interested',
-        href: '/interested',
+        href: '/prospect',
         roles: ['admin', 'owner', 'staff'],
     },
     {

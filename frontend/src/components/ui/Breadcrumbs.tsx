@@ -15,6 +15,7 @@ const segmentTranslationMap: Record<string, { namespace: string; key: string }> 
   invoices: { namespace: 'nav', key: 'invoices' },
   sales: { namespace: 'nav', key: 'sales' },
   interested: { namespace: 'nav', key: 'interested' },
+  prospect: { namespace: 'nav', key: 'interested' },
   users: { namespace: 'nav', key: 'users' },
   new: { namespace: 'breadcrumbs', key: 'new' },
   edit: { namespace: 'breadcrumbs', key: 'edit' },
