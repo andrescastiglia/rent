@@ -40,6 +40,7 @@ type BackendProperty = {
     salePrice?: number | string | null;
     saleCurrency?: string | null;
     operations?: string[] | null;
+    operationState?: string | null;
     allowsPets?: boolean | null;
     acceptedGuaranteeTypes?: string[] | null;
     maxOccupants?: number | null;
@@ -126,6 +127,21 @@ const mapUnitStatus = (value: string | null | undefined): Property['units'][numb
     }
 };
 
+const mapOperationState = (
+    value: string | null | undefined,
+): NonNullable<Property['operationState']> => {
+    switch ((value ?? '').toLowerCase()) {
+        case 'rented':
+            return 'rented';
+        case 'leased':
+            return 'leased';
+        case 'sold':
+            return 'sold';
+        default:
+            return 'available';
+    }
+};
+
 const mapBackendUnitToUnit = (raw: BackendUnit): Property['units'][number] => {
     return {
         id: raw.id,
@@ -190,6 +206,7 @@ const mapBackendPropertyToProperty = (raw: BackendProperty): Property => {
                 : undefined,
         saleCurrency: raw.saleCurrency ?? undefined,
         operations,
+        operationState: mapOperationState(raw.operationState),
         allowsPets: raw.allowsPets ?? true,
         acceptedGuaranteeTypes: Array.isArray(raw.acceptedGuaranteeTypes) ? raw.acceptedGuaranteeTypes : [],
         maxOccupants: raw.maxOccupants !== undefined && raw.maxOccupants !== null ? Number(raw.maxOccupants) : undefined,
@@ -237,6 +254,7 @@ const MOCK_PROPERTIES: Property[] = [
         salePrice: 150000,
         saleCurrency: 'USD',
         operations: ['rent', 'sale'],
+        operationState: 'available',
         allowsPets: true,
         acceptedGuaranteeTypes: ['Garantía propietaria'],
         maxOccupants: 10,
@@ -265,6 +283,7 @@ const MOCK_PROPERTIES: Property[] = [
         salePrice: 98000,
         saleCurrency: 'USD',
         operations: ['rent', 'sale'],
+        operationState: 'available',
         allowsPets: false,
         acceptedGuaranteeTypes: ['Seguro de caución'],
         maxOccupants: 5,

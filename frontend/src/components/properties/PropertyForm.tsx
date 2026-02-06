@@ -35,6 +35,7 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
       salePrice: initialData.salePrice ?? undefined,
       saleCurrency: initialData.saleCurrency ?? 'ARS',
       operations: initialData.operations ?? ['rent'],
+      operationState: initialData.operationState ?? 'available',
       allowsPets: initialData.allowsPets ?? true,
       acceptedGuaranteeTypes: initialData.acceptedGuaranteeTypes ?? [],
       maxOccupants: initialData.maxOccupants ?? undefined,
@@ -48,6 +49,7 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
       salePrice: undefined,
       saleCurrency: 'ARS',
       operations: ['rent'],
+      operationState: 'available',
       allowsPets: true,
       acceptedGuaranteeTypes: [],
       maxOccupants: undefined,
@@ -243,6 +245,24 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
                <option value="MAINTENANCE">{t('status.MAINTENANCE')}</option>
              </select>
            </div>
+          )}
+
+          {isEditing && (
+            <div>
+              <label htmlFor="operationState" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('fields.operationState')}
+              </label>
+              <select
+                id="operationState"
+                {...register('operationState')}
+                className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
+              >
+                <option value="available">{t('operationState.available')}</option>
+                <option value="rented">{t('operationState.rented')}</option>
+                <option value="leased">{t('operationState.leased')}</option>
+                <option value="sold">{t('operationState.sold')}</option>
+              </select>
+            </div>
           )}
         </div>
 

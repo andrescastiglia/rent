@@ -146,6 +146,7 @@
         "confirmDelete": "Tem certeza que deseja excluir este imóvel?",
         "deleteError": "Erro ao excluir imóvel",
         "saveProperty": "Salvar Imóvel",
+        "createLease": "Criar contrato",
         "basicInfo": "Informações Básicas",
         "location": "Localização",
         "description": "Descrição",
@@ -190,6 +191,7 @@
             "salePrice": "Preço de venda",
             "saleCurrency": "Moeda de venda",
             "operations": "Operações disponíveis",
+            "operationState": "Status comercial",
             "allowsPets": "Permite animais",
             "acceptedGuaranteeTypes": "Garantias aceitas",
             "maxOccupants": "Máx. ocupantes",
@@ -235,6 +237,12 @@
             "rent": "Aluguel",
             "sale": "Venda",
             "leasing": "Leasing"
+        },
+        "operationState": {
+            "available": "Liberado",
+            "rented": "Alugado",
+            "leased": "Em leasing",
+            "sold": "Vendido"
         },
         "labels": {
             "beds": "Quartos",
@@ -556,7 +564,7 @@
         "leaseNotFound": "Contrato não encontrado",
         "notFound": "Contrato não encontrado",
         "noLeases": "Nenhum contrato cadastrado",
-        "noLeasesDescription": "Comece criando um novo contrato.",
+        "noLeasesDescription": "Aqui voce vera os contratos criados no detalhe de cada imovel.",
         "searchPlaceholder": "Buscar contratos por imóvel ou inquilino...",
         "downloadContract": "Baixar Contrato",
         "deleteConfirm": "Tem certeza que deseja excluir este contrato?",

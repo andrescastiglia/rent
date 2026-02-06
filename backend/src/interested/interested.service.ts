@@ -21,6 +21,7 @@ import { InterestedFiltersDto } from './dto/interested-filters.dto';
 import {
   Property,
   PropertyOperation,
+  PropertyOperationState,
   PropertyStatus,
   PropertyType,
 } from '../properties/entities/property.entity';
@@ -308,7 +309,10 @@ export class InterestedService {
       .andWhere('property.company_id = :companyId', {
         companyId: profile.companyId,
       })
-      .andWhere('property.status = :status', { status: PropertyStatus.ACTIVE });
+      .andWhere('property.status = :status', { status: PropertyStatus.ACTIVE })
+      .andWhere('property.operation_state = :operationState', {
+        operationState: PropertyOperationState.AVAILABLE,
+      });
 
     const propertyType = this.mapPreferenceToPropertyType(
       profile.propertyTypePreference,

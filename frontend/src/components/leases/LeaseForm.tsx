@@ -16,6 +16,7 @@ import { Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { createLeaseSchema, LeaseFormData } from '@/lib/validation-schemas';
 import { CurrencySelect } from '@/components/common/CurrencySelect';
+import { useSearchParams } from 'next/navigation';
 
 interface LeaseFormProps {
   initialData?: Lease;
@@ -24,6 +25,7 @@ interface LeaseFormProps {
 
 export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const router = useLocalizedRouter();
+  const searchParams = useSearchParams();
   const t = useTranslations('leases');
   const tCommon = useTranslations('common');
   const tValidation = useTranslations('validation');
@@ -53,6 +55,8 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
 
   const lateFeeType = watch('lateFeeType');
   const adjustmentType = watch('adjustmentType');
+  const preselectedPropertyId = searchParams.get('propertyId');
+  const preselectedOwnerId = searchParams.get('ownerId');
 
   useEffect(() => {
     const loadData = async () => {
@@ -71,6 +75,18 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     };
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (isEditing) {
+      return;
+    }
+    if (preselectedPropertyId) {
+      setValue('propertyId', preselectedPropertyId);
+    }
+    if (preselectedOwnerId) {
+      setValue('ownerId', preselectedOwnerId);
+    }
+  }, [isEditing, preselectedPropertyId, preselectedOwnerId, setValue]);
 
   const onSubmit = async (data: LeaseFormData) => {
     setIsSubmitting(true);

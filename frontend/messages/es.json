@@ -146,6 +146,7 @@
         "confirmDelete": "¿Estás seguro que deseas eliminar esta propiedad?",
         "deleteError": "Error al eliminar la propiedad",
         "saveProperty": "Guardar Propiedad",
+        "createLease": "Crear contrato",
         "basicInfo": "Información Básica",
         "location": "Ubicación",
         "description": "Descripción",
@@ -190,6 +191,7 @@
             "salePrice": "Precio de venta",
             "saleCurrency": "Moneda de venta",
             "operations": "Operaciones disponibles",
+            "operationState": "Estado comercial",
             "allowsPets": "Permite mascotas",
             "acceptedGuaranteeTypes": "Garantías aceptadas",
             "maxOccupants": "Máx. ocupantes",
@@ -235,6 +237,12 @@
             "rent": "Alquiler",
             "sale": "Venta",
             "leasing": "Leasing"
+        },
+        "operationState": {
+            "available": "Liberada",
+            "rented": "Alquilada",
+            "leased": "En leasing",
+            "sold": "Vendida"
         },
         "labels": {
             "beds": "Camas",
@@ -556,7 +564,7 @@
         "leaseNotFound": "Contrato no encontrado",
         "notFound": "Contrato no encontrado",
         "noLeases": "No hay contratos registrados",
-        "noLeasesDescription": "Comienza creando un nuevo contrato.",
+        "noLeasesDescription": "Aqui veras los contratos creados desde el detalle de cada propiedad.",
         "searchPlaceholder": "Buscar contratos por propiedad o inquilino...",
         "downloadContract": "Descargar Contrato",
         "deleteConfirm": "¿Estás seguro que deseas eliminar este contrato?",

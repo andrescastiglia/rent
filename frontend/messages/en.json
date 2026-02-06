@@ -146,6 +146,7 @@
         "confirmDelete": "Are you sure you want to delete this property?",
         "deleteError": "Failed to delete property",
         "saveProperty": "Save Property",
+        "createLease": "Create lease",
         "basicInfo": "Basic Information",
         "location": "Location",
         "description": "Description",
@@ -190,6 +191,7 @@
             "salePrice": "Sale price",
             "saleCurrency": "Sale currency",
             "operations": "Available operations",
+            "operationState": "Commercial status",
             "allowsPets": "Allows pets",
             "acceptedGuaranteeTypes": "Accepted guarantees",
             "maxOccupants": "Max occupants",
@@ -235,6 +237,12 @@
             "rent": "Rent",
             "sale": "Sale",
             "leasing": "Leasing"
+        },
+        "operationState": {
+            "available": "Released",
+            "rented": "Rented",
+            "leased": "Leasing active",
+            "sold": "Sold"
         },
         "labels": {
             "beds": "Beds",
@@ -556,7 +564,7 @@
         "leaseNotFound": "Lease not found",
         "notFound": "Lease not found",
         "noLeases": "No leases registered",
-        "noLeasesDescription": "Get started by creating a new lease.",
+        "noLeasesDescription": "Leases created from each property's detail will appear here.",
         "searchPlaceholder": "Search leases by property or tenant...",
         "downloadContract": "Download Contract",
         "deleteConfirm": "Are you sure you want to delete this lease?",

@@ -9,6 +9,7 @@ export type PropertyType =
     | 'OTHER';
 export type PropertyStatus = 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE';
 export type PropertyOperation = 'rent' | 'sale' | 'leasing';
+export type PropertyOperationState = 'available' | 'rented' | 'leased' | 'sold';
 
 export interface Address {
     street: string;
@@ -65,6 +66,7 @@ export interface Property {
     salePrice?: number;
     saleCurrency?: string;
     operations?: PropertyOperation[];
+    operationState?: PropertyOperationState;
     allowsPets?: boolean;
     acceptedGuaranteeTypes?: string[];
     maxOccupants?: number;
@@ -84,6 +86,7 @@ export interface CreatePropertyInput {
     salePrice?: number;
     saleCurrency?: string;
     operations?: PropertyOperation[];
+    operationState?: PropertyOperationState;
     allowsPets?: boolean;
     acceptedGuaranteeTypes?: string[];
     maxOccupants?: number;

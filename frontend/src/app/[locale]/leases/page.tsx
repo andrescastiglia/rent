@@ -1,11 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { Lease } from '@/types/lease';
 import { leasesApi } from '@/lib/api/leases';
 import { LeaseCard } from '@/components/leases/LeaseCard';
-import { Plus, Search, Loader2 } from 'lucide-react';
+import { Search, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -45,13 +44,6 @@ export default function LeasesPage() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('title')}</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">{t('subtitle')}</p>
         </div>
-        <Link
-          href="/leases/new"
-          className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          <Plus size={18} className="mr-2" />
-          {t('createLease')}
-        </Link>
       </div>
 
       <div className="relative mb-8">
@@ -81,15 +73,6 @@ export default function LeasesPage() {
         <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">
           <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">{t('noLeases')}</h3>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('noLeasesDescription')}</p>
-          <div className="mt-6">
-            <Link
-              href="/leases/new"
-              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <Plus size={18} className="mr-2" />
-              {t('createLease')}
-            </Link>
-          </div>
         </div>
       )}
     </div>

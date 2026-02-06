@@ -183,6 +183,11 @@ CREATE TYPE property_status AS ENUM (
 -- Property operation modes
 CREATE TYPE property_operation AS ENUM ('rent', 'sale', 'leasing');
 
+-- Property commercial lifecycle state
+CREATE TYPE property_operation_state AS ENUM (
+    'available', 'rented', 'leased', 'sold'
+);
+
 -- Unit status
 CREATE TYPE unit_status AS ENUM (
     'available', 'occupied', 'maintenance', 'reserved'
@@ -679,6 +684,7 @@ CREATE TABLE properties (
     sale_price DECIMAL(12, 2),
     sale_currency VARCHAR(3) DEFAULT 'ARS',
     operations property_operation[] NOT NULL DEFAULT ARRAY['rent'::property_operation],
+    operation_state property_operation_state NOT NULL DEFAULT 'available',
     allows_pets BOOLEAN DEFAULT TRUE,
     accepted_guarantee_types TEXT[],
     max_occupants INTEGER,
@@ -694,6 +700,7 @@ CREATE INDEX idx_properties_status ON properties(status);
 CREATE INDEX idx_properties_city ON properties(address_city);
 CREATE INDEX idx_properties_sale_price ON properties(sale_price) WHERE sale_price IS NOT NULL;
 CREATE INDEX idx_properties_operations ON properties USING GIN (operations);
+CREATE INDEX idx_properties_operation_state ON properties(operation_state);
 CREATE INDEX idx_properties_deleted ON properties(deleted_at) WHERE deleted_at IS NULL;
 CREATE INDEX idx_properties_location ON properties(latitude, longitude) 
     WHERE latitude IS NOT NULL AND longitude IS NOT NULL;

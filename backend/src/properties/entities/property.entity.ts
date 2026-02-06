@@ -38,6 +38,13 @@ export enum PropertyOperation {
   LEASING = 'leasing',
 }
 
+export enum PropertyOperationState {
+  AVAILABLE = 'available',
+  RENTED = 'rented',
+  LEASED = 'leased',
+  SOLD = 'sold',
+}
+
 @Entity('properties')
 export class Property {
   @PrimaryGeneratedColumn('uuid')
@@ -156,6 +163,15 @@ export class Property {
     default: () => "ARRAY['rent']::property_operation[]",
   })
   operations: PropertyOperation[];
+
+  @Column({
+    name: 'operation_state',
+    type: 'enum',
+    enum: PropertyOperationState,
+    enumName: 'property_operation_state',
+    default: PropertyOperationState.AVAILABLE,
+  })
+  operationState: PropertyOperationState;
 
   @Column({ name: 'allows_pets', default: true })
   allowsPets: boolean;

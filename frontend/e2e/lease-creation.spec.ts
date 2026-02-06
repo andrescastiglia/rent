@@ -12,8 +12,12 @@ test.describe('Lease Creation Flow', () => {
     });
 
     test('should navigate to create lease page', async ({ page }) => {
-        // Click "Create Lease" button
-        await page.getByRole('link', { name: /create|nuevo|crear/i }).click();
+        // New flow: create lease action is on property details
+        await page.goto(localePath('/properties'));
+        await page.waitForSelector('a[href*="/properties/"]:not([href*="/new"]):not([href*="/edit"])', { timeout: 10000 });
+        await page.locator('a[href*="/properties/"]:not([href*="/new"]):not([href*="/edit"])').first().click({ force: true });
+
+        await page.getByRole('link', { name: /create lease|crear contrato|criar contrato/i }).click();
 
         // Should navigate to new lease page
         await expect(page).toHaveURL(/\/es\/leases\/new/);

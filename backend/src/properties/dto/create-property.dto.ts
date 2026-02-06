@@ -12,7 +12,11 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { PropertyOperation, PropertyType } from '../entities/property.entity';
+import {
+  PropertyOperation,
+  PropertyOperationState,
+  PropertyType,
+} from '../entities/property.entity';
 import { Type } from 'class-transformer';
 
 export class CreatePropertyDto {
@@ -118,6 +122,10 @@ export class CreatePropertyDto {
   @ArrayMinSize(1)
   @IsEnum(PropertyOperation, { each: true })
   operations?: PropertyOperation[];
+
+  @IsOptional()
+  @IsEnum(PropertyOperationState)
+  operationState?: PropertyOperationState;
 
   @IsOptional()
   @IsBoolean()

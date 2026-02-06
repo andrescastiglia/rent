@@ -52,6 +52,12 @@ export function PropertyCard({ property }: PropertyCardProps) {
             </span>
           </div>
 
+          <div className="mb-3">
+            <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
+              {t(`operationState.${property.operationState ?? 'available'}`)}
+            </span>
+          </div>
+
           <div className="grid grid-cols-3 gap-2 py-3 border-t border-gray-100">
             <div className="flex flex-col items-center justify-center text-gray-600">
               <div className="flex items-center text-sm font-medium">
