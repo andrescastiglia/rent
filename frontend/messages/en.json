@@ -189,6 +189,7 @@
             "ownerWhatsapp": "Owner WhatsApp",
             "salePrice": "Sale price",
             "saleCurrency": "Sale currency",
+            "operations": "Available operations",
             "allowsPets": "Allows pets",
             "acceptedGuaranteeTypes": "Accepted guarantees",
             "maxOccupants": "Max occupants",
@@ -229,6 +230,11 @@
             "ACTIVE": "Active",
             "INACTIVE": "Inactive",
             "MAINTENANCE": "Maintenance"
+        },
+        "operations": {
+            "rent": "Rent",
+            "sale": "Sale",
+            "leasing": "Leasing"
         },
         "labels": {
             "beds": "Beds",
@@ -348,12 +354,14 @@
             "preferredCity": "Preferred city",
             "preferredZones": "Preferred zones (comma separated)",
             "desiredFeatures": "Required features (comma separated)",
+            "operations": "Interested operations",
             "stageReason": "Stage change reason",
             "notes": "Notes"
         },
         "operations": {
             "rent": "Rent",
-            "sale": "Buy"
+            "sale": "Buy",
+            "leasing": "Leasing"
         },
         "propertyTypes": {
             "apartment": "Apartment",
@@ -365,7 +373,7 @@
             "parking": "Parking",
             "other": "Other"
         },
-        "operationsLabel": "Operation: {op}",
+        "operationsLabel": "Operations: {op}",
         "filters": {
             "allStages": "All stages"
         },
@@ -457,6 +465,33 @@
             "draft": "Draft"
         },
         "noActiveLeases": "No active leases found.",
+        "paymentRegistration": {
+            "title": "Register rent payment",
+            "balance": "Balance",
+            "lateFee": "Interest",
+            "totalDebt": "Total debt",
+            "amount": "Amount",
+            "reference": "Reference",
+            "notes": "Notes",
+            "submit": "Register payment",
+            "movements": "Movement history",
+            "balanceAfter": "Balance after",
+            "noMovements": "No movements registered.",
+            "noAccount": "There is no active tenant account for this tenant.",
+            "methods": {
+                "cash": "Cash",
+                "bank_transfer": "Bank transfer",
+                "check": "Check",
+                "debit_card": "Debit card",
+                "credit_card": "Credit card",
+                "digital_wallet": "Digital wallet",
+                "crypto": "Crypto",
+                "other": "Other"
+            }
+        },
+        "errors": {
+            "invalidPaymentAmount": "Payment amount must be greater than 0."
+        },
         "fields": {
             "firstName": "First Name",
             "lastName": "Last Name",

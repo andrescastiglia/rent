@@ -20,6 +20,7 @@ import { InterestedPropertyMatch } from './interested-property-match.entity';
 export enum InterestedOperation {
   RENT = 'rent',
   SALE = 'sale',
+  LEASING = 'leasing',
 }
 
 export enum InterestedPropertyType {
@@ -140,6 +141,15 @@ export class InterestedProfile {
     default: InterestedOperation.RENT,
   })
   operation: InterestedOperation;
+
+  @Column({
+    type: 'enum',
+    enum: InterestedOperation,
+    enumName: 'interested_operation',
+    array: true,
+    default: () => "ARRAY['rent']::interested_operation[]",
+  })
+  operations: InterestedOperation[];
 
   @Column({
     type: 'enum',

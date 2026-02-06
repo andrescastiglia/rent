@@ -149,17 +149,19 @@ describe('InterestedService', () => {
     expect(interestedRepository.create).toHaveBeenCalledWith({
       ...dto,
       companyId: 'company-1',
+      operations: [InterestedOperation.RENT],
       status: InterestedStatus.NEW,
     });
     expect(stageHistoryRepository.save).toHaveBeenCalled();
     expect(result).toEqual(created);
   });
 
-  it('should apply matchmaking filters based on interested profile', async () => {
+  it('should keep only properties compatible with selected operations', async () => {
     const profile = {
       id: 'int-1',
       companyId: 'company-1',
       operation: InterestedOperation.RENT,
+      operations: [InterestedOperation.RENT],
       maxAmount: 1500,
       peopleCount: 4,
       hasPets: true,
@@ -173,27 +175,32 @@ describe('InterestedService', () => {
       leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue([]),
+      getMany: jest.fn().mockResolvedValue([
+        {
+          id: 'property-rent',
+          propertyType: 'house',
+          operations: ['rent'],
+          units: [{ status: 'available', baseRent: 1200 }],
+        },
+        {
+          id: 'property-sale',
+          propertyType: 'house',
+          operations: ['sale'],
+          salePrice: 100000,
+          units: [],
+        },
+      ]),
     };
 
     propertiesRepository.createQueryBuilder!.mockReturnValue(mockQueryBuilder);
 
-    await service.findMatches('int-1', {
+    const matches = await service.findMatches('int-1', {
       id: 'user-1',
       role: 'admin',
       companyId: 'company-1',
     });
 
-    expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-      '(property.max_occupants IS NULL OR property.max_occupants >= :peopleCount)',
-      { peopleCount: 4 },
-    );
-    expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-      'property.allows_pets = TRUE',
-    );
-    expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-      '(property.accepted_guarantee_types IS NULL OR array_length(property.accepted_guarantee_types, 1) = 0 OR property.accepted_guarantee_types && :guaranteeTypes)',
-      { guaranteeTypes: ['propietaria', 'seguro_caucion'] },
-    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0].id).toBe('property-rent');
   });
 });

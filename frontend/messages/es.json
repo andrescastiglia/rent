@@ -189,6 +189,7 @@
             "ownerWhatsapp": "WhatsApp del propietario",
             "salePrice": "Precio de venta",
             "saleCurrency": "Moneda de venta",
+            "operations": "Operaciones disponibles",
             "allowsPets": "Permite mascotas",
             "acceptedGuaranteeTypes": "Garantías aceptadas",
             "maxOccupants": "Máx. ocupantes",
@@ -229,6 +230,11 @@
             "ACTIVE": "Activo",
             "INACTIVE": "Inactivo",
             "MAINTENANCE": "Mantenimiento"
+        },
+        "operations": {
+            "rent": "Alquiler",
+            "sale": "Venta",
+            "leasing": "Leasing"
         },
         "labels": {
             "beds": "Camas",
@@ -348,12 +354,14 @@
             "preferredCity": "Ciudad preferida",
             "preferredZones": "Zonas preferidas (separadas por coma)",
             "desiredFeatures": "Características requeridas (separadas por coma)",
+            "operations": "Operaciones de interés",
             "stageReason": "Motivo del cambio de etapa",
             "notes": "Notas"
         },
         "operations": {
             "rent": "Alquiler",
-            "sale": "Compra"
+            "sale": "Compra",
+            "leasing": "Leasing"
         },
         "propertyTypes": {
             "apartment": "Departamento",
@@ -365,7 +373,7 @@
             "parking": "Cochera",
             "other": "Otro"
         },
-        "operationsLabel": "Operación: {op}",
+        "operationsLabel": "Operaciones: {op}",
         "filters": {
             "allStages": "Todas las etapas"
         },
@@ -457,6 +465,33 @@
             "draft": "Borrador"
         },
         "noActiveLeases": "No hay contratos activos.",
+        "paymentRegistration": {
+            "title": "Registrar pago de alquiler",
+            "balance": "Saldo",
+            "lateFee": "Intereses",
+            "totalDebt": "Deuda total",
+            "amount": "Monto",
+            "reference": "Referencia",
+            "notes": "Notas",
+            "submit": "Registrar pago",
+            "movements": "Historial de movimientos",
+            "balanceAfter": "Saldo posterior",
+            "noMovements": "Sin movimientos registrados.",
+            "noAccount": "No hay cuenta corriente activa para este inquilino.",
+            "methods": {
+                "cash": "Efectivo",
+                "bank_transfer": "Transferencia bancaria",
+                "check": "Cheque",
+                "debit_card": "Tarjeta de débito",
+                "credit_card": "Tarjeta de crédito",
+                "digital_wallet": "Billetera digital",
+                "crypto": "Cripto",
+                "other": "Otro"
+            }
+        },
+        "errors": {
+            "invalidPaymentAmount": "El monto del pago debe ser mayor a 0."
+        },
         "fields": {
             "firstName": "Nombre",
             "lastName": "Apellido",

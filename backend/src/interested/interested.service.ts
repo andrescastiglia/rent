@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { Brackets, DataSource, IsNull, Repository } from 'typeorm';
+import { DataSource, IsNull, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import {
@@ -20,6 +20,7 @@ import { UpdateInterestedProfileDto } from './dto/update-interested-profile.dto'
 import { InterestedFiltersDto } from './dto/interested-filters.dto';
 import {
   Property,
+  PropertyOperation,
   PropertyStatus,
   PropertyType,
 } from '../properties/entities/property.entity';
@@ -111,9 +112,16 @@ export class InterestedService {
 
     await this.validateDuplicates(user.companyId, dto.phone, dto.email);
 
+    const normalizedOperations = this.normalizeOperations(
+      dto.operations,
+      dto.operation,
+    );
+
     const profile = this.interestedRepository.create({
       ...dto,
       companyId: user.companyId,
+      operation: normalizedOperations.primaryOperation,
+      operations: normalizedOperations.operations,
       status: dto.status ?? InterestedStatus.NEW,
     });
     const created = await this.interestedRepository.save(profile);
@@ -174,7 +182,10 @@ export class InterestedService {
     }
 
     if (operation) {
-      query.andWhere('interested.operation = :operation', { operation });
+      query.andWhere(
+        '((interested.operations IS NOT NULL AND :operation = ANY(interested.operations)) OR interested.operation = :operation)',
+        { operation },
+      );
     }
 
     if (propertyTypePreference) {
@@ -249,7 +260,21 @@ export class InterestedService {
     }
 
     const previousStatus = profile.status;
+    const normalizedOperations =
+      dto.operations !== undefined || dto.operation !== undefined
+        ? this.normalizeOperations(
+            dto.operations,
+            dto.operation,
+            profile.operations,
+            profile.operation,
+          )
+        : null;
+
     Object.assign(profile, dto);
+    if (normalizedOperations) {
+      profile.operation = normalizedOperations.primaryOperation;
+      profile.operations = normalizedOperations.operations;
+    }
     const updated = await this.interestedRepository.save(profile);
 
     if (dto.status && dto.status !== previousStatus) {
@@ -294,98 +319,17 @@ export class InterestedService {
       });
     }
 
-    if (profile.operation === InterestedOperation.RENT) {
-      query.andWhere('units.status = :unitStatus', {
-        unitStatus: UnitStatus.AVAILABLE,
-      });
-      query.andWhere('units.base_rent IS NOT NULL');
-      if (profile.minAmount !== null && profile.minAmount !== undefined) {
-        query.andWhere('units.base_rent >= :minAmount', {
-          minAmount: profile.minAmount,
-        });
-      }
-      if (profile.maxAmount !== null && profile.maxAmount !== undefined) {
-        query.andWhere('units.base_rent <= :maxAmount', {
-          maxAmount: profile.maxAmount,
-        });
-      }
-    }
-
-    if (profile.operation === InterestedOperation.SALE) {
-      query.andWhere('property.sale_price IS NOT NULL');
-      if (profile.minAmount !== null && profile.minAmount !== undefined) {
-        query.andWhere('property.sale_price >= :minAmount', {
-          minAmount: profile.minAmount,
-        });
-      }
-      if (profile.maxAmount !== null && profile.maxAmount !== undefined) {
-        query.andWhere('property.sale_price <= :maxAmount', {
-          maxAmount: profile.maxAmount,
-        });
-      }
-    }
-
-    if (profile.peopleCount !== null && profile.peopleCount !== undefined) {
-      query.andWhere(
-        '(property.max_occupants IS NULL OR property.max_occupants >= :peopleCount)',
-        { peopleCount: profile.peopleCount },
-      );
-    }
-
-    if (profile.hasPets) {
-      query.andWhere('property.allows_pets = TRUE');
-    }
-
-    if (profile.guaranteeTypes && profile.guaranteeTypes.length > 0) {
-      query.andWhere(
-        '(property.accepted_guarantee_types IS NULL OR array_length(property.accepted_guarantee_types, 1) = 0 OR property.accepted_guarantee_types && :guaranteeTypes)',
-        { guaranteeTypes: profile.guaranteeTypes },
-      );
-    }
-
-    if (profile.preferredCity?.trim()) {
-      query.andWhere('property.address_city ILIKE :preferredCity', {
-        preferredCity: profile.preferredCity.trim(),
-      });
-    }
-
-    if (profile.preferredZones && profile.preferredZones.length > 0) {
-      const zones = profile.preferredZones
-        .map((zone) => zone.trim())
-        .filter((zone) => zone.length > 0);
-
-      if (zones.length > 0) {
-        query.andWhere(
-          new Brackets((qb) => {
-            zones.forEach((zone, index) => {
-              qb.orWhere(
-                "concat_ws(' ', property.address_city, property.address_state, property.address_street, property.address_postal_code) ILIKE :zone" +
-                  index,
-                { [`zone${index}`]: `%${zone}%` },
-              );
-            });
-          }),
-        );
-      }
-    }
-
     const properties = await query.getMany();
 
-    if (!profile.desiredFeatures || profile.desiredFeatures.length === 0) {
-      return properties;
-    }
-
-    const requiredFeatures = profile.desiredFeatures
-      .map((feature) => feature.trim().toLowerCase())
-      .filter((feature) => feature.length > 0);
-
-    if (requiredFeatures.length === 0) {
-      return properties;
-    }
-
-    return properties.filter((property) =>
-      this.matchesDesiredFeatures(requiredFeatures, property),
-    );
+    return properties
+      .filter((property) => this.isOperationCompatible(profile, property))
+      .map((property) => ({
+        property,
+        score: this.calculateMatchScore(profile, property),
+      }))
+      .filter((item) => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map((item) => item.property);
   }
 
   async refreshMatches(
@@ -533,6 +477,15 @@ export class InterestedService {
 
     if (dto.toStatus === InterestedStatus.WON) {
       const reason = dto.reason?.toLowerCase() ?? '';
+      const profileOperations = this.resolveProfileOperations(profile);
+      const hasRentOperation = profileOperations.some(
+        (operation) =>
+          operation === InterestedOperation.RENT ||
+          operation === InterestedOperation.LEASING,
+      );
+      const hasSaleOperation = profileOperations.includes(
+        InterestedOperation.SALE,
+      );
       const isRentReason =
         reason.includes('alquiler') ||
         reason.includes('rent') ||
@@ -543,10 +496,7 @@ export class InterestedService {
         reason.includes('sale') ||
         reason.includes('purchase');
 
-      if (
-        (isRentReason || profile.operation === InterestedOperation.RENT) &&
-        !profile.convertedToTenantId
-      ) {
+      if ((isRentReason || hasRentOperation) && !profile.convertedToTenantId) {
         const converted = await this.convertToTenant(id, {}, user);
         if (dto.reason) {
           await this.createActivity(
@@ -565,7 +515,7 @@ export class InterestedService {
       }
 
       if (
-        (isSaleReason || profile.operation === InterestedOperation.SALE) &&
+        (isSaleReason || hasSaleOperation) &&
         !profile.convertedToSaleAgreementId
       ) {
         await this.createActivity(
@@ -1139,6 +1089,151 @@ export class InterestedService {
     }
   }
 
+  private normalizeOperations(
+    operations?: InterestedOperation[],
+    operation?: InterestedOperation,
+    fallbackOperations?: InterestedOperation[],
+    fallbackOperation?: InterestedOperation,
+  ): {
+    operations: InterestedOperation[];
+    primaryOperation: InterestedOperation;
+  } {
+    const normalized = (operations ?? [])
+      .filter((item): item is InterestedOperation => !!item)
+      .filter((item, index, list) => list.indexOf(item) === index);
+
+    if (normalized.length > 0) {
+      return {
+        operations: normalized,
+        primaryOperation: normalized[0],
+      };
+    }
+
+    if (operation) {
+      return {
+        operations: [operation],
+        primaryOperation: operation,
+      };
+    }
+
+    const fallbackNormalized = (fallbackOperations ?? [])
+      .filter((item): item is InterestedOperation => !!item)
+      .filter((item, index, list) => list.indexOf(item) === index);
+    if (fallbackNormalized.length > 0) {
+      return {
+        operations: fallbackNormalized,
+        primaryOperation:
+          fallbackOperation && fallbackNormalized.includes(fallbackOperation)
+            ? fallbackOperation
+            : fallbackNormalized[0],
+      };
+    }
+
+    if (fallbackOperation) {
+      return {
+        operations: [fallbackOperation],
+        primaryOperation: fallbackOperation,
+      };
+    }
+
+    return {
+      operations: [InterestedOperation.RENT],
+      primaryOperation: InterestedOperation.RENT,
+    };
+  }
+
+  private resolveProfileOperations(
+    profile: InterestedProfile,
+  ): InterestedOperation[] {
+    const normalized = this.normalizeOperations(
+      profile.operations,
+      profile.operation,
+    );
+    return normalized.operations;
+  }
+
+  private resolvePropertyOperations(property: Property): PropertyOperation[] {
+    const fromProperty = (property.operations ?? [])
+      .filter((item): item is PropertyOperation => !!item)
+      .filter((item, index, list) => list.indexOf(item) === index);
+
+    if (fromProperty.length > 0) {
+      return fromProperty;
+    }
+
+    const hasSalePrice =
+      property.salePrice !== null && property.salePrice !== undefined;
+    return hasSalePrice
+      ? [PropertyOperation.RENT, PropertyOperation.SALE]
+      : [PropertyOperation.RENT];
+  }
+
+  private isOperationCompatible(
+    profile: InterestedProfile,
+    property: Property,
+  ): boolean {
+    const desired = this.resolveProfileOperations(profile);
+    if (desired.length === 0) {
+      return true;
+    }
+
+    const offered = this.resolvePropertyOperations(property);
+    const hasRentPrice = this.getAvailableRentPrice(property) !== null;
+    const hasSalePrice =
+      property.salePrice !== null && property.salePrice !== undefined;
+
+    return desired.some((operation) => {
+      if (
+        operation === InterestedOperation.RENT ||
+        operation === InterestedOperation.LEASING
+      ) {
+        return offered.includes(PropertyOperation.RENT) && hasRentPrice;
+      }
+
+      if (operation === InterestedOperation.SALE) {
+        return offered.includes(PropertyOperation.SALE) && hasSalePrice;
+      }
+
+      return false;
+    });
+  }
+
+  private getComparablePrices(
+    profile: InterestedProfile,
+    property: Property,
+  ): number[] {
+    const desired = this.resolveProfileOperations(profile);
+    const offered = this.resolvePropertyOperations(property);
+    const prices: number[] = [];
+
+    const rentPrice = this.getAvailableRentPrice(property);
+    const salePrice =
+      property.salePrice === null || property.salePrice === undefined
+        ? null
+        : Number(property.salePrice);
+
+    desired.forEach((operation) => {
+      if (
+        (operation === InterestedOperation.RENT ||
+          operation === InterestedOperation.LEASING) &&
+        offered.includes(PropertyOperation.RENT) &&
+        rentPrice !== null
+      ) {
+        prices.push(rentPrice);
+      }
+
+      if (
+        operation === InterestedOperation.SALE &&
+        offered.includes(PropertyOperation.SALE) &&
+        salePrice !== null
+      ) {
+        prices.push(salePrice);
+      }
+    });
+
+    return prices;
+  }
+
   private calculateMatchScore(
     profile: InterestedProfile,
     property: Property,
@@ -1160,14 +1255,9 @@ export class InterestedService {
       }
     };
 
-    const hasRentPrice = this.getAvailableRentPrice(property) !== null;
-    const hasSalePrice =
-      property.salePrice !== null && property.salePrice !== undefined;
-    const operationMatches =
-      profile.operation === InterestedOperation.RENT
-        ? hasRentPrice
-        : hasSalePrice;
-    addCriterion(true, operationMatches, 15);
+    const profileOperations = this.resolveProfileOperations(profile);
+    const operationMatches = this.isOperationCompatible(profile, property);
+    addCriterion(profileOperations.length > 0, operationMatches, 20);
 
     const mappedType = this.mapPreferenceToPropertyType(
       profile.propertyTypePreference,
@@ -1249,6 +1339,9 @@ export class InterestedService {
     property: Property,
   ): string[] {
     const reasons: string[] = [];
+    if (this.isOperationCompatible(profile, property)) {
+      reasons.push(this.t('interested.matchReasons.operationMatches'));
+    }
 
     const mappedType = this.mapPreferenceToPropertyType(
       profile.propertyTypePreference,
@@ -1344,23 +1437,20 @@ export class InterestedService {
       return true;
     }
 
-    const price =
-      profile.operation === InterestedOperation.RENT
-        ? this.getAvailableRentPrice(property)
-        : property.salePrice !== null && property.salePrice !== undefined
-          ? Number(property.salePrice)
-          : null;
+    const prices = this.getComparablePrices(profile, property);
+    if (prices.length === 0) {
+      return false;
+    }
 
-    if (price === null) {
-      return false;
-    }
-    if (minAmount !== null && price < minAmount) {
-      return false;
-    }
-    if (maxAmount !== null && price > maxAmount) {
-      return false;
-    }
-    return true;
+    return prices.some((price) => {
+      if (minAmount !== null && price < minAmount) {
+        return false;
+      }
+      if (maxAmount !== null && price > maxAmount) {
+        return false;
+      }
+      return true;
+    });
   }
 
   private getAvailableRentPrice(property: Property): number | null {

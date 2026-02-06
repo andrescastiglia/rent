@@ -49,6 +49,7 @@ export const createPropertySchema = (t: TranslationFunction) => z.object({
     }),
   salePrice: z.coerce.number().min(0, t('positive')).optional(),
   saleCurrency: z.string().optional(),
+  operations: z.array(z.enum(['rent', 'sale', 'leasing'] as const)).min(1, t('required')),
   allowsPets: z.boolean().optional(),
   acceptedGuaranteeTypes: z.array(z.string()).optional(),
   maxOccupants: z.coerce.number().min(1).optional(),

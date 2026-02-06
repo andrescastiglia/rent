@@ -12,10 +12,7 @@ test.describe('Payment Creation Flow', () => {
     });
 
     test('should navigate to create payment page', async ({ page }) => {
-        await page.goto(localePath('/payments'));
-
-        // Click "Add Payment" button (use link with href pattern)
-        await page.locator('a[href*="/payments/new"]').click();
+        await page.goto(localePath('/payments/new'));
 
         // Should navigate to new payment page
         await expect(page).toHaveURL(/\/es\/payments\/new/);

@@ -180,6 +180,9 @@ CREATE TYPE property_status AS ENUM (
     'active', 'inactive', 'under_maintenance', 'pending_approval'
 );
 
+-- Property operation modes
+CREATE TYPE property_operation AS ENUM ('rent', 'sale', 'leasing');
+
 -- Unit status
 CREATE TYPE unit_status AS ENUM (
     'available', 'occupied', 'maintenance', 'reserved'
@@ -283,7 +286,7 @@ CREATE TYPE visit_notification_channel AS ENUM ('whatsapp', 'email');
 CREATE TYPE visit_notification_status AS ENUM ('queued', 'sent', 'failed');
 
 -- Interested profiles
-CREATE TYPE interested_operation AS ENUM ('rent', 'sale');
+CREATE TYPE interested_operation AS ENUM ('rent', 'sale', 'leasing');
 CREATE TYPE interested_property_type AS ENUM (
     'apartment', 'house', 'commercial', 'office', 'warehouse', 'land', 'parking', 'other'
 );
@@ -525,6 +528,7 @@ CREATE TABLE interested_profiles (
     desired_features TEXT[],
     property_type_preference interested_property_type,
     operation interested_operation NOT NULL DEFAULT 'rent',
+    operations interested_operation[] NOT NULL DEFAULT ARRAY['rent'::interested_operation],
     status interested_status NOT NULL DEFAULT 'new',
     qualification_level interested_qualification_level,
     qualification_notes TEXT,
@@ -551,6 +555,7 @@ CREATE TABLE interested_profiles (
 CREATE INDEX idx_interested_company ON interested_profiles(company_id);
 CREATE INDEX idx_interested_phone ON interested_profiles(phone);
 CREATE INDEX idx_interested_operation ON interested_profiles(operation);
+CREATE INDEX idx_interested_operations ON interested_profiles USING GIN (operations);
 CREATE INDEX idx_interested_status ON interested_profiles(status);
 CREATE INDEX idx_interested_qualification_level ON interested_profiles(qualification_level);
 CREATE INDEX idx_interested_assigned_to ON interested_profiles(assigned_to_user_id);
@@ -673,6 +678,7 @@ CREATE TABLE properties (
     notes TEXT,
     sale_price DECIMAL(12, 2),
     sale_currency VARCHAR(3) DEFAULT 'ARS',
+    operations property_operation[] NOT NULL DEFAULT ARRAY['rent'::property_operation],
     allows_pets BOOLEAN DEFAULT TRUE,
     accepted_guarantee_types TEXT[],
     max_occupants INTEGER,
@@ -687,6 +693,7 @@ CREATE INDEX idx_properties_type ON properties(property_type);
 CREATE INDEX idx_properties_status ON properties(status);
 CREATE INDEX idx_properties_city ON properties(address_city);
 CREATE INDEX idx_properties_sale_price ON properties(sale_price) WHERE sale_price IS NOT NULL;
+CREATE INDEX idx_properties_operations ON properties USING GIN (operations);
 CREATE INDEX idx_properties_deleted ON properties(deleted_at) WHERE deleted_at IS NULL;
 CREATE INDEX idx_properties_location ON properties(latitude, longitude) 
     WHERE latitude IS NOT NULL AND longitude IS NOT NULL;

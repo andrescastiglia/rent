@@ -34,6 +34,7 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
       ownerWhatsapp: initialData.ownerWhatsapp ?? '',
       salePrice: initialData.salePrice ?? undefined,
       saleCurrency: initialData.saleCurrency ?? 'ARS',
+      operations: initialData.operations ?? ['rent'],
       allowsPets: initialData.allowsPets ?? true,
       acceptedGuaranteeTypes: initialData.acceptedGuaranteeTypes ?? [],
       maxOccupants: initialData.maxOccupants ?? undefined,
@@ -46,6 +47,7 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
       ownerWhatsapp: '',
       salePrice: undefined,
       saleCurrency: 'ARS',
+      operations: ['rent'],
       allowsPets: true,
       acceptedGuaranteeTypes: [],
       maxOccupants: undefined,
@@ -61,6 +63,14 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
   });
 
   const images = watch('images') || [];
+  const selectedOperations = watch('operations') || [];
+
+  const handleToggleOperation = (operation: 'rent' | 'sale' | 'leasing') => {
+    const nextOperations = selectedOperations.includes(operation)
+      ? selectedOperations.filter((item) => item !== operation)
+      : [...selectedOperations, operation];
+    setValue('operations', nextOperations, { shouldValidate: true });
+  };
 
   const onSubmit = async (data: PropertyFormData) => {
     setIsSubmitting(true);
@@ -155,6 +165,24 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
               {...register('saleCurrency')}
               className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
             />
+          </div>
+
+          <div className="md:col-span-2">
+            <p className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.operations')}</p>
+            <div className="mt-2 flex flex-wrap gap-4">
+              {(['rent', 'sale', 'leasing'] as const).map((operation) => (
+                <label key={operation} className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={selectedOperations.includes(operation)}
+                    onChange={() => handleToggleOperation(operation)}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  {t(`operations.${operation}`)}
+                </label>
+              ))}
+            </div>
+            {errors.operations && <p className="mt-1 text-sm text-red-600">{errors.operations.message as string}</p>}
           </div>
 
           <div className="flex items-center gap-2">

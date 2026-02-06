@@ -239,7 +239,7 @@ export const paymentsApi = {
         }
 
         const token = getToken();
-        return apiClient.post<Payment>(`/payments/${id}/confirm`, {}, token ?? undefined);
+        return apiClient.patch<Payment>(`/payments/${id}/confirm`, {}, token ?? undefined);
     },
 
     /**
@@ -260,7 +260,7 @@ export const paymentsApi = {
         }
 
         const token = getToken();
-        return apiClient.post<Payment>(`/payments/${id}/cancel`, {}, token ?? undefined);
+        return apiClient.patch<Payment>(`/payments/${id}/cancel`, {}, token ?? undefined);
     },
 
     update: async (id: string, data: Partial<CreatePaymentInput>): Promise<Payment> => {

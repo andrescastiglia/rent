@@ -189,6 +189,7 @@
             "ownerWhatsapp": "WhatsApp do proprietário",
             "salePrice": "Preço de venda",
             "saleCurrency": "Moeda de venda",
+            "operations": "Operações disponíveis",
             "allowsPets": "Permite animais",
             "acceptedGuaranteeTypes": "Garantias aceitas",
             "maxOccupants": "Máx. ocupantes",
@@ -229,6 +230,11 @@
             "ACTIVE": "Ativo",
             "INACTIVE": "Inativo",
             "MAINTENANCE": "Manutenção"
+        },
+        "operations": {
+            "rent": "Aluguel",
+            "sale": "Venda",
+            "leasing": "Leasing"
         },
         "labels": {
             "beds": "Quartos",
@@ -348,12 +354,14 @@
             "preferredCity": "Cidade preferida",
             "preferredZones": "Zonas preferidas (separadas por vírgula)",
             "desiredFeatures": "Características obrigatórias (separadas por vírgula)",
+            "operations": "Operações de interesse",
             "stageReason": "Motivo da mudanca de etapa",
             "notes": "Notas"
         },
         "operations": {
             "rent": "Aluguel",
-            "sale": "Compra"
+            "sale": "Compra",
+            "leasing": "Leasing"
         },
         "propertyTypes": {
             "apartment": "Apartamento",
@@ -365,7 +373,7 @@
             "parking": "Garagem",
             "other": "Outro"
         },
-        "operationsLabel": "Operação: {op}",
+        "operationsLabel": "Operações: {op}",
         "filters": {
             "allStages": "Todas as etapas"
         },
@@ -457,6 +465,33 @@
             "draft": "Rascunho"
         },
         "noActiveLeases": "Nenhum contrato ativo encontrado.",
+        "paymentRegistration": {
+            "title": "Registrar pagamento de aluguel",
+            "balance": "Saldo",
+            "lateFee": "Juros",
+            "totalDebt": "Dívida total",
+            "amount": "Valor",
+            "reference": "Referência",
+            "notes": "Observações",
+            "submit": "Registrar pagamento",
+            "movements": "Histórico de movimentações",
+            "balanceAfter": "Saldo após",
+            "noMovements": "Sem movimentações registradas.",
+            "noAccount": "Não existe conta corrente ativa para este inquilino.",
+            "methods": {
+                "cash": "Dinheiro",
+                "bank_transfer": "Transferência bancária",
+                "check": "Cheque",
+                "debit_card": "Cartão de débito",
+                "credit_card": "Cartão de crédito",
+                "digital_wallet": "Carteira digital",
+                "crypto": "Cripto",
+                "other": "Outro"
+            }
+        },
+        "errors": {
+            "invalidPaymentAmount": "O valor do pagamento deve ser maior que 0."
+        },
         "fields": {
             "firstName": "Nome",
             "lastName": "Sobrenome",

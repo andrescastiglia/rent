@@ -10,6 +10,7 @@ import {
   InterestedDuplicate,
   InterestedMatch,
   InterestedMatchStatus,
+  InterestedOperation,
   InterestedMetrics,
   InterestedProfile,
   InterestedStatus,
@@ -50,6 +51,7 @@ const emptyForm: CreateInterestedProfileInput = {
   desiredFeatures: [],
   propertyTypePreference: 'apartment',
   operation: 'rent',
+  operations: ['rent'],
   status: 'new',
   qualificationLevel: 'mql',
   source: 'manual',
@@ -124,7 +126,8 @@ export default function InterestedPage() {
       preferredCity: profile.preferredCity ?? '',
       desiredFeatures: profile.desiredFeatures ?? [],
       propertyTypePreference: profile.propertyTypePreference ?? 'apartment',
-      operation: profile.operation ?? 'rent',
+      operation: profile.operation ?? profile.operations?.[0] ?? 'rent',
+      operations: profile.operations ?? (profile.operation ? [profile.operation] : ['rent']),
       status: profile.status ?? 'new',
       qualificationLevel: profile.qualificationLevel ?? 'mql',
       source: profile.source ?? 'manual',
@@ -202,8 +205,19 @@ export default function InterestedPage() {
 
     setSaving(true);
     try {
+      const operations: InterestedOperation[] = Array.from(
+        new Set(
+          form.operations && form.operations.length > 0
+            ? form.operations
+            : form.operation
+              ? [form.operation]
+              : ['rent'],
+        ),
+      );
       const payload: CreateInterestedProfileInput = {
         ...form,
+        operation: operations[0],
+        operations,
         firstName: form.firstName?.trim() || undefined,
         lastName: form.lastName?.trim() || undefined,
         phone: form.phone.trim(),
@@ -491,14 +505,34 @@ export default function InterestedPage() {
                     onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
                     className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
                   />
-                  <select
-                    value={form.operation}
-                    onChange={(e) => setForm((prev) => ({ ...prev, operation: e.target.value as any }))}
-                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                  >
-                    <option value="rent">{t('operations.rent')}</option>
-                    <option value="sale">{t('operations.sale')}</option>
-                  </select>
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('fields.operations')}</p>
+                    <div className="flex flex-wrap gap-3">
+                      {(['rent', 'sale', 'leasing'] as const).map((operation) => (
+                        <label key={operation} className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                          <input
+                            type="checkbox"
+                            checked={(form.operations ?? []).includes(operation)}
+                            onChange={(e) =>
+                              setForm((prev) => {
+                                const current = prev.operations ?? [];
+                                const next = e.target.checked
+                                  ? [...new Set([...current, operation])]
+                                  : current.filter((item) => item !== operation);
+                                return {
+                                  ...prev,
+                                  operations: next,
+                                  operation: next[0] ?? 'rent',
+                                };
+                              })
+                            }
+                            className="rounded border-gray-300 dark:border-gray-600"
+                          />
+                          {t(`operations.${operation}`)}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                   <select
                     value={form.propertyTypePreference}
                     onChange={(e) => setForm((prev) => ({ ...prev, propertyTypePreference: e.target.value as any }))}
@@ -642,7 +676,11 @@ export default function InterestedPage() {
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{profile.phone}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {t('operationsLabel', { op: t(`operations.${profile.operation ?? 'rent'}`) })}
+                      {t('operationsLabel', {
+                        op: (profile.operations ?? [profile.operation ?? 'rent'])
+                          .map((operation) => t(`operations.${operation}`))
+                          .join(', '),
+                      })}
                     </p>
                   </button>
                 ))

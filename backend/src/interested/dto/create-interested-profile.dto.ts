@@ -1,4 +1,5 @@
 import {
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsEmail,
@@ -85,6 +86,12 @@ export class CreateInterestedProfileDto {
   @IsEnum(InterestedOperation)
   @IsOptional()
   operation?: InterestedOperation;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsEnum(InterestedOperation, { each: true })
+  @IsOptional()
+  operations?: InterestedOperation[];
 
   @IsEnum(InterestedStatus)
   @IsOptional()

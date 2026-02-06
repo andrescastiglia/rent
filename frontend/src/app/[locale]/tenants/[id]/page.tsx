@@ -5,10 +5,16 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Tenant } from '@/types/tenant';
 import { tenantsApi } from '@/lib/api/tenants';
-import { tenantAccountsApi } from '@/lib/api/payments';
+import { paymentsApi, tenantAccountsApi } from '@/lib/api/payments';
 import { Edit, ArrowLeft, User, Mail, Phone, MapPin, Trash2, Loader2, FileText } from 'lucide-react';
 import { Lease } from '@/types/lease';
-import { TenantReceiptSummary } from '@/types/payment';
+import {
+  AccountBalance,
+  PaymentMethod,
+  TenantAccount,
+  TenantAccountMovement,
+  TenantReceiptSummary,
+} from '@/types/payment';
 import { useLocale, useTranslations } from 'next-intl';
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
 import { useAuth } from '@/contexts/auth-context';
@@ -25,6 +31,17 @@ export default function TenantDetailPage() {
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [leases, setLeases] = useState<Lease[]>([]);
   const [receipts, setReceipts] = useState<TenantReceiptSummary[]>([]);
+  const [tenantAccount, setTenantAccount] = useState<TenantAccount | null>(null);
+  const [accountBalance, setAccountBalance] = useState<AccountBalance | null>(null);
+  const [movements, setMovements] = useState<TenantAccountMovement[]>([]);
+  const [registeringPayment, setRegisteringPayment] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    amount: '',
+    paymentDate: new Date().toISOString().split('T')[0],
+    method: 'bank_transfer' as PaymentMethod,
+    reference: '',
+    notes: '',
+  });
   const [loading, setLoading] = useState(true);
 
   const loadTenant = useCallback(async (id: string) => {
@@ -67,6 +84,9 @@ export default function TenantDetailPage() {
         setTenant(null);
         setLeases([]);
         setReceipts([]);
+        setTenantAccount(null);
+        setAccountBalance(null);
+        setMovements([]);
         return;
       }
 
@@ -83,10 +103,38 @@ export default function TenantDetailPage() {
       setTenant(null);
       setLeases([]);
       setReceipts([]);
+      setTenantAccount(null);
+      setAccountBalance(null);
+      setMovements([]);
     } finally {
       setLoading(false);
     }
   }, [token]);
+
+  const loadAccountData = useCallback(async (leaseId: string) => {
+    try {
+      const account = await tenantAccountsApi.getByLease(leaseId);
+      setTenantAccount(account);
+
+      if (!account) {
+        setAccountBalance(null);
+        setMovements([]);
+        return;
+      }
+
+      const [balanceResult, movementsResult] = await Promise.allSettled([
+        tenantAccountsApi.getBalance(account.id),
+        tenantAccountsApi.getMovements(account.id),
+      ]);
+      setAccountBalance(balanceResult.status === 'fulfilled' ? balanceResult.value : null);
+      setMovements(movementsResult.status === 'fulfilled' ? movementsResult.value : []);
+    } catch (error) {
+      console.error('Failed to load tenant account data', error);
+      setTenantAccount(null);
+      setAccountBalance(null);
+      setMovements([]);
+    }
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
@@ -94,6 +142,17 @@ export default function TenantDetailPage() {
       loadTenant(tenantId);
     }
   }, [tenantId, authLoading, loadTenant]);
+
+  useEffect(() => {
+    const activeLease = leases.find((lease) => lease.status === 'ACTIVE') ?? leases[0];
+    if (!activeLease) {
+      setTenantAccount(null);
+      setAccountBalance(null);
+      setMovements([]);
+      return;
+    }
+    void loadAccountData(activeLease.id);
+  }, [leases, loadAccountData]);
 
   const handleDelete = async () => {
     if (!tenant || !confirm(t('confirmDelete'))) return;
@@ -104,6 +163,47 @@ export default function TenantDetailPage() {
     } catch (error) {
       console.error('Failed to delete tenant', error);
       alert(tCommon('error'));
+    }
+  };
+
+  const handleRegisterPayment = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!tenantAccount || !tenant) return;
+
+    const amount = Number(paymentForm.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      alert(t('errors.invalidPaymentAmount'));
+      return;
+    }
+
+    try {
+      setRegisteringPayment(true);
+      const created = await paymentsApi.create({
+        tenantAccountId: tenantAccount.id,
+        amount,
+        paymentDate: paymentForm.paymentDate,
+        method: paymentForm.method,
+        reference: paymentForm.reference || undefined,
+        notes: paymentForm.notes || undefined,
+      });
+
+      await paymentsApi.confirm(created.id);
+      await Promise.all([
+        loadAccountData(tenantAccount.leaseId),
+        tenantAccountsApi.getReceiptsByTenant(tenant.id).then(setReceipts),
+      ]);
+      setPaymentForm({
+        amount: '',
+        paymentDate: new Date().toISOString().split('T')[0],
+        method: 'bank_transfer',
+        reference: '',
+        notes: '',
+      });
+    } catch (error) {
+      console.error('Failed to register payment from tenant page', error);
+      alert(tCommon('error'));
+    } finally {
+      setRegisteringPayment(false);
     }
   };
 
@@ -150,6 +250,16 @@ export default function TenantDetailPage() {
 
   const receiptsToRender = receipts.length > 0 ? receipts : fallbackReceipts;
   const activeLease = leases.find((lease) => lease.status === 'ACTIVE') ?? leases[0];
+  const paymentMethods: PaymentMethod[] = [
+    'cash',
+    'bank_transfer',
+    'check',
+    'debit_card',
+    'credit_card',
+    'digital_wallet',
+    'crypto',
+    'other',
+  ];
 
   if (loading) {
     return (
@@ -275,6 +385,120 @@ export default function TenantDetailPage() {
                   <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-8 text-center text-gray-500 dark:text-gray-400 italic border-2 border-dashed border-gray-200 dark:border-gray-600">
                      <FileText size={32} className="mx-auto mb-2 text-gray-400" />
                      {t('noActiveLeases')}
+                  </div>
+                )}
+              </section>
+
+              <section>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('paymentRegistration.title')}</h2>
+                {tenantAccount ? (
+                  <div className="space-y-4 bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                    <div className="grid grid-cols-3 gap-3 text-sm">
+                      <div className="rounded-md bg-white dark:bg-gray-800 p-3 border border-gray-100 dark:border-gray-600">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{t('paymentRegistration.balance')}</p>
+                        <p className="font-semibold text-gray-900 dark:text-white">
+                          {(accountBalance?.balance ?? 0).toLocaleString(locale)}
+                        </p>
+                      </div>
+                      <div className="rounded-md bg-white dark:bg-gray-800 p-3 border border-gray-100 dark:border-gray-600">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{t('paymentRegistration.lateFee')}</p>
+                        <p className="font-semibold text-amber-700 dark:text-amber-300">
+                          {(accountBalance?.lateFee ?? 0).toLocaleString(locale)}
+                        </p>
+                      </div>
+                      <div className="rounded-md bg-white dark:bg-gray-800 p-3 border border-gray-100 dark:border-gray-600">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{t('paymentRegistration.totalDebt')}</p>
+                        <p className="font-semibold text-red-700 dark:text-red-300">
+                          {(accountBalance?.total ?? 0).toLocaleString(locale)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <form onSubmit={handleRegisterPayment} className="space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          required
+                          value={paymentForm.amount}
+                          placeholder={t('paymentRegistration.amount')}
+                          onChange={(e) => setPaymentForm((prev) => ({ ...prev, amount: e.target.value }))}
+                          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
+                        />
+                        <input
+                          type="date"
+                          required
+                          value={paymentForm.paymentDate}
+                          onChange={(e) => setPaymentForm((prev) => ({ ...prev, paymentDate: e.target.value }))}
+                          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
+                        />
+                        <select
+                          value={paymentForm.method}
+                          onChange={(e) => setPaymentForm((prev) => ({ ...prev, method: e.target.value as PaymentMethod }))}
+                          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
+                        >
+                          {paymentMethods.map((method) => (
+                            <option key={method} value={method}>
+                              {t(`paymentRegistration.methods.${method}`)}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="text"
+                          value={paymentForm.reference}
+                          placeholder={t('paymentRegistration.reference')}
+                          onChange={(e) => setPaymentForm((prev) => ({ ...prev, reference: e.target.value }))}
+                          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
+                        />
+                      </div>
+                      <textarea
+                        rows={2}
+                        value={paymentForm.notes}
+                        placeholder={t('paymentRegistration.notes')}
+                        onChange={(e) => setPaymentForm((prev) => ({ ...prev, notes: e.target.value }))}
+                        className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
+                      />
+                      <button
+                        type="submit"
+                        disabled={registeringPayment}
+                        className="w-full inline-flex items-center justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                      >
+                        {registeringPayment ? tCommon('saving') : t('paymentRegistration.submit')}
+                      </button>
+                    </form>
+
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{t('paymentRegistration.movements')}</p>
+                      {movements.length > 0 ? (
+                        <div className="space-y-2 max-h-52 overflow-auto">
+                          {movements.map((movement) => (
+                            <div key={movement.id} className="flex items-center justify-between text-xs bg-white dark:bg-gray-800 rounded-md border border-gray-100 dark:border-gray-600 p-2">
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-white">{movement.description}</p>
+                                <p className="text-gray-500 dark:text-gray-400">
+                                  {new Date(movement.movementDate).toLocaleDateString(locale)}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className={movement.amount <= 0 ? 'font-semibold text-green-700 dark:text-green-300' : 'font-semibold text-red-700 dark:text-red-300'}>
+                                  {movement.amount.toLocaleString(locale)}
+                                </p>
+                                <p className="text-gray-500 dark:text-gray-400">
+                                  {t('paymentRegistration.balanceAfter')}: {movement.balanceAfter.toLocaleString(locale)}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('paymentRegistration.noMovements')}</p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-sm text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
+                    {t('paymentRegistration.noAccount')}
                   </div>
                 )}
               </section>

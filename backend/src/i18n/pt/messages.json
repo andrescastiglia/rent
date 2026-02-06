@@ -128,6 +128,7 @@
         },
         "matchReasons": {
             "propertyTypeMatches": "Tipo de propriedade corresponde",
+            "operationMatches": "Modo de operação corresponde",
             "priceWithinRange": "Preço dentro do intervalo",
             "capacityAdequate": "Capacidade adequada",
             "petsAllowed": "Aceita animais",

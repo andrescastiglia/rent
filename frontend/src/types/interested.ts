@@ -1,6 +1,6 @@
 import { Property } from './property';
 
-export type InterestedOperation = 'rent' | 'sale';
+export type InterestedOperation = 'rent' | 'sale' | 'leasing';
 export type InterestedPropertyType =
   | 'apartment'
   | 'house'
@@ -54,6 +54,7 @@ export interface InterestedProfile {
   desiredFeatures?: string[];
   propertyTypePreference?: InterestedPropertyType;
   operation?: InterestedOperation;
+  operations?: InterestedOperation[];
   status?: InterestedStatus;
   qualificationLevel?: InterestedQualificationLevel;
   qualificationNotes?: string;
@@ -88,6 +89,7 @@ export interface CreateInterestedProfileInput {
   desiredFeatures?: string[];
   propertyTypePreference?: InterestedPropertyType;
   operation?: InterestedOperation;
+  operations?: InterestedOperation[];
   status?: InterestedStatus;
   qualificationLevel?: InterestedQualificationLevel;
   qualificationNotes?: string;

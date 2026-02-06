@@ -32,6 +32,12 @@ export enum PropertyStatus {
   PENDING_APPROVAL = 'pending_approval',
 }
 
+export enum PropertyOperation {
+  RENT = 'rent',
+  SALE = 'sale',
+  LEASING = 'leasing',
+}
+
 @Entity('properties')
 export class Property {
   @PrimaryGeneratedColumn('uuid')
@@ -141,6 +147,15 @@ export class Property {
 
   @Column({ name: 'sale_currency', default: 'ARS' })
   saleCurrency: string;
+
+  @Column({
+    type: 'enum',
+    enum: PropertyOperation,
+    enumName: 'property_operation',
+    array: true,
+    default: () => "ARRAY['rent']::property_operation[]",
+  })
+  operations: PropertyOperation[];
 
   @Column({ name: 'allows_pets', default: true })
   allowsPets: boolean;

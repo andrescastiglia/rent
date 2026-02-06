@@ -37,6 +37,7 @@ const MOCK_INTERESTED: InterestedProfile[] = [
     desiredFeatures: ['balcon', 'pileta'],
     propertyTypePreference: 'house',
     operation: 'sale',
+    operations: ['sale'],
     status: 'new',
     qualificationLevel: 'mql',
     notes: 'Busca casa con patio',
@@ -46,6 +47,15 @@ const MOCK_INTERESTED: InterestedProfile[] = [
 ];
 
 const mapProfile = (raw: any): InterestedProfile => ({
+  // Keep `operation` for backward compatibility while the UI uses `operations`.
+  operation: raw.operation,
+  operations: Array.isArray(raw.operations)
+    ? raw.operations.filter((item: any): item is 'rent' | 'sale' | 'leasing' =>
+        item === 'rent' || item === 'sale' || item === 'leasing',
+      )
+    : raw.operation
+      ? [raw.operation]
+      : ['rent'],
   id: raw.id,
   firstName: raw.firstName,
   lastName: raw.lastName,
@@ -60,7 +70,6 @@ const mapProfile = (raw: any): InterestedProfile => ({
   preferredCity: raw.preferredCity,
   desiredFeatures: Array.isArray(raw.desiredFeatures) ? raw.desiredFeatures : [],
   propertyTypePreference: raw.propertyTypePreference,
-  operation: raw.operation,
   status: raw.status,
   qualificationLevel: raw.qualificationLevel,
   qualificationNotes: raw.qualificationNotes,
@@ -146,6 +155,13 @@ const mapProperty = (raw: any): Property => ({
     : [],
   images: [],
   ownerId: raw.ownerId ?? '',
+  operations: Array.isArray(raw.operations)
+    ? raw.operations.filter((item: any): item is 'rent' | 'sale' | 'leasing' =>
+        item === 'rent' || item === 'sale' || item === 'leasing',
+      )
+    : raw.salePrice !== null && raw.salePrice !== undefined
+      ? ['rent', 'sale']
+      : ['rent'],
   createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : new Date().toISOString(),
   updatedAt: raw.updatedAt ? new Date(raw.updatedAt).toISOString() : new Date().toISOString(),
   salePrice: raw.salePrice === null || raw.salePrice === undefined ? undefined : Number(raw.salePrice),
@@ -221,6 +237,7 @@ export const interestedApi = {
         desiredFeatures: data.desiredFeatures,
         propertyTypePreference: data.propertyTypePreference,
         operation: data.operation,
+        operations: data.operations,
         status: data.status,
         qualificationLevel: data.qualificationLevel,
         qualificationNotes: data.qualificationNotes,
@@ -254,6 +271,10 @@ export const interestedApi = {
       MOCK_INTERESTED[index] = {
         ...MOCK_INTERESTED[index],
         ...data,
+        operation: data.operations?.[0] ?? data.operation ?? MOCK_INTERESTED[index].operation,
+        operations:
+          data.operations ??
+          (data.operation ? [data.operation] : MOCK_INTERESTED[index].operations),
         lastContactAt: data.lastContactAt ? new Date(data.lastContactAt).toISOString() : MOCK_INTERESTED[index].lastContactAt,
         nextContactAt: data.nextContactAt ? new Date(data.nextContactAt).toISOString() : MOCK_INTERESTED[index].nextContactAt,
         consentRecordedAt: data.consentRecordedAt

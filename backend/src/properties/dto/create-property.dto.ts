@@ -1,4 +1,6 @@
 import {
+  ArrayMinSize,
+  IsArray,
   IsBoolean,
   IsEnum,
   IsInt,
@@ -10,7 +12,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { PropertyType } from '../entities/property.entity';
+import { PropertyOperation, PropertyType } from '../entities/property.entity';
 import { Type } from 'class-transformer';
 
 export class CreatePropertyDto {
@@ -110,6 +112,12 @@ export class CreatePropertyDto {
   @IsString()
   @IsOptional()
   saleCurrency?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsEnum(PropertyOperation, { each: true })
+  operations?: PropertyOperation[];
 
   @IsOptional()
   @IsBoolean()

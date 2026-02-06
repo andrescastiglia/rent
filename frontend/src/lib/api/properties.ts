@@ -39,6 +39,7 @@ type BackendProperty = {
     ownerWhatsapp?: string | null;
     salePrice?: number | string | null;
     saleCurrency?: string | null;
+    operations?: string[] | null;
     allowsPets?: boolean | null;
     acceptedGuaranteeTypes?: string[] | null;
     maxOccupants?: number | null;
@@ -139,6 +140,21 @@ const mapBackendUnitToUnit = (raw: BackendUnit): Property['units'][number] => {
 };
 
 const mapBackendPropertyToProperty = (raw: BackendProperty): Property => {
+    const backendOperations = Array.isArray(raw.operations)
+        ? raw.operations.filter((item): item is string => typeof item === 'string')
+        : [];
+    const normalizedOperations = backendOperations
+        .map((item) => item.toLowerCase())
+        .filter((item): item is 'rent' | 'sale' | 'leasing' =>
+            item === 'rent' || item === 'sale' || item === 'leasing',
+        );
+    const operations: Property['operations'] =
+        normalizedOperations.length > 0
+            ? normalizedOperations
+            : raw.salePrice !== undefined && raw.salePrice !== null
+                ? ['rent', 'sale']
+                : ['rent'];
+
     return {
         id: raw.id,
         name: raw.name,
@@ -173,6 +189,7 @@ const mapBackendPropertyToProperty = (raw: BackendProperty): Property => {
                 ? Number(raw.salePrice)
                 : undefined,
         saleCurrency: raw.saleCurrency ?? undefined,
+        operations,
         allowsPets: raw.allowsPets ?? true,
         acceptedGuaranteeTypes: Array.isArray(raw.acceptedGuaranteeTypes) ? raw.acceptedGuaranteeTypes : [],
         maxOccupants: raw.maxOccupants !== undefined && raw.maxOccupants !== null ? Number(raw.maxOccupants) : undefined,
@@ -219,6 +236,7 @@ const MOCK_PROPERTIES: Property[] = [
         ownerWhatsapp: '+54 9 11 5555-1234',
         salePrice: 150000,
         saleCurrency: 'USD',
+        operations: ['rent', 'sale'],
         allowsPets: true,
         acceptedGuaranteeTypes: ['Garantía propietaria'],
         maxOccupants: 10,
@@ -246,6 +264,7 @@ const MOCK_PROPERTIES: Property[] = [
         ownerWhatsapp: '+54 9 11 5555-5678',
         salePrice: 98000,
         saleCurrency: 'USD',
+        operations: ['rent', 'sale'],
         allowsPets: false,
         acceptedGuaranteeTypes: ['Seguro de caución'],
         maxOccupants: 5,
