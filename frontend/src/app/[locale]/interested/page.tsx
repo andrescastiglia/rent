@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { interestedApi } from '@/lib/api/interested';
 import {
   CreateInterestedProfileInput,
@@ -61,6 +61,7 @@ export default function InterestedPage() {
   const { loading: authLoading } = useAuth();
   const t = useTranslations('interested');
   const tc = useTranslations('common');
+  const locale = useLocale();
 
   const [profiles, setProfiles] = useState<InterestedProfile[]>([]);
   const [metrics, setMetrics] = useState<InterestedMetrics | null>(null);
@@ -75,6 +76,7 @@ export default function InterestedPage() {
   const [refreshingMatches, setRefreshingMatches] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [stageFilter, setStageFilter] = useState<InterestedStatus | 'all'>('all');
 
   const [form, setForm] = useState<CreateInterestedProfileInput>(emptyForm);
   const [stageReason, setStageReason] = useState('');
@@ -85,22 +87,6 @@ export default function InterestedPage() {
     subject: '',
     body: '',
     dueAt: '',
-    templateName: '',
-  });
-
-  const [tenantForm, setTenantForm] = useState({
-    email: '',
-    password: '',
-    dni: '',
-  });
-
-  const [buyerForm, setBuyerForm] = useState({
-    folderId: '',
-    totalAmount: '',
-    installmentAmount: '',
-    installmentCount: '',
-    startDate: '',
-    currency: 'ARS',
   });
 
   const duplicateForSelected = useMemo(() => {
@@ -113,6 +99,7 @@ export default function InterestedPage() {
     return [...profiles]
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .filter((profile) => {
+        if (stageFilter !== 'all' && profile.status !== stageFilter) return false;
         if (!term) return true;
         const fullName = `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.toLowerCase();
         return (
@@ -121,7 +108,7 @@ export default function InterestedPage() {
           (profile.email ?? '').toLowerCase().includes(term)
         );
       });
-  }, [profiles, searchTerm]);
+  }, [profiles, searchTerm, stageFilter]);
 
   const loadInitial = useCallback(async () => {
     setLoading(true);
@@ -265,7 +252,6 @@ export default function InterestedPage() {
         subject: activityForm.subject.trim(),
         body: activityForm.body.trim() || undefined,
         dueAt: activityForm.dueAt || undefined,
-        templateName: activityForm.templateName.trim() || undefined,
       });
 
       setActivityForm({
@@ -273,7 +259,6 @@ export default function InterestedPage() {
         subject: '',
         body: '',
         dueAt: '',
-        templateName: '',
       });
 
       await selectProfile(selectedProfile);
@@ -283,66 +268,77 @@ export default function InterestedPage() {
     }
   }
 
-  async function handleCompleteActivity(activity: InterestedActivity) {
-    if (!selectedProfile) return;
+  const statusLabel = useCallback((status?: string) => t(`status.${status ?? 'new'}`), [t]);
 
-    try {
-      await interestedApi.updateActivity(selectedProfile.id, activity.id, {
-        status: 'completed',
-        completedAt: new Date().toISOString(),
-      });
-      await selectProfile(selectedProfile);
-    } catch (error) {
-      console.error('Failed to complete activity', error);
-      alert(tc('error'));
-    }
-  }
+  const timelineFormatter = useMemo(
+    () => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }),
+    [locale],
+  );
 
-  async function handleConvertToTenant(event: React.FormEvent) {
-    event.preventDefault();
-    if (!selectedProfile) return;
+  const formatTimelineTitle = useCallback(
+    (item: InterestedTimelineItem) => {
+      const meta = (item.metadata ?? {}) as Record<string, any>;
+      if (item.type === 'stage') {
+        return t('timeline.stageChange', {
+          from: statusLabel(meta.fromStatus ?? 'new'),
+          to: statusLabel(meta.toStatus ?? 'new'),
+        });
+      }
+      if (item.type === 'activity') {
+        return t('timeline.activity', {
+          type: t(`activityTypes.${meta.activityType ?? 'task'}`),
+          subject: meta.subject ?? '',
+        });
+      }
+      if (item.type === 'match') {
+        return t('timeline.match', {
+          property: meta.propertyName ?? meta.propertyId ?? '',
+        });
+      }
+      if (item.type === 'visit') {
+        return t('timeline.visit', {
+          property: meta.propertyName ?? meta.propertyId ?? '',
+        });
+      }
+      return item.title;
+    },
+    [statusLabel, t],
+  );
 
-    try {
-      await interestedApi.convertToTenant(selectedProfile.id, {
-        email: tenantForm.email.trim() || undefined,
-        password: tenantForm.password.trim() || undefined,
-        dni: tenantForm.dni.trim() || undefined,
-      });
-      setTenantForm({ email: '', password: '', dni: '' });
-      await selectProfile(selectedProfile);
-      setMetrics(await interestedApi.getMetrics());
-    } catch (error) {
-      console.error('Failed to convert to tenant', error);
-      alert(tc('error'));
-    }
-  }
-
-  async function handleConvertToBuyer(event: React.FormEvent) {
-    event.preventDefault();
-    if (!selectedProfile) return;
-    if (!buyerForm.folderId || !buyerForm.totalAmount || !buyerForm.installmentAmount || !buyerForm.installmentCount || !buyerForm.startDate) {
-      alert(t('errors.buyerFieldsRequired'));
-      return;
-    }
-
-    try {
-      await interestedApi.convertToBuyer(selectedProfile.id, {
-        folderId: buyerForm.folderId,
-        totalAmount: Number(buyerForm.totalAmount),
-        installmentAmount: Number(buyerForm.installmentAmount),
-        installmentCount: Number(buyerForm.installmentCount),
-        startDate: buyerForm.startDate,
-        currency: buyerForm.currency,
-      });
-      await selectProfile(selectedProfile);
-      setMetrics(await interestedApi.getMetrics());
-    } catch (error) {
-      console.error('Failed to convert to buyer', error);
-      alert(tc('error'));
-    }
-  }
-
-  const statusLabel = (status?: string) => t(`status.${status ?? 'new'}`);
+  const formatTimelineDetail = useCallback(
+    (item: InterestedTimelineItem) => {
+      const meta = (item.metadata ?? {}) as Record<string, any>;
+      if (item.type === 'match' && meta.status) {
+        const statusText = t('timeline.matchStatus', {
+          status: t(`matchStatus.${meta.status}`),
+        });
+        if (item.detail) {
+          return `${statusText} - ${t('timeline.note', { note: item.detail })}`;
+        }
+        return statusText;
+      }
+      if (item.type === 'activity' && meta.status) {
+        const statusText = t('timeline.activityStatus', {
+          status: t(`activityStatus.${meta.status}`),
+        });
+        if (item.detail) {
+          return `${statusText} - ${t('timeline.note', { note: item.detail })}`;
+        }
+        return statusText;
+      }
+      if (item.type === 'stage' && item.detail) {
+        return t('timeline.reason', { reason: item.detail });
+      }
+      if (item.type === 'visit' && item.detail) {
+        return t('timeline.note', { note: item.detail });
+      }
+      if (item.detail) {
+        return t('timeline.note', { note: item.detail });
+      }
+      return null;
+    },
+    [t],
+  );
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
@@ -457,6 +453,16 @@ export default function InterestedPage() {
 
             <div className="space-y-3">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('listTitle')}</h2>
+              <select
+                value={stageFilter}
+                onChange={(e) => setStageFilter(e.target.value as InterestedStatus | 'all')}
+                className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+              >
+                <option value="all">{t('filters.allStages')}</option>
+                {STAGE_OPTIONS.map((stage) => (
+                  <option key={stage} value={stage}>{statusLabel(stage)}</option>
+                ))}
+              </select>
               <input
                 type="text"
                 placeholder={t('listSearchPlaceholder')}
@@ -538,15 +544,6 @@ export default function InterestedPage() {
                       >
                         {t('actions.changeStage')}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleRefreshMatches()}
-                        disabled={refreshingMatches}
-                        className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm inline-flex items-center gap-2"
-                      >
-                        {refreshingMatches ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                        {t('actions.refreshMatches')}
-                      </button>
                     </div>
                   </div>
 
@@ -567,7 +564,18 @@ export default function InterestedPage() {
 
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                   <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('matchesTitle')}</h3>
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('matchesTitle')}</h3>
+                      <button
+                        type="button"
+                        onClick={() => void handleRefreshMatches()}
+                        disabled={refreshingMatches}
+                        className="px-2 py-1 rounded-md border border-gray-300 dark:border-gray-600 text-xs inline-flex items-center gap-2"
+                      >
+                        {refreshingMatches ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                        {t('actions.refreshMatches')}
+                      </button>
+                    </div>
                     {summary?.matches?.length ? (
                       <div className="space-y-3">
                         {summary.matches.map((match) => (
@@ -632,122 +640,12 @@ export default function InterestedPage() {
                           type="datetime-local"
                           value={activityForm.dueAt}
                           onChange={(e) => setActivityForm((prev) => ({ ...prev, dueAt: e.target.value }))}
-                          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                        />
-                        <input
-                          type="text"
-                          placeholder={t('activities.templateName')}
-                          value={activityForm.templateName}
-                          onChange={(e) => setActivityForm((prev) => ({ ...prev, templateName: e.target.value }))}
+                          lang={locale}
                           className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
                         />
                       </div>
                       <button type="submit" className="w-full px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700">
                         {t('activities.add')}
-                      </button>
-                    </form>
-
-                    <div className="space-y-2 max-h-64 overflow-auto">
-                      {summary?.activities?.length ? summary.activities.map((activity) => (
-                        <div key={activity.id} className="rounded-md border border-gray-200 dark:border-gray-700 p-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-sm font-medium text-gray-900 dark:text-white">{activity.subject}</p>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">{t(`activityStatus.${activity.status}`)}</span>
-                          </div>
-                          {activity.body ? <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{activity.body}</p> : null}
-                          <div className="mt-2 flex justify-end">
-                            {activity.status !== 'completed' ? (
-                              <button
-                                type="button"
-                                onClick={() => void handleCompleteActivity(activity)}
-                                className="text-xs px-2 py-1 rounded border border-green-300 text-green-700 dark:text-green-300"
-                              >
-                                {t('actions.markDone')}
-                              </button>
-                            ) : null}
-                          </div>
-                        </div>
-                      )) : (
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('activities.empty')}</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('conversion.tenantTitle')}</h3>
-                    <form onSubmit={handleConvertToTenant} className="space-y-2">
-                      <input
-                        type="email"
-                        placeholder={t('conversion.email')}
-                        value={tenantForm.email}
-                        onChange={(e) => setTenantForm((prev) => ({ ...prev, email: e.target.value }))}
-                        className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                      />
-                      <input
-                        type="password"
-                        placeholder={t('conversion.password')}
-                        value={tenantForm.password}
-                        onChange={(e) => setTenantForm((prev) => ({ ...prev, password: e.target.value }))}
-                        className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                      />
-                      <input
-                        type="text"
-                        placeholder={t('conversion.dni')}
-                        value={tenantForm.dni}
-                        onChange={(e) => setTenantForm((prev) => ({ ...prev, dni: e.target.value }))}
-                        className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                      />
-                      <button type="submit" className="w-full px-3 py-2 rounded-md bg-emerald-600 text-white text-sm hover:bg-emerald-700">
-                        {t('conversion.toTenant')}
-                      </button>
-                    </form>
-                  </div>
-
-                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('conversion.buyerTitle')}</h3>
-                    <form onSubmit={handleConvertToBuyer} className="space-y-2">
-                      <input
-                        type="text"
-                        placeholder={t('conversion.folderId')}
-                        value={buyerForm.folderId}
-                        onChange={(e) => setBuyerForm((prev) => ({ ...prev, folderId: e.target.value }))}
-                        className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                      />
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="number"
-                          placeholder={t('conversion.totalAmount')}
-                          value={buyerForm.totalAmount}
-                          onChange={(e) => setBuyerForm((prev) => ({ ...prev, totalAmount: e.target.value }))}
-                          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                        />
-                        <input
-                          type="number"
-                          placeholder={t('conversion.installmentAmount')}
-                          value={buyerForm.installmentAmount}
-                          onChange={(e) => setBuyerForm((prev) => ({ ...prev, installmentAmount: e.target.value }))}
-                          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="number"
-                          placeholder={t('conversion.installmentCount')}
-                          value={buyerForm.installmentCount}
-                          onChange={(e) => setBuyerForm((prev) => ({ ...prev, installmentCount: e.target.value }))}
-                          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                        />
-                        <input
-                          type="date"
-                          value={buyerForm.startDate}
-                          onChange={(e) => setBuyerForm((prev) => ({ ...prev, startDate: e.target.value }))}
-                          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                        />
-                      </div>
-                      <button type="submit" className="w-full px-3 py-2 rounded-md bg-emerald-600 text-white text-sm hover:bg-emerald-700">
-                        {t('conversion.toBuyer')}
                       </button>
                     </form>
                   </div>
@@ -757,15 +655,18 @@ export default function InterestedPage() {
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('timelineTitle')}</h3>
                   {timeline.length ? (
                     <div className="space-y-2 max-h-80 overflow-auto">
-                      {timeline.map((item) => (
-                        <div key={item.id} className="border border-gray-200 dark:border-gray-700 rounded-md p-3">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-sm font-medium text-gray-900 dark:text-white">{item.title}</p>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">{new Date(item.at).toLocaleString()}</span>
+                      {timeline.map((item) => {
+                        const detail = formatTimelineDetail(item);
+                        return (
+                          <div key={item.id} className="border border-gray-200 dark:border-gray-700 rounded-md p-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">{formatTimelineTitle(item)}</p>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">{timelineFormatter.format(new Date(item.at))}</span>
+                            </div>
+                            {detail ? <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{detail}</p> : null}
                           </div>
-                          {item.detail ? <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{item.detail}</p> : null}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="text-sm text-gray-500 dark:text-gray-400">{t('timelineEmpty')}</p>

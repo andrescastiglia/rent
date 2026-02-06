@@ -260,6 +260,16 @@
         "noResults": "No se encontraron prospectos con ese criterio.",
         "timelineTitle": "Linea de tiempo",
         "timelineEmpty": "Sin eventos para este perfil.",
+        "timeline": {
+            "stageChange": "Etapa: {from} -> {to}",
+            "activity": "{type}: {subject}",
+            "match": "Match propiedad {property}",
+            "visit": "Visita a {property}",
+            "matchStatus": "Estado: {status}",
+            "activityStatus": "Estado: {status}",
+            "reason": "Motivo: {reason}",
+            "note": "Nota: {note}"
+        },
         "duplicateWarning": "Este lead tiene posibles duplicados ({count}). Revisar y consolidar.",
         "labels": {
             "score": "Puntaje"
@@ -343,6 +353,9 @@
             "house": "Casa"
         },
         "operationsLabel": "Operación: {op}",
+        "filters": {
+            "allStages": "Todas las etapas"
+        },
         "actions": {
             "save": "Guardar interesado",
             "saving": "Guardando...",

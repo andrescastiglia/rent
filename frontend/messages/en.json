@@ -260,6 +260,16 @@
         "noResults": "No prospects found with that criteria.",
         "timelineTitle": "Timeline",
         "timelineEmpty": "No events for this profile.",
+        "timeline": {
+            "stageChange": "Stage: {from} -> {to}",
+            "activity": "{type}: {subject}",
+            "match": "Property match {property}",
+            "visit": "Visit to {property}",
+            "matchStatus": "Status: {status}",
+            "activityStatus": "Status: {status}",
+            "reason": "Reason: {reason}",
+            "note": "Note: {note}"
+        },
         "duplicateWarning": "This lead has potential duplicates ({count}). Review and merge.",
         "labels": {
             "score": "Score"
@@ -343,6 +353,9 @@
             "house": "House"
         },
         "operationsLabel": "Operation: {op}",
+        "filters": {
+            "allStages": "All stages"
+        },
         "actions": {
             "save": "Save profile",
             "saving": "Saving...",

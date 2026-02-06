@@ -260,6 +260,16 @@
         "noResults": "Nenhum prospecto encontrado com esse criterio.",
         "timelineTitle": "Linha do tempo",
         "timelineEmpty": "Sem eventos para este perfil.",
+        "timeline": {
+            "stageChange": "Etapa: {from} -> {to}",
+            "activity": "{type}: {subject}",
+            "match": "Match do imóvel {property}",
+            "visit": "Visita a {property}",
+            "matchStatus": "Status: {status}",
+            "activityStatus": "Status: {status}",
+            "reason": "Motivo: {reason}",
+            "note": "Nota: {note}"
+        },
         "duplicateWarning": "Este lead tem possiveis duplicados ({count}). Revise e consolide.",
         "labels": {
             "score": "Pontuacao"
@@ -343,6 +353,9 @@
             "house": "Casa"
         },
         "operationsLabel": "Operação: {op}",
+        "filters": {
+            "allStages": "Todas as etapas"
+        },
         "actions": {
             "save": "Salvar interessado",
             "saving": "Salvando...",

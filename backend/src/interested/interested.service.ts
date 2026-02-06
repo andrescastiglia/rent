@@ -466,6 +466,57 @@ export class InterestedService {
       return profile;
     }
 
+    if (dto.toStatus === InterestedStatus.WON) {
+      const reason = dto.reason?.toLowerCase() ?? '';
+      const isRentReason =
+        reason.includes('alquiler') ||
+        reason.includes('rent') ||
+        reason.includes('renta');
+      const isSaleReason =
+        reason.includes('compra') ||
+        reason.includes('venta') ||
+        reason.includes('sale') ||
+        reason.includes('purchase');
+
+      if (
+        (isRentReason || profile.operation === InterestedOperation.RENT) &&
+        !profile.convertedToTenantId
+      ) {
+        const converted = await this.convertToTenant(id, {}, user);
+        if (dto.reason) {
+          await this.createActivity(
+            id,
+            {
+              type: InterestedActivityType.NOTE,
+              subject: 'Cierre por alquiler',
+              body: dto.reason,
+              status: InterestedActivityStatus.COMPLETED,
+              completedAt: new Date().toISOString(),
+            },
+            user,
+          );
+        }
+        return converted.profile;
+      }
+
+      if (
+        (isSaleReason || profile.operation === InterestedOperation.SALE) &&
+        !profile.convertedToSaleAgreementId
+      ) {
+        await this.createActivity(
+          id,
+          {
+            type: InterestedActivityType.NOTE,
+            subject: 'Cierre por compra',
+            body: dto.reason ?? 'Requiere conversion a comprador',
+            status: InterestedActivityStatus.COMPLETED,
+            completedAt: new Date().toISOString(),
+          },
+          user,
+        );
+      }
+    }
+
     profile.status = dto.toStatus;
     if (dto.toStatus === InterestedStatus.LOST) {
       profile.lostReason = dto.reason ?? profile.lostReason;
@@ -622,6 +673,10 @@ export class InterestedService {
       at: item.changedAt.toISOString(),
       title: `Etapa: ${item.fromStatus} -> ${item.toStatus}`,
       detail: item.reason ?? undefined,
+      metadata: {
+        fromStatus: item.fromStatus,
+        toStatus: item.toStatus,
+      },
     }));
 
     const activityItems: TimelineItem[] = summary.activities.map((item) => ({
@@ -631,6 +686,8 @@ export class InterestedService {
       title: `${item.type.toUpperCase()}: ${item.subject}`,
       detail: item.body ?? undefined,
       metadata: {
+        activityType: item.type,
+        subject: item.subject,
         status: item.status,
         dueAt: item.dueAt ? item.dueAt.toISOString() : null,
       },
@@ -641,8 +698,11 @@ export class InterestedService {
       type: 'match',
       at: item.updatedAt.toISOString(),
       title: `Match propiedad ${item.property?.name ?? item.propertyId}`,
-      detail: `Estado: ${item.status}`,
+      detail: item.notes ?? undefined,
       metadata: {
+        status: item.status,
+        propertyName: item.property?.name,
+        propertyId: item.propertyId,
         score: item.score,
       },
     }));
@@ -654,7 +714,10 @@ export class InterestedService {
       title: `Visita a ${item.property?.name ?? item.propertyId}`,
       detail: item.comments ?? undefined,
       metadata: {
+        propertyName: item.property?.name,
+        propertyId: item.propertyId,
         offerAmount: item.offerAmount,
+        offerCurrency: item.offerCurrency,
         hasOffer: item.hasOffer,
       },
     }));
