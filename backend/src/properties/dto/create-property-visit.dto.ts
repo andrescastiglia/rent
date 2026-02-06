@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
 } from 'class-validator';
 
 export class CreatePropertyVisitDto {
@@ -14,7 +15,12 @@ export class CreatePropertyVisitDto {
 
   @IsString()
   @IsNotEmpty()
-  interestedName: string;
+  @IsOptional()
+  interestedName?: string;
+
+  @IsUUID()
+  @IsOptional()
+  interestedProfileId?: string;
 
   @IsString()
   @IsOptional()

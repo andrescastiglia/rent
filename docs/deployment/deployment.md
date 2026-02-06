@@ -13,8 +13,9 @@
 4. [Configuración de Cloudflare](#4-configuración-de-cloudflare)
 5. [Configuración de GitHub Secrets](#5-configuración-de-github-secrets)
 6. [Proceso de Deployment](#6-proceso-de-deployment)
-7. [Comandos Útiles](#7-comandos-útiles)
-8. [Troubleshooting](#8-troubleshooting)
+7. [Crontab para Batch](#7-crontab-para-batch)
+8. [Comandos Útiles](#8-comandos-útiles)
+9. [Troubleshooting](#9-troubleshooting)
 
 ---
 
@@ -364,7 +365,61 @@ flowchart LR
 
 ---
 
-## 7. Comandos Útiles
+## 7. Crontab para Batch
+
+El proyecto `batch/` se ejecuta por cron como CLI. Usar el ejemplo oficial en `batch/scripts/crontab.example` o el detalle completo en `batch/docs/OPERATIONS.md`.
+
+Pasos recomendados:
+
+1. Compilar el batch y asegurar el link de `.env` (ver `ansible/deploy.yml` o proceso de deploy).
+2. Crear directorio de logs (ej: `/var/log/batch`) y permisos de escritura para el usuario que corre cron.
+3. Editar crontab del usuario de deploy.
+
+Ejemplo:
+
+```bash
+sudo mkdir -p /var/log/batch
+sudo chown deploy:deploy /var/log/batch
+sudo crontab -e
+```
+
+Crontab de ejemplo (ajustar paths si tu deploy es distinto a `/opt/rent`):
+
+```cron
+# Batch Billing System
+BATCH_DIR=/opt/rent/batch
+LOG_DIR=/var/log/batch
+
+# Sincronizar índices (diario 06:00)
+0 6 * * * cd $BATCH_DIR && node index.js sync-indices --log $LOG_DIR/sync-indices.log
+
+# Sincronizar tipos de cambio (diario 06:30)
+30 6 * * * cd $BATCH_DIR && node index.js sync-rates --log $LOG_DIR/sync-rates.log
+
+# Facturación (diario 07:00)
+0 7 * * * cd $BATCH_DIR && node index.js billing --log $LOG_DIR/billing.log
+
+# Marcar vencidas (diario 08:00)
+0 8 * * * cd $BATCH_DIR && node index.js overdue --log $LOG_DIR/overdue.log
+
+# Intereses por mora (diario 08:30)
+30 8 * * * cd $BATCH_DIR && node index.js late-fees --log $LOG_DIR/late-fees.log
+
+# Recordatorios (diario 09:00)
+0 9 * * * cd $BATCH_DIR && node index.js reminders --log $LOG_DIR/reminders.log
+
+# Reportes mensuales (día 1, 10:00)
+0 10 1 * * cd $BATCH_DIR && ./scripts/generate-all-reports.sh --log $LOG_DIR/reports.log
+```
+
+Notas:
+- Si preferís npm, reemplazá `node index.js` por `npm run start -- <comando>`.
+- Asegurá que el `PATH` del cron tenga Node disponible o usá ruta absoluta a `node`.
+- Para agregar jobs adicionales, revisar `batch/docs/OPERATIONS.md`.
+
+---
+
+## 8. Comandos Útiles
 
 ### PM2
 
@@ -403,7 +458,7 @@ redis-cli -a YOUR_PASSWORD FLUSHALL   # Limpiar caché
 
 ---
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 ### Error 502 Bad Gateway
 

@@ -7,11 +7,15 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
+  IsObject,
   Min,
 } from 'class-validator';
 import {
   InterestedOperation,
   InterestedPropertyType,
+  InterestedQualificationLevel,
+  InterestedStatus,
 } from '../entities/interested-profile.entity';
 import { Type } from 'class-transformer';
 
@@ -56,6 +60,10 @@ export class CreateInterestedProfileDto {
   @IsOptional()
   guaranteeTypes?: string[];
 
+  @IsString({ each: true })
+  @IsOptional()
+  preferredZones?: string[];
+
   @IsEnum(InterestedPropertyType)
   @IsOptional()
   propertyTypePreference?: InterestedPropertyType;
@@ -63,6 +71,54 @@ export class CreateInterestedProfileDto {
   @IsEnum(InterestedOperation)
   @IsOptional()
   operation?: InterestedOperation;
+
+  @IsEnum(InterestedStatus)
+  @IsOptional()
+  status?: InterestedStatus;
+
+  @IsEnum(InterestedQualificationLevel)
+  @IsOptional()
+  qualificationLevel?: InterestedQualificationLevel;
+
+  @IsString()
+  @IsOptional()
+  qualificationNotes?: string;
+
+  @IsString()
+  @IsOptional()
+  source?: string;
+
+  @IsUUID()
+  @IsOptional()
+  assignedToUserId?: string;
+
+  @IsString()
+  @IsOptional()
+  organizationName?: string;
+
+  @IsObject()
+  @IsOptional()
+  customFields?: Record<string, unknown>;
+
+  @IsBoolean()
+  @IsOptional()
+  consentContact?: boolean;
+
+  @IsOptional()
+  @Type(() => Date)
+  consentRecordedAt?: Date;
+
+  @IsOptional()
+  @Type(() => Date)
+  lastContactAt?: Date;
+
+  @IsOptional()
+  @Type(() => Date)
+  nextContactAt?: Date;
+
+  @IsString()
+  @IsOptional()
+  lostReason?: string;
 
   @IsString()
   @IsOptional()

@@ -4,9 +4,30 @@ import { InterestedProfile } from './entities/interested-profile.entity';
 import { InterestedService } from './interested.service';
 import { InterestedController } from './interested.controller';
 import { Property } from '../properties/entities/property.entity';
+import { InterestedStageHistory } from './entities/interested-stage-history.entity';
+import { InterestedActivity } from './entities/interested-activity.entity';
+import { InterestedPropertyMatch } from './entities/interested-property-match.entity';
+import { PropertyVisit } from '../properties/entities/property-visit.entity';
+import { User } from '../users/entities/user.entity';
+import { Tenant } from '../tenants/entities/tenant.entity';
+import { SaleAgreement } from '../sales/entities/sale-agreement.entity';
+import { SaleFolder } from '../sales/entities/sale-folder.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([InterestedProfile, Property])],
+  imports: [
+    TypeOrmModule.forFeature([
+      InterestedProfile,
+      Property,
+      InterestedStageHistory,
+      InterestedActivity,
+      InterestedPropertyMatch,
+      PropertyVisit,
+      User,
+      Tenant,
+      SaleAgreement,
+      SaleFolder,
+    ]),
+  ],
   controllers: [InterestedController],
   providers: [InterestedService],
   exports: [InterestedService, TypeOrmModule],

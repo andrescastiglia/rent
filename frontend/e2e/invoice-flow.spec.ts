@@ -1,6 +1,18 @@
 import { test, expect, login, localePath } from './fixtures/auth';
+import type { Page } from '@playwright/test';
 
 test.describe('Invoice Flow', () => {
+    const invoiceLinksSelector = 'a[href*="/invoices/"]:not([href*="/invoices/new"])';
+
+    const openFirstInvoice = async (page: Page) => {
+        const firstInvoiceLink = page.locator(invoiceLinksSelector).first();
+        await expect(firstInvoiceLink).toBeVisible({ timeout: 10000 });
+        await Promise.all([
+            page.waitForURL(/\/es\/invoices\/[^/]+$/, { timeout: 10000 }),
+            firstInvoiceLink.click(),
+        ]);
+    };
+
     test.beforeEach(async ({ page }) => {
         await login(page);
         await page.goto(localePath('/invoices'));
@@ -13,24 +25,12 @@ test.describe('Invoice Flow', () => {
 
     test('should navigate to invoice details', async ({ page }) => {
         await page.goto(localePath('/invoices'));
-
-        // Wait for invoices to load
-        await page.waitForSelector('a[href*="/invoices/"]:not([href*="/invoices/new"])', { timeout: 5000 });
-
-        // Click on first invoice link
-        const firstInvoiceLink = page.locator('a[href*="/invoices/"]:not([href*="/invoices/new"])').first();
-        await firstInvoiceLink.click({ force: true });
-
-        // Should navigate to invoice detail page
-        await expect(page).toHaveURL(/\/es\/invoices\/[^/]+$/);
+        await openFirstInvoice(page);
     });
 
     test('should display invoice details correctly', async ({ page }) => {
         await page.goto(localePath('/invoices'));
-
-        // Wait for and click first invoice
-        await page.waitForSelector('a[href*="/invoices/"]:not([href*="/invoices/new"])', { timeout: 5000 });
-        await page.locator('a[href*="/invoices/"]:not([href*="/invoices/new"])').first().click({ force: true });
+        await openFirstInvoice(page);
 
         // Should show invoice heading or details (use level 1 heading)
         await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
@@ -67,12 +67,7 @@ test.describe('Invoice Flow', () => {
 
     test('should display invoice amounts and dates', async ({ page }) => {
         await page.goto(localePath('/invoices'));
-
-        // Wait for invoices to load
-        await page.waitForSelector('a[href*="/invoices/"]:not([href*="/invoices/new"])', { timeout: 5000 });
-
-        // Click on first invoice
-        await page.locator('a[href*="/invoices/"]:not([href*="/invoices/new"])').first().click({ force: true });
+        await openFirstInvoice(page);
 
         // Should display amount and date information
         // Look for currency symbols or date patterns

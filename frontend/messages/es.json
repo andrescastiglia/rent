@@ -249,13 +249,76 @@
     },
     "interested": {
         "title": "Interesados",
-        "subtitle": "Registra perfiles de interesados para matching",
+        "subtitle": "CRM comercial integrado para interesados",
         "newTitle": "Nuevo interesado",
         "listTitle": "Perfiles registrados",
         "matchesTitle": "Propiedades sugeridas",
         "matchesHint": "Selecciona un interesado para ver coincidencias.",
         "noMatches": "No hay coincidencias para este perfil.",
         "empty": "No hay interesados registrados.",
+        "timelineTitle": "Linea de tiempo",
+        "timelineEmpty": "Sin eventos para este perfil.",
+        "duplicateWarning": "Este lead tiene posibles duplicados ({count}). Revisar y consolidar.",
+        "labels": {
+            "score": "Puntaje"
+        },
+        "status": {
+            "new": "Nuevo",
+            "qualified": "Calificado",
+            "matching": "En matching",
+            "visit_scheduled": "Visita programada",
+            "offer_made": "Oferta",
+            "won": "Ganado",
+            "lost": "Perdido"
+        },
+        "matchStatus": {
+            "suggested": "Sugerido",
+            "contacted": "Contactado",
+            "visit_scheduled": "Visita programada",
+            "accepted": "Aceptado",
+            "rejected": "Rechazado",
+            "expired": "Vencido"
+        },
+        "activityTypes": {
+            "task": "Tarea",
+            "call": "Llamada",
+            "note": "Nota",
+            "email": "Email",
+            "whatsapp": "WhatsApp",
+            "visit": "Visita"
+        },
+        "activityStatus": {
+            "pending": "Pendiente",
+            "completed": "Completada",
+            "cancelled": "Cancelada"
+        },
+        "metrics": {
+            "totalLeads": "Total leads",
+            "conversionRate": "Tasa de conversion",
+            "avgCloseHours": "Tiempo medio de cierre",
+            "won": "Ganados"
+        },
+        "activities": {
+            "title": "Actividades",
+            "subject": "Asunto",
+            "body": "Detalle",
+            "templateName": "Plantilla (opcional)",
+            "add": "Agregar actividad",
+            "empty": "Sin actividades cargadas."
+        },
+        "conversion": {
+            "tenantTitle": "Convertir a inquilino",
+            "buyerTitle": "Convertir a comprador",
+            "email": "Email (opcional)",
+            "password": "Password temporal (opcional)",
+            "dni": "DNI (opcional)",
+            "folderId": "ID carpeta/loteo",
+            "totalAmount": "Monto total",
+            "installmentAmount": "Monto cuota",
+            "installmentCount": "Cantidad cuotas",
+            "toTenant": "Convertir a inquilino",
+            "toBuyer": "Convertir a comprador"
+        },
         "fields": {
             "firstName": "Nombre",
             "lastName": "Apellido",
@@ -266,6 +329,7 @@
             "hasPets": "Tiene mascotas",
             "whiteIncome": "Ingresos en blanco",
             "guaranteeTypes": "Tipos de garantía (separados por coma)",
+            "stageReason": "Motivo del cambio de etapa",
             "notes": "Notas"
         },
         "operations": {
@@ -278,10 +342,17 @@
         },
         "operationsLabel": "Operación: {op}",
         "actions": {
-            "save": "Guardar interesado"
+            "save": "Guardar interesado",
+            "saving": "Guardando...",
+            "reload": "Recargar",
+            "changeStage": "Cambiar etapa",
+            "refreshMatches": "Actualizar matches",
+            "markDone": "Marcar realizada"
         },
         "errors": {
-            "phoneRequired": "El teléfono es requerido"
+            "phoneRequired": "El teléfono es requerido",
+            "activitySubjectRequired": "El asunto de la actividad es obligatorio",
+            "buyerFieldsRequired": "Completa todos los campos de conversion a comprador"
         }
     },
     "sales": {

@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { Property } from './property.entity';
 import { PropertyVisitNotification } from './property-visit-notification.entity';
+import { InterestedProfile } from '../../interested/entities/interested-profile.entity';
 
 @Entity('property_visits')
 export class PropertyVisit {
@@ -26,8 +27,15 @@ export class PropertyVisit {
   @Column({ name: 'visited_at', type: 'timestamptz' })
   visitedAt: Date;
 
-  @Column({ name: 'interested_name' })
+  @Column({ name: 'interested_name', nullable: true })
   interestedName: string;
+
+  @Column({ name: 'interested_profile_id', nullable: true })
+  interestedProfileId: string;
+
+  @ManyToOne(() => InterestedProfile, { nullable: true })
+  @JoinColumn({ name: 'interested_profile_id' })
+  interestedProfile: InterestedProfile;
 
   @Column({ type: 'text', nullable: true })
   comments: string;

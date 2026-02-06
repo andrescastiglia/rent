@@ -285,6 +285,17 @@ CREATE TYPE visit_notification_status AS ENUM ('queued', 'sent', 'failed');
 -- Interested profiles
 CREATE TYPE interested_operation AS ENUM ('rent', 'sale');
 CREATE TYPE interested_property_type AS ENUM ('apartment', 'house');
+CREATE TYPE interested_status AS ENUM (
+    'new', 'qualified', 'matching', 'visit_scheduled', 'offer_made', 'won', 'lost'
+);
+CREATE TYPE interested_qualification_level AS ENUM ('mql', 'sql', 'rejected');
+CREATE TYPE interested_match_status AS ENUM (
+    'suggested', 'contacted', 'visit_scheduled', 'accepted', 'rejected', 'expired'
+);
+CREATE TYPE interested_activity_type AS ENUM (
+    'call', 'task', 'note', 'email', 'whatsapp', 'visit'
+);
+CREATE TYPE interested_activity_status AS ENUM ('pending', 'completed', 'cancelled');
 
 -- Billing job types
 CREATE TYPE billing_job_type AS ENUM (
@@ -404,6 +415,8 @@ CREATE TABLE users (
 CREATE INDEX idx_users_company_id ON users(company_id);
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_last_name ON users(last_name);
+CREATE INDEX idx_users_last_name_ci ON users(LOWER(last_name));
 CREATE INDEX idx_users_active ON users(is_active) WHERE is_active = TRUE;
 CREATE INDEX idx_users_deleted ON users(deleted_at) WHERE deleted_at IS NULL;
 CREATE INDEX idx_users_password_reset ON users(password_reset_token) WHERE password_reset_token IS NOT NULL;
@@ -505,19 +518,43 @@ CREATE TABLE interested_profiles (
     has_pets BOOLEAN DEFAULT FALSE,
     white_income BOOLEAN DEFAULT FALSE,
     guarantee_types TEXT[],
+    preferred_zones TEXT[],
     property_type_preference interested_property_type,
     operation interested_operation NOT NULL DEFAULT 'rent',
+    status interested_status NOT NULL DEFAULT 'new',
+    qualification_level interested_qualification_level,
+    qualification_notes TEXT,
+    source VARCHAR(100),
+    assigned_to_user_id UUID REFERENCES users(id),
+    organization_name VARCHAR(150),
+    custom_fields JSONB DEFAULT '{}',
+    last_contact_at TIMESTAMPTZ,
+    next_contact_at TIMESTAMPTZ,
+    lost_reason TEXT,
+    consent_contact BOOLEAN NOT NULL DEFAULT FALSE,
+    consent_recorded_at TIMESTAMPTZ,
+    converted_to_tenant_id UUID REFERENCES tenants(id),
+    converted_to_sale_agreement_id UUID,
     notes TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMPTZ
+    deleted_at TIMESTAMPTZ,
+    CONSTRAINT interested_profiles_people_count_check CHECK (people_count IS NULL OR people_count > 0),
+    CONSTRAINT interested_profiles_max_amount_check CHECK (max_amount IS NULL OR max_amount >= 0)
 );
 
 CREATE INDEX idx_interested_company ON interested_profiles(company_id);
 CREATE INDEX idx_interested_phone ON interested_profiles(phone);
 CREATE INDEX idx_interested_operation ON interested_profiles(operation);
+CREATE INDEX idx_interested_status ON interested_profiles(status);
+CREATE INDEX idx_interested_qualification_level ON interested_profiles(qualification_level);
+CREATE INDEX idx_interested_assigned_to ON interested_profiles(assigned_to_user_id);
 CREATE INDEX idx_interested_property_type ON interested_profiles(property_type_preference);
+CREATE INDEX idx_interested_next_contact_at ON interested_profiles(next_contact_at) WHERE next_contact_at IS NOT NULL;
 CREATE INDEX idx_interested_deleted ON interested_profiles(deleted_at) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX idx_interested_company_phone_operation_unique
+    ON interested_profiles(company_id, phone, operation)
+    WHERE deleted_at IS NULL;
 
 CREATE TRIGGER update_interested_profiles_updated_at
     BEFORE UPDATE ON interested_profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -645,6 +682,7 @@ CREATE INDEX idx_properties_owner ON properties(owner_id);
 CREATE INDEX idx_properties_type ON properties(property_type);
 CREATE INDEX idx_properties_status ON properties(status);
 CREATE INDEX idx_properties_city ON properties(address_city);
+CREATE INDEX idx_properties_sale_price ON properties(sale_price) WHERE sale_price IS NOT NULL;
 CREATE INDEX idx_properties_deleted ON properties(deleted_at) WHERE deleted_at IS NULL;
 CREATE INDEX idx_properties_location ON properties(latitude, longitude) 
     WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
@@ -728,18 +766,23 @@ CREATE TABLE property_visits (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
     visited_at TIMESTAMPTZ NOT NULL,
-    interested_name VARCHAR(255) NOT NULL,
+    interested_name VARCHAR(255),
+    interested_profile_id UUID REFERENCES interested_profiles(id) ON DELETE SET NULL,
     comments TEXT,
     has_offer BOOLEAN DEFAULT FALSE,
     offer_amount DECIMAL(12, 2),
     offer_currency VARCHAR(3) DEFAULT 'ARS',
     created_by_user_id UUID REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT property_visits_interested_ref_check
+        CHECK (interested_profile_id IS NOT NULL OR interested_name IS NOT NULL)
 );
 
 CREATE INDEX idx_property_visits_property ON property_visits(property_id);
 CREATE INDEX idx_property_visits_date ON property_visits(visited_at);
+CREATE INDEX idx_property_visits_interested_profile ON property_visits(interested_profile_id)
+    WHERE interested_profile_id IS NOT NULL;
 
 CREATE TRIGGER update_property_visits_updated_at
     BEFORE UPDATE ON property_visits FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -769,6 +812,92 @@ CREATE TRIGGER update_property_visit_notifications_updated_at
     BEFORE UPDATE ON property_visit_notifications FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 COMMENT ON TABLE property_visit_notifications IS 'Notification log for property visits';
+
+-- -----------------------------------------------------------------------------
+-- Interested Property Matches
+-- -----------------------------------------------------------------------------
+CREATE TABLE interested_property_matches (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    interested_profile_id UUID NOT NULL REFERENCES interested_profiles(id) ON DELETE CASCADE,
+    property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+    status interested_match_status NOT NULL DEFAULT 'suggested',
+    score DECIMAL(5, 2),
+    match_reasons TEXT[],
+    first_matched_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_matched_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    contacted_at TIMESTAMPTZ,
+    notes TEXT,
+    created_by_user_id UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ,
+    CONSTRAINT interested_property_matches_unique UNIQUE (interested_profile_id, property_id),
+    CONSTRAINT interested_property_matches_score_check CHECK (score IS NULL OR (score >= 0 AND score <= 100))
+);
+
+CREATE INDEX idx_interested_property_matches_company ON interested_property_matches(company_id);
+CREATE INDEX idx_interested_property_matches_interested ON interested_property_matches(interested_profile_id);
+CREATE INDEX idx_interested_property_matches_property ON interested_property_matches(property_id);
+CREATE INDEX idx_interested_property_matches_status ON interested_property_matches(status);
+CREATE INDEX idx_interested_property_matches_score ON interested_property_matches(score DESC)
+    WHERE score IS NOT NULL;
+CREATE INDEX idx_interested_property_matches_deleted ON interested_property_matches(deleted_at)
+    WHERE deleted_at IS NULL;
+
+CREATE TRIGGER update_interested_property_matches_updated_at
+    BEFORE UPDATE ON interested_property_matches FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE interested_property_matches IS 'Cross-search results between interested profiles and properties';
+
+-- -----------------------------------------------------------------------------
+-- Interested Stage History
+-- -----------------------------------------------------------------------------
+CREATE TABLE interested_stage_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    interested_profile_id UUID NOT NULL REFERENCES interested_profiles(id) ON DELETE CASCADE,
+    from_status interested_status NOT NULL,
+    to_status interested_status NOT NULL,
+    reason TEXT,
+    changed_by_user_id UUID REFERENCES users(id),
+    changed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_interested_stage_history_profile ON interested_stage_history(interested_profile_id);
+CREATE INDEX idx_interested_stage_history_changed_at ON interested_stage_history(changed_at DESC);
+CREATE INDEX idx_interested_stage_history_to_status ON interested_stage_history(to_status);
+
+COMMENT ON TABLE interested_stage_history IS 'History of pipeline stage changes for interested profiles';
+
+-- -----------------------------------------------------------------------------
+-- Interested Activities
+-- -----------------------------------------------------------------------------
+CREATE TABLE interested_activities (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    interested_profile_id UUID NOT NULL REFERENCES interested_profiles(id) ON DELETE CASCADE,
+    type interested_activity_type NOT NULL,
+    status interested_activity_status NOT NULL DEFAULT 'pending',
+    subject VARCHAR(200) NOT NULL,
+    body TEXT,
+    due_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    template_name VARCHAR(120),
+    metadata JSONB NOT NULL DEFAULT '{}',
+    created_by_user_id UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_interested_activities_profile ON interested_activities(interested_profile_id);
+CREATE INDEX idx_interested_activities_status ON interested_activities(status);
+CREATE INDEX idx_interested_activities_due_at ON interested_activities(due_at)
+    WHERE due_at IS NOT NULL;
+
+CREATE TRIGGER update_interested_activities_updated_at
+    BEFORE UPDATE ON interested_activities FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE interested_activities IS 'Tasks, calls, notes and communications for CRM follow-up';
 
 \echo '✓ Tablas de propiedades creadas'
 
@@ -1231,7 +1360,8 @@ CREATE TABLE sale_receipts (
     copy_count INTEGER DEFAULT 2,
     pdf_url VARCHAR(500),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT sale_receipts_copy_count_check CHECK (copy_count >= 2)
 );
 
 CREATE INDEX idx_sale_receipts_agreement ON sale_receipts(agreement_id);
@@ -1942,8 +2072,11 @@ SET TIME ZONE 'America/Argentina/Buenos_Aires';
 \echo 'Schemas: public, audit, functions'
 \echo ''
 \echo 'Tablas creadas:'
-\echo '  - Core: companies, users, owners, tenants, staff, admins'
+\echo '  - Core: companies, users, owners, tenants, interested_profiles,'
+\echo '          staff, admins'
 \echo '  - Properties: properties, units, property_features'
+\echo '                property_visits, property_visit_notifications,'
+\echo '                interested_property_matches'
 \echo '  - Documents: documents'
 \echo '  - Leases: leases, lease_amendments'
 \echo '  - Financial: tenant_accounts, movements, invoices,'

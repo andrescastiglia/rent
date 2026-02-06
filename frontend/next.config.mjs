@@ -21,13 +21,18 @@ const nextConfig = {
         ],
     },
     async headers() {
+        const isProduction = process.env.NODE_ENV === 'production';
+        const csp = isProduction
+            ? "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none';"
+            : "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none';";
+
         return [
             {
                 source: '/:path*',
                 headers: [
                     {
                         key: 'Content-Security-Policy',
-                        value: "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; object-src 'none'; base-uri 'none';",
+                        value: csp,
                     },
                     {
                         key: 'Strict-Transport-Security',

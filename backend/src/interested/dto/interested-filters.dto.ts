@@ -3,6 +3,8 @@ import { Type } from 'class-transformer';
 import {
   InterestedOperation,
   InterestedPropertyType,
+  InterestedQualificationLevel,
+  InterestedStatus,
 } from '../entities/interested-profile.entity';
 
 export class InterestedFiltersDto {
@@ -21,6 +23,14 @@ export class InterestedFiltersDto {
   @IsEnum(InterestedPropertyType)
   @IsOptional()
   propertyTypePreference?: InterestedPropertyType;
+
+  @IsEnum(InterestedStatus)
+  @IsOptional()
+  status?: InterestedStatus;
+
+  @IsEnum(InterestedQualificationLevel)
+  @IsOptional()
+  qualificationLevel?: InterestedQualificationLevel;
 
   @IsInt()
   @Min(1)

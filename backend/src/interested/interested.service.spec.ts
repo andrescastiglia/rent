@@ -1,18 +1,28 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { InterestedService } from './interested.service';
 import {
   InterestedProfile,
   InterestedOperation,
   InterestedPropertyType,
+  InterestedStatus,
 } from './entities/interested-profile.entity';
 import { Property } from '../properties/entities/property.entity';
+import { InterestedStageHistory } from './entities/interested-stage-history.entity';
+import { InterestedActivity } from './entities/interested-activity.entity';
+import { InterestedPropertyMatch } from './entities/interested-property-match.entity';
+import { PropertyVisit } from '../properties/entities/property-visit.entity';
+import { User } from '../users/entities/user.entity';
+import { Tenant } from '../tenants/entities/tenant.entity';
+import { SaleAgreement } from '../sales/entities/sale-agreement.entity';
+import { SaleFolder } from '../sales/entities/sale-folder.entity';
 
 describe('InterestedService', () => {
   let service: InterestedService;
   let interestedRepository: MockRepository<InterestedProfile>;
   let propertiesRepository: MockRepository<Property>;
+  let stageHistoryRepository: MockRepository<InterestedStageHistory>;
 
   type MockRepository<T extends Record<string, any> = any> = Partial<
     Record<keyof Repository<T>, jest.Mock>
@@ -37,12 +47,53 @@ describe('InterestedService', () => {
           provide: getRepositoryToken(Property),
           useValue: createMockRepository(),
         },
+        {
+          provide: getRepositoryToken(InterestedStageHistory),
+          useValue: createMockRepository(),
+        },
+        {
+          provide: getRepositoryToken(InterestedActivity),
+          useValue: createMockRepository(),
+        },
+        {
+          provide: getRepositoryToken(InterestedPropertyMatch),
+          useValue: createMockRepository(),
+        },
+        {
+          provide: getRepositoryToken(PropertyVisit),
+          useValue: createMockRepository(),
+        },
+        {
+          provide: getRepositoryToken(User),
+          useValue: createMockRepository(),
+        },
+        {
+          provide: getRepositoryToken(Tenant),
+          useValue: createMockRepository(),
+        },
+        {
+          provide: getRepositoryToken(SaleAgreement),
+          useValue: createMockRepository(),
+        },
+        {
+          provide: getRepositoryToken(SaleFolder),
+          useValue: createMockRepository(),
+        },
+        {
+          provide: DataSource,
+          useValue: {
+            transaction: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
     service = module.get(InterestedService);
     interestedRepository = module.get(getRepositoryToken(InterestedProfile));
     propertiesRepository = module.get(getRepositoryToken(Property));
+    stageHistoryRepository = module.get(
+      getRepositoryToken(InterestedStageHistory),
+    );
   });
 
   it('should create a detailed interested profile', async () => {
@@ -64,10 +115,21 @@ describe('InterestedService', () => {
       id: 'int-1',
       ...dto,
       companyId: 'company-1',
+      status: InterestedStatus.NEW,
     } as InterestedProfile;
 
+    const duplicateQueryBuilder = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    };
+    interestedRepository.createQueryBuilder!.mockReturnValue(
+      duplicateQueryBuilder as any,
+    );
     interestedRepository.create!.mockReturnValue(created);
     interestedRepository.save!.mockResolvedValue(created);
+    stageHistoryRepository.create!.mockReturnValue({} as any);
+    stageHistoryRepository.save!.mockResolvedValue({} as any);
 
     const result = await service.create(dto as any, {
       id: 'user-1',
@@ -78,7 +140,9 @@ describe('InterestedService', () => {
     expect(interestedRepository.create).toHaveBeenCalledWith({
       ...dto,
       companyId: 'company-1',
+      status: InterestedStatus.NEW,
     });
+    expect(stageHistoryRepository.save).toHaveBeenCalled();
     expect(result).toEqual(created);
   });
 

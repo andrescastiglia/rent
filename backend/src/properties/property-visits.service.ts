@@ -48,11 +48,17 @@ export class PropertyVisitsService {
     if (hasOffer && dto.offerAmount === undefined) {
       throw new BadRequestException('Offer amount is required when hasOffer');
     }
+    if (!dto.interestedName && !dto.interestedProfileId) {
+      throw new BadRequestException(
+        'Interested name or interested profile is required',
+      );
+    }
 
     const visit = this.propertyVisitsRepository.create({
       propertyId,
       visitedAt,
       interestedName: dto.interestedName,
+      interestedProfileId: dto.interestedProfileId,
       comments: dto.comments,
       hasOffer,
       offerAmount: dto.offerAmount,
@@ -116,7 +122,7 @@ export class PropertyVisitsService {
     const messageParts = [
       `Visita registrada para ${property.name}.`,
       `Fecha: ${visit.visitedAt.toISOString()}.`,
-      `Interesado: ${visit.interestedName}.`,
+      `Interesado: ${visit.interestedName ?? visit.interestedProfileId ?? 'N/D'}.`,
     ];
 
     if (visit.comments) {

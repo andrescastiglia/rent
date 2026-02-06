@@ -249,13 +249,76 @@
     },
     "interested": {
         "title": "Interested Profiles",
-        "subtitle": "Register interested profiles for matching",
+        "subtitle": "Integrated CRM for lead management",
         "newTitle": "New interested profile",
         "listTitle": "Registered profiles",
         "matchesTitle": "Suggested properties",
         "matchesHint": "Select a profile to see matches.",
         "noMatches": "No matches for this profile.",
         "empty": "No interested profiles yet.",
+        "timelineTitle": "Timeline",
+        "timelineEmpty": "No events for this profile.",
+        "duplicateWarning": "This lead has potential duplicates ({count}). Review and merge.",
+        "labels": {
+            "score": "Score"
+        },
+        "status": {
+            "new": "New",
+            "qualified": "Qualified",
+            "matching": "Matching",
+            "visit_scheduled": "Visit scheduled",
+            "offer_made": "Offer made",
+            "won": "Won",
+            "lost": "Lost"
+        },
+        "matchStatus": {
+            "suggested": "Suggested",
+            "contacted": "Contacted",
+            "visit_scheduled": "Visit scheduled",
+            "accepted": "Accepted",
+            "rejected": "Rejected",
+            "expired": "Expired"
+        },
+        "activityTypes": {
+            "task": "Task",
+            "call": "Call",
+            "note": "Note",
+            "email": "Email",
+            "whatsapp": "WhatsApp",
+            "visit": "Visit"
+        },
+        "activityStatus": {
+            "pending": "Pending",
+            "completed": "Completed",
+            "cancelled": "Cancelled"
+        },
+        "metrics": {
+            "totalLeads": "Total leads",
+            "conversionRate": "Conversion rate",
+            "avgCloseHours": "Avg close time",
+            "won": "Won"
+        },
+        "activities": {
+            "title": "Activities",
+            "subject": "Subject",
+            "body": "Detail",
+            "templateName": "Template (optional)",
+            "add": "Add activity",
+            "empty": "No activities yet."
+        },
+        "conversion": {
+            "tenantTitle": "Convert to tenant",
+            "buyerTitle": "Convert to buyer",
+            "email": "Email (optional)",
+            "password": "Temporary password (optional)",
+            "dni": "DNI (optional)",
+            "folderId": "Folder/loteo ID",
+            "totalAmount": "Total amount",
+            "installmentAmount": "Installment amount",
+            "installmentCount": "Installments",
+            "toTenant": "Convert to tenant",
+            "toBuyer": "Convert to buyer"
+        },
         "fields": {
             "firstName": "First name",
             "lastName": "Last name",
@@ -266,6 +329,7 @@
             "hasPets": "Has pets",
             "whiteIncome": "White income",
             "guaranteeTypes": "Guarantee types (comma separated)",
+            "stageReason": "Stage change reason",
             "notes": "Notes"
         },
         "operations": {
@@ -278,10 +342,17 @@
         },
         "operationsLabel": "Operation: {op}",
         "actions": {
-            "save": "Save profile"
+            "save": "Save profile",
+            "saving": "Saving...",
+            "reload": "Reload",
+            "changeStage": "Change stage",
+            "refreshMatches": "Refresh matches",
+            "markDone": "Mark done"
         },
         "errors": {
-            "phoneRequired": "Phone is required"
+            "phoneRequired": "Phone is required",
+            "activitySubjectRequired": "Activity subject is required",
+            "buyerFieldsRequired": "Complete all buyer conversion fields"
         }
     },
     "sales": {
