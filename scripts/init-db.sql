@@ -284,7 +284,9 @@ CREATE TYPE visit_notification_status AS ENUM ('queued', 'sent', 'failed');
 
 -- Interested profiles
 CREATE TYPE interested_operation AS ENUM ('rent', 'sale');
-CREATE TYPE interested_property_type AS ENUM ('apartment', 'house');
+CREATE TYPE interested_property_type AS ENUM (
+    'apartment', 'house', 'commercial', 'office', 'warehouse', 'land', 'parking', 'other'
+);
 CREATE TYPE interested_status AS ENUM (
     'new', 'qualified', 'matching', 'visit_scheduled', 'offer_made', 'won', 'lost'
 );
@@ -514,11 +516,14 @@ CREATE TABLE interested_profiles (
     phone VARCHAR(50) NOT NULL,
     email VARCHAR(255),
     people_count INTEGER,
+    min_amount DECIMAL(12, 2),
     max_amount DECIMAL(12, 2),
     has_pets BOOLEAN DEFAULT FALSE,
     white_income BOOLEAN DEFAULT FALSE,
     guarantee_types TEXT[],
     preferred_zones TEXT[],
+    preferred_city VARCHAR(120),
+    desired_features TEXT[],
     property_type_preference interested_property_type,
     operation interested_operation NOT NULL DEFAULT 'rent',
     status interested_status NOT NULL DEFAULT 'new',
@@ -540,6 +545,7 @@ CREATE TABLE interested_profiles (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMPTZ,
     CONSTRAINT interested_profiles_people_count_check CHECK (people_count IS NULL OR people_count > 0),
+    CONSTRAINT interested_profiles_min_amount_check CHECK (min_amount IS NULL OR min_amount >= 0),
     CONSTRAINT interested_profiles_max_amount_check CHECK (max_amount IS NULL OR max_amount >= 0)
 );
 

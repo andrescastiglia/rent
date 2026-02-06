@@ -46,9 +46,6 @@ const emptyForm: CreateInterestedProfileInput = {
   minAmount: undefined,
   maxAmount: undefined,
   hasPets: false,
-  whiteIncome: false,
-  guaranteeTypes: [],
-  preferredZones: [],
   preferredCity: '',
   desiredFeatures: [],
   propertyTypePreference: 'apartment',
@@ -124,9 +121,6 @@ export default function InterestedPage() {
       minAmount: profile.minAmount,
       maxAmount: profile.maxAmount,
       hasPets: profile.hasPets ?? false,
-      whiteIncome: profile.whiteIncome ?? false,
-      guaranteeTypes: profile.guaranteeTypes ?? [],
-      preferredZones: profile.preferredZones ?? [],
       preferredCity: profile.preferredCity ?? '',
       desiredFeatures: profile.desiredFeatures ?? [],
       propertyTypePreference: profile.propertyTypePreference ?? 'apartment',
@@ -216,8 +210,6 @@ export default function InterestedPage() {
         email: form.email?.trim() || undefined,
         preferredCity: form.preferredCity?.trim() || undefined,
         notes: form.notes?.trim() || undefined,
-        guaranteeTypes: form.guaranteeTypes?.filter((g) => g.trim().length > 0),
-        preferredZones: form.preferredZones?.filter((g) => g.trim().length > 0),
         desiredFeatures: form.desiredFeatures?.filter((g) => g.trim().length > 0),
       };
 
@@ -571,30 +563,6 @@ export default function InterestedPage() {
                   />
                   <input
                     type="text"
-                    placeholder={t('fields.preferredZones')}
-                    value={(form.preferredZones ?? []).join(', ')}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        preferredZones: e.target.value.split(',').map((item) => item.trim()),
-                      }))
-                    }
-                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                  />
-                  <input
-                    type="text"
-                    placeholder={t('fields.guaranteeTypes')}
-                    value={(form.guaranteeTypes ?? []).join(', ')}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        guaranteeTypes: e.target.value.split(',').map((item) => item.trim()),
-                      }))
-                    }
-                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                  />
-                  <input
-                    type="text"
                     placeholder={t('fields.desiredFeatures')}
                     value={(form.desiredFeatures ?? []).join(', ')}
                     onChange={(e) =>
@@ -613,15 +581,6 @@ export default function InterestedPage() {
                       className="rounded border-gray-300 dark:border-gray-600"
                     />
                     {t('fields.hasPets')}
-                  </label>
-                  <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                    <input
-                      type="checkbox"
-                      checked={form.whiteIncome ?? false}
-                      onChange={(e) => setForm((prev) => ({ ...prev, whiteIncome: e.target.checked }))}
-                      className="rounded border-gray-300 dark:border-gray-600"
-                    />
-                    {t('fields.whiteIncome')}
                   </label>
                   <textarea
                     placeholder={t('fields.notes')}

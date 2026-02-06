@@ -110,10 +110,13 @@ describe('InterestedService', () => {
       phone: '+54 9 11 3333-2222',
       email: 'carla@example.com',
       peopleCount: 3,
+      minAmount: 80000,
       maxAmount: 250000,
       hasPets: true,
       whiteIncome: true,
       guaranteeTypes: ['seguro_caucion'],
+      preferredCity: 'CABA',
+      desiredFeatures: ['balcon', 'pileta'],
       propertyTypePreference: InterestedPropertyType.APARTMENT,
       operation: InterestedOperation.RENT,
     };

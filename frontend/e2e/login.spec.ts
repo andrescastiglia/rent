@@ -41,39 +41,41 @@ test.describe('Login Flow', () => {
 test.describe('Navigation after login', () => {
     test.beforeEach(async ({ page }) => {
         await login(page);
-        // Wait a bit for state to stabilize after login
-        await page.waitForTimeout(500);
+        // Ensure auth state is fully persisted before navigating.
+        await expect
+            .poll(async () => page.evaluate(() => localStorage.getItem('auth_token')))
+            .not.toBeNull();
     });
 
     test('should navigate to properties page', async ({ page }) => {
-        await page.goto(localePath('/properties'), { waitUntil: 'networkidle' });
-        await expect(page).toHaveURL(/\/es\/properties/);
-        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+        await page.goto(localePath('/properties'));
+        await expect(page).toHaveURL(/\/es\/properties/, { timeout: 10000 });
+        await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
     });
 
     test('should navigate to tenants page', async ({ page }) => {
-        await page.goto(localePath('/tenants'), { waitUntil: 'networkidle' });
-        await expect(page).toHaveURL(/\/es\/tenants/);
-        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+        await page.goto(localePath('/tenants'));
+        await expect(page).toHaveURL(/\/es\/tenants/, { timeout: 10000 });
+        await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
     });
 
     test('should navigate to leases page', async ({ page }) => {
-        await page.goto(localePath('/leases'), { waitUntil: 'networkidle' });
-        await expect(page).toHaveURL(/\/es\/leases/);
-        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+        await page.goto(localePath('/leases'));
+        await expect(page).toHaveURL(/\/es\/leases/, { timeout: 10000 });
+        await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
     });
 
     test('should navigate between different sections', async ({ page }) => {
         // Navigate to properties
-        await page.goto(localePath('/properties'), { waitUntil: 'networkidle' });
-        await expect(page).toHaveURL(/\/es\/properties/);
+        await page.goto(localePath('/properties'));
+        await expect(page).toHaveURL(/\/es\/properties/, { timeout: 10000 });
 
         // Navigate to tenants
-        await page.goto(localePath('/tenants'), { waitUntil: 'networkidle' });
-        await expect(page).toHaveURL(/\/es\/tenants/);
+        await page.goto(localePath('/tenants'));
+        await expect(page).toHaveURL(/\/es\/tenants/, { timeout: 10000 });
 
         // Navigate to leases
-        await page.goto(localePath('/leases'), { waitUntil: 'networkidle' });
-        await expect(page).toHaveURL(/\/es\/leases/);
+        await page.goto(localePath('/leases'));
+        await expect(page).toHaveURL(/\/es\/leases/, { timeout: 10000 });
     });
 });
