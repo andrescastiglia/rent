@@ -10,7 +10,17 @@ import {
   CreatePropertyMaintenanceTaskInput,
 } from '@/types/property';
 import { propertiesApi } from '@/lib/api/properties';
-import { Edit, ArrowLeft, MapPin, Building, Trash2, Loader2, FilePlus } from 'lucide-react';
+import {
+  Edit,
+  ArrowLeft,
+  MapPin,
+  Building,
+  Trash2,
+  Loader2,
+  FilePlus,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
 import { useAuth } from '@/contexts/auth-context';
@@ -27,6 +37,7 @@ export default function PropertyDetailPage() {
   const [maintenanceTasks, setMaintenanceTasks] = useState<PropertyMaintenanceTask[]>([]);
   const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
   const [isSubmittingMaintenance, setIsSubmittingMaintenance] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const defaultTaskDate = useMemo(() => {
@@ -48,6 +59,10 @@ export default function PropertyDetailPage() {
       loadProperty(propertyId);
     }
   }, [propertyId, authLoading]);
+
+  useEffect(() => {
+    setCurrentImageIndex(0);
+  }, [property?.id, property?.images?.length]);
 
   const loadProperty = async (id: string) => {
     try {
@@ -157,6 +172,8 @@ export default function PropertyDetailPage() {
   const canCreateLease = (property.operations ?? []).some(
     (operation) => operation === 'rent' || operation === 'leasing',
   );
+  const hasMultipleImages = property.images.length > 1;
+  const currentImage = property.images[currentImageIndex] ?? property.images[0];
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -169,17 +186,50 @@ export default function PropertyDetailPage() {
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="relative h-64 md:h-96 bg-gray-200 dark:bg-gray-700">
-          {property.images.length > 0 ? (
+          {currentImage ? (
             <Image
-              src={property.images[0]}
+              src={currentImage}
               alt={property.name}
               fill
+              unoptimized
               className="object-cover"
             />
           ) : (
             <div className="flex items-center justify-center h-full text-gray-400">
               <Building size={64} />
             </div>
+          )}
+          {hasMultipleImages && (
+            <>
+              <button
+                type="button"
+                onClick={() =>
+                  setCurrentImageIndex(
+                    (prev) =>
+                      (prev - 1 + property.images.length) % property.images.length,
+                  )
+                }
+                className="absolute left-3 top-1/2 -translate-y-1/2 p-2 bg-black/45 text-white rounded-full hover:bg-black/65 transition-colors"
+                aria-label={t('previousImage')}
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setCurrentImageIndex(
+                    (prev) => (prev + 1) % property.images.length,
+                  )
+                }
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-black/45 text-white rounded-full hover:bg-black/65 transition-colors"
+                aria-label={t('nextImage')}
+              >
+                <ChevronRight size={18} />
+              </button>
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/45 text-white text-xs px-2 py-1 rounded">
+                {currentImageIndex + 1} / {property.images.length}
+              </div>
+            </>
           )}
           <div className="absolute top-4 right-4 flex space-x-2">
             <Link

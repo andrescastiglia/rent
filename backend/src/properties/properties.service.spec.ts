@@ -118,6 +118,7 @@ describe('PropertiesService', () => {
         ...createPropertyDto,
         companyId: 'company-1',
         ownerId: 'owner-1',
+        images: [],
       });
       expect(propertyRepository.save).toHaveBeenCalledWith(mockProperty);
       expect(result).toEqual(mockProperty);
@@ -160,6 +161,7 @@ describe('PropertiesService', () => {
         ...createPropertyDto,
         companyId: 'company-1',
         ownerId: 'owner-1',
+        images: [],
       });
       expect(result.ownerWhatsapp).toBe('+54 9 11 1234-5678');
     });

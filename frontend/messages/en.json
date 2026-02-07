@@ -261,7 +261,9 @@
         "maintenanceErrors": {
             "titleRequired": "Task title is required",
             "invalidDate": "Invalid date"
-        }
+        },
+        "previousImage": "Previous image",
+        "nextImage": "Next image"
     },
     "interested": {
         "title": "Prospects",

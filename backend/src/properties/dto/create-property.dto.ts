@@ -138,4 +138,9 @@ export class CreatePropertyDto {
   @IsInt()
   @Min(1)
   maxOccupants?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
 }

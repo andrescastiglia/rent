@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
+import { existsSync, unlinkSync } from 'fs';
+import { join } from 'path';
 import { Property } from './entities/property.entity';
 import { Unit, UnitStatus } from './entities/unit.entity';
 import { CreatePropertyDto } from './dto/create-property.dto';
@@ -42,9 +44,13 @@ export class PropertiesService {
       createPropertyDto.ownerId,
       user,
     );
+    const normalizedImages = this.normalizePropertyImages(
+      createPropertyDto.images,
+    );
 
     const property = this.propertiesRepository.create({
       ...createPropertyDto,
+      images: normalizedImages,
       companyId: user.companyId,
       ownerId: owner.id,
     });
@@ -161,6 +167,9 @@ export class PropertiesService {
     userRole: string,
   ): Promise<Property> {
     const property = await this.findOne(id);
+    const previousImageRefs = Array.isArray(property.images)
+      ? [...property.images]
+      : [];
 
     // Check ownership (only owner or admin can update)
     // property.owner is loaded via relation and has userId
@@ -168,8 +177,24 @@ export class PropertiesService {
       throw new ForbiddenException('You can only update your own properties');
     }
 
+    if (updatePropertyDto.images !== undefined) {
+      updatePropertyDto.images = this.normalizePropertyImages(
+        updatePropertyDto.images,
+      );
+    }
+
     Object.assign(property, updatePropertyDto);
-    return this.propertiesRepository.save(property);
+    const updatedProperty = await this.propertiesRepository.save(property);
+
+    if (updatePropertyDto.images !== undefined) {
+      const removedImageRefs = this.findRemovedImageRefs(
+        previousImageRefs,
+        updatePropertyDto.images,
+      );
+      this.deletePropertyImages(removedImageRefs);
+    }
+
+    return updatedProperty;
   }
 
   async remove(id: string, userId: string, userRole: string): Promise<void> {
@@ -192,6 +217,14 @@ export class PropertiesService {
     }
 
     await this.propertiesRepository.softDelete(id);
+    this.deletePropertyImages(
+      Array.isArray(property.images) ? property.images : [],
+    );
+  }
+
+  discardUploadedImages(images: string[]): { deleted: number } {
+    const deleted = this.deletePropertyImages(images);
+    return { deleted };
   }
 
   private async resolveOwnerForCreate(
@@ -239,5 +272,113 @@ export class PropertiesService {
     throw new NotFoundException(
       'Owner profile for current user was not found in this company',
     );
+  }
+
+  private normalizePropertyImages(images?: string[]): string[] {
+    if (!Array.isArray(images)) {
+      return [];
+    }
+
+    return Array.from(
+      new Set(
+        images
+          .map((imageRef) => this.toPropertyImageRelativeUrl(imageRef))
+          .filter((imageRef): imageRef is string => Boolean(imageRef)),
+      ),
+    );
+  }
+
+  private findRemovedImageRefs(
+    previousImageRefs: string[],
+    nextImageRefs: string[],
+  ): string[] {
+    const nextImageNames = new Set(
+      nextImageRefs
+        .map((imageRef) => this.toPropertyImageFileName(imageRef))
+        .filter((name): name is string => Boolean(name)),
+    );
+
+    return previousImageRefs.filter((imageRef) => {
+      const fileName = this.toPropertyImageFileName(imageRef);
+      if (!fileName) {
+        return false;
+      }
+      return !nextImageNames.has(fileName);
+    });
+  }
+
+  private deletePropertyImages(imageRefs: string[]): number {
+    if (!Array.isArray(imageRefs) || imageRefs.length === 0) {
+      return 0;
+    }
+
+    let deletedCount = 0;
+    for (const imageRef of imageRefs) {
+      const fileName = this.toPropertyImageFileName(imageRef);
+      if (!fileName) {
+        continue;
+      }
+
+      const filePath = join(process.cwd(), 'uploads', 'properties', fileName);
+      if (!existsSync(filePath)) {
+        continue;
+      }
+
+      try {
+        unlinkSync(filePath);
+        deletedCount += 1;
+      } catch {
+        continue;
+      }
+    }
+
+    return deletedCount;
+  }
+
+  private toPropertyImageRelativeUrl(imageRef: string): string | null {
+    const fileName = this.toPropertyImageFileName(imageRef);
+    if (!fileName) {
+      return null;
+    }
+
+    return `/uploads/properties/${fileName}`;
+  }
+
+  private toPropertyImageFileName(imageRef: string): string | null {
+    if (!imageRef || typeof imageRef !== 'string') {
+      return null;
+    }
+
+    let pathname = imageRef.trim();
+    if (!pathname) {
+      return null;
+    }
+
+    if (pathname.startsWith('http://') || pathname.startsWith('https://')) {
+      try {
+        const parsed = new URL(pathname);
+        pathname = parsed.pathname;
+      } catch {
+        return null;
+      }
+    }
+
+    if (!pathname.startsWith('/uploads/properties/')) {
+      return null;
+    }
+
+    const fileName = decodeURIComponent(
+      pathname.slice('/uploads/properties/'.length),
+    );
+    if (
+      !fileName ||
+      fileName.includes('/') ||
+      fileName.includes('\\') ||
+      fileName.includes('..')
+    ) {
+      return null;
+    }
+
+    return fileName;
   }
 }

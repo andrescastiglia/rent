@@ -84,6 +84,7 @@ type BackendCreatePropertyPayload = {
     allowsPets?: boolean;
     acceptedGuaranteeTypes?: string[];
     maxOccupants?: number;
+    images?: string[];
 };
 
 type BackendUpdatePropertyPayload = Partial<
@@ -117,9 +118,17 @@ const normalizeImages = (images: any[] | null | undefined): string[] => {
 };
 
 const normalizePropertyImageUrl = (url: string): string => {
-    if (!url.startsWith('http://')) return url;
+    if (!url) return url;
+    if (url.startsWith('/uploads/')) return url;
     try {
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            return url;
+        }
+
         const parsed = new URL(url);
+        if (parsed.pathname.startsWith('/uploads/')) {
+            return `${parsed.pathname}${parsed.search}`;
+        }
         if (parsed.hostname === 'rent.maese.com.ar') {
             parsed.protocol = 'https:';
             return parsed.toString();
@@ -238,6 +247,9 @@ const serializeCreatePayload = (
         allowsPets: data.allowsPets,
         acceptedGuaranteeTypes: data.acceptedGuaranteeTypes,
         maxOccupants: data.maxOccupants,
+        images: Array.isArray(data.images)
+            ? data.images.map(normalizePropertyImageUrl)
+            : undefined,
     };
 };
 
@@ -266,6 +278,9 @@ const serializeUpdatePayload = (
     if (data.allowsPets !== undefined) payload.allowsPets = data.allowsPets;
     if (data.acceptedGuaranteeTypes !== undefined) payload.acceptedGuaranteeTypes = data.acceptedGuaranteeTypes;
     if (data.maxOccupants !== undefined) payload.maxOccupants = data.maxOccupants;
+    if (data.images !== undefined) {
+        payload.images = data.images.map(normalizePropertyImageUrl);
+    }
     if (isUuid(data.ownerId)) {
         payload.ownerId = data.ownerId;
     }
@@ -680,5 +695,25 @@ export const propertiesApi = {
             return normalizePropertyImageUrl(result.url);
         }
         throw new Error('Unexpected response shape from /properties/upload');
+    },
+
+    discardUploadedImages: async (images: string[]): Promise<{ deleted: number }> => {
+        if (!Array.isArray(images) || images.length === 0) {
+            return { deleted: 0 };
+        }
+
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            return { deleted: images.length };
+        }
+
+        const token = getToken();
+        return apiClient.post<{ deleted: number }>(
+            '/properties/uploads/discard',
+            {
+                images: images.map(normalizePropertyImageUrl),
+            },
+            token ?? undefined,
+        );
     }
 };

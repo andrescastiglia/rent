@@ -2,16 +2,17 @@
 
 import React, { useState, useRef } from 'react';
 import Image from 'next/image';
-import { Upload, X, Image as ImageIcon } from 'lucide-react';
+import { Upload, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 interface ImageUploadProps {
   images: string[];
   onChange: (images: string[]) => void;
   onUpload: (file: File) => Promise<string>;
+  onRemove?: (url: string) => void | Promise<void>;
 }
 
-export function ImageUpload({ images, onChange, onUpload }: ImageUploadProps) {
+export function ImageUpload({ images, onChange, onUpload, onRemove }: ImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const t = useTranslations('forms');
@@ -42,8 +43,13 @@ export function ImageUpload({ images, onChange, onUpload }: ImageUploadProps) {
 
   const removeImage = (index: number) => {
     const newImages = [...images];
-    newImages.splice(index, 1);
+    const [removedUrl] = newImages.splice(index, 1);
     onChange(newImages);
+    if (removedUrl && onRemove) {
+      void Promise.resolve(onRemove(removedUrl)).catch((error) => {
+        console.error('Error removing image:', error);
+      });
+    }
   };
 
   return (
@@ -51,7 +57,14 @@ export function ImageUpload({ images, onChange, onUpload }: ImageUploadProps) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {images.map((url, index) => (
           <div key={index} className="relative group aspect-video bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
-            <Image src={url} alt={`${t('propertyImage')} ${index + 1}`} fill className="object-cover" />
+            <Image
+              src={url}
+              alt={`${t('propertyImage')} ${index + 1}`}
+              fill
+              unoptimized
+              sizes="(max-width: 768px) 50vw, 25vw"
+              className="object-cover"
+            />
             <button
               type="button"
               onClick={() => removeImage(index)}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useForm, useFieldArray, Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CreatePropertyInput, Property, PropertyType, PropertyStatus } from '@/types/property';
@@ -27,6 +27,9 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
   const tValidation = useTranslations('validation');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [owners, setOwners] = React.useState<Owner[]>([]);
+  const [uploadedSessionImages, setUploadedSessionImages] = React.useState<string[]>([]);
+  const uploadedSessionImagesRef = useRef<string[]>([]);
+  const persistedRef = useRef(false);
 
   // Crear schema con mensajes traducidos
   const propertySchema = useMemo(() => createPropertySchema(tValidation), [tValidation]);
@@ -73,6 +76,18 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
   const selectedOperations = watch('operations') || [];
 
   useEffect(() => {
+    uploadedSessionImagesRef.current = uploadedSessionImages;
+  }, [uploadedSessionImages]);
+
+  useEffect(() => {
+    return () => {
+      if (!persistedRef.current && uploadedSessionImagesRef.current.length > 0) {
+        void propertiesApi.discardUploadedImages(uploadedSessionImagesRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const loadOwners = async () => {
       if (user?.role !== 'admin') {
         return;
@@ -109,6 +124,8 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
         const newProperty = await propertiesApi.create(data as CreatePropertyInput);
         router.push(`/properties/${newProperty.id}`);
       }
+      persistedRef.current = true;
+      setUploadedSessionImages([]);
       router.refresh();
     } catch (error) {
       console.error('Error saving property:', error);
@@ -119,7 +136,28 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
   };
 
   const handleImageUpload = async (file: File) => {
-    return await propertiesApi.uploadImage(file);
+    const url = await propertiesApi.uploadImage(file);
+    setUploadedSessionImages((prev) =>
+      prev.includes(url) ? prev : [...prev, url],
+    );
+    return url;
+  };
+
+  const handleImageRemove = async (url: string) => {
+    if (!uploadedSessionImagesRef.current.includes(url)) {
+      return;
+    }
+
+    await propertiesApi.discardUploadedImages([url]);
+    setUploadedSessionImages((prev) => prev.filter((image) => image !== url));
+  };
+
+  const handleCancel = async () => {
+    if (uploadedSessionImagesRef.current.length > 0) {
+      await propertiesApi.discardUploadedImages(uploadedSessionImagesRef.current);
+      setUploadedSessionImages([]);
+    }
+    router.back();
   };
 
   return (
@@ -369,6 +407,7 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
           images={images}
           onChange={(newImages) => setValue('images', newImages)}
           onUpload={handleImageUpload}
+          onRemove={handleImageRemove}
         />
       </div>
 
@@ -421,7 +460,7 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
       <div className="flex justify-end pt-4 border-t dark:border-gray-700">
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={() => void handleCancel()}
           className="mr-3 px-4 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
           {tCommon('cancel')}

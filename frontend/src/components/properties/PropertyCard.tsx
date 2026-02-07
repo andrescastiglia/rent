@@ -24,6 +24,7 @@ export function PropertyCard({ property }: PropertyCardProps) {
               src={property.images[0]}
               alt={property.name}
               fill
+              unoptimized
               className="object-cover"
             />
           ) : (

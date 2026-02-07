@@ -261,7 +261,9 @@
         "maintenanceErrors": {
             "titleRequired": "El titulo de la tarea es requerido",
             "invalidDate": "Fecha inválida"
-        }
+        },
+        "previousImage": "Imagen anterior",
+        "nextImage": "Imagen siguiente"
     },
     "interested": {
         "title": "Prospectos",

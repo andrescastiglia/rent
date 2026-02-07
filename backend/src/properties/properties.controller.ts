@@ -19,6 +19,7 @@ import { extname, join } from 'path';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { PropertiesService } from './properties.service';
 import { CreatePropertyDto } from './dto/create-property.dto';
+import { DiscardPropertyImagesDto } from './dto/discard-property-images.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
 import { PropertyFiltersDto } from './dto/property-filters.dto';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -74,7 +75,7 @@ export class PropertiesController {
   @Post('upload')
   @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
   @UseInterceptors(FileInterceptor('file'))
-  uploadPropertyImage(@UploadedFile() file: any, @Request() req: any) {
+  uploadPropertyImage(@UploadedFile() file: any) {
     if (!file || !file.buffer) {
       throw new BadRequestException('File is required');
     }
@@ -88,13 +89,13 @@ export class PropertiesController {
     const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${extension || '.jpg'}`;
     writeFileSync(join(destination, filename), file.buffer);
 
-    const forwardedProtoHeader = req.get('x-forwarded-proto');
-    const forwardedProto =
-      typeof forwardedProtoHeader === 'string'
-        ? forwardedProtoHeader.split(',')[0]?.trim()
-        : undefined;
-    const protocol = forwardedProto || req.protocol || 'http';
-    const url = `${protocol}://${req.get('host')}/uploads/properties/${filename}`;
+    const url = `/uploads/properties/${filename}`;
     return { url };
+  }
+
+  @Post('uploads/discard')
+  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  discardUploadedImages(@Body() dto: DiscardPropertyImagesDto) {
+    return this.propertiesService.discardUploadedImages(dto.images);
   }
 }

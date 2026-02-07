@@ -261,7 +261,9 @@
         "maintenanceErrors": {
             "titleRequired": "O titulo da tarefa e obrigatorio",
             "invalidDate": "Data inválida"
-        }
+        },
+        "previousImage": "Imagem anterior",
+        "nextImage": "Proxima imagem"
     },
     "interested": {
         "title": "Prospectos",
