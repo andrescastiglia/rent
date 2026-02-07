@@ -38,15 +38,12 @@ export interface Unit {
     rentAmount: number;
 }
 
-export interface PropertyVisit {
+export interface PropertyMaintenanceTask {
     id: string;
     propertyId: string;
-    visitedAt: string;
-    interestedName: string;
-    comments?: string;
-    hasOffer?: boolean;
-    offerAmount?: number;
-    offerCurrency?: string;
+    scheduledAt: string;
+    title: string;
+    notes?: string;
     createdAt: string;
     updatedAt: string;
 }
@@ -96,13 +93,10 @@ export interface UpdatePropertyInput extends Partial<CreatePropertyInput> {
     status?: PropertyStatus;
 }
 
-export interface CreatePropertyVisitInput {
-    visitedAt?: string;
-    interestedName: string;
-    comments?: string;
-    hasOffer?: boolean;
-    offerAmount?: number;
-    offerCurrency?: string;
+export interface CreatePropertyMaintenanceTaskInput {
+    scheduledAt?: string;
+    title: string;
+    notes?: string;
 }
 
 export interface PropertyFilters {

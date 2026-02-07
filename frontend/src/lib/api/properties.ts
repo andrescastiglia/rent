@@ -2,8 +2,8 @@ import {
     Property,
     CreatePropertyInput,
     UpdatePropertyInput,
-    PropertyVisit,
-    CreatePropertyVisitInput,
+    PropertyMaintenanceTask,
+    CreatePropertyMaintenanceTaskInput,
     PropertyFilters,
 } from '@/types/property';
 import { apiClient } from '../api';
@@ -354,16 +354,15 @@ const mapBackendPropertyToProperty = (raw: BackendProperty): Property => {
     };
 };
 
-const mapBackendVisitToVisit = (raw: BackendPropertyVisit): PropertyVisit => {
+const mapBackendVisitToMaintenanceTask = (
+    raw: BackendPropertyVisit,
+): PropertyMaintenanceTask => {
     return {
         id: raw.id,
         propertyId: raw.propertyId,
-        visitedAt: raw.visitedAt ? new Date(raw.visitedAt).toISOString() : new Date().toISOString(),
-        interestedName: raw.interestedName,
-        comments: raw.comments ?? undefined,
-        hasOffer: raw.hasOffer ?? undefined,
-        offerAmount: raw.offerAmount !== undefined && raw.offerAmount !== null ? Number(raw.offerAmount) : undefined,
-        offerCurrency: raw.offerCurrency ?? undefined,
+        scheduledAt: raw.visitedAt ? new Date(raw.visitedAt).toISOString() : new Date().toISOString(),
+        title: raw.interestedName,
+        notes: raw.comments ?? undefined,
         createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : new Date().toISOString(),
         updatedAt: raw.updatedAt ? new Date(raw.updatedAt).toISOString() : new Date().toISOString(),
     };
@@ -431,15 +430,14 @@ const MOCK_PROPERTIES: Property[] = [
     },
 ];
 
-const MOCK_VISITS: Record<string, PropertyVisit[]> = {
+const MOCK_MAINTENANCE_TASKS: Record<string, PropertyMaintenanceTask[]> = {
     '1': [
         {
             id: 'visit-1',
             propertyId: '1',
-            visitedAt: new Date().toISOString(),
-            interestedName: 'Mariana López',
-            comments: 'Le gustó la ubicación. Pide segunda visita.',
-            hasOffer: false,
+            scheduledAt: new Date().toISOString(),
+            title: 'Revisión de instalación eléctrica',
+            notes: 'Chequeo preventivo trimestral en pasillos.',
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
         },
@@ -586,49 +584,50 @@ export const propertiesApi = {
         return mapBackendPropertyToProperty(result);
     },
 
-    getVisits: async (propertyId: string): Promise<PropertyVisit[]> => {
+    getMaintenanceTasks: async (propertyId: string): Promise<PropertyMaintenanceTask[]> => {
         if (IS_MOCK_MODE) {
             await delay(DELAY);
-            return MOCK_VISITS[propertyId] ?? [];
+            return MOCK_MAINTENANCE_TASKS[propertyId] ?? [];
         }
 
         const token = getToken();
         const result = await apiClient.get<BackendPropertyVisit[]>(
-            `/properties/${propertyId}/visits`,
+            `/properties/${propertyId}/visits/maintenance-tasks`,
             token ?? undefined,
         );
-        return Array.isArray(result) ? result.map(mapBackendVisitToVisit) : [];
+        return Array.isArray(result) ? result.map(mapBackendVisitToMaintenanceTask) : [];
     },
 
-    createVisit: async (
+    createMaintenanceTask: async (
         propertyId: string,
-        data: CreatePropertyVisitInput,
-    ): Promise<PropertyVisit> => {
+        data: CreatePropertyMaintenanceTaskInput,
+    ): Promise<PropertyMaintenanceTask> => {
         if (IS_MOCK_MODE) {
             await delay(DELAY);
-            const newVisit: PropertyVisit = {
+            const newTask: PropertyMaintenanceTask = {
                 id: `visit-${Math.random().toString(36).slice(2)}`,
                 propertyId,
-                visitedAt: data.visitedAt ?? new Date().toISOString(),
-                interestedName: data.interestedName,
-                comments: data.comments,
-                hasOffer: data.hasOffer,
-                offerAmount: data.offerAmount,
-                offerCurrency: data.offerCurrency,
+                scheduledAt: data.scheduledAt ?? new Date().toISOString(),
+                title: data.title,
+                notes: data.notes,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
             };
-            MOCK_VISITS[propertyId] = [newVisit, ...(MOCK_VISITS[propertyId] ?? [])];
-            return newVisit;
+            MOCK_MAINTENANCE_TASKS[propertyId] = [newTask, ...(MOCK_MAINTENANCE_TASKS[propertyId] ?? [])];
+            return newTask;
         }
 
         const token = getToken();
         const result = await apiClient.post<BackendPropertyVisit>(
-            `/properties/${propertyId}/visits`,
-            data,
+            `/properties/${propertyId}/visits/maintenance-tasks`,
+            {
+                scheduledAt: data.scheduledAt,
+                title: data.title,
+                notes: data.notes,
+            },
             token ?? undefined,
         );
-        return mapBackendVisitToVisit(result);
+        return mapBackendVisitToMaintenanceTask(result);
     },
 
     delete: async (id: string): Promise<void> => {
@@ -654,6 +653,13 @@ export const propertiesApi = {
         const token = getToken();
         const formData = new FormData();
         formData.append('file', file);
-        return apiClient.upload<string>('/properties/upload', formData, token ?? undefined);
+        const result = await apiClient.upload<string | { url?: string }>('/properties/upload', formData, token ?? undefined);
+        if (typeof result === 'string') {
+            return result;
+        }
+        if (result && typeof result.url === 'string') {
+            return result.url;
+        }
+        throw new Error('Unexpected response shape from /properties/upload');
     }
 };

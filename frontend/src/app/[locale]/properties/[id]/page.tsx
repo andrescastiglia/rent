@@ -4,7 +4,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
-import { Property, PropertyVisit, CreatePropertyVisitInput } from '@/types/property';
+import {
+  Property,
+  PropertyMaintenanceTask,
+  CreatePropertyMaintenanceTaskInput,
+} from '@/types/property';
 import { propertiesApi } from '@/lib/api/properties';
 import { Edit, ArrowLeft, MapPin, Building, Trash2, Loader2, FilePlus } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
@@ -20,25 +24,22 @@ export default function PropertyDetailPage() {
   const propertyId = Array.isArray(params.id) ? params.id[0] : params.id;
   const router = useLocalizedRouter();
   const [property, setProperty] = useState<Property | null>(null);
-  const [visits, setVisits] = useState<PropertyVisit[]>([]);
-  const [visitError, setVisitError] = useState<string | null>(null);
-  const [isSubmittingVisit, setIsSubmittingVisit] = useState(false);
+  const [maintenanceTasks, setMaintenanceTasks] = useState<PropertyMaintenanceTask[]>([]);
+  const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
+  const [isSubmittingMaintenance, setIsSubmittingMaintenance] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const defaultVisitDate = useMemo(() => {
+  const defaultTaskDate = useMemo(() => {
     const now = new Date();
     const offsetMinutes = now.getTimezoneOffset();
     const local = new Date(now.getTime() - offsetMinutes * 60000);
     return local.toISOString().slice(0, 16);
   }, []);
 
-  const [visitForm, setVisitForm] = useState({
-    visitedAt: defaultVisitDate,
-    interestedName: '',
-    comments: '',
-    hasOffer: false,
-    offerAmount: '',
-    offerCurrency: 'ARS',
+  const [maintenanceForm, setMaintenanceForm] = useState({
+    scheduledAt: defaultTaskDate,
+    title: '',
+    notes: '',
   });
 
   useEffect(() => {
@@ -52,10 +53,10 @@ export default function PropertyDetailPage() {
     try {
       const [data, visitData] = await Promise.all([
         propertiesApi.getById(id),
-        propertiesApi.getVisits(id),
+        propertiesApi.getMaintenanceTasks(id),
       ]);
       setProperty(data);
-      setVisits(visitData);
+      setMaintenanceTasks(visitData);
     } catch (error) {
       console.error('Failed to load property', error);
     } finally {
@@ -90,57 +91,47 @@ export default function PropertyDetailPage() {
     return t(`operationState.${stateKey}`);
   };
 
-  const handleVisitInputChange = (field: string, value: string | boolean) => {
-    setVisitForm((prev) => ({ ...prev, [field]: value }));
+  const handleMaintenanceInputChange = (field: string, value: string) => {
+    setMaintenanceForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleAddVisit = async (event: React.FormEvent) => {
+  const handleAddMaintenanceTask = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!property) return;
 
-    setVisitError(null);
+    setMaintenanceError(null);
 
-    if (!visitForm.interestedName.trim()) {
-      setVisitError(t('visitErrors.interestedRequired'));
+    if (!maintenanceForm.title.trim()) {
+      setMaintenanceError(t('maintenanceErrors.titleRequired'));
       return;
     }
 
-    if (visitForm.hasOffer && !visitForm.offerAmount) {
-      setVisitError(t('visitErrors.offerAmountRequired'));
+    const parsedScheduledAt = new Date(maintenanceForm.scheduledAt);
+    if (Number.isNaN(parsedScheduledAt.getTime())) {
+      setMaintenanceError(t('maintenanceErrors.invalidDate'));
       return;
     }
 
-    const parsedVisitedAt = new Date(visitForm.visitedAt);
-    if (Number.isNaN(parsedVisitedAt.getTime())) {
-      setVisitError(t('visitErrors.invalidDate'));
-      return;
-    }
-
-    const payload: CreatePropertyVisitInput = {
-      visitedAt: parsedVisitedAt.toISOString(),
-      interestedName: visitForm.interestedName.trim(),
-      comments: visitForm.comments.trim() || undefined,
-      hasOffer: visitForm.hasOffer,
-      offerAmount: visitForm.hasOffer ? Number(visitForm.offerAmount) : undefined,
-      offerCurrency: visitForm.hasOffer ? visitForm.offerCurrency : undefined,
+    const payload: CreatePropertyMaintenanceTaskInput = {
+      scheduledAt: parsedScheduledAt.toISOString(),
+      title: maintenanceForm.title.trim(),
+      notes: maintenanceForm.notes.trim() || undefined,
     };
 
-    setIsSubmittingVisit(true);
+    setIsSubmittingMaintenance(true);
     try {
-      const newVisit = await propertiesApi.createVisit(property.id, payload);
-      setVisits((prev) => [newVisit, ...prev]);
-      setVisitForm((prev) => ({
+      const newTask = await propertiesApi.createMaintenanceTask(property.id, payload);
+      setMaintenanceTasks((prev) => [newTask, ...prev]);
+      setMaintenanceForm((prev) => ({
         ...prev,
-        interestedName: '',
-        comments: '',
-        hasOffer: false,
-        offerAmount: '',
+        title: '',
+        notes: '',
       }));
     } catch (error) {
-      console.error('Failed to save visit', error);
-      setVisitError(tCommon('error'));
+      console.error('Failed to save maintenance task', error);
+      setMaintenanceError(tCommon('error'));
     } finally {
-      setIsSubmittingVisit(false);
+      setIsSubmittingMaintenance(false);
     }
   };
 
@@ -273,122 +264,82 @@ export default function PropertyDetailPage() {
 
               <section>
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t('visits')}</h2>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t('maintenanceTasks')}</h2>
                 </div>
 
-                <form onSubmit={handleAddVisit} className="space-y-4 bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-100 dark:border-gray-600">
+                <form onSubmit={handleAddMaintenanceTask} className="space-y-4 bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-100 dark:border-gray-600">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="visitDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.visitedAt')}</label>
+                      <label htmlFor="maintenanceDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.scheduledAt')}</label>
                       <input
-                        id="visitDate"
+                        id="maintenanceDate"
                         type="datetime-local"
-                        value={visitForm.visitedAt}
-                        onChange={(event) => handleVisitInputChange('visitedAt', event.target.value)}
+                        value={maintenanceForm.scheduledAt}
+                        onChange={(event) => handleMaintenanceInputChange('scheduledAt', event.target.value)}
                         className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-800 dark:text-white"
                       />
                     </div>
                     <div>
-                      <label htmlFor="visitInterested" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.interested')}</label>
+                      <label htmlFor="maintenanceTitle" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.taskTitle')}</label>
                       <input
-                        id="visitInterested"
-                        value={visitForm.interestedName}
-                        onChange={(event) => handleVisitInputChange('interestedName', event.target.value)}
+                        id="maintenanceTitle"
+                        value={maintenanceForm.title}
+                        onChange={(event) => handleMaintenanceInputChange('title', event.target.value)}
                         className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-800 dark:text-white"
-                        placeholder={t('placeholders.interested')}
+                        placeholder={t('placeholders.taskTitle')}
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label htmlFor="visitComments" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.comments')}</label>
+                    <label htmlFor="maintenanceNotes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.taskNotes')}</label>
                     <textarea
-                      id="visitComments"
-                      value={visitForm.comments}
-                      onChange={(event) => handleVisitInputChange('comments', event.target.value)}
+                      id="maintenanceNotes"
+                      value={maintenanceForm.notes}
+                      onChange={(event) => handleMaintenanceInputChange('notes', event.target.value)}
                       rows={3}
                       className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-800 dark:text-white"
-                      placeholder={t('placeholders.comments')}
+                      placeholder={t('placeholders.taskNotes')}
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                      <input
-                        type="checkbox"
-                        checked={visitForm.hasOffer}
-                        onChange={(event) => handleVisitInputChange('hasOffer', event.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      {t('fields.hasOffer')}
-                    </label>
-                    <div>
-                      <label htmlFor="visitOfferAmount" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.offerAmount')}</label>
-                      <input
-                        id="visitOfferAmount"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={visitForm.offerAmount}
-                        onChange={(event) => handleVisitInputChange('offerAmount', event.target.value)}
-                        disabled={!visitForm.hasOffer}
-                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 disabled:bg-gray-100 dark:disabled:bg-gray-700 dark:bg-gray-800 dark:text-white"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="visitOfferCurrency" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.offerCurrency')}</label>
-                      <input
-                        id="visitOfferCurrency"
-                        value={visitForm.offerCurrency}
-                        onChange={(event) => handleVisitInputChange('offerCurrency', event.target.value)}
-                        disabled={!visitForm.hasOffer}
-                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 disabled:bg-gray-100 dark:disabled:bg-gray-700 dark:bg-gray-800 dark:text-white"
-                      />
-                    </div>
-                  </div>
-
-                  {visitError && (
-                    <p className="text-sm text-red-600">{visitError}</p>
+                  {maintenanceError && (
+                    <p className="text-sm text-red-600">{maintenanceError}</p>
                   )}
 
                   <div className="flex justify-end">
                     <button
                       type="submit"
-                      disabled={isSubmittingVisit}
+                      disabled={isSubmittingMaintenance}
                       className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isSubmittingVisit ? (
+                      {isSubmittingMaintenance ? (
                         <>
                           <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
                           {tCommon('saving')}
                         </>
                       ) : (
-                        t('saveVisit')
+                        t('saveMaintenanceTask')
                       )}
                     </button>
                   </div>
                 </form>
 
                 <div className="mt-6 space-y-4">
-                  {visits.length > 0 ? (
-                    visits.map((visit) => (
-                      <div key={visit.id} className="border border-gray-100 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-gray-800">
+                  {maintenanceTasks.length > 0 ? (
+                    maintenanceTasks.map((task) => (
+                      <div key={task.id} className="border border-gray-100 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-gray-800">
                         <div className="flex items-center justify-between mb-2">
-                          <p className="font-semibold text-gray-900 dark:text-white">{visit.interestedName}</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">{new Date(visit.visitedAt).toLocaleString()}</p>
+                          <p className="font-semibold text-gray-900 dark:text-white">{task.title}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{new Date(task.scheduledAt).toLocaleString()}</p>
                         </div>
-                        {visit.comments && (
-                          <p className="text-gray-600 dark:text-gray-300 mb-2">{visit.comments}</p>
-                        )}
-                        {visit.hasOffer && visit.offerAmount !== undefined && (
-                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            {t('fields.offerAmount')}: {visit.offerCurrency ?? 'ARS'} {visit.offerAmount}
-                          </p>
+                        {task.notes && (
+                          <p className="text-gray-600 dark:text-gray-300 mb-2">{task.notes}</p>
                         )}
                       </div>
                     ))
                   ) : (
-                    <p className="text-gray-500 dark:text-gray-400 italic">{t('noVisits')}</p>
+                    <p className="text-gray-500 dark:text-gray-400 italic">{t('noMaintenanceTasks')}</p>
                   )}
                 </div>
               </section>

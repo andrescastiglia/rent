@@ -7,10 +7,9 @@ import { CreateLeaseInput, Lease } from '@/types/lease';
 import { Owner } from '@/types/owner';
 import { leasesApi } from '@/lib/api/leases';
 import { propertiesApi } from '@/lib/api/properties';
-import { tenantsApi } from '@/lib/api/tenants';
 import { ownersApi } from '@/lib/api/owners';
+import { interestedApi } from '@/lib/api/interested';
 import { Property } from '@/types/property';
-import { Tenant } from '@/types/tenant';
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
 import { Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -23,6 +22,11 @@ interface LeaseFormProps {
   isEditing?: boolean;
 }
 
+interface LeaseTenantOption {
+  id: string;
+  label: string;
+}
+
 export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const router = useLocalizedRouter();
   const searchParams = useSearchParams();
@@ -32,7 +36,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const tCurrencies = useTranslations('currencies');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
-  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [tenantOptions, setTenantOptions] = useState<LeaseTenantOption[]>([]);
   const [owners, setOwners] = useState<Owner[]>([]);
 
   // Crear schema con mensajes traducidos
@@ -57,17 +61,30 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const adjustmentType = watch('adjustmentType');
   const preselectedPropertyId = searchParams.get('propertyId');
   const preselectedOwnerId = searchParams.get('ownerId');
+  const hasPreselectedProperty = !isEditing && !!preselectedPropertyId;
+  const hasPreselectedOwner = !isEditing && !!preselectedOwnerId;
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [props, tens, owns] = await Promise.all([
+        const [props, interestedResponse, owns] = await Promise.all([
           propertiesApi.getAll(),
-          tenantsApi.getAll(),
+          interestedApi.getAll({ status: 'won', limit: 200 }),
           ownersApi.getAll()
         ]);
+        const options = interestedResponse.data
+          .filter((profile) =>
+            !!profile.convertedToTenantId &&
+            (profile.operations ?? []).some((operation) => operation === 'rent' || operation === 'leasing'),
+          )
+          .map((profile) => ({
+            id: profile.convertedToTenantId as string,
+            label: `${profile.firstName} ${profile.lastName}`.trim(),
+          }))
+          .filter((option, index, all) => all.findIndex((item) => item.id === option.id) === index);
+
         setProperties(props);
-        setTenants(tens);
+        setTenantOptions(options);
         setOwners(owns);
       } catch (error) {
         console.error('Failed to load form data', error);
@@ -119,16 +136,20 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
         <h3 className={sectionTitleClass}>{t('leaseDetails')}</h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="propertyId" className={labelClass}>{t('fields.property')}</label>
-            <select id="propertyId" {...register('propertyId')} className={inputClass}>
-              <option value="">{t('selectProperty')}</option>
-              {properties.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-            {errors.propertyId && <p className="mt-1 text-sm text-red-600">{errors.propertyId.message}</p>}
-          </div>
+          {hasPreselectedProperty ? (
+            <input type="hidden" {...register('propertyId')} />
+          ) : (
+            <div>
+              <label htmlFor="propertyId" className={labelClass}>{t('fields.property')}</label>
+              <select id="propertyId" {...register('propertyId')} className={inputClass}>
+                <option value="">{t('selectProperty')}</option>
+                {properties.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              {errors.propertyId && <p className="mt-1 text-sm text-red-600">{errors.propertyId.message}</p>}
+            </div>
+          )}
 
           <div>
             <label htmlFor="unitId" className={labelClass}>{t('fields.unitId')}</label>
@@ -140,23 +161,27 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
             <label htmlFor="tenantId" className={labelClass}>{t('fields.tenant')}</label>
             <select id="tenantId" {...register('tenantId')} className={inputClass}>
               <option value="">{t('selectTenant')}</option>
-              {tenants.map(tenant => (
-                <option key={tenant.id} value={tenant.id}>{tenant.firstName} {tenant.lastName}</option>
+              {tenantOptions.map(tenant => (
+                <option key={tenant.id} value={tenant.id}>{tenant.label}</option>
               ))}
             </select>
             {errors.tenantId && <p className="mt-1 text-sm text-red-600">{errors.tenantId.message}</p>}
           </div>
 
-          <div>
-            <label htmlFor="ownerId" className={labelClass}>{t('fields.owner')}</label>
-            <select id="ownerId" {...register('ownerId')} className={inputClass}>
-              <option value="">{t('selectOwner')}</option>
-              {owners.map(owner => (
-                <option key={owner.id} value={owner.id}>{owner.firstName} {owner.lastName}</option>
-              ))}
-            </select>
-            {errors.ownerId && <p className="mt-1 text-sm text-red-600">{errors.ownerId.message}</p>}
-          </div>
+          {hasPreselectedOwner ? (
+            <input type="hidden" {...register('ownerId')} />
+          ) : (
+            <div>
+              <label htmlFor="ownerId" className={labelClass}>{t('fields.owner')}</label>
+              <select id="ownerId" {...register('ownerId')} className={inputClass}>
+                <option value="">{t('selectOwner')}</option>
+                {owners.map(owner => (
+                  <option key={owner.id} value={owner.id}>{owner.firstName} {owner.lastName}</option>
+                ))}
+              </select>
+              {errors.ownerId && <p className="mt-1 text-sm text-red-600">{errors.ownerId.message}</p>}
+            </div>
+          )}
 
           <div>
             <label htmlFor="status" className={labelClass}>{t('fields.status')}</label>

@@ -14,6 +14,7 @@ import {
   VisitNotificationStatus,
 } from './entities/property-visit-notification.entity';
 import { CreatePropertyVisitDto } from './dto/create-property-visit.dto';
+import { CreatePropertyMaintenanceTaskDto } from './dto/create-property-maintenance-task.dto';
 
 interface VisitUserContext {
   id: string;
@@ -79,6 +80,21 @@ export class PropertyVisitsService {
     return savedVisit;
   }
 
+  async createMaintenanceTask(
+    propertyId: string,
+    dto: CreatePropertyMaintenanceTaskDto,
+    user: VisitUserContext,
+  ): Promise<PropertyVisit> {
+    const legacyDto: CreatePropertyVisitDto = {
+      visitedAt: dto.scheduledAt,
+      interestedName: dto.title,
+      comments: dto.notes,
+      hasOffer: false,
+    };
+
+    return this.create(propertyId, legacyDto, user);
+  }
+
   async findAll(
     propertyId: string,
     user: VisitUserContext,
@@ -120,9 +136,9 @@ export class PropertyVisitsService {
     visit: PropertyVisit,
   ): PropertyVisitNotification[] {
     const messageParts = [
-      `Visita registrada para ${property.name}.`,
+      `Tarea de mantenimiento registrada para ${property.name}.`,
       `Fecha: ${visit.visitedAt.toISOString()}.`,
-      `Interesado: ${visit.interestedName ?? visit.interestedProfileId ?? 'N/D'}.`,
+      `Tarea: ${visit.interestedName ?? visit.interestedProfileId ?? 'N/D'}.`,
     ];
 
     if (visit.comments) {

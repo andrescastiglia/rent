@@ -9,8 +9,14 @@ import {
   Query,
   Request,
   UseGuards,
+  UploadedFile,
+  UseInterceptors,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { extname, join } from 'path';
+import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { PropertiesService } from './properties.service';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
@@ -63,5 +69,26 @@ export class PropertiesController {
   async remove(@Param('id') id: string, @Request() req: any) {
     await this.propertiesService.remove(id, req.user.id, req.user.role);
     return { message: 'Property deleted successfully' };
+  }
+
+  @Post('upload')
+  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @UseInterceptors(FileInterceptor('file'))
+  uploadPropertyImage(@UploadedFile() file: any, @Request() req: any) {
+    if (!file || !file.buffer) {
+      throw new BadRequestException('File is required');
+    }
+
+    const destination = join(process.cwd(), 'uploads', 'properties');
+    if (!existsSync(destination)) {
+      mkdirSync(destination, { recursive: true });
+    }
+
+    const extension = extname(file.originalname || '').toLowerCase();
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${extension || '.jpg'}`;
+    writeFileSync(join(destination, filename), file.buffer);
+
+    const url = `${req.protocol}://${req.get('host')}/uploads/properties/${filename}`;
+    return { url };
   }
 }

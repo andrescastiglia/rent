@@ -13,6 +13,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { PropertyVisitsService } from './property-visits.service';
 import { CreatePropertyVisitDto } from './dto/create-property-visit.dto';
+import { CreatePropertyMaintenanceTaskDto } from './dto/create-property-maintenance-task.dto';
 
 interface AuthenticatedRequest {
   user: {
@@ -40,6 +41,29 @@ export class PropertyVisitsController {
   @Get()
   @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
   findAll(
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.propertyVisitsService.findAll(propertyId, req.user);
+  }
+
+  @Post('/maintenance-tasks')
+  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  createMaintenanceTask(
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
+    @Body() dto: CreatePropertyMaintenanceTaskDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.propertyVisitsService.createMaintenanceTask(
+      propertyId,
+      dto,
+      req.user,
+    );
+  }
+
+  @Get('/maintenance-tasks')
+  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  findAllMaintenanceTasks(
     @Param('propertyId', ParseUUIDPipe) propertyId: string,
     @Request() req: AuthenticatedRequest,
   ) {

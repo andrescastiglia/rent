@@ -159,9 +159,9 @@
         "totalUnits": "Unidades Totales",
         "occupied": "Ocupadas",
         "vacant": "Vacantes",
-        "visits": "Visitas",
-        "noVisits": "Sin visitas registradas.",
-        "saveVisit": "Registrar visita",
+        "maintenanceTasks": "Tareas de mantenimiento",
+        "noMaintenanceTasks": "Sin tareas de mantenimiento registradas.",
+        "saveMaintenanceTask": "Registrar tarea",
         "noOwnerWhatsapp": "No registrado",
         "noDescription": "Sin descripción proporcionada.",
         "filters": {
@@ -197,12 +197,10 @@
             "allowsPets": "Permite mascotas",
             "acceptedGuaranteeTypes": "Garantías aceptadas",
             "maxOccupants": "Máx. ocupantes",
-            "visitedAt": "Fecha",
-            "interested": "Interesado",
+            "scheduledAt": "Fecha programada",
+            "taskTitle": "Tarea",
+            "taskNotes": "Notas",
             "comments": "Comentarios",
-            "hasOffer": "Hubo oferta",
-            "offerAmount": "Monto de oferta",
-            "offerCurrency": "Moneda",
             "images": "Imágenes",
             "featureName": "Nombre",
             "featureValue": "Valor"
@@ -257,12 +255,11 @@
             "salePrice": "Ej. 120000",
             "acceptedGuaranteeTypes": "Ej. garante, propietaria",
             "maxOccupants": "Ej. 4",
-            "interested": "Nombre del interesado",
-            "comments": "Notas de la visita..."
+            "taskTitle": "Ej. Revisar instalacion electrica",
+            "taskNotes": "Notas de la tarea..."
         },
-        "visitErrors": {
-            "interestedRequired": "El interesado es requerido",
-            "offerAmountRequired": "El monto de la oferta es requerido",
+        "maintenanceErrors": {
+            "titleRequired": "El titulo de la tarea es requerido",
             "invalidDate": "Fecha inválida"
         }
     },

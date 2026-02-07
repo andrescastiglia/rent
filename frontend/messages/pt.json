@@ -159,9 +159,9 @@
         "totalUnits": "Total de Unidades",
         "occupied": "Ocupadas",
         "vacant": "Vagas",
-        "visits": "Visitas",
-        "noVisits": "Nenhuma visita registrada.",
-        "saveVisit": "Registrar visita",
+        "maintenanceTasks": "Tarefas de manutencao",
+        "noMaintenanceTasks": "Nenhuma tarefa de manutencao registrada.",
+        "saveMaintenanceTask": "Registrar tarefa",
         "noOwnerWhatsapp": "Não informado",
         "noDescription": "Sem descrição fornecida.",
         "filters": {
@@ -197,12 +197,10 @@
             "allowsPets": "Permite animais",
             "acceptedGuaranteeTypes": "Garantias aceitas",
             "maxOccupants": "Máx. ocupantes",
-            "visitedAt": "Data",
-            "interested": "Interessado",
-            "comments": "Comentários",
-            "hasOffer": "Houve oferta",
-            "offerAmount": "Valor da oferta",
-            "offerCurrency": "Moeda",
+            "scheduledAt": "Data programada",
+            "taskTitle": "Tarefa",
+            "taskNotes": "Notas",
+            "comments": "Comentarios",
             "images": "Imagens",
             "featureName": "Nome",
             "featureValue": "Valor"
@@ -257,12 +255,11 @@
             "salePrice": "Ex. 120000",
             "acceptedGuaranteeTypes": "Ex. fiador, garantia real",
             "maxOccupants": "Ex. 4",
-            "interested": "Nome do interessado",
-            "comments": "Notas da visita..."
+            "taskTitle": "Ex. Revisao eletrica",
+            "taskNotes": "Notas da tarefa..."
         },
-        "visitErrors": {
-            "interestedRequired": "O interessado é obrigatório",
-            "offerAmountRequired": "O valor da oferta é obrigatório",
+        "maintenanceErrors": {
+            "titleRequired": "O titulo da tarefa e obrigatorio",
             "invalidDate": "Data inválida"
         }
     },

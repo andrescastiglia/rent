@@ -44,6 +44,28 @@ const MOCK_INTERESTED: InterestedProfile[] = [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
+  {
+    id: 'int-2',
+    firstName: 'Diego',
+    lastName: 'Ramos',
+    phone: '+54 9 11 5555-2222',
+    peopleCount: 2,
+    minAmount: 50000,
+    maxAmount: 90000,
+    hasPets: false,
+    guaranteeTypes: ['Seguro de caucion'],
+    preferredCity: 'CABA',
+    desiredFeatures: ['balcon'],
+    propertyTypePreference: 'apartment',
+    operation: 'rent',
+    operations: ['rent'],
+    status: 'won',
+    qualificationLevel: 'sql',
+    convertedToTenantId: '1',
+    notes: 'Prospecto convertido para alquiler',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
 ];
 
 const mapProfile = (raw: any): InterestedProfile => ({

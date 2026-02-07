@@ -159,9 +159,9 @@
         "totalUnits": "Total Units",
         "occupied": "Occupied",
         "vacant": "Vacant",
-        "visits": "Visits",
-        "noVisits": "No visits recorded.",
-        "saveVisit": "Log visit",
+        "maintenanceTasks": "Maintenance tasks",
+        "noMaintenanceTasks": "No maintenance tasks recorded.",
+        "saveMaintenanceTask": "Log task",
         "noOwnerWhatsapp": "Not registered",
         "noDescription": "No description provided.",
         "filters": {
@@ -197,12 +197,10 @@
             "allowsPets": "Allows pets",
             "acceptedGuaranteeTypes": "Accepted guarantees",
             "maxOccupants": "Max occupants",
-            "visitedAt": "Date",
-            "interested": "Interested",
+            "scheduledAt": "Scheduled date",
+            "taskTitle": "Task",
+            "taskNotes": "Notes",
             "comments": "Comments",
-            "hasOffer": "Offer made",
-            "offerAmount": "Offer amount",
-            "offerCurrency": "Currency",
             "images": "Images",
             "featureName": "Name",
             "featureValue": "Value"
@@ -257,12 +255,11 @@
             "salePrice": "e.g. 120000",
             "acceptedGuaranteeTypes": "e.g. guarantor, property",
             "maxOccupants": "e.g. 4",
-            "interested": "Interested name",
-            "comments": "Visit notes..."
+            "taskTitle": "e.g. Electrical system review",
+            "taskNotes": "Task notes..."
         },
-        "visitErrors": {
-            "interestedRequired": "Interested is required",
-            "offerAmountRequired": "Offer amount is required",
+        "maintenanceErrors": {
+            "titleRequired": "Task title is required",
             "invalidDate": "Invalid date"
         }
     },
