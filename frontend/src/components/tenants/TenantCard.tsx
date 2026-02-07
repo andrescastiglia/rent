@@ -59,13 +59,7 @@ export function TenantCard({ tenant }: TenantCardProps) {
         )}
       </div>
 
-      <div className="mt-4 flex items-center justify-between">
-        <Link
-          href={`/${locale}/tenants/${tenant.id}`}
-          className="text-sm font-medium text-blue-600 hover:text-blue-500"
-        >
-          {t('viewTenant')}
-        </Link>
+      <div className="mt-4 flex items-center justify-end">
         <Link
           href={`/${locale}/tenants/${tenant.id}#payment-registration`}
           className="inline-flex items-center gap-1 text-sm font-medium text-green-700 hover:text-green-600 dark:text-green-300 dark:hover:text-green-200"
