@@ -6,10 +6,22 @@ import { useParams } from 'next/navigation';
 import { Tenant } from '@/types/tenant';
 import { tenantsApi } from '@/lib/api/tenants';
 import { paymentsApi, tenantAccountsApi } from '@/lib/api/payments';
-import { Edit, ArrowLeft, User, Mail, Phone, MapPin, Trash2, Loader2, FileText } from 'lucide-react';
+import {
+  Edit,
+  ArrowLeft,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Trash2,
+  Loader2,
+  FileText,
+  Download,
+} from 'lucide-react';
 import { Lease } from '@/types/lease';
 import {
   AccountBalance,
+  Payment,
   PaymentMethod,
   TenantAccount,
   TenantAccountMovement,
@@ -23,6 +35,7 @@ import { IS_MOCK_MODE } from '@/lib/api';
 export default function TenantDetailPage() {
   const { loading: authLoading, token } = useAuth();
   const t = useTranslations('tenants');
+  const tPayments = useTranslations('payments');
   const tCommon = useTranslations('common');
   const locale = useLocale();
   const params = useParams();
@@ -30,11 +43,13 @@ export default function TenantDetailPage() {
   const router = useLocalizedRouter();
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [leases, setLeases] = useState<Lease[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [receipts, setReceipts] = useState<TenantReceiptSummary[]>([]);
   const [tenantAccount, setTenantAccount] = useState<TenantAccount | null>(null);
   const [accountBalance, setAccountBalance] = useState<AccountBalance | null>(null);
   const [movements, setMovements] = useState<TenantAccountMovement[]>([]);
   const [registeringPayment, setRegisteringPayment] = useState(false);
+  const [downloadingReceiptPaymentId, setDownloadingReceiptPaymentId] = useState<string | null>(null);
   const [paymentForm, setPaymentForm] = useState({
     amount: '',
     paymentDate: new Date().toISOString().split('T')[0],
@@ -83,6 +98,7 @@ export default function TenantDetailPage() {
       if (!data) {
         setTenant(null);
         setLeases([]);
+        setPayments([]);
         setReceipts([]);
         setTenantAccount(null);
         setAccountBalance(null);
@@ -90,18 +106,25 @@ export default function TenantDetailPage() {
         return;
       }
 
-      const [leaseHistoryResult, receiptHistoryResult] = await Promise.allSettled([
+      const [leaseHistoryResult, receiptHistoryResult, paymentsResult] = await Promise.allSettled([
         tenantsApi.getLeaseHistory(data.id),
         tenantAccountsApi.getReceiptsByTenant(data.id),
+        paymentsApi.getAll({ tenantId: data.id, limit: 100 }),
       ]);
 
       setTenant(data);
       setLeases(leaseHistoryResult.status === 'fulfilled' ? leaseHistoryResult.value : []);
       setReceipts(receiptHistoryResult.status === 'fulfilled' ? receiptHistoryResult.value : []);
+      setPayments(
+        paymentsByDateDesc(
+          paymentsResult.status === 'fulfilled' ? paymentsResult.value.data : [],
+        ),
+      );
     } catch (error) {
       console.error('Failed to load tenant', error);
       setTenant(null);
       setLeases([]);
+      setPayments([]);
       setReceipts([]);
       setTenantAccount(null);
       setAccountBalance(null);
@@ -191,6 +214,9 @@ export default function TenantDetailPage() {
       await Promise.all([
         loadAccountData(tenantAccount.leaseId),
         tenantAccountsApi.getReceiptsByTenant(tenant.id).then(setReceipts),
+        paymentsApi
+          .getAll({ tenantId: tenant.id, limit: 100 })
+          .then((result) => setPayments(paymentsByDateDesc(result.data))),
       ]);
       setPaymentForm({
         amount: '',
@@ -248,7 +274,11 @@ export default function TenantDetailPage() {
       ]
     : [];
 
-  const receiptsToRender = receipts.length > 0 ? receipts : fallbackReceipts;
+  const receiptsToRender = [...(receipts.length > 0 ? receipts : fallbackReceipts)].sort(
+    (a, b) =>
+      new Date(b.paymentDate ?? b.issuedAt).getTime() -
+      new Date(a.paymentDate ?? a.issuedAt).getTime(),
+  );
   const activeLease = leases.find((lease) => lease.status === 'ACTIVE') ?? leases[0];
   const paymentMethods: PaymentMethod[] = [
     'cash',
@@ -260,6 +290,21 @@ export default function TenantDetailPage() {
     'crypto',
     'other',
   ];
+
+  const handleDownloadReceipt = async (
+    paymentId: string,
+    receiptNumber?: string,
+  ) => {
+    try {
+      setDownloadingReceiptPaymentId(paymentId);
+      await paymentsApi.downloadReceiptPdf(paymentId, receiptNumber);
+    } catch (error) {
+      console.error('Failed to download receipt', error);
+      alert(tCommon('error'));
+    } finally {
+      setDownloadingReceiptPaymentId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -389,7 +434,7 @@ export default function TenantDetailPage() {
                 )}
               </section>
 
-              <section>
+              <section id="payment-registration">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('paymentRegistration.title')}</h2>
                 {tenantAccount ? (
                   <div className="space-y-4 bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
@@ -504,20 +549,98 @@ export default function TenantDetailPage() {
               </section>
 
               <section>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{tPayments('title')}</h2>
+                {payments.length > 0 ? (
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 space-y-3">
+                    {payments.map((payment) => (
+                      <div key={payment.id} className="rounded-md bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-600 p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                              {payment.currencyCode} {Number(payment.amount).toLocaleString(locale)}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {new Date(payment.paymentDate).toLocaleDateString(locale)} · {tPayments(`method.${payment.method}`)}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {tPayments('paymentStatus')}: {tPayments(`status.${payment.status}`)}
+                            </p>
+                            {payment.receipt?.receiptNumber && (
+                              <p className="text-xs font-medium text-green-700 dark:text-green-300">
+                                {payment.receipt.receiptNumber}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                            <Link
+                              href={`/${locale}/payments/${payment.id}`}
+                              className="text-xs text-blue-600 hover:text-blue-500"
+                            >
+                              {tCommon('view')}
+                            </Link>
+                            {payment.receipt && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleDownloadReceipt(
+                                    payment.id,
+                                    payment.receipt?.receiptNumber,
+                                  )
+                                }
+                                disabled={downloadingReceiptPaymentId === payment.id}
+                                className="inline-flex items-center text-xs px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
+                              >
+                                <Download size={12} className="mr-1" />
+                                {downloadingReceiptPaymentId === payment.id
+                                  ? tCommon('loading')
+                                  : tPayments('downloadReceipt')}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-sm text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
+                    {tPayments('noPayments')}
+                  </div>
+                )}
+              </section>
+
+              <section>
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('receiptsHistory')}</h2>
                 {receiptsToRender.length > 0 ? (
                   <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 space-y-3">
                     {receiptsToRender.map((receipt) => (
-                      <div key={receipt.id} className="flex items-center justify-between text-sm">
-                        <div className="flex flex-col">
+                      <div key={receipt.id} className="flex items-center justify-between text-sm gap-3">
+                        <div className="flex flex-col min-w-0">
                           <span className="font-medium text-gray-900 dark:text-white">{receipt.receiptNumber}</span>
                           <span className="text-gray-500 dark:text-gray-400">
                             {receipt.paymentDate ? new Date(receipt.paymentDate).toLocaleDateString() : new Date(receipt.issuedAt).toLocaleDateString()}
                           </span>
                         </div>
-                        <span className="font-semibold text-gray-900 dark:text-white">
-                          {receipt.currencyCode} {receipt.amount.toLocaleString()}
-                        </span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="font-semibold text-gray-900 dark:text-white">
+                            {receipt.currencyCode} {receipt.amount.toLocaleString()}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDownloadReceipt(
+                                receipt.paymentId,
+                                receipt.receiptNumber,
+                              )
+                            }
+                            disabled={downloadingReceiptPaymentId === receipt.paymentId}
+                            className="inline-flex items-center text-xs px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
+                          >
+                            <Download size={12} className="mr-1" />
+                            {downloadingReceiptPaymentId === receipt.paymentId
+                              ? tCommon('loading')
+                              : tPayments('downloadReceipt')}
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -533,5 +656,13 @@ export default function TenantDetailPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function paymentsByDateDesc(items: Payment[]): Payment[] {
+  return [...items].sort(
+    (a, b) =>
+      new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime() ||
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
 }

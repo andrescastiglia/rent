@@ -15,6 +15,7 @@ import { getToken } from '../auth';
 
 // Check if we're in mock mode (non-production)
 const IS_MOCK_MODE = process.env.NODE_ENV !== 'production';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 // Mock data for development
 const MOCK_TENANT_ACCOUNTS: TenantAccount[] = [
@@ -123,6 +124,9 @@ export const paymentsApi = {
             await delay(DELAY);
             let filtered = [...MOCK_PAYMENTS];
 
+            if (filters?.tenantId) {
+                filtered = filtered.filter((p) => p.tenantId === filters.tenantId);
+            }
             if (filters?.status) {
                 filtered = filtered.filter((p) => p.status === filters.status);
             }
@@ -137,7 +141,11 @@ export const paymentsApi = {
             }
 
             return {
-                data: filtered,
+                data: filtered.sort(
+                    (a, b) =>
+                        new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime() ||
+                        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+                ),
                 total: filtered.length,
                 page: filters?.page || 1,
                 limit: filters?.limit || 10,
@@ -146,6 +154,7 @@ export const paymentsApi = {
 
         const token = getToken();
         const queryParams = new URLSearchParams();
+        if (filters?.tenantId) queryParams.append('tenantId', filters.tenantId);
         if (filters?.status) queryParams.append('status', filters.status);
         if (filters?.method) queryParams.append('method', filters.method);
         if (filters?.leaseId) queryParams.append('leaseId', filters.leaseId);
@@ -300,6 +309,43 @@ export const paymentsApi = {
 
         const token = getToken();
         return apiClient.patch<Payment>(`/payments/${id}`, data, token ?? undefined);
+    },
+
+    downloadReceiptPdf: async (paymentId: string, receiptNumber?: string): Promise<void> => {
+        if (IS_MOCK_MODE) {
+            const blob = new Blob([`Receipt ${receiptNumber ?? paymentId}`], {
+                type: 'application/pdf',
+            });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `recibo-${receiptNumber ?? paymentId}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+            return;
+        }
+
+        const token = getToken();
+        const response = await fetch(`${API_URL}/payments/${paymentId}/receipt`, {
+            method: 'GET',
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to download receipt');
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `recibo-${receiptNumber ?? paymentId}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
     },
 };
 

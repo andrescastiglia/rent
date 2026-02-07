@@ -205,6 +205,7 @@ export interface CreatePaymentInput {
  * Filtros para listar pagos
  */
 export interface PaymentFilters {
+    tenantId?: string;
     tenantAccountId?: string;
     leaseId?: string;
     status?: PaymentStatus;

@@ -11,7 +11,10 @@ test.describe('Tenant Receipts History', () => {
         await page.locator('a[href*="/tenants/"]:not([href*="/tenants/new"])').first().click({ force: true });
 
         await expect(page).toHaveURL(/\/es\/tenants\/[^/]+$/);
-        await expect(page.getByText('Historial de recibos')).toBeVisible();
-        await expect(page.getByText('REC-202411-0001')).toBeVisible();
+        const receiptsSection = page.locator('section').filter({
+            has: page.getByText('Historial de recibos'),
+        });
+        await expect(receiptsSection).toBeVisible();
+        await expect(receiptsSection.getByText('REC-202411-0001').first()).toBeVisible();
     });
 });

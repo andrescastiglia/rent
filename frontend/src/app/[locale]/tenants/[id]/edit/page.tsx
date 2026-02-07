@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { TenantForm } from '@/components/tenants/TenantForm';
 import Link from 'next/link';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Wallet } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { tenantsApi } from '@/lib/api/tenants';
 import { Tenant } from '@/types/tenant';
@@ -59,10 +59,19 @@ export default function EditTenantPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
-        <Link href={`/tenants/${tenant.id}`} className="inline-flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-          <ArrowLeft size={16} className="mr-1" />
-          {t('backToDetails')}
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link href={`/tenants/${tenant.id}`} className="inline-flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+            <ArrowLeft size={16} className="mr-1" />
+            {t('backToDetails')}
+          </Link>
+          <Link
+            href={`/${locale}/tenants/${tenant.id}#payment-registration`}
+            className="inline-flex items-center px-3 py-1.5 rounded-md border border-green-200 text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-300 dark:hover:bg-green-900/20 text-sm"
+          >
+            <Wallet size={14} className="mr-1" />
+            {t('paymentRegistration.submit')}
+          </Link>
+        </div>
       </div>
 
       <div className="max-w-3xl mx-auto">

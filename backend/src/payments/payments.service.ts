@@ -298,6 +298,7 @@ export class PaymentsService {
     filters: PaymentFiltersDto,
   ): Promise<{ data: Payment[]; total: number; page: number; limit: number }> {
     const {
+      tenantId,
       tenantAccountId,
       leaseId,
       status,
@@ -316,6 +317,10 @@ export class PaymentsService {
       .leftJoinAndSelect('payment.receipt', 'receipt')
       .leftJoinAndSelect('payment.items', 'items')
       .where('payment.deleted_at IS NULL');
+
+    if (tenantId) {
+      query.andWhere('payment.tenant_id = :tenantId', { tenantId });
+    }
 
     if (tenantAccountId) {
       query.andWhere('payment.tenant_account_id = :tenantAccountId', {

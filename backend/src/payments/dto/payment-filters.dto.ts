@@ -4,6 +4,10 @@ import { PaymentStatus, PaymentMethod } from '../entities/payment.entity';
 export class PaymentFiltersDto {
   @IsOptional()
   @IsUUID()
+  tenantId?: string;
+
+  @IsOptional()
+  @IsUUID()
   tenantAccountId?: string;
 
   @IsOptional()

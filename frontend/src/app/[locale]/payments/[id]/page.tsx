@@ -22,6 +22,7 @@ export default function PaymentDetailPage() {
     const [loading, setLoading] = useState(true);
     const [confirming, setConfirming] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [downloadingReceipt, setDownloadingReceipt] = useState(false);
     const [editForm, setEditForm] = useState<{
         paymentDate: string;
         method: string;
@@ -118,6 +119,18 @@ export default function PaymentDetailPage() {
     const formattedAmount = formatMoneyByCode(payment.amount, payment.currencyCode);
     const formattedDate = new Date(payment.paymentDate).toLocaleDateString('es-AR');
     const hasItems = (payment.items && payment.items.length > 0) || (editForm?.items?.length || 0) > 0;
+
+    const handleDownloadReceipt = async () => {
+        if (!payment?.receipt) return;
+        try {
+            setDownloadingReceipt(true);
+            await paymentsApi.downloadReceiptPdf(payment.id, payment.receipt.receiptNumber);
+        } catch (error) {
+            console.error('Failed to download receipt', error);
+        } finally {
+            setDownloadingReceipt(false);
+        }
+    };
 
     return (
         <div className="container mx-auto px-4 py-8">
@@ -416,16 +429,16 @@ export default function PaymentDetailPage() {
                                 </span>
                             </div>
 
-                            {payment.receipt.pdfUrl && (
-                                <a
-                                    href={payment.receipt.pdfUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center justify-center w-full px-4 py-2 mt-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
+                            {payment.receipt && (
+                                <button
+                                    type="button"
+                                    onClick={handleDownloadReceipt}
+                                    disabled={downloadingReceipt}
+                                    className="inline-flex items-center justify-center w-full px-4 py-2 mt-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-60"
                                 >
                                     <Download size={18} className="mr-2" />
-                                    {t('downloadReceipt')}
-                                </a>
+                                    {downloadingReceipt ? tCommon('loading') : t('downloadReceipt')}
+                                </button>
                             )}
                         </div>
                     ) : payment.status === 'pending' ? (
