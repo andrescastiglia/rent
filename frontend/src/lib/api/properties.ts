@@ -112,7 +112,26 @@ const normalizeImages = (images: any[] | null | undefined): string[] => {
             }
             return null;
         })
-        .filter((v): v is string => typeof v === 'string' && v.length > 0);
+        .filter((v): v is string => typeof v === 'string' && v.length > 0)
+        .map(normalizePropertyImageUrl);
+};
+
+const normalizePropertyImageUrl = (url: string): string => {
+    if (!url.startsWith('http://')) return url;
+    try {
+        const parsed = new URL(url);
+        if (parsed.hostname === 'rent.maese.com.ar') {
+            parsed.protocol = 'https:';
+            return parsed.toString();
+        }
+        if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+            parsed.protocol = 'https:';
+            return parsed.toString();
+        }
+        return url;
+    } catch {
+        return url;
+    }
 };
 
 const mapPropertyType = (value: string | null | undefined): Property['type'] => {
@@ -655,10 +674,10 @@ export const propertiesApi = {
         formData.append('file', file);
         const result = await apiClient.upload<string | { url?: string }>('/properties/upload', formData, token ?? undefined);
         if (typeof result === 'string') {
-            return result;
+            return normalizePropertyImageUrl(result);
         }
         if (result && typeof result.url === 'string') {
-            return result.url;
+            return normalizePropertyImageUrl(result.url);
         }
         throw new Error('Unexpected response shape from /properties/upload');
     }

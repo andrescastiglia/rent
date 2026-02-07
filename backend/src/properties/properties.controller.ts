@@ -88,7 +88,13 @@ export class PropertiesController {
     const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${extension || '.jpg'}`;
     writeFileSync(join(destination, filename), file.buffer);
 
-    const url = `${req.protocol}://${req.get('host')}/uploads/properties/${filename}`;
+    const forwardedProtoHeader = req.get('x-forwarded-proto');
+    const forwardedProto =
+      typeof forwardedProtoHeader === 'string'
+        ? forwardedProtoHeader.split(',')[0]?.trim()
+        : undefined;
+    const protocol = forwardedProto || req.protocol || 'http';
+    const url = `${protocol}://${req.get('host')}/uploads/properties/${filename}`;
     return { url };
   }
 }

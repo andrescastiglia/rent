@@ -18,6 +18,10 @@ const nextConfig = {
                 protocol: 'https',
                 hostname: 'rent.maese.com.ar',
             },
+            {
+                protocol: 'http',
+                hostname: 'rent.maese.com.ar',
+            },
         ],
     },
     async headers() {
