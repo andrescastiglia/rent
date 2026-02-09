@@ -347,4 +347,23 @@ describe('PropertiesService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
   });
+
+  describe('image ref normalization', () => {
+    it('should normalize DB image refs with API prefix path', () => {
+      const id = '4e59d6ea-e329-4cc8-b0ed-b8aa8ecf95bb';
+      const normalized = (service as any).normalizePropertyImages([
+        `https://example.com/api/properties/images/${id}`,
+      ]);
+
+      expect(normalized).toEqual([`/properties/images/${id}`]);
+    });
+
+    it('should normalize legacy upload refs with API prefix path', () => {
+      const normalized = (service as any).normalizePropertyImages([
+        'https://example.com/api/uploads/properties/house-1.jpg',
+      ]);
+
+      expect(normalized).toEqual(['/uploads/properties/house-1.jpg']);
+    });
+  });
 });

@@ -585,12 +585,14 @@ export class PropertiesService {
       }
     }
 
-    if (!pathname.startsWith('/properties/images/')) {
+    const imagePathPrefix = '/properties/images/';
+    const prefixIndex = pathname.indexOf(imagePathPrefix);
+    if (prefixIndex === -1) {
       return null;
     }
 
     const imageId = pathname
-      .slice('/properties/images/'.length)
+      .slice(prefixIndex + imagePathPrefix.length)
       .split('?')[0]
       .split('/')[0]
       .trim();
@@ -621,12 +623,14 @@ export class PropertiesService {
       }
     }
 
-    if (!pathname.startsWith('/uploads/properties/')) {
+    const uploadPathPrefix = '/uploads/properties/';
+    const prefixIndex = pathname.indexOf(uploadPathPrefix);
+    if (prefixIndex === -1) {
       return null;
     }
 
     const fileName = decodeURIComponent(
-      pathname.slice('/uploads/properties/'.length),
+      pathname.slice(prefixIndex + uploadPathPrefix.length),
     );
     if (
       !fileName ||
