@@ -968,7 +968,14 @@ export class InterestedService {
       .createQueryBuilder('activity')
       .select('activity.created_by_user_id', 'userId')
       .addSelect('COUNT(*)', 'activityCount')
+      .innerJoin(
+        InterestedProfile,
+        'profile',
+        'profile.id = activity.interested_profile_id',
+      )
       .where('activity.created_by_user_id IS NOT NULL')
+      .andWhere('profile.company_id = :companyId', { companyId: user.companyId })
+      .andWhere('profile.deleted_at IS NULL')
       .groupBy('activity.created_by_user_id')
       .getRawMany<{ userId: string; activityCount: string }>();
 
@@ -976,8 +983,15 @@ export class InterestedService {
       .createQueryBuilder('history')
       .select('history.changed_by_user_id', 'userId')
       .addSelect('COUNT(*)', 'wonCount')
+      .innerJoin(
+        InterestedProfile,
+        'profile',
+        'profile.id = history.interested_profile_id',
+      )
       .where('history.to_status = :won', { won: InterestedStatus.WON })
       .andWhere('history.changed_by_user_id IS NOT NULL')
+      .andWhere('profile.company_id = :companyId', { companyId: user.companyId })
+      .andWhere('profile.deleted_at IS NULL')
       .groupBy('history.changed_by_user_id')
       .getRawMany<{ userId: string; wonCount: string }>();
 
