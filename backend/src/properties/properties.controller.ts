@@ -11,12 +11,9 @@ import {
   UseGuards,
   UploadedFile,
   UseInterceptors,
-  BadRequestException,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { extname, join } from 'path';
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import { AuthGuard } from '@nestjs/passport';
 import { PropertiesService } from './properties.service';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { DiscardPropertyImagesDto } from './dto/discard-property-images.dto';
@@ -75,27 +72,24 @@ export class PropertiesController {
   @Post('upload')
   @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
   @UseInterceptors(FileInterceptor('file'))
-  uploadPropertyImage(@UploadedFile() file: any) {
-    if (!file || !file.buffer) {
-      throw new BadRequestException('File is required');
-    }
-
-    const destination = join(process.cwd(), 'uploads', 'properties');
-    if (!existsSync(destination)) {
-      mkdirSync(destination, { recursive: true });
-    }
-
-    const extension = extname(file.originalname || '').toLowerCase();
-    const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${extension || '.jpg'}`;
-    writeFileSync(join(destination, filename), file.buffer);
-
-    const url = `/uploads/properties/${filename}`;
-    return { url };
+  uploadPropertyImage(@UploadedFile() file: any, @Request() req: any) {
+    return this.propertiesService.uploadPropertyImage(file, {
+      id: req.user.id,
+      role: req.user.role,
+      companyId: req.user.companyId,
+    });
   }
 
   @Post('uploads/discard')
   @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
-  discardUploadedImages(@Body() dto: DiscardPropertyImagesDto) {
-    return this.propertiesService.discardUploadedImages(dto.images);
+  discardUploadedImages(
+    @Body() dto: DiscardPropertyImagesDto,
+    @Request() req: any,
+  ) {
+    return this.propertiesService.discardUploadedImages(dto.images, {
+      id: req.user.id,
+      role: req.user.role,
+      companyId: req.user.companyId,
+    });
   }
 }

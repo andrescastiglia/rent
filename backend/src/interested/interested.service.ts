@@ -974,7 +974,9 @@ export class InterestedService {
         'profile.id = activity.interested_profile_id',
       )
       .where('activity.created_by_user_id IS NOT NULL')
-      .andWhere('profile.company_id = :companyId', { companyId: user.companyId })
+      .andWhere('profile.company_id = :companyId', {
+        companyId: user.companyId,
+      })
       .andWhere('profile.deleted_at IS NULL')
       .groupBy('activity.created_by_user_id')
       .getRawMany<{ userId: string; activityCount: string }>();
@@ -990,7 +992,9 @@ export class InterestedService {
       )
       .where('history.to_status = :won', { won: InterestedStatus.WON })
       .andWhere('history.changed_by_user_id IS NOT NULL')
-      .andWhere('profile.company_id = :companyId', { companyId: user.companyId })
+      .andWhere('profile.company_id = :companyId', {
+        companyId: user.companyId,
+      })
       .andWhere('profile.deleted_at IS NULL')
       .groupBy('history.changed_by_user_id')
       .getRawMany<{ userId: string; wonCount: string }>();

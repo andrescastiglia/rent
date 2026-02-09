@@ -7,6 +7,7 @@ import {
   PropertyType,
   PropertyStatus,
 } from './entities/property.entity';
+import { PropertyImage } from './entities/property-image.entity';
 import { Unit, UnitStatus } from './entities/unit.entity';
 import { Owner } from '../owners/entities/owner.entity';
 import {
@@ -18,6 +19,7 @@ import {
 describe('PropertiesService', () => {
   let service: PropertiesService;
   let propertyRepository: MockRepository<Property>;
+  let propertyImagesRepository: MockRepository<PropertyImage>;
   let unitRepository: MockRepository<Unit>;
   let ownerRepository: MockRepository<Owner>;
 
@@ -66,6 +68,10 @@ describe('PropertiesService', () => {
           useValue: createMockRepository(),
         },
         {
+          provide: getRepositoryToken(PropertyImage),
+          useValue: createMockRepository(),
+        },
+        {
           provide: getRepositoryToken(Unit),
           useValue: createMockRepository(),
         },
@@ -78,12 +84,14 @@ describe('PropertiesService', () => {
 
     service = module.get<PropertiesService>(PropertiesService);
     propertyRepository = module.get(getRepositoryToken(Property));
+    propertyImagesRepository = module.get(getRepositoryToken(PropertyImage));
     unitRepository = module.get(getRepositoryToken(Unit));
     ownerRepository = module.get(getRepositoryToken(Owner));
   });
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+    expect(propertyImagesRepository).toBeDefined();
   });
 
   describe('create', () => {

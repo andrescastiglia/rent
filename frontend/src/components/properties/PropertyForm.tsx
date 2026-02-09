@@ -124,6 +124,15 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
         const newProperty = await propertiesApi.create(data as CreatePropertyInput);
         router.push(`/properties/${newProperty.id}`);
       }
+
+      const currentImages = Array.isArray(data.images) ? data.images : [];
+      const discardedBeforePersist = uploadedSessionImagesRef.current.filter(
+        (imageUrl) => !currentImages.includes(imageUrl),
+      );
+      if (discardedBeforePersist.length > 0) {
+        await propertiesApi.discardUploadedImages(discardedBeforePersist);
+      }
+
       persistedRef.current = true;
       setUploadedSessionImages([]);
       router.refresh();
@@ -143,13 +152,9 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
     return url;
   };
 
-  const handleImageRemove = async (url: string) => {
-    if (!uploadedSessionImagesRef.current.includes(url)) {
-      return;
-    }
-
-    await propertiesApi.discardUploadedImages([url]);
-    setUploadedSessionImages((prev) => prev.filter((image) => image !== url));
+  const handleImageRemove = async (_url: string) => {
+    // Image references are persisted only when the form is saved.
+    // Uploads removed before save are discarded on save/cancel cleanup.
   };
 
   const handleCancel = async () => {

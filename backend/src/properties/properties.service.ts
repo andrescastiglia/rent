@@ -5,10 +5,11 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { Property } from './entities/property.entity';
+import { PropertyImage } from './entities/property-image.entity';
 import { Unit, UnitStatus } from './entities/unit.entity';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
@@ -23,9 +24,14 @@ interface UserContext {
 
 @Injectable()
 export class PropertiesService {
+  private static readonly PROPERTY_IMAGE_ID_REGEX =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
   constructor(
     @InjectRepository(Property)
     private propertiesRepository: Repository<Property>,
+    @InjectRepository(PropertyImage)
+    private propertyImagesRepository: Repository<PropertyImage>,
     @InjectRepository(Unit)
     private unitsRepository: Repository<Unit>,
     @InjectRepository(Owner)
@@ -47,6 +53,10 @@ export class PropertiesService {
     const normalizedImages = this.normalizePropertyImages(
       createPropertyDto.images,
     );
+    const imageIds = await this.ensureUsablePropertyImageIds(
+      normalizedImages,
+      user.companyId,
+    );
 
     const property = this.propertiesRepository.create({
       ...createPropertyDto,
@@ -54,7 +64,14 @@ export class PropertiesService {
       companyId: user.companyId,
       ownerId: owner.id,
     });
-    return this.propertiesRepository.save(property);
+    const createdProperty = await this.propertiesRepository.save(property);
+    await this.attachPropertyImagesToProperty(
+      imageIds,
+      createdProperty.id,
+      user.companyId,
+    );
+
+    return createdProperty;
   }
 
   async findAll(
@@ -167,9 +184,9 @@ export class PropertiesService {
     userRole: string,
   ): Promise<Property> {
     const property = await this.findOne(id);
-    const previousImageRefs = Array.isArray(property.images)
-      ? [...property.images]
-      : [];
+    const previousImageRefs = this.normalizePropertyImages(
+      Array.isArray(property.images) ? property.images : [],
+    );
 
     // Check ownership (only owner or admin can update)
     // property.owner is loaded via relation and has userId
@@ -177,9 +194,15 @@ export class PropertiesService {
       throw new ForbiddenException('You can only update your own properties');
     }
 
+    let nextImageIds: string[] = [];
     if (updatePropertyDto.images !== undefined) {
       updatePropertyDto.images = this.normalizePropertyImages(
         updatePropertyDto.images,
+      );
+      nextImageIds = await this.ensureUsablePropertyImageIds(
+        updatePropertyDto.images,
+        property.companyId,
+        property.id,
       );
     }
 
@@ -187,11 +210,16 @@ export class PropertiesService {
     const updatedProperty = await this.propertiesRepository.save(property);
 
     if (updatePropertyDto.images !== undefined) {
+      await this.attachPropertyImagesToProperty(
+        nextImageIds,
+        property.id,
+        property.companyId,
+      );
       const removedImageRefs = this.findRemovedImageRefs(
         previousImageRefs,
         updatePropertyDto.images,
       );
-      this.deletePropertyImages(removedImageRefs);
+      await this.deletePropertyImages(removedImageRefs, property.companyId);
     }
 
     return updatedProperty;
@@ -217,14 +245,68 @@ export class PropertiesService {
     }
 
     await this.propertiesRepository.softDelete(id);
-    this.deletePropertyImages(
+    await this.deletePropertyImages(
       Array.isArray(property.images) ? property.images : [],
+      property.companyId,
     );
   }
 
-  discardUploadedImages(images: string[]): { deleted: number } {
-    const deleted = this.deletePropertyImages(images);
+  async discardUploadedImages(
+    images: string[],
+    user: UserContext,
+  ): Promise<{ deleted: number }> {
+    if (!user.companyId) {
+      throw new ForbiddenException('Company scope required');
+    }
+    const deleted = await this.deleteTemporaryPropertyImages(
+      images,
+      user.companyId,
+    );
     return { deleted };
+  }
+
+  async uploadPropertyImage(
+    file: any,
+    user: UserContext,
+  ): Promise<{ url: string }> {
+    if (!user.companyId) {
+      throw new ForbiddenException('Company scope required');
+    }
+    if (!file || !file.buffer) {
+      throw new BadRequestException('File is required');
+    }
+    if (!file.mimetype || !String(file.mimetype).startsWith('image/')) {
+      throw new BadRequestException('Only image uploads are allowed');
+    }
+
+    const savedImage = await this.propertyImagesRepository.save(
+      this.propertyImagesRepository.create({
+        companyId: user.companyId,
+        uploadedByUserId: user.id,
+        originalName: file.originalname ?? null,
+        mimeType: file.mimetype,
+        sizeBytes:
+          typeof file.size === 'number' ? file.size : file.buffer.length,
+        data: file.buffer,
+        isTemporary: true,
+      }),
+    );
+
+    return { url: `/properties/images/${savedImage.id}` };
+  }
+
+  async getPropertyImage(imageId: string): Promise<PropertyImage> {
+    const image = await this.propertyImagesRepository.findOne({
+      where: { id: imageId },
+    });
+
+    if (!image) {
+      throw new NotFoundException(
+        `Property image with ID ${imageId} not found`,
+      );
+    }
+
+    return image;
   }
 
   private async resolveOwnerForCreate(
@@ -288,31 +370,166 @@ export class PropertiesService {
     );
   }
 
+  private async ensureUsablePropertyImageIds(
+    imageRefs: string[],
+    companyId: string,
+    currentPropertyId?: string,
+  ): Promise<string[]> {
+    const imageIds = Array.from(
+      new Set(
+        imageRefs
+          .map((imageRef) => this.toPropertyImageId(imageRef))
+          .filter((imageId): imageId is string => Boolean(imageId)),
+      ),
+    );
+
+    if (imageIds.length === 0) {
+      return [];
+    }
+
+    const images = await this.propertyImagesRepository.find({
+      where: {
+        id: In(imageIds),
+        companyId,
+      },
+      select: {
+        id: true,
+        propertyId: true,
+      },
+    });
+
+    if (images.length !== imageIds.length) {
+      throw new BadRequestException('Some property images are invalid');
+    }
+
+    const invalidImage = images.find((image) => {
+      if (!image.propertyId) {
+        return false;
+      }
+      return currentPropertyId ? image.propertyId !== currentPropertyId : true;
+    });
+
+    if (invalidImage) {
+      throw new BadRequestException(
+        'One or more images are already assigned to another property',
+      );
+    }
+
+    return imageIds;
+  }
+
+  private async attachPropertyImagesToProperty(
+    imageIds: string[],
+    propertyId: string,
+    companyId: string,
+  ): Promise<void> {
+    if (!Array.isArray(imageIds) || imageIds.length === 0) {
+      return;
+    }
+
+    await this.propertyImagesRepository
+      .createQueryBuilder()
+      .update(PropertyImage)
+      .set({
+        propertyId,
+        isTemporary: false,
+      })
+      .where('id IN (:...imageIds)', { imageIds })
+      .andWhere('company_id = :companyId', { companyId })
+      .execute();
+  }
+
   private findRemovedImageRefs(
     previousImageRefs: string[],
     nextImageRefs: string[],
   ): string[] {
-    const nextImageNames = new Set(
-      nextImageRefs
-        .map((imageRef) => this.toPropertyImageFileName(imageRef))
-        .filter((name): name is string => Boolean(name)),
+    const normalizedNextRefs = new Set(
+      this.normalizePropertyImages(nextImageRefs),
     );
 
-    return previousImageRefs.filter((imageRef) => {
-      const fileName = this.toPropertyImageFileName(imageRef);
-      if (!fileName) {
-        return false;
-      }
-      return !nextImageNames.has(fileName);
-    });
+    return this.normalizePropertyImages(previousImageRefs).filter(
+      (imageRef) => !normalizedNextRefs.has(imageRef),
+    );
   }
 
-  private deletePropertyImages(imageRefs: string[]): number {
+  private async deleteTemporaryPropertyImages(
+    imageRefs: string[],
+    companyId: string,
+  ): Promise<number> {
     if (!Array.isArray(imageRefs) || imageRefs.length === 0) {
       return 0;
     }
 
+    const imageIds = Array.from(
+      new Set(
+        imageRefs
+          .map((imageRef) => this.toPropertyImageId(imageRef))
+          .filter((imageId): imageId is string => Boolean(imageId)),
+      ),
+    );
+
     let deletedCount = 0;
+
+    if (imageIds.length > 0) {
+      const deleteResult = await this.propertyImagesRepository
+        .createQueryBuilder()
+        .delete()
+        .from(PropertyImage)
+        .where('id IN (:...imageIds)', { imageIds })
+        .andWhere('company_id = :companyId', { companyId })
+        .andWhere('is_temporary = true')
+        .andWhere('property_id IS NULL')
+        .execute();
+
+      deletedCount += deleteResult.affected ?? 0;
+    }
+
+    deletedCount += this.deleteLegacyPropertyImagesFromDisk(imageRefs);
+
+    return deletedCount;
+  }
+
+  private async deletePropertyImages(
+    imageRefs: string[],
+    companyId?: string,
+  ): Promise<number> {
+    if (!Array.isArray(imageRefs) || imageRefs.length === 0) {
+      return 0;
+    }
+
+    const imageIds = Array.from(
+      new Set(
+        imageRefs
+          .map((imageRef) => this.toPropertyImageId(imageRef))
+          .filter((imageId): imageId is string => Boolean(imageId)),
+      ),
+    );
+
+    let deletedCount = 0;
+
+    if (imageIds.length > 0) {
+      const queryBuilder = this.propertyImagesRepository
+        .createQueryBuilder()
+        .delete()
+        .from(PropertyImage)
+        .where('id IN (:...imageIds)', { imageIds });
+
+      if (companyId) {
+        queryBuilder.andWhere('company_id = :companyId', { companyId });
+      }
+
+      const deleteResult = await queryBuilder.execute();
+      deletedCount += deleteResult.affected ?? 0;
+    }
+
+    deletedCount += this.deleteLegacyPropertyImagesFromDisk(imageRefs);
+
+    return deletedCount;
+  }
+
+  private deleteLegacyPropertyImagesFromDisk(imageRefs: string[]): number {
+    let deletedCount = 0;
+
     for (const imageRef of imageRefs) {
       const fileName = this.toPropertyImageFileName(imageRef);
       if (!fileName) {
@@ -336,12 +553,53 @@ export class PropertiesService {
   }
 
   private toPropertyImageRelativeUrl(imageRef: string): string | null {
+    const imageId = this.toPropertyImageId(imageRef);
+    if (imageId) {
+      return `/properties/images/${imageId}`;
+    }
+
     const fileName = this.toPropertyImageFileName(imageRef);
     if (!fileName) {
       return null;
     }
 
     return `/uploads/properties/${fileName}`;
+  }
+
+  private toPropertyImageId(imageRef: string): string | null {
+    if (!imageRef || typeof imageRef !== 'string') {
+      return null;
+    }
+
+    let pathname = imageRef.trim();
+    if (!pathname) {
+      return null;
+    }
+
+    if (pathname.startsWith('http://') || pathname.startsWith('https://')) {
+      try {
+        const parsed = new URL(pathname);
+        pathname = parsed.pathname;
+      } catch {
+        return null;
+      }
+    }
+
+    if (!pathname.startsWith('/properties/images/')) {
+      return null;
+    }
+
+    const imageId = pathname
+      .slice('/properties/images/'.length)
+      .split('?')[0]
+      .split('/')[0]
+      .trim();
+
+    if (!PropertiesService.PROPERTY_IMAGE_ID_REGEX.test(imageId)) {
+      return null;
+    }
+
+    return imageId;
   }
 
   private toPropertyImageFileName(imageRef: string): string | null {

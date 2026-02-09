@@ -121,8 +121,8 @@ const normalizeImages = (images: any[] | null | undefined): string[] => {
 
 const normalizePropertyImageUrl = (url: string): string => {
     if (!url) return url;
-    const normalizeUploadPathWithApiBase = (uploadPath: string): string => {
-        const normalizedPath = uploadPath.startsWith('/') ? uploadPath : `/${uploadPath}`;
+    const normalizeApiPathWithBase = (path: string): string => {
+        const normalizedPath = path.startsWith('/') ? path : `/${path}`;
         if (!API_BASE_URL) return normalizedPath;
         try {
             const base = API_BASE_URL.endsWith('/') ? API_BASE_URL : `${API_BASE_URL}/`;
@@ -136,8 +136,13 @@ const normalizePropertyImageUrl = (url: string): string => {
         }
     };
 
-    if (url.startsWith('/uploads/') || url.startsWith('uploads/')) {
-        return normalizeUploadPathWithApiBase(url);
+    if (
+        url.startsWith('/uploads/') ||
+        url.startsWith('uploads/') ||
+        url.startsWith('/properties/images/') ||
+        url.startsWith('properties/images/')
+    ) {
+        return normalizeApiPathWithBase(url);
     }
     try {
         if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -145,8 +150,11 @@ const normalizePropertyImageUrl = (url: string): string => {
         }
 
         const parsed = new URL(url);
-        if (parsed.pathname.startsWith('/uploads/')) {
-            return normalizeUploadPathWithApiBase(`${parsed.pathname}${parsed.search}`);
+        if (
+            parsed.pathname.startsWith('/uploads/') ||
+            parsed.pathname.startsWith('/properties/images/')
+        ) {
+            return normalizeApiPathWithBase(`${parsed.pathname}${parsed.search}`);
         }
         if (parsed.hostname === 'rent.maese.com.ar') {
             parsed.protocol = 'https:';
