@@ -13,8 +13,9 @@ test.describe('Interested Matchmaking', () => {
         await page.getByPlaceholder('Apellido', { exact: true }).fill('Gomez');
         await page.getByRole('button', { name: /guardar interesado/i }).click();
 
-        await expect(page.getByText('Sofia Gomez')).toBeVisible();
-        await page.getByText('Sofia Gomez').click();
+        const personListItem = page.getByRole('button', { name: /sofia gomez/i }).first();
+        await expect(personListItem).toBeVisible();
+        await personListItem.click();
         await page.getByRole('button', { name: /propiedades|properties/i }).click();
 
         await expect(page.getByText('No hay coincidencias para este perfil.')).toBeVisible();
