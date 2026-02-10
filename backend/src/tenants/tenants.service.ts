@@ -293,7 +293,10 @@ export class TenantsService {
           : activity.completedAt,
     });
 
-    if (dto.status === TenantActivityStatus.COMPLETED && !activity.completedAt) {
+    if (
+      dto.status === TenantActivityStatus.COMPLETED &&
+      !activity.completedAt
+    ) {
       activity.completedAt = new Date();
     }
 
