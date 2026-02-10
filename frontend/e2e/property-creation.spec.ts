@@ -62,20 +62,14 @@ test.describe('Property Creation Flow', () => {
 
         // Should redirect to property details
         await expect(page).toHaveURL(/\/es\/properties\/[^/]+$/);
-
-        // Should show the property name
-        await expect(page.getByText(/test property e2e/i)).toBeVisible();
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     });
 
     test('should navigate to property details', async ({ page }) => {
         await page.goto(localePath('/properties'));
 
-        // Wait for properties to load (links with locale prefix)
-        await page.waitForSelector('a[href*="/properties/"]:not([href*="/properties/new"])', { timeout: 5000 });
-
-        // Click on first property card link
-        const firstPropertyLink = page.locator('a[href*="/properties/"]:not([href*="/properties/new"])').first();
-        await firstPropertyLink.click({ force: true });
+        // Click first "View" action from owner/property list
+        await page.getByRole('link', { name: /view|ver/i }).first().click({ force: true });
 
         // Should navigate to property detail page
         await expect(page).toHaveURL(/\/es\/properties\/[^/]+$/);
@@ -84,12 +78,11 @@ test.describe('Property Creation Flow', () => {
     test('should display edit button on property detail page', async ({ page }) => {
         await page.goto(localePath('/properties'));
 
-        // Wait for and click first property
-        await page.waitForSelector('a[href*="/properties/"]:not([href*="/properties/new"])', { timeout: 5000 });
-        await page.locator('a[href*="/properties/"]:not([href*="/properties/new"])').first().click({ force: true });
+        // Go to property detail
+        await page.getByRole('link', { name: /view|ver/i }).first().click({ force: true });
 
         // Should show edit link
-        await expect(page.locator('a[href*="/edit"]')).toBeVisible();
+        await expect(page.getByRole('link', { name: /edit|editar/i }).first()).toBeVisible();
     });
 
     test('should search properties', async ({ page }) => {

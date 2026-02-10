@@ -39,7 +39,7 @@
     "payments": "Pagos",
     "invoices": "Facturas",
     "sales": "Ventas",
-    "interested": "Prospectos",
+    "interested": "Personas",
     "users": "Usuarios"
   },
   "breadcrumbs": {
@@ -151,7 +151,7 @@
   },
   "properties": {
     "title": "Propiedades",
-    "subtitle": "Gestiona tus propiedades inmobiliarias",
+    "subtitle": "Gestiona propietarios y sus propiedades",
     "addProperty": "Agregar Propiedad",
     "selectOwner": "Seleccionar propietario",
     "newProperty": "Nueva Propiedad",
@@ -166,6 +166,11 @@
     "notFound": "Propiedad no encontrada",
     "noProperties": "No hay propiedades registradas",
     "noPropertiesDescription": "Comienza agregando una nueva propiedad.",
+    "ownerListSubtitle": "Listado por propietario con sus propiedades asociadas",
+    "ownerSearchPlaceholder": "Buscar por propietario, email, teléfono o propiedad...",
+    "addPropertyForOwner": "Agregar propiedad a propietario",
+    "ownerNoProperties": "Este propietario aún no tiene propiedades cargadas.",
+    "unassignedOwnerTitle": "Propiedades sin propietario asociado",
     "searchPlaceholder": "Buscar propiedades por nombre o ciudad...",
     "deleteConfirm": "¿Estás seguro que deseas eliminar esta propiedad?",
     "confirmDelete": "¿Estás seguro que deseas eliminar esta propiedad?",
@@ -291,17 +296,17 @@
     "nextImage": "Imagen siguiente"
   },
   "interested": {
-    "title": "Prospectos",
+    "title": "Personas",
     "subtitle": "Gestión comercial",
-    "newTitle": "Nuevo interesado",
-    "editTitle": "Editar interesado",
+    "newTitle": "Nueva persona",
+    "editTitle": "Editar persona",
     "listTitle": "Perfiles registrados",
     "listSearchPlaceholder": "Buscar por nombre, telefono o email...",
     "matchesTitle": "Propiedades sugeridas",
     "matchesHint": "Selecciona un interesado para ver coincidencias.",
     "noMatches": "No hay coincidencias para este perfil.",
     "empty": "No hay interesados registrados.",
-    "noResults": "No se encontraron prospectos con ese criterio.",
+    "noResults": "No se encontraron personas con ese criterio.",
     "timelineTitle": "Linea de tiempo",
     "timelineEmpty": "Sin eventos para este perfil.",
     "timeline": {
@@ -314,7 +319,7 @@
       "reason": "Motivo: {reason}",
       "note": "Nota: {note}"
     },
-    "duplicateWarning": "Este lead tiene posibles duplicados ({count}). Revisar y consolidar.",
+    "duplicateWarning": "Esta persona tiene posibles duplicados ({count}). Revisar y consolidar.",
     "labels": {
       "score": "Puntaje"
     },
@@ -410,17 +415,22 @@
       "other": "Otro"
     },
     "operationsLabel": "Operaciones: {op}",
+    "sections": {
+      "result": "Resultado",
+      "properties": "Propiedades",
+      "activities": "Actividades"
+    },
     "filters": {
       "allStages": "Todas las etapas"
     },
     "actions": {
       "save": "Guardar interesado",
       "saving": "Guardando...",
-      "new": "Nuevo prospecto",
+      "new": "Nueva persona",
       "closeNew": "Cancelar alta",
       "reload": "Recargar",
       "changeStage": "Cambiar etapa",
-      "edit": "Editar prospecto",
+      "edit": "Editar persona",
       "refreshMatches": "Actualizar matches",
       "markDone": "Marcar realizada",
       "newRentalContract": "Nuevo contrato de alquiler",
@@ -466,7 +476,7 @@
   },
   "tenants": {
     "title": "Inquilinos",
-    "subtitle": "Gestiona tus inquilinos y prospectos",
+    "subtitle": "Gestiona tus inquilinos y personas",
     "addTenant": "Agregar Inquilino",
     "newTenant": "Nuevo Inquilino",
     "editTenant": "Editar Inquilino",
@@ -573,10 +583,10 @@
       "active": "Activo",
       "inactive": "Inactivo",
       "pending": "Pendiente",
-      "prospect": "Prospecto",
+      "prospect": "Persona",
       "ACTIVE": "Activo",
       "INACTIVE": "Inactivo",
-      "PROSPECT": "Prospecto"
+      "PROSPECT": "Persona"
     }
   },
   "leases": {

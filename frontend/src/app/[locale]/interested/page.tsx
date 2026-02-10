@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Clock3, LineChart, Loader2, RefreshCw, Trophy, Users } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { interestedApi } from '@/lib/api/interested';
 import {
@@ -12,7 +12,6 @@ import {
   InterestedMatch,
   InterestedMatchStatus,
   InterestedOperation,
-  InterestedMetrics,
   InterestedProfile,
   InterestedStatus,
   InterestedSummary,
@@ -67,7 +66,6 @@ export default function InterestedPage() {
   const locale = useLocale();
 
   const [profiles, setProfiles] = useState<InterestedProfile[]>([]);
-  const [metrics, setMetrics] = useState<InterestedMetrics | null>(null);
   const [duplicates, setDuplicates] = useState<InterestedDuplicate[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<InterestedProfile | null>(null);
   const [summary, setSummary] = useState<InterestedSummary | null>(null);
@@ -80,7 +78,7 @@ export default function InterestedPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [stageFilter, setStageFilter] = useState<InterestedStatus | 'all'>('all');
+  const [activeDetailSection, setActiveDetailSection] = useState<'result' | 'properties' | 'activities'>('result');
 
   const [form, setForm] = useState<CreateInterestedProfileInput>(emptyForm);
   const [stageReason, setStageReason] = useState('');
@@ -105,7 +103,6 @@ export default function InterestedPage() {
     return [...profiles]
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .filter((profile) => {
-        if (stageFilter !== 'all' && profile.status !== stageFilter) return false;
         if (!term) return true;
         const fullName = `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.toLowerCase();
         return (
@@ -114,7 +111,7 @@ export default function InterestedPage() {
           (profile.email ?? '').toLowerCase().includes(term)
         );
       });
-  }, [profiles, searchTerm, stageFilter]);
+  }, [profiles, searchTerm]);
 
   const profileToForm = useCallback(
     (profile: InterestedProfile): CreateInterestedProfileInput => ({
@@ -143,13 +140,11 @@ export default function InterestedPage() {
   const loadInitial = useCallback(async () => {
     setLoading(true);
     try {
-      const [profilesResult, metricsResult, duplicatesResult] = await Promise.all([
+      const [profilesResult, duplicatesResult] = await Promise.all([
         interestedApi.getAll({ limit: 30 }),
-        interestedApi.getMetrics(),
         interestedApi.getDuplicates(),
       ]);
       setProfiles(profilesResult.data);
-      setMetrics(metricsResult);
       setDuplicates(duplicatesResult);
 
       if (profilesResult.data.length > 0) {
@@ -169,6 +164,7 @@ export default function InterestedPage() {
 
   async function selectProfile(profile: InterestedProfile) {
     setSelectedProfile(profile);
+    setActiveDetailSection('result');
     setPendingStage(profile.status ?? 'interested');
     setLoadingDetail(true);
     try {
@@ -243,8 +239,6 @@ export default function InterestedPage() {
       setForm(emptyForm);
       setEditingProfileId(null);
       setShowCreateForm(false);
-      const metricsResult = await interestedApi.getMetrics();
-      setMetrics(metricsResult);
     } catch (error) {
       console.error('Failed to save interested profile', error);
       alert(tc('error'));
@@ -265,7 +259,6 @@ export default function InterestedPage() {
       setProfiles((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
       await selectProfile(updated);
       setStageReason('');
-      setMetrics(await interestedApi.getMetrics());
     } catch (error) {
       console.error('Failed to change stage', error);
       alert(tc('error'));
@@ -444,52 +437,171 @@ export default function InterestedPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-          <div className="flex items-center">
-            <div className="flex-1">
-              <p className="text-xs text-gray-500 dark:text-gray-400">{t('metrics.totalLeads')}</p>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-white">{metrics?.totalLeads ?? 0}</p>
+      {showCreateForm ? (
+        <form
+          onSubmit={handleSaveProfile}
+          className="space-y-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4"
+        >
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            {editingProfileId ? t('editTitle') : t('newTitle')}
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <input
+              type="text"
+              placeholder={t('fields.firstName')}
+              value={form.firstName ?? ''}
+              onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
+              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            />
+            <input
+              type="text"
+              placeholder={t('fields.lastName')}
+              value={form.lastName ?? ''}
+              onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
+              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            />
+            <input
+              type="text"
+              placeholder={t('fields.phone')}
+              value={form.phone ?? ''}
+              onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
+              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            />
+            <input
+              type="email"
+              placeholder={t('fields.email')}
+              value={form.email ?? ''}
+              onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            />
+            <div className="space-y-2 md:col-span-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('fields.operations')}</p>
+              <div className="flex flex-wrap gap-3">
+                {(['rent', 'sale'] as const).map((operation) => (
+                  <label key={operation} className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={(form.operations ?? []).includes(operation)}
+                      onChange={(e) =>
+                        setForm((prev) => {
+                          const current = prev.operations ?? [];
+                          const next = e.target.checked
+                            ? [...new Set([...current, operation])]
+                            : current.filter((item) => item !== operation);
+                          return {
+                            ...prev,
+                            operations: next,
+                            operation: next[0] ?? 'rent',
+                          };
+                        })
+                      }
+                      className="rounded border-gray-300 dark:border-gray-600"
+                    />
+                    {t(`operations.${operation}`)}
+                  </label>
+                ))}
+              </div>
             </div>
-            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
-              <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            </div>
+            <select
+              value={form.propertyTypePreference}
+              onChange={(e) => setForm((prev) => ({ ...prev, propertyTypePreference: e.target.value as any }))}
+              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            >
+              <option value="apartment">{t('propertyTypes.apartment')}</option>
+              <option value="house">{t('propertyTypes.house')}</option>
+              <option value="commercial">{t('propertyTypes.commercial')}</option>
+              <option value="office">{t('propertyTypes.office')}</option>
+              <option value="warehouse">{t('propertyTypes.warehouse')}</option>
+              <option value="land">{t('propertyTypes.land')}</option>
+              <option value="parking">{t('propertyTypes.parking')}</option>
+              <option value="other">{t('propertyTypes.other')}</option>
+            </select>
+            <input
+              type="number"
+              min={1}
+              placeholder={t('fields.peopleCount')}
+              value={form.peopleCount ?? ''}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  peopleCount: e.target.value ? Number(e.target.value) : undefined,
+                }))
+              }
+              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            />
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              placeholder={t('fields.minAmount')}
+              value={form.minAmount ?? ''}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  minAmount: e.target.value ? Number(e.target.value) : undefined,
+                }))
+              }
+              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            />
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              placeholder={t('fields.maxAmount')}
+              value={form.maxAmount ?? ''}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  maxAmount: e.target.value ? Number(e.target.value) : undefined,
+                }))
+              }
+              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            />
+            <input
+              type="text"
+              placeholder={t('fields.preferredCity')}
+              value={form.preferredCity ?? ''}
+              onChange={(e) => setForm((prev) => ({ ...prev, preferredCity: e.target.value }))}
+              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            />
+            <input
+              type="text"
+              placeholder={t('fields.desiredFeatures')}
+              value={(form.desiredFeatures ?? []).join(', ')}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  desiredFeatures: e.target.value.split(',').map((item) => item.trim()),
+                }))
+              }
+              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            />
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                checked={form.hasPets ?? false}
+                onChange={(e) => setForm((prev) => ({ ...prev, hasPets: e.target.checked }))}
+                className="rounded border-gray-300 dark:border-gray-600"
+              />
+              {t('fields.hasPets')}
+            </label>
+            <textarea
+              placeholder={t('fields.notes')}
+              value={form.notes ?? ''}
+              onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
+              rows={3}
+              className="md:col-span-2 w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            />
           </div>
-        </div>
-        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-          <div className="flex items-center">
-            <div className="flex-1">
-              <p className="text-xs text-gray-500 dark:text-gray-400">{t('metrics.conversionRate')}</p>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-white">{metrics?.conversionRate?.toFixed(2) ?? '0.00'}%</p>
-            </div>
-            <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/20 rounded-full flex items-center justify-center">
-              <LineChart className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-            </div>
-          </div>
-        </div>
-        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-          <div className="flex items-center">
-            <div className="flex-1">
-              <p className="text-xs text-gray-500 dark:text-gray-400">{t('metrics.avgCloseHours')}</p>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-white">{metrics?.avgHoursToClose?.toFixed(1) ?? '0.0'}h</p>
-            </div>
-            <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/20 rounded-full flex items-center justify-center">
-              <Clock3 className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-            </div>
-          </div>
-        </div>
-        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-          <div className="flex items-center">
-            <div className="flex-1">
-              <p className="text-xs text-gray-500 dark:text-gray-400">{t('metrics.won')}</p>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-white">{metrics?.byStage?.won ?? 0}</p>
-            </div>
-            <div className="w-10 h-10 bg-violet-100 dark:bg-violet-900/20 rounded-full flex items-center justify-center">
-              <Trophy className="w-5 h-5 text-violet-600 dark:text-violet-400" />
-            </div>
-          </div>
-        </div>
-      </div>
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60"
+          >
+            {saving ? t('actions.saving') : t('actions.save')}
+          </button>
+        </form>
+      ) : null}
 
       {loading ? (
         <div className="flex justify-center py-16">
@@ -497,185 +609,9 @@ export default function InterestedPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-          <div className="xl:col-span-4 space-y-6">
-            {showCreateForm ? (
-              <form
-                onSubmit={handleSaveProfile}
-                className="space-y-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4"
-              >
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {editingProfileId ? t('editTitle') : t('newTitle')}
-                </h2>
-                <div className="grid grid-cols-1 gap-3">
-                  <input
-                    type="text"
-                    placeholder={t('fields.firstName')}
-                    value={form.firstName ?? ''}
-                    onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
-                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                  />
-                  <input
-                    type="text"
-                    placeholder={t('fields.lastName')}
-                    value={form.lastName ?? ''}
-                    onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
-                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                  />
-                  <input
-                    type="text"
-                    placeholder={t('fields.phone')}
-                    value={form.phone ?? ''}
-                    onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
-                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                  />
-                  <input
-                    type="email"
-                    placeholder={t('fields.email')}
-                    value={form.email ?? ''}
-                    onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                  />
-                  <div className="space-y-2">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('fields.operations')}</p>
-                    <div className="flex flex-wrap gap-3">
-                      {(['rent', 'sale'] as const).map((operation) => (
-                        <label key={operation} className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                          <input
-                            type="checkbox"
-                            checked={(form.operations ?? []).includes(operation)}
-                            onChange={(e) =>
-                              setForm((prev) => {
-                                const current = prev.operations ?? [];
-                                const next = e.target.checked
-                                  ? [...new Set([...current, operation])]
-                                  : current.filter((item) => item !== operation);
-                                return {
-                                  ...prev,
-                                  operations: next,
-                                  operation: next[0] ?? 'rent',
-                                };
-                              })
-                            }
-                            className="rounded border-gray-300 dark:border-gray-600"
-                          />
-                          {t(`operations.${operation}`)}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                  <select
-                    value={form.propertyTypePreference}
-                    onChange={(e) => setForm((prev) => ({ ...prev, propertyTypePreference: e.target.value as any }))}
-                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                  >
-                    <option value="apartment">{t('propertyTypes.apartment')}</option>
-                    <option value="house">{t('propertyTypes.house')}</option>
-                    <option value="commercial">{t('propertyTypes.commercial')}</option>
-                    <option value="office">{t('propertyTypes.office')}</option>
-                    <option value="warehouse">{t('propertyTypes.warehouse')}</option>
-                    <option value="land">{t('propertyTypes.land')}</option>
-                    <option value="parking">{t('propertyTypes.parking')}</option>
-                    <option value="other">{t('propertyTypes.other')}</option>
-                  </select>
-                  <input
-                    type="number"
-                    min={1}
-                    placeholder={t('fields.peopleCount')}
-                    value={form.peopleCount ?? ''}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        peopleCount: e.target.value ? Number(e.target.value) : undefined,
-                      }))
-                    }
-                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                  />
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    placeholder={t('fields.minAmount')}
-                    value={form.minAmount ?? ''}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        minAmount: e.target.value ? Number(e.target.value) : undefined,
-                      }))
-                    }
-                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                  />
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    placeholder={t('fields.maxAmount')}
-                    value={form.maxAmount ?? ''}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        maxAmount: e.target.value ? Number(e.target.value) : undefined,
-                      }))
-                    }
-                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                  />
-                  <input
-                    type="text"
-                    placeholder={t('fields.preferredCity')}
-                    value={form.preferredCity ?? ''}
-                    onChange={(e) => setForm((prev) => ({ ...prev, preferredCity: e.target.value }))}
-                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                  />
-                  <input
-                    type="text"
-                    placeholder={t('fields.desiredFeatures')}
-                    value={(form.desiredFeatures ?? []).join(', ')}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        desiredFeatures: e.target.value.split(',').map((item) => item.trim()),
-                      }))
-                    }
-                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                  />
-                  <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                    <input
-                      type="checkbox"
-                      checked={form.hasPets ?? false}
-                      onChange={(e) => setForm((prev) => ({ ...prev, hasPets: e.target.checked }))}
-                      className="rounded border-gray-300 dark:border-gray-600"
-                    />
-                    {t('fields.hasPets')}
-                  </label>
-                  <textarea
-                    placeholder={t('fields.notes')}
-                    value={form.notes ?? ''}
-                    onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
-                    rows={3}
-                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60"
-                >
-                  {saving ? t('actions.saving') : t('actions.save')}
-                </button>
-              </form>
-            ) : null}
-
-            <div className="space-y-3">
+          <div className="xl:col-span-4">
+            <div className="space-y-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('listTitle')}</h2>
-              <select
-                value={stageFilter}
-                onChange={(e) => setStageFilter(e.target.value as InterestedStatus | 'all')}
-                className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-              >
-                <option value="all">{t('filters.allStages')}</option>
-                {STAGE_OPTIONS.map((stage) => (
-                  <option key={stage} value={stage}>{statusLabel(stage)}</option>
-                ))}
-              </select>
               <input
                 type="text"
                 placeholder={t('listSearchPlaceholder')}
@@ -744,7 +680,7 @@ export default function InterestedPage() {
                       <p className="text-sm text-gray-500 dark:text-gray-400">{summary?.profile.email ?? summary?.profile.phone}</p>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       {summary?.profile.convertedToTenantId ? (
                         <Link
                           href={`/${locale}/leases/new?tenantId=${summary.profile.convertedToTenantId}&contractType=rental`}
@@ -768,6 +704,82 @@ export default function InterestedPage() {
                       >
                         {t('actions.edit')}
                       </button>
+                    </div>
+                  </div>
+
+                  {duplicateForSelected ? (
+                    <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-900 dark:text-amber-200">
+                      {t('duplicateWarning', { count: duplicateForSelected.count })}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="inline-flex rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setActiveDetailSection('result')}
+                    className={`px-3 py-1.5 rounded text-sm ${
+                      activeDetailSection === 'result'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    {t('sections.result')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveDetailSection('properties')}
+                    className={`px-3 py-1.5 rounded text-sm ${
+                      activeDetailSection === 'properties'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    {t('sections.properties')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveDetailSection('activities')}
+                    className={`px-3 py-1.5 rounded text-sm ${
+                      activeDetailSection === 'activities'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    {t('sections.activities')}
+                  </button>
+                </div>
+
+                {activeDetailSection === 'result' ? (
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-4">
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('sections.result')}</h3>
+                    <dl className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <dt className="text-gray-500 dark:text-gray-400">{t('fields.phone')}</dt>
+                        <dd className="text-gray-900 dark:text-white">{summary?.profile.phone || '-'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-gray-500 dark:text-gray-400">{t('fields.email')}</dt>
+                        <dd className="text-gray-900 dark:text-white">{summary?.profile.email || '-'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-gray-500 dark:text-gray-400">{t('fields.preferredCity')}</dt>
+                        <dd className="text-gray-900 dark:text-white">{summary?.profile.preferredCity || '-'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-gray-500 dark:text-gray-400">{t('fields.peopleCount')}</dt>
+                        <dd className="text-gray-900 dark:text-white">{summary?.profile.peopleCount ?? '-'}</dd>
+                      </div>
+                      <div className="md:col-span-2">
+                        <dt className="text-gray-500 dark:text-gray-400">{t('fields.operations')}</dt>
+                        <dd className="text-gray-900 dark:text-white">
+                          {(summary?.profile.operations ?? [summary?.profile.operation ?? 'rent'])
+                            .map((operation) => t(`operations.${operation}`))
+                            .join(', ')}
+                        </dd>
+                      </div>
+                    </dl>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                       <select
                         value={pendingStage}
                         onChange={(e) => setPendingStage(e.target.value as InterestedStatus)}
@@ -777,32 +789,25 @@ export default function InterestedPage() {
                           <option key={stage} value={stage}>{statusLabel(stage)}</option>
                         ))}
                       </select>
-                      <button
-                        type="button"
-                        onClick={() => void handleChangeStage()}
-                        className="px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
-                      >
-                        {t('actions.changeStage')}
-                      </button>
+                      <input
+                        type="text"
+                        placeholder={t('fields.stageReason')}
+                        value={stageReason}
+                        onChange={(e) => setStageReason(e.target.value)}
+                        className="rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm md:col-span-2"
+                      />
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleChangeStage()}
+                      className="px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
+                    >
+                      {t('actions.changeStage')}
+                    </button>
                   </div>
+                ) : null}
 
-                  <input
-                    type="text"
-                    placeholder={t('fields.stageReason')}
-                    value={stageReason}
-                    onChange={(e) => setStageReason(e.target.value)}
-                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                  />
-
-                  {duplicateForSelected ? (
-                    <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-900 dark:text-amber-200">
-                      {t('duplicateWarning', { count: duplicateForSelected.count })}
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                {activeDetailSection === 'properties' ? (
                   <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('matchesTitle')}</h3>
@@ -847,37 +852,39 @@ export default function InterestedPage() {
                       <p className="text-sm text-gray-500 dark:text-gray-400">{t('noMatches')}</p>
                     )}
                   </div>
+                ) : null}
 
-                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('activities.title')}</h3>
-                    <form onSubmit={handleCreateActivity} className="space-y-2">
-                      <select
-                        value={activityForm.type}
-                        onChange={(e) => setActivityForm((prev) => ({ ...prev, type: e.target.value as InterestedActivity['type'] }))}
-                        className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                      >
-                        <option value="task">{t('activityTypes.task')}</option>
-                        <option value="call">{t('activityTypes.call')}</option>
-                        <option value="note">{t('activityTypes.note')}</option>
-                        <option value="email">{t('activityTypes.email')}</option>
-                        <option value="whatsapp">{t('activityTypes.whatsapp')}</option>
-                        <option value="visit">{t('activityTypes.visit')}</option>
-                      </select>
-                      <input
-                        type="text"
-                        placeholder={t('activities.subject')}
-                        value={activityForm.subject}
-                        onChange={(e) => setActivityForm((prev) => ({ ...prev, subject: e.target.value }))}
-                        className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                      />
-                      <textarea
-                        placeholder={t('activities.body')}
-                        value={activityForm.body}
-                        onChange={(e) => setActivityForm((prev) => ({ ...prev, body: e.target.value }))}
-                        rows={2}
-                        className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                      />
-                      <div className="grid grid-cols-2 gap-2">
+                {activeDetailSection === 'activities' ? (
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
+                      <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('activities.title')}</h3>
+                      <form onSubmit={handleCreateActivity} className="space-y-2">
+                        <select
+                          value={activityForm.type}
+                          onChange={(e) => setActivityForm((prev) => ({ ...prev, type: e.target.value as InterestedActivity['type'] }))}
+                          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                        >
+                          <option value="task">{t('activityTypes.task')}</option>
+                          <option value="call">{t('activityTypes.call')}</option>
+                          <option value="note">{t('activityTypes.note')}</option>
+                          <option value="email">{t('activityTypes.email')}</option>
+                          <option value="whatsapp">{t('activityTypes.whatsapp')}</option>
+                          <option value="visit">{t('activityTypes.visit')}</option>
+                        </select>
+                        <input
+                          type="text"
+                          placeholder={t('activities.subject')}
+                          value={activityForm.subject}
+                          onChange={(e) => setActivityForm((prev) => ({ ...prev, subject: e.target.value }))}
+                          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                        />
+                        <textarea
+                          placeholder={t('activities.body')}
+                          value={activityForm.body}
+                          onChange={(e) => setActivityForm((prev) => ({ ...prev, body: e.target.value }))}
+                          rows={2}
+                          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                        />
                         <input
                           type="datetime-local"
                           value={activityForm.dueAt}
@@ -885,54 +892,54 @@ export default function InterestedPage() {
                           lang={locale}
                           className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
                         />
-                      </div>
-                      <select
-                        value={activityForm.propertyId}
-                        onChange={(e) => setActivityForm((prev) => ({ ...prev, propertyId: e.target.value }))}
-                        className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                      >
-                        <option value="">{t('activities.noProperty')}</option>
-                        {reservableProperties.map((property) => (
-                          <option key={property.id} value={property.id}>{property.name}</option>
-                        ))}
-                      </select>
-                      <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                        <input
-                          type="checkbox"
-                          checked={activityForm.markReserved}
-                          onChange={(e) => setActivityForm((prev) => ({ ...prev, markReserved: e.target.checked }))}
-                          className="rounded border-gray-300 dark:border-gray-600"
-                        />
-                        {t('activities.markReserved')}
-                      </label>
-                      <button type="submit" className="w-full px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700">
-                        {t('activities.add')}
-                      </button>
-                    </form>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('timelineTitle')}</h3>
-                  {timeline.length ? (
-                    <div className="space-y-2 max-h-80 overflow-auto">
-                      {timeline.map((item) => {
-                        const detail = formatTimelineDetail(item);
-                        return (
-                          <div key={item.id} className="border border-gray-200 dark:border-gray-700 rounded-md p-3">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="text-sm font-medium text-gray-900 dark:text-white">{formatTimelineTitle(item)}</p>
-                              <span className="text-xs text-gray-500 dark:text-gray-400">{timelineFormatter.format(new Date(item.at))}</span>
-                            </div>
-                            {detail ? <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{detail}</p> : null}
-                          </div>
-                        );
-                      })}
+                        <select
+                          value={activityForm.propertyId}
+                          onChange={(e) => setActivityForm((prev) => ({ ...prev, propertyId: e.target.value }))}
+                          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                        >
+                          <option value="">{t('activities.noProperty')}</option>
+                          {reservableProperties.map((property) => (
+                            <option key={property.id} value={property.id}>{property.name}</option>
+                          ))}
+                        </select>
+                        <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                          <input
+                            type="checkbox"
+                            checked={activityForm.markReserved}
+                            onChange={(e) => setActivityForm((prev) => ({ ...prev, markReserved: e.target.checked }))}
+                            className="rounded border-gray-300 dark:border-gray-600"
+                          />
+                          {t('activities.markReserved')}
+                        </label>
+                        <button type="submit" className="w-full px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700">
+                          {t('activities.add')}
+                        </button>
+                      </form>
                     </div>
-                  ) : (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('timelineEmpty')}</p>
-                  )}
-                </div>
+
+                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
+                      <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('timelineTitle')}</h3>
+                      {timeline.length ? (
+                        <div className="space-y-2 max-h-80 overflow-auto">
+                          {timeline.map((item) => {
+                            const detail = formatTimelineDetail(item);
+                            return (
+                              <div key={item.id} className="border border-gray-200 dark:border-gray-700 rounded-md p-3">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-sm font-medium text-gray-900 dark:text-white">{formatTimelineTitle(item)}</p>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">{timelineFormatter.format(new Date(item.at))}</span>
+                                </div>
+                                {detail ? <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{detail}</p> : null}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('timelineEmpty')}</p>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
               </>
             )}
           </div>
