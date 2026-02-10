@@ -12,12 +12,8 @@ export type InterestedPropertyType =
   | 'other';
 export type InterestedStatus =
   | 'interested'
-  | 'qualified'
-  | 'matching'
-  | 'visit_scheduled'
-  | 'offer_made'
-  | 'won'
-  | 'lost';
+  | 'tenant'
+  | 'buyer';
 export type InterestedQualificationLevel = 'mql' | 'sql' | 'rejected';
 
 export type InterestedActivityType =

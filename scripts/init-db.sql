@@ -297,7 +297,7 @@ CREATE TYPE interested_property_type AS ENUM (
     'apartment', 'house', 'commercial', 'office', 'warehouse', 'land', 'parking', 'other'
 );
 CREATE TYPE interested_status AS ENUM (
-    'interested', 'qualified', 'matching', 'visit_scheduled', 'offer_made', 'won', 'lost'
+    'interested', 'tenant', 'buyer'
 );
 CREATE TYPE interested_qualification_level AS ENUM ('mql', 'sql', 'rejected');
 CREATE TYPE interested_match_status AS ENUM (

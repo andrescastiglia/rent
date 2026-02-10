@@ -351,7 +351,9 @@
       "offer_made": "Offer made",
       "won": "Won",
       "lost": "Lost",
-      "interested": "Interested"
+      "interested": "Interested",
+      "tenant": "Tenant",
+      "buyer": "Buyer"
     },
     "matchStatus": {
       "suggested": "Suggested",

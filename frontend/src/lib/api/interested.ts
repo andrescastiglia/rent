@@ -60,7 +60,7 @@ const MOCK_INTERESTED: InterestedProfile[] = [
     propertyTypePreference: 'apartment',
     operation: 'rent',
     operations: ['rent'],
-    status: 'won',
+    status: 'tenant',
     qualificationLevel: 'sql',
     convertedToTenantId: '1',
     notes: 'Prospecto convertido para alquiler',
@@ -93,7 +93,14 @@ const mapProfile = (raw: any): InterestedProfile => ({
   preferredCity: raw.preferredCity,
   desiredFeatures: Array.isArray(raw.desiredFeatures) ? raw.desiredFeatures : [],
   propertyTypePreference: raw.propertyTypePreference,
-  status: raw.status,
+  status:
+    raw.status === 'interested' || raw.status === 'tenant' || raw.status === 'buyer'
+      ? raw.status
+      : raw.convertedToTenantId
+        ? 'tenant'
+        : raw.convertedToSaleAgreementId
+          ? 'buyer'
+          : 'interested',
   qualificationLevel: raw.qualificationLevel,
   qualificationNotes: raw.qualificationNotes,
   source: raw.source,
@@ -562,7 +569,7 @@ export const interestedApi = {
       if (!profile.convertedToTenantId) {
         profile.convertedToTenantId = `tenant-${profile.id}`;
       }
-      profile.status = 'won';
+      profile.status = 'tenant';
       profile.updatedAt = new Date().toISOString();
 
       return {
@@ -599,7 +606,7 @@ export const interestedApi = {
       }
 
       profile.convertedToSaleAgreementId = `sale-${profile.id}`;
-      profile.status = 'won';
+      profile.status = 'buyer';
       profile.updatedAt = new Date().toISOString();
 
       return {

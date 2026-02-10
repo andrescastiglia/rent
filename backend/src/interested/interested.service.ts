@@ -395,18 +395,8 @@ export class InterestedService {
       );
     }
 
-    const saved =
-      toSave.length > 0 ? await this.matchRepository.save(toSave) : [];
-
-    if (saved.length > 0) {
-      await this.changeStage(
-        profile.id,
-        {
-          toStatus: InterestedStatus.MATCHING,
-          reason: this.t('interested.reasons.matchesRefreshed'),
-        },
-        user,
-      );
+    if (toSave.length > 0) {
+      await this.matchRepository.save(toSave);
     }
 
     return this.listMatches(profile.id, user);
@@ -486,26 +476,18 @@ export class InterestedService {
       return profile;
     }
 
-    if (dto.toStatus === InterestedStatus.WON) {
-      const reason = dto.reason?.toLowerCase() ?? '';
-      const profileOperations = this.resolveProfileOperations(profile);
-      const hasRentOperation = profileOperations.some(
-        (operation) => operation === InterestedOperation.RENT,
+    const validTransition =
+      fromStatus === InterestedStatus.INTERESTED &&
+      (dto.toStatus === InterestedStatus.TENANT ||
+        dto.toStatus === InterestedStatus.BUYER);
+    if (!validTransition) {
+      throw new ConflictException(
+        'Interested stage can only move from interested to tenant or buyer',
       );
-      const hasSaleOperation = profileOperations.includes(
-        InterestedOperation.SALE,
-      );
-      const isRentReason =
-        reason.includes('alquiler') ||
-        reason.includes('rent') ||
-        reason.includes('renta');
-      const isSaleReason =
-        reason.includes('compra') ||
-        reason.includes('venta') ||
-        reason.includes('sale') ||
-        reason.includes('purchase');
+    }
 
-      if ((isRentReason || hasRentOperation) && !profile.convertedToTenantId) {
+    if (dto.toStatus === InterestedStatus.TENANT) {
+      if (!profile.convertedToTenantId) {
         const converted = await this.convertToTenant(id, {}, user);
         if (dto.reason) {
           await this.createActivity(
@@ -523,30 +505,23 @@ export class InterestedService {
         return converted.profile;
       }
 
-      if (
-        (isSaleReason || hasSaleOperation) &&
-        !profile.convertedToSaleAgreementId
-      ) {
-        await this.createActivity(
-          id,
-          {
-            type: InterestedActivityType.NOTE,
-            subject: this.t('interested.activities.closeSaleSubject'),
-            body:
-              dto.reason ??
-              this.t('interested.activities.closeSaleDefaultBody'),
-            status: InterestedActivityStatus.COMPLETED,
-            completedAt: new Date().toISOString(),
-          },
-          user,
-        );
-      }
+      profile.status = InterestedStatus.TENANT;
+      const updated = await this.interestedRepository.save(profile);
+
+      await this.stageHistoryRepository.save(
+        this.stageHistoryRepository.create({
+          interestedProfileId: id,
+          fromStatus,
+          toStatus: InterestedStatus.TENANT,
+          reason: dto.reason ?? this.t('interested.reasons.convertedToTenant'),
+          changedByUserId: user.id,
+        }),
+      );
+
+      return updated;
     }
 
-    profile.status = dto.toStatus;
-    if (dto.toStatus === InterestedStatus.LOST) {
-      profile.lostReason = dto.reason ?? profile.lostReason;
-    }
+    profile.status = InterestedStatus.BUYER;
 
     const updated = await this.interestedRepository.save(profile);
 
@@ -554,8 +529,8 @@ export class InterestedService {
       this.stageHistoryRepository.create({
         interestedProfileId: id,
         fromStatus,
-        toStatus: dto.toStatus,
-        reason: dto.reason,
+        toStatus: InterestedStatus.BUYER,
+        reason: dto.reason ?? this.t('interested.reasons.convertedToBuyer'),
         changedByUserId: user.id,
       }),
     );
@@ -958,7 +933,7 @@ export class InterestedService {
         .save(tenantEntity);
 
       profile.convertedToTenantId = createdTenant.id;
-      profile.status = InterestedStatus.WON;
+      profile.status = InterestedStatus.TENANT;
       profile.qualificationLevel =
         profile.qualificationLevel ?? InterestedQualificationLevel.SQL;
       await manager.getRepository(InterestedProfile).save(profile);
@@ -967,7 +942,7 @@ export class InterestedService {
         manager.getRepository(InterestedStageHistory).create({
           interestedProfileId: profile.id,
           fromStatus: previousStatus,
-          toStatus: InterestedStatus.WON,
+          toStatus: InterestedStatus.TENANT,
           reason: this.t('interested.reasons.convertedToTenant'),
           changedByUserId: user.id,
         }),
@@ -1041,14 +1016,14 @@ export class InterestedService {
 
     const previousStatus = profile.status;
     profile.convertedToSaleAgreementId = savedAgreement.id;
-    profile.status = InterestedStatus.WON;
+    profile.status = InterestedStatus.BUYER;
     await this.interestedRepository.save(profile);
 
     await this.stageHistoryRepository.save(
       this.stageHistoryRepository.create({
         interestedProfileId: profile.id,
         fromStatus: previousStatus,
-        toStatus: InterestedStatus.WON,
+        toStatus: InterestedStatus.BUYER,
         reason: this.t('interested.reasons.convertedToBuyer'),
         changedByUserId: user.id,
       }),
@@ -1086,7 +1061,7 @@ export class InterestedService {
       .groupBy('activity.created_by_user_id')
       .getRawMany<{ userId: string; activityCount: string }>();
 
-    const wonByAgentRaw = await this.stageHistoryRepository
+    const convertedByAgentRaw = await this.stageHistoryRepository
       .createQueryBuilder('history')
       .select('history.changed_by_user_id', 'userId')
       .addSelect('COUNT(*)', 'wonCount')
@@ -1095,7 +1070,9 @@ export class InterestedService {
         'profile',
         'profile.id = history.interested_profile_id',
       )
-      .where('history.to_status = :won', { won: InterestedStatus.WON })
+      .where('history.to_status IN (:...convertedStatuses)', {
+        convertedStatuses: [InterestedStatus.TENANT, InterestedStatus.BUYER],
+      })
       .andWhere('history.changed_by_user_id IS NOT NULL')
       .andWhere('profile.company_id = :companyId', {
         companyId: user.companyId,
@@ -1110,23 +1087,28 @@ export class InterestedService {
     }
 
     const totalLeads = profiles.length;
-    const wonCount = byStage[InterestedStatus.WON] ?? 0;
-    const conversionRate = totalLeads > 0 ? (wonCount / totalLeads) * 100 : 0;
+    const convertedCount =
+      (byStage[InterestedStatus.TENANT] ?? 0) +
+      (byStage[InterestedStatus.BUYER] ?? 0);
+    const conversionRate =
+      totalLeads > 0 ? (convertedCount / totalLeads) * 100 : 0;
 
-    const wonProfiles = profiles.filter(
-      (profile) => profile.status === InterestedStatus.WON,
+    const convertedProfiles = profiles.filter(
+      (profile) =>
+        profile.status === InterestedStatus.TENANT ||
+        profile.status === InterestedStatus.BUYER,
     );
     const avgHoursToClose =
-      wonProfiles.length > 0
-        ? wonProfiles.reduce((acc, profile) => {
+      convertedProfiles.length > 0
+        ? convertedProfiles.reduce((acc, profile) => {
             const createdAt = profile.createdAt.getTime();
             const updatedAt = profile.updatedAt.getTime();
             return acc + (updatedAt - createdAt) / (1000 * 60 * 60);
-          }, 0) / wonProfiles.length
+          }, 0) / convertedProfiles.length
         : 0;
 
     const wonByAgentMap = new Map<string, number>(
-      wonByAgentRaw.map((item) => [item.userId, Number(item.wonCount)]),
+      convertedByAgentRaw.map((item) => [item.userId, Number(item.wonCount)]),
     );
 
     const activityByAgent = activitiesRaw.map((activityItem) => ({

@@ -83,13 +83,14 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
       try {
         const [props, interestedResponse, owns, leaseTemplates] = await Promise.all([
           propertiesApi.getAll(),
-          interestedApi.getAll({ status: 'won', limit: 200 }),
+          interestedApi.getAll({ limit: 200 }),
           ownersApi.getAll(),
           leasesApi.getTemplates(),
         ]);
         const options = interestedResponse.data
           .filter((profile) =>
             !!profile.convertedToTenantId &&
+            profile.status === 'tenant' &&
             (profile.operations ?? []).some((operation) => operation === 'rent'),
           )
           .map((profile) => ({
@@ -99,7 +100,11 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           .filter((option, index, all) => all.findIndex((item) => item.id === option.id) === index);
 
         const saleProfiles = interestedResponse.data
-          .filter((profile) => (profile.operations ?? []).some((operation) => operation === 'sale'))
+          .filter(
+            (profile) =>
+              profile.status === 'buyer' &&
+              (profile.operations ?? []).some((operation) => operation === 'sale'),
+          )
           .map((profile) => ({
             id: profile.id,
             label: `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim() || profile.phone,

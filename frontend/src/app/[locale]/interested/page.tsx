@@ -20,12 +20,8 @@ import { useAuth } from '@/contexts/auth-context';
 
 const STAGE_OPTIONS: InterestedStatus[] = [
   'interested',
-  'qualified',
-  'matching',
-  'visit_scheduled',
-  'offer_made',
-  'won',
-  'lost',
+  'tenant',
+  'buyer',
 ];
 
 const MATCH_STATUS_OPTIONS: InterestedMatchStatus[] = [
@@ -338,20 +334,10 @@ export default function InterestedPage() {
     setConfirmingPurchaseMatchId(match.id);
     try {
       const currentProfile = summary?.profile ?? selectedProfile;
-      const currentCustomFields =
-        (currentProfile.customFields as Record<string, unknown> | undefined) ?? {};
-
-      await interestedApi.update(currentProfile.id, {
-        customFields: {
-          ...currentCustomFields,
-          isBuyer: true,
-          buyerMarkedAt: new Date().toISOString(),
-        },
-      });
 
       await interestedApi.changeStage(
         currentProfile.id,
-        'won',
+        'buyer',
         t('actions.purchaseConfirmedReason', {
           property: match.property?.name ?? match.propertyId,
         }),
@@ -430,10 +416,19 @@ export default function InterestedPage() {
   }, [summary]);
 
   const isBuyerMarked = useMemo(() => {
-    const customFields =
-      (summary?.profile.customFields as Record<string, unknown> | undefined) ?? {};
-    return Boolean(customFields.isBuyer);
+    return (
+      summary?.profile.status === 'buyer' ||
+      Boolean(summary?.profile.convertedToSaleAgreementId)
+    );
   }, [summary]);
+
+  const availableStageOptions = useMemo(() => {
+    const currentStatus = summary?.profile.status ?? 'interested';
+    if (currentStatus === 'interested') {
+      return STAGE_OPTIONS;
+    }
+    return [currentStatus];
+  }, [summary?.profile.status]);
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
@@ -796,7 +791,7 @@ export default function InterestedPage() {
                       onChange={(e) => setPendingStage(e.target.value as InterestedStatus)}
                       className="rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
                     >
-                      {STAGE_OPTIONS.map((stage) => (
+                      {availableStageOptions.map((stage) => (
                         <option key={stage} value={stage}>{statusLabel(stage)}</option>
                       ))}
                     </select>
@@ -861,7 +856,11 @@ export default function InterestedPage() {
                                 <button
                                   type="button"
                                   onClick={() => void handleConfirmRental(match)}
-                                  disabled={confirmingRentMatchId === match.id || Boolean(summary?.profile.convertedToTenantId)}
+                                  disabled={
+                                    confirmingRentMatchId === match.id ||
+                                    Boolean(summary?.profile.convertedToTenantId) ||
+                                    summary?.profile.status !== 'interested'
+                                  }
                                   className="px-3 py-1.5 rounded-md border border-green-300 text-green-700 text-xs disabled:opacity-60"
                                 >
                                   {confirmingRentMatchId === match.id ? t('actions.confirming') : t('actions.confirmRent')}
@@ -871,7 +870,11 @@ export default function InterestedPage() {
                                 <button
                                   type="button"
                                   onClick={() => void handleConfirmPurchase(match)}
-                                  disabled={confirmingPurchaseMatchId === match.id || isBuyerMarked}
+                                  disabled={
+                                    confirmingPurchaseMatchId === match.id ||
+                                    isBuyerMarked ||
+                                    summary?.profile.status !== 'interested'
+                                  }
                                   className="px-3 py-1.5 rounded-md border border-amber-300 text-amber-700 text-xs disabled:opacity-60"
                                 >
                                   {confirmingPurchaseMatchId === match.id ? t('actions.confirming') : t('actions.confirmPurchase')}

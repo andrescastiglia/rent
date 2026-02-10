@@ -35,12 +35,8 @@ export enum InterestedPropertyType {
 
 export enum InterestedStatus {
   INTERESTED = 'interested',
-  QUALIFIED = 'qualified',
-  MATCHING = 'matching',
-  VISIT_SCHEDULED = 'visit_scheduled',
-  OFFER_MADE = 'offer_made',
-  WON = 'won',
-  LOST = 'lost',
+  TENANT = 'tenant',
+  BUYER = 'buyer',
 }
 
 export enum InterestedQualificationLevel {

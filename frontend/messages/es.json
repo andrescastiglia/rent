@@ -351,7 +351,9 @@
       "offer_made": "Oferta",
       "won": "Ganado",
       "lost": "Perdido",
-      "interested": "Interesado"
+      "interested": "Interesado",
+      "tenant": "Inquilino",
+      "buyer": "Comprador"
     },
     "matchStatus": {
       "suggested": "Sugerido",
