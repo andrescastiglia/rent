@@ -29,6 +29,8 @@ export default function DashboardPage() {
   const [activityLoading, setActivityLoading] = useState(true);
   const [activityLimit, setActivityLimit] = useState<10 | 25 | 50>(25);
   const [updatingActivityId, setUpdatingActivityId] = useState<string | null>(null);
+  const [editingActivity, setEditingActivity] = useState<PersonActivityItem | null>(null);
+  const [editingComment, setEditingComment] = useState('');
 
   const fetchStats = async () => {
     try {
@@ -85,16 +87,18 @@ export default function DashboardPage() {
   };
 
   const handleEditComment = async (activity: PersonActivityItem) => {
-    const nextComment = window.prompt(
-      t('peopleActivity.editCommentPrompt'),
-      activity.body ?? '',
-    );
-    if (nextComment === null) return;
+    setEditingActivity(activity);
+    setEditingComment(activity.body ?? '');
+  };
 
+  const handleSaveComment = async () => {
+    if (!editingActivity) return;
     try {
-      setUpdatingActivityId(activity.id);
-      await dashboardApi.updatePersonActivityComment(activity, nextComment);
+      setUpdatingActivityId(editingActivity.id);
+      await dashboardApi.updatePersonActivityComment(editingActivity, editingComment);
       await fetchPeopleActivity();
+      setEditingActivity(null);
+      setEditingComment('');
     } catch (error) {
       console.error('Failed to edit activity comment', error);
     } finally {
@@ -258,6 +262,50 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {editingActivity ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-lg bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700">
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                {t('peopleActivity.editCommentTitle')}
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {editingActivity.subject}
+              </p>
+            </div>
+            <div className="p-4">
+              <textarea
+                value={editingComment}
+                onChange={(e) => setEditingComment(e.target.value)}
+                rows={5}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm text-gray-900 dark:text-white"
+                placeholder={t('peopleActivity.editCommentPlaceholder')}
+              />
+            </div>
+            <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingActivity(null);
+                  setEditingComment('');
+                }}
+                className="px-3 py-2 rounded-md bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200 text-sm"
+              >
+                {t('peopleActivity.actions.cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSaveComment()}
+                disabled={updatingActivityId === editingActivity.id}
+                className="px-3 py-2 rounded-md bg-blue-600 text-white text-sm disabled:opacity-50"
+              >
+                {t('peopleActivity.actions.save')}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

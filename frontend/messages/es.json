@@ -33,7 +33,7 @@
   },
   "nav": {
     "dashboard": "Panel",
-    "properties": "Propiedades",
+    "properties": "Propietarios",
     "tenants": "Inquilinos",
     "leases": "Contratos",
     "payments": "Pagos",
@@ -126,11 +126,13 @@
     },
     "peopleActivity": {
       "title": "Actividades de personas",
-      "overdueTitle": "Vencidas sin finalizar",
+      "overdueTitle": "Vencidas",
       "todayTitle": "Hoy",
       "noOverdue": "No hay actividades vencidas.",
       "noToday": "No hay actividades para hoy.",
       "editCommentPrompt": "Editar comentario de la actividad",
+      "editCommentTitle": "Editar comentario",
+      "editCommentPlaceholder": "Escribe un comentario para esta actividad...",
       "columns": {
         "person": "Persona",
         "subject": "Actividad",
@@ -145,14 +147,24 @@
       },
       "actions": {
         "complete": "Finalizar",
-        "editComment": "Editar comentario"
+        "editComment": "Editar comentario",
+        "save": "Guardar",
+        "cancel": "Cancelar"
       }
     }
   },
   "properties": {
+    "ownersTitle": "Propietarios",
     "title": "Propiedades",
     "subtitle": "Gestiona propietarios y sus propiedades",
     "addProperty": "Agregar Propiedad",
+    "addOwner": "Agregar propietario",
+    "createOwnerTitle": "Nuevo propietario",
+    "editOwnerTitle": "Editar propietario",
+    "ownerListTitle": "Listado de propietarios",
+    "noOwners": "No hay propietarios registrados.",
+    "noOwnersDescription": "Agrega un propietario para comenzar.",
+    "ownerAssignedProperties": "Propiedades asignadas",
     "selectOwner": "Seleccionar propietario",
     "newProperty": "Nueva Propiedad",
     "editProperty": "Editar Propiedad",
@@ -166,8 +178,8 @@
     "notFound": "Propiedad no encontrada",
     "noProperties": "No hay propiedades registradas",
     "noPropertiesDescription": "Comienza agregando una nueva propiedad.",
-    "ownerListSubtitle": "Listado por propietario con sus propiedades asociadas",
-    "ownerSearchPlaceholder": "Buscar por propietario, email, teléfono o propiedad...",
+    "ownerListSubtitle": "Administra propietarios y sus propiedades asociadas",
+    "ownerSearchPlaceholder": "Buscar por propietario, email o teléfono...",
     "addPropertyForOwner": "Agregar propiedad a propietario",
     "ownerNoProperties": "Este propietario aún no tiene propiedades cargadas.",
     "unassignedOwnerTitle": "Propiedades sin propietario asociado",
@@ -233,6 +245,13 @@
       "images": "Imágenes",
       "featureName": "Nombre",
       "featureValue": "Valor"
+    },
+    "ownerFields": {
+      "firstName": "Nombre",
+      "lastName": "Apellido",
+      "email": "Email",
+      "phone": "Teléfono",
+      "taxId": "CUIT/CUIL"
     },
     "type": {
       "apartment": "Apartamento",
@@ -476,7 +495,7 @@
   },
   "tenants": {
     "title": "Inquilinos",
-    "subtitle": "Gestiona tus inquilinos y personas",
+    "subtitle": "Gestiona inquilinos existentes",
     "addTenant": "Agregar Inquilino",
     "newTenant": "Nuevo Inquilino",
     "editTenant": "Editar Inquilino",
@@ -489,7 +508,7 @@
     "tenantNotFound": "Inquilino no encontrado",
     "notFound": "Inquilino no encontrado",
     "noTenants": "No hay inquilinos registrados",
-    "noTenantsDescription": "Comienza agregando un nuevo inquilino.",
+    "noTenantsDescription": "No hay inquilinos para mostrar.",
     "searchPlaceholder": "Buscar inquilinos por apellido...",
     "deleteConfirm": "¿Estás seguro que deseas eliminar este inquilino?",
     "confirmDelete": "¿Estás seguro que deseas eliminar este inquilino?",
@@ -503,6 +522,34 @@
     "leaseHistory": "Historial de Contratos",
     "receiptsHistory": "Historial de recibos",
     "noReceipts": "Sin recibos registrados.",
+    "documents": {
+      "downloadInvoice": "Descargar factura",
+      "downloadReceipt": "Descargar recibo",
+      "downloadDebitNote": "Descargar nota de débito",
+      "noDocuments": "Sin comprobantes"
+    },
+    "activities": {
+      "title": "Actividades",
+      "subject": "Asunto de la actividad",
+      "body": "Detalle",
+      "dueAt": "Vence",
+      "add": "Registrar actividad",
+      "complete": "Marcar como completada",
+      "empty": "Sin actividades registradas."
+    },
+    "activityTypes": {
+      "call": "Llamada",
+      "task": "Tarea",
+      "note": "Nota",
+      "email": "Email",
+      "whatsapp": "WhatsApp",
+      "visit": "Visita"
+    },
+    "activityStatus": {
+      "pending": "Pendiente",
+      "completed": "Completada",
+      "cancelled": "Cancelada"
+    },
     "leaseStart": "Inicio",
     "leaseEnd": "Fin",
     "leaseProperty": "Propiedad",
@@ -539,7 +586,8 @@
       }
     },
     "errors": {
-      "invalidPaymentAmount": "El monto del pago debe ser mayor a 0."
+      "invalidPaymentAmount": "El monto del pago debe ser mayor a 0.",
+      "activitySubjectRequired": "El asunto de la actividad es obligatorio."
     },
     "fields": {
       "firstName": "Nombre",

@@ -11,12 +11,8 @@ test.describe('Tenant Creation Flow', () => {
         await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     });
 
-    test('should navigate to create tenant page', async ({ page }) => {
-        // Click "Add Tenant" button (use link with href pattern)
-        await page.locator('a[href*="/tenants/new"]').click();
-
-        // Should navigate to new tenant page
-        await expect(page).toHaveURL(/\/es\/tenants\/new/);
+    test('should not show create tenant shortcut in list', async ({ page }) => {
+        await expect(page.locator('a[href*="/tenants/new"]')).toHaveCount(0);
     });
 
     test('should display tenant creation form', async ({ page }) => {
@@ -86,7 +82,7 @@ test.describe('Tenant Creation Flow', () => {
         await page.locator('a[href*="/tenants/"]:not([href*="/tenants/new"])').first().click({ force: true });
 
         // Should show edit link
-        await expect(page.locator('a[href*="/edit"]')).toBeVisible();
+        await expect(page.locator('a[href*="/tenants/"][href*="/edit"]').first()).toBeVisible();
     });
 
     test('should search tenants', async ({ page }) => {
@@ -111,7 +107,7 @@ test.describe('Tenant Creation Flow', () => {
         await page.locator('a[href*="/tenants/"]:not([href*="/tenants/new"])').first().click({ force: true });
 
         // Click edit button
-        await page.locator('a[href*="/edit"]').click({ force: true });
+        await page.locator('a[href*="/tenants/"][href*="/edit"]').first().click({ force: true });
 
         // Should navigate to edit page
         await expect(page).toHaveURL(/\/es\/tenants\/[^/]+\/edit$/);

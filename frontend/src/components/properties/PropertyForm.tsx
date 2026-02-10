@@ -13,6 +13,7 @@ import { useTranslations } from 'next-intl';
 import { createPropertySchema, PropertyFormData } from '@/lib/validation-schemas';
 import { Owner } from '@/types/owner';
 import { useAuth } from '@/contexts/auth-context';
+import { useSearchParams } from 'next/navigation';
 
 interface PropertyFormProps {
   initialData?: Property;
@@ -21,6 +22,7 @@ interface PropertyFormProps {
 
 export function PropertyForm({ initialData, isEditing = false }: PropertyFormProps) {
   const router = useLocalizedRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const t = useTranslations('properties');
   const tCommon = useTranslations('common');
@@ -74,6 +76,7 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
 
   const images = watch('images') || [];
   const selectedOperations = watch('operations') || [];
+  const preselectedOwnerId = searchParams.get('ownerId');
 
   useEffect(() => {
     uploadedSessionImagesRef.current = uploadedSessionImages;
@@ -101,6 +104,12 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
     };
     void loadOwners();
   }, [user?.role]);
+
+  useEffect(() => {
+    if (isEditing) return;
+    if (!preselectedOwnerId) return;
+    setValue('ownerId', preselectedOwnerId, { shouldValidate: true });
+  }, [isEditing, preselectedOwnerId, setValue]);
 
   const handleToggleOperation = (operation: 'rent' | 'sale') => {
     const nextOperations = selectedOperations.includes(operation)

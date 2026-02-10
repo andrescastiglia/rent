@@ -6,10 +6,10 @@ test.describe('Property Search Filters', () => {
         await page.goto(localePath('/properties'));
     });
 
-    test('should filter properties by search term', async ({ page }) => {
-        await page.getByPlaceholder(/propietario|owner|propiedad|property/i).fill('Edificio Central');
+    test('should filter owners by search term', async ({ page }) => {
+        await page.getByPlaceholder(/propietario|owner/i).fill('Carlos');
 
-        await expect(page.getByText('Edificio Central')).toBeVisible();
-        await expect(page.getByText('Casa Los Pinos')).toHaveCount(0);
+        await expect(page.getByRole('button', { name: /carlos/i }).first()).toBeVisible();
+        await expect(page.getByRole('button', { name: /ana/i })).toHaveCount(0);
     });
 });

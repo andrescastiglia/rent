@@ -17,6 +17,8 @@ import { Owner } from './entities/owner.entity';
 import { OwnerActivity } from './entities/owner-activity.entity';
 import { CreateOwnerActivityDto } from './dto/create-owner-activity.dto';
 import { UpdateOwnerActivityDto } from './dto/update-owner-activity.dto';
+import { CreateOwnerDto } from './dto/create-owner.dto';
+import { UpdateOwnerDto } from './dto/update-owner.dto';
 
 interface AuthenticatedRequest {
   user: {
@@ -41,6 +43,14 @@ export class OwnersController {
     return this.ownersService.findAll(req.user.companyId);
   }
 
+  @Post()
+  async create(
+    @Body() dto: CreateOwnerDto,
+    @Request() req: AuthenticatedRequest,
+  ): Promise<Owner> {
+    return this.ownersService.create(dto, req.user.companyId);
+  }
+
   /**
    * Get owner by ID.
    */
@@ -50,6 +60,15 @@ export class OwnersController {
     @Request() req: AuthenticatedRequest,
   ): Promise<Owner> {
     return this.ownersService.findOne(id, req.user.companyId);
+  }
+
+  @Patch(':id')
+  async update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateOwnerDto,
+    @Request() req: AuthenticatedRequest,
+  ): Promise<Owner> {
+    return this.ownersService.update(id, dto, req.user.companyId);
   }
 
   @Get(':id/activities')

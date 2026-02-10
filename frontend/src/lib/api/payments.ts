@@ -400,6 +400,47 @@ export const invoicesApi = {
             return null;
         }
     },
+
+    downloadPdf: async (
+        invoiceId: string,
+        invoiceNumber?: string,
+        filenamePrefix = 'factura',
+    ): Promise<void> => {
+        if (IS_MOCK_MODE) {
+            const blob = new Blob([`Invoice ${invoiceNumber ?? invoiceId}`], {
+                type: 'application/pdf',
+            });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${filenamePrefix}-${invoiceNumber ?? invoiceId}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+            return;
+        }
+
+        const token = getToken();
+        const response = await fetch(`${API_URL}/invoices/${invoiceId}/pdf`, {
+            method: 'GET',
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to download invoice PDF');
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${filenamePrefix}-${invoiceNumber ?? invoiceId}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    },
 };
 
 export const tenantAccountsApi = {

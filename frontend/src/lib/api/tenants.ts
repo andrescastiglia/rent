@@ -1,4 +1,11 @@
-import { Tenant, CreateTenantInput, UpdateTenantInput } from '@/types/tenant';
+import {
+    Tenant,
+    TenantActivity,
+    TenantActivityStatus,
+    TenantActivityType,
+    CreateTenantInput,
+    UpdateTenantInput,
+} from '@/types/tenant';
 import { apiClient, IS_MOCK_MODE } from '../api';
 import { getToken } from '../auth';
 import type { Lease } from '@/types/lease';
@@ -22,6 +29,20 @@ type BackendTenantLike = {
         phone?: string | null;
         isActive?: boolean | null;
     } | null;
+};
+
+type BackendTenantActivityLike = {
+    id: string;
+    tenantId?: string;
+    type: TenantActivityType;
+    status: TenantActivityStatus;
+    subject: string;
+    body?: string | null;
+    dueAt?: string | Date | null;
+    completedAt?: string | Date | null;
+    metadata?: Record<string, unknown>;
+    createdAt?: string | Date;
+    updatedAt?: string | Date;
 };
 
 const isPaginatedResponse = <T,>(value: any): value is PaginatedResponse<T> => {
@@ -81,6 +102,24 @@ const MOCK_TENANTS: Tenant[] = [
         updatedAt: new Date().toISOString(),
     },
 ];
+
+const MOCK_TENANT_ACTIVITIES: Record<string, TenantActivity[]> = {
+    '1': [
+        {
+            id: 'tenant-activity-1',
+            tenantId: '1',
+            type: 'task',
+            status: 'pending',
+            subject: 'Enviar comprobante de pago',
+            body: 'Recordar el envío del comprobante antes de las 18hs.',
+            dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            completedAt: null,
+            metadata: {},
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+        },
+    ],
+};
 
 const DELAY = 500;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -191,6 +230,24 @@ const mapBackendLeaseToLease = (raw: BackendLease): Lease => {
                       : new Date().toISOString(),
               }
             : undefined,
+    };
+};
+
+const mapBackendTenantActivity = (
+    raw: BackendTenantActivityLike,
+): TenantActivity => {
+    return {
+        id: raw.id,
+        tenantId: raw.tenantId ?? '',
+        type: raw.type,
+        status: raw.status,
+        subject: raw.subject,
+        body: raw.body ?? null,
+        dueAt: raw.dueAt ? new Date(raw.dueAt).toISOString() : null,
+        completedAt: raw.completedAt ? new Date(raw.completedAt).toISOString() : null,
+        metadata: raw.metadata ?? {},
+        createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : new Date().toISOString(),
+        updatedAt: raw.updatedAt ? new Date(raw.updatedAt).toISOString() : new Date().toISOString(),
     };
 };
 
@@ -310,5 +367,104 @@ export const tenantsApi = {
             token ?? undefined,
         );
         return Array.isArray(result) ? result.map(mapBackendLeaseToLease) : [];
+    },
+
+    getActivities: async (id: string): Promise<TenantActivity[]> => {
+        if (shouldUseMock()) {
+            await delay(DELAY);
+            const normalizedId = decodeURIComponent(id).split('?')[0];
+            return [...(MOCK_TENANT_ACTIVITIES[normalizedId] ?? [])].sort(
+                (a, b) =>
+                    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+            );
+        }
+
+        const token = getToken();
+        const result = await apiClient.get<BackendTenantActivityLike[]>(
+            `/tenants/${id}/activities`,
+            token ?? undefined,
+        );
+        return Array.isArray(result) ? result.map(mapBackendTenantActivity) : [];
+    },
+
+    createActivity: async (
+        tenantId: string,
+        data: {
+            type: TenantActivityType;
+            subject: string;
+            body?: string;
+            dueAt?: string;
+            status?: TenantActivityStatus;
+        },
+    ): Promise<TenantActivity> => {
+        if (shouldUseMock()) {
+            await delay(DELAY);
+            const normalizedId = decodeURIComponent(tenantId).split('?')[0];
+            const item: TenantActivity = {
+                id: `tenant-activity-${Math.random().toString(36).slice(2, 10)}`,
+                tenantId: normalizedId,
+                type: data.type,
+                status: data.status ?? 'pending',
+                subject: data.subject,
+                body: data.body ?? null,
+                dueAt: data.dueAt ?? null,
+                completedAt: null,
+                metadata: {},
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            };
+            if (!MOCK_TENANT_ACTIVITIES[normalizedId]) {
+                MOCK_TENANT_ACTIVITIES[normalizedId] = [];
+            }
+            MOCK_TENANT_ACTIVITIES[normalizedId].unshift(item);
+            return item;
+        }
+
+        const token = getToken();
+        const result = await apiClient.post<BackendTenantActivityLike>(
+            `/tenants/${tenantId}/activities`,
+            data,
+            token ?? undefined,
+        );
+        return mapBackendTenantActivity(result);
+    },
+
+    updateActivity: async (
+        tenantId: string,
+        activityId: string,
+        data: Partial<{
+            type: TenantActivityType;
+            status: TenantActivityStatus;
+            subject: string;
+            body: string;
+            dueAt: string;
+            completedAt: string;
+            metadata: Record<string, unknown>;
+        }>,
+    ): Promise<TenantActivity> => {
+        if (shouldUseMock()) {
+            await delay(DELAY);
+            const normalizedId = decodeURIComponent(tenantId).split('?')[0];
+            const list = MOCK_TENANT_ACTIVITIES[normalizedId] ?? [];
+            const idx = list.findIndex((item) => item.id === activityId);
+            if (idx < 0) {
+                throw new Error('Activity not found');
+            }
+            const updated: TenantActivity = {
+                ...list[idx],
+                ...data,
+                updatedAt: new Date().toISOString(),
+            };
+            list[idx] = updated;
+            return updated;
+        }
+
+        const token = getToken();
+        const result = await apiClient.patch<BackendTenantActivityLike>(
+            `/tenants/${tenantId}/activities/${activityId}`,
+            data,
+            token ?? undefined,
+        );
+        return mapBackendTenantActivity(result);
     },
 };

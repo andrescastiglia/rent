@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { TenantsService } from './tenants.service';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Lease } from '../leases/entities/lease.entity';
+import { Tenant } from './entities/tenant.entity';
+import { TenantActivity } from './entities/tenant-activity.entity';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 
@@ -11,6 +13,8 @@ jest.mock('bcrypt');
 
 describe('TenantsService', () => {
   let service: TenantsService;
+  let _tenantRepository: MockRepository<Tenant>;
+  let _tenantActivityRepository: MockRepository<TenantActivity>;
   let userRepository: MockRepository<User>;
   let leaseRepository: MockRepository<Lease>;
 
@@ -53,6 +57,14 @@ describe('TenantsService', () => {
       providers: [
         TenantsService,
         {
+          provide: getRepositoryToken(Tenant),
+          useValue: createMockRepository(),
+        },
+        {
+          provide: getRepositoryToken(TenantActivity),
+          useValue: createMockRepository(),
+        },
+        {
           provide: getRepositoryToken(User),
           useValue: createMockRepository(),
         },
@@ -64,6 +76,8 @@ describe('TenantsService', () => {
     }).compile();
 
     service = module.get<TenantsService>(TenantsService);
+    _tenantRepository = module.get(getRepositoryToken(Tenant));
+    _tenantActivityRepository = module.get(getRepositoryToken(TenantActivity));
     userRepository = module.get(getRepositoryToken(User));
     leaseRepository = module.get(getRepositoryToken(Lease));
   });

@@ -3,9 +3,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Tenant } from '@/types/tenant';
+import { Tenant, TenantActivity, TenantActivityType } from '@/types/tenant';
 import { tenantsApi } from '@/lib/api/tenants';
-import { paymentsApi, tenantAccountsApi } from '@/lib/api/payments';
+import { invoicesApi, paymentsApi, tenantAccountsApi } from '@/lib/api/payments';
 import {
   Edit,
   ArrowLeft,
@@ -13,15 +13,16 @@ import {
   Mail,
   Phone,
   MapPin,
-  Trash2,
   Loader2,
   FileText,
   Download,
   Wallet,
+  CheckCircle2,
 } from 'lucide-react';
 import { Lease } from '@/types/lease';
 import {
   AccountBalance,
+  Invoice,
   Payment,
   PaymentMethod,
   TenantAccount,
@@ -29,7 +30,6 @@ import {
   TenantReceiptSummary,
 } from '@/types/payment';
 import { useLocale, useTranslations } from 'next-intl';
-import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
 import { useAuth } from '@/contexts/auth-context';
 import { IS_MOCK_MODE } from '@/lib/api';
 
@@ -38,26 +38,35 @@ export default function TenantDetailPage() {
   const t = useTranslations('tenants');
   const tPayments = useTranslations('payments');
   const tCommon = useTranslations('common');
-  const tLeases = useTranslations('leases');
   const locale = useLocale();
   const params = useParams();
   const tenantId = Array.isArray(params.id) ? params.id[0] : params.id;
-  const router = useLocalizedRouter();
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [leases, setLeases] = useState<Lease[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [invoicesById, setInvoicesById] = useState<Record<string, Invoice>>({});
+  const [activities, setActivities] = useState<TenantActivity[]>([]);
   const [receipts, setReceipts] = useState<TenantReceiptSummary[]>([]);
   const [tenantAccount, setTenantAccount] = useState<TenantAccount | null>(null);
   const [accountBalance, setAccountBalance] = useState<AccountBalance | null>(null);
   const [movements, setMovements] = useState<TenantAccountMovement[]>([]);
   const [registeringPayment, setRegisteringPayment] = useState(false);
   const [downloadingReceiptPaymentId, setDownloadingReceiptPaymentId] = useState<string | null>(null);
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
+  const [savingActivity, setSavingActivity] = useState(false);
+  const [completingActivityId, setCompletingActivityId] = useState<string | null>(null);
   const [paymentForm, setPaymentForm] = useState({
     amount: '',
     paymentDate: new Date().toISOString().split('T')[0],
     method: 'bank_transfer' as PaymentMethod,
     reference: '',
     notes: '',
+  });
+  const [activityForm, setActivityForm] = useState({
+    type: 'task' as TenantActivityType,
+    subject: '',
+    body: '',
+    dueAt: '',
   });
   const [loading, setLoading] = useState(true);
 
@@ -101,6 +110,8 @@ export default function TenantDetailPage() {
         setTenant(null);
         setLeases([]);
         setPayments([]);
+        setInvoicesById({});
+        setActivities([]);
         setReceipts([]);
         setTenantAccount(null);
         setAccountBalance(null);
@@ -108,25 +119,50 @@ export default function TenantDetailPage() {
         return;
       }
 
-      const [leaseHistoryResult, receiptHistoryResult, paymentsResult] = await Promise.allSettled([
+      const [leaseHistoryResult, receiptHistoryResult, paymentsResult, activitiesResult] = await Promise.allSettled([
         tenantsApi.getLeaseHistory(data.id),
         tenantAccountsApi.getReceiptsByTenant(data.id),
         paymentsApi.getAll({ tenantId: data.id, limit: 100 }),
+        tenantsApi.getActivities(data.id),
       ]);
 
+      const leaseHistory = leaseHistoryResult.status === 'fulfilled'
+        ? leaseHistoryResult.value
+        : [];
+
+      const invoicesByLease = await Promise.allSettled(
+        leaseHistory.map((lease) => invoicesApi.getAll({ leaseId: lease.id, limit: 100 })),
+      );
+
+      const nextInvoicesById: Record<string, Invoice> = {};
+      for (const result of invoicesByLease) {
+        if (result.status !== 'fulfilled') continue;
+        for (const invoice of result.value.data) {
+          nextInvoicesById[invoice.id] = invoice;
+        }
+      }
+
       setTenant(data);
-      setLeases(leaseHistoryResult.status === 'fulfilled' ? leaseHistoryResult.value : []);
+      setLeases(leaseHistory);
+      setInvoicesById(nextInvoicesById);
       setReceipts(receiptHistoryResult.status === 'fulfilled' ? receiptHistoryResult.value : []);
       setPayments(
         paymentsByDateDesc(
           paymentsResult.status === 'fulfilled' ? paymentsResult.value.data : [],
         ),
       );
+      setActivities(
+        activitiesResult.status === 'fulfilled'
+          ? activitiesByDateDesc(activitiesResult.value)
+          : [],
+      );
     } catch (error) {
       console.error('Failed to load tenant', error);
       setTenant(null);
       setLeases([]);
       setPayments([]);
+      setInvoicesById({});
+      setActivities([]);
       setReceipts([]);
       setTenantAccount(null);
       setAccountBalance(null);
@@ -178,18 +214,6 @@ export default function TenantDetailPage() {
     }
     void loadAccountData(activeLease.id);
   }, [leases, loadAccountData]);
-
-  const handleDelete = async () => {
-    if (!tenant || !confirm(t('confirmDelete'))) return;
-    
-    try {
-      await tenantsApi.delete(tenant.id);
-      router.push('/tenants');
-    } catch (error) {
-      console.error('Failed to delete tenant', error);
-      alert(tCommon('error'));
-    }
-  };
 
   const handleRegisterPayment = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -308,6 +332,85 @@ export default function TenantDetailPage() {
     }
   };
 
+  const handleDownloadInvoice = async (invoice: Invoice) => {
+    try {
+      setDownloadingInvoiceId(invoice.id);
+      const isDebitNote =
+        invoice.arcaTipoComprobante?.startsWith('nota_debito_') ?? false;
+      await invoicesApi.downloadPdf(
+        invoice.id,
+        invoice.invoiceNumber,
+        isDebitNote ? 'nota-debito' : 'factura',
+      );
+    } catch (error) {
+      console.error('Failed to download invoice PDF', error);
+      alert(tCommon('error'));
+    } finally {
+      setDownloadingInvoiceId(null);
+    }
+  };
+
+  const handleCreateActivity = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!tenantToRender) return;
+    if (!activityForm.subject.trim()) {
+      alert(t('errors.activitySubjectRequired'));
+      return;
+    }
+
+    try {
+      setSavingActivity(true);
+      const created = await tenantsApi.createActivity(tenantToRender.id, {
+        type: activityForm.type,
+        subject: activityForm.subject.trim(),
+        body: activityForm.body.trim() || undefined,
+        dueAt: activityForm.dueAt || undefined,
+      });
+      setActivities((prev) => activitiesByDateDesc([created, ...prev]));
+      setActivityForm({
+        type: 'task',
+        subject: '',
+        body: '',
+        dueAt: '',
+      });
+    } catch (error) {
+      console.error('Failed to create tenant activity', error);
+      alert(tCommon('error'));
+    } finally {
+      setSavingActivity(false);
+    }
+  };
+
+  const handleCompleteActivity = async (activity: TenantActivity) => {
+    if (!tenantToRender) return;
+    try {
+      setCompletingActivityId(activity.id);
+      const updated = await tenantsApi.updateActivity(tenantToRender.id, activity.id, {
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+      });
+      setActivities((prev) =>
+        activitiesByDateDesc(
+          prev.map((item) => (item.id === updated.id ? updated : item)),
+        ),
+      );
+    } catch (error) {
+      console.error('Failed to complete tenant activity', error);
+      alert(tCommon('error'));
+    } finally {
+      setCompletingActivityId(null);
+    }
+  };
+
+  const activityTypes: TenantActivityType[] = [
+    'task',
+    'call',
+    'note',
+    'email',
+    'whatsapp',
+    'visit',
+  ];
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -357,13 +460,6 @@ export default function TenantDetailPage() {
                </div>
             </div>
             <div className="flex space-x-2">
-              <Link
-                href={`/${locale}/leases/new?tenantId=${tenantToRender.id}&contractType=rental`}
-                className="inline-flex items-center px-4 py-2 border border-blue-200 dark:border-blue-800 shadow-sm text-sm font-medium rounded-md text-blue-700 dark:text-blue-300 bg-white dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                <FileText size={16} className="mr-2" />
-                {tLeases('newLease')}
-              </Link>
               {tenantAccount && (
                 <Link
                   href={`/${locale}/tenants/${tenantToRender.id}#payment-registration`}
@@ -380,13 +476,6 @@ export default function TenantDetailPage() {
                 <Edit size={16} className="mr-2" />
                 {tCommon('edit')}
               </Link>
-              <button
-                onClick={handleDelete}
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-              >
-                <Trash2 size={16} className="mr-2" />
-                {tCommon('delete')}
-              </button>
             </div>
           </div>
 
@@ -574,60 +663,213 @@ export default function TenantDetailPage() {
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{tPayments('title')}</h2>
                 {payments.length > 0 ? (
                   <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 space-y-3">
-                    {payments.map((payment) => (
-                      <div key={payment.id} className="rounded-md bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-600 p-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="space-y-1">
-                            <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                              {payment.currencyCode} {Number(payment.amount).toLocaleString(locale)}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {new Date(payment.paymentDate).toLocaleDateString(locale)} · {tPayments(`method.${payment.method}`)}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {tPayments('paymentStatus')}: {tPayments(`status.${payment.status}`)}
-                            </p>
-                            {payment.receipt?.receiptNumber && (
-                              <p className="text-xs font-medium text-green-700 dark:text-green-300">
-                                {payment.receipt.receiptNumber}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex flex-col items-end gap-2">
-                            <Link
-                              href={`/${locale}/payments/${payment.id}`}
-                              className="text-xs text-blue-600 hover:text-blue-500"
-                            >
-                              {tCommon('view')}
-                            </Link>
-                            {payment.receipt && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleDownloadReceipt(
-                                    payment.id,
-                                    payment.receipt?.receiptNumber,
-                                  )
-                                }
-                                disabled={downloadingReceiptPaymentId === payment.id}
-                                className="inline-flex items-center text-xs px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
+                    {payments.map((payment) => {
+                      const linkedInvoice = payment.invoiceId
+                        ? invoicesById[payment.invoiceId]
+                        : undefined;
+                      const isDebitNote =
+                        linkedInvoice?.arcaTipoComprobante?.startsWith(
+                          'nota_debito_',
+                        ) ?? false;
+
+                      return (
+                        <div
+                          key={payment.id}
+                          className="rounded-md bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-600 p-3"
+                        >
+                          <div className="flex flex-col gap-2">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="space-y-1">
+                                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                  {payment.currencyCode}{' '}
+                                  {Number(payment.amount).toLocaleString(locale)}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  {new Date(payment.paymentDate).toLocaleDateString(locale)}{' '}
+                                  · {tPayments(`method.${payment.method}`)}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  {tPayments('paymentStatus')}:{' '}
+                                  {tPayments(`status.${payment.status}`)}
+                                </p>
+                                {payment.receipt?.receiptNumber && (
+                                  <p className="text-xs font-medium text-green-700 dark:text-green-300">
+                                    {payment.receipt.receiptNumber}
+                                  </p>
+                                )}
+                              </div>
+                              <Link
+                                href={`/${locale}/payments/${payment.id}`}
+                                className="text-xs text-blue-600 hover:text-blue-500"
                               >
-                                <Download size={12} className="mr-1" />
-                                {downloadingReceiptPaymentId === payment.id
-                                  ? tCommon('loading')
-                                  : tPayments('downloadReceipt')}
-                              </button>
-                            )}
+                                {tCommon('view')}
+                              </Link>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                              {linkedInvoice ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleDownloadInvoice(linkedInvoice)}
+                                  disabled={downloadingInvoiceId === linkedInvoice.id}
+                                  className="inline-flex items-center text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+                                >
+                                  <Download size={12} className="mr-1" />
+                                  {downloadingInvoiceId === linkedInvoice.id
+                                    ? tCommon('loading')
+                                    : isDebitNote
+                                      ? t('documents.downloadDebitNote')
+                                      : t('documents.downloadInvoice')}
+                                </button>
+                              ) : null}
+
+                              {payment.receipt ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleDownloadReceipt(
+                                      payment.id,
+                                      payment.receipt?.receiptNumber,
+                                    )
+                                  }
+                                  disabled={downloadingReceiptPaymentId === payment.id}
+                                  className="inline-flex items-center text-xs px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
+                                >
+                                  <Download size={12} className="mr-1" />
+                                  {downloadingReceiptPaymentId === payment.id
+                                    ? tCommon('loading')
+                                    : t('documents.downloadReceipt')}
+                                </button>
+                              ) : null}
+
+                              {!linkedInvoice && !payment.receipt ? (
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                  {t('documents.noDocuments')}
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-sm text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
                     {tPayments('noPayments')}
                   </div>
                 )}
+              </section>
+
+              <section>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  {t('activities.title')}
+                </h2>
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 space-y-3">
+                  <form onSubmit={handleCreateActivity} className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <select
+                        value={activityForm.type}
+                        onChange={(e) =>
+                          setActivityForm((prev) => ({
+                            ...prev,
+                            type: e.target.value as TenantActivityType,
+                          }))
+                        }
+                        className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
+                      >
+                        {activityTypes.map((type) => (
+                          <option key={type} value={type}>
+                            {t(`activityTypes.${type}`)}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="datetime-local"
+                        value={activityForm.dueAt}
+                        onChange={(e) =>
+                          setActivityForm((prev) => ({ ...prev, dueAt: e.target.value }))
+                        }
+                        className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      value={activityForm.subject}
+                      onChange={(e) =>
+                        setActivityForm((prev) => ({ ...prev, subject: e.target.value }))
+                      }
+                      placeholder={t('activities.subject')}
+                      className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
+                    />
+                    <textarea
+                      rows={2}
+                      value={activityForm.body}
+                      onChange={(e) =>
+                        setActivityForm((prev) => ({ ...prev, body: e.target.value }))
+                      }
+                      placeholder={t('activities.body')}
+                      className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
+                    />
+                    <button
+                      type="submit"
+                      disabled={savingActivity}
+                      className="w-full inline-flex items-center justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                    >
+                      {savingActivity ? tCommon('saving') : t('activities.add')}
+                    </button>
+                  </form>
+
+                  <div className="space-y-2">
+                    {activities.length > 0 ? (
+                      activities.map((activity) => (
+                        <div
+                          key={activity.id}
+                          className="rounded-md bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-600 p-3"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="space-y-1">
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                {activity.subject}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {t(`activityTypes.${activity.type}`)} ·{' '}
+                                {t(`activityStatus.${activity.status}`)}
+                              </p>
+                              {activity.dueAt ? (
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  {t('activities.dueAt')}:{' '}
+                                  {new Date(activity.dueAt).toLocaleString(locale)}
+                                </p>
+                              ) : null}
+                              {activity.body ? (
+                                <p className="text-xs text-gray-600 dark:text-gray-300">
+                                  {activity.body}
+                                </p>
+                              ) : null}
+                            </div>
+                            {activity.status === 'pending' ? (
+                              <button
+                                type="button"
+                                onClick={() => void handleCompleteActivity(activity)}
+                                disabled={completingActivityId === activity.id}
+                                className="inline-flex items-center text-xs px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
+                              >
+                                <CheckCircle2 size={12} className="mr-1" />
+                                {completingActivityId === activity.id
+                                  ? tCommon('loading')
+                                  : t('activities.complete')}
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {t('activities.empty')}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </section>
 
               <section>
@@ -686,5 +928,13 @@ function paymentsByDateDesc(items: Payment[]): Payment[] {
     (a, b) =>
       new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime() ||
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+}
+
+function activitiesByDateDesc(items: TenantActivity[]): TenantActivity[] {
+  return [...items].sort(
+    (a, b) =>
+      new Date(b.dueAt ?? b.createdAt).getTime() -
+      new Date(a.dueAt ?? a.createdAt).getTime(),
   );
 }

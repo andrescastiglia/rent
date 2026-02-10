@@ -114,6 +114,7 @@ export interface Invoice {
     lastPaymentDate?: string | null;
     dueDate: string;
     status: InvoiceStatus;
+    arcaTipoComprobante?: string | null;
     pdfUrl: string | null;
     issuedAt: string | null;
     notes: string | null;

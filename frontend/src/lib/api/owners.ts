@@ -1,11 +1,16 @@
-import { Owner, OwnerActivity } from '@/types/owner';
+import {
+    Owner,
+    OwnerActivity,
+    CreateOwnerInput,
+    UpdateOwnerInput,
+} from '@/types/owner';
 import { apiClient } from '../api';
 import { getToken } from '../auth';
 
 // Mock data for development/testing
 const MOCK_OWNERS: Owner[] = [
     {
-        id: '1',
+        id: 'owner1',
         userId: 'user-1',
         companyId: 'company-1',
         firstName: 'Carlos',
@@ -23,7 +28,7 @@ const MOCK_OWNERS: Owner[] = [
         updatedAt: new Date().toISOString(),
     },
     {
-        id: '2',
+        id: 'owner2',
         userId: 'user-2',
         companyId: 'company-1',
         firstName: 'Ana',
@@ -50,6 +55,42 @@ const IS_MOCK_MODE = process.env.NODE_ENV === 'test' ||
 const DELAY = 500;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+type BackendOwner = Partial<Owner> & {
+    user?: {
+        firstName?: string;
+        lastName?: string;
+        email?: string;
+        phone?: string;
+    } | null;
+};
+
+const mapOwner = (raw: BackendOwner): Owner => ({
+    id: raw.id ?? '',
+    userId: raw.userId ?? '',
+    companyId: raw.companyId ?? '',
+    firstName: raw.firstName ?? raw.user?.firstName ?? '',
+    lastName: raw.lastName ?? raw.user?.lastName ?? '',
+    email: raw.email ?? raw.user?.email ?? '',
+    phone: raw.phone ?? raw.user?.phone ?? undefined,
+    taxId: raw.taxId ?? undefined,
+    taxIdType: raw.taxIdType ?? undefined,
+    address: raw.address ?? undefined,
+    city: raw.city ?? undefined,
+    state: raw.state ?? undefined,
+    country: raw.country ?? undefined,
+    postalCode: raw.postalCode ?? undefined,
+    bankName: raw.bankName ?? undefined,
+    bankAccountType: raw.bankAccountType ?? undefined,
+    bankAccountNumber: raw.bankAccountNumber ?? undefined,
+    bankCbu: raw.bankCbu ?? undefined,
+    bankAlias: raw.bankAlias ?? undefined,
+    paymentMethod: raw.paymentMethod ?? undefined,
+    commissionRate: raw.commissionRate ?? undefined,
+    notes: raw.notes ?? undefined,
+    createdAt: raw.createdAt ?? new Date().toISOString(),
+    updatedAt: raw.updatedAt ?? new Date().toISOString(),
+});
+
 export const ownersApi = {
     getAll: async (): Promise<Owner[]> => {
         if (IS_MOCK_MODE) {
@@ -58,7 +99,8 @@ export const ownersApi = {
         }
         
         const token = getToken();
-        return apiClient.get<Owner[]>('/owners', token ?? undefined);
+        const result = await apiClient.get<BackendOwner[]>('/owners', token ?? undefined);
+        return result.map(mapOwner);
     },
 
     getById: async (id: string): Promise<Owner | null> => {
@@ -69,10 +111,81 @@ export const ownersApi = {
         
         const token = getToken();
         try {
-            return await apiClient.get<Owner>(`/owners/${id}`, token ?? undefined);
+            const result = await apiClient.get<BackendOwner>(`/owners/${id}`, token ?? undefined);
+            return mapOwner(result);
         } catch {
             return null;
         }
+    },
+
+    create: async (data: CreateOwnerInput): Promise<Owner> => {
+        const token = getToken();
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            const created: Owner = {
+                id: Math.random().toString(36).slice(2, 11),
+                userId: `user-${Math.random().toString(36).slice(2, 8)}`,
+                companyId: 'company-1',
+                firstName: data.firstName,
+                lastName: data.lastName,
+                email: data.email,
+                phone: data.phone,
+                taxId: data.taxId,
+                taxIdType: data.taxIdType ?? 'CUIT',
+                address: data.address,
+                city: data.city,
+                state: data.state,
+                country: data.country ?? 'Argentina',
+                postalCode: data.postalCode,
+                bankName: data.bankName,
+                bankAccountType: data.bankAccountType,
+                bankAccountNumber: data.bankAccountNumber,
+                bankCbu: data.bankCbu,
+                bankAlias: data.bankAlias,
+                paymentMethod: data.paymentMethod ?? 'bank_transfer',
+                commissionRate: data.commissionRate ?? 0,
+                notes: data.notes,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            };
+            MOCK_OWNERS.unshift(created);
+            return created;
+        }
+
+        const result = await apiClient.post<BackendOwner>(
+            '/owners',
+            data,
+            token ?? undefined,
+        );
+        return mapOwner(result);
+    },
+
+    update: async (id: string, data: UpdateOwnerInput): Promise<Owner> => {
+        const token = getToken();
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            const current = MOCK_OWNERS.find((owner) => owner.id === id);
+            if (!current) {
+                throw new Error('Owner not found');
+            }
+            const updated: Owner = {
+                ...current,
+                ...data,
+                updatedAt: new Date().toISOString(),
+            };
+            const index = MOCK_OWNERS.findIndex((owner) => owner.id === id);
+            if (index >= 0) {
+                MOCK_OWNERS[index] = updated;
+            }
+            return updated;
+        }
+
+        const result = await apiClient.patch<BackendOwner>(
+            `/owners/${id}`,
+            data,
+            token ?? undefined,
+        );
+        return mapOwner(result);
     },
 
     getActivities: async (ownerId: string): Promise<OwnerActivity[]> => {

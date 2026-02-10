@@ -1,5 +1,7 @@
 export type TenantStatus = 'ACTIVE' | 'INACTIVE' | 'PROSPECT';
 export type EmploymentStatus = 'employed' | 'self_employed' | 'unemployed' | 'retired' | 'student';
+export type TenantActivityType = 'call' | 'task' | 'note' | 'email' | 'whatsapp' | 'visit';
+export type TenantActivityStatus = 'pending' | 'completed' | 'cancelled';
 
 export interface Tenant {
     id: string;
@@ -68,3 +70,17 @@ export interface CreateTenantInput {
 }
 
 export interface UpdateTenantInput extends Partial<CreateTenantInput> { }
+
+export interface TenantActivity {
+    id: string;
+    tenantId: string;
+    type: TenantActivityType;
+    status: TenantActivityStatus;
+    subject: string;
+    body?: string | null;
+    dueAt?: string | null;
+    completedAt?: string | null;
+    metadata?: Record<string, unknown>;
+    createdAt: string;
+    updatedAt: string;
+}

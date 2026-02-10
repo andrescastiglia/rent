@@ -12,6 +12,7 @@ interface TenantCardProps {
 
 export function TenantCard({ tenant }: TenantCardProps) {
   const t = useTranslations('tenants');
+  const tc = useTranslations('common');
   const locale = useLocale();
 
   const getStatusLabel = (status: string) => {
@@ -59,7 +60,13 @@ export function TenantCard({ tenant }: TenantCardProps) {
         )}
       </div>
 
-      <div className="mt-4 flex items-center justify-end">
+      <div className="mt-4 flex items-center justify-end gap-3">
+        <Link
+          href={`/${locale}/tenants/${tenant.id}/edit`}
+          className="inline-flex items-center gap-1 text-sm font-medium text-gray-700 hover:text-gray-600 dark:text-gray-200 dark:hover:text-gray-100"
+        >
+          {tc('edit')}
+        </Link>
         <Link
           href={`/${locale}/tenants/${tenant.id}#payment-registration`}
           className="inline-flex items-center gap-1 text-sm font-medium text-green-700 hover:text-green-600 dark:text-green-300 dark:hover:text-green-200"

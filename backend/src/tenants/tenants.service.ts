@@ -4,17 +4,33 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User, UserRole } from '../users/entities/user.entity';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { TenantFiltersDto } from './dto/tenant-filters.dto';
 import { Lease } from '../leases/entities/lease.entity';
+import { Tenant } from './entities/tenant.entity';
+import {
+  TenantActivity,
+  TenantActivityStatus,
+} from './entities/tenant-activity.entity';
+import { CreateTenantActivityDto } from './dto/create-tenant-activity.dto';
+import { UpdateTenantActivityDto } from './dto/update-tenant-activity.dto';
+
+interface UserContext {
+  id: string;
+  companyId: string;
+}
 
 @Injectable()
 export class TenantsService {
   constructor(
+    @InjectRepository(Tenant)
+    private tenantsRepository: Repository<Tenant>,
+    @InjectRepository(TenantActivity)
+    private tenantActivitiesRepository: Repository<TenantActivity>,
     @InjectRepository(User)
     private usersRepository: Repository<User>,
     @InjectRepository(Lease)
@@ -180,5 +196,107 @@ export class TenantsService {
       relations: ['property'],
       order: { startDate: 'DESC' },
     });
+  }
+
+  private async findTenantByUserId(
+    userId: string,
+    companyId: string,
+  ): Promise<Tenant> {
+    const tenant = await this.tenantsRepository.findOne({
+      where: { userId, companyId, deletedAt: IsNull() },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException(`Tenant with ID ${userId} not found`);
+    }
+
+    return tenant;
+  }
+
+  async listActivities(
+    tenantUserId: string,
+    companyId: string,
+  ): Promise<TenantActivity[]> {
+    const tenant = await this.findTenantByUserId(tenantUserId, companyId);
+
+    return this.tenantActivitiesRepository.find({
+      where: {
+        tenantId: tenant.id,
+        companyId,
+        deletedAt: IsNull(),
+      },
+      order: { dueAt: 'ASC', createdAt: 'DESC' },
+    });
+  }
+
+  async createActivity(
+    tenantUserId: string,
+    dto: CreateTenantActivityDto,
+    user: UserContext,
+  ): Promise<TenantActivity> {
+    const tenant = await this.findTenantByUserId(tenantUserId, user.companyId);
+
+    const activity = this.tenantActivitiesRepository.create({
+      companyId: user.companyId,
+      tenantId: tenant.id,
+      type: dto.type,
+      status: dto.status ?? TenantActivityStatus.PENDING,
+      subject: dto.subject,
+      body: dto.body ?? null,
+      dueAt: dto.dueAt ? new Date(dto.dueAt) : null,
+      completedAt: dto.completedAt ? new Date(dto.completedAt) : null,
+      metadata: dto.metadata ?? {},
+      createdByUserId: user.id,
+    });
+
+    if (
+      activity.status === TenantActivityStatus.COMPLETED &&
+      !activity.completedAt
+    ) {
+      activity.completedAt = new Date();
+    }
+
+    return this.tenantActivitiesRepository.save(activity);
+  }
+
+  async updateActivity(
+    tenantUserId: string,
+    activityId: string,
+    dto: UpdateTenantActivityDto,
+    companyId: string,
+  ): Promise<TenantActivity> {
+    const tenant = await this.findTenantByUserId(tenantUserId, companyId);
+
+    const activity = await this.tenantActivitiesRepository.findOne({
+      where: {
+        id: activityId,
+        tenantId: tenant.id,
+        companyId,
+        deletedAt: IsNull(),
+      },
+    });
+
+    if (!activity) {
+      throw new NotFoundException(
+        `Tenant activity with ID ${activityId} not found`,
+      );
+    }
+
+    Object.assign(activity, {
+      ...dto,
+      dueAt: dto.dueAt ? new Date(dto.dueAt) : activity.dueAt,
+      completedAt:
+        dto.completedAt !== undefined
+          ? dto.completedAt
+            ? new Date(dto.completedAt)
+            : null
+          : activity.completedAt,
+    });
+
+    if (dto.status === TenantActivityStatus.COMPLETED && !activity.completedAt) {
+      activity.completedAt = new Date();
+    }
+
+    return this.tenantActivitiesRepository.save(activity);
   }
 }
