@@ -27,6 +27,11 @@ interface LeaseTenantOption {
   label: string;
 }
 
+interface LeaseBuyerOption {
+  id: string;
+  label: string;
+}
+
 export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const router = useLocalizedRouter();
   const searchParams = useSearchParams();
@@ -37,6 +42,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
   const [tenantOptions, setTenantOptions] = useState<LeaseTenantOption[]>([]);
+  const [buyerOptions, setBuyerOptions] = useState<LeaseBuyerOption[]>([]);
   const [owners, setOwners] = useState<Owner[]>([]);
 
   // Crear schema con mensajes traducidos
@@ -45,6 +51,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<LeaseFormData>({
     resolver: zodResolver(leaseSchema) as Resolver<LeaseFormData>,
     defaultValues: initialData || {
+      contractType: 'rental',
       status: 'DRAFT',
       rentAmount: 0,
       depositAmount: 0,
@@ -59,10 +66,16 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
 
   const lateFeeType = watch('lateFeeType');
   const adjustmentType = watch('adjustmentType');
+  const contractType = watch('contractType');
   const preselectedPropertyId = searchParams.get('propertyId');
   const preselectedOwnerId = searchParams.get('ownerId');
+  const preselectedTenantId = searchParams.get('tenantId');
+  const preselectedBuyerProfileId = searchParams.get('buyerProfileId');
+  const preselectedContractType = searchParams.get('contractType');
   const hasPreselectedProperty = !isEditing && !!preselectedPropertyId;
   const hasPreselectedOwner = !isEditing && !!preselectedOwnerId;
+  const hasPreselectedTenant = !isEditing && !!preselectedTenantId;
+  const hasPreselectedBuyer = !isEditing && !!preselectedBuyerProfileId;
 
   useEffect(() => {
     const loadData = async () => {
@@ -75,7 +88,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
         const options = interestedResponse.data
           .filter((profile) =>
             !!profile.convertedToTenantId &&
-            (profile.operations ?? []).some((operation) => operation === 'rent' || operation === 'leasing'),
+            (profile.operations ?? []).some((operation) => operation === 'rent'),
           )
           .map((profile) => ({
             id: profile.convertedToTenantId as string,
@@ -83,8 +96,16 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           }))
           .filter((option, index, all) => all.findIndex((item) => item.id === option.id) === index);
 
+        const saleProfiles = interestedResponse.data
+          .filter((profile) => (profile.operations ?? []).some((operation) => operation === 'sale'))
+          .map((profile) => ({
+            id: profile.id,
+            label: `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim() || profile.phone,
+          }));
+
         setProperties(props);
         setTenantOptions(options);
+        setBuyerOptions(saleProfiles);
         setOwners(owns);
       } catch (error) {
         console.error('Failed to load form data', error);
@@ -103,7 +124,26 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     if (preselectedOwnerId) {
       setValue('ownerId', preselectedOwnerId);
     }
-  }, [isEditing, preselectedPropertyId, preselectedOwnerId, setValue]);
+    if (preselectedContractType === 'rental' || preselectedContractType === 'sale') {
+      setValue('contractType', preselectedContractType);
+    }
+    if (preselectedTenantId) {
+      setValue('tenantId', preselectedTenantId);
+      setValue('contractType', 'rental');
+    }
+    if (preselectedBuyerProfileId) {
+      setValue('buyerProfileId', preselectedBuyerProfileId);
+      setValue('contractType', 'sale');
+    }
+  }, [
+    isEditing,
+    preselectedPropertyId,
+    preselectedOwnerId,
+    preselectedTenantId,
+    preselectedBuyerProfileId,
+    preselectedContractType,
+    setValue,
+  ]);
 
   const onSubmit = async (data: LeaseFormData) => {
     setIsSubmitting(true);
@@ -152,20 +192,11 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           )}
 
           <div>
-            <label htmlFor="unitId" className={labelClass}>{t('fields.unitId')}</label>
-            <input id="unitId" {...register('unitId')} className={inputClass} placeholder={t('unitIdPlaceholder')} />
-            {errors.unitId && <p className="mt-1 text-sm text-red-600">{errors.unitId.message}</p>}
-          </div>
-
-          <div>
-            <label htmlFor="tenantId" className={labelClass}>{t('fields.tenant')}</label>
-            <select id="tenantId" {...register('tenantId')} className={inputClass}>
-              <option value="">{t('selectTenant')}</option>
-              {tenantOptions.map(tenant => (
-                <option key={tenant.id} value={tenant.id}>{tenant.label}</option>
-              ))}
+            <label htmlFor="contractType" className={labelClass}>{t('fields.contractType')}</label>
+            <select id="contractType" {...register('contractType')} className={inputClass}>
+              <option value="rental">{t('contractTypes.rental')}</option>
+              <option value="sale">{t('contractTypes.sale')}</option>
             </select>
-            {errors.tenantId && <p className="mt-1 text-sm text-red-600">{errors.tenantId.message}</p>}
           </div>
 
           {hasPreselectedOwner ? (
@@ -188,32 +219,74 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
             <select id="status" {...register('status')} className={inputClass}>
               <option value="DRAFT">{t('status.DRAFT')}</option>
               <option value="ACTIVE">{t('status.ACTIVE')}</option>
-              <option value="ENDED">{t('status.ENDED')}</option>
-              <option value="TERMINATED">{t('status.TERMINATED')}</option>
+              <option value="FINALIZED">{t('status.FINALIZED')}</option>
             </select>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="startDate" className={labelClass}>{t('fields.startDate')}</label>
-            <input id="startDate" type="date" {...register('startDate')} className={inputClass} />
-            {errors.startDate && <p className="mt-1 text-sm text-red-600">{errors.startDate.message}</p>}
-          </div>
+        {contractType === 'rental' && (
+          hasPreselectedTenant ? (
+            <input type="hidden" {...register('tenantId')} />
+          ) : (
+            <div>
+              <label htmlFor="tenantId" className={labelClass}>{t('fields.tenant')}</label>
+              <select id="tenantId" {...register('tenantId')} className={inputClass}>
+                <option value="">{t('selectTenant')}</option>
+                {tenantOptions.map(tenant => (
+                  <option key={tenant.id} value={tenant.id}>{tenant.label}</option>
+                ))}
+              </select>
+              {errors.tenantId && <p className="mt-1 text-sm text-red-600">{errors.tenantId.message}</p>}
+            </div>
+          )
+        )}
 
-          <div>
-            <label htmlFor="endDate" className={labelClass}>{t('fields.endDate')}</label>
-            <input id="endDate" type="date" {...register('endDate')} className={inputClass} />
-            {errors.endDate && <p className="mt-1 text-sm text-red-600">{errors.endDate.message}</p>}
+        {contractType === 'rental' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="startDate" className={labelClass}>{t('fields.startDate')}</label>
+              <input id="startDate" type="date" {...register('startDate')} className={inputClass} />
+              {errors.startDate && <p className="mt-1 text-sm text-red-600">{errors.startDate.message}</p>}
+            </div>
+
+            <div>
+              <label htmlFor="endDate" className={labelClass}>{t('fields.endDate')}</label>
+              <input id="endDate" type="date" {...register('endDate')} className={inputClass} />
+              {errors.endDate && <p className="mt-1 text-sm text-red-600">{errors.endDate.message}</p>}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {hasPreselectedBuyer ? (
+              <input type="hidden" {...register('buyerProfileId')} />
+            ) : (
+              <div>
+                <label htmlFor="buyerProfileId" className={labelClass}>{t('fields.buyer')}</label>
+                <select id="buyerProfileId" {...register('buyerProfileId')} className={inputClass}>
+                  <option value="">{t('selectBuyer')}</option>
+                  {buyerOptions.map((buyer) => (
+                    <option key={buyer.id} value={buyer.id}>{buyer.label}</option>
+                  ))}
+                </select>
+                {errors.buyerProfileId && <p className="mt-1 text-sm text-red-600">{errors.buyerProfileId.message}</p>}
+              </div>
+            )}
+            <div>
+              <label htmlFor="fiscalValue" className={labelClass}>{t('fields.fiscalValue')}</label>
+              <input id="fiscalValue" type="number" {...register('fiscalValue')} className={inputClass} />
+              {errors.fiscalValue && <p className="mt-1 text-sm text-red-600">{errors.fiscalValue.message}</p>}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label htmlFor="rentAmount" className={labelClass}>{t('fields.rentAmount')}</label>
-            <input id="rentAmount" type="number" {...register('rentAmount')} className={inputClass} />
-            {errors.rentAmount && <p className="mt-1 text-sm text-red-600">{errors.rentAmount.message}</p>}
-          </div>
+          {contractType === 'rental' && (
+            <div>
+              <label htmlFor="rentAmount" className={labelClass}>{t('fields.rentAmount')}</label>
+              <input id="rentAmount" type="number" {...register('rentAmount')} className={inputClass} />
+              {errors.rentAmount && <p className="mt-1 text-sm text-red-600">{errors.rentAmount.message}</p>}
+            </div>
+          )}
 
           <div>
             <label htmlFor="depositAmount" className={labelClass}>{t('fields.depositAmount')}</label>
@@ -230,6 +303,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
       </div>
 
       {/* Billing Configuration */}
+      {contractType === 'rental' && (
       <div className={sectionClass}>
         <h3 className={sectionTitleClass}>{t('billing.title')}</h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t('billing.description')}</p>
@@ -272,8 +346,10 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           </div>
         </div>
       </div>
+      )}
 
       {/* Late Fee Configuration */}
+      {contractType === 'rental' && (
       <div className={sectionClass}>
         <h3 className={sectionTitleClass}>{t('lateFees.title')}</h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t('lateFees.description')}</p>
@@ -310,8 +386,10 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           )}
         </div>
       </div>
+      )}
 
       {/* Adjustment Configuration */}
+      {contractType === 'rental' && (
       <div className={sectionClass}>
         <h3 className={sectionTitleClass}>{t('adjustments.title')}</h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t('adjustments.description')}</p>
@@ -361,6 +439,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           )}
         </div>
       </div>
+      )}
 
       {/* Terms and Conditions */}
       <div className={sectionClass}>

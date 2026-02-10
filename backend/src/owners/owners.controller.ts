@@ -1,7 +1,10 @@
 import {
+  Body,
   Controller,
   Get,
   Param,
+  Patch,
+  Post,
   UseGuards,
   Request,
   ParseUUIDPipe,
@@ -11,10 +14,13 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { OwnersService } from './owners.service';
 import { Owner } from './entities/owner.entity';
+import { OwnerActivity } from './entities/owner-activity.entity';
+import { CreateOwnerActivityDto } from './dto/create-owner-activity.dto';
+import { UpdateOwnerActivityDto } from './dto/update-owner-activity.dto';
 
 interface AuthenticatedRequest {
   user: {
-    sub: string;
+    id: string;
     email: string;
     companyId: string;
     role: string;
@@ -23,7 +29,7 @@ interface AuthenticatedRequest {
 
 @Controller('owners')
 @UseGuards(JwtAuthGuard)
-@Roles(UserRole.ADMIN)
+@Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
 export class OwnersController {
   constructor(private readonly ownersService: OwnersService) {}
 
@@ -44,5 +50,40 @@ export class OwnersController {
     @Request() req: AuthenticatedRequest,
   ): Promise<Owner> {
     return this.ownersService.findOne(id, req.user.companyId);
+  }
+
+  @Get(':id/activities')
+  async listActivities(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: AuthenticatedRequest,
+  ): Promise<OwnerActivity[]> {
+    return this.ownersService.listActivities(id, req.user.companyId);
+  }
+
+  @Post(':id/activities')
+  async createActivity(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateOwnerActivityDto,
+    @Request() req: AuthenticatedRequest,
+  ): Promise<OwnerActivity> {
+    return this.ownersService.createActivity(id, dto, {
+      id: req.user.id,
+      companyId: req.user.companyId,
+    });
+  }
+
+  @Patch(':id/activities/:activityId')
+  async updateActivity(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('activityId', ParseUUIDPipe) activityId: string,
+    @Body() dto: UpdateOwnerActivityDto,
+    @Request() req: AuthenticatedRequest,
+  ): Promise<OwnerActivity> {
+    return this.ownersService.updateActivity(
+      id,
+      activityId,
+      dto,
+      req.user.companyId,
+    );
   }
 }

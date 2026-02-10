@@ -9,12 +9,13 @@ import {
   OneToMany,
   JoinColumn,
 } from 'typeorm';
-import { Unit } from '../../properties/entities/unit.entity';
+import { Property } from '../../properties/entities/property.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { Owner } from '../../owners/entities/owner.entity';
 import { Company } from '../../companies/entities/company.entity';
 import { LeaseAmendment } from './lease-amendment.entity';
 import { Currency } from '../../currencies/entities/currency.entity';
+import { InterestedProfile } from '../../interested/entities/interested-profile.entity';
 
 export enum PaymentFrequency {
   MONTHLY = 'monthly',
@@ -26,11 +27,13 @@ export enum PaymentFrequency {
 
 export enum LeaseStatus {
   DRAFT = 'draft',
-  PENDING_SIGNATURE = 'pending_signature',
   ACTIVE = 'active',
-  EXPIRED = 'expired',
-  TERMINATED = 'terminated',
-  RENEWED = 'renewed',
+  FINALIZED = 'finalized',
+}
+
+export enum ContractType {
+  RENTAL = 'rental',
+  SALE = 'sale',
 }
 
 /**
@@ -97,19 +100,26 @@ export class Lease {
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
-  @Column({ name: 'unit_id' })
-  unitId: string;
+  @Column({ name: 'property_id', nullable: true })
+  propertyId: string | null;
 
-  @ManyToOne(() => Unit)
-  @JoinColumn({ name: 'unit_id' })
-  unit: Unit;
+  @ManyToOne(() => Property, { nullable: true })
+  @JoinColumn({ name: 'property_id' })
+  property: Property | null;
 
-  @Column({ name: 'tenant_id' })
-  tenantId: string;
+  @Column({ name: 'tenant_id', nullable: true })
+  tenantId: string | null;
 
-  @ManyToOne(() => Tenant)
+  @ManyToOne(() => Tenant, { nullable: true })
   @JoinColumn({ name: 'tenant_id' })
-  tenant: Tenant;
+  tenant: Tenant | null;
+
+  @Column({ name: 'buyer_profile_id', nullable: true })
+  buyerProfileId: string | null;
+
+  @ManyToOne(() => InterestedProfile, { nullable: true })
+  @JoinColumn({ name: 'buyer_profile_id' })
+  buyerProfile: InterestedProfile | null;
 
   @Column({ name: 'owner_id' })
   ownerId: string;
@@ -121,17 +131,32 @@ export class Lease {
   @Column({ name: 'lease_number', type: 'varchar', length: 50, nullable: true })
   leaseNumber: string;
 
+  @Column({
+    name: 'contract_type',
+    type: 'enum',
+    enum: ContractType,
+    enumName: 'contract_type',
+    default: ContractType.RENTAL,
+  })
+  contractType: ContractType;
+
   @Column({ type: 'enum', enum: LeaseStatus, default: LeaseStatus.DRAFT })
   status: LeaseStatus;
 
-  @Column({ name: 'start_date', type: 'date' })
-  startDate: Date;
+  @Column({ name: 'start_date', type: 'date', nullable: true })
+  startDate: Date | null;
 
-  @Column({ name: 'end_date', type: 'date' })
-  endDate: Date;
+  @Column({ name: 'end_date', type: 'date', nullable: true })
+  endDate: Date | null;
 
-  @Column({ name: 'monthly_rent', type: 'decimal', precision: 12, scale: 2 })
-  monthlyRent: number;
+  @Column({
+    name: 'monthly_rent',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
+  monthlyRent: number | null;
 
   @Column({ type: 'varchar', length: 3, default: 'ARS' })
   currency: string;
@@ -268,6 +293,15 @@ export class Lease {
   securityDeposit: number;
 
   @Column({
+    name: 'fiscal_value',
+    type: 'decimal',
+    precision: 14,
+    scale: 2,
+    nullable: true,
+  })
+  fiscalValue: number | null;
+
+  @Column({
     name: 'deposit_currency',
     type: 'varchar',
     length: 3,
@@ -292,6 +326,9 @@ export class Lease {
 
   @Column({ name: 'special_clauses', type: 'text', nullable: true })
   specialClauses: string;
+
+  @Column({ name: 'contract_pdf_url', type: 'text', nullable: true })
+  contractPdfUrl: string | null;
 
   @Column({ type: 'text', nullable: true })
   notes: string;

@@ -8,8 +8,8 @@ export type PropertyType =
     | 'PARKING'
     | 'OTHER';
 export type PropertyStatus = 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE';
-export type PropertyOperation = 'rent' | 'sale' | 'leasing';
-export type PropertyOperationState = 'available' | 'rented' | 'leased' | 'sold';
+export type PropertyOperation = 'rent' | 'sale';
+export type PropertyOperationState = 'available' | 'rented' | 'reserved' | 'sold';
 
 export interface Address {
     street: string;
@@ -100,6 +100,7 @@ export interface CreatePropertyMaintenanceTaskInput {
 }
 
 export interface PropertyFilters {
+    ownerId?: string;
     addressCity?: string;
     addressState?: string;
     propertyType?: PropertyType;

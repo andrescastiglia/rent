@@ -126,8 +126,7 @@ export class SettlementService {
                 i.due_date
              FROM invoices i
              JOIN leases l ON l.id = i.lease_id
-             LEFT JOIN units un ON un.id = l.unit_id
-             LEFT JOIN properties p ON p.id = COALESCE(un.property_id, l.unit_id)
+             LEFT JOIN properties p ON p.id = l.property_id
              JOIN tenant_accounts ta ON ta.id = i.tenant_account_id
              JOIN tenants t ON t.user_id = ta.tenant_id
              JOIN users tu ON tu.id = t.user_id

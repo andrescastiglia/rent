@@ -51,13 +51,17 @@ export function generateContractPdf(
       .fontSize(11)
       .font('Helvetica')
       .text(
-        `${await i18n.t('contract.landlord', { lang })}: ${lease.unit?.property?.owner?.user?.firstName || ''} ${lease.unit?.property?.owner?.user?.lastName || ''}`,
+        `${await i18n.t('contract.landlord', { lang })}: ${lease.property?.owner?.user?.firstName || ''} ${lease.property?.owner?.user?.lastName || ''}`,
       )
       .text(
-        `${await i18n.t('contract.tenant', { lang })}: ${lease.tenant?.user?.firstName || ''} ${lease.tenant?.user?.lastName || ''}`,
+        `${await i18n.t('contract.tenant', { lang })}: ${
+          lease.tenant
+            ? `${lease.tenant?.user?.firstName || ''} ${lease.tenant?.user?.lastName || ''}`.trim()
+            : `${lease.buyerProfile?.firstName || ''} ${lease.buyerProfile?.lastName || ''}`.trim()
+        }`,
       )
       .text(
-        `${await i18n.t('contract.email', { lang })}: ${lease.tenant?.user?.email || ''}`,
+        `${await i18n.t('contract.email', { lang })}: ${lease.tenant?.user?.email || lease.buyerProfile?.email || ''}`,
       )
       .moveDown(1.5);
 
@@ -68,7 +72,7 @@ export function generateContractPdf(
       .text(await i18n.t('contract.property', { lang }))
       .moveDown(0.5);
 
-    const property = lease.unit?.property;
+    const property = lease.property;
     doc
       .fontSize(11)
       .font('Helvetica')
@@ -80,12 +84,6 @@ export function generateContractPdf(
       )
       .text(
         `${await i18n.t('contract.postal_code', { lang })}: ${property?.addressPostalCode || ''}`,
-      )
-      .text(
-        `${await i18n.t('contract.unit', { lang })}: ${lease.unit?.unitNumber || ''}`,
-      )
-      .text(
-        `${await i18n.t('contract.area', { lang })}: ${lease.unit?.area || 0} m²`,
       )
       .moveDown(1.5);
 
@@ -100,13 +98,13 @@ export function generateContractPdf(
       .fontSize(11)
       .font('Helvetica')
       .text(
-        `${await i18n.t('contract.start_date', { lang })}: ${new Date(lease.startDate).toLocaleDateString(lang)}`,
+        `${await i18n.t('contract.start_date', { lang })}: ${lease.startDate ? new Date(lease.startDate).toLocaleDateString(lang) : '-'}`,
       )
       .text(
-        `${await i18n.t('contract.end_date', { lang })}: ${new Date(lease.endDate).toLocaleDateString(lang)}`,
+        `${await i18n.t('contract.end_date', { lang })}: ${lease.endDate ? new Date(lease.endDate).toLocaleDateString(lang) : '-'}`,
       )
       .text(
-        `${await i18n.t('contract.monthly_rent', { lang })}: ${lease.currency} ${Number(lease.monthlyRent).toLocaleString(lang)}`,
+        `${await i18n.t('contract.monthly_rent', { lang })}: ${lease.monthlyRent !== null && lease.monthlyRent !== undefined ? `${lease.currency} ${Number(lease.monthlyRent).toLocaleString(lang)}` : '-'}`,
       )
       .text(
         `${await i18n.t('contract.deposit', { lang })}: ${lease.currency} ${Number(lease.securityDeposit).toLocaleString(lang)}`,

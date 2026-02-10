@@ -1,4 +1,4 @@
-import { Owner } from '@/types/owner';
+import { Owner, OwnerActivity } from '@/types/owner';
 import { apiClient } from '../api';
 import { getToken } from '../auth';
 
@@ -73,5 +73,45 @@ export const ownersApi = {
         } catch {
             return null;
         }
+    },
+
+    getActivities: async (ownerId: string): Promise<OwnerActivity[]> => {
+        const token = getToken();
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            return [];
+        }
+        return apiClient.get<OwnerActivity[]>(
+            `/owners/${ownerId}/activities`,
+            token ?? undefined,
+        );
+    },
+
+    updateActivity: async (
+        ownerId: string,
+        activityId: string,
+        data: Partial<Pick<OwnerActivity, 'status' | 'body' | 'completedAt'>>,
+    ): Promise<OwnerActivity> => {
+        const token = getToken();
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            return {
+                id: activityId,
+                ownerId,
+                type: 'task',
+                status: data.status ?? 'pending',
+                subject: 'Actividad',
+                body: data.body ?? null,
+                completedAt: data.completedAt ?? null,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            };
+        }
+
+        return apiClient.patch<OwnerActivity>(
+            `/owners/${ownerId}/activities/${activityId}`,
+            data,
+            token ?? undefined,
+        );
     },
 };

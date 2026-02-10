@@ -10,6 +10,7 @@ import {
   Min,
 } from 'class-validator';
 import {
+  ContractType,
   PaymentFrequency,
   BillingFrequency,
   LateFeeType,
@@ -25,32 +26,45 @@ export class CreateLeaseDto {
 
   @IsUUID()
   @IsNotEmpty()
-  unitId: string;
+  propertyId: string;
 
   @IsUUID()
-  @IsNotEmpty()
-  tenantId: string;
+  @IsOptional()
+  tenantId?: string;
 
   @IsUUID()
-  @IsNotEmpty()
-  ownerId: string;
+  @IsOptional()
+  buyerProfileId?: string;
+
+  @IsUUID()
+  @IsOptional()
+  ownerId?: string;
+
+  @IsEnum(ContractType)
+  @IsOptional()
+  contractType?: ContractType = ContractType.RENTAL;
 
   @IsString()
   @IsOptional()
   leaseNumber?: string;
 
   @IsDateString()
-  @IsNotEmpty()
-  startDate: string;
+  @IsOptional()
+  startDate?: string;
 
   @IsDateString()
-  @IsNotEmpty()
-  endDate: string;
+  @IsOptional()
+  endDate?: string;
 
   @IsNumber()
   @Min(0)
-  @IsNotEmpty()
-  monthlyRent: number;
+  @IsOptional()
+  monthlyRent?: number;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  fiscalValue?: number;
 
   @IsString()
   @IsOptional()

@@ -102,7 +102,7 @@ export default function PropertyDetailPage() {
   };
 
   const getOperationStateLabel = (state?: string) => {
-    const stateKey = (state ?? 'available').toLowerCase() as 'available' | 'rented' | 'leased' | 'sold';
+    const stateKey = (state ?? 'available').toLowerCase() as 'available' | 'rented' | 'reserved' | 'sold';
     return t(`operationState.${stateKey}`);
   };
 
@@ -170,7 +170,7 @@ export default function PropertyDetailPage() {
   }
 
   const canCreateLease = (property.operations ?? []).some(
-    (operation) => operation === 'rent' || operation === 'leasing',
+    (operation) => operation === 'rent',
   );
   const hasMultipleImages = property.images.length > 1;
   const currentImage = property.images[currentImageIndex] ?? property.images[0];

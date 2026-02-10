@@ -89,8 +89,7 @@ export function generateInvoicePdf(
       .moveDown(1.5);
 
     // Propiedad
-    const property = invoice.lease?.unit?.property;
-    const unit = invoice.lease?.unit;
+    const property = invoice.lease?.property;
     if (property) {
       doc.fontSize(14).font('Helvetica-Bold').text('INMUEBLE').moveDown(0.5);
 
@@ -100,7 +99,6 @@ export function generateInvoicePdf(
         .text(
           `Dirección: ${property.addressStreet || ''} ${property.addressNumber || ''}, ${property.addressCity || ''}`,
         )
-        .text(`Unidad: ${unit?.unitNumber || ''}`)
         .moveDown(1.5);
     }
 

@@ -434,18 +434,17 @@ export class ReportService {
             `SELECT 
                 i.invoice_number as "invoiceNumber",
                 CONCAT(tu.first_name, ' ', tu.last_name) as "tenantName",
-                                CONCAT(concat_ws(' ', p.address_street, p.address_number), ' - ', un.unit_number) as "propertyAddress",
+                CONCAT_WS(' ', p.address_street, p.address_number) as "propertyAddress",
                 i.subtotal,
-                                (COALESCE(i.withholding_iibb, 0) + COALESCE(i.withholding_ganancias, 0) + COALESCE(i.withholding_other, 0)) as withholdings,
-                                i.total_amount as total,
+                (COALESCE(i.withholding_iibb, 0) + COALESCE(i.withholding_ganancias, 0) + COALESCE(i.withholding_other, 0)) as withholdings,
+                i.total_amount as total,
                 i.status,
-                                i.paid_amount as "amountPaid"
+                i.paid_amount as "amountPaid"
              FROM invoices i
              JOIN leases l ON l.id = i.lease_id
-             JOIN units un ON un.id = l.unit_id
-             JOIN properties p ON p.id = un.property_id
+             JOIN properties p ON p.id = l.property_id
              JOIN tenant_accounts ta ON ta.id = i.tenant_account_id
-                         JOIN tenants t ON t.id = ta.tenant_id
+             JOIN tenants t ON t.id = ta.tenant_id
              JOIN users tu ON tu.id = t.user_id
              WHERE i.owner_id = $1
                AND EXTRACT(YEAR FROM i.period_start) = $2
@@ -512,12 +511,11 @@ export class ReportService {
             `SELECT 
                 i.invoice_number,
                 CONCAT(tu.first_name, ' ', tu.last_name) as tenant,
-                CONCAT(concat_ws(' ', p.address_street, p.address_number), ' - ', un.unit_number) as property,
+                CONCAT_WS(' ', p.address_street, p.address_number) as property,
                 i.total_amount as amount
              FROM invoices i
              JOIN leases l ON l.id = i.lease_id
-             JOIN units un ON un.id = l.unit_id
-             JOIN properties p ON p.id = un.property_id
+             JOIN properties p ON p.id = l.property_id
              JOIN tenant_accounts ta ON ta.id = i.tenant_account_id
              JOIN tenants t ON t.id = ta.tenant_id
              JOIN users tu ON tu.id = t.user_id

@@ -6,8 +6,10 @@ import { Payment, PaymentStatus } from './entities/payment.entity';
 import { PaymentItem, PaymentItemType } from './entities/payment-item.entity';
 import { Receipt } from './entities/receipt.entity';
 import { Invoice } from './entities/invoice.entity';
+import { CreditNote } from './entities/credit-note.entity';
 import { TenantAccountsService } from './tenant-accounts.service';
 import { ReceiptPdfService } from './receipt-pdf.service';
+import { CreditNotePdfService } from './credit-note-pdf.service';
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
@@ -15,6 +17,7 @@ describe('PaymentsService', () => {
   let paymentItemsRepository: MockRepository<PaymentItem>;
   let receiptsRepository: MockRepository<Receipt>;
   let _invoicesRepository: MockRepository<Invoice>;
+  let _creditNotesRepository: MockRepository<CreditNote>;
   let tenantAccountsService: Partial<TenantAccountsService>;
 
   type MockRepository<T extends Record<string, any> = any> = Partial<
@@ -56,8 +59,13 @@ describe('PaymentsService', () => {
           provide: getRepositoryToken(Invoice),
           useValue: createMockRepository(),
         },
+        {
+          provide: getRepositoryToken(CreditNote),
+          useValue: createMockRepository(),
+        },
         { provide: TenantAccountsService, useValue: tenantAccountsService },
         { provide: ReceiptPdfService, useValue: { generate: jest.fn() } },
+        { provide: CreditNotePdfService, useValue: { generate: jest.fn() } },
       ],
     }).compile();
 
@@ -66,6 +74,7 @@ describe('PaymentsService', () => {
     paymentItemsRepository = module.get(getRepositoryToken(PaymentItem));
     receiptsRepository = module.get(getRepositoryToken(Receipt));
     _invoicesRepository = module.get(getRepositoryToken(Invoice));
+    _creditNotesRepository = module.get(getRepositoryToken(CreditNote));
   });
 
   it('should compute payment amount from variable items', async () => {

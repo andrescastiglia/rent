@@ -282,7 +282,7 @@ describe('TenantsService', () => {
 
       expect(leaseRepository.find).toHaveBeenCalledWith({
         where: { tenantId: 'user-1' },
-        relations: ['unit', 'unit.property'],
+        relations: ['property'],
         order: { startDate: 'DESC' },
       });
       expect(result).toEqual(mockLeases);

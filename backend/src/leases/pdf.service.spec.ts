@@ -1,73 +1,36 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ConfigService } from '@nestjs/config';
-import { PdfService } from './pdf.service';
 import { I18nService } from 'nestjs-i18n';
+import { PdfService } from './pdf.service';
 import {
   Document,
-  DocumentType,
   DocumentStatus,
+  DocumentType,
 } from '../documents/entities/document.entity';
-import { Lease, LeaseStatus, PaymentFrequency } from './entities/lease.entity';
+import { Lease } from './entities/lease.entity';
 
-// Mock the S3 and template modules
-jest.mock('@aws-sdk/client-s3');
 jest.mock('./templates/contract-template', () => ({
   generateContractPdf: jest.fn(),
-}));
-jest.mock('../config/s3.config', () => ({
-  getS3Config: jest.fn(() => ({ send: jest.fn() })),
-  S3_BUCKET_NAME: 'test-bucket',
 }));
 
 import { generateContractPdf } from './templates/contract-template';
 
+type MockRepository<T extends Record<string, any> = any> = Partial<
+  Record<keyof Repository<T>, jest.Mock>
+>;
+
+const createMockRepository = (): MockRepository => ({
+  create: jest.fn(),
+  save: jest.fn(),
+  findOne: jest.fn(),
+});
+
 describe('PdfService', () => {
   let service: PdfService;
-  let documentRepository: MockRepository<Document>;
-  let configService: jest.Mocked<ConfigService>;
-  let i18nService: jest.Mocked<I18nService>;
-
-  type MockRepository<T extends Record<string, any> = any> = Partial<
-    Record<keyof Repository<T>, jest.Mock>
-  >;
-
-  const createMockRepository = (): MockRepository => ({
-    create: jest.fn(),
-    save: jest.fn(),
-    findOne: jest.fn(),
-  });
-
-  const mockLease: Partial<Lease> = {
-    id: 'lease-1',
-    unitId: 'unit-1',
-    tenantId: 'tenant-1',
-    startDate: new Date('2024-01-01'),
-    endDate: new Date('2024-12-31'),
-    monthlyRent: 1500,
-    status: LeaseStatus.ACTIVE,
-    paymentFrequency: PaymentFrequency.MONTHLY,
-  };
-
-  const mockDocument: Partial<Document> = {
-    id: 'doc-1',
-    entityType: 'lease',
-    entityId: 'lease-1',
-    documentType: DocumentType.LEASE_CONTRACT,
-    fileUrl: 'leases/lease-1/contract-123.pdf',
-    status: DocumentStatus.APPROVED,
-  };
+  let documentsRepository: MockRepository<Document>;
 
   beforeEach(async () => {
-    configService = {
-      get: jest.fn(),
-    } as any;
-    i18nService = {
-      t: jest.fn((key: string) => key),
-      translate: jest.fn(),
-    } as any;
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PdfService,
@@ -76,102 +39,66 @@ describe('PdfService', () => {
           useValue: createMockRepository(),
         },
         {
-          provide: ConfigService,
-          useValue: configService,
-        },
-        {
           provide: I18nService,
-          useValue: i18nService,
+          useValue: {
+            t: jest.fn((key: string) => key),
+          },
         },
       ],
     }).compile();
 
-    service = module.get<PdfService>(PdfService);
-    documentRepository = module.get(getRepositoryToken(Document));
+    service = module.get(PdfService);
+    documentsRepository = module.get(getRepositoryToken(Document));
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
+  it('stores contract PDF in DB and sets db:// URL', async () => {
+    const lease = {
+      id: 'lease-1',
+      companyId: 'company-1',
+      tenant: { user: { language: 'es' } },
+    } as unknown as Lease;
+    const pdfBuffer = Buffer.from('fake-pdf');
+    (generateContractPdf as jest.Mock).mockResolvedValue(pdfBuffer);
+
+    documentsRepository.create!.mockImplementation((d) => d as any);
+    documentsRepository
+      .save!.mockResolvedValueOnce({
+        id: 'doc-1',
+        fileUrl: 'db://document/pending',
+      } as any)
+      .mockResolvedValueOnce({
+        id: 'doc-1',
+        fileUrl: 'db://document/doc-1',
+        documentType: DocumentType.LEASE_CONTRACT,
+        status: DocumentStatus.APPROVED,
+      } as any);
+
+    const result = await service.generateContract(lease, 'user-1');
+
+    expect(generateContractPdf).toHaveBeenCalled();
+    expect(documentsRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: 'company-1',
+        entityType: 'lease',
+        entityId: 'lease-1',
+        documentType: DocumentType.LEASE_CONTRACT,
+        fileData: pdfBuffer,
+        status: DocumentStatus.APPROVED,
+      }),
+    );
+    expect(result.fileUrl).toBe('db://document/doc-1');
   });
 
-  describe('generateContract', () => {
-    it('should generate and upload contract PDF', async () => {
-      const mockPdfBuffer = Buffer.from('PDF content');
-      (generateContractPdf as jest.Mock).mockResolvedValue(mockPdfBuffer);
-
-      documentRepository.create!.mockReturnValue(mockDocument);
-      documentRepository.save!.mockResolvedValue(mockDocument);
-
-      // Mock S3 client send
-      const mockS3Send = jest.fn().mockResolvedValue({});
-      service['s3Client'] = { send: mockS3Send } as any;
-
-      const result = await service.generateContract(
-        mockLease as Lease,
-        'user-1',
-      );
-
-      expect(generateContractPdf).toHaveBeenCalledWith(
-        mockLease,
-        i18nService,
-        'es',
-      );
-      expect(mockS3Send).toHaveBeenCalled();
-      expect(documentRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          entityType: 'lease',
-          entityId: 'lease-1',
-          documentType: DocumentType.LEASE_CONTRACT,
-        }),
-      );
-      expect(result).toEqual(mockDocument);
-    });
-
-    it('should create document with correct metadata', async () => {
-      const mockPdfBuffer = Buffer.from('PDF content');
-      (generateContractPdf as jest.Mock).mockResolvedValue(mockPdfBuffer);
-
-      documentRepository.create!.mockReturnValue(mockDocument);
-      documentRepository.save!.mockResolvedValue(mockDocument);
-
-      const mockS3Send = jest.fn().mockResolvedValue({});
-      service['s3Client'] = { send: mockS3Send } as any;
-
-      await service.generateContract(mockLease as Lease, 'user-1');
-
-      expect(documentRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          fileMimeType: 'application/pdf',
-          fileSize: mockPdfBuffer.length,
-          status: DocumentStatus.APPROVED,
-        }),
-      );
-    });
-  });
-
-  describe('getContractDocument', () => {
-    it('should return contract document for lease', async () => {
-      documentRepository.findOne!.mockResolvedValue(mockDocument);
-
-      const result = await service.getContractDocument('lease-1');
-
-      expect(documentRepository.findOne).toHaveBeenCalledWith({
-        where: {
-          entityType: 'lease',
-          entityId: 'lease-1',
-          documentType: DocumentType.LEASE_CONTRACT,
-        },
-        order: { createdAt: 'DESC' },
-      });
-      expect(result).toEqual(mockDocument);
-    });
-
-    it('should return null when no contract found', async () => {
-      documentRepository.findOne!.mockResolvedValue(null);
-
-      const result = await service.getContractDocument('lease-1');
-
-      expect(result).toBeNull();
+  it('returns latest contract document by lease id', async () => {
+    documentsRepository.findOne!.mockResolvedValue({ id: 'doc-1' } as any);
+    await service.getContractDocument('lease-1');
+    expect(documentsRepository.findOne).toHaveBeenCalledWith({
+      where: {
+        entityType: 'lease',
+        entityId: 'lease-1',
+        documentType: DocumentType.LEASE_CONTRACT,
+      },
+      order: { createdAt: 'DESC' },
     });
   });
 });

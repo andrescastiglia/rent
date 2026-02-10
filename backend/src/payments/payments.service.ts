@@ -9,11 +9,13 @@ import { Payment, PaymentStatus } from './entities/payment.entity';
 import { PaymentItem, PaymentItemType } from './entities/payment-item.entity';
 import { Receipt } from './entities/receipt.entity';
 import { Invoice, InvoiceStatus } from './entities/invoice.entity';
+import { CreditNote, CreditNoteStatus } from './entities/credit-note.entity';
 import { TenantAccountsService } from './tenant-accounts.service';
 import { MovementType } from './entities/tenant-account-movement.entity';
 import { CreatePaymentDto, PaymentFiltersDto } from './dto';
 import { UpdatePaymentDto } from './dto';
 import { ReceiptPdfService } from './receipt-pdf.service';
+import { CreditNotePdfService } from './credit-note-pdf.service';
 
 /**
  * Servicio para gestionar pagos de inquilinos.
@@ -29,8 +31,11 @@ export class PaymentsService {
     private receiptsRepository: Repository<Receipt>,
     @InjectRepository(Invoice)
     private invoicesRepository: Repository<Invoice>,
+    @InjectRepository(CreditNote)
+    private creditNotesRepository: Repository<CreditNote>,
     private tenantAccountsService: TenantAccountsService,
     private receiptPdfService: ReceiptPdfService,
+    private creditNotePdfService: CreditNotePdfService,
   ) {}
 
   /**
@@ -146,7 +151,8 @@ export class PaymentsService {
     );
 
     // Aplicar pago a facturas pendientes
-    await this.applyPaymentToInvoices(payment);
+    const settledInvoices = await this.applyPaymentToInvoices(payment);
+    await this.createCreditNotesForSettledLateFees(payment, settledInvoices);
 
     // Generar recibo
     await this.generateReceipt(payment);
@@ -158,7 +164,7 @@ export class PaymentsService {
    * Aplica un pago a las facturas pendientes (FIFO).
    * @param payment Pago a aplicar
    */
-  private async applyPaymentToInvoices(payment: Payment): Promise<void> {
+  private async applyPaymentToInvoices(payment: Payment): Promise<Invoice[]> {
     // Obtener facturas pendientes ordenadas por fecha
     const pendingInvoices = await this.invoicesRepository.find({
       where: {
@@ -173,6 +179,7 @@ export class PaymentsService {
       order: { dueDate: 'ASC' },
     });
 
+    const settledWithLateFee: Invoice[] = [];
     let remainingAmount = Number(payment.amount);
 
     for (const invoice of pendingInvoices) {
@@ -188,6 +195,9 @@ export class PaymentsService {
 
       if (invoice.amountPaid >= invoice.total) {
         invoice.status = InvoiceStatus.PAID;
+        if (Number(invoice.lateFee || 0) > 0) {
+          settledWithLateFee.push(invoice);
+        }
       } else {
         invoice.status = InvoiceStatus.PARTIAL;
       }
@@ -195,6 +205,8 @@ export class PaymentsService {
       await this.invoicesRepository.save(invoice);
       remainingAmount -= toApply;
     }
+
+    return settledWithLateFee;
   }
 
   /**
@@ -287,6 +299,24 @@ export class PaymentsService {
       .where('payment.tenant_id = :tenantId', { tenantId })
       .orderBy('receipt.issue_date', 'DESC')
       .getMany();
+  }
+
+  async listCreditNotesByInvoice(invoiceId: string): Promise<CreditNote[]> {
+    return this.creditNotesRepository.find({
+      where: { invoiceId },
+      order: { issuedAt: 'DESC' },
+    });
+  }
+
+  async findCreditNoteById(id: string): Promise<CreditNote> {
+    const note = await this.creditNotesRepository.findOne({
+      where: { id },
+      relations: ['invoice'],
+    });
+    if (!note) {
+      throw new NotFoundException(`Credit note with ID ${id} not found`);
+    }
+    return note;
   }
 
   /**
@@ -385,6 +415,86 @@ export class PaymentsService {
 
     payment.status = PaymentStatus.CANCELLED;
     return this.paymentsRepository.save(payment);
+  }
+
+  private async createCreditNotesForSettledLateFees(
+    payment: Payment,
+    invoices: Invoice[],
+  ): Promise<void> {
+    for (const invoice of invoices) {
+      const lateFeeAmount = Number(invoice.lateFee || 0);
+      if (lateFeeAmount <= 0) {
+        continue;
+      }
+
+      const existing = await this.creditNotesRepository.findOne({
+        where: { invoiceId: invoice.id, paymentId: payment.id },
+      });
+      if (existing) {
+        continue;
+      }
+
+      const noteNumber = await this.generateCreditNoteNumber();
+      const note = this.creditNotesRepository.create({
+        companyId: payment.companyId,
+        invoiceId: invoice.id,
+        paymentId: payment.id,
+        tenantAccountId: payment.tenantAccountId,
+        noteNumber,
+        amount: lateFeeAmount,
+        currencyCode: invoice.currencyCode || payment.currencyCode || 'ARS',
+        reason: `Mora vinculada a factura ${invoice.invoiceNumber}`,
+        status: CreditNoteStatus.ISSUED,
+      });
+
+      const savedNote = await this.creditNotesRepository.save(note);
+
+      // Apply a credit movement to the tenant account for the late fee.
+      await this.tenantAccountsService.addMovement(
+        payment.tenantAccountId,
+        MovementType.DISCOUNT,
+        -lateFeeAmount,
+        'credit_note',
+        savedNote.id,
+        `Nota de crédito ${savedNote.noteNumber} por mora`,
+      );
+
+      try {
+        const fullInvoice = await this.invoicesRepository.findOne({
+          where: { id: invoice.id },
+          relations: ['lease', 'lease.tenant', 'lease.tenant.user'],
+        });
+        if (fullInvoice) {
+          savedNote.pdfUrl = await this.creditNotePdfService.generate(
+            savedNote,
+            fullInvoice,
+          );
+          await this.creditNotesRepository.save(savedNote);
+        }
+      } catch (error) {
+        console.error('Failed to generate credit note PDF:', error);
+      }
+    }
+  }
+
+  private async generateCreditNoteNumber(): Promise<string> {
+    const lastNote = await this.creditNotesRepository.findOne({
+      order: { createdAt: 'DESC' },
+    });
+
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+
+    let sequence = 1;
+    if (lastNote) {
+      const parts = lastNote.noteNumber.split('-');
+      if (parts.length >= 3) {
+        sequence = parseInt(parts[parts.length - 1], 10) + 1;
+      }
+    }
+
+    return `NC-${year}${month}-${String(sequence).padStart(4, '0')}`;
   }
 
   private computePaymentAmount(

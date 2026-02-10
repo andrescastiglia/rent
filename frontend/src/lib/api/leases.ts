@@ -23,27 +23,25 @@ type BackendTenant = {
     user?: BackendUser | null;
 };
 
-type BackendUnit = {
+type BackendBuyerProfile = {
     id: string;
-    propertyId?: string | null;
-    unitNumber?: string | null;
-    floor?: string | null;
-    bedrooms?: number | null;
-    bathrooms?: number | null;
-    area?: number | null;
-    status?: string | null;
-    baseRent?: number | null;
-    property?: any;
+    firstName?: string | null;
+    lastName?: string | null;
+    phone?: string | null;
+    email?: string | null;
 };
 
 type BackendLease = {
     id: string;
-    unitId: string;
-    tenantId: string;
+    propertyId?: string | null;
+    tenantId?: string | null;
+    buyerProfileId?: string | null;
     ownerId: string;
-    startDate: string | Date;
-    endDate: string | Date;
+    contractType?: 'rental' | 'sale' | null;
+    startDate?: string | Date | null;
+    endDate?: string | Date | null;
     monthlyRent?: number | null;
+    fiscalValue?: number | null;
     securityDeposit?: number | null;
     currency?: string | null;
     status?: string | null;
@@ -66,18 +64,22 @@ type BackendLease = {
     lastAdjustmentDate?: string | Date | null;
     termsAndConditions?: string | null;
     documents?: any[] | null;
-    unit?: BackendUnit | null;
+    property?: any;
     tenant?: BackendTenant | null;
+    buyerProfile?: BackendBuyerProfile | null;
 };
 
 type BackendLeasePayload = {
     companyId?: string;
-    unitId?: string;
+    propertyId?: string;
     tenantId?: string;
+    buyerProfileId?: string;
     ownerId?: string;
+    contractType?: 'rental' | 'sale';
     startDate?: string;
     endDate?: string;
     monthlyRent?: number;
+    fiscalValue?: number;
     securityDeposit?: number;
     currency?: string;
     paymentFrequency?: string;
@@ -119,12 +121,15 @@ const toBackendLeasePayload = (
     if (includeCompanyId) {
         payload.companyId = getCurrentCompanyId();
     }
-    if (data.unitId !== undefined) payload.unitId = data.unitId;
+    if (data.propertyId !== undefined) payload.propertyId = data.propertyId;
     if (data.tenantId !== undefined) payload.tenantId = data.tenantId;
+    if (data.buyerProfileId !== undefined) payload.buyerProfileId = data.buyerProfileId;
     if (data.ownerId !== undefined) payload.ownerId = data.ownerId;
+    if (data.contractType !== undefined) payload.contractType = data.contractType;
     if (data.startDate !== undefined) payload.startDate = data.startDate;
     if (data.endDate !== undefined) payload.endDate = data.endDate;
     if (data.rentAmount !== undefined) payload.monthlyRent = data.rentAmount;
+    if (data.fiscalValue !== undefined) payload.fiscalValue = data.fiscalValue;
     if (data.depositAmount !== undefined) payload.securityDeposit = data.depositAmount;
     if (data.currency !== undefined) payload.currency = data.currency;
     if (data.paymentFrequency !== undefined) payload.paymentFrequency = data.paymentFrequency;
@@ -151,11 +156,8 @@ const mapLeaseStatus = (value: string | null | undefined): Lease['status'] => {
     switch ((value ?? '').toLowerCase()) {
         case 'active':
             return 'ACTIVE';
-        case 'terminated':
-            return 'TERMINATED';
-        case 'expired':
-        case 'ended':
-            return 'ENDED';
+        case 'finalized':
+            return 'FINALIZED';
         case 'draft':
         default:
             return 'DRAFT';
@@ -163,67 +165,89 @@ const mapLeaseStatus = (value: string | null | undefined): Lease['status'] => {
 };
 
 const mapBackendLeaseToLease = (raw: BackendLease): Lease => {
-    const unit = raw.unit ?? null;
-    const propertyId = unit?.propertyId ?? '';
+    const propertyRef = raw.property ?? null;
+    const propertyId = raw.propertyId ?? propertyRef?.id ?? '';
 
     const tenantUser = raw.tenant?.user ?? null;
     const tenant: Tenant | undefined = tenantUser
         ? {
-              id: raw.tenantId,
+              id: raw.tenantId || '',
               firstName: tenantUser.firstName ?? '',
               lastName: tenantUser.lastName ?? '',
               email: tenantUser.email ?? '',
               phone: tenantUser.phone ?? '',
-              dni: raw.tenant?.dni ?? raw.tenantId,
+              dni: raw.tenant?.dni ?? raw.tenantId ?? '',
               status: (tenantUser.isActive ?? true) ? 'ACTIVE' : 'INACTIVE',
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
           }
         : undefined;
 
-    const property: Property | undefined = unit?.property
+    const property: Property | undefined = propertyRef
         ? {
-              id: unit.property.id,
-              name: unit.property.name ?? '',
-              description: unit.property.description ?? undefined,
+              id: propertyRef.id,
+              name: propertyRef.name ?? '',
+              description: propertyRef.description ?? undefined,
               type: 'OTHER',
               status: 'ACTIVE',
               address: {
-                  street: unit.property.addressStreet ?? '',
-                  number: unit.property.addressNumber ?? '',
+                  street: propertyRef.addressStreet ?? '',
+                  number: propertyRef.addressNumber ?? '',
                   unit: undefined,
-                  city: unit.property.addressCity ?? '',
-                  state: unit.property.addressState ?? '',
-                  zipCode: unit.property.addressPostalCode ?? '',
-                  country: unit.property.addressCountry ?? 'Argentina',
+                  city: propertyRef.addressCity ?? '',
+                  state: propertyRef.addressState ?? '',
+                  zipCode: propertyRef.addressPostalCode ?? '',
+                  country: propertyRef.addressCountry ?? 'Argentina',
               },
               features: [],
               units: [],
-              images: Array.isArray(unit.property.images)
-                  ? unit.property.images
+              images: Array.isArray(propertyRef.images)
+                  ? propertyRef.images
                         .map((img: any) => (typeof img === 'string' ? img : img?.url))
                         .filter((v: any) => typeof v === 'string' && v.length > 0)
                   : [],
-              ownerId: unit.property.ownerId ?? raw.ownerId,
-              createdAt: unit.property.createdAt
-                  ? new Date(unit.property.createdAt).toISOString()
+              ownerId: propertyRef.ownerId ?? raw.ownerId,
+              createdAt: propertyRef.createdAt
+                  ? new Date(propertyRef.createdAt).toISOString()
                   : new Date().toISOString(),
-              updatedAt: unit.property.updatedAt
-                  ? new Date(unit.property.updatedAt).toISOString()
+              updatedAt: propertyRef.updatedAt
+                  ? new Date(propertyRef.updatedAt).toISOString()
                   : new Date().toISOString(),
+          }
+        : undefined;
+
+    const buyerProfile = raw.buyerProfile
+        ? {
+              id: raw.buyerProfile.id,
+              firstName: raw.buyerProfile.firstName ?? undefined,
+              lastName: raw.buyerProfile.lastName ?? undefined,
+              phone: raw.buyerProfile.phone ?? '',
+              email: raw.buyerProfile.email ?? undefined,
+              operations: ['sale' as const],
+              status: 'interested' as const,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
           }
         : undefined;
 
     return {
         id: raw.id,
         propertyId,
-        unitId: raw.unitId,
-        tenantId: raw.tenantId,
+        tenantId: raw.tenantId ?? undefined,
+        buyerProfileId: raw.buyerProfileId ?? undefined,
         ownerId: raw.ownerId,
-        startDate: normalizeDate(raw.startDate),
-        endDate: normalizeDate(raw.endDate),
-        rentAmount: Number(raw.monthlyRent ?? 0),
+        contractType: raw.contractType ?? 'rental',
+        startDate: raw.startDate ? normalizeDate(raw.startDate) : undefined,
+        endDate: raw.endDate ? normalizeDate(raw.endDate) : undefined,
+        rentAmount:
+            raw.monthlyRent === null || raw.monthlyRent === undefined
+                ? undefined
+                : Number(raw.monthlyRent),
         depositAmount: Number(raw.securityDeposit ?? 0),
+        fiscalValue:
+            raw.fiscalValue === null || raw.fiscalValue === undefined
+                ? undefined
+                : Number(raw.fiscalValue),
         currency: raw.currency ?? 'ARS',
         status: mapLeaseStatus(raw.status),
         terms: raw.termsAndConditions ?? undefined,
@@ -246,19 +270,8 @@ const mapBackendLeaseToLease = (raw: BackendLease): Lease => {
         nextAdjustmentDate: raw.nextAdjustmentDate ? normalizeDate(raw.nextAdjustmentDate) : undefined,
         lastAdjustmentDate: raw.lastAdjustmentDate ? normalizeDate(raw.lastAdjustmentDate) : undefined,
         property,
-        unit: unit
-            ? {
-                  id: unit.id,
-                  unitNumber: unit.unitNumber ?? '',
-                  floor: unit.floor ?? undefined,
-                  bedrooms: Number(unit.bedrooms ?? 0),
-                  bathrooms: Number(unit.bathrooms ?? 0),
-                  area: Number(unit.area ?? 0),
-                  status: (unit.status ?? 'available').toUpperCase() as any,
-                  rentAmount: Number(unit.baseRent ?? 0),
-              }
-            : undefined,
         tenant,
+        buyerProfile,
     };
 };
 
@@ -267,9 +280,9 @@ const MOCK_LEASES: Lease[] = [
     {
         id: '1',
         propertyId: '1',
-        unitId: 'u1',
         tenantId: '1',
         ownerId: 'owner-1',
+        contractType: 'rental',
         startDate: '2024-01-01',
         endDate: '2024-12-31',
         rentAmount: 1500,
@@ -284,9 +297,9 @@ const MOCK_LEASES: Lease[] = [
     {
         id: '2',
         propertyId: '2',
-        unitId: 'u2',
         tenantId: '2',
         ownerId: 'owner-2',
+        contractType: 'rental',
         startDate: '2024-03-01',
         endDate: '2025-02-28',
         rentAmount: 2000,
@@ -315,7 +328,9 @@ export const leasesApi = {
             // Enrich with related data for list view
             const leasesWithRelations = await Promise.all(MOCK_LEASES.map(async (lease) => {
                 const property = await propertiesApi.getById(lease.propertyId);
-                const tenant = await tenantsApi.getById(lease.tenantId);
+                const tenant = lease.tenantId
+                    ? await tenantsApi.getById(lease.tenantId)
+                    : null;
                 return { ...lease, property: property || undefined, tenant: tenant || undefined };
             }));
             return leasesWithRelations;
@@ -345,7 +360,9 @@ export const leasesApi = {
             if (!lease) return null;
 
             const property = await propertiesApi.getById(lease.propertyId);
-            const tenant = await tenantsApi.getById(lease.tenantId);
+            const tenant = lease.tenantId
+                ? await tenantsApi.getById(lease.tenantId)
+                : null;
             return { ...lease, property: property || undefined, tenant: tenant || undefined };
         }
         
@@ -363,6 +380,7 @@ export const leasesApi = {
             await delay(DELAY);
             const newLease: Lease = {
                 ...data,
+                ownerId: data.ownerId ?? 'owner-mock',
                 id: Math.random().toString(36).substr(2, 9),
                 documents: [],
                 createdAt: new Date().toISOString(),
@@ -419,5 +437,32 @@ export const leasesApi = {
         
         const token = getToken();
         await apiClient.delete(`/leases/${id}`, token ?? undefined);
+    },
+
+    downloadContract: async (id: string): Promise<void> => {
+        if (IS_MOCK_MODE) {
+            return;
+        }
+
+        const token = getToken();
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const response = await fetch(`${baseUrl}/leases/${id}/contract`, {
+            method: 'GET',
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+
+        if (!response.ok) {
+            throw new Error('Contract PDF not found');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `contrato-${id}.pdf`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        window.URL.revokeObjectURL(url);
     },
 };

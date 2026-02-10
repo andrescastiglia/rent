@@ -1,5 +1,7 @@
 import { apiClient } from '../api';
 import { getToken } from '../auth';
+import { interestedApi } from './interested';
+import { ownersApi } from './owners';
 
 export interface DashboardStats {
   totalProperties: number;
@@ -12,41 +14,30 @@ export interface DashboardStats {
   monthlyCommissions: number;
 }
 
-export type BillingJobType =
-  | 'billing'
-  | 'overdue'
-  | 'reminders'
-  | 'late_fees'
-  | 'sync_indices'
-  | 'reports'
-  | 'exchange_rates'
-  | 'process_settlements';
+export type PersonActivitySource = 'interested' | 'owner';
+export type PersonActivityStatus = 'pending' | 'completed' | 'cancelled';
 
-export type BillingJobStatus =
-  | 'pending'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'partial_failure';
-
-export interface RecentActivityItem {
+export interface PersonActivityItem {
   id: string;
-  jobType: BillingJobType;
-  status: BillingJobStatus;
-  startedAt: string;
+  sourceType: PersonActivitySource;
+  personType: PersonActivitySource;
+  personId: string;
+  personName: string;
+  subject: string;
+  body: string | null;
+  status: PersonActivityStatus;
+  dueAt: string | null;
   completedAt: string | null;
-  durationMs: number | null;
-  recordsTotal: number;
-  recordsProcessed: number;
-  recordsFailed: number;
-  recordsSkipped: number;
-  dryRun: boolean;
+  propertyId: string | null;
+  propertyName: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface RecentActivityResponse {
-  items: RecentActivityItem[];
+export interface PeopleActivityResponse {
+  overdue: PersonActivityItem[];
+  today: PersonActivityItem[];
   total: number;
-  limit: number;
 }
 
 export const dashboardApi = {
@@ -56,12 +47,43 @@ export const dashboardApi = {
   },
 
   getRecentActivity: async (
-    limit: 10 | 25 | 50 = 10
-  ): Promise<RecentActivityResponse> => {
+    limit: 10 | 25 | 50 = 25
+  ): Promise<PeopleActivityResponse> => {
     const token = getToken();
-    return apiClient.get<RecentActivityResponse>(
+    return apiClient.get<PeopleActivityResponse>(
       `/dashboard/recent-activity?limit=${limit}`,
       token ?? undefined
     );
+  },
+
+  completePersonActivity: async (activity: PersonActivityItem): Promise<void> => {
+    if (activity.sourceType === 'interested') {
+      await interestedApi.updateActivity(activity.personId, activity.id, {
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+      });
+      return;
+    }
+
+    await ownersApi.updateActivity(activity.personId, activity.id, {
+      status: 'completed',
+      completedAt: new Date().toISOString(),
+    });
+  },
+
+  updatePersonActivityComment: async (
+    activity: PersonActivityItem,
+    comment: string,
+  ): Promise<void> => {
+    if (activity.sourceType === 'interested') {
+      await interestedApi.updateActivity(activity.personId, activity.id, {
+        body: comment,
+      });
+      return;
+    }
+
+    await ownersApi.updateActivity(activity.personId, activity.id, {
+      body: comment,
+    });
   },
 };

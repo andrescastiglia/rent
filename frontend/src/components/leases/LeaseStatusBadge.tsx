@@ -14,12 +14,11 @@ export function LeaseStatusBadge({ status }: LeaseStatusBadgeProps) {
   const styles = {
     ACTIVE: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
     DRAFT: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
-    ENDED: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-    TERMINATED: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+    FINALIZED: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
   };
 
   const getStatusLabel = (status: LeaseStatus) => {
-    const statusKey = status.toLowerCase() as 'active' | 'draft' | 'ended' | 'terminated';
+    const statusKey = status.toLowerCase() as 'active' | 'draft' | 'finalized';
     return t(`status.${statusKey}`);
   };
 

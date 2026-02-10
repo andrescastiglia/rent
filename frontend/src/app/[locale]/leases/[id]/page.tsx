@@ -21,6 +21,7 @@ export default function LeaseDetailPage() {
   const router = useLocalizedRouter();
   const [lease, setLease] = useState<Lease | null>(null);
   const [loading, setLoading] = useState(true);
+  const [downloadingContract, setDownloadingContract] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -49,6 +50,19 @@ export default function LeaseDetailPage() {
     } catch (error) {
       console.error('Failed to delete lease', error);
       alert(tCommon('error'));
+    }
+  };
+
+  const handleDownloadContract = async () => {
+    if (!lease) return;
+    setDownloadingContract(true);
+    try {
+      await leasesApi.downloadContract(lease.id);
+    } catch (error) {
+      console.error('Failed to download contract', error);
+      alert(tCommon('error'));
+    } finally {
+      setDownloadingContract(false);
     }
   };
 
@@ -117,7 +131,6 @@ export default function LeaseDetailPage() {
                     <Home size={18} className="text-gray-400 mr-3 mt-1" />
                     <div>
                         <p className="font-medium text-gray-900 dark:text-white">{lease.property?.name || t('unknownProperty')}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('unit')}: {lease.unitId}</p>
                         {lease.property?.address && (
                             <p className="text-sm text-gray-500 dark:text-gray-400">
                                 {lease.property.address.street} {lease.property.address.number}, {lease.property.address.city}
@@ -128,11 +141,25 @@ export default function LeaseDetailPage() {
                   <div className="flex items-start border-t border-gray-200 dark:border-gray-600 pt-4">
                     <User size={18} className="text-gray-400 mr-3 mt-1" />
                     <div>
-                        <p className="font-medium text-gray-900 dark:text-white">
-                            {lease.tenant ? `${lease.tenant.firstName} ${lease.tenant.lastName}` : t('unknownTenant')}
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{lease.tenant?.email}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{lease.tenant?.phone}</p>
+                      {lease.contractType === 'rental' ? (
+                        <>
+                          <p className="font-medium text-gray-900 dark:text-white">
+                              {lease.tenant ? `${lease.tenant.firstName} ${lease.tenant.lastName}` : t('unknownTenant')}
+                          </p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{lease.tenant?.email}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{lease.tenant?.phone}</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            {lease.buyerProfile
+                              ? `${lease.buyerProfile.firstName ?? ''} ${lease.buyerProfile.lastName ?? ''}`.trim() || lease.buyerProfile.phone
+                              : t('unknownTenant')}
+                          </p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{lease.buyerProfile?.email}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{lease.buyerProfile?.phone}</p>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -150,30 +177,41 @@ export default function LeaseDetailPage() {
               <section>
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('financialDetails')}</h2>
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600 dark:text-gray-300 flex items-center"><DollarSign size={16} className="mr-2" /> {t('rentAmount')}</span>
-                    <span className="font-bold text-gray-900 dark:text-white text-lg">${lease.rentAmount.toLocaleString(locale)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600 dark:text-gray-300 flex items-center"><DollarSign size={16} className="mr-2" /> {t('securityDeposit')}</span>
-                    <span className="font-medium text-gray-900 dark:text-white">${lease.depositAmount.toLocaleString(locale)}</span>
-                  </div>
+                  {lease.contractType === 'rental' ? (
+                    <>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600 dark:text-gray-300 flex items-center"><DollarSign size={16} className="mr-2" /> {t('rentAmount')}</span>
+                        <span className="font-bold text-gray-900 dark:text-white text-lg">${Number(lease.rentAmount ?? 0).toLocaleString(locale)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600 dark:text-gray-300 flex items-center"><DollarSign size={16} className="mr-2" /> {t('securityDeposit')}</span>
+                        <span className="font-medium text-gray-900 dark:text-white">${lease.depositAmount.toLocaleString(locale)}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-300 flex items-center"><DollarSign size={16} className="mr-2" /> {t('fields.fiscalValue')}</span>
+                      <span className="font-bold text-gray-900 dark:text-white text-lg">${Number(lease.fiscalValue ?? 0).toLocaleString(locale)}</span>
+                    </div>
+                  )}
                 </div>
               </section>
 
-              <section>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('duration')}</h2>
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600 dark:text-gray-300 flex items-center"><Calendar size={16} className="mr-2" /> {t('startDate')}</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{new Date(lease.startDate).toLocaleDateString(locale)}</span>
+              {lease.contractType === 'rental' && (
+                <section>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('duration')}</h2>
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-300 flex items-center"><Calendar size={16} className="mr-2" /> {t('startDate')}</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{lease.startDate ? new Date(lease.startDate).toLocaleDateString(locale) : '-'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-300 flex items-center"><Calendar size={16} className="mr-2" /> {t('endDate')}</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{lease.endDate ? new Date(lease.endDate).toLocaleDateString(locale) : '-'}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600 dark:text-gray-300 flex items-center"><Calendar size={16} className="mr-2" /> {t('endDate')}</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{new Date(lease.endDate).toLocaleDateString(locale)}</span>
-                  </div>
-                </div>
-              </section>
+                </section>
+              )}
 
               <section>
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('documents')}</h2>
@@ -192,8 +230,13 @@ export default function LeaseDetailPage() {
                     ) : (
                         <div className="text-center py-4 text-gray-500 dark:text-gray-400">
                             <p className="text-sm italic mb-2">{t('noDocuments')}</p>
-                            <button className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800" disabled title={tCommon('notImplemented')}>
-                                <Download size={14} className="mr-1" /> {t('generatePdf')}
+                            <button
+                              type="button"
+                              onClick={handleDownloadContract}
+                              disabled={downloadingContract}
+                              className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 disabled:opacity-60"
+                            >
+                                <Download size={14} className="mr-1" /> {t('downloadContract')}
                             </button>
                         </div>
                     )}

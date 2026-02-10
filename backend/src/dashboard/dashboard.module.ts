@@ -9,6 +9,10 @@ import { Payment } from '../payments/entities/payment.entity';
 import { Invoice } from '../payments/entities/invoice.entity';
 import { BillingJob } from '../payments/entities/billing-job.entity';
 import { CommissionInvoice } from '../payments/entities/commission-invoice.entity';
+import { InterestedActivity } from '../interested/entities/interested-activity.entity';
+import { InterestedProfile } from '../interested/entities/interested-profile.entity';
+import { OwnerActivity } from '../owners/entities/owner-activity.entity';
+import { Owner } from '../owners/entities/owner.entity';
 
 @Module({
   imports: [
@@ -20,6 +24,10 @@ import { CommissionInvoice } from '../payments/entities/commission-invoice.entit
       Invoice,
       BillingJob,
       CommissionInvoice,
+      InterestedActivity,
+      InterestedProfile,
+      OwnerActivity,
+      Owner,
     ]),
   ],
   controllers: [DashboardController],

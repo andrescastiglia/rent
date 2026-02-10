@@ -17,9 +17,11 @@ export class DashboardController {
 
   @Get('recent-activity')
   async getRecentActivity(
+    @Request() req: any,
     @Query('limit') limit?: string,
   ): Promise<RecentActivityDto> {
     const limitNum = limit ? parseInt(limit, 10) : 10;
-    return this.dashboardService.getRecentActivity(limitNum);
+    const companyId = req.user.companyId;
+    return this.dashboardService.getRecentActivity(companyId, limitNum);
   }
 }

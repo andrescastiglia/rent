@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Clock3, LineChart, Loader2, RefreshCw, Trophy, Users } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { interestedApi } from '@/lib/api/interested';
@@ -20,7 +21,7 @@ import {
 import { useAuth } from '@/contexts/auth-context';
 
 const STAGE_OPTIONS: InterestedStatus[] = [
-  'new',
+  'interested',
   'qualified',
   'matching',
   'visit_scheduled',
@@ -52,7 +53,7 @@ const emptyForm: CreateInterestedProfileInput = {
   propertyTypePreference: 'apartment',
   operation: 'rent',
   operations: ['rent'],
-  status: 'new',
+  status: 'interested',
   qualificationLevel: 'mql',
   source: 'manual',
   consentContact: true,
@@ -83,13 +84,15 @@ export default function InterestedPage() {
 
   const [form, setForm] = useState<CreateInterestedProfileInput>(emptyForm);
   const [stageReason, setStageReason] = useState('');
-  const [pendingStage, setPendingStage] = useState<InterestedStatus>('new');
+  const [pendingStage, setPendingStage] = useState<InterestedStatus>('interested');
 
   const [activityForm, setActivityForm] = useState({
     type: 'task' as InterestedActivity['type'],
     subject: '',
     body: '',
     dueAt: '',
+    propertyId: '',
+    markReserved: false,
   });
 
   const duplicateForSelected = useMemo(() => {
@@ -128,7 +131,7 @@ export default function InterestedPage() {
       propertyTypePreference: profile.propertyTypePreference ?? 'apartment',
       operation: profile.operation ?? profile.operations?.[0] ?? 'rent',
       operations: profile.operations ?? (profile.operation ? [profile.operation] : ['rent']),
-      status: profile.status ?? 'new',
+      status: profile.status ?? 'interested',
       qualificationLevel: profile.qualificationLevel ?? 'mql',
       source: profile.source ?? 'manual',
       consentContact: profile.consentContact ?? true,
@@ -166,7 +169,7 @@ export default function InterestedPage() {
 
   async function selectProfile(profile: InterestedProfile) {
     setSelectedProfile(profile);
-    setPendingStage(profile.status ?? 'new');
+    setPendingStage(profile.status ?? 'interested');
     setLoadingDetail(true);
     try {
       const [summaryResult, timelineResult] = await Promise.all([
@@ -303,6 +306,10 @@ export default function InterestedPage() {
       alert(t('errors.activitySubjectRequired'));
       return;
     }
+    if (activityForm.markReserved && !activityForm.propertyId) {
+      alert(t('errors.propertyRequiredForReservation'));
+      return;
+    }
 
     try {
       await interestedApi.addActivity(selectedProfile.id, {
@@ -310,6 +317,8 @@ export default function InterestedPage() {
         subject: activityForm.subject.trim(),
         body: activityForm.body.trim() || undefined,
         dueAt: activityForm.dueAt || undefined,
+        propertyId: activityForm.propertyId || undefined,
+        markReserved: activityForm.markReserved,
       });
 
       setActivityForm({
@@ -317,6 +326,8 @@ export default function InterestedPage() {
         subject: '',
         body: '',
         dueAt: '',
+        propertyId: '',
+        markReserved: false,
       });
 
       await selectProfile(selectedProfile);
@@ -326,20 +337,39 @@ export default function InterestedPage() {
     }
   }
 
-  const statusLabel = useCallback((status?: string) => t(`status.${status ?? 'new'}`), [t]);
+  const statusLabel = useCallback((status?: string) => t(`status.${status ?? 'interested'}`), [t]);
 
   const timelineFormatter = useMemo(
     () => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }),
     [locale],
   );
 
+  const reservableProperties = useMemo(() => {
+    if (!summary) return [];
+    const propertyMap = new Map<string, string>();
+
+    for (const match of summary.matches ?? []) {
+      if (match.propertyId) {
+        propertyMap.set(match.propertyId, match.property?.name ?? match.propertyId);
+      }
+    }
+
+    for (const visit of summary.visits ?? []) {
+      if (visit.propertyId) {
+        propertyMap.set(visit.propertyId, visit.property?.name ?? visit.propertyId);
+      }
+    }
+
+    return Array.from(propertyMap.entries()).map(([id, name]) => ({ id, name }));
+  }, [summary]);
+
   const formatTimelineTitle = useCallback(
     (item: InterestedTimelineItem) => {
       const meta = (item.metadata ?? {}) as Record<string, any>;
       if (item.type === 'stage') {
         return t('timeline.stageChange', {
-          from: statusLabel(meta.fromStatus ?? 'new'),
-          to: statusLabel(meta.toStatus ?? 'new'),
+          from: statusLabel(meta.fromStatus ?? 'interested'),
+          to: statusLabel(meta.toStatus ?? 'interested'),
         });
       }
       if (item.type === 'activity') {
@@ -508,7 +538,7 @@ export default function InterestedPage() {
                   <div className="space-y-2">
                     <p className="text-xs text-gray-500 dark:text-gray-400">{t('fields.operations')}</p>
                     <div className="flex flex-wrap gap-3">
-                      {(['rent', 'sale', 'leasing'] as const).map((operation) => (
+                      {(['rent', 'sale'] as const).map((operation) => (
                         <label key={operation} className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                           <input
                             type="checkbox"
@@ -715,6 +745,22 @@ export default function InterestedPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
+                      {summary?.profile.convertedToTenantId ? (
+                        <Link
+                          href={`/${locale}/leases/new?tenantId=${summary.profile.convertedToTenantId}&contractType=rental`}
+                          className="px-3 py-2 rounded-md border border-blue-300 dark:border-blue-700 text-sm text-blue-700 dark:text-blue-300"
+                        >
+                          {t('actions.newRentalContract')}
+                        </Link>
+                      ) : null}
+                      {(summary?.profile.operations ?? (summary?.profile.operation ? [summary.profile.operation] : [])).includes('sale') ? (
+                        <Link
+                          href={`/${locale}/leases/new?buyerProfileId=${summary?.profile.id}&contractType=sale`}
+                          className="px-3 py-2 rounded-md border border-blue-300 dark:border-blue-700 text-sm text-blue-700 dark:text-blue-300"
+                        >
+                          {t('actions.newSaleContract')}
+                        </Link>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => handleEditProfile(selectedProfile)}
@@ -840,6 +886,25 @@ export default function InterestedPage() {
                           className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
                         />
                       </div>
+                      <select
+                        value={activityForm.propertyId}
+                        onChange={(e) => setActivityForm((prev) => ({ ...prev, propertyId: e.target.value }))}
+                        className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                      >
+                        <option value="">{t('activities.noProperty')}</option>
+                        {reservableProperties.map((property) => (
+                          <option key={property.id} value={property.id}>{property.name}</option>
+                        ))}
+                      </select>
+                      <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <input
+                          type="checkbox"
+                          checked={activityForm.markReserved}
+                          onChange={(e) => setActivityForm((prev) => ({ ...prev, markReserved: e.target.checked }))}
+                          className="rounded border-gray-300 dark:border-gray-600"
+                        />
+                        {t('activities.markReserved')}
+                      </label>
                       <button type="submit" className="w-full px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700">
                         {t('activities.add')}
                       </button>

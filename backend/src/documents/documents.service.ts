@@ -234,6 +234,24 @@ export class DocumentsService {
   async downloadByS3Key(
     s3Key: string,
   ): Promise<{ buffer: Buffer; contentType: string }> {
+    if (s3Key.startsWith('db://document/')) {
+      const documentId = s3Key.replace('db://document/', '').trim();
+      const document = await this.documentsRepository.findOne({
+        where: { id: documentId },
+      });
+
+      if (!document || !document.fileData) {
+        throw new NotFoundException(
+          `File not found in DB document: ${documentId}`,
+        );
+      }
+
+      return {
+        buffer: Buffer.from(document.fileData),
+        contentType: document.fileMimeType || 'application/pdf',
+      };
+    }
+
     try {
       const command = new GetObjectCommand({
         Bucket: this.bucketName,

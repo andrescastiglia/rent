@@ -36,6 +36,10 @@ import {
   InterestedMatchStatus,
   InterestedPropertyMatch,
 } from './entities/interested-property-match.entity';
+import {
+  PropertyReservation,
+  PropertyReservationStatus,
+} from './entities/property-reservation.entity';
 import { ChangeInterestedStageDto } from './dto/change-interested-stage.dto';
 import { CreateInterestedActivityDto } from './dto/create-interested-activity.dto';
 import { UpdateInterestedActivityDto } from './dto/update-interested-activity.dto';
@@ -47,6 +51,7 @@ import { Tenant } from '../tenants/entities/tenant.entity';
 import { ConvertInterestedToBuyerDto } from './dto/convert-interested-to-buyer.dto';
 import { SaleAgreement } from '../sales/entities/sale-agreement.entity';
 import { SaleFolder } from '../sales/entities/sale-folder.entity';
+import { CreatePropertyReservationDto } from './dto/create-property-reservation.dto';
 
 interface UserContext {
   id: string;
@@ -88,6 +93,8 @@ export class InterestedService {
     private readonly activityRepository: Repository<InterestedActivity>,
     @InjectRepository(InterestedPropertyMatch)
     private readonly matchRepository: Repository<InterestedPropertyMatch>,
+    @InjectRepository(PropertyReservation)
+    private readonly reservationRepository: Repository<PropertyReservation>,
     @InjectRepository(PropertyVisit)
     private readonly propertyVisitsRepository: Repository<PropertyVisit>,
     @InjectRepository(User)
@@ -123,7 +130,7 @@ export class InterestedService {
       companyId: user.companyId,
       operation: normalizedOperations.primaryOperation,
       operations: normalizedOperations.operations,
-      status: dto.status ?? InterestedStatus.NEW,
+      status: dto.status ?? InterestedStatus.INTERESTED,
     });
     const created = await this.interestedRepository.save(profile);
 
@@ -483,9 +490,7 @@ export class InterestedService {
       const reason = dto.reason?.toLowerCase() ?? '';
       const profileOperations = this.resolveProfileOperations(profile);
       const hasRentOperation = profileOperations.some(
-        (operation) =>
-          operation === InterestedOperation.RENT ||
-          operation === InterestedOperation.LEASING,
+        (operation) => operation === InterestedOperation.RENT,
       );
       const hasSaleOperation = profileOperations.includes(
         InterestedOperation.SALE,
@@ -582,7 +587,10 @@ export class InterestedService {
     if (dto.templateName !== undefined) {
       activity.templateName = dto.templateName;
     }
-    activity.metadata = dto.metadata ?? {};
+    activity.metadata = {
+      ...(dto.metadata ?? {}),
+      ...(dto.propertyId ? { propertyId: dto.propertyId } : {}),
+    };
     activity.createdByUserId = user.id;
 
     if (
@@ -606,6 +614,18 @@ export class InterestedService {
       profile.nextContactAt = activity.dueAt;
     }
     await this.interestedRepository.save(profile);
+
+    if (dto.markReserved && dto.propertyId) {
+      await this.createReservation(
+        id,
+        {
+          propertyId: dto.propertyId,
+          notes: dto.body,
+          activitySource: 'activity',
+        },
+        user,
+      );
+    }
 
     return saved;
   }
@@ -645,6 +665,91 @@ export class InterestedService {
     }
 
     return this.activityRepository.save(activity);
+  }
+
+  async createReservation(
+    id: string,
+    dto: CreatePropertyReservationDto,
+    user: UserContext,
+  ): Promise<PropertyReservation> {
+    const profile = await this.findOne(id, user);
+
+    const property = await this.propertiesRepository.findOne({
+      where: {
+        id: dto.propertyId,
+        companyId: profile.companyId,
+        deletedAt: IsNull(),
+      },
+    });
+    if (!property) {
+      throw new NotFoundException('Property not found');
+    }
+
+    const existing = await this.reservationRepository.findOne({
+      where: {
+        companyId: profile.companyId,
+        propertyId: property.id,
+        interestedProfileId: profile.id,
+        status: PropertyReservationStatus.ACTIVE,
+        deletedAt: IsNull(),
+      },
+    });
+    if (existing) {
+      return existing;
+    }
+
+    const reservation = this.reservationRepository.create({
+      companyId: profile.companyId,
+      propertyId: property.id,
+      interestedProfileId: profile.id,
+      status: PropertyReservationStatus.ACTIVE,
+      activitySource: dto.activitySource ?? 'activity',
+      notes: dto.notes ?? null,
+      reservedByUserId: user.id,
+      reservedAt: new Date(),
+    });
+
+    const saved = await this.reservationRepository.save(reservation);
+
+    await this.propertiesRepository.update(property.id, {
+      operationState: PropertyOperationState.RESERVED,
+    });
+
+    await this.createActivity(
+      profile.id,
+      {
+        type: InterestedActivityType.NOTE,
+        subject: this.t('interested.activities.reserveSubject'),
+        body:
+          dto.notes ??
+          this.t('interested.activities.reserveBody', {
+            propertyId: property.id,
+          }),
+        status: InterestedActivityStatus.COMPLETED,
+        completedAt: new Date().toISOString(),
+        metadata: { propertyId: property.id, reservationId: saved.id },
+      },
+      user,
+    );
+
+    return saved;
+  }
+
+  async listReservations(
+    id: string,
+    user: UserContext,
+  ): Promise<PropertyReservation[]> {
+    const profile = await this.findOne(id, user);
+
+    return this.reservationRepository.find({
+      where: {
+        interestedProfileId: profile.id,
+        companyId: profile.companyId,
+        deletedAt: IsNull(),
+      },
+      relations: ['property'],
+      order: { reservedAt: 'DESC' },
+    });
   }
 
   async getSummary(
@@ -1205,10 +1310,7 @@ export class InterestedService {
       property.salePrice !== null && property.salePrice !== undefined;
 
     return desired.some((operation) => {
-      if (
-        operation === InterestedOperation.RENT ||
-        operation === InterestedOperation.LEASING
-      ) {
+      if (operation === InterestedOperation.RENT) {
         return offered.includes(PropertyOperation.RENT) && hasRentPrice;
       }
 
@@ -1236,8 +1338,7 @@ export class InterestedService {
 
     desired.forEach((operation) => {
       if (
-        (operation === InterestedOperation.RENT ||
-          operation === InterestedOperation.LEASING) &&
+        operation === InterestedOperation.RENT &&
         offered.includes(PropertyOperation.RENT) &&
         rentPrice !== null
       ) {

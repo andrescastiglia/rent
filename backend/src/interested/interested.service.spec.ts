@@ -12,6 +12,7 @@ import { Property } from '../properties/entities/property.entity';
 import { InterestedStageHistory } from './entities/interested-stage-history.entity';
 import { InterestedActivity } from './entities/interested-activity.entity';
 import { InterestedPropertyMatch } from './entities/interested-property-match.entity';
+import { PropertyReservation } from './entities/property-reservation.entity';
 import { PropertyVisit } from '../properties/entities/property-visit.entity';
 import { User } from '../users/entities/user.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
@@ -58,6 +59,10 @@ describe('InterestedService', () => {
         },
         {
           provide: getRepositoryToken(InterestedPropertyMatch),
+          useValue: createMockRepository(),
+        },
+        {
+          provide: getRepositoryToken(PropertyReservation),
           useValue: createMockRepository(),
         },
         {
@@ -124,7 +129,7 @@ describe('InterestedService', () => {
       id: 'int-1',
       ...dto,
       companyId: 'company-1',
-      status: InterestedStatus.NEW,
+      status: InterestedStatus.INTERESTED,
     } as InterestedProfile;
 
     const duplicateQueryBuilder = {
@@ -150,7 +155,7 @@ describe('InterestedService', () => {
       ...dto,
       companyId: 'company-1',
       operations: [InterestedOperation.RENT],
-      status: InterestedStatus.NEW,
+      status: InterestedStatus.INTERESTED,
     });
     expect(stageHistoryRepository.save).toHaveBeenCalled();
     expect(result).toEqual(created);

@@ -38,6 +38,7 @@ export default function TenantDetailPage() {
   const t = useTranslations('tenants');
   const tPayments = useTranslations('payments');
   const tCommon = useTranslations('common');
+  const tLeases = useTranslations('leases');
   const locale = useLocale();
   const params = useParams();
   const tenantId = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -356,6 +357,13 @@ export default function TenantDetailPage() {
                </div>
             </div>
             <div className="flex space-x-2">
+              <Link
+                href={`/${locale}/leases/new?tenantId=${tenantToRender.id}&contractType=rental`}
+                className="inline-flex items-center px-4 py-2 border border-blue-200 dark:border-blue-800 shadow-sm text-sm font-medium rounded-md text-blue-700 dark:text-blue-300 bg-white dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <FileText size={16} className="mr-2" />
+                {tLeases('newLease')}
+              </Link>
               {tenantAccount && (
                 <Link
                   href={`/${locale}/tenants/${tenantToRender.id}#payment-registration`}
@@ -419,11 +427,15 @@ export default function TenantDetailPage() {
                   <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 space-y-3">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-500 dark:text-gray-400">{t('leaseStart')}</span>
-                      <span className="font-medium text-gray-900 dark:text-white">{new Date(activeLease.startDate).toLocaleDateString()}</span>
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {activeLease.startDate ? new Date(activeLease.startDate).toLocaleDateString() : '-'}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-500 dark:text-gray-400">{t('leaseEnd')}</span>
-                      <span className="font-medium text-gray-900 dark:text-white">{new Date(activeLease.endDate).toLocaleDateString()}</span>
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {activeLease.endDate ? new Date(activeLease.endDate).toLocaleDateString() : '-'}
+                      </span>
                     </div>
                     {activeLease.property?.name && (
                       <div className="flex items-center justify-between text-sm">

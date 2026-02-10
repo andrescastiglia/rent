@@ -49,8 +49,8 @@ export const createPropertySchema = (t: TranslationFunction) => z.object({
     }),
   salePrice: z.coerce.number().min(0, t('positive')).optional(),
   saleCurrency: z.string().optional(),
-  operations: z.array(z.enum(['rent', 'sale', 'leasing'] as const)).min(1, t('required')),
-  operationState: z.enum(['available', 'rented', 'leased', 'sold'] as const).optional(),
+  operations: z.array(z.enum(['rent', 'sale'] as const)).min(1, t('required')),
+  operationState: z.enum(['available', 'rented', 'reserved', 'sold'] as const).optional(),
   allowsPets: z.boolean().optional(),
   acceptedGuaranteeTypes: z.array(z.string()).optional(),
   maxOccupants: z.coerce.number().min(1).optional(),
@@ -78,15 +78,17 @@ export const createTenantSchema = (t: TranslationFunction) => z.object({
  */
 export const createLeaseSchema = (t: TranslationFunction) => z.object({
   propertyId: z.string().min(1, t('propertyRequired')),
-  unitId: z.string().min(1, t('unitRequired')),
-  tenantId: z.string().min(1, t('tenantRequired')),
-  ownerId: z.string().min(1, t('ownerRequired')),
-  startDate: z.string().min(1, t('startDateRequired')),
-  endDate: z.string().min(1, t('endDateRequired')),
-  rentAmount: z.coerce.number().min(0, t('rentAmountPositive')),
+  tenantId: z.string().optional(),
+  buyerProfileId: z.string().optional(),
+  ownerId: z.string().optional(),
+  contractType: z.enum(['rental', 'sale'] as const).default('rental'),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  rentAmount: z.coerce.number().min(0, t('rentAmountPositive')).optional(),
   depositAmount: z.coerce.number().min(0, t('depositAmountPositive')),
+  fiscalValue: z.coerce.number().min(0, t('positive')).optional(),
   currency: z.string().min(1, t('required')).default('ARS'),
-  status: z.enum(['DRAFT', 'ACTIVE', 'ENDED', 'TERMINATED'] as const),
+  status: z.enum(['DRAFT', 'ACTIVE', 'FINALIZED'] as const),
   terms: z.string().optional(),
   
   // Billing configuration
@@ -108,6 +110,54 @@ export const createLeaseSchema = (t: TranslationFunction) => z.object({
   adjustmentFrequencyMonths: z.coerce.number().min(1).optional(),
   inflationIndexType: z.enum(['icl', 'ipc', 'igp_m', 'casa_propia', 'custom'] as const).optional(),
   nextAdjustmentDate: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.contractType === 'rental') {
+    if (!data.tenantId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['tenantId'],
+        message: t('tenantRequired'),
+      });
+    }
+    if (!data.startDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['startDate'],
+        message: t('startDateRequired'),
+      });
+    }
+    if (!data.endDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endDate'],
+        message: t('endDateRequired'),
+      });
+    }
+    if (data.rentAmount === undefined || data.rentAmount === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['rentAmount'],
+        message: t('rentAmountPositive'),
+      });
+    }
+  }
+
+  if (data.contractType === 'sale') {
+    if (!data.buyerProfileId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['buyerProfileId'],
+        message: t('required'),
+      });
+    }
+    if (data.fiscalValue === undefined || data.fiscalValue === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fiscalValue'],
+        message: t('required'),
+      });
+    }
+  }
 });
 
 // Tipos inferidos de los schemas

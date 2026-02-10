@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Lease } from '@/types/lease';
 import { LeaseStatusBadge } from './LeaseStatusBadge';
-import { Calendar, DollarSign, Home, User } from 'lucide-react';
+import { Calendar, DollarSign, User } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
 import { formatMoney } from '@/lib/format-money';
 
@@ -25,7 +25,7 @@ export function LeaseCard({ lease }: LeaseCardProps) {
               {lease.property?.name || t('unknownProperty')}
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {t('unit')} {lease.unitId}
+              {t(`contractTypes.${lease.contractType}`)}
             </p>
           </div>
           <LeaseStatusBadge status={lease.status} />
@@ -39,19 +39,27 @@ export function LeaseCard({ lease }: LeaseCardProps) {
             </span>
           </div>
 
-          <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
-            <Calendar size={16} className="mr-2 text-gray-400" />
-            <span>
-              {new Date(lease.startDate).toLocaleDateString(locale)} - {new Date(lease.endDate).toLocaleDateString(locale)}
-            </span>
-          </div>
+          {lease.contractType === 'rental' && (
+            <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+              <Calendar size={16} className="mr-2 text-gray-400" />
+              <span>
+                {(lease.startDate ? new Date(lease.startDate).toLocaleDateString(locale) : '-')}{' '}
+                -{' '}
+                {(lease.endDate ? new Date(lease.endDate).toLocaleDateString(locale) : '-')}
+              </span>
+            </div>
+          )}
 
           <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
             <DollarSign size={16} className="mr-2 text-gray-400" />
             <span className="font-semibold text-gray-900 dark:text-white">
-              {formatMoney(lease.rentAmount, lease.currencyData, locale)}
+              {lease.contractType === 'rental'
+                ? formatMoney(Number(lease.rentAmount ?? 0), lease.currencyData, locale)
+                : formatMoney(Number(lease.fiscalValue ?? 0), lease.currencyData, locale)}
             </span>
-            <span className="text-gray-400 ml-1">{t('perMonth')}</span>
+            {lease.contractType === 'rental' && (
+              <span className="text-gray-400 ml-1">{t('perMonth')}</span>
+            )}
           </div>
         </div>
       </div>

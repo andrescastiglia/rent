@@ -78,6 +78,7 @@ export class PropertiesService {
     filters: PropertyFiltersDto,
   ): Promise<{ data: Property[]; total: number; page: number; limit: number }> {
     const {
+      ownerId,
       addressCity,
       addressState,
       propertyType,
@@ -96,6 +97,10 @@ export class PropertiesService {
       .createQueryBuilder('property')
       .leftJoinAndSelect('property.units', 'units')
       .where('property.deleted_at IS NULL');
+
+    if (ownerId) {
+      query.andWhere('property.owner_id = :ownerId', { ownerId });
+    }
 
     if (addressCity) {
       query.andWhere('property.address_city ILIKE :addressCity', {

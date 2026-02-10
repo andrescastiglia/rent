@@ -8,20 +8,28 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { LeaseStatus } from '../entities/lease.entity';
+import { ContractType, LeaseStatus } from '../entities/lease.entity';
 
 export class LeaseFiltersDto {
   @IsUUID()
   @IsOptional()
-  unitId?: string;
+  propertyId?: string;
 
   @IsUUID()
   @IsOptional()
   tenantId?: string;
 
+  @IsUUID()
+  @IsOptional()
+  buyerProfileId?: string;
+
   @IsEnum(LeaseStatus)
   @IsOptional()
   status?: LeaseStatus;
+
+  @IsEnum(ContractType)
+  @IsOptional()
+  contractType?: ContractType;
 
   @IsString()
   @IsOptional()

@@ -45,6 +45,12 @@ export class TenantAccountsService {
       return existingAccount;
     }
 
+    if (!lease.tenantId) {
+      throw new NotFoundException(
+        `Lease ${leaseId} does not have an assigned tenant account holder`,
+      );
+    }
+
     const account = this.accountsRepository.create({
       companyId: lease.companyId,
       tenantId: lease.tenantId,
@@ -64,7 +70,7 @@ export class TenantAccountsService {
   async findOne(id: string): Promise<TenantAccount> {
     const account = await this.accountsRepository.findOne({
       where: { id },
-      relations: ['lease', 'lease.tenant', 'lease.unit', 'lease.unit.property'],
+      relations: ['lease', 'lease.tenant', 'lease.property'],
     });
 
     if (!account) {
@@ -82,7 +88,7 @@ export class TenantAccountsService {
   async findByLease(leaseId: string): Promise<TenantAccount> {
     const account = await this.accountsRepository.findOne({
       where: { leaseId },
-      relations: ['lease', 'lease.tenant', 'lease.unit', 'lease.unit.property'],
+      relations: ['lease', 'lease.tenant', 'lease.property'],
     });
 
     if (!account) {

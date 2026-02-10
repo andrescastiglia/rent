@@ -50,7 +50,6 @@ test.describe('Lease Creation Flow', () => {
 
         // Fill in lease form
         await page.getByLabel(/property|propiedad/i).selectOption({ index: 1 }); // Select first property
-        await page.getByLabel(/unit|unidad/i).fill('101');
         await page.getByLabel(/tenant|inquilino/i).selectOption({ index: 1 }); // Select first tenant
         await page.getByLabel(/start date|fecha.*inicio/i).fill('2024-01-01');
         await page.getByLabel(/end date|fecha.*fin/i).fill('2024-12-31');

@@ -101,28 +101,20 @@ type TenantFilters = {
 
 type BackendLease = {
     id: string;
-    unitId: string;
-    tenantId: string;
+    propertyId?: string | null;
+    tenantId?: string | null;
     ownerId: string;
-    startDate: string | Date;
-    endDate: string | Date;
+    contractType?: 'rental' | 'sale' | null;
+    startDate?: string | Date | null;
+    endDate?: string | Date | null;
     monthlyRent?: number | null;
+    fiscalValue?: number | null;
     securityDeposit?: number | null;
     currency?: string | null;
     status?: string | null;
     createdAt?: string | Date;
     updatedAt?: string | Date;
-    unit?: {
-        id: string;
-        unitNumber?: string | null;
-        floor?: string | null;
-        bedrooms?: number | null;
-        bathrooms?: number | null;
-        area?: number | null;
-        status?: string | null;
-        baseRent?: number | null;
-        property?: any;
-    } | null;
+    property?: any;
 };
 
 const normalizeDate = (value: string | Date | null | undefined): string => {
@@ -134,11 +126,8 @@ const mapLeaseStatus = (value: string | null | undefined): Lease['status'] => {
     switch ((value ?? '').toLowerCase()) {
         case 'active':
             return 'ACTIVE';
-        case 'terminated':
-            return 'TERMINATED';
-        case 'expired':
-        case 'ended':
-            return 'ENDED';
+        case 'finalized':
+            return 'FINALIZED';
         case 'draft':
         default:
             return 'DRAFT';
@@ -146,19 +135,25 @@ const mapLeaseStatus = (value: string | null | undefined): Lease['status'] => {
 };
 
 const mapBackendLeaseToLease = (raw: BackendLease): Lease => {
-    const unit = raw.unit ?? null;
-    const property = unit?.property;
+    const property = raw.property;
 
     return {
         id: raw.id,
-        propertyId: property?.id ?? '',
-        unitId: raw.unitId,
-        tenantId: raw.tenantId,
+        propertyId: raw.propertyId ?? property?.id ?? '',
+        tenantId: raw.tenantId ?? undefined,
         ownerId: raw.ownerId,
-        startDate: normalizeDate(raw.startDate),
-        endDate: normalizeDate(raw.endDate),
-        rentAmount: Number(raw.monthlyRent ?? 0),
+        contractType: raw.contractType ?? 'rental',
+        startDate: raw.startDate ? normalizeDate(raw.startDate) : undefined,
+        endDate: raw.endDate ? normalizeDate(raw.endDate) : undefined,
+        rentAmount:
+            raw.monthlyRent === null || raw.monthlyRent === undefined
+                ? undefined
+                : Number(raw.monthlyRent),
         depositAmount: Number(raw.securityDeposit ?? 0),
+        fiscalValue:
+            raw.fiscalValue === null || raw.fiscalValue === undefined
+                ? undefined
+                : Number(raw.fiscalValue),
         currency: raw.currency ?? 'ARS',
         status: mapLeaseStatus(raw.status),
         documents: [],
@@ -194,18 +189,6 @@ const mapBackendLeaseToLease = (raw: BackendLease): Lease => {
                   updatedAt: property.updatedAt
                       ? new Date(property.updatedAt).toISOString()
                       : new Date().toISOString(),
-              }
-            : undefined,
-        unit: unit
-            ? {
-                  id: unit.id,
-                  unitNumber: unit.unitNumber ?? '',
-                  floor: unit.floor ?? undefined,
-                  bedrooms: Number(unit.bedrooms ?? 0),
-                  bathrooms: Number(unit.bathrooms ?? 0),
-                  area: Number(unit.area ?? 0),
-                  status: (unit.status ?? 'available').toUpperCase() as any,
-                  rentAmount: Number(unit.baseRent ?? 0),
               }
             : undefined,
     };

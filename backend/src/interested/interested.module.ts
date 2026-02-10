@@ -12,6 +12,7 @@ import { User } from '../users/entities/user.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { SaleAgreement } from '../sales/entities/sale-agreement.entity';
 import { SaleFolder } from '../sales/entities/sale-folder.entity';
+import { PropertyReservation } from './entities/property-reservation.entity';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { SaleFolder } from '../sales/entities/sale-folder.entity';
       InterestedStageHistory,
       InterestedActivity,
       InterestedPropertyMatch,
+      PropertyReservation,
       PropertyVisit,
       User,
       Tenant,

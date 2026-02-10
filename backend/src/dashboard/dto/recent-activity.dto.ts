@@ -1,30 +1,29 @@
-import {
-  BillingJobType,
-  BillingJobStatus,
-} from '../../payments/entities/billing-job.entity';
+import { InterestedActivityStatus } from '../../interested/entities/interested-activity.entity';
+import { OwnerActivityStatus } from '../../owners/entities/owner-activity.entity';
 
-/**
- * DTO for a single recent activity item (batch job execution).
- */
-export class RecentActivityItemDto {
+export type PersonActivityStatus =
+  | InterestedActivityStatus
+  | OwnerActivityStatus;
+
+export class PersonActivityItemDto {
   id: string;
-  jobType: BillingJobType;
-  status: BillingJobStatus;
-  startedAt: Date;
+  sourceType: 'interested' | 'owner';
+  personType: 'interested' | 'owner';
+  personId: string;
+  personName: string;
+  subject: string;
+  body: string | null;
+  status: PersonActivityStatus;
+  dueAt: Date | null;
   completedAt: Date | null;
-  durationMs: number | null;
-  recordsTotal: number;
-  recordsProcessed: number;
-  recordsFailed: number;
-  recordsSkipped: number;
-  dryRun: boolean;
+  propertyId: string | null;
+  propertyName: string | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-/**
- * DTO for the recent activity response.
- */
 export class RecentActivityDto {
-  items: RecentActivityItemDto[];
+  overdue: PersonActivityItemDto[];
+  today: PersonActivityItemDto[];
   total: number;
-  limit: number;
 }

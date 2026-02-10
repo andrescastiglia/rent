@@ -57,6 +57,12 @@ export class LeasesController {
     return this.leasesService.terminate(id, reason);
   }
 
+  @Patch(':id/finalize')
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  finalize(@Param('id') id: string, @Body('reason') reason?: string) {
+    return this.leasesService.terminate(id, reason);
+  }
+
   @Patch(':id/renew')
   @Roles(UserRole.ADMIN, UserRole.OWNER)
   renew(@Param('id') id: string, @Body() newTerms: Partial<CreateLeaseDto>) {

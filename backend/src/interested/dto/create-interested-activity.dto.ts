@@ -3,8 +3,10 @@ import {
   IsDateString,
   IsEnum,
   IsObject,
+  IsBoolean,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
 } from 'class-validator';
 import {
@@ -40,6 +42,14 @@ export class CreateInterestedActivityDto {
   @IsOptional()
   @Type(() => Object)
   metadata?: Record<string, unknown>;
+
+  @IsUUID()
+  @IsOptional()
+  propertyId?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  markReserved?: boolean;
 
   @IsEnum(InterestedActivityStatus)
   @IsOptional()

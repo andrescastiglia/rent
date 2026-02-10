@@ -1,52 +1,114 @@
 import {
-  Injectable,
-  NotFoundException,
   BadRequestException,
   ConflictException,
+  Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Lease, LeaseStatus } from './entities/lease.entity';
-import { Unit, UnitStatus } from '../properties/entities/unit.entity';
+import { IsNull, Repository } from 'typeorm';
+import {
+  ContractType,
+  LateFeeType,
+  Lease,
+  LeaseStatus,
+} from './entities/lease.entity';
+import {
+  Property,
+  PropertyOperationState,
+} from '../properties/entities/property.entity';
+import { InterestedProfile } from '../interested/entities/interested-profile.entity';
 import { CreateLeaseDto } from './dto/create-lease.dto';
-import { UpdateLeaseDto } from './dto/update-lease.dto';
 import { LeaseFiltersDto } from './dto/lease-filters.dto';
+import { UpdateLeaseDto } from './dto/update-lease.dto';
 import { PdfService } from './pdf.service';
 
 @Injectable()
 export class LeasesService {
   constructor(
     @InjectRepository(Lease)
-    private leasesRepository: Repository<Lease>,
-    @InjectRepository(Unit)
-    private unitsRepository: Repository<Unit>,
-    private pdfService: PdfService,
+    private readonly leasesRepository: Repository<Lease>,
+    @InjectRepository(Property)
+    private readonly propertiesRepository: Repository<Property>,
+    @InjectRepository(InterestedProfile)
+    private readonly interestedProfilesRepository: Repository<InterestedProfile>,
+    private readonly pdfService: PdfService,
   ) {}
 
   async create(createLeaseDto: CreateLeaseDto): Promise<Lease> {
-    // Validate dates
-    const startDate = new Date(createLeaseDto.startDate);
-    const endDate = new Date(createLeaseDto.endDate);
+    const contractType = createLeaseDto.contractType ?? ContractType.RENTAL;
 
-    if (endDate <= startDate) {
-      throw new BadRequestException('End date must be after start date');
-    }
-
-    // Check if unit exists
-    const unit = await this.unitsRepository.findOne({
-      where: { id: createLeaseDto.unitId },
+    const property = await this.propertiesRepository.findOne({
+      where: { id: createLeaseDto.propertyId, deletedAt: IsNull() },
     });
-
-    if (!unit) {
+    if (!property) {
       throw new NotFoundException(
-        `Unit with ID ${createLeaseDto.unitId} not found`,
+        `Property with ID ${createLeaseDto.propertyId} not found`,
       );
     }
 
-    // Create lease in draft status
+    if (contractType === ContractType.RENTAL) {
+      this.validateRentalCreate(createLeaseDto);
+      const existingActiveLease = await this.leasesRepository.findOne({
+        where: {
+          propertyId: property.id,
+          contractType: ContractType.RENTAL,
+          status: LeaseStatus.ACTIVE,
+          deletedAt: IsNull(),
+        },
+      });
+      if (existingActiveLease) {
+        throw new ConflictException('Property already has an active contract');
+      }
+    } else {
+      await this.validateSaleCreate(createLeaseDto);
+    }
+
     const lease = this.leasesRepository.create({
       ...createLeaseDto,
+      contractType,
+      propertyId: property.id,
+      ownerId: createLeaseDto.ownerId || property.ownerId,
       status: LeaseStatus.DRAFT,
+      tenantId:
+        contractType === ContractType.RENTAL
+          ? (createLeaseDto.tenantId ?? null)
+          : null,
+      buyerProfileId:
+        contractType === ContractType.SALE
+          ? (createLeaseDto.buyerProfileId ?? null)
+          : null,
+      monthlyRent:
+        contractType === ContractType.RENTAL
+          ? Number(createLeaseDto.monthlyRent ?? 0)
+          : null,
+      startDate:
+        contractType === ContractType.RENTAL
+          ? createLeaseDto.startDate
+            ? new Date(createLeaseDto.startDate)
+            : null
+          : null,
+      endDate:
+        contractType === ContractType.RENTAL
+          ? createLeaseDto.endDate
+            ? new Date(createLeaseDto.endDate)
+            : null
+          : null,
+      fiscalValue:
+        contractType === ContractType.SALE
+          ? Number(createLeaseDto.fiscalValue ?? 0)
+          : null,
+      lateFeeType:
+        contractType === ContractType.RENTAL
+          ? createLeaseDto.lateFeeType || LateFeeType.NONE
+          : LateFeeType.NONE,
+      lateFeeValue:
+        contractType === ContractType.RENTAL
+          ? Number(createLeaseDto.lateFeeValue ?? 0)
+          : 0,
+      adjustmentValue:
+        contractType === ContractType.RENTAL
+          ? createLeaseDto.adjustmentValue
+          : 0,
     });
 
     return this.leasesRepository.save(lease);
@@ -56,9 +118,11 @@ export class LeasesService {
     filters: LeaseFiltersDto,
   ): Promise<{ data: Lease[]; total: number; page: number; limit: number }> {
     const {
-      unitId,
+      propertyId,
       tenantId,
+      buyerProfileId,
       status,
+      contractType,
       propertyAddress,
       page = 1,
       limit = 10,
@@ -66,21 +130,31 @@ export class LeasesService {
 
     const query = this.leasesRepository
       .createQueryBuilder('lease')
-      .leftJoinAndSelect('lease.unit', 'unit')
-      .leftJoinAndSelect('unit.property', 'property')
+      .leftJoinAndSelect('lease.property', 'property')
       .leftJoinAndSelect('lease.tenant', 'tenant')
+      .leftJoinAndSelect('lease.buyerProfile', 'buyerProfile')
       .where('lease.deleted_at IS NULL');
 
-    if (unitId) {
-      query.andWhere('lease.unit_id = :unitId', { unitId });
+    if (propertyId) {
+      query.andWhere('lease.property_id = :propertyId', { propertyId });
     }
 
     if (tenantId) {
       query.andWhere('lease.tenant_id = :tenantId', { tenantId });
     }
 
+    if (buyerProfileId) {
+      query.andWhere('lease.buyer_profile_id = :buyerProfileId', {
+        buyerProfileId,
+      });
+    }
+
     if (status) {
       query.andWhere('lease.status = :status', { status });
+    }
+
+    if (contractType) {
+      query.andWhere('lease.contract_type = :contractType', { contractType });
     }
 
     if (propertyAddress) {
@@ -97,7 +171,10 @@ export class LeasesService {
       );
     }
 
-    query.skip((page - 1) * limit).take(limit);
+    query
+      .orderBy('lease.created_at', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
 
     const [data, total] = await query.getManyAndCount();
 
@@ -112,7 +189,15 @@ export class LeasesService {
   async findOne(id: string): Promise<Lease> {
     const lease = await this.leasesRepository.findOne({
       where: { id },
-      relations: ['unit', 'unit.property', 'tenant', 'amendments'],
+      relations: [
+        'property',
+        'property.owner',
+        'property.owner.user',
+        'tenant',
+        'tenant.user',
+        'buyerProfile',
+        'amendments',
+      ],
     });
 
     if (!lease) {
@@ -125,24 +210,59 @@ export class LeasesService {
   async update(id: string, updateLeaseDto: UpdateLeaseDto): Promise<Lease> {
     const lease = await this.findOne(id);
 
-    // Only allow updates to draft leases
     if (lease.status !== LeaseStatus.DRAFT) {
       throw new BadRequestException(
-        'Only draft leases can be updated. Use amendments for active leases.',
+        'Only draft contracts can be updated. Use amendments for active contracts.',
       );
     }
 
-    // Validate dates if provided
-    if (updateLeaseDto.startDate || updateLeaseDto.endDate) {
-      const startDate = new Date(updateLeaseDto.startDate || lease.startDate);
-      const endDate = new Date(updateLeaseDto.endDate || lease.endDate);
+    const effectiveType = updateLeaseDto.contractType ?? lease.contractType;
+    if (effectiveType === ContractType.RENTAL) {
+      this.validateRentalDates(
+        updateLeaseDto.startDate ?? lease.startDate?.toISOString(),
+        updateLeaseDto.endDate ?? lease.endDate?.toISOString(),
+      );
+    }
 
-      if (endDate <= startDate) {
-        throw new BadRequestException('End date must be after start date');
+    if (updateLeaseDto.propertyId) {
+      const property = await this.propertiesRepository.findOne({
+        where: { id: updateLeaseDto.propertyId, deletedAt: IsNull() },
+      });
+      if (!property) {
+        throw new NotFoundException('Property not found');
+      }
+      lease.propertyId = property.id;
+      if (!updateLeaseDto.ownerId) {
+        lease.ownerId = property.ownerId;
       }
     }
 
-    Object.assign(lease, updateLeaseDto);
+    Object.assign(lease, {
+      ...updateLeaseDto,
+      startDate:
+        updateLeaseDto.startDate !== undefined
+          ? updateLeaseDto.startDate
+            ? new Date(updateLeaseDto.startDate)
+            : null
+          : lease.startDate,
+      endDate:
+        updateLeaseDto.endDate !== undefined
+          ? updateLeaseDto.endDate
+            ? new Date(updateLeaseDto.endDate)
+            : null
+          : lease.endDate,
+    });
+
+    if (effectiveType === ContractType.SALE) {
+      lease.tenantId = null;
+      lease.monthlyRent = null;
+      lease.startDate = null;
+      lease.endDate = null;
+      lease.lateFeeType = LateFeeType.NONE;
+      lease.lateFeeValue = 0;
+      lease.adjustmentValue = 0;
+    }
+
     return this.leasesRepository.save(lease);
   }
 
@@ -150,54 +270,70 @@ export class LeasesService {
     const lease = await this.findOne(id);
 
     if (lease.status !== LeaseStatus.DRAFT) {
-      throw new BadRequestException('Only draft leases can be activated');
+      throw new BadRequestException('Only draft contracts can be activated');
     }
 
-    // Check if unit already has an active lease
-    const existingActiveLease = await this.leasesRepository.findOne({
-      where: { unitId: lease.unitId, status: LeaseStatus.ACTIVE },
-    });
+    if (lease.contractType === ContractType.RENTAL && lease.propertyId) {
+      const existingActiveLease = await this.leasesRepository.findOne({
+        where: {
+          propertyId: lease.propertyId,
+          contractType: ContractType.RENTAL,
+          status: LeaseStatus.ACTIVE,
+          deletedAt: IsNull(),
+        },
+      });
 
-    if (existingActiveLease) {
-      throw new ConflictException('Unit already has an active lease');
+      if (existingActiveLease && existingActiveLease.id !== lease.id) {
+        throw new ConflictException('Property already has an active contract');
+      }
     }
 
     lease.status = LeaseStatus.ACTIVE;
 
-    // Update unit status to occupied
-    await this.unitsRepository.update(lease.unitId, {
-      status: UnitStatus.OCCUPIED,
-    });
+    if (lease.contractType === ContractType.RENTAL && lease.propertyId) {
+      await this.propertiesRepository.update(lease.propertyId, {
+        operationState: PropertyOperationState.RENTED,
+      });
+    }
+
+    if (lease.contractType === ContractType.SALE && lease.propertyId) {
+      await this.propertiesRepository.update(lease.propertyId, {
+        operationState: PropertyOperationState.SOLD,
+      });
+    }
 
     const savedLease = await this.leasesRepository.save(lease);
 
-    // Generate contract PDF
     try {
-      await this.pdfService.generateContract(savedLease, userId);
+      const document = await this.pdfService.generateContract(
+        savedLease,
+        userId,
+      );
+      savedLease.contractPdfUrl = document.fileUrl;
+      return this.leasesRepository.save(savedLease);
     } catch (error) {
       console.error('Failed to generate contract PDF:', error);
-      // Don't fail the activation if PDF generation fails
+      return savedLease;
     }
-
-    return savedLease;
   }
 
   async terminate(id: string, reason?: string): Promise<Lease> {
     const lease = await this.findOne(id);
 
     if (lease.status !== LeaseStatus.ACTIVE) {
-      throw new BadRequestException('Only active leases can be terminated');
+      throw new BadRequestException('Only active contracts can be finalized');
     }
 
-    lease.status = LeaseStatus.TERMINATED;
+    lease.status = LeaseStatus.FINALIZED;
     if (reason) {
-      lease.notes = (lease.notes || '') + `\nTermination reason: ${reason}`;
+      lease.notes = (lease.notes || '') + `\nFinalization reason: ${reason}`;
     }
 
-    // Update unit status to available
-    await this.unitsRepository.update(lease.unitId, {
-      status: UnitStatus.AVAILABLE,
-    });
+    if (lease.contractType === ContractType.RENTAL && lease.propertyId) {
+      await this.propertiesRepository.update(lease.propertyId, {
+        operationState: PropertyOperationState.AVAILABLE,
+      });
+    }
 
     return this.leasesRepository.save(lease);
   }
@@ -206,32 +342,54 @@ export class LeasesService {
     const oldLease = await this.findOne(id);
 
     if (oldLease.status !== LeaseStatus.ACTIVE) {
-      throw new BadRequestException('Only active leases can be renewed');
+      throw new BadRequestException('Only active contracts can be renewed');
     }
 
-    // Mark old lease as renewed
-    oldLease.status = LeaseStatus.RENEWED;
+    oldLease.status = LeaseStatus.FINALIZED;
     await this.leasesRepository.save(oldLease);
 
-    // Create new lease with updated terms
-    const newLease = this.leasesRepository.create({
+    const payload: CreateLeaseDto = {
       companyId: oldLease.companyId,
-      unitId: oldLease.unitId,
-      tenantId: oldLease.tenantId,
+      propertyId: oldLease.propertyId as string,
+      tenantId: oldLease.tenantId ?? undefined,
+      buyerProfileId: oldLease.buyerProfileId ?? undefined,
       ownerId: oldLease.ownerId,
-      startDate: newTerms.startDate || oldLease.endDate,
+      contractType: oldLease.contractType,
+      startDate:
+        newTerms.startDate ||
+        (oldLease.endDate ? oldLease.endDate.toISOString().slice(0, 10) : ''),
       endDate: newTerms.endDate,
-      monthlyRent: newTerms.monthlyRent || oldLease.monthlyRent,
-      securityDeposit: newTerms.securityDeposit || oldLease.securityDeposit,
+      monthlyRent: newTerms.monthlyRent ?? Number(oldLease.monthlyRent ?? 0),
+      fiscalValue: newTerms.fiscalValue ?? Number(oldLease.fiscalValue ?? 0),
       currency: newTerms.currency || oldLease.currency,
       paymentFrequency: newTerms.paymentFrequency || oldLease.paymentFrequency,
+      paymentDueDay: newTerms.paymentDueDay || oldLease.paymentDueDay,
+      billingFrequency: newTerms.billingFrequency || oldLease.billingFrequency,
+      billingDay: newTerms.billingDay || oldLease.billingDay,
+      lateFeeType: newTerms.lateFeeType || oldLease.lateFeeType,
+      lateFeeValue: newTerms.lateFeeValue ?? oldLease.lateFeeValue,
+      lateFeeGraceDays: newTerms.lateFeeGraceDays ?? oldLease.lateFeeGraceDays,
+      lateFeeMax: newTerms.lateFeeMax ?? oldLease.lateFeeMax,
+      autoGenerateInvoices:
+        newTerms.autoGenerateInvoices ?? oldLease.autoGenerateInvoices,
+      adjustmentType: newTerms.adjustmentType || oldLease.adjustmentType,
+      adjustmentValue: newTerms.adjustmentValue ?? oldLease.adjustmentValue,
+      adjustmentFrequencyMonths:
+        newTerms.adjustmentFrequencyMonths ??
+        oldLease.adjustmentFrequencyMonths,
+      inflationIndexType:
+        newTerms.inflationIndexType || oldLease.inflationIndexType,
+      increaseClauseType:
+        newTerms.increaseClauseType || oldLease.increaseClauseType,
+      increaseClauseValue:
+        newTerms.increaseClauseValue ?? oldLease.increaseClauseValue,
       termsAndConditions:
         newTerms.termsAndConditions || oldLease.termsAndConditions,
-      status: LeaseStatus.DRAFT,
-    });
+      specialClauses: newTerms.specialClauses || oldLease.specialClauses,
+      notes: newTerms.notes || oldLease.notes,
+    };
 
-    const savedLease = await this.leasesRepository.save(newLease);
-    return savedLease as Lease;
+    return this.create(payload);
   }
 
   async remove(id: string): Promise<void> {
@@ -239,10 +397,53 @@ export class LeasesService {
 
     if (lease.status === LeaseStatus.ACTIVE) {
       throw new BadRequestException(
-        'Cannot delete an active lease. Terminate it first.',
+        'Cannot delete an active contract. Finalize it first.',
       );
     }
 
     await this.leasesRepository.softDelete(id);
+  }
+
+  private validateRentalDates(startDate?: string, endDate?: string): void {
+    if (!startDate || !endDate) {
+      throw new BadRequestException(
+        'Rental contracts require startDate and endDate',
+      );
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      throw new BadRequestException('Invalid contract dates');
+    }
+    if (end <= start) {
+      throw new BadRequestException('End date must be after start date');
+    }
+  }
+
+  private validateRentalCreate(dto: CreateLeaseDto): void {
+    if (!dto.tenantId) {
+      throw new BadRequestException('Rental contracts require tenantId');
+    }
+    if (dto.monthlyRent === undefined || dto.monthlyRent === null) {
+      throw new BadRequestException('Rental contracts require monthlyRent');
+    }
+    this.validateRentalDates(dto.startDate, dto.endDate);
+  }
+
+  private async validateSaleCreate(dto: CreateLeaseDto): Promise<void> {
+    if (!dto.buyerProfileId) {
+      throw new BadRequestException('Sale contracts require buyerProfileId');
+    }
+    if (dto.fiscalValue === undefined || dto.fiscalValue === null) {
+      throw new BadRequestException('Sale contracts require fiscalValue');
+    }
+
+    const buyer = await this.interestedProfilesRepository.findOne({
+      where: { id: dto.buyerProfileId, deletedAt: IsNull() },
+    });
+    if (!buyer) {
+      throw new NotFoundException('Buyer profile not found');
+    }
   }
 }

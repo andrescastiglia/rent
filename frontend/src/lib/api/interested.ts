@@ -9,6 +9,7 @@ import {
   InterestedMatchStatus,
   InterestedMetrics,
   InterestedProfile,
+  PropertyReservation,
   InterestedStatus,
   InterestedSummary,
   InterestedTimelineItem,
@@ -38,7 +39,7 @@ const MOCK_INTERESTED: InterestedProfile[] = [
     propertyTypePreference: 'house',
     operation: 'sale',
     operations: ['sale'],
-    status: 'new',
+    status: 'interested',
     qualificationLevel: 'mql',
     notes: 'Busca casa con patio',
     createdAt: new Date().toISOString(),
@@ -72,8 +73,8 @@ const mapProfile = (raw: any): InterestedProfile => ({
   // Keep `operation` for backward compatibility while the UI uses `operations`.
   operation: raw.operation,
   operations: Array.isArray(raw.operations)
-    ? raw.operations.filter((item: any): item is 'rent' | 'sale' | 'leasing' =>
-        item === 'rent' || item === 'sale' || item === 'leasing',
+    ? raw.operations.filter((item: any): item is 'rent' | 'sale' =>
+        item === 'rent' || item === 'sale',
       )
     : raw.operation
       ? [raw.operation]
@@ -178,8 +179,8 @@ const mapProperty = (raw: any): Property => ({
   images: [],
   ownerId: raw.ownerId ?? '',
   operations: Array.isArray(raw.operations)
-    ? raw.operations.filter((item: any): item is 'rent' | 'sale' | 'leasing' =>
-        item === 'rent' || item === 'sale' || item === 'leasing',
+    ? raw.operations.filter((item: any): item is 'rent' | 'sale' =>
+        item === 'rent' || item === 'sale',
       )
     : raw.salePrice !== null && raw.salePrice !== undefined
       ? ['rent', 'sale']
@@ -205,6 +206,22 @@ const mapMatch = (raw: any): InterestedMatch => ({
   property: raw.property ? mapProperty(raw.property) : undefined,
   createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : new Date().toISOString(),
   updatedAt: raw.updatedAt ? new Date(raw.updatedAt).toISOString() : new Date().toISOString(),
+});
+
+const mapReservation = (raw: any): PropertyReservation => ({
+  id: raw.id,
+  companyId: raw.companyId,
+  propertyId: raw.propertyId,
+  interestedProfileId: raw.interestedProfileId,
+  status: raw.status,
+  activitySource: raw.activitySource,
+  notes: raw.notes ?? undefined,
+  reservedByUserId: raw.reservedByUserId ?? undefined,
+  reservedAt: raw.reservedAt ? new Date(raw.reservedAt).toISOString() : new Date().toISOString(),
+  releasedAt: raw.releasedAt ? new Date(raw.releasedAt).toISOString() : undefined,
+  createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : new Date().toISOString(),
+  updatedAt: raw.updatedAt ? new Date(raw.updatedAt).toISOString() : new Date().toISOString(),
+  property: raw.property ? mapProperty(raw.property) : undefined,
 });
 
 export const interestedApi = {
@@ -427,6 +444,8 @@ export const interestedApi = {
       dueAt?: string;
       templateName?: string;
       status?: InterestedActivityStatus;
+      propertyId?: string;
+      markReserved?: boolean;
     },
   ): Promise<InterestedActivity> => {
     if (IS_MOCK_MODE) {
@@ -471,11 +490,37 @@ export const interestedApi = {
     return mapActivity(result);
   },
 
+  createReservation: async (
+    id: string,
+    payload: {
+      propertyId: string;
+      notes?: string;
+      activitySource?: string;
+    },
+  ): Promise<PropertyReservation> => {
+    const token = getToken();
+    const result = await apiClient.post<any>(
+      `/interested/${id}/reservations`,
+      payload,
+      token ?? undefined,
+    );
+    return mapReservation(result);
+  },
+
+  getReservations: async (id: string): Promise<PropertyReservation[]> => {
+    const token = getToken();
+    const result = await apiClient.get<any[]>(
+      `/interested/${id}/reservations`,
+      token ?? undefined,
+    );
+    return result.map(mapReservation);
+  },
+
   getMetrics: async (): Promise<InterestedMetrics> => {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
       return {
-        byStage: { new: 1 },
+        byStage: { interested: 1 },
         totalLeads: MOCK_INTERESTED.length,
         conversionRate: 0,
         avgHoursToClose: 0,

@@ -181,11 +181,11 @@ CREATE TYPE property_status AS ENUM (
 );
 
 -- Property operation modes
-CREATE TYPE property_operation AS ENUM ('rent', 'sale', 'leasing');
+CREATE TYPE property_operation AS ENUM ('rent', 'sale');
 
 -- Property commercial lifecycle state
 CREATE TYPE property_operation_state AS ENUM (
-    'available', 'rented', 'leased', 'sold'
+    'available', 'rented', 'reserved', 'sold'
 );
 
 -- Unit status
@@ -206,9 +206,10 @@ CREATE TYPE document_status AS ENUM ('pending', 'approved', 'rejected', 'expired
 CREATE TYPE payment_frequency AS ENUM ('monthly', 'bimonthly', 'quarterly', 'semiannual', 'annual');
 
 -- Lease status
-CREATE TYPE lease_status AS ENUM (
-    'draft', 'pending_signature', 'active', 'expired', 'terminated', 'renewed'
-);
+CREATE TYPE lease_status AS ENUM ('draft', 'active', 'finalized');
+
+-- Contract type
+CREATE TYPE contract_type AS ENUM ('rental', 'sale');
 
 -- Lease amendment change types
 CREATE TYPE amendment_change_type AS ENUM (
@@ -291,12 +292,12 @@ CREATE TYPE visit_notification_channel AS ENUM ('whatsapp', 'email');
 CREATE TYPE visit_notification_status AS ENUM ('queued', 'sent', 'failed');
 
 -- Interested profiles
-CREATE TYPE interested_operation AS ENUM ('rent', 'sale', 'leasing');
+CREATE TYPE interested_operation AS ENUM ('rent', 'sale');
 CREATE TYPE interested_property_type AS ENUM (
     'apartment', 'house', 'commercial', 'office', 'warehouse', 'land', 'parking', 'other'
 );
 CREATE TYPE interested_status AS ENUM (
-    'new', 'qualified', 'matching', 'visit_scheduled', 'offer_made', 'won', 'lost'
+    'interested', 'qualified', 'matching', 'visit_scheduled', 'offer_made', 'won', 'lost'
 );
 CREATE TYPE interested_qualification_level AS ENUM ('mql', 'sql', 'rejected');
 CREATE TYPE interested_match_status AS ENUM (
@@ -306,6 +307,18 @@ CREATE TYPE interested_activity_type AS ENUM (
     'call', 'task', 'note', 'email', 'whatsapp', 'visit'
 );
 CREATE TYPE interested_activity_status AS ENUM ('pending', 'completed', 'cancelled');
+
+-- Owner activities
+CREATE TYPE owner_activity_type AS ENUM (
+    'call', 'task', 'note', 'email', 'whatsapp', 'visit', 'reserve'
+);
+CREATE TYPE owner_activity_status AS ENUM ('pending', 'completed', 'cancelled');
+
+-- Property reservations
+CREATE TYPE property_reservation_status AS ENUM ('active', 'released', 'converted');
+
+-- Credit notes
+CREATE TYPE credit_note_status AS ENUM ('draft', 'issued', 'cancelled');
 
 -- Billing job types
 CREATE TYPE billing_job_type AS ENUM (
@@ -534,7 +547,7 @@ CREATE TABLE interested_profiles (
     property_type_preference interested_property_type,
     operation interested_operation NOT NULL DEFAULT 'rent',
     operations interested_operation[] NOT NULL DEFAULT ARRAY['rent'::interested_operation],
-    status interested_status NOT NULL DEFAULT 'new',
+    status interested_status NOT NULL DEFAULT 'interested',
     qualification_level interested_qualification_level,
     qualification_notes TEXT,
     source VARCHAR(100),
@@ -944,6 +957,71 @@ CREATE TRIGGER update_interested_activities_updated_at
 
 COMMENT ON TABLE interested_activities IS 'Tasks, calls, notes and communications for CRM follow-up';
 
+-- -----------------------------------------------------------------------------
+-- Owner Activities
+-- -----------------------------------------------------------------------------
+CREATE TABLE owner_activities (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    owner_id UUID NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    property_id UUID REFERENCES properties(id) ON DELETE SET NULL,
+    type owner_activity_type NOT NULL,
+    status owner_activity_status NOT NULL DEFAULT 'pending',
+    subject VARCHAR(200) NOT NULL,
+    body TEXT,
+    due_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    metadata JSONB NOT NULL DEFAULT '{}',
+    created_by_user_id UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_owner_activities_owner_id ON owner_activities(owner_id);
+CREATE INDEX idx_owner_activities_company_id ON owner_activities(company_id);
+CREATE INDEX idx_owner_activities_due_at ON owner_activities(due_at);
+CREATE INDEX idx_owner_activities_status ON owner_activities(status);
+CREATE INDEX idx_owner_activities_deleted ON owner_activities(deleted_at) WHERE deleted_at IS NULL;
+
+CREATE TRIGGER update_owner_activities_updated_at
+    BEFORE UPDATE ON owner_activities FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE owner_activities IS 'Activities timeline for property owners';
+
+-- -----------------------------------------------------------------------------
+-- Property Reservations (Person <-> Property)
+-- -----------------------------------------------------------------------------
+CREATE TABLE property_reservations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+    interested_profile_id UUID NOT NULL REFERENCES interested_profiles(id) ON DELETE CASCADE,
+    status property_reservation_status NOT NULL DEFAULT 'active',
+    activity_source VARCHAR(30) NOT NULL DEFAULT 'activity',
+    notes TEXT,
+    reserved_by_user_id UUID REFERENCES users(id),
+    reserved_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    released_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE UNIQUE INDEX uq_property_reservations_active_pair
+    ON property_reservations(property_id, interested_profile_id)
+    WHERE status = 'active'::property_reservation_status
+      AND deleted_at IS NULL;
+
+CREATE INDEX idx_property_reservations_property_id ON property_reservations(property_id);
+CREATE INDEX idx_property_reservations_interested_profile_id ON property_reservations(interested_profile_id);
+CREATE INDEX idx_property_reservations_deleted ON property_reservations(deleted_at) WHERE deleted_at IS NULL;
+
+CREATE TRIGGER update_property_reservations_updated_at
+    BEFORE UPDATE ON property_reservations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE property_reservations IS 'Reservations linking interested people with properties';
+
 \echo '✓ Tablas de propiedades creadas'
 
 -- =============================================================================
@@ -959,6 +1037,7 @@ CREATE TABLE documents (
     name VARCHAR(255) NOT NULL,
     description TEXT,
     file_url VARCHAR(500) NOT NULL,
+    file_data BYTEA,
     file_size INTEGER,
     file_mime_type VARCHAR(100),
     expires_at DATE,
@@ -999,14 +1078,17 @@ COMMENT ON TABLE documents IS 'Documents attached to various entities';
 CREATE TABLE leases (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-    unit_id UUID NOT NULL REFERENCES units(id) ON DELETE CASCADE,
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    buyer_profile_id UUID REFERENCES interested_profiles(id) ON DELETE SET NULL,
     owner_id UUID NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
     lease_number VARCHAR(50),
+    contract_type contract_type NOT NULL DEFAULT 'rental',
     status lease_status NOT NULL DEFAULT 'draft',
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
-    monthly_rent DECIMAL(12, 2) NOT NULL,
+    start_date DATE,
+    end_date DATE,
+    monthly_rent DECIMAL(12, 2),
+    fiscal_value DECIMAL(14, 2),
     currency VARCHAR(3) DEFAULT 'ARS' REFERENCES currencies(code),
     payment_frequency payment_frequency NOT NULL DEFAULT 'monthly',
     payment_due_day INTEGER DEFAULT 10,
@@ -1034,6 +1116,7 @@ CREATE TABLE leases (
     additional_expenses DECIMAL(12, 2) DEFAULT 0,
     terms_and_conditions TEXT,
     special_clauses TEXT,
+    contract_pdf_url TEXT,
     notes TEXT,
     signed_at TIMESTAMPTZ,
     signed_by_tenant BOOLEAN DEFAULT FALSE,
@@ -1041,17 +1124,41 @@ CREATE TABLE leases (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMPTZ,
-    CONSTRAINT leases_dates_check CHECK (end_date > start_date),
     CONSTRAINT leases_payment_due_day_check CHECK (payment_due_day BETWEEN 1 AND 28),
     CONSTRAINT leases_billing_day_check CHECK (billing_day IS NULL OR billing_day BETWEEN 1 AND 28),
     CONSTRAINT leases_late_fee_grace_days_check CHECK (late_fee_grace_days >= 0),
-    CONSTRAINT leases_adjustment_frequency_check CHECK (adjustment_frequency_months > 0)
+    CONSTRAINT leases_adjustment_frequency_check CHECK (adjustment_frequency_months > 0),
+    CONSTRAINT leases_dates_check CHECK (
+        contract_type <> 'rental'
+        OR (start_date IS NOT NULL AND end_date IS NOT NULL AND end_date > start_date)
+    ),
+    CONSTRAINT leases_contract_type_required_fields_chk CHECK (
+        (contract_type = 'rental'
+         AND tenant_id IS NOT NULL
+         AND start_date IS NOT NULL
+         AND end_date IS NOT NULL
+         AND monthly_rent IS NOT NULL)
+        OR
+        (contract_type = 'sale'
+         AND buyer_profile_id IS NOT NULL
+         AND fiscal_value IS NOT NULL)
+    ),
+    CONSTRAINT leases_sale_specific_fields_chk CHECK (
+        contract_type <> 'sale'
+        OR (
+            COALESCE(late_fee_value, 0) = 0
+            AND (late_fee_type = 'none'::late_fee_type OR late_fee_type IS NULL)
+            AND COALESCE(adjustment_value, 0) = 0
+        )
+    )
 );
 
 CREATE INDEX idx_leases_company ON leases(company_id);
-CREATE INDEX idx_leases_unit ON leases(unit_id);
+CREATE INDEX idx_leases_property_id ON leases(property_id);
 CREATE INDEX idx_leases_tenant ON leases(tenant_id);
+CREATE INDEX idx_leases_buyer_profile_id ON leases(buyer_profile_id);
 CREATE INDEX idx_leases_owner ON leases(owner_id);
+CREATE INDEX idx_leases_contract_type ON leases(contract_type);
 CREATE INDEX idx_leases_status ON leases(status);
 CREATE INDEX idx_leases_dates ON leases(start_date, end_date);
 CREATE INDEX idx_leases_active ON leases(status) WHERE status = 'active';
@@ -1454,6 +1561,38 @@ CREATE TRIGGER update_receipts_updated_at
     BEFORE UPDATE ON receipts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 COMMENT ON TABLE receipts IS 'Payment receipts issued to tenants';
+
+-- -----------------------------------------------------------------------------
+-- Credit Notes
+-- -----------------------------------------------------------------------------
+CREATE TABLE credit_notes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    invoice_id UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+    payment_id UUID REFERENCES payments(id) ON DELETE SET NULL,
+    tenant_account_id UUID REFERENCES tenant_accounts(id) ON DELETE SET NULL,
+    note_number VARCHAR(50) NOT NULL,
+    amount DECIMAL(14, 2) NOT NULL,
+    currency VARCHAR(3) NOT NULL DEFAULT 'ARS',
+    reason TEXT,
+    status credit_note_status NOT NULL DEFAULT 'issued',
+    pdf_url VARCHAR(500),
+    issued_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ,
+    CONSTRAINT uq_credit_notes_note_number UNIQUE(note_number)
+);
+
+CREATE INDEX idx_credit_notes_invoice_id ON credit_notes(invoice_id);
+CREATE INDEX idx_credit_notes_payment_id ON credit_notes(payment_id);
+CREATE INDEX idx_credit_notes_tenant_account_id ON credit_notes(tenant_account_id);
+CREATE INDEX idx_credit_notes_deleted ON credit_notes(deleted_at) WHERE deleted_at IS NULL;
+
+CREATE TRIGGER update_credit_notes_updated_at
+    BEFORE UPDATE ON credit_notes FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE credit_notes IS 'Credit notes linked to invoices and payments';
 
 \echo '✓ Tablas financieras creadas'
 
@@ -1876,13 +2015,14 @@ VALUES (
 \echo '  ✓ Sample tenant created'
 
 -- Sample Lease
-INSERT INTO leases (id, company_id, unit_id, tenant_id, owner_id, start_date, end_date, monthly_rent, currency, billing_day, status, adjustment_type, adjustment_frequency_months, created_at, updated_at)
+INSERT INTO leases (id, company_id, property_id, tenant_id, owner_id, contract_type, start_date, end_date, monthly_rent, currency, billing_day, status, adjustment_type, adjustment_frequency_months, created_at, updated_at)
 VALUES (
     '88888888-8888-8888-8888-888888888888',
     '11111111-1111-1111-1111-111111111111',
-    '55555555-5555-5555-5555-555555555555',
+    '44444444-4444-4444-4444-444444444444',
     '77777777-7777-7777-7777-777777777777',
     '33333333-3333-3333-3333-333333333333',
+    'rental',
     '2025-01-01',
     '2027-01-01',
     250000.00,

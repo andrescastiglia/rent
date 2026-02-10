@@ -18,6 +18,7 @@ import { InvoiceStatus } from './entities/invoice.entity';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { DocumentsService } from '../documents/documents.service';
+import { PaymentsService } from './payments.service';
 
 /**
  * Controlador para gestión de facturas.
@@ -29,6 +30,7 @@ export class InvoicesController {
     private readonly invoicesService: InvoicesService,
     private readonly invoicePdfService: InvoicePdfService,
     private readonly documentsService: DocumentsService,
+    private readonly paymentsService: PaymentsService,
   ) {}
 
   /**
@@ -63,7 +65,7 @@ export class InvoicesController {
     // Generar PDF
     try {
       const pdfUrl = await this.invoicePdfService.generate(invoice);
-      invoice.pdfUrl = pdfUrl;
+      return this.invoicesService.attachPdf(invoice.id, pdfUrl);
     } catch (error) {
       console.error('Failed to generate invoice PDF:', error);
     }
@@ -100,6 +102,14 @@ export class InvoicesController {
   }
 
   /**
+   * Lista notas de crédito de una factura.
+   */
+  @Get(':id/credit-notes')
+  listCreditNotes(@Param('id') id: string) {
+    return this.paymentsService.listCreditNotesByInvoice(id);
+  }
+
+  /**
    * Cancela una factura.
    */
   @Patch(':id/cancel')
@@ -126,6 +136,32 @@ export class InvoicesController {
     res.set({
       'Content-Type': contentType,
       'Content-Disposition': `attachment; filename="factura-${invoice.invoiceNumber}.pdf"`,
+    });
+
+    return res.send(buffer);
+  }
+
+  /**
+   * Descarga PDF de nota de crédito.
+   */
+  @Get('credit-notes/:creditNoteId/pdf')
+  async getCreditNotePdf(
+    @Param('creditNoteId') creditNoteId: string,
+    @Res() res: Response,
+  ) {
+    const note = await this.paymentsService.findCreditNoteById(creditNoteId);
+
+    if (!note.pdfUrl) {
+      return res.status(404).json({ message: 'Credit note PDF not found' });
+    }
+
+    const { buffer, contentType } = await this.documentsService.downloadByS3Key(
+      note.pdfUrl,
+    );
+
+    res.set({
+      'Content-Type': contentType,
+      'Content-Disposition': `attachment; filename="nota-credito-${note.noteNumber}.pdf"`,
     });
 
     return res.send(buffer);

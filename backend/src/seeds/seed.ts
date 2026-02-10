@@ -6,12 +6,14 @@ import { Admin } from '../users/entities/admin.entity';
 import { Company, PlanType } from '../companies/entities/company.entity';
 import {
   Property,
+  PropertyOperationState,
   PropertyType,
   PropertyStatus,
 } from '../properties/entities/property.entity';
 import { Unit, UnitStatus } from '../properties/entities/unit.entity';
 import {
   Lease,
+  ContractType,
   LeaseStatus,
   PaymentFrequency,
 } from '../leases/entities/lease.entity';
@@ -250,17 +252,18 @@ async function seed() {
       }
 
       // 8. Create Lease
-      // Check if lease exists for this unit and tenant
+      // Check if lease exists for this property and tenant
       const existingLease = await queryRunner.manager.findOne(Lease, {
-        where: { unit: { id: unit.id }, tenant: { id: tenant.id } },
+        where: { propertyId: property.id, tenantId: tenant.id },
       });
 
       if (!existingLease) {
         const lease = queryRunner.manager.create(Lease, {
           company: company,
-          unit: unit,
+          property: property,
           tenant: tenant,
           owner: owner,
+          contractType: ContractType.RENTAL,
           startDate: new Date('2024-01-01'),
           endDate: new Date('2024-12-31'),
           monthlyRent: 1500,
@@ -272,9 +275,8 @@ async function seed() {
         await queryRunner.manager.save(lease);
         console.log('Lease created');
 
-        // Update unit status to OCCUPIED
-        unit.status = UnitStatus.OCCUPIED;
-        await queryRunner.manager.save(unit);
+        property.operationState = PropertyOperationState.RENTED;
+        await queryRunner.manager.save(property);
       } else {
         console.log('Lease already exists');
       }

@@ -2,8 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { Lease } from './entities/lease.entity';
 import {
   Document,
@@ -11,22 +9,14 @@ import {
   DocumentStatus,
 } from '../documents/entities/document.entity';
 import { generateContractPdf } from './templates/contract-template';
-import { getS3Config, S3_BUCKET_NAME } from '../config/s3.config';
 
 @Injectable()
 export class PdfService {
-  private s3Client: S3Client;
-  private bucketName: string;
-
   constructor(
     @InjectRepository(Document)
     private documentsRepository: Repository<Document>,
-    private configService: ConfigService,
     private readonly i18n: I18nService,
-  ) {
-    this.s3Client = getS3Config(configService);
-    this.bucketName = S3_BUCKET_NAME;
-  }
+  ) {}
 
   async generateContract(lease: Lease, _userId: string): Promise<Document> {
     // Obtener idioma preferido del usuario o default
@@ -34,33 +24,23 @@ export class PdfService {
     // Generate PDF buffer
     const pdfBuffer = await generateContractPdf(lease, this.i18n, lang);
 
-    // Generate S3 key / file URL
-    const timestamp = Date.now();
-    const fileUrl = `leases/${lease.id}/contract-${timestamp}.pdf`;
-
-    // Upload to S3
-    await this.s3Client.send(
-      new PutObjectCommand({
-        Bucket: this.bucketName,
-        Key: fileUrl,
-        Body: pdfBuffer,
-        ContentType: 'application/pdf',
+    // Create document record
+    const document = await this.documentsRepository.save(
+      this.documentsRepository.create({
+        companyId: lease.companyId,
+        entityType: 'lease',
+        entityId: lease.id,
+        documentType: DocumentType.LEASE_CONTRACT,
+        name: `contrato-${lease.id}.pdf`,
+        fileUrl: 'db://document/pending',
+        fileData: pdfBuffer,
+        fileMimeType: 'application/pdf',
+        fileSize: pdfBuffer.length,
+        status: DocumentStatus.APPROVED,
       }),
     );
 
-    // Create document record
-    const document = this.documentsRepository.create({
-      companyId: lease.companyId,
-      entityType: 'lease',
-      entityId: lease.id,
-      documentType: DocumentType.LEASE_CONTRACT,
-      name: `contrato-${lease.id}.pdf`,
-      fileUrl,
-      fileMimeType: 'application/pdf',
-      fileSize: pdfBuffer.length,
-      status: DocumentStatus.APPROVED,
-    });
-
+    document.fileUrl = `db://document/${document.id}`;
     return this.documentsRepository.save(document);
   }
 

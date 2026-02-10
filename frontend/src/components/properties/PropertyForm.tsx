@@ -102,7 +102,7 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
     void loadOwners();
   }, [user?.role]);
 
-  const handleToggleOperation = (operation: 'rent' | 'sale' | 'leasing') => {
+  const handleToggleOperation = (operation: 'rent' | 'sale') => {
     const nextOperations = selectedOperations.includes(operation)
       ? selectedOperations.filter((item) => item !== operation)
       : [...selectedOperations, operation];
@@ -258,7 +258,7 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
           <div className="md:col-span-2">
             <p className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.operations')}</p>
             <div className="mt-2 flex flex-wrap gap-4">
-              {(['rent', 'sale', 'leasing'] as const).map((operation) => (
+              {(['rent', 'sale'] as const).map((operation) => (
                 <label key={operation} className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                   <input
                     type="checkbox"
@@ -345,7 +345,7 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
               >
                 <option value="available">{t('operationState.available')}</option>
                 <option value="rented">{t('operationState.rented')}</option>
-                <option value="leased">{t('operationState.leased')}</option>
+                <option value="reserved">{t('operationState.reserved')}</option>
                 <option value="sold">{t('operationState.sold')}</option>
               </select>
             </div>

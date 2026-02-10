@@ -79,8 +79,8 @@ type BackendCreatePropertyPayload = {
     description?: string;
     salePrice?: number;
     saleCurrency?: string;
-    operations?: Array<'rent' | 'sale' | 'leasing'>;
-    operationState?: 'available' | 'rented' | 'leased' | 'sold';
+    operations?: Array<'rent' | 'sale'>;
+    operationState?: 'available' | 'rented' | 'reserved' | 'sold';
     allowsPets?: boolean;
     acceptedGuaranteeTypes?: string[];
     maxOccupants?: number;
@@ -333,8 +333,8 @@ const mapOperationState = (
     switch ((value ?? '').toLowerCase()) {
         case 'rented':
             return 'rented';
-        case 'leased':
-            return 'leased';
+        case 'reserved':
+            return 'reserved';
         case 'sold':
             return 'sold';
         default:
@@ -361,8 +361,8 @@ const mapBackendPropertyToProperty = (raw: BackendProperty): Property => {
         : [];
     const normalizedOperations = backendOperations
         .map((item) => item.toLowerCase())
-        .filter((item): item is 'rent' | 'sale' | 'leasing' =>
-            item === 'rent' || item === 'sale' || item === 'leasing',
+        .filter((item): item is 'rent' | 'sale' =>
+            item === 'rent' || item === 'sale',
         );
     const operations: Property['operations'] =
         normalizedOperations.length > 0
@@ -519,6 +519,9 @@ export const propertiesApi = {
         if (IS_MOCK_MODE) {
             await delay(DELAY);
             let filtered = [...MOCK_PROPERTIES];
+            if (filters?.ownerId) {
+                filtered = filtered.filter((p) => p.ownerId === filters.ownerId);
+            }
             if (filters?.minSalePrice !== undefined) {
                 filtered = filtered.filter((p) => (p.salePrice ?? 0) >= filters.minSalePrice!);
             }
@@ -530,6 +533,7 @@ export const propertiesApi = {
         
         const token = getToken();
         const queryParams = new URLSearchParams();
+        if (filters?.ownerId) queryParams.append('ownerId', filters.ownerId);
         if (filters?.addressCity) queryParams.append('addressCity', filters.addressCity);
         if (filters?.addressState) queryParams.append('addressState', filters.addressState);
         if (filters?.propertyType) {

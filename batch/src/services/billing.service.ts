@@ -208,6 +208,7 @@ export class BillingService {
 
         // Create the invoice
         const invoiceData: CreateInvoiceData = {
+            companyId: lease.companyId,
             leaseId: lease.id,
             ownerId: lease.ownerId,
             tenantAccountId: lease.tenantAccountId,

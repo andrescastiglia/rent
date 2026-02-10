@@ -1,6 +1,6 @@
 import { Property } from './property';
 
-export type InterestedOperation = 'rent' | 'sale' | 'leasing';
+export type InterestedOperation = 'rent' | 'sale';
 export type InterestedPropertyType =
   | 'apartment'
   | 'house'
@@ -11,7 +11,7 @@ export type InterestedPropertyType =
   | 'parking'
   | 'other';
 export type InterestedStatus =
-  | 'new'
+  | 'interested'
   | 'qualified'
   | 'matching'
   | 'visit_scheduled'
@@ -201,4 +201,22 @@ export interface InterestedDuplicate {
   email?: string;
   count: number;
   profileIds: string[];
+}
+
+export type PropertyReservationStatus = 'active' | 'released' | 'converted';
+
+export interface PropertyReservation {
+  id: string;
+  companyId: string;
+  propertyId: string;
+  interestedProfileId: string;
+  status: PropertyReservationStatus;
+  activitySource?: string;
+  notes?: string;
+  reservedByUserId?: string;
+  reservedAt: string;
+  releasedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  property?: Property;
 }

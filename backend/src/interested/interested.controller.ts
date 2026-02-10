@@ -24,6 +24,7 @@ import { UpdateInterestedActivityDto } from './dto/update-interested-activity.dt
 import { UpdateInterestedMatchDto } from './dto/update-interested-match.dto';
 import { ConvertInterestedToTenantDto } from './dto/convert-interested-to-tenant.dto';
 import { ConvertInterestedToBuyerDto } from './dto/convert-interested-to-buyer.dto';
+import { CreatePropertyReservationDto } from './dto/create-property-reservation.dto';
 
 interface AuthenticatedRequest {
   user: {
@@ -142,6 +143,25 @@ export class InterestedController {
     @Request() req: AuthenticatedRequest,
   ) {
     return this.interestedService.createActivity(id, dto, req.user);
+  }
+
+  @Post(':id/reservations')
+  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  createReservation(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreatePropertyReservationDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.interestedService.createReservation(id, dto, req.user);
+  }
+
+  @Get(':id/reservations')
+  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  listReservations(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.interestedService.listReservations(id, req.user);
   }
 
   @Patch(':id/activities/:activityId')

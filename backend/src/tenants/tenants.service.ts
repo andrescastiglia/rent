@@ -177,7 +177,7 @@ export class TenantsService {
   async getLeaseHistory(tenantId: string): Promise<Lease[]> {
     return this.leasesRepository.find({
       where: { tenantId },
-      relations: ['unit', 'unit.property'],
+      relations: ['property'],
       order: { startDate: 'DESC' },
     });
   }

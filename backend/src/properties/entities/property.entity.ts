@@ -35,13 +35,12 @@ export enum PropertyStatus {
 export enum PropertyOperation {
   RENT = 'rent',
   SALE = 'sale',
-  LEASING = 'leasing',
 }
 
 export enum PropertyOperationState {
   AVAILABLE = 'available',
   RENTED = 'rented',
-  LEASED = 'leased',
+  RESERVED = 'reserved',
   SOLD = 'sold',
 }
 

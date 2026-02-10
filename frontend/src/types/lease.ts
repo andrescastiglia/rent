@@ -1,7 +1,9 @@
-import { Property, Unit } from './property';
+import { Property } from './property';
 import { Tenant } from './tenant';
+import { InterestedProfile } from './interested';
 
-export type LeaseStatus = 'DRAFT' | 'ACTIVE' | 'ENDED' | 'TERMINATED';
+export type LeaseStatus = 'DRAFT' | 'ACTIVE' | 'FINALIZED';
+export type ContractType = 'rental' | 'sale';
 export type PaymentFrequency = 'monthly' | 'bimonthly' | 'quarterly' | 'semiannual' | 'annual';
 export type BillingFrequency = 'first_of_month' | 'last_of_month' | 'contract_date' | 'custom';
 export type LateFeeType = 'none' | 'fixed' | 'percentage' | 'daily_fixed' | 'daily_percentage';
@@ -18,13 +20,15 @@ export interface Currency {
 export interface Lease {
     id: string;
     propertyId: string;
-    unitId: string;
-    tenantId: string;
+    tenantId?: string;
+    buyerProfileId?: string;
     ownerId: string;
-    startDate: string;
-    endDate: string;
-    rentAmount: number;
+    contractType: ContractType;
+    startDate?: string;
+    endDate?: string;
+    rentAmount?: number;
     depositAmount: number;
+    fiscalValue?: number;
     currency: string;
     currencyData?: Currency;
     status: LeaseStatus;
@@ -56,19 +60,21 @@ export interface Lease {
 
     // Expanded relations for UI convenience (in a real app, might be separate or included)
     property?: Property;
-    unit?: Unit;
     tenant?: Tenant;
+    buyerProfile?: InterestedProfile;
 }
 
 export interface CreateLeaseInput {
     propertyId: string;
-    unitId: string;
-    tenantId: string;
-    ownerId: string;
-    startDate: string;
-    endDate: string;
-    rentAmount: number;
+    tenantId?: string;
+    buyerProfileId?: string;
+    ownerId?: string;
+    contractType: ContractType;
+    startDate?: string;
+    endDate?: string;
+    rentAmount?: number;
     depositAmount: number;
+    fiscalValue?: number;
     currency: string;
     status: LeaseStatus;
     terms?: string;

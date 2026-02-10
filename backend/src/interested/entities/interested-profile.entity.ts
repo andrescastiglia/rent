@@ -20,7 +20,6 @@ import { InterestedPropertyMatch } from './interested-property-match.entity';
 export enum InterestedOperation {
   RENT = 'rent',
   SALE = 'sale',
-  LEASING = 'leasing',
 }
 
 export enum InterestedPropertyType {
@@ -35,7 +34,7 @@ export enum InterestedPropertyType {
 }
 
 export enum InterestedStatus {
-  NEW = 'new',
+  INTERESTED = 'interested',
   QUALIFIED = 'qualified',
   MATCHING = 'matching',
   VISIT_SCHEDULED = 'visit_scheduled',
@@ -155,7 +154,7 @@ export class InterestedProfile {
     type: 'enum',
     enum: InterestedStatus,
     enumName: 'interested_status',
-    default: InterestedStatus.NEW,
+    default: InterestedStatus.INTERESTED,
   })
   status: InterestedStatus;
 

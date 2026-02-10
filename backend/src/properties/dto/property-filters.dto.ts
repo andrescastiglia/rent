@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   Min,
 } from 'class-validator';
@@ -11,6 +12,10 @@ import { PropertyType, PropertyStatus } from '../entities/property.entity';
 import { Type } from 'class-transformer';
 
 export class PropertyFiltersDto {
+  @IsUUID()
+  @IsOptional()
+  ownerId?: string;
+
   @IsString()
   @IsOptional()
   addressCity?: string;

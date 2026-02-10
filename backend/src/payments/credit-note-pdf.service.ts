@@ -2,43 +2,39 @@ import { Injectable } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { CreditNote } from './entities/credit-note.entity';
 import { Invoice } from './entities/invoice.entity';
 import {
   Document,
-  DocumentType,
   DocumentStatus,
+  DocumentType,
 } from '../documents/entities/document.entity';
-import { generateInvoicePdf } from './templates/invoice-template';
+import { generateCreditNotePdf } from './templates/credit-note-template';
 
-/**
- * Servicio para generar PDFs de facturas.
- */
 @Injectable()
-export class InvoicePdfService {
+export class CreditNotePdfService {
   constructor(
     @InjectRepository(Document)
-    private documentsRepository: Repository<Document>,
+    private readonly documentsRepository: Repository<Document>,
     private readonly i18n: I18nService,
   ) {}
 
-  /**
-   * Genera el PDF de una factura y lo sube a S3.
-   * @param invoice Factura
-   * @returns URL del PDF en S3
-   */
-  async generate(invoice: Invoice): Promise<string> {
-    // Obtener idioma preferido del usuario o default
+  async generate(creditNote: CreditNote, invoice: Invoice): Promise<string> {
     const lang = invoice.lease?.tenant?.user?.language || 'es';
-    // Generar PDF buffer
-    const pdfBuffer = await generateInvoicePdf(invoice, this.i18n, lang);
+    const pdfBuffer = await generateCreditNotePdf(
+      creditNote,
+      invoice,
+      this.i18n,
+      lang,
+    );
 
     const document = await this.documentsRepository.save(
       this.documentsRepository.create({
-        companyId: invoice.companyId,
-        entityType: 'invoice',
-        entityId: invoice.id,
+        companyId: creditNote.companyId,
+        entityType: 'credit_note',
+        entityId: creditNote.id,
         documentType: DocumentType.OTHER,
-        name: `factura-${invoice.invoiceNumber}.pdf`,
+        name: `nota-credito-${creditNote.noteNumber}.pdf`,
         fileUrl: 'db://document/pending',
         fileData: pdfBuffer,
         fileMimeType: 'application/pdf',
@@ -46,9 +42,9 @@ export class InvoicePdfService {
         status: DocumentStatus.APPROVED,
       }),
     );
-
     document.fileUrl = `db://document/${document.id}`;
     await this.documentsRepository.save(document);
+
     return document.fileUrl;
   }
 }

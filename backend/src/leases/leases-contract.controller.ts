@@ -20,12 +20,15 @@ export class LeasesContractController {
       return res.status(404).json({ message: 'Contract not found' });
     }
 
-    // Generate download URL
-    const { downloadUrl } = await this.documentsService.generateDownloadUrl(
-      document.id,
+    const { buffer, contentType } = await this.documentsService.downloadByS3Key(
+      document.fileUrl,
     );
 
-    // Redirect to S3 pre-signed URL
-    return res.redirect(downloadUrl);
+    res.set({
+      'Content-Type': contentType,
+      'Content-Disposition': `attachment; filename="${document.name || `contrato-${id}.pdf`}"`,
+    });
+
+    return res.send(buffer);
   }
 }

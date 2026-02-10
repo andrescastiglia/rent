@@ -46,7 +46,7 @@ export class InvoicesService {
   async create(dto: CreateInvoiceDto): Promise<Invoice> {
     const lease = await this.leasesRepository.findOne({
       where: { id: dto.leaseId },
-      relations: ['unit', 'unit.property', 'unit.property.owner'],
+      relations: ['property', 'property.owner'],
     });
 
     if (!lease) {
@@ -57,7 +57,7 @@ export class InvoicesService {
     const account = await this.tenantAccountsService.findByLease(dto.leaseId);
 
     // Obtener propietario
-    const ownerId = lease.unit?.property?.ownerId;
+    const ownerId = lease.property?.ownerId || lease.ownerId;
     if (!ownerId) {
       throw new BadRequestException('Property owner not found for this lease');
     }
@@ -102,7 +102,7 @@ export class InvoicesService {
   ): Promise<Invoice> {
     const lease = await this.leasesRepository.findOne({
       where: { id: leaseId },
-      relations: ['unit', 'unit.property', 'unit.property.owner'],
+      relations: ['property', 'property.owner'],
     });
 
     if (!lease) {
@@ -196,6 +196,12 @@ export class InvoicesService {
     return savedInvoice;
   }
 
+  async attachPdf(id: string, pdfUrl: string): Promise<Invoice> {
+    const invoice = await this.findOne(id);
+    invoice.pdfUrl = pdfUrl;
+    return this.invoicesRepository.save(invoice);
+  }
+
   /**
    * Obtiene una factura por su ID.
    * @param id ID de la factura
@@ -207,8 +213,7 @@ export class InvoicesService {
       relations: [
         'lease',
         'lease.tenant',
-        'lease.unit',
-        'lease.unit.property',
+        'lease.property',
         'owner',
         'currency',
       ],
@@ -413,14 +418,14 @@ export class InvoicesService {
   private async createCommissionInvoice(invoice: Invoice): Promise<void> {
     const lease = await this.leasesRepository.findOne({
       where: { id: invoice.leaseId },
-      relations: ['unit', 'unit.property', 'unit.property.company', 'owner'],
+      relations: ['property', 'property.company', 'owner'],
     });
 
-    if (!lease?.owner?.commissionRate || !lease.unit?.property?.companyId) {
+    if (!lease?.owner?.commissionRate || !lease.property?.companyId) {
       return; // No hay comisión configurada
     }
 
-    const companyId = lease.unit.property.companyId;
+    const companyId = lease.property.companyId;
     const commissionRate = Number(lease.owner.commissionRate);
     const baseAmount = Number(invoice.subtotal);
     const commissionAmount = (baseAmount * commissionRate) / 100;
