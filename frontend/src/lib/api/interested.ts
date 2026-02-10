@@ -552,6 +552,29 @@ export const interestedApi = {
       emergencyContactPhone?: string;
     },
   ): Promise<any> => {
+    if (IS_MOCK_MODE) {
+      await delay(DELAY);
+      const profile = MOCK_INTERESTED.find((item) => item.id === id);
+      if (!profile) {
+        throw new Error('Interested profile not found');
+      }
+
+      if (!profile.convertedToTenantId) {
+        profile.convertedToTenantId = `tenant-${profile.id}`;
+      }
+      profile.status = 'won';
+      profile.updatedAt = new Date().toISOString();
+
+      return {
+        profile,
+        tenant: { id: profile.convertedToTenantId },
+        user: {
+          id: `user-${profile.id}`,
+          email: payload.email ?? `interesado.${profile.id}@rentflow.local`,
+        },
+      };
+    }
+
     const token = getToken();
     return apiClient.post(`/interested/${id}/convert/tenant`, payload, token ?? undefined);
   },
@@ -568,6 +591,26 @@ export const interestedApi = {
       notes?: string;
     },
   ): Promise<any> => {
+    if (IS_MOCK_MODE) {
+      await delay(DELAY);
+      const profile = MOCK_INTERESTED.find((item) => item.id === id);
+      if (!profile) {
+        throw new Error('Interested profile not found');
+      }
+
+      profile.convertedToSaleAgreementId = `sale-${profile.id}`;
+      profile.status = 'won';
+      profile.updatedAt = new Date().toISOString();
+
+      return {
+        profile,
+        agreement: {
+          id: profile.convertedToSaleAgreementId,
+          ...payload,
+        },
+      };
+    }
+
     const token = getToken();
     return apiClient.post(`/interested/${id}/convert/buyer`, payload, token ?? undefined);
   },

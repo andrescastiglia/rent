@@ -15,7 +15,6 @@ import {
   InterestedProfile,
   InterestedStatus,
   InterestedSummary,
-  InterestedTimelineItem,
 } from '@/types/interested';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -69,7 +68,6 @@ export default function InterestedPage() {
   const [duplicates, setDuplicates] = useState<InterestedDuplicate[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<InterestedProfile | null>(null);
   const [summary, setSummary] = useState<InterestedSummary | null>(null);
-  const [timeline, setTimeline] = useState<InterestedTimelineItem[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -78,7 +76,10 @@ export default function InterestedPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeDetailSection, setActiveDetailSection] = useState<'result' | 'properties' | 'activities'>('result');
+  const [operationFilter, setOperationFilter] = useState<'all' | InterestedOperation>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | InterestedStatus>('all');
+  const [confirmingRentMatchId, setConfirmingRentMatchId] = useState<string | null>(null);
+  const [confirmingPurchaseMatchId, setConfirmingPurchaseMatchId] = useState<string | null>(null);
 
   const [form, setForm] = useState<CreateInterestedProfileInput>(emptyForm);
   const [stageReason, setStageReason] = useState('');
@@ -100,10 +101,23 @@ export default function InterestedPage() {
 
   const filteredProfiles = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
+
     return [...profiles]
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .filter((profile) => {
+        if (operationFilter !== 'all') {
+          const operations = profile.operations ?? (profile.operation ? [profile.operation] : []);
+          if (!operations.includes(operationFilter)) {
+            return false;
+          }
+        }
+
+        if (statusFilter !== 'all' && (profile.status ?? 'interested') !== statusFilter) {
+          return false;
+        }
+
         if (!term) return true;
+
         const fullName = `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.toLowerCase();
         return (
           fullName.includes(term) ||
@@ -111,7 +125,7 @@ export default function InterestedPage() {
           (profile.email ?? '').toLowerCase().includes(term)
         );
       });
-  }, [profiles, searchTerm]);
+  }, [profiles, searchTerm, operationFilter, statusFilter]);
 
   const profileToForm = useCallback(
     (profile: InterestedProfile): CreateInterestedProfileInput => ({
@@ -141,9 +155,10 @@ export default function InterestedPage() {
     setLoading(true);
     try {
       const [profilesResult, duplicatesResult] = await Promise.all([
-        interestedApi.getAll({ limit: 30 }),
+        interestedApi.getAll({ limit: 50 }),
         interestedApi.getDuplicates(),
       ]);
+
       setProfiles(profilesResult.data);
       setDuplicates(duplicatesResult);
 
@@ -164,26 +179,26 @@ export default function InterestedPage() {
 
   async function selectProfile(profile: InterestedProfile) {
     setSelectedProfile(profile);
-    setActiveDetailSection('result');
     setPendingStage(profile.status ?? 'interested');
     setLoadingDetail(true);
     try {
-      const [summaryResult, timelineResult] = await Promise.all([
-        interestedApi.getSummary(profile.id),
-        interestedApi.getTimeline(profile.id),
-      ]);
+      const summaryResult = await interestedApi.getSummary(profile.id);
       setSummary(summaryResult);
-      setTimeline(timelineResult);
+      setProfiles((prev) =>
+        prev.map((item) =>
+          item.id === summaryResult.profile.id ? { ...item, ...summaryResult.profile } : item,
+        ),
+      );
+      setPendingStage(summaryResult.profile.status ?? 'interested');
     } catch (error) {
       console.error('Failed to load interested summary', error);
       setSummary(null);
-      setTimeline([]);
     } finally {
       setLoadingDetail(false);
     }
   }
 
-  function handleNewProspect() {
+  function handleNewInterested() {
     setEditingProfileId(null);
     setForm(emptyForm);
     setShowCreateForm((prev) => !prev);
@@ -213,6 +228,7 @@ export default function InterestedPage() {
               : ['rent'],
         ),
       );
+
       const payload: CreateInterestedProfileInput = {
         ...form,
         operation: operations[0],
@@ -292,6 +308,68 @@ export default function InterestedPage() {
     }
   }
 
+  async function handleConfirmRental(match: InterestedMatch) {
+    if (!selectedProfile) return;
+
+    setConfirmingRentMatchId(match.id);
+    try {
+      const currentProfile = summary?.profile ?? selectedProfile;
+
+      if (!currentProfile.convertedToTenantId) {
+        await interestedApi.convertToTenant(currentProfile.id, {});
+      }
+
+      if (match.status !== 'accepted') {
+        await interestedApi.updateMatch(currentProfile.id, match.id, 'accepted');
+      }
+
+      await selectProfile(currentProfile);
+    } catch (error) {
+      console.error('Failed to confirm rental from match', error);
+      alert(tc('error'));
+    } finally {
+      setConfirmingRentMatchId(null);
+    }
+  }
+
+  async function handleConfirmPurchase(match: InterestedMatch) {
+    if (!selectedProfile) return;
+
+    setConfirmingPurchaseMatchId(match.id);
+    try {
+      const currentProfile = summary?.profile ?? selectedProfile;
+      const currentCustomFields =
+        (currentProfile.customFields as Record<string, unknown> | undefined) ?? {};
+
+      await interestedApi.update(currentProfile.id, {
+        customFields: {
+          ...currentCustomFields,
+          isBuyer: true,
+          buyerMarkedAt: new Date().toISOString(),
+        },
+      });
+
+      await interestedApi.changeStage(
+        currentProfile.id,
+        'won',
+        t('actions.purchaseConfirmedReason', {
+          property: match.property?.name ?? match.propertyId,
+        }),
+      );
+
+      if (match.status !== 'accepted') {
+        await interestedApi.updateMatch(currentProfile.id, match.id, 'accepted');
+      }
+
+      await selectProfile(currentProfile);
+    } catch (error) {
+      console.error('Failed to confirm purchase from match', error);
+      alert(tc('error'));
+    } finally {
+      setConfirmingPurchaseMatchId(null);
+    }
+  }
+
   async function handleCreateActivity(event: React.FormEvent) {
     event.preventDefault();
     if (!selectedProfile) return;
@@ -332,11 +410,6 @@ export default function InterestedPage() {
 
   const statusLabel = useCallback((status?: string) => t(`status.${status ?? 'interested'}`), [t]);
 
-  const timelineFormatter = useMemo(
-    () => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }),
-    [locale],
-  );
-
   const reservableProperties = useMemo(() => {
     if (!summary) return [];
     const propertyMap = new Map<string, string>();
@@ -356,70 +429,11 @@ export default function InterestedPage() {
     return Array.from(propertyMap.entries()).map(([id, name]) => ({ id, name }));
   }, [summary]);
 
-  const formatTimelineTitle = useCallback(
-    (item: InterestedTimelineItem) => {
-      const meta = (item.metadata ?? {}) as Record<string, any>;
-      if (item.type === 'stage') {
-        return t('timeline.stageChange', {
-          from: statusLabel(meta.fromStatus ?? 'interested'),
-          to: statusLabel(meta.toStatus ?? 'interested'),
-        });
-      }
-      if (item.type === 'activity') {
-        return t('timeline.activity', {
-          type: t(`activityTypes.${meta.activityType ?? 'task'}`),
-          subject: meta.subject ?? '',
-        });
-      }
-      if (item.type === 'match') {
-        return t('timeline.match', {
-          property: meta.propertyName ?? meta.propertyId ?? '',
-        });
-      }
-      if (item.type === 'visit') {
-        return t('timeline.visit', {
-          property: meta.propertyName ?? meta.propertyId ?? '',
-        });
-      }
-      return item.title;
-    },
-    [statusLabel, t],
-  );
-
-  const formatTimelineDetail = useCallback(
-    (item: InterestedTimelineItem) => {
-      const meta = (item.metadata ?? {}) as Record<string, any>;
-      if (item.type === 'match' && meta.status) {
-        const statusText = t('timeline.matchStatus', {
-          status: t(`matchStatus.${meta.status}`),
-        });
-        if (item.detail) {
-          return `${statusText} - ${t('timeline.note', { note: item.detail })}`;
-        }
-        return statusText;
-      }
-      if (item.type === 'activity' && meta.status) {
-        const statusText = t('timeline.activityStatus', {
-          status: t(`activityStatus.${meta.status}`),
-        });
-        if (item.detail) {
-          return `${statusText} - ${t('timeline.note', { note: item.detail })}`;
-        }
-        return statusText;
-      }
-      if (item.type === 'stage' && item.detail) {
-        return t('timeline.reason', { reason: item.detail });
-      }
-      if (item.type === 'visit' && item.detail) {
-        return t('timeline.note', { note: item.detail });
-      }
-      if (item.detail) {
-        return t('timeline.note', { note: item.detail });
-      }
-      return null;
-    },
-    [t],
-  );
+  const isBuyerMarked = useMemo(() => {
+    const customFields =
+      (summary?.profile.customFields as Record<string, unknown> | undefined) ?? {};
+    return Boolean(customFields.isBuyer);
+  }, [summary]);
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
@@ -430,7 +444,7 @@ export default function InterestedPage() {
         </div>
         <button
           type="button"
-          onClick={handleNewProspect}
+          onClick={handleNewInterested}
           className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm"
         >
           {showCreateForm ? t('actions.closeNew') : t('actions.new')}
@@ -619,6 +633,28 @@ export default function InterestedPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
               />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <select
+                  value={operationFilter}
+                  onChange={(e) => setOperationFilter(e.target.value as 'all' | InterestedOperation)}
+                  className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                >
+                  <option value="all">{t('filters.allOperations')}</option>
+                  <option value="rent">{t('operations.rent')}</option>
+                  <option value="sale">{t('operations.sale')}</option>
+                </select>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as 'all' | InterestedStatus)}
+                  className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                >
+                  <option value="all">{t('filters.allStages')}</option>
+                  {STAGE_OPTIONS.map((stage) => (
+                    <option key={stage} value={stage}>{statusLabel(stage)}</option>
+                  ))}
+                </select>
+              </div>
+
               {filteredProfiles.length > 0 ? (
                 filteredProfiles.map((profile) => (
                   <button
@@ -678,6 +714,18 @@ export default function InterestedPage() {
                           : summary?.profile.phone}
                       </h2>
                       <p className="text-sm text-gray-500 dark:text-gray-400">{summary?.profile.email ?? summary?.profile.phone}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {summary?.profile.convertedToTenantId ? (
+                          <span className="px-2 py-1 rounded-md text-xs bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300">
+                            {t('actions.markedAsTenant')}
+                          </span>
+                        ) : null}
+                        {isBuyerMarked ? (
+                          <span className="px-2 py-1 rounded-md text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                            {t('actions.markedAsBuyer')}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
@@ -714,116 +762,82 @@ export default function InterestedPage() {
                   ) : null}
                 </div>
 
-                <div className="inline-flex rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-1">
+                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-4">
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('sections.result')}</h3>
+                  <dl className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <dt className="text-gray-500 dark:text-gray-400">{t('fields.phone')}</dt>
+                      <dd className="text-gray-900 dark:text-white">{summary?.profile.phone || '-'}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-gray-500 dark:text-gray-400">{t('fields.email')}</dt>
+                      <dd className="text-gray-900 dark:text-white">{summary?.profile.email || '-'}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-gray-500 dark:text-gray-400">{t('fields.preferredCity')}</dt>
+                      <dd className="text-gray-900 dark:text-white">{summary?.profile.preferredCity || '-'}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-gray-500 dark:text-gray-400">{t('fields.peopleCount')}</dt>
+                      <dd className="text-gray-900 dark:text-white">{summary?.profile.peopleCount ?? '-'}</dd>
+                    </div>
+                    <div className="md:col-span-2">
+                      <dt className="text-gray-500 dark:text-gray-400">{t('fields.operations')}</dt>
+                      <dd className="text-gray-900 dark:text-white">
+                        {(summary?.profile.operations ?? [summary?.profile.operation ?? 'rent'])
+                          .map((operation) => t(`operations.${operation}`))
+                          .join(', ')}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <select
+                      value={pendingStage}
+                      onChange={(e) => setPendingStage(e.target.value as InterestedStatus)}
+                      className="rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                    >
+                      {STAGE_OPTIONS.map((stage) => (
+                        <option key={stage} value={stage}>{statusLabel(stage)}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      placeholder={t('fields.stageReason')}
+                      value={stageReason}
+                      onChange={(e) => setStageReason(e.target.value)}
+                      className="rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm md:col-span-2"
+                    />
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setActiveDetailSection('result')}
-                    className={`px-3 py-1.5 rounded text-sm ${
-                      activeDetailSection === 'result'
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-700 dark:text-gray-300'
-                    }`}
+                    onClick={() => void handleChangeStage()}
+                    className="px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
                   >
-                    {t('sections.result')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveDetailSection('properties')}
-                    className={`px-3 py-1.5 rounded text-sm ${
-                      activeDetailSection === 'properties'
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-700 dark:text-gray-300'
-                    }`}
-                  >
-                    {t('sections.properties')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveDetailSection('activities')}
-                    className={`px-3 py-1.5 rounded text-sm ${
-                      activeDetailSection === 'activities'
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-700 dark:text-gray-300'
-                    }`}
-                  >
-                    {t('sections.activities')}
+                    {t('actions.changeStage')}
                   </button>
                 </div>
 
-                {activeDetailSection === 'result' ? (
-                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-4">
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('sections.result')}</h3>
-                    <dl className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <dt className="text-gray-500 dark:text-gray-400">{t('fields.phone')}</dt>
-                        <dd className="text-gray-900 dark:text-white">{summary?.profile.phone || '-'}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-gray-500 dark:text-gray-400">{t('fields.email')}</dt>
-                        <dd className="text-gray-900 dark:text-white">{summary?.profile.email || '-'}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-gray-500 dark:text-gray-400">{t('fields.preferredCity')}</dt>
-                        <dd className="text-gray-900 dark:text-white">{summary?.profile.preferredCity || '-'}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-gray-500 dark:text-gray-400">{t('fields.peopleCount')}</dt>
-                        <dd className="text-gray-900 dark:text-white">{summary?.profile.peopleCount ?? '-'}</dd>
-                      </div>
-                      <div className="md:col-span-2">
-                        <dt className="text-gray-500 dark:text-gray-400">{t('fields.operations')}</dt>
-                        <dd className="text-gray-900 dark:text-white">
-                          {(summary?.profile.operations ?? [summary?.profile.operation ?? 'rent'])
-                            .map((operation) => t(`operations.${operation}`))
-                            .join(', ')}
-                        </dd>
-                      </div>
-                    </dl>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <select
-                        value={pendingStage}
-                        onChange={(e) => setPendingStage(e.target.value as InterestedStatus)}
-                        className="rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                      >
-                        {STAGE_OPTIONS.map((stage) => (
-                          <option key={stage} value={stage}>{statusLabel(stage)}</option>
-                        ))}
-                      </select>
-                      <input
-                        type="text"
-                        placeholder={t('fields.stageReason')}
-                        value={stageReason}
-                        onChange={(e) => setStageReason(e.target.value)}
-                        className="rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm md:col-span-2"
-                      />
-                    </div>
+                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('matchesTitle')}</h3>
                     <button
                       type="button"
-                      onClick={() => void handleChangeStage()}
-                      className="px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
+                      onClick={() => void handleRefreshMatches()}
+                      disabled={refreshingMatches}
+                      className="px-2 py-1 rounded-md border border-gray-300 dark:border-gray-600 text-xs inline-flex items-center gap-2"
                     >
-                      {t('actions.changeStage')}
+                      {refreshingMatches ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                      {t('actions.refreshMatches')}
                     </button>
                   </div>
-                ) : null}
+                  {summary?.matches?.length ? (
+                    <div className="space-y-3">
+                      {summary.matches.map((match) => {
+                        const operations = match.property?.operations ?? [];
+                        const supportsRent = operations.includes('rent');
+                        const supportsSale = operations.includes('sale');
 
-                {activeDetailSection === 'properties' ? (
-                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('matchesTitle')}</h3>
-                      <button
-                        type="button"
-                        onClick={() => void handleRefreshMatches()}
-                        disabled={refreshingMatches}
-                        className="px-2 py-1 rounded-md border border-gray-300 dark:border-gray-600 text-xs inline-flex items-center gap-2"
-                      >
-                        {refreshingMatches ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                        {t('actions.refreshMatches')}
-                      </button>
-                    </div>
-                    {summary?.matches?.length ? (
-                      <div className="space-y-3">
-                        {summary.matches.map((match) => (
+                        return (
                           <div key={match.id} className="border border-gray-200 dark:border-gray-700 rounded-md p-3 space-y-2">
                             <div className="flex items-center justify-between gap-2">
                               <p className="text-sm font-medium text-gray-900 dark:text-white">
@@ -842,104 +856,133 @@ export default function InterestedPage() {
                                 <option key={status} value={status}>{t(`matchStatus.${status}`)}</option>
                               ))}
                             </select>
+                            <div className="flex flex-wrap gap-2">
+                              {supportsRent ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleConfirmRental(match)}
+                                  disabled={confirmingRentMatchId === match.id || Boolean(summary?.profile.convertedToTenantId)}
+                                  className="px-3 py-1.5 rounded-md border border-green-300 text-green-700 text-xs disabled:opacity-60"
+                                >
+                                  {confirmingRentMatchId === match.id ? t('actions.confirming') : t('actions.confirmRent')}
+                                </button>
+                              ) : null}
+                              {supportsSale ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleConfirmPurchase(match)}
+                                  disabled={confirmingPurchaseMatchId === match.id || isBuyerMarked}
+                                  className="px-3 py-1.5 rounded-md border border-amber-300 text-amber-700 text-xs disabled:opacity-60"
+                                >
+                                  {confirmingPurchaseMatchId === match.id ? t('actions.confirming') : t('actions.confirmPurchase')}
+                                </button>
+                              ) : null}
+                            </div>
                             {match.matchReasons?.length ? (
                               <p className="text-xs text-gray-500 dark:text-gray-400">{match.matchReasons.join(' · ')}</p>
                             ) : null}
                           </div>
-                        ))}
-                      </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('noMatches')}</p>
+                  )}
+                </div>
+
+                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-4">
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('activities.title')}</h3>
+
+                  <form onSubmit={handleCreateActivity} className="space-y-2">
+                    <select
+                      value={activityForm.type}
+                      onChange={(e) => setActivityForm((prev) => ({ ...prev, type: e.target.value as InterestedActivity['type'] }))}
+                      className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                    >
+                      <option value="task">{t('activityTypes.task')}</option>
+                      <option value="call">{t('activityTypes.call')}</option>
+                      <option value="note">{t('activityTypes.note')}</option>
+                      <option value="email">{t('activityTypes.email')}</option>
+                      <option value="whatsapp">{t('activityTypes.whatsapp')}</option>
+                      <option value="visit">{t('activityTypes.visit')}</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder={t('activities.subject')}
+                      value={activityForm.subject}
+                      onChange={(e) => setActivityForm((prev) => ({ ...prev, subject: e.target.value }))}
+                      className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                    />
+                    <textarea
+                      placeholder={t('activities.body')}
+                      value={activityForm.body}
+                      onChange={(e) => setActivityForm((prev) => ({ ...prev, body: e.target.value }))}
+                      rows={2}
+                      className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                    />
+                    <input
+                      type="datetime-local"
+                      value={activityForm.dueAt}
+                      onChange={(e) => setActivityForm((prev) => ({ ...prev, dueAt: e.target.value }))}
+                      lang={locale}
+                      className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                    />
+                    <select
+                      value={activityForm.propertyId}
+                      onChange={(e) => setActivityForm((prev) => ({ ...prev, propertyId: e.target.value }))}
+                      className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                    >
+                      <option value="">{t('activities.noProperty')}</option>
+                      {reservableProperties.map((property) => (
+                        <option key={property.id} value={property.id}>{property.name}</option>
+                      ))}
+                    </select>
+                    <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                      <input
+                        type="checkbox"
+                        checked={activityForm.markReserved}
+                        onChange={(e) => setActivityForm((prev) => ({ ...prev, markReserved: e.target.checked }))}
+                        className="rounded border-gray-300 dark:border-gray-600"
+                      />
+                      {t('activities.markReserved')}
+                    </label>
+                    <button type="submit" className="w-full px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700">
+                      {t('activities.add')}
+                    </button>
+                  </form>
+
+                  <div className="space-y-2">
+                    {summary?.activities?.length ? (
+                      summary.activities.map((activity) => (
+                        <div
+                          key={activity.id}
+                          className="border border-gray-200 dark:border-gray-700 rounded-md p-3"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                              {activity.subject}
+                            </p>
+                            <span className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                              {t(`activityStatus.${activity.status}`)}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {t(`activityTypes.${activity.type}`)}
+                            {' · '}
+                            {new Date(activity.createdAt).toLocaleString(locale)}
+                          </p>
+                          {activity.body ? (
+                            <p className="text-sm text-gray-700 dark:text-gray-300 mt-2 whitespace-pre-wrap">
+                              {activity.body}
+                            </p>
+                          ) : null}
+                        </div>
+                      ))
                     ) : (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{t('noMatches')}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{t('activities.empty')}</p>
                     )}
                   </div>
-                ) : null}
-
-                {activeDetailSection === 'activities' ? (
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
-                      <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('activities.title')}</h3>
-                      <form onSubmit={handleCreateActivity} className="space-y-2">
-                        <select
-                          value={activityForm.type}
-                          onChange={(e) => setActivityForm((prev) => ({ ...prev, type: e.target.value as InterestedActivity['type'] }))}
-                          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                        >
-                          <option value="task">{t('activityTypes.task')}</option>
-                          <option value="call">{t('activityTypes.call')}</option>
-                          <option value="note">{t('activityTypes.note')}</option>
-                          <option value="email">{t('activityTypes.email')}</option>
-                          <option value="whatsapp">{t('activityTypes.whatsapp')}</option>
-                          <option value="visit">{t('activityTypes.visit')}</option>
-                        </select>
-                        <input
-                          type="text"
-                          placeholder={t('activities.subject')}
-                          value={activityForm.subject}
-                          onChange={(e) => setActivityForm((prev) => ({ ...prev, subject: e.target.value }))}
-                          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                        />
-                        <textarea
-                          placeholder={t('activities.body')}
-                          value={activityForm.body}
-                          onChange={(e) => setActivityForm((prev) => ({ ...prev, body: e.target.value }))}
-                          rows={2}
-                          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                        />
-                        <input
-                          type="datetime-local"
-                          value={activityForm.dueAt}
-                          onChange={(e) => setActivityForm((prev) => ({ ...prev, dueAt: e.target.value }))}
-                          lang={locale}
-                          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                        />
-                        <select
-                          value={activityForm.propertyId}
-                          onChange={(e) => setActivityForm((prev) => ({ ...prev, propertyId: e.target.value }))}
-                          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                        >
-                          <option value="">{t('activities.noProperty')}</option>
-                          {reservableProperties.map((property) => (
-                            <option key={property.id} value={property.id}>{property.name}</option>
-                          ))}
-                        </select>
-                        <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                          <input
-                            type="checkbox"
-                            checked={activityForm.markReserved}
-                            onChange={(e) => setActivityForm((prev) => ({ ...prev, markReserved: e.target.checked }))}
-                            className="rounded border-gray-300 dark:border-gray-600"
-                          />
-                          {t('activities.markReserved')}
-                        </label>
-                        <button type="submit" className="w-full px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700">
-                          {t('activities.add')}
-                        </button>
-                      </form>
-                    </div>
-
-                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
-                      <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('timelineTitle')}</h3>
-                      {timeline.length ? (
-                        <div className="space-y-2 max-h-80 overflow-auto">
-                          {timeline.map((item) => {
-                            const detail = formatTimelineDetail(item);
-                            return (
-                              <div key={item.id} className="border border-gray-200 dark:border-gray-700 rounded-md p-3">
-                                <div className="flex items-center justify-between gap-2">
-                                  <p className="text-sm font-medium text-gray-900 dark:text-white">{formatTimelineTitle(item)}</p>
-                                  <span className="text-xs text-gray-500 dark:text-gray-400">{timelineFormatter.format(new Date(item.at))}</span>
-                                </div>
-                                {detail ? <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{detail}</p> : null}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('timelineEmpty')}</p>
-                      )}
-                    </div>
-                  </div>
-                ) : null}
+                </div>
               </>
             )}
           </div>

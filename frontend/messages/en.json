@@ -39,7 +39,8 @@
     "payments": "Payments",
     "invoices": "Invoices",
     "sales": "Sales",
-    "interested": "People",
+    "interested": "Interested",
+    "buyers": "Buyers",
     "users": "Users"
   },
   "breadcrumbs": {
@@ -315,17 +316,17 @@
     "nextImage": "Next image"
   },
   "interested": {
-    "title": "People",
+    "title": "Interested",
     "subtitle": "Lead management",
-    "newTitle": "New person",
-    "editTitle": "Edit person",
+    "newTitle": "New interested",
+    "editTitle": "Edit interested",
     "listTitle": "Registered profiles",
     "listSearchPlaceholder": "Search by name, phone or email...",
     "matchesTitle": "Suggested properties",
     "matchesHint": "Select a profile to see matches.",
     "noMatches": "No matches for this profile.",
     "empty": "No interested profiles yet.",
-    "noResults": "No people found with that criteria.",
+    "noResults": "No interested profiles found with that criteria.",
     "timelineTitle": "Timeline",
     "timelineEmpty": "No events for this profile.",
     "timeline": {
@@ -338,7 +339,7 @@
       "reason": "Reason: {reason}",
       "note": "Note: {note}"
     },
-    "duplicateWarning": "This person has potential duplicates ({count}). Review and merge.",
+    "duplicateWarning": "This interested profile has potential duplicates ({count}). Review and merge.",
     "labels": {
       "score": "Score"
     },
@@ -440,20 +441,27 @@
       "activities": "Activities"
     },
     "filters": {
-      "allStages": "All stages"
+      "allStages": "All stages",
+      "allOperations": "All operations"
     },
     "actions": {
       "save": "Save profile",
       "saving": "Saving...",
-      "new": "New person",
+      "new": "New interested",
       "closeNew": "Cancel",
       "reload": "Reload",
       "changeStage": "Change stage",
-      "edit": "Edit person",
+      "edit": "Edit interested",
       "refreshMatches": "Refresh matches",
       "markDone": "Mark done",
       "newRentalContract": "New rental contract",
-      "newSaleContract": "New sale contract"
+      "newSaleContract": "New sale contract",
+      "confirmRent": "Confirm rent",
+      "confirmPurchase": "Confirm purchase",
+      "confirming": "Confirming...",
+      "markedAsTenant": "Marked as tenant",
+      "markedAsBuyer": "Marked as buyer",
+      "purchaseConfirmedReason": "Purchase confirmed for {property}"
     },
     "errors": {
       "phoneRequired": "Phone is required",

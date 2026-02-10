@@ -43,6 +43,12 @@ export const navigationItems: NavItem[] = [
         roles: ['admin', 'owner', 'staff'],
     },
     {
+        labelKey: 'buyers',
+        href: '/buyers',
+        roles: ['admin', 'owner', 'staff'],
+        disabled: true,
+    },
+    {
         labelKey: 'users',
         href: '/users',
         roles: ['admin'],

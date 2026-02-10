@@ -7,7 +7,7 @@ test.describe('Interested Matchmaking', () => {
     });
 
     test('should create interested profile and show no matches', async ({ page }) => {
-        await page.getByRole('button', { name: /nueva persona|nuevo prospecto/i }).click();
+        await page.getByRole('button', { name: /nuevo interesado|nueva persona|new interested|new person/i }).click();
         await page.getByPlaceholder('Teléfono').fill('+54 9 11 0000-0000');
         await page.getByPlaceholder('Nombre', { exact: true }).fill('Sofia');
         await page.getByPlaceholder('Apellido', { exact: true }).fill('Gomez');
@@ -16,7 +16,6 @@ test.describe('Interested Matchmaking', () => {
         const personListItem = page.getByRole('button', { name: /sofia gomez/i }).first();
         await expect(personListItem).toBeVisible();
         await personListItem.click();
-        await page.getByRole('button', { name: /propiedades|properties/i }).click();
 
         await expect(page.getByText('No hay coincidencias para este perfil.')).toBeVisible();
     });

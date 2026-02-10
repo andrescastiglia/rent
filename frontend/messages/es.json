@@ -39,7 +39,8 @@
     "payments": "Pagos",
     "invoices": "Facturas",
     "sales": "Ventas",
-    "interested": "Personas",
+    "interested": "Interesados",
+    "buyers": "Compradores",
     "users": "Usuarios"
   },
   "breadcrumbs": {
@@ -315,17 +316,17 @@
     "nextImage": "Imagen siguiente"
   },
   "interested": {
-    "title": "Personas",
+    "title": "Interesados",
     "subtitle": "Gestión comercial",
-    "newTitle": "Nueva persona",
-    "editTitle": "Editar persona",
+    "newTitle": "Nuevo interesado",
+    "editTitle": "Editar interesado",
     "listTitle": "Perfiles registrados",
     "listSearchPlaceholder": "Buscar por nombre, telefono o email...",
     "matchesTitle": "Propiedades sugeridas",
     "matchesHint": "Selecciona un interesado para ver coincidencias.",
     "noMatches": "No hay coincidencias para este perfil.",
     "empty": "No hay interesados registrados.",
-    "noResults": "No se encontraron personas con ese criterio.",
+    "noResults": "No se encontraron interesados con ese criterio.",
     "timelineTitle": "Linea de tiempo",
     "timelineEmpty": "Sin eventos para este perfil.",
     "timeline": {
@@ -338,7 +339,7 @@
       "reason": "Motivo: {reason}",
       "note": "Nota: {note}"
     },
-    "duplicateWarning": "Esta persona tiene posibles duplicados ({count}). Revisar y consolidar.",
+    "duplicateWarning": "Este interesado tiene posibles duplicados ({count}). Revisar y consolidar.",
     "labels": {
       "score": "Puntaje"
     },
@@ -440,20 +441,27 @@
       "activities": "Actividades"
     },
     "filters": {
-      "allStages": "Todas las etapas"
+      "allStages": "Todas las etapas",
+      "allOperations": "Todas las operaciones"
     },
     "actions": {
       "save": "Guardar interesado",
       "saving": "Guardando...",
-      "new": "Nueva persona",
+      "new": "Nuevo interesado",
       "closeNew": "Cancelar alta",
       "reload": "Recargar",
       "changeStage": "Cambiar etapa",
-      "edit": "Editar persona",
+      "edit": "Editar interesado",
       "refreshMatches": "Actualizar matches",
       "markDone": "Marcar realizada",
       "newRentalContract": "Nuevo contrato de alquiler",
-      "newSaleContract": "Nuevo contrato de compra/venta"
+      "newSaleContract": "Nuevo contrato de compra/venta",
+      "confirmRent": "Confirmar alquiler",
+      "confirmPurchase": "Confirmar compra",
+      "confirming": "Confirmando...",
+      "markedAsTenant": "Marcado como inquilino",
+      "markedAsBuyer": "Marcado como comprador",
+      "purchaseConfirmedReason": "Compra confirmada para {property}"
     },
     "errors": {
       "phoneRequired": "El teléfono es requerido",
