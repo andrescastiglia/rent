@@ -6,10 +6,8 @@ test.describe('Property Search Filters', () => {
         await page.goto(localePath('/properties'));
     });
 
-    test('should filter properties by investment range', async ({ page }) => {
-        await page.locator('#minInvestment').fill('100000');
-        await page.locator('#maxInvestment').fill('160000');
-        await page.getByRole('button', { name: /aplicar/i }).click();
+    test('should filter properties by search term', async ({ page }) => {
+        await page.getByPlaceholder(/propietario|owner|propiedad|property/i).fill('Edificio Central');
 
         await expect(page.getByText('Edificio Central')).toBeVisible();
         await expect(page.getByText('Casa Los Pinos')).toHaveCount(0);
