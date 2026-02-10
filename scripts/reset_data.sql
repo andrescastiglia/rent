@@ -8,6 +8,24 @@ BEGIN
     END IF;
 END $$;
 
+-- Capture an existing real password hash before truncating users.
+CREATE TEMP TABLE _reset_data_password_hash (
+    password_hash TEXT NOT NULL
+) ON COMMIT DROP;
+
+INSERT INTO _reset_data_password_hash (password_hash)
+SELECT u.password_hash
+FROM users u
+WHERE lower(u.email) = lower('admin@rentflow.demo')
+LIMIT 1;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM _reset_data_password_hash) THEN
+        RAISE EXCEPTION 'Cannot reset demo data: user admin@rentflow.demo was not found before cleanup.';
+    END IF;
+END $$;
+
 -- Clean all business data while preserving schema metadata and PostGIS system tables.
 DO $$
 DECLARE
@@ -94,11 +112,11 @@ INSERT INTO users (
     id, company_id, email, password_hash, role, language, first_name, last_name, phone, is_active, created_at, updated_at
 )
 VALUES
-    ('10000000-0000-0000-0000-000000000101', '10000000-0000-0000-0000-000000000001', 'admin@rent.demo', '$2b$10$abcdefghijklmnopqrstuvwxyzABCDEF', 'admin', 'es', 'Admin', 'Demo', '+54 11 4000-0001', TRUE, NOW(), NOW()),
-    ('10000000-0000-0000-0000-000000000102', '10000000-0000-0000-0000-000000000001', 'staff@rent.demo', '$2b$10$abcdefghijklmnopqrstuvwxyzABCDEF', 'staff', 'es', 'Sofia', 'Staff', '+54 11 4000-0002', TRUE, NOW(), NOW()),
-    ('10000000-0000-0000-0000-000000000201', '10000000-0000-0000-0000-000000000001', 'ana.owner@rent.demo', '$2b$10$abcdefghijklmnopqrstuvwxyzABCDEF', 'owner', 'es', 'Ana', 'Gomez', '+54 11 4000-0003', TRUE, NOW(), NOW()),
-    ('10000000-0000-0000-0000-000000000202', '10000000-0000-0000-0000-000000000001', 'bruno.owner@rent.demo', '$2b$10$abcdefghijklmnopqrstuvwxyzABCDEF', 'owner', 'es', 'Bruno', 'Diaz', '+54 11 4000-0004', TRUE, NOW(), NOW()),
-    ('10000000-0000-0000-0000-000000000401', '10000000-0000-0000-0000-000000000001', 'tenant.demo@rent.demo', '$2b$10$abcdefghijklmnopqrstuvwxyzABCDEF', 'tenant', 'es', 'Lucas', 'Perez', '+54 11 4000-0005', TRUE, NOW(), NOW())
+    ('10000000-0000-0000-0000-000000000101', '10000000-0000-0000-0000-000000000001', 'admin@rent.demo', (SELECT password_hash FROM _reset_data_password_hash LIMIT 1), 'admin', 'es', 'Admin', 'Demo', '+54 11 4000-0001', TRUE, NOW(), NOW()),
+    ('10000000-0000-0000-0000-000000000102', '10000000-0000-0000-0000-000000000001', 'staff@rent.demo', (SELECT password_hash FROM _reset_data_password_hash LIMIT 1), 'staff', 'es', 'Sofia', 'Staff', '+54 11 4000-0002', TRUE, NOW(), NOW()),
+    ('10000000-0000-0000-0000-000000000201', '10000000-0000-0000-0000-000000000001', 'ana.owner@rent.demo', (SELECT password_hash FROM _reset_data_password_hash LIMIT 1), 'owner', 'es', 'Ana', 'Gomez', '+54 11 4000-0003', TRUE, NOW(), NOW()),
+    ('10000000-0000-0000-0000-000000000202', '10000000-0000-0000-0000-000000000001', 'bruno.owner@rent.demo', (SELECT password_hash FROM _reset_data_password_hash LIMIT 1), 'owner', 'es', 'Bruno', 'Diaz', '+54 11 4000-0004', TRUE, NOW(), NOW()),
+    ('10000000-0000-0000-0000-000000000401', '10000000-0000-0000-0000-000000000001', 'tenant.demo@rent.demo', (SELECT password_hash FROM _reset_data_password_hash LIMIT 1), 'tenant', 'es', 'Lucas', 'Perez', '+54 11 4000-0005', TRUE, NOW(), NOW())
 ON CONFLICT (id) DO UPDATE
 SET
     company_id = EXCLUDED.company_id,
