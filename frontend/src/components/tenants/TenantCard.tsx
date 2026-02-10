@@ -28,7 +28,11 @@ export function TenantCard({ tenant }: TenantCardProps) {
             <User size={24} />
           </div>
           <div>
-            <Link href={`/${locale}/tenants/${tenant.id}`} className="text-lg font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-300">
+            <Link
+              href={`/${locale}/tenants/${tenant.id}`}
+              data-testid="tenant-detail-link"
+              className="text-lg font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-300"
+            >
               {tenant.firstName} {tenant.lastName}
             </Link>
             <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide ${

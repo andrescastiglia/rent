@@ -63,12 +63,10 @@ test.describe('Tenant Creation Flow', () => {
     test('should navigate to tenant details', async ({ page }) => {
         await page.goto(localePath('/tenants'));
 
-        // Wait for tenants to load (links with locale prefix)
-        await page.waitForSelector('a[href*="/tenants/"]:not([href*="/tenants/new"])', { timeout: 5000 });
-
-        // Click on first tenant card link
-        const firstTenantLink = page.locator('a[href*="/tenants/"]:not([href*="/tenants/new"])').first();
-        await firstTenantLink.click({ force: true });
+        // Click tenant details link from card title
+        const firstTenantDetailLink = page.getByTestId('tenant-detail-link').first();
+        await expect(firstTenantDetailLink).toBeVisible({ timeout: 5000 });
+        await firstTenantDetailLink.click({ force: true });
 
         // Should navigate to tenant detail page
         await expect(page).toHaveURL(/\/es\/tenants\/[^/]+$/);
@@ -77,9 +75,10 @@ test.describe('Tenant Creation Flow', () => {
     test('should display edit button on tenant detail page', async ({ page }) => {
         await page.goto(localePath('/tenants'));
 
-        // Wait for and click first tenant
-        await page.waitForSelector('a[href*="/tenants/"]:not([href*="/tenants/new"])', { timeout: 5000 });
-        await page.locator('a[href*="/tenants/"]:not([href*="/tenants/new"])').first().click({ force: true });
+        // Wait for and click first tenant detail link
+        const firstTenantDetailLink = page.getByTestId('tenant-detail-link').first();
+        await expect(firstTenantDetailLink).toBeVisible({ timeout: 5000 });
+        await firstTenantDetailLink.click({ force: true });
 
         // Should show edit link
         await expect(page.locator('a[href*="/tenants/"][href*="/edit"]').first()).toBeVisible();
@@ -102,9 +101,10 @@ test.describe('Tenant Creation Flow', () => {
     test('should navigate to edit tenant page', async ({ page }) => {
         await page.goto(localePath('/tenants'));
 
-        // Wait for and click first tenant
-        await page.waitForSelector('a[href*="/tenants/"]:not([href*="/tenants/new"])', { timeout: 5000 });
-        await page.locator('a[href*="/tenants/"]:not([href*="/tenants/new"])').first().click({ force: true });
+        // Wait for and click first tenant detail link
+        const firstTenantDetailLink = page.getByTestId('tenant-detail-link').first();
+        await expect(firstTenantDetailLink).toBeVisible({ timeout: 5000 });
+        await firstTenantDetailLink.click({ force: true });
 
         // Click edit button
         await page.locator('a[href*="/tenants/"][href*="/edit"]').first().click({ force: true });

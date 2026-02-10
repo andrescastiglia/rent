@@ -7,8 +7,9 @@ test.describe('Tenant Receipts History', () => {
     });
 
     test('should show receipts history on tenant detail', async ({ page }) => {
-        await page.waitForSelector('a[href*="/tenants/"]:not([href*="/tenants/new"])', { timeout: 5000 });
-        await page.locator('a[href*="/tenants/"]:not([href*="/tenants/new"])').first().click({ force: true });
+        const firstTenantDetailLink = page.getByTestId('tenant-detail-link').first();
+        await expect(firstTenantDetailLink).toBeVisible({ timeout: 5000 });
+        await firstTenantDetailLink.click({ force: true });
 
         await expect(page).toHaveURL(/\/es\/tenants\/[^/]+$/);
         const receiptsSection = page.locator('section').filter({
