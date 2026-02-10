@@ -314,6 +314,12 @@ CREATE TYPE owner_activity_type AS ENUM (
 );
 CREATE TYPE owner_activity_status AS ENUM ('pending', 'completed', 'cancelled');
 
+-- Tenant activities
+CREATE TYPE tenant_activity_type AS ENUM (
+    'call', 'task', 'note', 'email', 'whatsapp', 'visit'
+);
+CREATE TYPE tenant_activity_status AS ENUM ('pending', 'completed', 'cancelled');
+
 -- Property reservations
 CREATE TYPE property_reservation_status AS ENUM ('active', 'released', 'converted');
 
@@ -990,6 +996,33 @@ CREATE TRIGGER update_owner_activities_updated_at
 COMMENT ON TABLE owner_activities IS 'Activities timeline for property owners';
 
 -- -----------------------------------------------------------------------------
+-- Tenant Activities
+-- -----------------------------------------------------------------------------
+CREATE TABLE tenant_activities (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id),
+    tenant_id UUID NOT NULL REFERENCES tenants(id),
+    type tenant_activity_type NOT NULL,
+    status tenant_activity_status NOT NULL DEFAULT 'pending',
+    subject VARCHAR(200) NOT NULL,
+    body TEXT,
+    due_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_by_user_id UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_tenant_activities_tenant_id
+    ON tenant_activities(tenant_id);
+CREATE INDEX idx_tenant_activities_company_id
+    ON tenant_activities(company_id);
+CREATE INDEX idx_tenant_activities_status
+    ON tenant_activities(status);
+
+-- -----------------------------------------------------------------------------
 -- Property Reservations (Person <-> Property)
 -- -----------------------------------------------------------------------------
 CREATE TABLE property_reservations (
@@ -1073,6 +1106,26 @@ COMMENT ON TABLE documents IS 'Documents attached to various entities';
 \echo 'Creando tablas de contratos...'
 
 -- -----------------------------------------------------------------------------
+-- Lease Contract Templates
+-- -----------------------------------------------------------------------------
+CREATE TABLE lease_contract_templates (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id),
+    name VARCHAR(120) NOT NULL,
+    contract_type contract_type NOT NULL,
+    template_body TEXT NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_lease_contract_templates_company_id
+    ON lease_contract_templates(company_id);
+CREATE INDEX idx_lease_contract_templates_contract_type
+    ON lease_contract_templates(contract_type);
+
+-- -----------------------------------------------------------------------------
 -- Leases
 -- -----------------------------------------------------------------------------
 CREATE TABLE leases (
@@ -1116,6 +1169,13 @@ CREATE TABLE leases (
     additional_expenses DECIMAL(12, 2) DEFAULT 0,
     terms_and_conditions TEXT,
     special_clauses TEXT,
+    template_id UUID REFERENCES lease_contract_templates(id),
+    template_name VARCHAR(120),
+    draft_contract_text TEXT,
+    confirmed_contract_text TEXT,
+    confirmed_at TIMESTAMPTZ,
+    previous_lease_id UUID REFERENCES leases(id),
+    version_number INTEGER NOT NULL DEFAULT 1,
     contract_pdf_url TEXT,
     notes TEXT,
     signed_at TIMESTAMPTZ,
@@ -1167,6 +1227,7 @@ CREATE INDEX idx_leases_next_adjustment ON leases(next_adjustment_date)
     WHERE next_adjustment_date IS NOT NULL AND status = 'active';
 CREATE INDEX idx_leases_billing ON leases(billing_frequency, billing_day) 
     WHERE auto_generate_invoices = TRUE AND status = 'active';
+CREATE INDEX idx_leases_previous_lease_id ON leases(previous_lease_id);
 
 CREATE TRIGGER update_leases_updated_at
     BEFORE UPDATE ON leases FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

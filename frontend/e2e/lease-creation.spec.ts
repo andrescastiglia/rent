@@ -1,5 +1,7 @@
 import { test, expect, login, localePath } from './fixtures/auth';
 
+const leaseDetailLinkSelector = 'a[href*="/leases/"]:not([href*="/leases/new"]):not([href*="/leases/templates"]):not([href*="/edit"])';
+
 test.describe('Lease Creation Flow', () => {
     test.beforeEach(async ({ page }) => {
         await login(page);
@@ -68,10 +70,10 @@ test.describe('Lease Creation Flow', () => {
         await page.goto(localePath('/leases'));
 
         // Wait for leases to load
-        await page.waitForSelector('a[href*="/leases/"]:not([href*="/leases/new"])', { timeout: 5000 });
+        await page.waitForSelector(leaseDetailLinkSelector, { timeout: 5000 });
 
         // Click on first lease card link
-        const firstLeaseLink = page.locator('a[href*="/leases/"]:not([href*="/leases/new"])').first();
+        const firstLeaseLink = page.locator(leaseDetailLinkSelector).first();
         await firstLeaseLink.click({ force: true });
 
         // Should navigate to lease detail page
@@ -82,8 +84,8 @@ test.describe('Lease Creation Flow', () => {
         await page.goto(localePath('/leases'));
 
         // Wait for and click first lease
-        await page.waitForSelector('a[href*="/leases/"]:not([href*="/leases/new"])', { timeout: 5000 });
-        await page.locator('a[href*="/leases/"]:not([href*="/leases/new"])').first().click({ force: true });
+        await page.waitForSelector(leaseDetailLinkSelector, { timeout: 5000 });
+        await page.locator(leaseDetailLinkSelector).first().click({ force: true });
 
         // Should show lease information sections
         await expect(page.getByRole('heading', { name: /lease|contrato/i })).toBeVisible();
@@ -93,11 +95,11 @@ test.describe('Lease Creation Flow', () => {
         await page.goto(localePath('/leases'));
 
         // Wait for and click first lease
-        await page.waitForSelector('a[href*="/leases/"]:not([href*="/leases/new"])', { timeout: 5000 });
-        await page.locator('a[href*="/leases/"]:not([href*="/leases/new"])').first().click({ force: true });
+        await page.waitForSelector(leaseDetailLinkSelector, { timeout: 5000 });
+        await page.locator(leaseDetailLinkSelector).first().click({ force: true });
 
-        // Should show edit and delete buttons
-        await expect(page.getByRole('link', { name: /edit|editar/i })).toBeVisible();
+        // Should show edit/new-version and delete buttons
+        await expect(page.locator('a[href*="/leases/"][href$="/edit"]')).toBeVisible();
         await expect(page.getByRole('button', { name: /delete|eliminar/i })).toBeVisible();
     });
 
@@ -119,11 +121,11 @@ test.describe('Lease Creation Flow', () => {
         await page.goto(localePath('/leases'));
 
         // Wait for and click first lease
-        await page.waitForSelector('a[href*="/leases/"]:not([href*="/leases/new"])', { timeout: 5000 });
-        await page.locator('a[href*="/leases/"]:not([href*="/leases/new"])').first().click({ force: true });
+        await page.waitForSelector(leaseDetailLinkSelector, { timeout: 5000 });
+        await page.locator(leaseDetailLinkSelector).first().click({ force: true });
 
-        // Click edit button
-        await page.getByRole('link', { name: /edit|editar/i }).click({ force: true });
+        // Click edit/new-version button
+        await page.locator('a[href*="/leases/"][href$="/edit"]').click({ force: true });
 
         // Should navigate to edit page
         await expect(page).toHaveURL(/\/es\/leases\/[^/]+\/edit$/);

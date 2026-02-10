@@ -640,6 +640,10 @@
   "leases": {
     "title": "Contratos",
     "subtitle": "Gestiona los contratos de alquiler",
+    "showFinalized": "Ver también finalizados",
+    "manageTemplates": "Plantillas",
+    "versionLabel": "Versión {version}",
+    "createNewVersion": "Nueva versión",
     "createLease": "Crear Contrato",
     "newLease": "Nuevo Contrato",
     "editLease": "Editar Contrato",
@@ -676,6 +680,8 @@
     "documents": "Documentos",
     "document": "Documento",
     "noDocuments": "Sin documentos adjuntos.",
+    "confirmedTextTitle": "Contrato confirmado",
+    "templateInUse": "Plantilla aplicada",
     "generatePdf": "Generar PDF del Contrato",
     "selectProperty": "Seleccionar Propiedad",
     "selectTenant": "Seleccionar Inquilino",
@@ -710,8 +716,32 @@
       "inflationIndexType": "Índice de Inflación",
       "nextAdjustmentDate": "Próxima Fecha de Ajuste",
       "contractType": "Tipo de contrato",
+      "template": "Plantilla",
       "buyer": "Comprador",
       "fiscalValue": "Valor fiscal"
+    },
+    "templates": {
+      "title": "Plantillas de contratos",
+      "listTitle": "Plantillas disponibles",
+      "new": "Nueva plantilla",
+      "select": "Seleccionar plantilla",
+      "none": "Sin plantilla",
+      "active": "Activa",
+      "inactive": "Inactiva",
+      "empty": "No hay plantillas para este tipo de contrato.",
+      "requiredForDraft": "Selecciona una plantilla para generar el borrador.",
+      "fields": {
+        "name": "Nombre de la plantilla",
+        "body": "Texto de plantilla (usa {{lease.campo}}, {{property.campo}}, {{tenant.campo}}, {{buyer.campo}}, {{owner.campo}})",
+        "active": "Plantilla activa"
+      }
+    },
+    "draft": {
+      "title": "Borrador de contrato",
+      "renderFromTemplate": "Regenerar desde plantilla",
+      "saveDraft": "Guardar borrador",
+      "confirm": "Confirmar contrato",
+      "empty": "Sin texto confirmado."
     },
     "billing": {
       "title": "Configuración de Facturación",

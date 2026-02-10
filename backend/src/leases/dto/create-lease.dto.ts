@@ -40,6 +40,10 @@ export class CreateLeaseDto {
   @IsOptional()
   ownerId?: string;
 
+  @IsUUID()
+  @IsOptional()
+  templateId?: string;
+
   @IsEnum(ContractType)
   @IsOptional()
   contractType?: ContractType = ContractType.RENTAL;

@@ -18,11 +18,20 @@ export class PdfService {
     private readonly i18n: I18nService,
   ) {}
 
-  async generateContract(lease: Lease, _userId: string): Promise<Document> {
+  async generateContract(
+    lease: Lease,
+    _userId: string,
+    contractText?: string,
+  ): Promise<Document> {
     // Obtener idioma preferido del usuario o default
     const lang = lease.tenant?.user?.language || 'es';
     // Generate PDF buffer
-    const pdfBuffer = await generateContractPdf(lease, this.i18n, lang);
+    const pdfBuffer = await generateContractPdf(
+      lease,
+      this.i18n,
+      lang,
+      contractText,
+    );
 
     // Create document record
     const document = await this.documentsRepository.save(

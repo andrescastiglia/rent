@@ -1,28 +1,31 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Lease } from '@/types/lease';
 import { leasesApi } from '@/lib/api/leases';
 import { LeaseCard } from '@/components/leases/LeaseCard';
 import { Search, Loader2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/auth-context';
 
 export default function LeasesPage() {
   const { loading: authLoading } = useAuth();
   const t = useTranslations('leases');
+  const locale = useLocale();
   const [leases, setLeases] = useState<Lease[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [includeFinalized, setIncludeFinalized] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
-    loadLeases();
-  }, [authLoading]);
+    loadLeases(includeFinalized);
+  }, [authLoading, includeFinalized]);
 
-  const loadLeases = async () => {
+  const loadLeases = async (showFinalized: boolean) => {
     try {
-      const data = await leasesApi.getAll();
+      const data = await leasesApi.getAll({ includeFinalized: showFinalized });
       setLeases(data);
     } catch (error) {
       console.error('Failed to load leases', error);
@@ -43,6 +46,23 @@ export default function LeasesPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('title')}</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">{t('subtitle')}</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <label className="inline-flex items-center text-sm text-gray-600 dark:text-gray-300">
+            <input
+              type="checkbox"
+              className="mr-2"
+              checked={includeFinalized}
+              onChange={(e) => setIncludeFinalized(e.target.checked)}
+            />
+            {t('showFinalized')}
+          </label>
+          <Link
+            href={`/${locale}/leases/templates`}
+            className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-200"
+          >
+            {t('manageTemplates')}
+          </Link>
         </div>
       </div>
 

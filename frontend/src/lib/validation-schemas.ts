@@ -81,6 +81,7 @@ export const createLeaseSchema = (t: TranslationFunction) => z.object({
   tenantId: z.string().optional(),
   buyerProfileId: z.string().optional(),
   ownerId: z.string().optional(),
+  templateId: z.string().optional(),
   contractType: z.enum(['rental', 'sale'] as const).default('rental'),
   startDate: z.string().optional(),
   endDate: z.string().optional(),

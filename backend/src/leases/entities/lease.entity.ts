@@ -16,6 +16,7 @@ import { Company } from '../../companies/entities/company.entity';
 import { LeaseAmendment } from './lease-amendment.entity';
 import { Currency } from '../../currencies/entities/currency.entity';
 import { InterestedProfile } from '../../interested/entities/interested-profile.entity';
+import { LeaseContractTemplate } from './lease-contract-template.entity';
 
 export enum PaymentFrequency {
   MONTHLY = 'monthly',
@@ -329,6 +330,40 @@ export class Lease {
 
   @Column({ name: 'contract_pdf_url', type: 'text', nullable: true })
   contractPdfUrl: string | null;
+
+  @Column({ name: 'template_id', nullable: true })
+  templateId: string | null;
+
+  @ManyToOne(() => LeaseContractTemplate, { nullable: true })
+  @JoinColumn({ name: 'template_id' })
+  template: LeaseContractTemplate | null;
+
+  @Column({
+    name: 'template_name',
+    type: 'varchar',
+    length: 120,
+    nullable: true,
+  })
+  templateName: string | null;
+
+  @Column({ name: 'draft_contract_text', type: 'text', nullable: true })
+  draftContractText: string | null;
+
+  @Column({ name: 'confirmed_contract_text', type: 'text', nullable: true })
+  confirmedContractText: string | null;
+
+  @Column({ name: 'confirmed_at', type: 'timestamptz', nullable: true })
+  confirmedAt: Date | null;
+
+  @Column({ name: 'previous_lease_id', nullable: true })
+  previousLeaseId: string | null;
+
+  @ManyToOne(() => Lease, { nullable: true })
+  @JoinColumn({ name: 'previous_lease_id' })
+  previousLease: Lease | null;
+
+  @Column({ name: 'version_number', type: 'integer', default: 1 })
+  versionNumber: number;
 
   @Column({ type: 'text', nullable: true })
   notes: string;

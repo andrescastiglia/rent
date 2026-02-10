@@ -1,4 +1,9 @@
-import { Lease, CreateLeaseInput, UpdateLeaseInput } from '@/types/lease';
+import {
+    Lease,
+    LeaseTemplate,
+    CreateLeaseInput,
+    UpdateLeaseInput,
+} from '@/types/lease';
 import type { Property } from '@/types/property';
 import type { Tenant } from '@/types/tenant';
 import { apiClient } from '../api';
@@ -37,6 +42,8 @@ type BackendLease = {
     tenantId?: string | null;
     buyerProfileId?: string | null;
     ownerId: string;
+    templateId?: string | null;
+    templateName?: string | null;
     contractType?: 'rental' | 'sale' | null;
     startDate?: string | Date | null;
     endDate?: string | Date | null;
@@ -63,10 +70,25 @@ type BackendLease = {
     nextAdjustmentDate?: string | Date | null;
     lastAdjustmentDate?: string | Date | null;
     termsAndConditions?: string | null;
+    draftContractText?: string | null;
+    confirmedContractText?: string | null;
+    confirmedAt?: string | Date | null;
+    previousLeaseId?: string | null;
+    versionNumber?: number | null;
     documents?: any[] | null;
     property?: any;
     tenant?: BackendTenant | null;
     buyerProfile?: BackendBuyerProfile | null;
+};
+
+type BackendLeaseTemplate = {
+    id: string;
+    name: string;
+    contractType: 'rental' | 'sale';
+    templateBody: string;
+    isActive: boolean;
+    createdAt?: string | Date;
+    updatedAt?: string | Date;
 };
 
 type BackendLeasePayload = {
@@ -75,6 +97,7 @@ type BackendLeasePayload = {
     tenantId?: string;
     buyerProfileId?: string;
     ownerId?: string;
+    templateId?: string;
     contractType?: 'rental' | 'sale';
     startDate?: string;
     endDate?: string;
@@ -97,6 +120,13 @@ type BackendLeasePayload = {
     inflationIndexType?: string;
     nextAdjustmentDate?: string;
     termsAndConditions?: string;
+    draftContractText?: string;
+};
+
+type LeaseListFilters = {
+    includeFinalized?: boolean;
+    status?: Lease['status'];
+    contractType?: Lease['contractType'];
 };
 
 const isPaginatedResponse = <T,>(value: any): value is PaginatedResponse<T> => {
@@ -125,6 +155,7 @@ const toBackendLeasePayload = (
     if (data.tenantId !== undefined) payload.tenantId = data.tenantId;
     if (data.buyerProfileId !== undefined) payload.buyerProfileId = data.buyerProfileId;
     if (data.ownerId !== undefined) payload.ownerId = data.ownerId;
+    if (data.templateId !== undefined) payload.templateId = data.templateId;
     if (data.contractType !== undefined) payload.contractType = data.contractType;
     if (data.startDate !== undefined) payload.startDate = data.startDate;
     if (data.endDate !== undefined) payload.endDate = data.endDate;
@@ -236,6 +267,8 @@ const mapBackendLeaseToLease = (raw: BackendLease): Lease => {
         tenantId: raw.tenantId ?? undefined,
         buyerProfileId: raw.buyerProfileId ?? undefined,
         ownerId: raw.ownerId,
+        templateId: raw.templateId ?? undefined,
+        templateName: raw.templateName ?? undefined,
         contractType: raw.contractType ?? 'rental',
         startDate: raw.startDate ? normalizeDate(raw.startDate) : undefined,
         endDate: raw.endDate ? normalizeDate(raw.endDate) : undefined,
@@ -251,6 +284,11 @@ const mapBackendLeaseToLease = (raw: BackendLease): Lease => {
         currency: raw.currency ?? 'ARS',
         status: mapLeaseStatus(raw.status),
         terms: raw.termsAndConditions ?? undefined,
+        draftContractText: raw.draftContractText ?? undefined,
+        confirmedContractText: raw.confirmedContractText ?? undefined,
+        confirmedAt: raw.confirmedAt ? normalizeDate(raw.confirmedAt) : undefined,
+        previousLeaseId: raw.previousLeaseId ?? undefined,
+        versionNumber: raw.versionNumber ?? undefined,
         documents: Array.isArray(raw.documents) ? raw.documents.filter((d) => typeof d === 'string') : [],
         createdAt: normalizeDate(raw.createdAt),
         updatedAt: normalizeDate(raw.updatedAt),
@@ -274,6 +312,18 @@ const mapBackendLeaseToLease = (raw: BackendLease): Lease => {
         buyerProfile,
     };
 };
+
+const mapBackendTemplateToTemplate = (
+    raw: BackendLeaseTemplate,
+): LeaseTemplate => ({
+    id: raw.id,
+    name: raw.name,
+    contractType: raw.contractType,
+    templateBody: raw.templateBody,
+    isActive: raw.isActive,
+    createdAt: raw.createdAt ? normalizeDate(raw.createdAt) : new Date().toISOString(),
+    updatedAt: raw.updatedAt ? normalizeDate(raw.updatedAt) : new Date().toISOString(),
+});
 
 // Mock data for development/testing
 const MOCK_LEASES: Lease[] = [
@@ -313,6 +363,29 @@ const MOCK_LEASES: Lease[] = [
     },
 ];
 
+const MOCK_TEMPLATES: LeaseTemplate[] = [
+    {
+        id: 'template-rental-1',
+        name: 'Plantilla alquiler base',
+        contractType: 'rental',
+        templateBody:
+            'Contrato de alquiler para {{tenant.fullName}}.\n\nLa propiedad ubicada en {{property.addressStreet}} {{property.addressNumber}} se alquila por {{lease.monthlyRent}} {{lease.currency}}.',
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+    },
+    {
+        id: 'template-sale-1',
+        name: 'Plantilla compra/venta base',
+        contractType: 'sale',
+        templateBody:
+            'Contrato de compraventa para {{buyer.fullName}}.\n\nLa operación sobre {{property.name}} se pacta por {{lease.fiscalValue}} {{lease.currency}}.',
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+    },
+];
+
 // Use mock data in test/CI environments, real API in production
 const IS_MOCK_MODE = process.env.NODE_ENV === 'test' || 
                      process.env.NEXT_PUBLIC_MOCK_MODE === 'true' || 
@@ -322,7 +395,7 @@ const DELAY = 500;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const leasesApi = {
-    getAll: async (): Promise<Lease[]> => {
+    getAll: async (filters?: LeaseListFilters): Promise<Lease[]> => {
         if (IS_MOCK_MODE) {
             await delay(DELAY);
             // Enrich with related data for list view
@@ -333,12 +406,26 @@ export const leasesApi = {
                     : null;
                 return { ...lease, property: property || undefined, tenant: tenant || undefined };
             }));
-            return leasesWithRelations;
+            if (filters?.includeFinalized) {
+                return leasesWithRelations.filter((item) =>
+                    item.status === 'ACTIVE' || item.status === 'FINALIZED',
+                );
+            }
+            if (filters?.status) {
+                return leasesWithRelations.filter((item) => item.status === filters.status);
+            }
+            return leasesWithRelations.filter((item) => item.status === 'ACTIVE');
         }
         
         const token = getToken();
+        const queryParams = new URLSearchParams();
+        if (filters?.includeFinalized !== undefined) {
+            queryParams.append('includeFinalized', String(filters.includeFinalized));
+        }
+        if (filters?.status) queryParams.append('status', filters.status.toLowerCase());
+        if (filters?.contractType) queryParams.append('contractType', filters.contractType);
         const result = await apiClient.get<PaginatedResponse<BackendLease> | BackendLease[] | any>(
-            '/leases',
+            queryParams.toString().length > 0 ? `/leases?${queryParams.toString()}` : '/leases',
             token ?? undefined,
         );
 
@@ -423,6 +510,149 @@ export const leasesApi = {
             token ?? undefined,
         );
         return mapBackendLeaseToLease(result);
+    },
+
+    renderDraft: async (id: string, templateId?: string): Promise<Lease> => {
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            const lease = MOCK_LEASES.find((item) => item.id === id);
+            if (!lease) throw new Error('Lease not found');
+            const template =
+                MOCK_TEMPLATES.find((item) => item.id === templateId) ??
+                MOCK_TEMPLATES.find((item) => item.contractType === lease.contractType);
+            if (!template) throw new Error('Template not found');
+            lease.templateId = template.id;
+            lease.templateName = template.name;
+            lease.draftContractText = template.templateBody;
+            lease.updatedAt = new Date().toISOString();
+            return lease;
+        }
+
+        const token = getToken();
+        const result = await apiClient.post<BackendLease>(
+            `/leases/${id}/draft/render`,
+            { templateId },
+            token ?? undefined,
+        );
+        return mapBackendLeaseToLease(result);
+    },
+
+    updateDraftText: async (id: string, draftText: string): Promise<Lease> => {
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            const lease = MOCK_LEASES.find((item) => item.id === id);
+            if (!lease) throw new Error('Lease not found');
+            lease.draftContractText = draftText;
+            lease.updatedAt = new Date().toISOString();
+            return lease;
+        }
+
+        const token = getToken();
+        const result = await apiClient.patch<BackendLease>(
+            `/leases/${id}/draft-text`,
+            { draftText },
+            token ?? undefined,
+        );
+        return mapBackendLeaseToLease(result);
+    },
+
+    confirmDraft: async (id: string, finalText?: string): Promise<Lease> => {
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            const lease = MOCK_LEASES.find((item) => item.id === id);
+            if (!lease) throw new Error('Lease not found');
+            lease.status = 'ACTIVE';
+            lease.confirmedAt = new Date().toISOString();
+            lease.confirmedContractText = finalText ?? lease.draftContractText;
+            lease.updatedAt = new Date().toISOString();
+            return lease;
+        }
+
+        const token = getToken();
+        const result = await apiClient.post<BackendLease>(
+            `/leases/${id}/confirm`,
+            { finalText },
+            token ?? undefined,
+        );
+        return mapBackendLeaseToLease(result);
+    },
+
+    getTemplates: async (contractType?: Lease['contractType']): Promise<LeaseTemplate[]> => {
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            return contractType
+                ? MOCK_TEMPLATES.filter((item) => item.contractType === contractType)
+                : [...MOCK_TEMPLATES];
+        }
+
+        const token = getToken();
+        const query = contractType ? `?contractType=${contractType}` : '';
+        const result = await apiClient.get<BackendLeaseTemplate[]>(
+            `/leases/templates${query}`,
+            token ?? undefined,
+        );
+        return result.map(mapBackendTemplateToTemplate);
+    },
+
+    createTemplate: async (data: {
+        name: string;
+        contractType: Lease['contractType'];
+        templateBody: string;
+        isActive?: boolean;
+    }): Promise<LeaseTemplate> => {
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            const created: LeaseTemplate = {
+                id: `template-${Math.random().toString(36).slice(2, 10)}`,
+                name: data.name,
+                contractType: data.contractType,
+                templateBody: data.templateBody,
+                isActive: data.isActive ?? true,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            };
+            MOCK_TEMPLATES.unshift(created);
+            return created;
+        }
+
+        const token = getToken();
+        const result = await apiClient.post<BackendLeaseTemplate>(
+            '/leases/templates',
+            data,
+            token ?? undefined,
+        );
+        return mapBackendTemplateToTemplate(result);
+    },
+
+    updateTemplate: async (
+        templateId: string,
+        data: Partial<{
+            name: string;
+            contractType: Lease['contractType'];
+            templateBody: string;
+            isActive: boolean;
+        }>,
+    ): Promise<LeaseTemplate> => {
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            const index = MOCK_TEMPLATES.findIndex((item) => item.id === templateId);
+            if (index < 0) throw new Error('Template not found');
+            const updated: LeaseTemplate = {
+                ...MOCK_TEMPLATES[index],
+                ...data,
+                updatedAt: new Date().toISOString(),
+            } as LeaseTemplate;
+            MOCK_TEMPLATES[index] = updated;
+            return updated;
+        }
+
+        const token = getToken();
+        const result = await apiClient.patch<BackendLeaseTemplate>(
+            `/leases/templates/${templateId}`,
+            data,
+            token ?? undefined,
+        );
+        return mapBackendTemplateToTemplate(result);
     },
 
     delete: async (id: string): Promise<void> => {

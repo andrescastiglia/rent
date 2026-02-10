@@ -22,6 +22,10 @@ export default function LeaseDetailPage() {
   const [lease, setLease] = useState<Lease | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloadingContract, setDownloadingContract] = useState(false);
+  const [draftText, setDraftText] = useState('');
+  const [renderingDraft, setRenderingDraft] = useState(false);
+  const [savingDraftText, setSavingDraftText] = useState(false);
+  const [confirmingDraft, setConfirmingDraft] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -34,6 +38,7 @@ export default function LeaseDetailPage() {
     try {
       const data = await leasesApi.getById(id);
       setLease(data);
+      setDraftText(data?.draftContractText ?? '');
     } catch (error) {
       console.error('Failed to load lease', error);
     } finally {
@@ -63,6 +68,54 @@ export default function LeaseDetailPage() {
       alert(tCommon('error'));
     } finally {
       setDownloadingContract(false);
+    }
+  };
+
+  const handleRenderDraft = async () => {
+    if (!lease) return;
+    if (!lease.templateId) {
+      alert(t('templates.requiredForDraft'));
+      return;
+    }
+    try {
+      setRenderingDraft(true);
+      const updated = await leasesApi.renderDraft(lease.id, lease.templateId);
+      setLease(updated);
+      setDraftText(updated.draftContractText ?? '');
+    } catch (error) {
+      console.error('Failed to render draft', error);
+      alert(tCommon('error'));
+    } finally {
+      setRenderingDraft(false);
+    }
+  };
+
+  const handleSaveDraftText = async () => {
+    if (!lease) return;
+    try {
+      setSavingDraftText(true);
+      const updated = await leasesApi.updateDraftText(lease.id, draftText);
+      setLease(updated);
+    } catch (error) {
+      console.error('Failed to save draft text', error);
+      alert(tCommon('error'));
+    } finally {
+      setSavingDraftText(false);
+    }
+  };
+
+  const handleConfirmDraft = async () => {
+    if (!lease) return;
+    try {
+      setConfirmingDraft(true);
+      const updated = await leasesApi.confirmDraft(lease.id, draftText);
+      setLease(updated);
+      setDraftText(updated.draftContractText ?? '');
+    } catch (error) {
+      console.error('Failed to confirm draft', error);
+      alert(tCommon('error'));
+    } finally {
+      setConfirmingDraft(false);
     }
   };
 
@@ -102,7 +155,9 @@ export default function LeaseDetailPage() {
                   <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('leaseAgreement')}</h1>
                   <LeaseStatusBadge status={lease.status} />
                </div>
-               <p className="text-gray-500 dark:text-gray-400">ID: {lease.id}</p>
+               <p className="text-gray-500 dark:text-gray-400">
+                 ID: {lease.id} · {t('versionLabel', { version: lease.versionNumber ?? 1 })}
+               </p>
             </div>
             <div className="flex space-x-2">
               <Link
@@ -110,7 +165,7 @@ export default function LeaseDetailPage() {
                 className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 <Edit size={16} className="mr-2" />
-                {tCommon('edit')}
+                {lease.status === 'DRAFT' ? tCommon('edit') : t('createNewVersion')}
               </Link>
               <button
                 onClick={handleDelete}
@@ -162,6 +217,57 @@ export default function LeaseDetailPage() {
                       )}
                     </div>
                   </div>
+                </div>
+              </section>
+
+              <section>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  {lease.status === 'DRAFT' ? t('draft.title') : t('confirmedTextTitle')}
+                </h2>
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-3">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {t('templateInUse')}: {lease.templateName || t('templates.none')}
+                  </p>
+                  {lease.status === 'DRAFT' ? (
+                    <>
+                      <textarea
+                        rows={14}
+                        value={draftText}
+                        onChange={(e) => setDraftText(e.target.value)}
+                        className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
+                      />
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void handleRenderDraft()}
+                          disabled={renderingDraft}
+                          className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm"
+                        >
+                          {renderingDraft ? tCommon('loading') : t('draft.renderFromTemplate')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleSaveDraftText()}
+                          disabled={savingDraftText}
+                          className="px-3 py-2 rounded-md border border-blue-300 dark:border-blue-700 text-sm text-blue-700 dark:text-blue-300"
+                        >
+                          {savingDraftText ? tCommon('saving') : t('draft.saveDraft')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleConfirmDraft()}
+                          disabled={confirmingDraft}
+                          className="px-3 py-2 rounded-md bg-green-600 text-white text-sm disabled:opacity-60"
+                        >
+                          {confirmingDraft ? tCommon('saving') : t('draft.confirm')}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                      {lease.confirmedContractText || lease.draftContractText || t('draft.empty')}
+                    </p>
+                  )}
                 </div>
               </section>
 

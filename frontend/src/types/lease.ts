@@ -10,6 +10,16 @@ export type LateFeeType = 'none' | 'fixed' | 'percentage' | 'daily_fixed' | 'dai
 export type AdjustmentType = 'fixed' | 'percentage' | 'inflation_index';
 export type InflationIndexType = 'icl' | 'ipc' | 'igp_m' | 'casa_propia' | 'custom';
 
+export interface LeaseTemplate {
+    id: string;
+    name: string;
+    contractType: ContractType;
+    templateBody: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export interface Currency {
     code: string;
     symbol: string;
@@ -23,6 +33,8 @@ export interface Lease {
     tenantId?: string;
     buyerProfileId?: string;
     ownerId: string;
+    templateId?: string;
+    templateName?: string;
     contractType: ContractType;
     startDate?: string;
     endDate?: string;
@@ -33,6 +45,11 @@ export interface Lease {
     currencyData?: Currency;
     status: LeaseStatus;
     terms?: string;
+    draftContractText?: string;
+    confirmedContractText?: string;
+    confirmedAt?: string;
+    previousLeaseId?: string;
+    versionNumber?: number;
     documents: string[]; // URLs to PDFs
     createdAt: string;
     updatedAt: string;
@@ -69,6 +86,7 @@ export interface CreateLeaseInput {
     tenantId?: string;
     buyerProfileId?: string;
     ownerId?: string;
+    templateId?: string;
     contractType: ContractType;
     startDate?: string;
     endDate?: string;

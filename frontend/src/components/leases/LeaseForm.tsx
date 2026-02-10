@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useForm, Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CreateLeaseInput, Lease } from '@/types/lease';
+import { CreateLeaseInput, Lease, LeaseTemplate } from '@/types/lease';
 import { Owner } from '@/types/owner';
 import { leasesApi } from '@/lib/api/leases';
 import { propertiesApi } from '@/lib/api/properties';
@@ -44,6 +44,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const [tenantOptions, setTenantOptions] = useState<LeaseTenantOption[]>([]);
   const [buyerOptions, setBuyerOptions] = useState<LeaseBuyerOption[]>([]);
   const [owners, setOwners] = useState<Owner[]>([]);
+  const [templates, setTemplates] = useState<LeaseTemplate[]>([]);
 
   // Crear schema con mensajes traducidos
   const leaseSchema = useMemo(() => createLeaseSchema(tValidation), [tValidation]);
@@ -80,10 +81,11 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [props, interestedResponse, owns] = await Promise.all([
+        const [props, interestedResponse, owns, leaseTemplates] = await Promise.all([
           propertiesApi.getAll(),
           interestedApi.getAll({ status: 'won', limit: 200 }),
-          ownersApi.getAll()
+          ownersApi.getAll(),
+          leasesApi.getTemplates(),
         ]);
         const options = interestedResponse.data
           .filter((profile) =>
@@ -107,6 +109,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
         setTenantOptions(options);
         setBuyerOptions(saleProfiles);
         setOwners(owns);
+        setTemplates(leaseTemplates);
       } catch (error) {
         console.error('Failed to load form data', error);
       }
@@ -149,8 +152,8 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     setIsSubmitting(true);
     try {
       if (isEditing && initialData) {
-        await leasesApi.update(initialData.id, data);
-        router.push(`/leases/${initialData.id}`);
+        const updated = await leasesApi.update(initialData.id, data);
+        router.push(`/leases/${updated.id}`);
       } else {
         const newLease = await leasesApi.create(data as CreateLeaseInput);
         router.push(`/leases/${newLease.id}`);
@@ -168,6 +171,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const labelClass = "block text-sm font-medium text-gray-700 dark:text-gray-300";
   const sectionClass = "space-y-4";
   const sectionTitleClass = "text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2";
+  const templatesForType = templates.filter((item) => item.contractType === contractType);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
@@ -196,6 +200,16 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
             <select id="contractType" {...register('contractType')} className={inputClass}>
               <option value="rental">{t('contractTypes.rental')}</option>
               <option value="sale">{t('contractTypes.sale')}</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="templateId" className={labelClass}>{t('fields.template')}</label>
+            <select id="templateId" {...register('templateId')} className={inputClass}>
+              <option value="">{t('templates.select')}</option>
+              {templatesForType.map((template) => (
+                <option key={template.id} value={template.id}>{template.name}</option>
+              ))}
             </select>
           </div>
 

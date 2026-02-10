@@ -10,6 +10,7 @@ import {
 } from '../properties/entities/property.entity';
 import { InterestedProfile } from '../interested/entities/interested-profile.entity';
 import { PdfService } from './pdf.service';
+import { LeaseContractTemplate } from './entities/lease-contract-template.entity';
 
 type MockRepository<T extends Record<string, any> = any> = Partial<
   Record<keyof Repository<T>, jest.Mock>
@@ -35,6 +36,7 @@ const createMockRepository = (): MockRepository => ({
 describe('LeasesService', () => {
   let service: LeasesService;
   let leaseRepository: MockRepository<Lease>;
+  let _templateRepository: MockRepository<LeaseContractTemplate>;
   let propertyRepository: MockRepository<Property>;
   let interestedRepository: MockRepository<InterestedProfile>;
   let pdfService: { generateContract: jest.Mock };
@@ -52,6 +54,10 @@ describe('LeasesService', () => {
           useValue: createMockRepository(),
         },
         {
+          provide: getRepositoryToken(LeaseContractTemplate),
+          useValue: createMockRepository(),
+        },
+        {
           provide: getRepositoryToken(Property),
           useValue: createMockRepository(),
         },
@@ -65,6 +71,7 @@ describe('LeasesService', () => {
 
     service = module.get(LeasesService);
     leaseRepository = module.get(getRepositoryToken(Lease));
+    _templateRepository = module.get(getRepositoryToken(LeaseContractTemplate));
     propertyRepository = module.get(getRepositoryToken(Property));
     interestedRepository = module.get(getRepositoryToken(InterestedProfile));
   });
@@ -87,7 +94,9 @@ describe('LeasesService', () => {
     } as unknown as Lease;
 
     propertyRepository.findOne!.mockResolvedValue(property);
-    leaseRepository.findOne!.mockResolvedValue(null);
+    leaseRepository
+      .findOne!.mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(payload);
     leaseRepository.create!.mockReturnValue(payload);
     leaseRepository.save!.mockResolvedValue(payload);
 
@@ -139,6 +148,7 @@ describe('LeasesService', () => {
       contractType: ContractType.RENTAL,
       propertyId: 'prop-1',
       companyId: 'company-1',
+      draftContractText: 'Contrato borrador',
     } as Lease;
     const active = { ...draft, status: LeaseStatus.ACTIVE } as Lease;
 

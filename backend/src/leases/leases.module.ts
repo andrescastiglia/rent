@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Lease } from './entities/lease.entity';
 import { LeaseAmendment } from './entities/lease-amendment.entity';
+import { LeaseContractTemplate } from './entities/lease-contract-template.entity';
 import { Property } from '../properties/entities/property.entity';
 import { Document } from '../documents/entities/document.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
@@ -19,6 +20,7 @@ import { DocumentsModule } from '../documents/documents.module';
     TypeOrmModule.forFeature([
       Lease,
       LeaseAmendment,
+      LeaseContractTemplate,
       Property,
       InterestedProfile,
       Document,

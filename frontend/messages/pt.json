@@ -640,6 +640,10 @@
   "leases": {
     "title": "Contratos",
     "subtitle": "Gerencie os contratos de aluguel",
+    "showFinalized": "Ver também finalizados",
+    "manageTemplates": "Modelos",
+    "versionLabel": "Versão {version}",
+    "createNewVersion": "Nova versão",
     "createLease": "Criar Contrato",
     "newLease": "Novo Contrato",
     "editLease": "Editar Contrato",
@@ -676,6 +680,8 @@
     "documents": "Documentos",
     "document": "Documento",
     "noDocuments": "Nenhum documento anexado.",
+    "confirmedTextTitle": "Contrato confirmado",
+    "templateInUse": "Modelo aplicado",
     "generatePdf": "Gerar PDF do Contrato",
     "selectProperty": "Selecionar Imóvel",
     "selectTenant": "Selecionar Inquilino",
@@ -710,8 +716,32 @@
       "inflationIndexType": "Índice de Inflação",
       "nextAdjustmentDate": "Próxima Data de Reajuste",
       "contractType": "Tipo de contrato",
+      "template": "Modelo",
       "buyer": "Comprador",
       "fiscalValue": "Valor fiscal"
+    },
+    "templates": {
+      "title": "Modelos de contrato",
+      "listTitle": "Modelos disponíveis",
+      "new": "Novo modelo",
+      "select": "Selecionar modelo",
+      "none": "Sem modelo",
+      "active": "Ativo",
+      "inactive": "Inativo",
+      "empty": "Não há modelos para este tipo de contrato.",
+      "requiredForDraft": "Selecione um modelo para gerar o rascunho.",
+      "fields": {
+        "name": "Nome do modelo",
+        "body": "Texto do modelo (use {{lease.campo}}, {{property.campo}}, {{tenant.campo}}, {{buyer.campo}}, {{owner.campo}})",
+        "active": "Modelo ativo"
+      }
+    },
+    "draft": {
+      "title": "Rascunho do contrato",
+      "renderFromTemplate": "Regenerar do modelo",
+      "saveDraft": "Salvar rascunho",
+      "confirm": "Confirmar contrato",
+      "empty": "Sem texto confirmado."
     },
     "billing": {
       "title": "Configuração de Faturamento",

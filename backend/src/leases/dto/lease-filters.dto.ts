@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEnum,
   IsInt,
   IsOptional,
@@ -7,7 +8,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { ContractType, LeaseStatus } from '../entities/lease.entity';
 
 export class LeaseFiltersDto {
@@ -34,6 +35,11 @@ export class LeaseFiltersDto {
   @IsString()
   @IsOptional()
   propertyAddress?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  includeFinalized?: boolean = false;
 
   @IsInt()
   @Min(1)

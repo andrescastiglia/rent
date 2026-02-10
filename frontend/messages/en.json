@@ -640,6 +640,10 @@
   "leases": {
     "title": "Leases",
     "subtitle": "Manage rental contracts",
+    "showFinalized": "Show finalized too",
+    "manageTemplates": "Templates",
+    "versionLabel": "Version {version}",
+    "createNewVersion": "New version",
     "createLease": "Create Lease",
     "newLease": "New Lease",
     "editLease": "Edit Lease",
@@ -676,6 +680,8 @@
     "documents": "Documents",
     "document": "Document",
     "noDocuments": "No documents attached.",
+    "confirmedTextTitle": "Confirmed contract",
+    "templateInUse": "Template in use",
     "generatePdf": "Generate PDF Contract",
     "selectProperty": "Select Property",
     "selectTenant": "Select Tenant",
@@ -710,8 +716,32 @@
       "inflationIndexType": "Inflation Index",
       "nextAdjustmentDate": "Next Adjustment Date",
       "contractType": "Contract type",
+      "template": "Template",
       "buyer": "Buyer",
       "fiscalValue": "Fiscal value"
+    },
+    "templates": {
+      "title": "Contract templates",
+      "listTitle": "Available templates",
+      "new": "New template",
+      "select": "Select template",
+      "none": "No template",
+      "active": "Active",
+      "inactive": "Inactive",
+      "empty": "No templates for this contract type.",
+      "requiredForDraft": "Select a template to render the draft.",
+      "fields": {
+        "name": "Template name",
+        "body": "Template text (use {{lease.field}}, {{property.field}}, {{tenant.field}}, {{buyer.field}}, {{owner.field}})",
+        "active": "Template active"
+      }
+    },
+    "draft": {
+      "title": "Contract draft",
+      "renderFromTemplate": "Re-render from template",
+      "saveDraft": "Save draft",
+      "confirm": "Confirm contract",
+      "empty": "No confirmed text."
     },
     "billing": {
       "title": "Billing Configuration",
