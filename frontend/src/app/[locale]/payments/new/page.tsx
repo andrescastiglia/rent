@@ -10,12 +10,14 @@ import { leasesApi } from '@/lib/api/leases';
 import { useTranslations } from 'next-intl';
 import { ArrowLeft, Loader2, Save } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
+import { CurrencySelect } from '@/components/common/CurrencySelect';
 
 export default function NewPaymentPage() {
     const { loading: authLoading } = useAuth();
     const router = useRouter();
     const t = useTranslations('payments');
     const tCommon = useTranslations('common');
+    const tCurrencies = useTranslations('currencies');
 
     const [leases, setLeases] = useState<Lease[]>([]);
     const [selectedLeaseId, setSelectedLeaseId] = useState('');
@@ -249,6 +251,18 @@ export default function NewPaymentPage() {
                                     </option>
                                 ))}
                             </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                {tCurrencies('title')} *
+                            </label>
+                            <CurrencySelect
+                                id="currencyCode"
+                                name="currencyCode"
+                                value={formData.currencyCode || ''}
+                                onChange={(value) => setFormData({ ...formData, currencyCode: value })}
+                            />
                         </div>
 
                         <div>

@@ -33,12 +33,14 @@ import {
 import { useLocale, useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/auth-context';
 import { IS_MOCK_MODE } from '@/lib/api';
+import { CurrencySelect } from '@/components/common/CurrencySelect';
 
 export default function TenantDetailPage() {
   const { loading: authLoading, token } = useAuth();
   const t = useTranslations('tenants');
   const tPayments = useTranslations('payments');
   const tCommon = useTranslations('common');
+  const tCurrencies = useTranslations('currencies');
   const locale = useLocale();
   const params = useParams();
   const tenantId = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -58,6 +60,7 @@ export default function TenantDetailPage() {
   const [completingActivityId, setCompletingActivityId] = useState<string | null>(null);
   const [paymentForm, setPaymentForm] = useState({
     amount: '',
+    currencyCode: 'ARS',
     paymentDate: new Date().toISOString().split('T')[0],
     method: 'bank_transfer' as PaymentMethod,
     reference: '',
@@ -231,6 +234,7 @@ export default function TenantDetailPage() {
       const created = await paymentsApi.create({
         tenantAccountId: tenantAccount.id,
         amount,
+        currencyCode: paymentForm.currencyCode,
         paymentDate: paymentForm.paymentDate,
         method: paymentForm.method,
         reference: paymentForm.reference || undefined,
@@ -247,6 +251,7 @@ export default function TenantDetailPage() {
       ]);
       setPaymentForm({
         amount: '',
+        currencyCode: 'ARS',
         paymentDate: new Date().toISOString().split('T')[0],
         method: 'bank_transfer',
         reference: '',
@@ -601,6 +606,16 @@ export default function TenantDetailPage() {
                             </option>
                           ))}
                         </select>
+                        <div className="space-y-1">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{tCurrencies('title')}</p>
+                          <CurrencySelect
+                            id="tenantPaymentCurrencyCode"
+                            name="tenantPaymentCurrencyCode"
+                            value={paymentForm.currencyCode}
+                            onChange={(value) => setPaymentForm((prev) => ({ ...prev, currencyCode: value }))}
+                            className="text-sm"
+                          />
+                        </div>
                         <input
                           type="text"
                           value={paymentForm.reference}

@@ -14,6 +14,7 @@ import { createPropertySchema, PropertyFormData } from '@/lib/validation-schemas
 import { Owner } from '@/types/owner';
 import { useAuth } from '@/contexts/auth-context';
 import { useSearchParams } from 'next/navigation';
+import { CurrencySelect } from '@/components/common/CurrencySelect';
 
 interface PropertyFormProps {
   initialData?: Property;
@@ -257,11 +258,14 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
 
           <div>
             <label htmlFor="saleCurrency" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.saleCurrency')}</label>
-            <input
-              id="saleCurrency"
-              {...register('saleCurrency')}
-              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
-            />
+            <div className="mt-1">
+              <CurrencySelect
+                id="saleCurrency"
+                name="saleCurrency"
+                value={watch('saleCurrency') || ''}
+                onChange={(value) => setValue('saleCurrency', value, { shouldValidate: true })}
+              />
+            </div>
           </div>
 
           <div className="md:col-span-2">

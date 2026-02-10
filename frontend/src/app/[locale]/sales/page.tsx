@@ -13,12 +13,14 @@ import {
 } from '@/types/sales';
 import { Download, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
+import { CurrencySelect } from '@/components/common/CurrencySelect';
 
 export default function SalesPage() {
   const { loading: authLoading } = useAuth();
   const t = useTranslations('sales');
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
   const tCommon = useTranslations('common');
+  const tCurrencies = useTranslations('currencies');
 
   const [folders, setFolders] = useState<SaleFolder[]>([]);
   const [agreements, setAgreements] = useState<SaleAgreement[]>([]);
@@ -241,6 +243,17 @@ export default function SalesPage() {
                 onChange={(e) => setAgreementForm((prev) => ({ ...prev, installmentAmount: Number(e.target.value) }))}
                 className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
               />
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
+                  {tCurrencies('title')}
+                </label>
+                <CurrencySelect
+                  id="agreementCurrency"
+                  name="agreementCurrency"
+                  value={agreementForm.currency || ''}
+                  onChange={(value) => setAgreementForm((prev) => ({ ...prev, currency: value }))}
+                />
+              </div>
               <input
                 type="number"
                 min="1"
