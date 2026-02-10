@@ -22,6 +22,7 @@
     "saving": "Salvando...",
     "actions": "Ações",
     "view": "Ver",
+    "id": "ID",
     "details": "Detalhes",
     "optional": "Opcional",
     "myProfile": "Meu Perfil",
@@ -503,6 +504,14 @@
       "balanceAfter": "Saldo"
     }
   },
+  "buyers": {
+    "title": "Compradores",
+    "subtitle": "Gerencie compradores potenciais e convertidos",
+    "searchPlaceholder": "Buscar compradores por nome, telefone ou email...",
+    "noBuyers": "Nenhum comprador cadastrado",
+    "noBuyersDescription": "Os compradores aparecerão aqui quando forem convertidos em Interessados.",
+    "buyerBadge": "Comprador"
+  },
   "tenants": {
     "title": "Inquilinos",
     "subtitle": "Gerencie inquilinos existentes",
@@ -744,6 +753,18 @@
         "name": "Nome do modelo",
         "body": "Texto do modelo (use {{lease.campo}}, {{property.campo}}, {{tenant.campo}}, {{buyer.campo}}, {{owner.campo}})",
         "active": "Modelo ativo"
+      },
+      "variables": {
+        "title": "Variáveis disponíveis",
+        "description": "Use os seguintes placeholders no modelo. Eles são substituídos automaticamente ao confirmar o contrato.",
+        "groups": {
+          "global": "Gerais",
+          "lease": "Contrato",
+          "property": "Imóvel",
+          "owner": "Proprietário",
+          "tenant": "Inquilino",
+          "buyer": "Comprador"
+        }
       }
     },
     "draft": {
@@ -881,6 +902,12 @@
       "digital_wallet": "Carteira digital",
       "crypto": "Cripto",
       "other": "Outro"
+    },
+    "actions": {
+      "viewInvoice": "Ver fatura",
+      "downloadReceipt": "Baixar recibo",
+      "downloadInvoice": "Baixar fatura",
+      "downloadCreditNote": "Baixar nota de crédito"
     }
   },
   "invoices": {
@@ -910,6 +937,9 @@
     "notes": "Observações",
     "downloadPdf": "Baixar PDF",
     "registerPayment": "Registrar Pagamento",
+    "actions": {
+      "downloadInvoice": "Baixar fatura"
+    },
     "status": {
       "draft": "Rascunho",
       "pending": "Pendente",

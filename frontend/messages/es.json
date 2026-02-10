@@ -22,6 +22,7 @@
     "saving": "Guardando...",
     "actions": "Acciones",
     "view": "Ver",
+    "id": "ID",
     "details": "Detalles",
     "optional": "Opcional",
     "myProfile": "Mi Perfil",
@@ -503,6 +504,14 @@
       "balanceAfter": "Saldo"
     }
   },
+  "buyers": {
+    "title": "Compradores",
+    "subtitle": "Gestiona compradores potenciales y convertidos",
+    "searchPlaceholder": "Buscar compradores por nombre, apellido, teléfono o email...",
+    "noBuyers": "No hay compradores registrados",
+    "noBuyersDescription": "Los compradores aparecerán aquí cuando se conviertan desde Interesados.",
+    "buyerBadge": "Comprador"
+  },
   "tenants": {
     "title": "Inquilinos",
     "subtitle": "Gestiona inquilinos existentes",
@@ -744,6 +753,18 @@
         "name": "Nombre de la plantilla",
         "body": "Texto de plantilla (usa {{lease.campo}}, {{property.campo}}, {{tenant.campo}}, {{buyer.campo}}, {{owner.campo}})",
         "active": "Plantilla activa"
+      },
+      "variables": {
+        "title": "Variables disponibles",
+        "description": "Usa los siguientes placeholders en la plantilla. Se reemplazan automáticamente al confirmar el contrato.",
+        "groups": {
+          "global": "Generales",
+          "lease": "Contrato",
+          "property": "Propiedad",
+          "owner": "Propietario",
+          "tenant": "Inquilino",
+          "buyer": "Comprador"
+        }
       }
     },
     "draft": {
@@ -881,6 +902,12 @@
       "digital_wallet": "Billetera digital",
       "crypto": "Cripto",
       "other": "Otro"
+    },
+    "actions": {
+      "viewInvoice": "Ver factura",
+      "downloadReceipt": "Descargar recibo",
+      "downloadInvoice": "Descargar factura",
+      "downloadCreditNote": "Descargar nota de crédito"
     }
   },
   "invoices": {
@@ -910,6 +937,9 @@
     "notes": "Notas",
     "downloadPdf": "Descargar PDF",
     "registerPayment": "Registrar Pago",
+    "actions": {
+      "downloadInvoice": "Descargar factura"
+    },
     "status": {
       "draft": "Borrador",
       "pending": "Pendiente",

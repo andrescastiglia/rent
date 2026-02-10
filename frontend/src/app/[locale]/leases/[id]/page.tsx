@@ -131,7 +131,7 @@ export default function LeaseDetailPage() {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('notFound')}</h1>
-        <Link href="/leases" className="text-blue-600 hover:underline mt-4 inline-block">
+        <Link href={`/${locale}/leases`} className="text-blue-600 hover:underline mt-4 inline-block">
           {t('backToList')}
         </Link>
       </div>
@@ -141,7 +141,7 @@ export default function LeaseDetailPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
-        <Link href="/leases" className="inline-flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+        <Link href={`/${locale}/leases`} className="inline-flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
           <ArrowLeft size={16} className="mr-1" />
           {t('backToList')}
         </Link>
@@ -156,20 +156,20 @@ export default function LeaseDetailPage() {
                   <LeaseStatusBadge status={lease.status} />
                </div>
                <p className="text-gray-500 dark:text-gray-400">
-                 ID: {lease.id} · {t('versionLabel', { version: lease.versionNumber ?? 1 })}
+                 {tCommon('id')}: {lease.id} · {t('versionLabel', { version: lease.versionNumber ?? 1 })}
                </p>
             </div>
             <div className="flex space-x-2">
               <Link
-                href={`/leases/${lease.id}/edit`}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                href={`/${locale}/leases/${lease.id}/edit`}
+                className="btn btn-secondary"
               >
                 <Edit size={16} className="mr-2" />
                 {lease.status === 'DRAFT' ? tCommon('edit') : t('createNewVersion')}
               </Link>
               <button
                 onClick={handleDelete}
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                className="btn btn-danger"
               >
                 <Trash2 size={16} className="mr-2" />
                 {tCommon('delete')}
@@ -241,7 +241,7 @@ export default function LeaseDetailPage() {
                           type="button"
                           onClick={() => void handleRenderDraft()}
                           disabled={renderingDraft}
-                          className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm"
+                          className="btn btn-secondary"
                         >
                           {renderingDraft ? tCommon('loading') : t('draft.renderFromTemplate')}
                         </button>
@@ -249,7 +249,7 @@ export default function LeaseDetailPage() {
                           type="button"
                           onClick={() => void handleSaveDraftText()}
                           disabled={savingDraftText}
-                          className="px-3 py-2 rounded-md border border-blue-300 dark:border-blue-700 text-sm text-blue-700 dark:text-blue-300"
+                          className="btn btn-ghost"
                         >
                           {savingDraftText ? tCommon('saving') : t('draft.saveDraft')}
                         </button>
@@ -257,7 +257,7 @@ export default function LeaseDetailPage() {
                           type="button"
                           onClick={() => void handleConfirmDraft()}
                           disabled={confirmingDraft}
-                          className="px-3 py-2 rounded-md bg-green-600 text-white text-sm disabled:opacity-60"
+                          className="btn btn-success"
                         >
                           {confirmingDraft ? tCommon('saving') : t('draft.confirm')}
                         </button>
@@ -340,7 +340,7 @@ export default function LeaseDetailPage() {
                               type="button"
                               onClick={handleDownloadContract}
                               disabled={downloadingContract}
-                              className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 disabled:opacity-60"
+                              className="btn btn-primary btn-sm"
                             >
                                 <Download size={14} className="mr-1" /> {t('downloadContract')}
                             </button>

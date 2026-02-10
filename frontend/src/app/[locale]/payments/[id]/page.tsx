@@ -3,12 +3,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Payment, PaymentItemType } from '@/types/payment';
-import { paymentsApi } from '@/lib/api/payments';
+import { CreditNote, Invoice, Payment, PaymentItemType } from '@/types/payment';
+import { invoicesApi, paymentsApi } from '@/lib/api/payments';
 import { PaymentStatusBadge } from '@/components/payments/PaymentStatusBadge';
 import { formatMoneyByCode } from '@/lib/format-money';
-import { useTranslations } from 'next-intl';
-import { ArrowLeft, Loader2, Calendar, CreditCard, FileText, Download, CheckCircle } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
+import { ArrowLeft, Loader2, Calendar, CreditCard, FileText, Download, CheckCircle, ReceiptText } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 
 export default function PaymentDetailPage() {
@@ -17,12 +17,17 @@ export default function PaymentDetailPage() {
     const paymentId = Array.isArray(params.id) ? params.id[0] : params.id;
     const t = useTranslations('payments');
     const tCommon = useTranslations('common');
+    const locale = useLocale();
 
     const [payment, setPayment] = useState<Payment | null>(null);
+    const [linkedInvoice, setLinkedInvoice] = useState<Invoice | null>(null);
+    const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
     const [loading, setLoading] = useState(true);
     const [confirming, setConfirming] = useState(false);
     const [saving, setSaving] = useState(false);
     const [downloadingReceipt, setDownloadingReceipt] = useState(false);
+    const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+    const [downloadingCreditNoteId, setDownloadingCreditNoteId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<{
         paymentDate: string;
         method: string;
@@ -36,6 +41,17 @@ export default function PaymentDetailPage() {
             if (!paymentId) return;
             const data = await paymentsApi.getById(paymentId);
             setPayment(data);
+            if (data?.invoiceId) {
+                const [invoice, notes] = await Promise.all([
+                    invoicesApi.getById(data.invoiceId),
+                    invoicesApi.listCreditNotes(data.invoiceId),
+                ]);
+                setLinkedInvoice(invoice);
+                setCreditNotes(notes.filter((note) => note.paymentId === data.id));
+            } else {
+                setLinkedInvoice(null);
+                setCreditNotes([]);
+            }
         } catch (error) {
             console.error('Failed to load payment', error);
         } finally {
@@ -109,7 +125,7 @@ export default function PaymentDetailPage() {
         return (
             <div className="container mx-auto px-4 py-8">
                 <p className="text-gray-500 dark:text-gray-400">{t('notFound')}</p>
-                <Link href="/payments" className="text-blue-600 hover:underline">
+                <Link href={`/${locale}/payments`} className="text-blue-600 hover:underline">
                     {t('backToPayments')}
                 </Link>
             </div>
@@ -117,7 +133,7 @@ export default function PaymentDetailPage() {
     }
 
     const formattedAmount = formatMoneyByCode(payment.amount, payment.currencyCode);
-    const formattedDate = new Date(payment.paymentDate).toLocaleDateString('es-AR');
+    const formattedDate = new Date(payment.paymentDate).toLocaleDateString(locale);
     const hasItems = (payment.items && payment.items.length > 0) || (editForm?.items?.length || 0) > 0;
 
     const handleDownloadReceipt = async () => {
@@ -132,12 +148,35 @@ export default function PaymentDetailPage() {
         }
     };
 
+    const handleDownloadInvoice = async () => {
+        if (!linkedInvoice) return;
+        try {
+            setDownloadingInvoice(true);
+            await invoicesApi.downloadPdf(linkedInvoice.id, linkedInvoice.invoiceNumber);
+        } catch (error) {
+            console.error('Failed to download invoice from payment detail', error);
+        } finally {
+            setDownloadingInvoice(false);
+        }
+    };
+
+    const handleDownloadCreditNote = async (note: CreditNote) => {
+        try {
+            setDownloadingCreditNoteId(note.id);
+            await invoicesApi.downloadCreditNotePdf(note.id, note.noteNumber);
+        } catch (error) {
+            console.error('Failed to download credit note from payment detail', error);
+        } finally {
+            setDownloadingCreditNoteId(null);
+        }
+    };
+
     return (
         <div className="container mx-auto px-4 py-8">
             {/* Header */}
             <div className="mb-8">
                 <Link
-                    href="/payments"
+                    href={`/${locale}/payments`}
                     className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-4"
                 >
                     <ArrowLeft size={16} className="mr-1" />
@@ -236,7 +275,7 @@ export default function PaymentDetailPage() {
                             {!editForm && (
                                 <button
                                     onClick={handleEditInit}
-                                    className="text-sm text-blue-600 hover:text-blue-500"
+                                    className="btn btn-ghost btn-sm"
                                 >
                                     {tCommon('edit')}
                                 </button>
@@ -389,7 +428,7 @@ export default function PaymentDetailPage() {
                                     <button
                                         type="button"
                                         onClick={() => setEditForm(null)}
-                                        className="px-3 py-2 text-sm rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                                        className="btn btn-secondary"
                                     >
                                         {tCommon('cancel')}
                                     </button>
@@ -397,7 +436,7 @@ export default function PaymentDetailPage() {
                                         type="button"
                                         onClick={handleSaveEdit}
                                         disabled={saving}
-                                        className="px-3 py-2 text-sm rounded-md bg-blue-600 text-white disabled:opacity-50"
+                                        className="btn btn-primary"
                                     >
                                         {saving ? tCommon('saving') : tCommon('save')}
                                     </button>
@@ -415,6 +454,44 @@ export default function PaymentDetailPage() {
 
                     {payment.receipt ? (
                         <div className="space-y-4">
+                            <div className="flex flex-wrap gap-2">
+                                {payment.invoiceId ? (
+                                    <Link
+                                        href={`/${locale}/invoices/${payment.invoiceId}`}
+                                        className="btn btn-secondary btn-sm"
+                                    >
+                                        <FileText size={14} />
+                                        {t('actions.viewInvoice')}
+                                    </Link>
+                                ) : null}
+                                {linkedInvoice ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => void handleDownloadInvoice()}
+                                        disabled={downloadingInvoice}
+                                        className="btn btn-primary btn-sm"
+                                    >
+                                        <Download size={14} />
+                                        {downloadingInvoice
+                                            ? tCommon('loading')
+                                            : t('actions.downloadInvoice')}
+                                    </button>
+                                ) : null}
+                                {creditNotes.map((note) => (
+                                    <button
+                                        key={note.id}
+                                        type="button"
+                                        onClick={() => void handleDownloadCreditNote(note)}
+                                        disabled={downloadingCreditNoteId === note.id}
+                                        className="btn btn-secondary btn-sm"
+                                    >
+                                        <ReceiptText size={14} />
+                                        {downloadingCreditNoteId === note.id
+                                            ? tCommon('loading')
+                                            : t('actions.downloadCreditNote')}
+                                    </button>
+                                ))}
+                            </div>
                             <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
                                 <span className="text-gray-600 dark:text-gray-400">{t('receiptNumber')}</span>
                                 <span className="text-gray-900 dark:text-white font-mono">
@@ -425,7 +502,7 @@ export default function PaymentDetailPage() {
                             <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
                                 <span className="text-gray-600 dark:text-gray-400">{t('issuedAt')}</span>
                                 <span className="text-gray-900 dark:text-white">
-                                    {new Date(payment.receipt.issuedAt).toLocaleString('es-AR')}
+                                    {new Date(payment.receipt.issuedAt).toLocaleString(locale)}
                                 </span>
                             </div>
 
@@ -434,10 +511,10 @@ export default function PaymentDetailPage() {
                                     type="button"
                                     onClick={handleDownloadReceipt}
                                     disabled={downloadingReceipt}
-                                    className="inline-flex items-center justify-center w-full px-4 py-2 mt-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-60"
+                                    className="btn btn-success w-full"
                                 >
                                     <Download size={18} className="mr-2" />
-                                    {downloadingReceipt ? tCommon('loading') : t('downloadReceipt')}
+                                    {downloadingReceipt ? tCommon('loading') : t('actions.downloadReceipt')}
                                 </button>
                             )}
                         </div>
@@ -449,7 +526,7 @@ export default function PaymentDetailPage() {
                             <button
                                 onClick={handleConfirm}
                                 disabled={confirming}
-                                className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                                className="btn btn-primary"
                             >
                                 {confirming ? (
                                     <Loader2 className="animate-spin h-5 w-5 mr-2" />

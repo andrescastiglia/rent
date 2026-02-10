@@ -7,7 +7,7 @@ import { Invoice } from '@/types/payment';
 import { invoicesApi } from '@/lib/api/payments';
 import { InvoiceStatusBadge } from '@/components/invoices/InvoiceStatusBadge';
 import { formatMoneyByCode } from '@/lib/format-money';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { ArrowLeft, Loader2, Calendar, Download } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -17,9 +17,11 @@ export default function InvoiceDetailPage() {
     const invoiceId = Array.isArray(params.id) ? params.id[0] : params.id;
     const t = useTranslations('invoices');
     const tCommon = useTranslations('common');
+    const locale = useLocale();
 
     const [invoice, setInvoice] = useState<Invoice | null>(null);
     const [loading, setLoading] = useState(true);
+    const [downloadingPdf, setDownloadingPdf] = useState(false);
 
     const loadInvoice = useCallback(async () => {
         try {
@@ -50,7 +52,7 @@ export default function InvoiceDetailPage() {
         return (
             <div className="container mx-auto px-4 py-8">
                 <p className="text-gray-500 dark:text-gray-400">{t('notFound')}</p>
-                <Link href="/invoices" className="text-blue-600 hover:underline">
+                <Link href={`/${locale}/invoices`} className="text-blue-600 hover:underline">
                     {t('backToInvoices')}
                 </Link>
             </div>
@@ -63,12 +65,23 @@ export default function InvoiceDetailPage() {
     const formattedPaid = formatMoneyByCode(invoice.amountPaid, invoice.currencyCode);
     const formattedPending = formatMoneyByCode(invoice.total - invoice.amountPaid, invoice.currencyCode);
 
+    const handleDownloadPdf = async () => {
+        try {
+            setDownloadingPdf(true);
+            await invoicesApi.downloadPdf(invoice.id, invoice.invoiceNumber);
+        } catch (error) {
+            console.error('Failed to download invoice PDF from detail', error);
+        } finally {
+            setDownloadingPdf(false);
+        }
+    };
+
     return (
         <div className="container mx-auto px-4 py-8">
             {/* Header */}
             <div className="mb-8">
                 <Link
-                    href="/invoices"
+                    href={`/${locale}/invoices`}
                     className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-4"
                 >
                     <ArrowLeft size={16} className="mr-1" />
@@ -87,15 +100,15 @@ export default function InvoiceDetailPage() {
                     <div className="flex items-center space-x-4">
                         <InvoiceStatusBadge status={invoice.status} />
                         {invoice.pdfUrl && (
-                            <a
-                                href={invoice.pdfUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
+                            <button
+                                type="button"
+                                onClick={() => void handleDownloadPdf()}
+                                disabled={downloadingPdf}
+                                className="btn btn-success"
                             >
                                 <Download size={18} className="mr-2" />
-                                {t('downloadPdf')}
-                            </a>
+                                {downloadingPdf ? tCommon('loading') : t('downloadPdf')}
+                            </button>
                         )}
                     </div>
                 </div>
@@ -113,13 +126,13 @@ export default function InvoiceDetailPage() {
                             <div>
                                 <p className="text-sm text-gray-500 dark:text-gray-400">{t('periodStart')}</p>
                                 <p className="text-gray-900 dark:text-white font-medium">
-                                    {new Date(invoice.periodStart).toLocaleDateString('es-AR')}
+                                    {new Date(invoice.periodStart).toLocaleDateString(locale)}
                                 </p>
                             </div>
                             <div>
                                 <p className="text-sm text-gray-500 dark:text-gray-400">{t('periodEnd')}</p>
                                 <p className="text-gray-900 dark:text-white font-medium">
-                                    {new Date(invoice.periodEnd).toLocaleDateString('es-AR')}
+                                    {new Date(invoice.periodEnd).toLocaleDateString(locale)}
                                 </p>
                             </div>
                         </div>
@@ -187,7 +200,7 @@ export default function InvoiceDetailPage() {
                             <h3 className="font-medium text-gray-900 dark:text-white">{t('dueDate')}</h3>
                         </div>
                         <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                            {new Date(invoice.dueDate).toLocaleDateString('es-AR')}
+                            {new Date(invoice.dueDate).toLocaleDateString(locale)}
                         </p>
                     </div>
 
@@ -205,8 +218,8 @@ export default function InvoiceDetailPage() {
                         invoice.status === 'partial') && (
                         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                             <Link
-                                href={`/payments/new?leaseId=${invoice.leaseId}`}
-                                className="block w-full text-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                                href={`/${locale}/payments/new?leaseId=${invoice.leaseId}`}
+                                className="btn btn-primary w-full"
                             >
                                 {t('registerPayment')}
                             </Link>

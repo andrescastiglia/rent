@@ -1,12 +1,13 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { Invoice } from '@/types/payment';
 import { InvoiceStatusBadge } from './InvoiceStatusBadge';
 import { formatMoneyByCode } from '@/lib/format-money';
-import { useTranslations } from 'next-intl';
-import { Calendar, FileText, AlertCircle } from 'lucide-react';
+import { invoicesApi } from '@/lib/api/payments';
+import { useLocale, useTranslations } from 'next-intl';
+import { Calendar, FileText, AlertCircle, Download, Eye } from 'lucide-react';
 
 interface InvoiceCardProps {
     invoice: Invoice;
@@ -15,15 +16,28 @@ interface InvoiceCardProps {
 export function InvoiceCard({ invoice }: InvoiceCardProps) {
     const t = useTranslations('invoices');
     const tCommon = useTranslations('common');
+    const locale = useLocale();
+    const [downloading, setDownloading] = useState(false);
 
     const formattedTotal = formatMoneyByCode(invoice.total, invoice.currencyCode);
     const formattedPaid = formatMoneyByCode(invoice.amountPaid, invoice.currencyCode);
-    const formattedDue = new Date(invoice.dueDate).toLocaleDateString('es-AR');
-    const periodStart = new Date(invoice.periodStart).toLocaleDateString('es-AR');
-    const periodEnd = new Date(invoice.periodEnd).toLocaleDateString('es-AR');
+    const formattedDue = new Date(invoice.dueDate).toLocaleDateString(locale);
+    const periodStart = new Date(invoice.periodStart).toLocaleDateString(locale);
+    const periodEnd = new Date(invoice.periodEnd).toLocaleDateString(locale);
 
     const isPending = invoice.status === 'pending' || invoice.status === 'sent' || invoice.status === 'partial';
     const isOverdue = invoice.status === 'overdue';
+
+    const handleDownloadInvoice = async () => {
+        try {
+            setDownloading(true);
+            await invoicesApi.downloadPdf(invoice.id, invoice.invoiceNumber);
+        } catch (error) {
+            console.error('Failed to download invoice from list', error);
+        } finally {
+            setDownloading(false);
+        }
+    };
 
     return (
         <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden border ${isOverdue ? 'border-orange-300 dark:border-orange-600' : 'border-gray-200 dark:border-gray-700'}`}>
@@ -66,23 +80,27 @@ export function InvoiceCard({ invoice }: InvoiceCardProps) {
                 </div>
             </div>
 
-            <div className="px-5 py-3 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <div className="px-5 py-3 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex flex-wrap items-center gap-2">
                 <Link
-                    href={`/invoices/${invoice.id}`}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+                    href={`/${locale}/invoices/${invoice.id}`}
+                    className="btn btn-secondary btn-sm"
                 >
-                    {tCommon('view')} →
+                    <Eye size={14} />
+                    {tCommon('view')}
                 </Link>
                 {invoice.pdfUrl && (
-                    <a
-                        href={invoice.pdfUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm font-medium text-green-600 hover:text-green-500 dark:text-green-400"
+                    <button
+                        type="button"
+                        onClick={() => void handleDownloadInvoice()}
+                        disabled={downloading}
+                        className="btn btn-primary btn-sm"
                     >
-                        PDF ↓
-                    </a>
+                        <Download size={14} />
+                        {downloading ? tCommon('loading') : t('actions.downloadInvoice')}
+                    </button>
                 )}
+                </div>
             </div>
         </div>
     );

@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Tenant } from '@/types/tenant';
-import { User, Mail, Phone, MapPin, Wallet } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Wallet, Edit } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 
 interface TenantCardProps {
@@ -60,16 +60,17 @@ export function TenantCard({ tenant }: TenantCardProps) {
         )}
       </div>
 
-      <div className="mt-4 flex items-center justify-end gap-3">
+      <div className="mt-4 flex items-center justify-end gap-2">
         <Link
           href={`/${locale}/tenants/${tenant.id}/edit`}
-          className="inline-flex items-center gap-1 text-sm font-medium text-gray-700 hover:text-gray-600 dark:text-gray-200 dark:hover:text-gray-100"
+          className="action-link action-link-primary"
         >
+          <Edit size={14} />
           {tc('edit')}
         </Link>
         <Link
           href={`/${locale}/tenants/${tenant.id}#payment-registration`}
-          className="inline-flex items-center gap-1 text-sm font-medium text-green-700 hover:text-green-600 dark:text-green-300 dark:hover:text-green-200"
+          className="action-link action-link-success"
         >
           <Wallet size={14} />
           {t('paymentRegistration.submit')}

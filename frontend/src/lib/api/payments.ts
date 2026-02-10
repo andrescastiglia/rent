@@ -1,6 +1,7 @@
 import {
     Payment,
     Invoice,
+    CreditNote,
     TenantAccount,
     TenantAccountMovement,
     AccountBalance,
@@ -401,6 +402,16 @@ export const invoicesApi = {
         }
     },
 
+    listCreditNotes: async (invoiceId: string): Promise<CreditNote[]> => {
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            return [];
+        }
+
+        const token = getToken();
+        return apiClient.get<CreditNote[]>(`/invoices/${invoiceId}/credit-notes`, token ?? undefined);
+    },
+
     downloadPdf: async (
         invoiceId: string,
         invoiceNumber?: string,
@@ -436,6 +447,46 @@ export const invoicesApi = {
         const link = document.createElement('a');
         link.href = url;
         link.download = `${filenamePrefix}-${invoiceNumber ?? invoiceId}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    },
+
+    downloadCreditNotePdf: async (
+        creditNoteId: string,
+        noteNumber?: string,
+    ): Promise<void> => {
+        if (IS_MOCK_MODE) {
+            const blob = new Blob([`Credit note ${noteNumber ?? creditNoteId}`], {
+                type: 'application/pdf',
+            });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `nota-credito-${noteNumber ?? creditNoteId}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+            return;
+        }
+
+        const token = getToken();
+        const response = await fetch(`${API_URL}/invoices/credit-notes/${creditNoteId}/pdf`, {
+            method: 'GET',
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to download credit note PDF');
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `nota-credito-${noteNumber ?? creditNoteId}.pdf`;
         document.body.appendChild(link);
         link.click();
         link.remove();

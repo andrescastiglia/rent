@@ -37,6 +37,8 @@ export type InvoiceStatus =
     | 'cancelled'
     | 'refunded';
 
+export type CreditNoteStatus = 'draft' | 'issued' | 'cancelled';
+
 /**
  * Tipo de movimiento en cuenta corriente
  */
@@ -125,6 +127,19 @@ export interface Invoice {
     updatedAt: string;
 }
 
+export interface CreditNote {
+    id: string;
+    invoiceId: string;
+    paymentId: string | null;
+    noteNumber: string;
+    amount: number;
+    currencyCode: string;
+    status: CreditNoteStatus;
+    reason: string | null;
+    pdfUrl: string | null;
+    issuedAt: string;
+}
+
 /**
  * Pago del inquilino
  */
@@ -149,6 +164,7 @@ export interface Payment {
     externalTransactionId?: string | null;
     gatewayResponse?: Record<string, any>;
     receipt?: Receipt;
+    creditNotes?: CreditNote[];
     items?: PaymentItem[];
     tenantAccount?: TenantAccount;
     createdAt: string;

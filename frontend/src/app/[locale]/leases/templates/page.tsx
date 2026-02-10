@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Info, Loader2 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { leasesApi } from '@/lib/api/leases';
 import { LeaseTemplate, ContractType } from '@/types/lease';
@@ -11,6 +11,45 @@ const emptyForm = {
   name: '',
   templateBody: '',
   isActive: true,
+};
+
+const TEMPLATE_VARIABLE_GROUPS: Record<string, string[]> = {
+  global: ['today'],
+  lease: [
+    'lease.leaseNumber',
+    'lease.contractType',
+    'lease.startDate',
+    'lease.endDate',
+    'lease.monthlyRent',
+    'lease.fiscalValue',
+    'lease.currency',
+    'lease.paymentFrequency',
+    'lease.paymentDueDay',
+    'lease.billingFrequency',
+    'lease.billingDay',
+    'lease.lateFeeType',
+    'lease.lateFeeValue',
+    'lease.lateFeeGraceDays',
+    'lease.lateFeeMax',
+    'lease.adjustmentType',
+    'lease.adjustmentValue',
+    'lease.adjustmentFrequencyMonths',
+    'lease.inflationIndexType',
+    'lease.securityDeposit',
+    'lease.notes',
+  ],
+  property: [
+    'property.name',
+    'property.addressStreet',
+    'property.addressNumber',
+    'property.addressCity',
+    'property.addressState',
+    'property.addressPostalCode',
+    'property.addressCountry',
+  ],
+  owner: ['owner.firstName', 'owner.lastName', 'owner.fullName', 'owner.email', 'owner.phone'],
+  tenant: ['tenant.firstName', 'tenant.lastName', 'tenant.fullName', 'tenant.email', 'tenant.phone'],
+  buyer: ['buyer.firstName', 'buyer.lastName', 'buyer.fullName', 'buyer.email', 'buyer.phone'],
 };
 
 export default function LeaseTemplatesPage() {
@@ -97,6 +136,14 @@ export default function LeaseTemplatesPage() {
     }
   };
 
+  const handleInsertVariable = (variableKey: string) => {
+    const token = `{{${variableKey}}}`;
+    setForm((prev) => ({
+      ...prev,
+      templateBody: prev.templateBody ? `${prev.templateBody}\n${token}` : token,
+    }));
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
@@ -123,7 +170,7 @@ export default function LeaseTemplatesPage() {
           <button
             type="button"
             onClick={handleNew}
-            className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm"
+            className="btn btn-secondary"
           >
             {t('templates.new')}
           </button>
@@ -181,6 +228,40 @@ export default function LeaseTemplatesPage() {
                 placeholder={t('templates.fields.body')}
                 className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm font-mono"
               />
+              <div className="rounded-md border border-blue-200 bg-blue-50/80 dark:border-blue-900 dark:bg-blue-900/20 p-3">
+                <div className="flex items-start gap-2 mb-2">
+                  <Info size={16} className="mt-0.5 text-blue-700 dark:text-blue-300" />
+                  <div>
+                    <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+                      {t('templates.variables.title')}
+                    </p>
+                    <p className="text-xs text-blue-800 dark:text-blue-300">
+                      {t('templates.variables.description')}
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {Object.entries(TEMPLATE_VARIABLE_GROUPS).map(([group, keys]) => (
+                    <div key={group}>
+                      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-blue-900 dark:text-blue-200">
+                        {t(`templates.variables.groups.${group}`)}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {keys.map((key) => (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => handleInsertVariable(key)}
+                            className="rounded border border-blue-200 bg-white px-2 py-1 text-xs font-mono text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-900/40"
+                          >
+                            {`{{${key}}}`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
               <label className="inline-flex items-center text-sm text-gray-700 dark:text-gray-300">
                 <input
                   type="checkbox"
@@ -195,7 +276,7 @@ export default function LeaseTemplatesPage() {
                   type="button"
                   onClick={() => void handleSave()}
                   disabled={saving}
-                  className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm disabled:opacity-60"
+                  className="btn btn-primary"
                 >
                   {saving ? tc('saving') : tc('save')}
                 </button>

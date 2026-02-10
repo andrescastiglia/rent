@@ -318,6 +318,15 @@ export class LeasesService {
       throw new BadRequestException('Contract draft text is required');
     }
 
+    const resolvedText = this.replaceTemplateVariables(
+      textToConfirm,
+      this.buildTemplateContext(lease),
+      false,
+    ).trim();
+    if (!resolvedText) {
+      throw new BadRequestException('Contract draft text is required');
+    }
+
     if (lease.contractType === ContractType.RENTAL && lease.propertyId) {
       const activeLease = await this.leasesRepository.findOne({
         where: {
@@ -335,8 +344,8 @@ export class LeasesService {
 
     lease.status = LeaseStatus.ACTIVE;
     lease.confirmedAt = new Date();
-    lease.confirmedContractText = textToConfirm;
-    lease.draftContractText = textToConfirm;
+    lease.confirmedContractText = resolvedText;
+    lease.draftContractText = resolvedText;
 
     if (lease.contractType === ContractType.RENTAL && lease.propertyId) {
       await this.propertiesRepository.update(lease.propertyId, {
@@ -356,7 +365,7 @@ export class LeasesService {
       const document = await this.pdfService.generateContract(
         savedLease,
         userId,
-        textToConfirm,
+        resolvedText,
       );
       savedLease.contractPdfUrl = document.fileUrl;
       await this.leasesRepository.save(savedLease);
@@ -694,6 +703,14 @@ export class LeasesService {
   }
 
   private renderTemplateBody(templateBody: string, lease: Lease): string {
+    return this.replaceTemplateVariables(
+      templateBody,
+      this.buildTemplateContext(lease),
+      true,
+    );
+  }
+
+  private buildTemplateContext(lease: Lease): Record<string, unknown> {
     const hasLateFee =
       lease.lateFeeType &&
       lease.lateFeeType !== LateFeeType.NONE &&
@@ -770,6 +787,14 @@ export class LeasesService {
       },
     };
 
+    return context;
+  }
+
+  private replaceTemplateVariables(
+    templateBody: string,
+    context: Record<string, unknown>,
+    dropParagraphsWithMissingValues: boolean,
+  ): string {
     const paragraphs = templateBody.split(/\n\s*\n/);
     const renderedParagraphs: string[] = [];
 
@@ -787,7 +812,10 @@ export class LeasesService {
         },
       );
 
-      if (!hasMissingValue && rendered.trim().length > 0) {
+      if (
+        (!dropParagraphsWithMissingValues || !hasMissingValue) &&
+        rendered.trim().length > 0
+      ) {
         renderedParagraphs.push(rendered.trim());
       }
     }

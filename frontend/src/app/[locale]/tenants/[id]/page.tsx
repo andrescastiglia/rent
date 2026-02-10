@@ -18,6 +18,7 @@ import {
   Download,
   Wallet,
   CheckCircle2,
+  Eye,
 } from 'lucide-react';
 import { Lease } from '@/types/lease';
 import {
@@ -456,14 +457,14 @@ export default function TenantDetailPage() {
                       {getStatusLabel(tenantToRender.status)}
                     </span>
                   </div>
-                  <p className="text-gray-500 dark:text-gray-400">ID: {tenantToRender.dni}</p>
+                  <p className="text-gray-500 dark:text-gray-400">{tCommon('id')}: {tenantToRender.dni}</p>
                </div>
             </div>
             <div className="flex space-x-2">
               {tenantAccount && (
                 <Link
                   href={`/${locale}/tenants/${tenantToRender.id}#payment-registration`}
-                  className="inline-flex items-center px-4 py-2 border border-green-200 dark:border-green-800 shadow-sm text-sm font-medium rounded-md text-green-700 dark:text-green-300 bg-white dark:bg-gray-700 hover:bg-green-50 dark:hover:bg-green-900/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                  className="btn btn-success"
                 >
                   <Wallet size={16} className="mr-2" />
                   {t('paymentRegistration.submit')}
@@ -471,7 +472,7 @@ export default function TenantDetailPage() {
               )}
               <Link
                 href={`/${locale}/tenants/${tenantToRender.id}/edit`}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="btn btn-secondary"
               >
                 <Edit size={16} className="mr-2" />
                 {tCommon('edit')}
@@ -618,7 +619,7 @@ export default function TenantDetailPage() {
                       <button
                         type="submit"
                         disabled={registeringPayment}
-                        className="w-full inline-flex items-center justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                        className="btn btn-primary w-full"
                       >
                         {registeringPayment ? tCommon('saving') : t('paymentRegistration.submit')}
                       </button>
@@ -700,8 +701,9 @@ export default function TenantDetailPage() {
                               </div>
                               <Link
                                 href={`/${locale}/payments/${payment.id}`}
-                                className="text-xs text-blue-600 hover:text-blue-500"
+                                className="action-link action-link-primary text-xs px-2 py-1"
                               >
+                                <Eye size={12} />
                                 {tCommon('view')}
                               </Link>
                             </div>
@@ -712,7 +714,7 @@ export default function TenantDetailPage() {
                                   type="button"
                                   onClick={() => void handleDownloadInvoice(linkedInvoice)}
                                   disabled={downloadingInvoiceId === linkedInvoice.id}
-                                  className="inline-flex items-center text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+                                  className="btn btn-primary btn-sm"
                                 >
                                   <Download size={12} className="mr-1" />
                                   {downloadingInvoiceId === linkedInvoice.id
@@ -733,7 +735,7 @@ export default function TenantDetailPage() {
                                     )
                                   }
                                   disabled={downloadingReceiptPaymentId === payment.id}
-                                  className="inline-flex items-center text-xs px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
+                                  className="btn btn-success btn-sm"
                                 >
                                   <Download size={12} className="mr-1" />
                                   {downloadingReceiptPaymentId === payment.id
@@ -813,7 +815,7 @@ export default function TenantDetailPage() {
                     <button
                       type="submit"
                       disabled={savingActivity}
-                      className="w-full inline-flex items-center justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                      className="btn btn-primary w-full"
                     >
                       {savingActivity ? tCommon('saving') : t('activities.add')}
                     </button>
@@ -852,7 +854,7 @@ export default function TenantDetailPage() {
                                 type="button"
                                 onClick={() => void handleCompleteActivity(activity)}
                                 disabled={completingActivityId === activity.id}
-                                className="inline-flex items-center text-xs px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
+                                className="btn btn-success btn-sm"
                               >
                                 <CheckCircle2 size={12} className="mr-1" />
                                 {completingActivityId === activity.id
@@ -897,7 +899,7 @@ export default function TenantDetailPage() {
                               )
                             }
                             disabled={downloadingReceiptPaymentId === receipt.paymentId}
-                            className="inline-flex items-center text-xs px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
+                            className="btn btn-success btn-sm"
                           >
                             <Download size={12} className="mr-1" />
                             {downloadingReceiptPaymentId === receipt.paymentId

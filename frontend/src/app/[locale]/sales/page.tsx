@@ -11,7 +11,7 @@ import {
   CreateSaleAgreementInput,
   CreateSaleReceiptInput,
 } from '@/types/sales';
-import { Loader2 } from 'lucide-react';
+import { Download, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 
 export default function SalesPage() {
@@ -171,7 +171,7 @@ export default function SalesPage() {
             />
             <button
               type="submit"
-              className="w-full rounded-md bg-blue-600 text-white text-sm py-2"
+              className="btn btn-primary w-full"
             >
               {tCommon('save')}
             </button>
@@ -256,7 +256,7 @@ export default function SalesPage() {
                 className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
               />
             </div>
-            <button type="submit" className="w-full rounded-md bg-blue-600 text-white text-sm py-2">
+            <button type="submit" className="btn btn-primary w-full">
               {tCommon('save')}
             </button>
           </form>
@@ -313,7 +313,7 @@ export default function SalesPage() {
                     <button
                       type="button"
                       onClick={() => handleCreateReceipt(agreement.id)}
-                      className="rounded-md bg-green-600 text-white text-sm py-2"
+                      className="btn btn-success"
                     >
                       {t('receipts.create')}
                     </button>
@@ -330,10 +330,11 @@ export default function SalesPage() {
                         {receipt.pdfUrl && (
                           <a
                             href={`${apiUrl}/sales/receipts/${receipt.id}/pdf`}
-                            className="text-blue-600 hover:text-blue-500"
+                            className="action-link action-link-primary"
                             target="_blank"
                             rel="noreferrer"
                           >
+                            <Download size={14} />
                             {t('receipts.download')}
                           </a>
                         )}

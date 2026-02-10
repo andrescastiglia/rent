@@ -22,6 +22,7 @@
     "saving": "Saving...",
     "actions": "Actions",
     "view": "View",
+    "id": "ID",
     "details": "Details",
     "optional": "Optional",
     "myProfile": "My Profile",
@@ -503,6 +504,14 @@
       "balanceAfter": "Balance"
     }
   },
+  "buyers": {
+    "title": "Buyers",
+    "subtitle": "Manage potential and converted buyers",
+    "searchPlaceholder": "Search buyers by name, phone, or email...",
+    "noBuyers": "No buyers registered",
+    "noBuyersDescription": "Buyers will appear here when they are converted from Interested.",
+    "buyerBadge": "Buyer"
+  },
   "tenants": {
     "title": "Tenants",
     "subtitle": "Manage existing tenants",
@@ -744,6 +753,18 @@
         "name": "Template name",
         "body": "Template text (use {{lease.field}}, {{property.field}}, {{tenant.field}}, {{buyer.field}}, {{owner.field}})",
         "active": "Template active"
+      },
+      "variables": {
+        "title": "Available variables",
+        "description": "Use the following placeholders in the template. They are automatically resolved when the contract is confirmed.",
+        "groups": {
+          "global": "Global",
+          "lease": "Contract",
+          "property": "Property",
+          "owner": "Owner",
+          "tenant": "Tenant",
+          "buyer": "Buyer"
+        }
       }
     },
     "draft": {
@@ -881,6 +902,12 @@
       "digital_wallet": "Digital Wallet",
       "crypto": "Crypto",
       "other": "Other"
+    },
+    "actions": {
+      "viewInvoice": "View invoice",
+      "downloadReceipt": "Download receipt",
+      "downloadInvoice": "Download invoice",
+      "downloadCreditNote": "Download credit note"
     }
   },
   "invoices": {
@@ -910,6 +937,9 @@
     "notes": "Notes",
     "downloadPdf": "Download PDF",
     "registerPayment": "Register Payment",
+    "actions": {
+      "downloadInvoice": "Download invoice"
+    },
     "status": {
       "draft": "Draft",
       "pending": "Pending",
