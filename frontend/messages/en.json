@@ -182,7 +182,7 @@
     "noPropertiesDescription": "Get started by creating a new property.",
     "ownerListSubtitle": "Manage owners and their linked properties",
     "ownerSearchPlaceholder": "Search by owner, email or phone...",
-    "addPropertyForOwner": "Add property to owner",
+    "addPropertyForOwner": "Add property",
     "ownerNoProperties": "This owner does not have properties yet.",
     "unassignedOwnerTitle": "Properties without assigned owner",
     "searchPlaceholder": "Search properties by name or city...",
@@ -191,6 +191,8 @@
     "deleteError": "Failed to delete property",
     "saveProperty": "Save Property",
     "createLease": "Create lease",
+    "viewLease": "View lease",
+    "recentMaintenanceTasks": "Latest maintenance tasks",
     "basicInfo": "Basic Information",
     "location": "Location",
     "description": "Description",
@@ -839,7 +841,8 @@
     "contractTypes": {
       "rental": "Rental",
       "sale": "Purchase/Sale"
-    }
+    },
+    "contractTypeFixedByProperty": "Contract type defined by property operation."
   },
   "payments": {
     "title": "Payments",

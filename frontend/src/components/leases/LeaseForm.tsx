@@ -68,6 +68,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const lateFeeType = watch('lateFeeType');
   const adjustmentType = watch('adjustmentType');
   const contractType = watch('contractType');
+  const selectedPropertyId = watch('propertyId');
   const preselectedPropertyId = searchParams.get('propertyId');
   const preselectedOwnerId = searchParams.get('ownerId');
   const preselectedTenantId = searchParams.get('tenantId');
@@ -77,6 +78,17 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const hasPreselectedOwner = !isEditing && !!preselectedOwnerId;
   const hasPreselectedTenant = !isEditing && !!preselectedTenantId;
   const hasPreselectedBuyer = !isEditing && !!preselectedBuyerProfileId;
+  const selectedProperty = useMemo(
+    () => properties.find((property) => property.id === selectedPropertyId),
+    [properties, selectedPropertyId],
+  );
+  const selectedPropertyOperations = selectedProperty?.operations ?? [];
+  const selectedPropertySupportsRent = selectedPropertyOperations.includes('rent');
+  const selectedPropertySupportsSale = selectedPropertyOperations.includes('sale');
+  const shouldShowContractTypeSelect =
+    isEditing ||
+    !selectedProperty ||
+    selectedPropertySupportsRent === selectedPropertySupportsSale;
 
   useEffect(() => {
     const loadData = async () => {
@@ -153,6 +165,32 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     setValue,
   ]);
 
+  useEffect(() => {
+    if (isEditing || !selectedProperty) return;
+
+    if (selectedPropertySupportsRent && !selectedPropertySupportsSale) {
+      if (contractType !== 'rental') {
+        setValue('contractType', 'rental', { shouldValidate: true });
+      }
+      setValue('buyerProfileId', undefined, { shouldValidate: true });
+      return;
+    }
+
+    if (!selectedPropertySupportsRent && selectedPropertySupportsSale) {
+      if (contractType !== 'sale') {
+        setValue('contractType', 'sale', { shouldValidate: true });
+      }
+      setValue('tenantId', undefined, { shouldValidate: true });
+    }
+  }, [
+    contractType,
+    isEditing,
+    selectedProperty,
+    selectedPropertySupportsRent,
+    selectedPropertySupportsSale,
+    setValue,
+  ]);
+
   const onSubmit = async (data: LeaseFormData) => {
     setIsSubmitting(true);
     try {
@@ -202,10 +240,21 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
 
           <div>
             <label htmlFor="contractType" className={labelClass}>{t('fields.contractType')}</label>
-            <select id="contractType" {...register('contractType')} className={inputClass}>
-              <option value="rental">{t('contractTypes.rental')}</option>
-              <option value="sale">{t('contractTypes.sale')}</option>
-            </select>
+            {shouldShowContractTypeSelect ? (
+              <select id="contractType" {...register('contractType')} className={inputClass}>
+                <option value="rental">{t('contractTypes.rental')}</option>
+                <option value="sale">{t('contractTypes.sale')}</option>
+              </select>
+            ) : (
+              <>
+                <input type="hidden" {...register('contractType')} />
+                <p className={inputClass}>{t(`contractTypes.${contractType}`)}</p>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {t('contractTypeFixedByProperty')}
+                </p>
+              </>
+            )}
+            {errors.contractType && <p className="mt-1 text-sm text-red-600">{errors.contractType.message}</p>}
           </div>
 
           <div>

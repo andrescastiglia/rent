@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
@@ -10,6 +10,8 @@ import {
   CreatePropertyMaintenanceTaskInput,
 } from '@/types/property';
 import { propertiesApi } from '@/lib/api/properties';
+import { leasesApi } from '@/lib/api/leases';
+import { Lease } from '@/types/lease';
 import {
   Edit,
   ArrowLeft,
@@ -18,6 +20,7 @@ import {
   Trash2,
   Loader2,
   FilePlus,
+  FileText,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -38,6 +41,7 @@ export default function PropertyDetailPage() {
   const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
   const [isSubmittingMaintenance, setIsSubmittingMaintenance] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [currentLease, setCurrentLease] = useState<Lease | null>(null);
   const [loading, setLoading] = useState(true);
 
   const defaultTaskDate = useMemo(() => {
@@ -54,30 +58,68 @@ export default function PropertyDetailPage() {
   });
 
   useEffect(() => {
-    if (authLoading) return;
-    if (propertyId) {
-      loadProperty(propertyId);
-    }
-  }, [propertyId, authLoading]);
-
-  useEffect(() => {
     setCurrentImageIndex(0);
   }, [property?.id, property?.images?.length]);
 
-  const loadProperty = async (id: string) => {
+  const loadLatestLeaseForProperty = useCallback(async (id: string): Promise<Lease | null> => {
+    const leaseResults = await Promise.allSettled([
+      leasesApi.getAll({ status: 'ACTIVE' }),
+      leasesApi.getAll({ status: 'DRAFT' }),
+      leasesApi.getAll({ status: 'FINALIZED' }),
+    ]);
+
+    const leaseMap = new Map<string, Lease>();
+    for (const result of leaseResults) {
+      if (result.status !== 'fulfilled') continue;
+      for (const lease of result.value) {
+        leaseMap.set(lease.id, lease);
+      }
+    }
+    if (leaseMap.size === 0) {
+      try {
+        const fallbackLeases = await leasesApi.getAll({ includeFinalized: true });
+        for (const lease of fallbackLeases) {
+          leaseMap.set(lease.id, lease);
+        }
+      } catch (error) {
+        console.warn('Failed to load fallback leases list', error);
+      }
+    }
+
+    const candidates = Array.from(leaseMap.values())
+      .filter((lease) => lease.propertyId === id)
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt || b.createdAt).getTime() -
+          new Date(a.updatedAt || a.createdAt).getTime(),
+      );
+
+    return candidates[0] ?? null;
+  }, []);
+
+  const loadProperty = useCallback(async (id: string) => {
     try {
-      const [data, visitData] = await Promise.all([
+      const [data, visitData, leaseData] = await Promise.all([
         propertiesApi.getById(id),
         propertiesApi.getMaintenanceTasks(id),
+        loadLatestLeaseForProperty(id),
       ]);
       setProperty(data);
       setMaintenanceTasks(visitData);
+      setCurrentLease(leaseData);
     } catch (error) {
       console.error('Failed to load property', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [loadLatestLeaseForProperty]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (propertyId) {
+      void loadProperty(propertyId);
+    }
+  }, [propertyId, authLoading, loadProperty]);
 
   const handleDelete = async () => {
     if (!property || !confirm(t('confirmDelete'))) return;
@@ -169,9 +211,19 @@ export default function PropertyDetailPage() {
     );
   }
 
-  const canCreateLease = (property.operations ?? []).some(
-    (operation) => operation === 'rent',
-  );
+  const propertyOperations = property.operations ?? [];
+  const supportsRent = propertyOperations.includes('rent');
+  const supportsSale = propertyOperations.includes('sale');
+  const canCreateLease = supportsRent || supportsSale;
+  const defaultContractType =
+    supportsRent && !supportsSale
+      ? 'rental'
+      : !supportsRent && supportsSale
+        ? 'sale'
+        : undefined;
+  const createLeaseHref = `/${locale}/leases/new?propertyId=${property.id}&ownerId=${property.ownerId}${
+    defaultContractType ? `&contractType=${defaultContractType}` : ''
+  }`;
   const hasMultipleImages = property.images.length > 1;
   const currentImage = property.images[currentImageIndex] ?? property.images[0];
 
@@ -274,9 +326,17 @@ export default function PropertyDetailPage() {
               </div>
             </div>
             <div className="text-right">
-              {canCreateLease ? (
+              {currentLease ? (
                 <Link
-                  href={`/${locale}/leases/new?propertyId=${property.id}&ownerId=${property.ownerId}`}
+                  href={`/${locale}/leases/${currentLease.id}`}
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
+                >
+                  <FileText size={16} />
+                  {t('viewLease')}
+                </Link>
+              ) : canCreateLease ? (
+                <Link
+                  href={createLeaseHref}
                   className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
                 >
                   <FilePlus size={16} />
@@ -312,7 +372,7 @@ export default function PropertyDetailPage() {
                 )}
               </section>
 
-              <section>
+              <section id="maintenance-tasks">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t('maintenanceTasks')}</h2>
                 </div>

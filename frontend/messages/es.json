@@ -182,7 +182,7 @@
     "noPropertiesDescription": "Comienza agregando una nueva propiedad.",
     "ownerListSubtitle": "Administra propietarios y sus propiedades asociadas",
     "ownerSearchPlaceholder": "Buscar por propietario, email o teléfono...",
-    "addPropertyForOwner": "Agregar propiedad a propietario",
+    "addPropertyForOwner": "Agregar propiedad",
     "ownerNoProperties": "Este propietario aún no tiene propiedades cargadas.",
     "unassignedOwnerTitle": "Propiedades sin propietario asociado",
     "searchPlaceholder": "Buscar propiedades por nombre o ciudad...",
@@ -191,6 +191,8 @@
     "deleteError": "Error al eliminar la propiedad",
     "saveProperty": "Guardar Propiedad",
     "createLease": "Crear contrato",
+    "viewLease": "Ver contrato",
+    "recentMaintenanceTasks": "Últimas tareas de mantenimiento",
     "basicInfo": "Información Básica",
     "location": "Ubicación",
     "description": "Descripción",
@@ -839,7 +841,8 @@
     "contractTypes": {
       "rental": "Alquiler",
       "sale": "Compra/Venta"
-    }
+    },
+    "contractTypeFixedByProperty": "Tipo de contrato definido por la operación de la propiedad."
   },
   "payments": {
     "title": "Pagos",

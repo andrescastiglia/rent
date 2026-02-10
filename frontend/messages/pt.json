@@ -182,7 +182,7 @@
     "noPropertiesDescription": "Comece adicionando um novo imóvel.",
     "ownerListSubtitle": "Gerencie proprietários e seus imóveis vinculados",
     "ownerSearchPlaceholder": "Buscar por proprietário, e-mail ou telefone...",
-    "addPropertyForOwner": "Adicionar imóvel ao proprietário",
+    "addPropertyForOwner": "Adicionar imóvel",
     "ownerNoProperties": "Este proprietário ainda não tem imóveis cadastrados.",
     "unassignedOwnerTitle": "Imóveis sem proprietário associado",
     "searchPlaceholder": "Buscar imóveis por nome ou cidade...",
@@ -191,6 +191,8 @@
     "deleteError": "Erro ao excluir imóvel",
     "saveProperty": "Salvar Imóvel",
     "createLease": "Criar contrato",
+    "viewLease": "Ver contrato",
+    "recentMaintenanceTasks": "Últimas tarefas de manutenção",
     "basicInfo": "Informações Básicas",
     "location": "Localização",
     "description": "Descrição",
@@ -839,7 +841,8 @@
     "contractTypes": {
       "rental": "Aluguel",
       "sale": "Compra/Venda"
-    }
+    },
+    "contractTypeFixedByProperty": "Tipo de contrato definido pela operação do imóvel."
   },
   "payments": {
     "title": "Pagamentos",
