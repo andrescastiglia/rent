@@ -2,17 +2,12 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Loader2, RefreshCw } from "lucide-react";
+import { CheckCircle2, Loader2, RefreshCw } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { interestedApi } from "@/lib/api/interested";
 import {
-  CreateInterestedProfileInput,
-  InterestedActivity,
-  InterestedDuplicate,
   InterestedMatch,
-  InterestedMatchStatus,
   InterestedOperation,
-  InterestedPropertyType,
   InterestedProfile,
   InterestedStatus,
   InterestedSummary,
@@ -20,15 +15,6 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 
 const STAGE_OPTIONS: InterestedStatus[] = ["interested", "tenant", "buyer"];
-
-const MATCH_STATUS_OPTIONS: InterestedMatchStatus[] = [
-  "suggested",
-  "contacted",
-  "visit_scheduled",
-  "accepted",
-  "rejected",
-  "expired",
-];
 
 const MATCH_REASON_KEY_PREFIX = "interested.matchReasons.";
 const MATCH_REASON_KEYS = [
@@ -44,26 +30,18 @@ const MATCH_REASON_KEYS = [
 ] as const;
 type MatchReasonKey = (typeof MATCH_REASON_KEYS)[number];
 
-const emptyForm: CreateInterestedProfileInput = {
-  firstName: "",
-  lastName: "",
-  phone: "",
-  email: "",
-  peopleCount: undefined,
-  minAmount: undefined,
-  maxAmount: undefined,
-  hasPets: false,
-  preferredCity: "",
-  desiredFeatures: [],
-  propertyTypePreference: "apartment",
-  operation: "rent",
-  operations: ["rent"],
-  status: "interested",
-  qualificationLevel: "mql",
-  source: "manual",
-  consentContact: true,
-  notes: "",
+type ContractAction = {
+  href: string;
+  label: string;
 };
+
+function getProfileOperations(
+  profile: InterestedProfile,
+): InterestedOperation[] {
+  return (
+    profile.operations ?? (profile.operation ? [profile.operation] : ["rent"])
+  );
+}
 
 export default function InterestedPage() {
   const { loading: authLoading } = useAuth();
@@ -72,17 +50,14 @@ export default function InterestedPage() {
   const locale = useLocale();
 
   const [profiles, setProfiles] = useState<InterestedProfile[]>([]);
-  const [duplicates, setDuplicates] = useState<InterestedDuplicate[]>([]);
-  const [selectedProfile, setSelectedProfile] =
-    useState<InterestedProfile | null>(null);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
+    null,
+  );
   const [summary, setSummary] = useState<InterestedSummary | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [refreshingMatches, setRefreshingMatches] = useState(false);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [operationFilter, setOperationFilter] = useState<
     "all" | InterestedOperation
@@ -90,34 +65,30 @@ export default function InterestedPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | InterestedStatus>(
     "all",
   );
-  const [confirmingRentMatchId, setConfirmingRentMatchId] = useState<
-    string | null
-  >(null);
-  const [confirmingPurchaseMatchId, setConfirmingPurchaseMatchId] = useState<
-    string | null
-  >(null);
+  const [confirmingMatchId, setConfirmingMatchId] = useState<string | null>(
+    null,
+  );
 
-  const [form, setForm] = useState<CreateInterestedProfileInput>(emptyForm);
-  const [stageReason, setStageReason] = useState("");
-  const [pendingStage, setPendingStage] =
-    useState<InterestedStatus>("interested");
+  const statusLabel = useCallback(
+    (status?: string) => t(`status.${status ?? "interested"}`),
+    [t],
+  );
 
-  const [activityForm, setActivityForm] = useState({
-    type: "task" as InterestedActivity["type"],
-    subject: "",
-    body: "",
-    dueAt: "",
-    propertyId: "",
-    markReserved: false,
-  });
+  const formatMatchReason = useCallback(
+    (reason: string): string => {
+      const normalizedReason = reason.trim();
+      const shortKey = normalizedReason.startsWith(MATCH_REASON_KEY_PREFIX)
+        ? normalizedReason.slice(MATCH_REASON_KEY_PREFIX.length)
+        : normalizedReason;
 
-  const duplicateForSelected = useMemo(() => {
-    if (!selectedProfile) return null;
-    return (
-      duplicates.find((item) => item.profileIds.includes(selectedProfile.id)) ??
-      null
-    );
-  }, [duplicates, selectedProfile]);
+      if ((MATCH_REASON_KEYS as readonly string[]).includes(shortKey)) {
+        return t(`matchReasons.${shortKey as MatchReasonKey}`);
+      }
+
+      return normalizedReason;
+    },
+    [t],
+  );
 
   const filteredProfiles = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -128,13 +99,13 @@ export default function InterestedPage() {
           new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
       )
       .filter((profile) => {
-        if (operationFilter !== "all") {
-          const operations =
-            profile.operations ??
-            (profile.operation ? [profile.operation] : []);
-          if (!operations.includes(operationFilter)) {
-            return false;
-          }
+        const operations = getProfileOperations(profile);
+
+        if (
+          operationFilter !== "all" &&
+          !operations.includes(operationFilter)
+        ) {
+          return false;
         }
 
         if (
@@ -156,62 +127,72 @@ export default function InterestedPage() {
       });
   }, [profiles, searchTerm, operationFilter, statusFilter]);
 
-  const formatMatchReason = useCallback(
-    (reason: string): string => {
-      const normalizedReason = reason.trim();
-      const shortKey = normalizedReason.startsWith(MATCH_REASON_KEY_PREFIX)
-        ? normalizedReason.slice(MATCH_REASON_KEY_PREFIX.length)
-        : normalizedReason;
+  const selectedProfile = useMemo(() => {
+    if (summary?.profile.id === selectedProfileId) {
+      return summary.profile;
+    }
+    if (!selectedProfileId) return null;
+    return profiles.find((profile) => profile.id === selectedProfileId) ?? null;
+  }, [profiles, selectedProfileId, summary?.profile]);
 
-      if ((MATCH_REASON_KEYS as readonly string[]).includes(shortKey)) {
-        return t(`matchReasons.${shortKey as MatchReasonKey}`);
+  const resolveContractAction = useCallback(
+    (profile: InterestedProfile): ContractAction | null => {
+      const operations = getProfileOperations(profile);
+      const supportsRent = operations.includes("rent");
+      const supportsSale = operations.includes("sale");
+
+      if (supportsSale && !supportsRent) {
+        return {
+          href: `/${locale}/leases/new?buyerProfileId=${profile.id}&contractType=sale`,
+          label: t("actions.newSaleContract"),
+        };
       }
 
-      return normalizedReason;
+      if (supportsRent && profile.convertedToTenantId) {
+        return {
+          href: `/${locale}/leases/new?tenantId=${profile.convertedToTenantId}&contractType=rental`,
+          label: t("actions.newRentalContract"),
+        };
+      }
+
+      if (supportsSale) {
+        return {
+          href: `/${locale}/leases/new?buyerProfileId=${profile.id}&contractType=sale`,
+          label: t("actions.newSaleContract"),
+        };
+      }
+
+      return null;
     },
-    [t],
+    [locale, t],
   );
 
-  const profileToForm = useCallback(
-    (profile: InterestedProfile): CreateInterestedProfileInput => ({
-      firstName: profile.firstName ?? "",
-      lastName: profile.lastName ?? "",
-      phone: profile.phone ?? "",
-      email: profile.email ?? "",
-      peopleCount: profile.peopleCount,
-      minAmount: profile.minAmount,
-      maxAmount: profile.maxAmount,
-      hasPets: profile.hasPets ?? false,
-      preferredCity: profile.preferredCity ?? "",
-      desiredFeatures: profile.desiredFeatures ?? [],
-      propertyTypePreference: profile.propertyTypePreference ?? "apartment",
-      operation: profile.operation ?? profile.operations?.[0] ?? "rent",
-      operations:
-        profile.operations ??
-        (profile.operation ? [profile.operation] : ["rent"]),
-      status: profile.status ?? "interested",
-      qualificationLevel: profile.qualificationLevel ?? "mql",
-      source: profile.source ?? "manual",
-      consentContact: profile.consentContact ?? true,
-      notes: profile.notes ?? "",
-    }),
-    [],
-  );
+  const selectProfile = useCallback(async (profile: InterestedProfile) => {
+    setSelectedProfileId(profile.id);
+    setLoadingDetail(true);
+    try {
+      const summaryResult = await interestedApi.getSummary(profile.id);
+      setSummary(summaryResult);
+      setProfiles((prev) =>
+        prev.map((item) =>
+          item.id === summaryResult.profile.id
+            ? { ...item, ...summaryResult.profile }
+            : item,
+        ),
+      );
+    } catch (error) {
+      console.error("Failed to load interested summary", error);
+      setSummary(null);
+    } finally {
+      setLoadingDetail(false);
+    }
+  }, []);
 
   const loadInitial = useCallback(async () => {
     setLoading(true);
     try {
-      const [profilesResult, duplicatesResult] = await Promise.all([
-        interestedApi.getAll({ limit: 50 }),
-        interestedApi.getDuplicates(),
-      ]);
-
+      const profilesResult = await interestedApi.getAll({ limit: 100 });
       setProfiles(profilesResult.data);
-      setDuplicates(duplicatesResult);
-
-      if (profilesResult.data.length > 0) {
-        await selectProfile(profilesResult.data[0]);
-      }
     } catch (error) {
       console.error("Failed to load CRM interested data", error);
     } finally {
@@ -224,119 +205,26 @@ export default function InterestedPage() {
     void loadInitial();
   }, [authLoading, loadInitial]);
 
-  async function selectProfile(profile: InterestedProfile) {
-    setSelectedProfile(profile);
-    setPendingStage(profile.status ?? "interested");
-    setLoadingDetail(true);
-    try {
-      const summaryResult = await interestedApi.getSummary(profile.id);
-      setSummary(summaryResult);
-      setProfiles((prev) =>
-        prev.map((item) =>
-          item.id === summaryResult.profile.id
-            ? { ...item, ...summaryResult.profile }
-            : item,
-        ),
-      );
-      setPendingStage(summaryResult.profile.status ?? "interested");
-    } catch (error) {
-      console.error("Failed to load interested summary", error);
-      setSummary(null);
-    } finally {
-      setLoadingDetail(false);
-    }
-  }
+  const resolveMatchConfirmationAction = useCallback(
+    (
+      profile: InterestedProfile,
+      match: InterestedMatch,
+    ): "rent" | "sale" | null => {
+      const profileOperations = getProfileOperations(profile);
+      const propertyOperations = match.property?.operations ?? [];
+      const supportsRent = propertyOperations.includes("rent");
+      const supportsSale = propertyOperations.includes("sale");
 
-  function handleNewInterested() {
-    setEditingProfileId(null);
-    setForm(emptyForm);
-    setShowCreateForm((prev) => !prev);
-  }
+      if (profileOperations.includes("rent") && supportsRent) return "rent";
+      if (profileOperations.includes("sale") && supportsSale) return "sale";
+      if (supportsRent) return "rent";
+      if (supportsSale) return "sale";
+      return null;
+    },
+    [],
+  );
 
-  function handleEditProfile(profile: InterestedProfile) {
-    setEditingProfileId(profile.id);
-    setForm(profileToForm(profile));
-    setShowCreateForm(true);
-  }
-
-  async function handleSaveProfile(event: React.FormEvent) {
-    event.preventDefault();
-    if (!form.phone?.trim()) {
-      alert(t("errors.phoneRequired"));
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const operations: InterestedOperation[] = Array.from(
-        new Set(
-          form.operations && form.operations.length > 0
-            ? form.operations
-            : form.operation
-              ? [form.operation]
-              : ["rent"],
-        ),
-      );
-
-      const payload: CreateInterestedProfileInput = {
-        ...form,
-        operation: operations[0],
-        operations,
-        firstName: form.firstName?.trim() || undefined,
-        lastName: form.lastName?.trim() || undefined,
-        phone: form.phone.trim(),
-        email: form.email?.trim() || undefined,
-        preferredCity: form.preferredCity?.trim() || undefined,
-        notes: form.notes?.trim() || undefined,
-        desiredFeatures: form.desiredFeatures?.filter(
-          (g) => g.trim().length > 0,
-        ),
-      };
-
-      if (editingProfileId) {
-        const updated = await interestedApi.update(editingProfileId, payload);
-        setProfiles((prev) =>
-          prev.map((item) => (item.id === updated.id ? updated : item)),
-        );
-        await selectProfile(updated);
-      } else {
-        const created = await interestedApi.create(payload);
-        setProfiles((prev) => [created, ...prev]);
-        await selectProfile(created);
-      }
-
-      setForm(emptyForm);
-      setEditingProfileId(null);
-      setShowCreateForm(false);
-    } catch (error) {
-      console.error("Failed to save interested profile", error);
-      alert(tc("error"));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleChangeStage() {
-    if (!selectedProfile) return;
-
-    try {
-      const updated = await interestedApi.changeStage(
-        selectedProfile.id,
-        pendingStage,
-        stageReason.trim() || undefined,
-      );
-      setProfiles((prev) =>
-        prev.map((item) => (item.id === updated.id ? updated : item)),
-      );
-      await selectProfile(updated);
-      setStageReason("");
-    } catch (error) {
-      console.error("Failed to change stage", error);
-      alert(tc("error"));
-    }
-  }
-
-  async function handleRefreshMatches() {
+  const handleRefreshMatches = useCallback(async () => {
     if (!selectedProfile) return;
 
     setRefreshingMatches(true);
@@ -349,448 +237,132 @@ export default function InterestedPage() {
     } finally {
       setRefreshingMatches(false);
     }
-  }
+  }, [selectedProfile, selectProfile, tc]);
 
-  async function handleUpdateMatchStatus(
-    match: InterestedMatch,
-    status: InterestedMatchStatus,
-  ) {
-    if (!selectedProfile) return;
-
-    try {
-      await interestedApi.updateMatch(selectedProfile.id, match.id, status);
-      await selectProfile(selectedProfile);
-    } catch (error) {
-      console.error("Failed to update match status", error);
-      alert(tc("error"));
-    }
-  }
-
-  async function handleConfirmRental(match: InterestedMatch) {
-    if (!selectedProfile) return;
-
-    setConfirmingRentMatchId(match.id);
-    try {
+  const handleConfirmMatch = useCallback(
+    async (match: InterestedMatch) => {
       const currentProfile = summary?.profile ?? selectedProfile;
+      if (!currentProfile) return;
 
-      if (!currentProfile.convertedToTenantId) {
-        await interestedApi.convertToTenant(currentProfile.id, {});
+      const action = resolveMatchConfirmationAction(currentProfile, match);
+      if (!action) return;
+
+      setConfirmingMatchId(match.id);
+      try {
+        if (action === "rent") {
+          if (!currentProfile.convertedToTenantId) {
+            await interestedApi.convertToTenant(currentProfile.id, {});
+          }
+        } else {
+          await interestedApi.changeStage(
+            currentProfile.id,
+            "buyer",
+            t("actions.purchaseConfirmedReason", {
+              property: match.property?.name ?? match.propertyId,
+            }),
+          );
+        }
+
+        if (match.status !== "accepted") {
+          await interestedApi.updateMatch(
+            currentProfile.id,
+            match.id,
+            "accepted",
+          );
+        }
+
+        await selectProfile(currentProfile);
+      } catch (error) {
+        console.error("Failed to confirm suggested property", error);
+        alert(tc("error"));
+      } finally {
+        setConfirmingMatchId(null);
       }
-
-      if (match.status !== "accepted") {
-        await interestedApi.updateMatch(
-          currentProfile.id,
-          match.id,
-          "accepted",
-        );
-      }
-
-      await selectProfile(currentProfile);
-    } catch (error) {
-      console.error("Failed to confirm rental from match", error);
-      alert(tc("error"));
-    } finally {
-      setConfirmingRentMatchId(null);
-    }
-  }
-
-  async function handleConfirmPurchase(match: InterestedMatch) {
-    if (!selectedProfile) return;
-
-    setConfirmingPurchaseMatchId(match.id);
-    try {
-      const currentProfile = summary?.profile ?? selectedProfile;
-
-      await interestedApi.changeStage(
-        currentProfile.id,
-        "buyer",
-        t("actions.purchaseConfirmedReason", {
-          property: match.property?.name ?? match.propertyId,
-        }),
-      );
-
-      if (match.status !== "accepted") {
-        await interestedApi.updateMatch(
-          currentProfile.id,
-          match.id,
-          "accepted",
-        );
-      }
-
-      await selectProfile(currentProfile);
-    } catch (error) {
-      console.error("Failed to confirm purchase from match", error);
-      alert(tc("error"));
-    } finally {
-      setConfirmingPurchaseMatchId(null);
-    }
-  }
-
-  async function handleCreateActivity(event: React.FormEvent) {
-    event.preventDefault();
-    if (!selectedProfile) return;
-    if (!activityForm.subject.trim()) {
-      alert(t("errors.activitySubjectRequired"));
-      return;
-    }
-    if (activityForm.markReserved && !activityForm.propertyId) {
-      alert(t("errors.propertyRequiredForReservation"));
-      return;
-    }
-
-    try {
-      await interestedApi.addActivity(selectedProfile.id, {
-        type: activityForm.type,
-        subject: activityForm.subject.trim(),
-        body: activityForm.body.trim() || undefined,
-        dueAt: activityForm.dueAt || undefined,
-        propertyId: activityForm.propertyId || undefined,
-        markReserved: activityForm.markReserved,
-      });
-
-      setActivityForm({
-        type: "task",
-        subject: "",
-        body: "",
-        dueAt: "",
-        propertyId: "",
-        markReserved: false,
-      });
-
-      await selectProfile(selectedProfile);
-    } catch (error) {
-      console.error("Failed to create activity", error);
-      alert(tc("error"));
-    }
-  }
-
-  const statusLabel = useCallback(
-    (status?: string) => t(`status.${status ?? "interested"}`),
-    [t],
+    },
+    [
+      resolveMatchConfirmationAction,
+      selectProfile,
+      selectedProfile,
+      summary?.profile,
+      t,
+      tc,
+    ],
   );
-
-  const reservableProperties = useMemo(() => {
-    if (!summary) return [];
-    const propertyMap = new Map<string, string>();
-
-    for (const match of summary.matches ?? []) {
-      if (match.propertyId) {
-        propertyMap.set(
-          match.propertyId,
-          match.property?.name ?? match.propertyId,
-        );
-      }
-    }
-
-    for (const visit of summary.visits ?? []) {
-      if (visit.propertyId) {
-        propertyMap.set(
-          visit.propertyId,
-          visit.property?.name ?? visit.propertyId,
-        );
-      }
-    }
-
-    return Array.from(propertyMap.entries()).map(([id, name]) => ({
-      id,
-      name,
-    }));
-  }, [summary]);
-
-  const isBuyerMarked = useMemo(() => {
-    return (
-      summary?.profile.status === "buyer" ||
-      Boolean(summary?.profile.convertedToSaleAgreementId)
-    );
-  }, [summary]);
-
-  const availableStageOptions = useMemo(() => {
-    const currentStatus = summary?.profile.status ?? "interested";
-    if (currentStatus === "interested") {
-      return STAGE_OPTIONS;
-    }
-    return [currentStatus];
-  }, [summary?.profile.status]);
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            {t("title")}
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            {t("subtitle")}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={handleNewInterested}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm"
-        >
-          {showCreateForm ? t("actions.closeNew") : t("actions.new")}
-        </button>
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          {t("title")}
+        </h1>
+        <p className="text-gray-500 dark:text-gray-400 mt-1">{t("subtitle")}</p>
       </div>
 
-      {showCreateForm ? (
-        <form
-          onSubmit={handleSaveProfile}
-          className="space-y-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4"
-        >
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            {editingProfileId ? t("editTitle") : t("newTitle")}
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <input
-              type="text"
-              placeholder={t("fields.firstName")}
-              value={form.firstName ?? ""}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, firstName: e.target.value }))
-              }
-              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-            />
-            <input
-              type="text"
-              placeholder={t("fields.lastName")}
-              value={form.lastName ?? ""}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, lastName: e.target.value }))
-              }
-              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-            />
-            <input
-              type="text"
-              placeholder={t("fields.phone")}
-              value={form.phone ?? ""}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, phone: e.target.value }))
-              }
-              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-            />
-            <input
-              type="email"
-              placeholder={t("fields.email")}
-              value={form.email ?? ""}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, email: e.target.value }))
-              }
-              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-            />
-            <div className="space-y-2 md:col-span-2">
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {t("fields.operations")}
-              </p>
-              <div className="flex flex-wrap gap-3">
-                {(["rent", "sale"] as const).map((operation) => (
-                  <label
-                    key={operation}
-                    className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={(form.operations ?? []).includes(operation)}
-                      onChange={(e) =>
-                        setForm((prev) => {
-                          const current = prev.operations ?? [];
-                          const next = e.target.checked
-                            ? [...new Set([...current, operation])]
-                            : current.filter((item) => item !== operation);
-                          return {
-                            ...prev,
-                            operations: next,
-                            operation: next[0] ?? "rent",
-                          };
-                        })
-                      }
-                      className="rounded-sm border-gray-300 dark:border-gray-600"
-                    />
-                    {t(`operations.${operation}`)}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <select
-              value={form.propertyTypePreference}
-              onChange={(e) =>
-                setForm((prev) => ({
-                  ...prev,
-                  propertyTypePreference: e.target
-                    .value as InterestedPropertyType,
-                }))
-              }
-              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-            >
-              <option value="apartment">{t("propertyTypes.apartment")}</option>
-              <option value="house">{t("propertyTypes.house")}</option>
-              <option value="commercial">
-                {t("propertyTypes.commercial")}
-              </option>
-              <option value="office">{t("propertyTypes.office")}</option>
-              <option value="warehouse">{t("propertyTypes.warehouse")}</option>
-              <option value="land">{t("propertyTypes.land")}</option>
-              <option value="parking">{t("propertyTypes.parking")}</option>
-              <option value="other">{t("propertyTypes.other")}</option>
-            </select>
-            <input
-              type="number"
-              min={1}
-              placeholder={t("fields.peopleCount")}
-              value={form.peopleCount ?? ""}
-              onChange={(e) =>
-                setForm((prev) => ({
-                  ...prev,
-                  peopleCount: e.target.value
-                    ? Number(e.target.value)
-                    : undefined,
-                }))
-              }
-              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-            />
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              placeholder={t("fields.minAmount")}
-              value={form.minAmount ?? ""}
-              onChange={(e) =>
-                setForm((prev) => ({
-                  ...prev,
-                  minAmount: e.target.value
-                    ? Number(e.target.value)
-                    : undefined,
-                }))
-              }
-              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-            />
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              placeholder={t("fields.maxAmount")}
-              value={form.maxAmount ?? ""}
-              onChange={(e) =>
-                setForm((prev) => ({
-                  ...prev,
-                  maxAmount: e.target.value
-                    ? Number(e.target.value)
-                    : undefined,
-                }))
-              }
-              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-            />
-            <input
-              type="text"
-              placeholder={t("fields.preferredCity")}
-              value={form.preferredCity ?? ""}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, preferredCity: e.target.value }))
-              }
-              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-            />
-            <input
-              type="text"
-              placeholder={t("fields.desiredFeatures")}
-              value={(form.desiredFeatures ?? []).join(", ")}
-              onChange={(e) =>
-                setForm((prev) => ({
-                  ...prev,
-                  desiredFeatures: e.target.value
-                    .split(",")
-                    .map((item) => item.trim()),
-                }))
-              }
-              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-            />
-            <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-              <input
-                type="checkbox"
-                checked={form.hasPets ?? false}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, hasPets: e.target.checked }))
-                }
-                className="rounded-sm border-gray-300 dark:border-gray-600"
-              />
-              {t("fields.hasPets")}
-            </label>
-            <textarea
-              placeholder={t("fields.notes")}
-              value={form.notes ?? ""}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, notes: e.target.value }))
-              }
-              rows={3}
-              className="md:col-span-2 w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={saving}
-            className="w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60"
+      <div className="space-y-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+          {t("listTitle")}
+        </h2>
+
+        <input
+          type="text"
+          placeholder={t("listSearchPlaceholder")}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+        />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <select
+            value={operationFilter}
+            onChange={(e) =>
+              setOperationFilter(e.target.value as "all" | InterestedOperation)
+            }
+            className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           >
-            {saving ? t("actions.saving") : t("actions.save")}
-          </button>
-        </form>
-      ) : null}
-
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+            <option value="all">{t("filters.allOperations")}</option>
+            <option value="rent">{t("operations.rent")}</option>
+            <option value="sale">{t("operations.sale")}</option>
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) =>
+              setStatusFilter(e.target.value as "all" | InterestedStatus)
+            }
+            className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+          >
+            <option value="all">{t("filters.allStages")}</option>
+            {STAGE_OPTIONS.map((stage) => (
+              <option key={stage} value={stage}>
+                {statusLabel(stage)}
+              </option>
+            ))}
+          </select>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-          <div className="xl:col-span-4">
-            <div className="space-y-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {t("listTitle")}
-              </h2>
-              <input
-                type="text"
-                placeholder={t("listSearchPlaceholder")}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-              />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <select
-                  value={operationFilter}
-                  onChange={(e) =>
-                    setOperationFilter(
-                      e.target.value as "all" | InterestedOperation,
-                    )
-                  }
-                  className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                >
-                  <option value="all">{t("filters.allOperations")}</option>
-                  <option value="rent">{t("operations.rent")}</option>
-                  <option value="sale">{t("operations.sale")}</option>
-                </select>
-                <select
-                  value={statusFilter}
-                  onChange={(e) =>
-                    setStatusFilter(e.target.value as "all" | InterestedStatus)
-                  }
-                  className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                >
-                  <option value="all">{t("filters.allStages")}</option>
-                  {STAGE_OPTIONS.map((stage) => (
-                    <option key={stage} value={stage}>
-                      {statusLabel(stage)}
-                    </option>
-                  ))}
-                </select>
-              </div>
 
-              {filteredProfiles.length > 0 ? (
-                filteredProfiles.map((profile) => (
+        {loading ? (
+          <div className="flex justify-center py-16">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+          </div>
+        ) : filteredProfiles.length > 0 ? (
+          <div className="space-y-3">
+            {filteredProfiles.map((profile) => {
+              const operations = getProfileOperations(profile);
+              const contractAction = resolveContractAction(profile);
+              const isSelected = selectedProfileId === profile.id;
+
+              return (
+                <div
+                  key={profile.id}
+                  className={`rounded-lg border p-3 space-y-3 transition ${
+                    isSelected
+                      ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30"
+                      : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
+                  }`}
+                >
                   <button
-                    key={profile.id}
+                    type="button"
                     onClick={() => void selectProfile(profile)}
-                    className={`w-full text-left rounded-lg border p-3 transition ${
-                      selectedProfile?.id === profile.id
-                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30"
-                        : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
-                    }`}
+                    className="w-full text-left"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-semibold text-gray-900 dark:text-white">
@@ -807,438 +379,150 @@ export default function InterestedPage() {
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       {t("operationsLabel", {
-                        op: (
-                          profile.operations ?? [profile.operation ?? "rent"]
-                        )
+                        op: operations
                           .map((operation) => t(`operations.${operation}`))
                           .join(", "),
                       })}
                     </p>
                   </button>
-                ))
-              ) : (
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {profiles.length > 0 ? t("noResults") : t("empty")}
-                </p>
-              )}
-            </div>
-          </div>
 
-          <div className="xl:col-span-8 space-y-4">
-            {!selectedProfile ? (
-              <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                {t("matchesHint")}
-              </div>
-            ) : loadingDetail ? (
-              <div className="flex justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-              </div>
-            ) : (
-              <>
-                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                    <div>
-                      <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {summary?.profile.firstName || summary?.profile.lastName
-                          ? `${summary?.profile.firstName ?? ""} ${summary?.profile.lastName ?? ""}`.trim()
-                          : summary?.profile.phone}
-                      </h2>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {summary?.profile.email ?? summary?.profile.phone}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {summary?.profile.convertedToTenantId ? (
-                          <span className="px-2 py-1 rounded-md text-xs bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300">
-                            {t("actions.markedAsTenant")}
-                          </span>
-                        ) : null}
-                        {isBuyerMarked ? (
-                          <span className="px-2 py-1 rounded-md text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
-                            {t("actions.markedAsBuyer")}
+                  <div className="flex flex-wrap gap-2">
+                    <Link
+                      href={`/${locale}/interested/${profile.id}/edit`}
+                      className="px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-xs"
+                    >
+                      {t("actions.edit")}
+                    </Link>
+                    {contractAction ? (
+                      <Link
+                        href={contractAction.href}
+                        className="px-3 py-1.5 rounded-md border border-blue-300 dark:border-blue-700 text-xs text-blue-700 dark:text-blue-300"
+                      >
+                        {contractAction.label}
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        className="px-3 py-1.5 rounded-md border border-gray-200 dark:border-gray-700 text-xs text-gray-400 cursor-not-allowed"
+                      >
+                        {t("actions.newRentalContract")}
+                      </button>
+                    )}
+                    <Link
+                      href={`/${locale}/interested/${profile.id}/activities/new`}
+                      className="px-3 py-1.5 rounded-md border border-green-300 dark:border-green-700 text-xs text-green-700 dark:text-green-300"
+                    >
+                      {t("activities.add")}
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {profiles.length > 0 ? t("noResults") : t("empty")}
+          </p>
+        )}
+      </div>
+
+      {selectedProfileId ? (
+        loadingDetail ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+          </div>
+        ) : (
+          <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                {t("matchesTitle")}
+              </h3>
+              <button
+                type="button"
+                onClick={() => void handleRefreshMatches()}
+                disabled={refreshingMatches || !selectedProfile}
+                className="px-2 py-1 rounded-md border border-gray-300 dark:border-gray-600 text-xs inline-flex items-center gap-2"
+              >
+                {refreshingMatches ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                {t("actions.refreshMatches")}
+              </button>
+            </div>
+
+            {summary?.matches?.length ? (
+              <div className="space-y-3">
+                {summary.matches.map((match) => {
+                  const confirmationAction =
+                    selectedProfile &&
+                    resolveMatchConfirmationAction(selectedProfile, match);
+
+                  return (
+                    <div
+                      key={match.id}
+                      className="border border-gray-200 dark:border-gray-700 rounded-md p-3 space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {match.property?.name ?? match.propertyId}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {t("labels.score")}: {(match.score ?? 0).toFixed(2)}
+                            %
+                          </p>
+                        </div>
+                        <span className="text-xs px-2 py-1 rounded-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                          {t(`matchStatus.${match.status}`)}
+                        </span>
+                      </div>
+
+                      {match.matchReasons?.length ? (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {match.matchReasons
+                            .map(formatMatchReason)
+                            .join(" · ")}
+                        </p>
+                      ) : null}
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void handleConfirmMatch(match)}
+                          disabled={
+                            !confirmationAction ||
+                            confirmingMatchId === match.id
+                          }
+                          className="px-3 py-1.5 rounded-md border border-green-300 text-green-700 text-xs disabled:opacity-60"
+                        >
+                          {confirmingMatchId === match.id
+                            ? t("actions.confirming")
+                            : confirmationAction === "sale"
+                              ? t("actions.confirmPurchase")
+                              : t("actions.confirmRent")}
+                        </button>
+                        {match.status === "accepted" ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-300">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            {t("matchStatus.accepted")}
                           </span>
                         ) : null}
                       </div>
                     </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      {summary?.profile.convertedToTenantId ? (
-                        <Link
-                          href={`/${locale}/leases/new?tenantId=${summary.profile.convertedToTenantId}&contractType=rental`}
-                          className="px-3 py-2 rounded-md border border-blue-300 dark:border-blue-700 text-sm text-blue-700 dark:text-blue-300"
-                        >
-                          {t("actions.newRentalContract")}
-                        </Link>
-                      ) : null}
-                      {(
-                        summary?.profile.operations ??
-                        (summary?.profile.operation
-                          ? [summary.profile.operation]
-                          : [])
-                      ).includes("sale") ? (
-                        <Link
-                          href={`/${locale}/leases/new?buyerProfileId=${summary?.profile.id}&contractType=sale`}
-                          className="px-3 py-2 rounded-md border border-blue-300 dark:border-blue-700 text-sm text-blue-700 dark:text-blue-300"
-                        >
-                          {t("actions.newSaleContract")}
-                        </Link>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => handleEditProfile(selectedProfile)}
-                        className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm"
-                      >
-                        {t("actions.edit")}
-                      </button>
-                    </div>
-                  </div>
-
-                  {duplicateForSelected ? (
-                    <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-900 dark:text-amber-200">
-                      {t("duplicateWarning", {
-                        count: duplicateForSelected.count,
-                      })}
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-4">
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-                    {t("sections.result")}
-                  </h3>
-                  <dl className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <dt className="text-gray-500 dark:text-gray-400">
-                        {t("fields.phone")}
-                      </dt>
-                      <dd className="text-gray-900 dark:text-white">
-                        {summary?.profile.phone || "-"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-gray-500 dark:text-gray-400">
-                        {t("fields.email")}
-                      </dt>
-                      <dd className="text-gray-900 dark:text-white">
-                        {summary?.profile.email || "-"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-gray-500 dark:text-gray-400">
-                        {t("fields.preferredCity")}
-                      </dt>
-                      <dd className="text-gray-900 dark:text-white">
-                        {summary?.profile.preferredCity || "-"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-gray-500 dark:text-gray-400">
-                        {t("fields.peopleCount")}
-                      </dt>
-                      <dd className="text-gray-900 dark:text-white">
-                        {summary?.profile.peopleCount ?? "-"}
-                      </dd>
-                    </div>
-                    <div className="md:col-span-2">
-                      <dt className="text-gray-500 dark:text-gray-400">
-                        {t("fields.operations")}
-                      </dt>
-                      <dd className="text-gray-900 dark:text-white">
-                        {(
-                          summary?.profile.operations ?? [
-                            summary?.profile.operation ?? "rent",
-                          ]
-                        )
-                          .map((operation) => t(`operations.${operation}`))
-                          .join(", ")}
-                      </dd>
-                    </div>
-                  </dl>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <select
-                      value={pendingStage}
-                      onChange={(e) =>
-                        setPendingStage(e.target.value as InterestedStatus)
-                      }
-                      className="rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                    >
-                      {availableStageOptions.map((stage) => (
-                        <option key={stage} value={stage}>
-                          {statusLabel(stage)}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="text"
-                      placeholder={t("fields.stageReason")}
-                      value={stageReason}
-                      onChange={(e) => setStageReason(e.target.value)}
-                      className="rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm md:col-span-2"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void handleChangeStage()}
-                    className="px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
-                  >
-                    {t("actions.changeStage")}
-                  </button>
-                </div>
-
-                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-                      {t("matchesTitle")}
-                    </h3>
-                    <button
-                      type="button"
-                      onClick={() => void handleRefreshMatches()}
-                      disabled={refreshingMatches}
-                      className="px-2 py-1 rounded-md border border-gray-300 dark:border-gray-600 text-xs inline-flex items-center gap-2"
-                    >
-                      {refreshingMatches ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-4 w-4" />
-                      )}
-                      {t("actions.refreshMatches")}
-                    </button>
-                  </div>
-                  {summary?.matches?.length ? (
-                    <div className="space-y-3">
-                      {summary.matches.map((match) => {
-                        const operations = match.property?.operations ?? [];
-                        const supportsRent = operations.includes("rent");
-                        const supportsSale = operations.includes("sale");
-
-                        return (
-                          <div
-                            key={match.id}
-                            className="border border-gray-200 dark:border-gray-700 rounded-md p-3 space-y-2"
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                {match.property?.name ?? match.propertyId}
-                              </p>
-                              <span className="text-xs text-gray-500 dark:text-gray-400">
-                                {t("labels.score")}:{" "}
-                                {(match.score ?? 0).toFixed(2)}%
-                              </span>
-                            </div>
-                            <select
-                              value={match.status}
-                              onChange={(e) =>
-                                void handleUpdateMatchStatus(
-                                  match,
-                                  e.target.value as InterestedMatchStatus,
-                                )
-                              }
-                              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-xs"
-                            >
-                              {MATCH_STATUS_OPTIONS.map((status) => (
-                                <option key={status} value={status}>
-                                  {t(`matchStatus.${status}`)}
-                                </option>
-                              ))}
-                            </select>
-                            <div className="flex flex-wrap gap-2">
-                              {supportsRent ? (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    void handleConfirmRental(match)
-                                  }
-                                  disabled={
-                                    confirmingRentMatchId === match.id ||
-                                    Boolean(
-                                      summary?.profile.convertedToTenantId,
-                                    ) ||
-                                    summary?.profile.status !== "interested"
-                                  }
-                                  className="px-3 py-1.5 rounded-md border border-green-300 text-green-700 text-xs disabled:opacity-60"
-                                >
-                                  {confirmingRentMatchId === match.id
-                                    ? t("actions.confirming")
-                                    : t("actions.confirmRent")}
-                                </button>
-                              ) : null}
-                              {supportsSale ? (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    void handleConfirmPurchase(match)
-                                  }
-                                  disabled={
-                                    confirmingPurchaseMatchId === match.id ||
-                                    isBuyerMarked ||
-                                    summary?.profile.status !== "interested"
-                                  }
-                                  className="px-3 py-1.5 rounded-md border border-amber-300 text-amber-700 text-xs disabled:opacity-60"
-                                >
-                                  {confirmingPurchaseMatchId === match.id
-                                    ? t("actions.confirming")
-                                    : t("actions.confirmPurchase")}
-                                </button>
-                              ) : null}
-                            </div>
-                            {match.matchReasons?.length ? (
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {match.matchReasons
-                                  .map(formatMatchReason)
-                                  .join(" · ")}
-                              </p>
-                            ) : null}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {t("noMatches")}
-                    </p>
-                  )}
-                </div>
-
-                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-4">
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-                    {t("activities.title")}
-                  </h3>
-
-                  <form onSubmit={handleCreateActivity} className="space-y-2">
-                    <select
-                      value={activityForm.type}
-                      onChange={(e) =>
-                        setActivityForm((prev) => ({
-                          ...prev,
-                          type: e.target.value as InterestedActivity["type"],
-                        }))
-                      }
-                      className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                    >
-                      <option value="task">{t("activityTypes.task")}</option>
-                      <option value="call">{t("activityTypes.call")}</option>
-                      <option value="note">{t("activityTypes.note")}</option>
-                      <option value="email">{t("activityTypes.email")}</option>
-                      <option value="whatsapp">
-                        {t("activityTypes.whatsapp")}
-                      </option>
-                      <option value="visit">{t("activityTypes.visit")}</option>
-                    </select>
-                    <input
-                      type="text"
-                      placeholder={t("activities.subject")}
-                      value={activityForm.subject}
-                      onChange={(e) =>
-                        setActivityForm((prev) => ({
-                          ...prev,
-                          subject: e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                    />
-                    <textarea
-                      placeholder={t("activities.body")}
-                      value={activityForm.body}
-                      onChange={(e) =>
-                        setActivityForm((prev) => ({
-                          ...prev,
-                          body: e.target.value,
-                        }))
-                      }
-                      rows={2}
-                      className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                    />
-                    <input
-                      type="datetime-local"
-                      value={activityForm.dueAt}
-                      onChange={(e) =>
-                        setActivityForm((prev) => ({
-                          ...prev,
-                          dueAt: e.target.value,
-                        }))
-                      }
-                      lang={locale}
-                      className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                    />
-                    <select
-                      value={activityForm.propertyId}
-                      onChange={(e) =>
-                        setActivityForm((prev) => ({
-                          ...prev,
-                          propertyId: e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                    >
-                      <option value="">{t("activities.noProperty")}</option>
-                      {reservableProperties.map((property) => (
-                        <option key={property.id} value={property.id}>
-                          {property.name}
-                        </option>
-                      ))}
-                    </select>
-                    <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                      <input
-                        type="checkbox"
-                        checked={activityForm.markReserved}
-                        onChange={(e) =>
-                          setActivityForm((prev) => ({
-                            ...prev,
-                            markReserved: e.target.checked,
-                          }))
-                        }
-                        className="rounded-sm border-gray-300 dark:border-gray-600"
-                      />
-                      {t("activities.markReserved")}
-                    </label>
-                    <button
-                      type="submit"
-                      className="w-full px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
-                    >
-                      {t("activities.add")}
-                    </button>
-                  </form>
-
-                  <div className="space-y-2">
-                    {summary?.activities?.length ? (
-                      summary.activities.map((activity) => (
-                        <div
-                          key={activity.id}
-                          className="border border-gray-200 dark:border-gray-700 rounded-md p-3"
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <p className="text-sm font-medium text-gray-900 dark:text-white">
-                              {activity.subject}
-                            </p>
-                            <span className="text-xs px-2 py-1 rounded-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-                              {t(`activityStatus.${activity.status}`)}
-                            </span>
-                          </div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {t(`activityTypes.${activity.type}`)}
-                            {" · "}
-                            {new Date(activity.createdAt).toLocaleString(
-                              locale,
-                            )}
-                          </p>
-                          {activity.body ? (
-                            <p className="text-sm text-gray-700 dark:text-gray-300 mt-2 whitespace-pre-wrap">
-                              {activity.body}
-                            </p>
-                          ) : null}
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {t("activities.empty")}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {t("noMatches")}
+              </p>
             )}
           </div>
-        </div>
-      )}
+        )
+      ) : null}
     </div>
   );
 }
