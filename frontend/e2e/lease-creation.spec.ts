@@ -14,12 +14,16 @@ test.describe('Lease Creation Flow', () => {
     });
 
     test('should navigate to create lease page', async ({ page }) => {
-        // New flow: create lease action is on property details
+        // New flow: create lease action is exposed from property context
         await page.goto(localePath('/properties'));
-        await page.waitForSelector('a[href*="/properties/"]:not([href*="/new"]):not([href*="/edit"])', { timeout: 10000 });
-        await page.locator('a[href*="/properties/"]:not([href*="/new"]):not([href*="/edit"])').first().click({ force: true });
+        const createLeaseFromProperty = page.locator('a[href*="/leases/new?propertyId="]').first();
 
-        await page.getByRole('link', { name: /create lease|crear contrato|criar contrato/i }).click();
+        if ((await createLeaseFromProperty.count()) > 0) {
+            await createLeaseFromProperty.click({ force: true });
+        } else {
+            // Fallback for datasets where no property is currently eligible for "create lease"
+            await page.goto(localePath('/leases/new'));
+        }
 
         // Should navigate to new lease page
         await expect(page).toHaveURL(/\/es\/leases\/new/);

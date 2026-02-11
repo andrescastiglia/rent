@@ -1,14 +1,17 @@
 import { test, expect, login, localePath } from './fixtures/auth';
 
 test.describe('Property Maintenance Log', () => {
+    const propertyDetailLinkSelector =
+        'a[href*="/properties/"]:not([href*="/properties/new"]):not([href*="/edit"]):not([href*="#"])';
+
     test.beforeEach(async ({ page }) => {
         await login(page);
         await page.goto(localePath('/properties'));
     });
 
     test('should add a maintenance task and show it in history', async ({ page }) => {
-        await page.waitForSelector('a[href*="/properties/"]:not([href*="/properties/new"])', { timeout: 5000 });
-        await page.locator('a[href*="/properties/"]:not([href*="/properties/new"])').first().click({ force: true });
+        await page.waitForSelector(propertyDetailLinkSelector, { timeout: 10000 });
+        await page.locator(propertyDetailLinkSelector).first().click({ force: true });
 
         await expect(page).toHaveURL(/\/es\/properties\/[^/]+$/);
 

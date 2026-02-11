@@ -1,6 +1,9 @@
 import { test, expect, login, localePath } from './fixtures/auth';
 
 test.describe('Property Creation Flow', () => {
+    const propertyDetailLinkSelector =
+        'a[href*="/properties/"]:not([href*="/properties/new"]):not([href*="/edit"]):not([href*="#"])';
+
     test.beforeEach(async ({ page }) => {
         await login(page);
         await page.goto(localePath('/properties'));
@@ -68,8 +71,9 @@ test.describe('Property Creation Flow', () => {
     test('should navigate to property details', async ({ page }) => {
         await page.goto(localePath('/properties'));
 
-        // Click first "View" action from owner/property list
-        await page.getByRole('link', { name: /view|ver/i }).first().click({ force: true });
+        // Click first property detail link (avoid generic "view" links from other modules)
+        await page.waitForSelector(propertyDetailLinkSelector, { timeout: 10000 });
+        await page.locator(propertyDetailLinkSelector).first().click({ force: true });
 
         // Should navigate to property detail page
         await expect(page).toHaveURL(/\/es\/properties\/[^/]+$/);
@@ -79,7 +83,8 @@ test.describe('Property Creation Flow', () => {
         await page.goto(localePath('/properties'));
 
         // Go to property detail
-        await page.getByRole('link', { name: /view|ver/i }).first().click({ force: true });
+        await page.waitForSelector(propertyDetailLinkSelector, { timeout: 10000 });
+        await page.locator(propertyDetailLinkSelector).first().click({ force: true });
 
         // Should show edit link
         await expect(page.getByRole('link', { name: /edit|editar/i }).first()).toBeVisible();
