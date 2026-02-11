@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Tenant, TenantActivity, TenantActivityType } from "@/types/tenant";
+import { Tenant, TenantActivity } from "@/types/tenant";
 import { tenantsApi } from "@/lib/api/tenants";
 import {
   invoicesApi,
@@ -23,13 +23,13 @@ import {
   Wallet,
   CheckCircle2,
   Eye,
+  Plus,
 } from "lucide-react";
 import { Lease } from "@/types/lease";
 import {
   AccountBalance,
   Invoice,
   Payment,
-  PaymentMethod,
   TenantAccount,
   TenantAccountMovement,
   TenantReceiptSummary,
@@ -37,7 +37,6 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
 import { IS_MOCK_MODE } from "@/lib/api";
-import { CurrencySelect } from "@/components/common/CurrencySelect";
 
 const OPEN_INVOICE_STATUSES = new Set<Invoice["status"]>([
   "pending",
@@ -57,7 +56,6 @@ export default function TenantDetailPage() {
   const t = useTranslations("tenants");
   const tPayments = useTranslations("payments");
   const tCommon = useTranslations("common");
-  const tCurrencies = useTranslations("currencies");
   const locale = useLocale();
   const params = useParams();
   const tenantId = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -74,30 +72,14 @@ export default function TenantDetailPage() {
     null,
   );
   const [movements, setMovements] = useState<TenantAccountMovement[]>([]);
-  const [registeringPayment, setRegisteringPayment] = useState(false);
   const [downloadingReceiptPaymentId, setDownloadingReceiptPaymentId] =
     useState<string | null>(null);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<
     string | null
   >(null);
-  const [savingActivity, setSavingActivity] = useState(false);
   const [completingActivityId, setCompletingActivityId] = useState<
     string | null
   >(null);
-  const [paymentForm, setPaymentForm] = useState({
-    amount: "",
-    currencyCode: "ARS",
-    paymentDate: new Date().toISOString().split("T")[0],
-    method: "bank_transfer" as PaymentMethod,
-    reference: "",
-    notes: "",
-  });
-  const [activityForm, setActivityForm] = useState({
-    type: "task" as TenantActivityType,
-    subject: "",
-    body: "",
-    dueAt: "",
-  });
   const [loading, setLoading] = useState(true);
 
   const loadTenant = useCallback(
@@ -268,46 +250,6 @@ export default function TenantDetailPage() {
     void loadAccountData(activeLease.id);
   }, [leases, loadAccountData]);
 
-  const handleRegisterPayment = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!tenantAccount || !tenant) return;
-
-    const amount = Number(paymentForm.amount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      alert(t("errors.invalidPaymentAmount"));
-      return;
-    }
-
-    try {
-      setRegisteringPayment(true);
-      const created = await paymentsApi.create({
-        tenantAccountId: tenantAccount.id,
-        amount,
-        currencyCode: paymentForm.currencyCode,
-        paymentDate: paymentForm.paymentDate,
-        method: paymentForm.method,
-        reference: paymentForm.reference || undefined,
-        notes: paymentForm.notes || undefined,
-      });
-
-      await paymentsApi.confirm(created.id);
-      await loadTenant(tenant.id);
-      setPaymentForm({
-        amount: "",
-        currencyCode: "ARS",
-        paymentDate: new Date().toISOString().split("T")[0],
-        method: "bank_transfer",
-        reference: "",
-        notes: "",
-      });
-    } catch (error) {
-      console.error("Failed to register payment from tenant page", error);
-      alert(tCommon("error"));
-    } finally {
-      setRegisteringPayment(false);
-    }
-  };
-
   const getStatusLabel = (status: string) => {
     const statusKey = status.toLowerCase() as "active" | "inactive" | "pending";
     return t(`status.${statusKey}`);
@@ -373,17 +315,6 @@ export default function TenantDetailPage() {
         ),
     [activeLease?.id, invoicesById],
   );
-  const paymentMethods: PaymentMethod[] = [
-    "cash",
-    "bank_transfer",
-    "check",
-    "debit_card",
-    "credit_card",
-    "digital_wallet",
-    "crypto",
-    "other",
-  ];
-
   const handleDownloadReceipt = async (
     paymentId: string,
     receiptNumber?: string,
@@ -417,37 +348,6 @@ export default function TenantDetailPage() {
     }
   };
 
-  const handleCreateActivity = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!tenantToRender) return;
-    if (!activityForm.subject.trim()) {
-      alert(t("errors.activitySubjectRequired"));
-      return;
-    }
-
-    try {
-      setSavingActivity(true);
-      const created = await tenantsApi.createActivity(tenantToRender.id, {
-        type: activityForm.type,
-        subject: activityForm.subject.trim(),
-        body: activityForm.body.trim() || undefined,
-        dueAt: activityForm.dueAt || undefined,
-      });
-      setActivities((prev) => activitiesByDateDesc([created, ...prev]));
-      setActivityForm({
-        type: "task",
-        subject: "",
-        body: "",
-        dueAt: "",
-      });
-    } catch (error) {
-      console.error("Failed to create tenant activity", error);
-      alert(tCommon("error"));
-    } finally {
-      setSavingActivity(false);
-    }
-  };
-
   const handleCompleteActivity = async (activity: TenantActivity) => {
     if (!tenantToRender) return;
     try {
@@ -472,15 +372,6 @@ export default function TenantDetailPage() {
       setCompletingActivityId(null);
     }
   };
-
-  const activityTypes: TenantActivityType[] = [
-    "task",
-    "call",
-    "note",
-    "email",
-    "whatsapp",
-    "visit",
-  ];
 
   if (loading) {
     return (
@@ -550,13 +441,20 @@ export default function TenantDetailPage() {
             <div className="flex space-x-2">
               {tenantAccount && (
                 <Link
-                  href={`/${locale}/tenants/${tenantToRender.id}#payment-registration`}
+                  href={`/${locale}/tenants/${tenantToRender.id}/payments/new`}
                   className="btn btn-success"
                 >
                   <Wallet size={16} className="mr-2" />
                   {t("paymentRegistration.submit")}
                 </Link>
               )}
+              <Link
+                href={`/${locale}/tenants/${tenantToRender.id}/activities/new`}
+                className="btn btn-primary"
+              >
+                <Plus size={16} className="mr-2" />
+                {t("activities.add")}
+              </Link>
               <Link
                 href={`/${locale}/tenants/${tenantToRender.id}/edit`}
                 className="btn btn-secondary"
@@ -705,148 +603,57 @@ export default function TenantDetailPage() {
                       </div>
                     </div>
 
-                    <form
-                      onSubmit={handleRegisterPayment}
-                      className="space-y-3"
-                    >
-                      <div className="rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-3 space-y-2">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {t("paymentRegistration.pendingInvoices")}
-                        </p>
-                        {openInvoices.length > 0 ? (
-                          <div className="space-y-2 max-h-40 overflow-auto">
-                            {openInvoices.map((invoice) => (
-                              <div
-                                key={invoice.id}
-                                className="flex items-center justify-between text-xs rounded-sm border border-gray-100 dark:border-gray-700 px-2 py-1"
-                              >
-                                <div>
-                                  <p className="font-medium text-gray-900 dark:text-white">
-                                    {invoice.invoiceNumber}
-                                  </p>
-                                  <p className="text-gray-500 dark:text-gray-400">
-                                    {tPayments("date")}:{" "}
-                                    {new Date(
-                                      invoice.dueDate,
-                                    ).toLocaleDateString(locale)}{" "}
-                                    · {tPayments(`status.${invoice.status}`)}
-                                  </p>
-                                </div>
-                                <p className="font-semibold text-red-700 dark:text-red-300">
-                                  {invoice.currencyCode}{" "}
-                                  {getInvoicePendingAmount(
-                                    invoice,
-                                  ).toLocaleString(locale)}
+                    <div className="flex justify-end">
+                      <Link
+                        href={`/${locale}/tenants/${tenantToRender.id}/payments/new`}
+                        className="btn btn-primary"
+                      >
+                        <Wallet size={16} className="mr-2" />
+                        {t("paymentRegistration.submit")}
+                      </Link>
+                    </div>
+
+                    <div className="rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-3 space-y-2">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {t("paymentRegistration.pendingInvoices")}
+                      </p>
+                      {openInvoices.length > 0 ? (
+                        <div className="space-y-2 max-h-40 overflow-auto">
+                          {openInvoices.map((invoice) => (
+                            <div
+                              key={invoice.id}
+                              className="flex items-center justify-between text-xs rounded-sm border border-gray-100 dark:border-gray-700 px-2 py-1"
+                            >
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-white">
+                                  {invoice.invoiceNumber}
+                                </p>
+                                <p className="text-gray-500 dark:text-gray-400">
+                                  {tPayments("date")}:{" "}
+                                  {new Date(
+                                    invoice.dueDate,
+                                  ).toLocaleDateString(locale)}{" "}
+                                  · {tPayments(`status.${invoice.status}`)}
                                 </p>
                               </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {t("paymentRegistration.noPendingInvoices")}
-                          </p>
-                        )}
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {t("paymentRegistration.fifoHint")}
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <input
-                          type="number"
-                          min="0.01"
-                          step="0.01"
-                          required
-                          value={paymentForm.amount}
-                          placeholder={t("paymentRegistration.amount")}
-                          onChange={(e) =>
-                            setPaymentForm((prev) => ({
-                              ...prev,
-                              amount: e.target.value,
-                            }))
-                          }
-                          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
-                        />
-                        <input
-                          type="date"
-                          required
-                          value={paymentForm.paymentDate}
-                          onChange={(e) =>
-                            setPaymentForm((prev) => ({
-                              ...prev,
-                              paymentDate: e.target.value,
-                            }))
-                          }
-                          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
-                        />
-                        <select
-                          value={paymentForm.method}
-                          onChange={(e) =>
-                            setPaymentForm((prev) => ({
-                              ...prev,
-                              method: e.target.value as PaymentMethod,
-                            }))
-                          }
-                          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
-                        >
-                          {paymentMethods.map((method) => (
-                            <option key={method} value={method}>
-                              {t(`paymentRegistration.methods.${method}`)}
-                            </option>
+                              <p className="font-semibold text-red-700 dark:text-red-300">
+                                {invoice.currencyCode}{" "}
+                                {getInvoicePendingAmount(invoice).toLocaleString(
+                                  locale,
+                                )}
+                              </p>
+                            </div>
                           ))}
-                        </select>
-                        <div className="space-y-1">
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {tCurrencies("title")}
-                          </p>
-                          <CurrencySelect
-                            id="tenantPaymentCurrencyCode"
-                            name="tenantPaymentCurrencyCode"
-                            value={paymentForm.currencyCode}
-                            onChange={(value) =>
-                              setPaymentForm((prev) => ({
-                                ...prev,
-                                currencyCode: value,
-                              }))
-                            }
-                            className="text-sm"
-                          />
                         </div>
-                        <input
-                          type="text"
-                          value={paymentForm.reference}
-                          placeholder={t("paymentRegistration.reference")}
-                          onChange={(e) =>
-                            setPaymentForm((prev) => ({
-                              ...prev,
-                              reference: e.target.value,
-                            }))
-                          }
-                          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
-                        />
-                      </div>
-                      <textarea
-                        rows={2}
-                        value={paymentForm.notes}
-                        placeholder={t("paymentRegistration.notes")}
-                        onChange={(e) =>
-                          setPaymentForm((prev) => ({
-                            ...prev,
-                            notes: e.target.value,
-                          }))
-                        }
-                        className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
-                      />
-                      <button
-                        type="submit"
-                        disabled={registeringPayment}
-                        className="btn btn-primary w-full"
-                      >
-                        {registeringPayment
-                          ? tCommon("saving")
-                          : t("paymentRegistration.submit")}
-                      </button>
-                    </form>
+                      ) : (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {t("paymentRegistration.noPendingInvoices")}
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {t("paymentRegistration.fifoHint")}
+                      </p>
+                    </div>
 
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-gray-900 dark:text-white">
@@ -1015,74 +822,20 @@ export default function TenantDetailPage() {
                 )}
               </section>
 
-              <section>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                  {t("activities.title")}
-                </h2>
+              <section id="activities">
+                <div className="mb-4 flex items-center justify-between gap-2">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {t("activities.title")}
+                  </h2>
+                  <Link
+                    href={`/${locale}/tenants/${tenantToRender.id}/activities/new`}
+                    className="btn btn-primary btn-sm"
+                  >
+                    <Plus size={12} className="mr-1" />
+                    {t("activities.add")}
+                  </Link>
+                </div>
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 space-y-3">
-                  <form onSubmit={handleCreateActivity} className="space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <select
-                        value={activityForm.type}
-                        onChange={(e) =>
-                          setActivityForm((prev) => ({
-                            ...prev,
-                            type: e.target.value as TenantActivityType,
-                          }))
-                        }
-                        className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
-                      >
-                        {activityTypes.map((type) => (
-                          <option key={type} value={type}>
-                            {t(`activityTypes.${type}`)}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="datetime-local"
-                        value={activityForm.dueAt}
-                        onChange={(e) =>
-                          setActivityForm((prev) => ({
-                            ...prev,
-                            dueAt: e.target.value,
-                          }))
-                        }
-                        className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
-                      />
-                    </div>
-                    <input
-                      type="text"
-                      value={activityForm.subject}
-                      onChange={(e) =>
-                        setActivityForm((prev) => ({
-                          ...prev,
-                          subject: e.target.value,
-                        }))
-                      }
-                      placeholder={t("activities.subject")}
-                      className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
-                    />
-                    <textarea
-                      rows={2}
-                      value={activityForm.body}
-                      onChange={(e) =>
-                        setActivityForm((prev) => ({
-                          ...prev,
-                          body: e.target.value,
-                        }))
-                      }
-                      placeholder={t("activities.body")}
-                      className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
-                    />
-                    <button
-                      type="submit"
-                      disabled={savingActivity}
-                      className="btn btn-primary w-full"
-                    >
-                      {savingActivity ? tCommon("saving") : t("activities.add")}
-                    </button>
-                  </form>
-
                   <div className="space-y-2">
                     {activities.length > 0 ? (
                       activities.map((activity) => (
