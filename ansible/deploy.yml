@@ -225,15 +225,16 @@
     - name: Start rent-backend
       ansible.builtin.command:
         cmd: >
-          pm2 start {{ deploy_path }}/backend/main.js
+          pm2 start {{ current_path }}/backend/dist/main.js
           --name rent-backend
-          --cwd {{ deploy_path }}/backend
+          --cwd {{ current_path }}/backend
           --log /var/log/rent/backend.log
           --time
           --env production
       environment:
         NODE_ENV: production
         PORT: "{{ backend_port }}"
+        HOST: "0.0.0.0"
 
     - name: Start rent-frontend
       ansible.builtin.command:
@@ -256,15 +257,44 @@
     # HEALTH CHECKS
     # ─────────────────────────────────────────────────────────────
     - name: Wait for backend to be healthy
-      ansible.builtin.uri:
-        url: "http://127.0.0.1:{{ backend_port }}/health"
-        method: GET
-        status_code: 200
-      register: backend_health
-      until: backend_health.status == 200
-      retries: 10
-      delay: 3
-      #ignore_errors: true
+      block:
+        - name: Poll backend health endpoint
+          ansible.builtin.uri:
+            url: "http://127.0.0.1:{{ backend_port }}/health"
+            method: GET
+            status_code: 200
+          register: backend_health
+          until: backend_health.status == 200
+          retries: 20
+          delay: 3
+      rescue:
+        - name: Capture PM2 backend status
+          ansible.builtin.command:
+            cmd: pm2 describe rent-backend
+          register: pm2_backend_status
+          changed_when: false
+          failed_when: false
+
+        - name: Capture recent backend logs
+          ansible.builtin.command:
+            cmd: pm2 logs rent-backend --lines 120 --nostream
+          register: pm2_backend_logs
+          changed_when: false
+          failed_when: false
+
+        - name: Show PM2 backend status
+          ansible.builtin.debug:
+            var: pm2_backend_status.stdout_lines
+
+        - name: Show recent backend logs
+          ansible.builtin.debug:
+            var: pm2_backend_logs.stdout_lines
+
+        - name: Fail deployment when backend health check fails
+          ansible.builtin.fail:
+            msg: >-
+              Backend did not become healthy at http://127.0.0.1:{{ backend_port }}/health.
+              See PM2 status/log output above.
 
     - name: Wait for frontend to be healthy
       ansible.builtin.uri:
