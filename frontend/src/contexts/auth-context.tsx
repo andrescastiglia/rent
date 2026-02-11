@@ -1,6 +1,12 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { apiClient } from "@/lib/api";
 import { getToken, setToken, getUser, setUser, clearAuth } from "@/lib/auth";
@@ -18,6 +24,7 @@ interface AuthContextType {
   login: (credentials: LoginRequest) => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => void;
+  updateUser: (nextUser: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -96,9 +103,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push(`/${locale}/login`);
   };
 
+  const updateUser = useCallback((nextUser: User) => {
+    setUser(nextUser);
+    setUserState(nextUser);
+  }, []);
+
   return (
     <AuthContext.Provider
-      value={{ user, token, loading, login, register, logout }}
+      value={{ user, token, loading, login, register, logout, updateUser }}
     >
       {children}
     </AuthContext.Provider>

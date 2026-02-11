@@ -82,6 +82,32 @@
       "password": "••••••••"
     }
   },
+  "userSettings": {
+    "title": "User settings",
+    "subtitle": "Update your personal details and credentials",
+    "profileSection": "Profile",
+    "passwordSection": "Password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "changePassword": "Change password",
+    "changingPassword": "Changing password...",
+    "avatarUrl": "Avatar URL",
+    "avatarHint": "You can use a public image URL for your avatar.",
+    "messages": {
+      "profileSaved": "Profile updated successfully.",
+      "passwordSaved": "Password updated successfully."
+    },
+    "errors": {
+      "loadProfile": "Could not load your profile.",
+      "invalidEmail": "Invalid email.",
+      "missingName": "First name and last name are required.",
+      "updateProfile": "Could not update profile.",
+      "passwordRequired": "Complete all password fields.",
+      "passwordTooShort": "New password must be at least 8 characters.",
+      "passwordMismatch": "Password confirmation does not match.",
+      "updatePassword": "Could not update password."
+    }
+  },
   "dashboard": {
     "title": "Dashboard",
     "welcome": "Welcome, {name}",

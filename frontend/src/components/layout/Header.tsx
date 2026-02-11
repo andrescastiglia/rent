@@ -89,12 +89,13 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                 {/* Dropdown Menu */}
                 {isMenuOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-10 border border-gray-200 dark:border-gray-700">
-                    <div
-                      className="block px-4 py-2 text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                      title={t("comingSoon")}
+                    <Link
+                      href={`/${locale}/settings`}
+                      onClick={() => setIsMenuOpen(false)}
+                      className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                     >
                       {t("settings")}
-                    </div>
+                    </Link>
                     <hr className="my-1 border-gray-200 dark:border-gray-700" />
                     <button
                       onClick={() => {

@@ -82,6 +82,32 @@
       "password": "••••••••"
     }
   },
+  "userSettings": {
+    "title": "Configuración de usuario",
+    "subtitle": "Actualiza tus datos personales y credenciales",
+    "profileSection": "Perfil",
+    "passwordSection": "Contraseña",
+    "currentPassword": "Contraseña actual",
+    "newPassword": "Nueva contraseña",
+    "changePassword": "Cambiar contraseña",
+    "changingPassword": "Cambiando contraseña...",
+    "avatarUrl": "URL del avatar",
+    "avatarHint": "Puedes usar una URL pública de imagen para tu avatar.",
+    "messages": {
+      "profileSaved": "Perfil actualizado correctamente.",
+      "passwordSaved": "Contraseña actualizada correctamente."
+    },
+    "errors": {
+      "loadProfile": "No se pudo cargar tu perfil.",
+      "invalidEmail": "Email inválido.",
+      "missingName": "Nombre y apellido son obligatorios.",
+      "updateProfile": "No se pudo actualizar el perfil.",
+      "passwordRequired": "Completa todos los campos de contraseña.",
+      "passwordTooShort": "La nueva contraseña debe tener al menos 8 caracteres.",
+      "passwordMismatch": "La confirmación de contraseña no coincide.",
+      "updatePassword": "No se pudo actualizar la contraseña."
+    }
+  },
   "dashboard": {
     "title": "Panel",
     "welcome": "Bienvenido, {name}",

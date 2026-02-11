@@ -82,6 +82,32 @@
       "password": "••••••••"
     }
   },
+  "userSettings": {
+    "title": "Configurações do usuário",
+    "subtitle": "Atualize seus dados pessoais e credenciais",
+    "profileSection": "Perfil",
+    "passwordSection": "Senha",
+    "currentPassword": "Senha atual",
+    "newPassword": "Nova senha",
+    "changePassword": "Alterar senha",
+    "changingPassword": "Alterando senha...",
+    "avatarUrl": "URL do avatar",
+    "avatarHint": "Você pode usar uma URL pública de imagem para o avatar.",
+    "messages": {
+      "profileSaved": "Perfil atualizado com sucesso.",
+      "passwordSaved": "Senha atualizada com sucesso."
+    },
+    "errors": {
+      "loadProfile": "Não foi possível carregar seu perfil.",
+      "invalidEmail": "E-mail inválido.",
+      "missingName": "Nome e sobrenome são obrigatórios.",
+      "updateProfile": "Não foi possível atualizar o perfil.",
+      "passwordRequired": "Preencha todos os campos de senha.",
+      "passwordTooShort": "A nova senha deve ter pelo menos 8 caracteres.",
+      "passwordMismatch": "A confirmação de senha não corresponde.",
+      "updatePassword": "Não foi possível atualizar a senha."
+    }
+  },
   "dashboard": {
     "title": "Painel",
     "welcome": "Bem-vindo, {name}",

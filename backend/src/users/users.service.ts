@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -60,7 +61,17 @@ export class UsersService {
       throw new NotFoundException('user.notFound');
     }
 
-    Object.assign(user, updateUserDto);
+    await this.applyUserUpdates(user, updateUserDto);
+    return this.usersRepository.save(user);
+  }
+
+  async updateProfile(id: string, updateUserDto: UpdateUserDto): Promise<User> {
+    const user = await this.findOneById(id);
+    if (!user) {
+      throw new NotFoundException('user.notFound');
+    }
+
+    await this.applyUserUpdates(user, updateUserDto);
     return this.usersRepository.save(user);
   }
 
@@ -99,5 +110,40 @@ export class UsersService {
     // Update password
     user.passwordHash = hashedPassword;
     await this.usersRepository.save(user);
+  }
+
+  private async applyUserUpdates(
+    user: User,
+    updateUserDto: UpdateUserDto,
+  ): Promise<void> {
+    if (updateUserDto.email !== undefined) {
+      const nextEmail = updateUserDto.email.trim().toLowerCase();
+      const existing = await this.findOneByEmail(nextEmail);
+      if (existing && existing.id !== user.id) {
+        throw new ConflictException('Email already exists');
+      }
+      user.email = nextEmail;
+    }
+
+    if (updateUserDto.firstName !== undefined) {
+      user.firstName = updateUserDto.firstName.trim();
+    }
+
+    if (updateUserDto.lastName !== undefined) {
+      user.lastName = updateUserDto.lastName.trim();
+    }
+
+    if (updateUserDto.phone !== undefined) {
+      user.phone = updateUserDto.phone.trim();
+    }
+
+    if (updateUserDto.language !== undefined) {
+      user.language = updateUserDto.language;
+    }
+
+    if (updateUserDto.avatarUrl !== undefined) {
+      const avatar = (updateUserDto.avatarUrl ?? '').trim();
+      user.avatarUrl = avatar.length > 0 ? avatar : null;
+    }
   }
 }

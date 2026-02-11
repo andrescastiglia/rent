@@ -45,10 +45,10 @@ export class User {
   lastName: string;
 
   @Column({ nullable: true })
-  phone: string;
+  phone: string | null;
 
   @Column({ name: 'avatar_url', nullable: true })
-  avatarUrl: string;
+  avatarUrl: string | null;
 
   @Column({
     type: 'enum',

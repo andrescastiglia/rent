@@ -3,8 +3,11 @@ export interface User {
   email: string;
   firstName: string;
   lastName: string;
+  phone?: string | null;
+  avatarUrl?: string | null;
+  language?: "es" | "en" | "pt";
   role: "admin" | "owner" | "tenant" | "staff";
-  isActive: boolean;
+  isActive?: boolean;
   companyId?: string;
 }
 

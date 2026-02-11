@@ -42,8 +42,14 @@ export class UsersController {
   }
 
   @Patch('profile/me')
-  updateProfile(@Request() req: any, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(req.user.id, updateUserDto);
+  async updateProfile(@Request() req: any, @Body() updateUserDto: UpdateUserDto) {
+    const updated = await this.usersService.updateProfile(
+      req.user.id,
+      updateUserDto,
+    );
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { passwordHash, ...safeUser } = updated;
+    return safeUser;
   }
 
   @Post('profile/change-password')
@@ -68,8 +74,11 @@ export class UsersController {
 
   @Patch(':id')
   @Roles(UserRole.ADMIN)
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(id, updateUserDto);
+  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+    const updated = await this.usersService.update(id, updateUserDto);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { passwordHash, ...safeUser } = updated;
+    return safeUser;
   }
 
   @Delete(':id')
