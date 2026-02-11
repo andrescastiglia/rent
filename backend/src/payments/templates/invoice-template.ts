@@ -112,7 +112,9 @@ export function generateInvoicePdf(
         .text(
           `Desde: ${new Date(invoice.periodStart).toLocaleDateString('es-AR')}`,
         )
-        .text(`Hasta: ${new Date(invoice.periodEnd).toLocaleDateString('es-AR')}`)
+        .text(
+          `Hasta: ${new Date(invoice.periodEnd).toLocaleDateString('es-AR')}`,
+        )
         .moveDown(1.5);
 
       // Detalle
