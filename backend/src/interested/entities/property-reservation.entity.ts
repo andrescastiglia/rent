@@ -59,7 +59,7 @@ export class PropertyReservation {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
-  @Column({ name: 'reserved_by_user_id', nullable: true })
+  @Column({ name: 'reserved_by_user_id', type: 'uuid', nullable: true })
   reservedByUserId: string | null;
 
   @ManyToOne(() => User, { nullable: true })

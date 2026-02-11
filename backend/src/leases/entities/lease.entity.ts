@@ -101,21 +101,21 @@ export class Lease {
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
-  @Column({ name: 'property_id', nullable: true })
+  @Column({ name: 'property_id', type: 'uuid', nullable: true })
   propertyId: string | null;
 
   @ManyToOne(() => Property, { nullable: true })
   @JoinColumn({ name: 'property_id' })
   property: Property | null;
 
-  @Column({ name: 'tenant_id', nullable: true })
+  @Column({ name: 'tenant_id', type: 'uuid', nullable: true })
   tenantId: string | null;
 
   @ManyToOne(() => Tenant, { nullable: true })
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant | null;
 
-  @Column({ name: 'buyer_profile_id', nullable: true })
+  @Column({ name: 'buyer_profile_id', type: 'uuid', nullable: true })
   buyerProfileId: string | null;
 
   @ManyToOne(() => InterestedProfile, { nullable: true })
@@ -331,7 +331,7 @@ export class Lease {
   @Column({ name: 'contract_pdf_url', type: 'text', nullable: true })
   contractPdfUrl: string | null;
 
-  @Column({ name: 'template_id', nullable: true })
+  @Column({ name: 'template_id', type: 'uuid', nullable: true })
   templateId: string | null;
 
   @ManyToOne(() => LeaseContractTemplate, { nullable: true })
@@ -355,7 +355,7 @@ export class Lease {
   @Column({ name: 'confirmed_at', type: 'timestamptz', nullable: true })
   confirmedAt: Date | null;
 
-  @Column({ name: 'previous_lease_id', nullable: true })
+  @Column({ name: 'previous_lease_id', type: 'uuid', nullable: true })
   previousLeaseId: string | null;
 
   @ManyToOne(() => Lease, { nullable: true })

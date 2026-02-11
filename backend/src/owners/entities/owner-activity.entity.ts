@@ -48,7 +48,7 @@ export class OwnerActivity {
   @JoinColumn({ name: 'owner_id' })
   owner: Owner;
 
-  @Column({ name: 'property_id', nullable: true })
+  @Column({ name: 'property_id', type: 'uuid', nullable: true })
   propertyId: string | null;
 
   @ManyToOne(() => Property, { nullable: true })
@@ -85,7 +85,7 @@ export class OwnerActivity {
   @Column({ type: 'jsonb', default: () => "'{}'" })
   metadata: Record<string, unknown>;
 
-  @Column({ name: 'created_by_user_id', nullable: true })
+  @Column({ name: 'created_by_user_id', type: 'uuid', nullable: true })
   createdByUserId: string | null;
 
   @ManyToOne(() => User, { nullable: true })

@@ -76,7 +76,7 @@ export class TenantActivity {
   @Column({ type: 'jsonb', default: () => "'{}'" })
   metadata: Record<string, unknown>;
 
-  @Column({ name: 'created_by_user_id', nullable: true })
+  @Column({ name: 'created_by_user_id', type: 'uuid', nullable: true })
   createdByUserId: string | null;
 
   @ManyToOne(() => User, { nullable: true })

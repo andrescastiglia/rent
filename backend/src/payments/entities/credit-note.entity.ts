@@ -39,14 +39,14 @@ export class CreditNote {
   @JoinColumn({ name: 'invoice_id' })
   invoice: Invoice;
 
-  @Column({ name: 'payment_id', nullable: true })
+  @Column({ name: 'payment_id', type: 'uuid', nullable: true })
   paymentId: string | null;
 
   @ManyToOne(() => Payment, { nullable: true })
   @JoinColumn({ name: 'payment_id' })
   payment: Payment | null;
 
-  @Column({ name: 'tenant_account_id', nullable: true })
+  @Column({ name: 'tenant_account_id', type: 'uuid', nullable: true })
   tenantAccountId: string | null;
 
   @ManyToOne(() => TenantAccount, { nullable: true })
