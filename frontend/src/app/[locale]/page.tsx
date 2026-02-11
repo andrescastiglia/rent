@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/auth-context';
-import { Loader2 } from 'lucide-react';
-import { useTranslations, useLocale } from 'next-intl';
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/auth-context";
+import { Loader2 } from "lucide-react";
+import { useTranslations, useLocale } from "next-intl";
 
 export default function Home() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const t = useTranslations('common');
+  const t = useTranslations("common");
   const locale = useLocale();
 
   useEffect(() => {
@@ -25,7 +25,7 @@ export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-24">
       <Loader2 className="animate-spin h-12 w-12 text-blue-500" />
-      <p className="mt-4 text-gray-600">{t('loading')}</p>
+      <p className="mt-4 text-gray-600">{t("loading")}</p>
     </main>
   );
 }

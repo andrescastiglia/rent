@@ -1,16 +1,16 @@
-'use client';
+"use client";
 
-import { useLocale, useTranslations } from 'next-intl';
-import { usePathname, useRouter } from 'next/navigation';
-import { Globe } from 'lucide-react';
-import { useState, useTransition } from 'react';
+import { useLocale, useTranslations } from "next-intl";
+import { usePathname, useRouter } from "next/navigation";
+import { Globe } from "lucide-react";
+import { useState, useTransition } from "react";
 
-type Locale = 'es' | 'pt' | 'en';
+type Locale = "es" | "pt" | "en";
 
 const languages = [
-  { code: 'es' as Locale, name: 'Español', flag: '🇪🇸' },
-  { code: 'pt' as Locale, name: 'Português', flag: '🇧🇷' },
-  { code: 'en' as Locale, name: 'English', flag: '🇺🇸' },
+  { code: "es" as Locale, name: "Español", flag: "🇪🇸" },
+  { code: "pt" as Locale, name: "Português", flag: "🇧🇷" },
+  { code: "en" as Locale, name: "English", flag: "🇺🇸" },
 ];
 
 export default function LanguageSelector() {
@@ -19,9 +19,10 @@ export default function LanguageSelector() {
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
   const [isOpen, setIsOpen] = useState(false);
-  const t = useTranslations('common');
+  const t = useTranslations("common");
 
-  const currentLanguage = languages.find((lang) => lang.code === locale) || languages[0];
+  const currentLanguage =
+    languages.find((lang) => lang.code === locale) || languages[0];
 
   /**
    * Cambia el idioma de la aplicación
@@ -29,21 +30,21 @@ export default function LanguageSelector() {
    */
   const handleLanguageChange = (newLocale: Locale) => {
     setIsOpen(false);
-    
+
     // Guardar preferencia en localStorage
-    localStorage.setItem('NEXT_LOCALE', newLocale);
-    
+    localStorage.setItem("NEXT_LOCALE", newLocale);
+
     startTransition(() => {
       // Reemplazar el locale en la URL
       const currentPath = pathname;
       const newPath = currentPath.replace(`/${locale}`, `/${newLocale}`);
-      
+
       // Si la ruta no tiene locale, agregar el nuevo
-      const finalPath = currentPath.startsWith(`/${locale}`) 
-        ? newPath 
+      const finalPath = currentPath.startsWith(`/${locale}`)
+        ? newPath
         : `/${newLocale}${currentPath}`;
       // Perform a full navigation so the app is reloaded with the new locale
-      if (typeof window !== 'undefined') {
+      if (typeof window !== "undefined") {
         window.location.assign(finalPath);
       } else {
         router.replace(finalPath);
@@ -56,7 +57,7 @@ export default function LanguageSelector() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-3 py-2 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-        aria-label={t('selectLanguage')}
+        aria-label={t("selectLanguage")}
         disabled={isPending}
       >
         <Globe className="w-5 h-5" />
@@ -82,15 +83,17 @@ export default function LanguageSelector() {
                   onClick={() => handleLanguageChange(language.code)}
                   className={`w-full text-left px-4 py-2 text-sm flex items-center gap-3 transition-colors ${
                     locale === language.code
-                      ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                   }`}
                   disabled={isPending}
                 >
                   <span className="text-xl">{language.flag}</span>
                   <span className="font-medium">{language.name}</span>
                   {locale === language.code && (
-                    <span className="ml-auto text-blue-600 dark:text-blue-400">✓</span>
+                    <span className="ml-auto text-blue-600 dark:text-blue-400">
+                      ✓
+                    </span>
                   )}
                 </button>
               ))}

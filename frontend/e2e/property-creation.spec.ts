@@ -1,8 +1,10 @@
 import { test, expect, login, localePath } from './fixtures/auth';
 
 test.describe('Property Creation Flow', () => {
+    const ownerButtonSelector = 'button.w-full.text-left';
+    const addPropertyForOwnerSelector = 'a[href*="/properties/new?ownerId="]';
     const propertyDetailLinkSelector =
-        'a[href*="/properties/"]:not([href*="/properties/new"]):not([href*="/edit"]):not([href*="#"])';
+        'a[href*="/properties/"]:not([href*="/properties/new"]):not([href*="/properties/owners/"]):not([href*="/edit"]):not([href*="/maintenance/new"]):not([href*="#"])';
 
     test.beforeEach(async ({ page }) => {
         await login(page);
@@ -15,15 +17,14 @@ test.describe('Property Creation Flow', () => {
     });
 
     test('should navigate to create property page', async ({ page }) => {
-        // Click "Add Property" button (use link with href pattern)
-        await page.locator('a[href*="/properties/new"]').click();
+        await page.locator(ownerButtonSelector).first().click();
+        await page.locator(addPropertyForOwnerSelector).click();
 
-        // Should navigate to new property page
-        await expect(page).toHaveURL(/\/es\/properties\/new/);
+        await expect(page).toHaveURL(/\/es\/properties\/new\?ownerId=/);
     });
 
     test('should display property creation form', async ({ page }) => {
-        await page.goto(localePath('/properties/new'));
+        await page.goto(localePath('/properties/new?ownerId=owner1'));
 
         // Check form elements are visible using semantic selectors
         await expect(page.locator('input[name="name"]')).toBeVisible();
@@ -34,7 +35,7 @@ test.describe('Property Creation Flow', () => {
     });
 
     test('should show validation errors for empty form', async ({ page }) => {
-        await page.goto(localePath('/properties/new'));
+        await page.goto(localePath('/properties/new?ownerId=owner1'));
 
         // Try to submit empty form
         await page.locator('button[type="submit"]').click();
@@ -44,7 +45,7 @@ test.describe('Property Creation Flow', () => {
     });
 
     test('should create a new property with valid data', async ({ page }) => {
-        await page.goto(localePath('/properties/new'));
+        await page.goto(localePath('/properties/new?ownerId=owner1'));
 
         // Fill in property form using name attributes
         const ownerSelect = page.locator('select[name="ownerId"]');
@@ -70,23 +71,21 @@ test.describe('Property Creation Flow', () => {
 
     test('should navigate to property details', async ({ page }) => {
         await page.goto(localePath('/properties'));
+        await page.locator(ownerButtonSelector).first().click();
 
-        // Click first property detail link (avoid generic "view" links from other modules)
         await page.waitForSelector(propertyDetailLinkSelector, { timeout: 10000 });
         await page.locator(propertyDetailLinkSelector).first().click({ force: true });
 
-        // Should navigate to property detail page
         await expect(page).toHaveURL(/\/es\/properties\/[^/]+$/);
     });
 
     test('should display edit button on property detail page', async ({ page }) => {
         await page.goto(localePath('/properties'));
+        await page.locator(ownerButtonSelector).first().click();
 
-        // Go to property detail
         await page.waitForSelector(propertyDetailLinkSelector, { timeout: 10000 });
         await page.locator(propertyDetailLinkSelector).first().click({ force: true });
 
-        // Should show edit link
         await expect(page.getByRole('link', { name: /edit|editar/i }).first()).toBeVisible();
     });
 

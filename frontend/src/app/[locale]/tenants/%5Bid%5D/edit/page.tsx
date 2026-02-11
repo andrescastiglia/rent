@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState } from 'react';
-import { TenantForm } from '@/components/tenants/TenantForm';
-import Link from 'next/link';
-import { ArrowLeft, Loader2 } from 'lucide-react';
-import { useParams } from 'next/navigation';
-import { tenantsApi } from '@/lib/api/tenants';
-import { Tenant } from '@/types/tenant';
-import { useLocale } from 'next-intl';
+import React, { useEffect, useState } from "react";
+import { TenantForm } from "@/components/tenants/TenantForm";
+import Link from "next/link";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { useParams } from "next/navigation";
+import { tenantsApi } from "@/lib/api/tenants";
+import { Tenant } from "@/types/tenant";
+import { useLocale } from "next-intl";
 
 export default function EditTenantPage() {
   const params = useParams();
@@ -27,7 +27,7 @@ export default function EditTenantPage() {
       const data = await tenantsApi.getById(id);
       setTenant(data);
     } catch (error) {
-      console.error('Failed to load tenant', error);
+      console.error("Failed to load tenant", error);
     } finally {
       setLoading(false);
     }
@@ -45,7 +45,10 @@ export default function EditTenantPage() {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
         <h1 className="text-2xl font-bold text-gray-900">Tenant not found</h1>
-        <Link href={`/${locale}/tenants`} className="text-blue-600 hover:underline mt-4 inline-block">
+        <Link
+          href={`/${locale}/tenants`}
+          className="text-blue-600 hover:underline mt-4 inline-block"
+        >
           Back to Tenants
         </Link>
       </div>
@@ -55,7 +58,10 @@ export default function EditTenantPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
-        <Link href={`/tenants/${tenant.id}`} className="inline-flex items-center text-gray-500 hover:text-gray-700">
+        <Link
+          href={`/tenants/${tenant.id}`}
+          className="inline-flex items-center text-gray-500 hover:text-gray-700"
+        >
           <ArrowLeft size={16} className="mr-1" />
           Back to Tenant Details
         </Link>

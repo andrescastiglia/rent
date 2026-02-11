@@ -16,7 +16,7 @@ export function generateReceiptPdf(
   i18n: I18nService,
   lang: string = 'es',
 ): Promise<Buffer> {
-  return new Promise<Buffer>(async (resolve, reject) => {
+  return new Promise<Buffer>((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
     const buffers: Buffer[] = [];
 
@@ -27,137 +27,141 @@ export function generateReceiptPdf(
     });
     doc.on('error', reject);
 
-    // Header (multilingual)
-    doc
-      .fontSize(20)
-      .font('Helvetica-Bold')
-      .text(await i18n.t('payment.title', { lang }), { align: 'center' })
-      .moveDown();
+    const buildPdf = async () => {
+      // Header (multilingual)
+      doc
+        .fontSize(20)
+        .font('Helvetica-Bold')
+        .text(await i18n.t('payment.title', { lang }), { align: 'center' })
+        .moveDown();
 
-    doc
-      .fontSize(12)
-      .font('Helvetica')
-      .text(
-        `${await i18n.t('payment.receiptNumber', { lang })} ${receipt.receiptNumber}`,
-        { align: 'right' },
-      )
-      .moveDown(0.5);
+      doc
+        .fontSize(12)
+        .font('Helvetica')
+        .text(
+          `${await i18n.t('payment.receiptNumber', { lang })} ${receipt.receiptNumber}`,
+          { align: 'right' },
+        )
+        .moveDown(0.5);
 
-    doc
-      .fontSize(10)
-      .text(
-        `${await i18n.t('payment.issueDate', { lang })}: ${new Date(receipt.issuedAt).toLocaleDateString(lang)}`,
-        { align: 'right' },
-      )
-      .moveDown(2);
+      doc
+        .fontSize(10)
+        .text(
+          `${await i18n.t('payment.issueDate', { lang })}: ${new Date(receipt.issuedAt).toLocaleDateString(lang)}`,
+          { align: 'right' },
+        )
+        .moveDown(2);
 
-    // Tenant data (multilingual)
-    const tenant = payment.tenantAccount?.lease?.tenant;
-    const tenantUser = tenant?.user;
-    if (tenantUser) {
+      // Tenant data (multilingual)
+      const tenant = payment.tenantAccount?.lease?.tenant;
+      const tenantUser = tenant?.user;
+      if (tenantUser) {
+        doc
+          .fontSize(14)
+          .font('Helvetica-Bold')
+          .text(await i18n.t('payment.receivedFrom', { lang }))
+          .moveDown(0.5);
+
+        doc
+          .fontSize(11)
+          .font('Helvetica')
+          .text(
+            `${await i18n.t('payment.name', { lang })}: ${tenantUser.firstName || ''} ${tenantUser.lastName || ''}`,
+          )
+          .text(
+            `${await i18n.t('payment.email', { lang })}: ${tenantUser.email || ''}`,
+          )
+          .moveDown(1.5);
+      }
+
+      // Datos del pago
       doc
         .fontSize(14)
         .font('Helvetica-Bold')
-        .text(await i18n.t('payment.receivedFrom', { lang }))
+        .text('DETALLE DEL PAGO')
         .moveDown(0.5);
 
       doc
         .fontSize(11)
         .font('Helvetica')
         .text(
-          `${await i18n.t('payment.name', { lang })}: ${tenantUser.firstName || ''} ${tenantUser.lastName || ''}`,
+          `Fecha de pago: ${new Date(payment.paymentDate).toLocaleDateString('es-AR')}`,
         )
-        .text(
-          `${await i18n.t('payment.email', { lang })}: ${tenantUser.email || ''}`,
-        )
-        .moveDown(1.5);
-    }
+        .text(`Método: ${formatPaymentMethod(payment.method)}`)
+        .text(`Referencia: ${payment.reference || 'N/A'}`)
+        .moveDown(1);
 
-    // Datos del pago
-    doc
-      .fontSize(14)
-      .font('Helvetica-Bold')
-      .text('DETALLE DEL PAGO')
-      .moveDown(0.5);
+      // Items variables
+      if (payment.items && payment.items.length > 0) {
+        doc.fontSize(11).font('Helvetica-Bold').text('ITEMS').moveDown(0.3);
 
-    doc
-      .fontSize(11)
-      .font('Helvetica')
-      .text(
-        `Fecha de pago: ${new Date(payment.paymentDate).toLocaleDateString('es-AR')}`,
-      )
-      .text(`Método: ${formatPaymentMethod(payment.method)}`)
-      .text(`Referencia: ${payment.reference || 'N/A'}`)
-      .moveDown(1);
+        payment.items.forEach((item) => {
+          const sign = item.type === 'discount' ? '-' : '';
+          const total = Number(item.amount) * Number(item.quantity || 1);
+          doc
+            .fontSize(10)
+            .font('Helvetica')
+            .text(
+              `${item.description} x${item.quantity || 1} - ${sign}${getCurrencySymbol(
+                receipt.currencyCode,
+              )} ${total.toLocaleString('es-AR', {
+                minimumFractionDigits: 2,
+              })}`,
+            );
+        });
 
-    // Items variables
-    if (payment.items && payment.items.length > 0) {
-      doc.fontSize(11).font('Helvetica-Bold').text('ITEMS').moveDown(0.3);
+        doc.moveDown(1);
+      }
 
-      payment.items.forEach((item) => {
-        const sign = item.type === 'discount' ? '-' : '';
-        const total = Number(item.amount) * Number(item.quantity || 1);
-        doc
-          .fontSize(10)
-          .font('Helvetica')
-          .text(
-            `${item.description} x${item.quantity || 1} - ${sign}${getCurrencySymbol(
-              receipt.currencyCode,
-            )} ${total.toLocaleString('es-AR', {
-              minimumFractionDigits: 2,
-            })}`,
-          );
-      });
-
-      doc.moveDown(1);
-    }
-
-    // Monto
-    doc
-      .fontSize(14)
-      .font('Helvetica-Bold')
-      .text('MONTO RECIBIDO')
-      .moveDown(0.5);
-
-    const currencySymbol = getCurrencySymbol(receipt.currencyCode);
-    doc
-      .fontSize(24)
-      .font('Helvetica-Bold')
-      .text(
-        `${currencySymbol} ${Number(receipt.amount).toLocaleString('es-AR', {
-          minimumFractionDigits: 2,
-        })}`,
-        { align: 'center' },
-      )
-      .moveDown(2);
-
-    // Notas
-    if (payment.notes) {
+      // Monto
       doc
-        .fontSize(11)
+        .fontSize(14)
         .font('Helvetica-Bold')
-        .text('OBSERVACIONES')
+        .text('MONTO RECIBIDO')
         .moveDown(0.5);
 
-      doc.fontSize(10).font('Helvetica').text(payment.notes).moveDown(1.5);
-    }
+      const currencySymbol = getCurrencySymbol(receipt.currencyCode);
+      doc
+        .fontSize(24)
+        .font('Helvetica-Bold')
+        .text(
+          `${currencySymbol} ${Number(receipt.amount).toLocaleString('es-AR', {
+            minimumFractionDigits: 2,
+          })}`,
+          { align: 'center' },
+        )
+        .moveDown(2);
 
-    // Línea y firma
-    doc.moveDown(3);
-    doc
-      .fontSize(10)
-      .text('_________________________', { align: 'center' })
-      .text('Firma y aclaración', { align: 'center' });
+      // Notas
+      if (payment.notes) {
+        doc
+          .fontSize(11)
+          .font('Helvetica-Bold')
+          .text('OBSERVACIONES')
+          .moveDown(0.5);
 
-    // Footer
-    doc
-      .fontSize(8)
-      .font('Helvetica')
-      .text(`Recibo ID: ${receipt.id}`, 50, doc.page.height - 50, {
-        align: 'center',
-      });
+        doc.fontSize(10).font('Helvetica').text(payment.notes).moveDown(1.5);
+      }
 
-    doc.end();
+      // Línea y firma
+      doc.moveDown(3);
+      doc
+        .fontSize(10)
+        .text('_________________________', { align: 'center' })
+        .text('Firma y aclaración', { align: 'center' });
+
+      // Footer
+      doc
+        .fontSize(8)
+        .font('Helvetica')
+        .text(`Recibo ID: ${receipt.id}`, 50, doc.page.height - 50, {
+          align: 'center',
+        });
+
+      doc.end();
+    };
+
+    void buildPdf().catch(reject);
   });
 }
 

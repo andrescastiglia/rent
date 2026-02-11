@@ -1,146 +1,146 @@
-import { AppDataSource } from '../shared/database';
-import { logger } from '../shared/logger';
-import * as PDFDocument from 'pdfkit';
+import { AppDataSource } from "../shared/database";
+import { logger } from "../shared/logger";
+import * as PDFDocument from "pdfkit";
 
 /**
  * Status of an invoice.
  */
 export type InvoiceStatus =
-    | 'draft'
-    | 'pending'
-    | 'sent'
-    | 'paid'
-    | 'partial'
-    | 'cancelled'
-    | 'overdue'
-    | 'refunded';
+  | "draft"
+  | "pending"
+  | "sent"
+  | "paid"
+  | "partial"
+  | "cancelled"
+  | "overdue"
+  | "refunded";
 
 /**
  * Data required to create a new invoice.
  */
 export interface CreateInvoiceData {
-    companyId?: string;
-    leaseId: string;
-    ownerId: string;
-    tenantAccountId: string;
-    periodStart: Date;
-    periodEnd: Date;
-    subtotal: number;
-    total: number;
-    currencyCode?: string;
-    dueDate: Date;
-    // Multi-currency
-    originalAmount?: number;
-    originalCurrency?: string;
-    exchangeRateUsed?: number;
-    exchangeRateDate?: Date;
-    // Withholdings
-    withholdingIibb?: number;
-    withholdingIva?: number;
-    withholdingGanancias?: number;
-    // Adjustment tracking
-    adjustmentApplied?: number;
-    adjustmentIndexType?: string;
-    adjustmentIndexValue?: number;
+  companyId?: string;
+  leaseId: string;
+  ownerId: string;
+  tenantAccountId: string;
+  periodStart: Date;
+  periodEnd: Date;
+  subtotal: number;
+  total: number;
+  currencyCode?: string;
+  dueDate: Date;
+  // Multi-currency
+  originalAmount?: number;
+  originalCurrency?: string;
+  exchangeRateUsed?: number;
+  exchangeRateDate?: Date;
+  // Withholdings
+  withholdingIibb?: number;
+  withholdingIva?: number;
+  withholdingGanancias?: number;
+  // Adjustment tracking
+  adjustmentApplied?: number;
+  adjustmentIndexType?: string;
+  adjustmentIndexValue?: number;
 }
 
 /**
  * Invoice record from database.
  */
 export interface InvoiceRecord {
-    id: string;
-    leaseId: string;
-    ownerId: string;
-    tenantAccountId: string;
-    invoiceNumber: string;
-    periodStart: Date;
-    periodEnd: Date;
-    subtotal: number;
-    lateFee: number;
-    adjustments: number;
-    total: number;
-    currencyCode: string;
-    amountPaid: number;
-    dueDate: Date;
-    status: InvoiceStatus;
-    issuedAt?: Date;
-    originalAmount?: number;
-    originalCurrency?: string;
-    exchangeRateUsed?: number;
-    withholdingIibb: number;
-    withholdingIva: number;
-    withholdingGanancias: number;
-    withholdingsTotal: number;
-    pdfUrl?: string;
-    createdAt: Date;
+  id: string;
+  leaseId: string;
+  ownerId: string;
+  tenantAccountId: string;
+  invoiceNumber: string;
+  periodStart: Date;
+  periodEnd: Date;
+  subtotal: number;
+  lateFee: number;
+  adjustments: number;
+  total: number;
+  currencyCode: string;
+  amountPaid: number;
+  dueDate: Date;
+  status: InvoiceStatus;
+  issuedAt?: Date;
+  originalAmount?: number;
+  originalCurrency?: string;
+  exchangeRateUsed?: number;
+  withholdingIibb: number;
+  withholdingIva: number;
+  withholdingGanancias: number;
+  withholdingsTotal: number;
+  pdfUrl?: string;
+  createdAt: Date;
 }
 
 /**
  * Lease data needed for billing.
  */
 export interface LeaseForBilling {
-    id: string;
-    tenantId: string;
-    ownerId: string;
-    tenantAccountId: string;
-    rentAmount: number;
-    currency: string;
-    paymentFrequency: 'monthly' | 'biweekly' | 'weekly';
-    status: string;
-    startDate: Date;
-    endDate: Date;
-    // Adjustment fields
-    adjustmentType?: string;
-    adjustmentRate?: number;
-    inflationIndexType?: string;
-    nextAdjustmentDate?: Date;
-    lastAdjustmentDate?: Date;
-    // Billing fields
-    billingDay?: number;
-    nextBillingDate?: Date;
-    lastBillingDate?: Date;
-    // Company info for withholdings
-    companyId?: string;
+  id: string;
+  tenantId: string;
+  ownerId: string;
+  tenantAccountId: string;
+  rentAmount: number;
+  currency: string;
+  paymentFrequency: "monthly" | "biweekly" | "weekly";
+  status: string;
+  startDate: Date;
+  endDate: Date;
+  // Adjustment fields
+  adjustmentType?: string;
+  adjustmentRate?: number;
+  inflationIndexType?: string;
+  nextAdjustmentDate?: Date;
+  lastAdjustmentDate?: Date;
+  // Billing fields
+  billingDay?: number;
+  nextBillingDate?: Date;
+  lastBillingDate?: Date;
+  // Company info for withholdings
+  companyId?: string;
 }
 
 /**
  * Service for managing invoices in the batch system.
  */
 export class InvoiceService {
-    /**
-     * Generates the next invoice number for an owner.
-     */
-    private async generateInvoiceNumber(ownerId: string): Promise<string> {
-        const year = new Date().getFullYear();
-        const result = await AppDataSource.query(
-            `SELECT COUNT(*) as count 
+  /**
+   * Generates the next invoice number for an owner.
+   */
+  private async generateInvoiceNumber(ownerId: string): Promise<string> {
+    const year = new Date().getFullYear();
+    const result = await AppDataSource.query(
+      `SELECT COUNT(*) as count 
              FROM invoices 
              WHERE owner_id = $1 
                AND EXTRACT(YEAR FROM created_at) = $2`,
-            [ownerId, year]
-        );
+      [ownerId, year],
+    );
 
-        const count = Number.parseInt(result[0].count, 10) + 1;
-        return `${year}-${count.toString().padStart(6, '0')}`;
-    }
+    const count = Number.parseInt(result[0].count, 10) + 1;
+    return `${year}-${count.toString().padStart(6, "0")}`;
+  }
 
-    /**
-     * Creates a new invoice in the database.
-     *
-     * @param data - Invoice data.
-     * @returns Created invoice record.
-     */
-    async create(data: CreateInvoiceData): Promise<InvoiceRecord> {
-        const invoiceNumber = await this.generateInvoiceNumber(data.ownerId);
+  /**
+   * Creates a new invoice in the database.
+   *
+   * @param data - Invoice data.
+   * @returns Created invoice record.
+   */
+  async create(data: CreateInvoiceData): Promise<InvoiceRecord> {
+    const invoiceNumber = await this.generateInvoiceNumber(data.ownerId);
 
-        const withholdingsTotal =
-            (data.withholdingIibb || 0) +
-            (data.withholdingIva || 0) +
-            (data.withholdingGanancias || 0);
+    const withholdingsTotal =
+      (data.withholdingIibb || 0) +
+      (data.withholdingIva || 0) +
+      (data.withholdingGanancias || 0);
 
-        try {
-            const result = await AppDataSource.query(
-                `INSERT INTO invoices (
+    try {
+      const result = await AppDataSource.query(
+        `INSERT INTO invoices (
                     lease_id, owner_id, tenant_account_id,
                     invoice_number, period_start, period_end,
                     subtotal, total, currency_code, due_date,
@@ -155,145 +155,148 @@ export class InvoiceService {
                     $15, $16, $17, $18,
                     $19, $20, $21
                 ) RETURNING *`,
-                [
-                    data.leaseId,
-                    data.ownerId,
-                    data.tenantAccountId,
-                    invoiceNumber,
-                    data.periodStart,
-                    data.periodEnd,
-                    data.subtotal,
-                    data.total,
-                    data.currencyCode || 'ARS',
-                    data.dueDate,
-                    data.originalAmount,
-                    data.originalCurrency,
-                    data.exchangeRateUsed,
-                    data.exchangeRateDate,
-                    data.withholdingIibb || 0,
-                    data.withholdingIva || 0,
-                    data.withholdingGanancias || 0,
-                    withholdingsTotal,
-                    data.adjustmentApplied || 0,
-                    data.adjustmentIndexType,
-                    data.adjustmentIndexValue,
-                ]
-            );
+        [
+          data.leaseId,
+          data.ownerId,
+          data.tenantAccountId,
+          invoiceNumber,
+          data.periodStart,
+          data.periodEnd,
+          data.subtotal,
+          data.total,
+          data.currencyCode || "ARS",
+          data.dueDate,
+          data.originalAmount,
+          data.originalCurrency,
+          data.exchangeRateUsed,
+          data.exchangeRateDate,
+          data.withholdingIibb || 0,
+          data.withholdingIva || 0,
+          data.withholdingGanancias || 0,
+          withholdingsTotal,
+          data.adjustmentApplied || 0,
+          data.adjustmentIndexType,
+          data.adjustmentIndexValue,
+        ],
+      );
 
-            logger.info('Invoice created', {
-                invoiceNumber,
-                leaseId: data.leaseId,
-                total: data.total,
-            });
+      logger.info("Invoice created", {
+        invoiceNumber,
+        leaseId: data.leaseId,
+        total: data.total,
+      });
 
-            const created = this.mapToRecord(result[0]);
-            const pdfUrl = await this.generateAndPersistPdf(created, data.companyId);
-            if (pdfUrl) {
-                created.pdfUrl = pdfUrl;
-            }
-            return created;
-        } catch (error) {
-            logger.error('Failed to create invoice', {
-                leaseId: data.leaseId,
-                error: error instanceof Error ? error.message : error,
-            });
-            throw error;
-        }
+      const created = this.mapToRecord(result[0]);
+      const pdfUrl = await this.generateAndPersistPdf(created, data.companyId);
+      if (pdfUrl) {
+        created.pdfUrl = pdfUrl;
+      }
+      return created;
+    } catch (error) {
+      logger.error("Failed to create invoice", {
+        leaseId: data.leaseId,
+        error: error instanceof Error ? error.message : error,
+      });
+      throw error;
     }
+  }
 
-    /**
-     * Finds pending invoices that are due within X days.
-     */
-    async findPendingDueSoon(daysBefore: number): Promise<InvoiceRecord[]> {
-        const result = await AppDataSource.query(
-            `SELECT * FROM invoices 
+  /**
+   * Finds pending invoices that are due within X days.
+   */
+  async findPendingDueSoon(daysBefore: number): Promise<InvoiceRecord[]> {
+    const result = await AppDataSource.query(
+      `SELECT * FROM invoices 
              WHERE status IN ('pending', 'sent', 'partial')
                AND deleted_at IS NULL
                AND due_date <= CURRENT_DATE + $1::interval
                AND due_date >= CURRENT_DATE
              ORDER BY due_date ASC`,
-            [`${daysBefore} days`]
-        );
+      [`${daysBefore} days`],
+    );
 
-        return result.map(this.mapToRecord);
-    }
+    return result.map(this.mapToRecord);
+  }
 
-    /**
-     * Finds invoices that are overdue (past due date).
-     */
-    async findOverdue(): Promise<InvoiceRecord[]> {
-        const result = await AppDataSource.query(
-            `SELECT * FROM invoices 
+  /**
+   * Finds invoices that are overdue (past due date).
+   */
+  async findOverdue(): Promise<InvoiceRecord[]> {
+    const result = await AppDataSource.query(
+      `SELECT * FROM invoices 
              WHERE status IN ('pending', 'sent', 'partial')
                AND deleted_at IS NULL
                AND due_date < CURRENT_DATE
-             ORDER BY due_date ASC`
-        );
+             ORDER BY due_date ASC`,
+    );
 
-        return result.map(this.mapToRecord);
-    }
+    return result.map(this.mapToRecord);
+  }
 
-    /**
-     * Marks invoices as overdue.
-     *
-     * @returns Number of invoices marked as overdue.
-     */
-    async markOverdue(): Promise<number> {
-        const result = await AppDataSource.query(
-            `UPDATE invoices 
+  /**
+   * Marks invoices as overdue.
+   *
+   * @returns Number of invoices marked as overdue.
+   */
+  async markOverdue(): Promise<number> {
+    const result = await AppDataSource.query(
+      `UPDATE invoices 
              SET status = 'overdue', updated_at = NOW()
              WHERE status IN ('pending', 'sent', 'partial')
                AND deleted_at IS NULL
                AND due_date < CURRENT_DATE
-             RETURNING id`
-        );
+             RETURNING id`,
+    );
 
-        const count = result.length;
-        if (count > 0) {
-            logger.info('Marked invoices as overdue', { count });
-        }
-
-        return count;
+    const count = result.length;
+    if (count > 0) {
+      logger.info("Marked invoices as overdue", { count });
     }
 
-    /**
-     * Applies late fee to an overdue invoice.
-     *
-     * @param invoiceId - Invoice ID.
-     * @param lateFee - Late fee amount.
-     * @returns Updated invoice.
-     */
-    async applyLateFee(invoiceId: string, lateFee: number): Promise<InvoiceRecord> {
-        const result = await AppDataSource.query(
-            `UPDATE invoices 
+    return count;
+  }
+
+  /**
+   * Applies late fee to an overdue invoice.
+   *
+   * @param invoiceId - Invoice ID.
+   * @param lateFee - Late fee amount.
+   * @returns Updated invoice.
+   */
+  async applyLateFee(
+    invoiceId: string,
+    lateFee: number,
+  ): Promise<InvoiceRecord> {
+    const result = await AppDataSource.query(
+      `UPDATE invoices 
              SET late_fee = late_fee + $2,
                  total = total + $2,
                  updated_at = NOW()
              WHERE id = $1
              RETURNING *`,
-            [invoiceId, lateFee]
-        );
+      [invoiceId, lateFee],
+    );
 
-        if (result.length === 0) {
-            throw new Error(`Invoice not found: ${invoiceId}`);
-        }
-
-        logger.info('Late fee applied', { invoiceId, lateFee });
-
-        return this.mapToRecord(result[0]);
+    if (result.length === 0) {
+      throw new Error(`Invoice not found: ${invoiceId}`);
     }
 
-    /**
-     * Gets leases that need billing today.
-     *
-     * @param billingDate - Date to check for billing.
-     * @returns Leases that need invoices generated.
-     */
-    async getLeasesForBilling(billingDate: Date): Promise<LeaseForBilling[]> {
-        const dayOfMonth = billingDate.getDate();
+    logger.info("Late fee applied", { invoiceId, lateFee });
 
-        const result = await AppDataSource.query(
-            `SELECT 
+    return this.mapToRecord(result[0]);
+  }
+
+  /**
+   * Gets leases that need billing today.
+   *
+   * @param billingDate - Date to check for billing.
+   * @returns Leases that need invoices generated.
+   */
+  async getLeasesForBilling(billingDate: Date): Promise<LeaseForBilling[]> {
+    const dayOfMonth = billingDate.getDate();
+
+    const result = await AppDataSource.query(
+      `SELECT 
                 l.id,
                 l.tenant_id as "tenantId",
                 l.owner_id as "ownerId",
@@ -328,84 +331,89 @@ export class InvoiceService {
                )
                AND l.start_date <= $1
                AND l.end_date >= $1`,
-            [billingDate, dayOfMonth]
-        );
+      [billingDate, dayOfMonth],
+    );
 
-        return result;
-    }
+    return result;
+  }
 
-    /**
-     * Updates the next billing date for a lease.
-     */
-    async updateLeaseNextBillingDate(
-        leaseId: string,
-        nextBillingDate: Date,
-        lastBillingDate: Date
-    ): Promise<void> {
-        await AppDataSource.query(
-            `UPDATE leases 
+  /**
+   * Updates the next billing date for a lease.
+   */
+  async updateLeaseNextBillingDate(
+    leaseId: string,
+    nextBillingDate: Date,
+    lastBillingDate: Date,
+  ): Promise<void> {
+    await AppDataSource.query(
+      `UPDATE leases 
              SET next_billing_date = $2,
                  last_billing_date = $3,
                  updated_at = NOW()
              WHERE id = $1`,
-            [leaseId, nextBillingDate, lastBillingDate]
-        );
+      [leaseId, nextBillingDate, lastBillingDate],
+    );
+  }
+
+  /**
+   * Maps a database row to an InvoiceRecord.
+   */
+  private mapToRecord(row: Record<string, unknown>): InvoiceRecord {
+    return {
+      id: row.id as string,
+      leaseId: row.lease_id as string,
+      ownerId: row.owner_id as string,
+      tenantAccountId: row.tenant_account_id as string,
+      invoiceNumber: row.invoice_number as string,
+      periodStart: new Date(row.period_start as string),
+      periodEnd: new Date(row.period_end as string),
+      subtotal: Number.parseFloat(row.subtotal as string),
+      lateFee: Number.parseFloat(row.late_fee as string),
+      adjustments: Number.parseFloat(
+        (row.discount_amount ?? row.adjustments ?? 0) as string,
+      ),
+      total: Number.parseFloat(row.total as string),
+      currencyCode: row.currency_code as string,
+      amountPaid: Number.parseFloat(row.amount_paid as string),
+      dueDate: new Date(row.due_date as string),
+      status: row.status as InvoiceStatus,
+      issuedAt: row.issued_at ? new Date(row.issued_at as string) : undefined,
+      originalAmount: row.original_amount
+        ? Number.parseFloat(row.original_amount as string)
+        : undefined,
+      originalCurrency: row.original_currency as string | undefined,
+      exchangeRateUsed: row.exchange_rate_used
+        ? Number.parseFloat(row.exchange_rate_used as string)
+        : undefined,
+      withholdingIibb: Number.parseFloat(row.withholding_iibb as string),
+      withholdingIva: Number.parseFloat(row.withholding_iva as string),
+      withholdingGanancias: Number.parseFloat(
+        row.withholding_ganancias as string,
+      ),
+      withholdingsTotal: Number.parseFloat(row.withholdings_total as string),
+      pdfUrl: (row.pdf_url as string | null) ?? undefined,
+      createdAt: new Date(row.created_at as string),
+    };
+  }
+
+  private async generateAndPersistPdf(
+    invoice: InvoiceRecord,
+    companyId?: string,
+  ): Promise<string | null> {
+    if (!companyId) {
+      logger.warn(
+        "Skipping batch invoice PDF generation because companyId is missing",
+        {
+          invoiceId: invoice.id,
+        },
+      );
+      return null;
     }
 
-    /**
-     * Maps a database row to an InvoiceRecord.
-     */
-    private mapToRecord(row: Record<string, unknown>): InvoiceRecord {
-        return {
-            id: row.id as string,
-            leaseId: row.lease_id as string,
-            ownerId: row.owner_id as string,
-            tenantAccountId: row.tenant_account_id as string,
-            invoiceNumber: row.invoice_number as string,
-            periodStart: new Date(row.period_start as string),
-            periodEnd: new Date(row.period_end as string),
-            subtotal: Number.parseFloat(row.subtotal as string),
-            lateFee: Number.parseFloat(row.late_fee as string),
-            adjustments: Number.parseFloat(
-                (row.discount_amount ?? row.adjustments ?? 0) as string
-            ),
-            total: Number.parseFloat(row.total as string),
-            currencyCode: row.currency_code as string,
-            amountPaid: Number.parseFloat(row.amount_paid as string),
-            dueDate: new Date(row.due_date as string),
-            status: row.status as InvoiceStatus,
-            issuedAt: row.issued_at ? new Date(row.issued_at as string) : undefined,
-            originalAmount: row.original_amount
-                ? Number.parseFloat(row.original_amount as string)
-                : undefined,
-            originalCurrency: row.original_currency as string | undefined,
-            exchangeRateUsed: row.exchange_rate_used
-                ? Number.parseFloat(row.exchange_rate_used as string)
-                : undefined,
-            withholdingIibb: Number.parseFloat(row.withholding_iibb as string),
-            withholdingIva: Number.parseFloat(row.withholding_iva as string),
-            withholdingGanancias: Number.parseFloat(row.withholding_ganancias as string),
-            withholdingsTotal: Number.parseFloat(row.withholdings_total as string),
-            pdfUrl: (row.pdf_url as string | null) ?? undefined,
-            createdAt: new Date(row.created_at as string),
-        };
-    }
+    const pdfBuffer = await this.generateInvoicePdfBuffer(invoice);
 
-    private async generateAndPersistPdf(
-        invoice: InvoiceRecord,
-        companyId?: string
-    ): Promise<string | null> {
-        if (!companyId) {
-            logger.warn('Skipping batch invoice PDF generation because companyId is missing', {
-                invoiceId: invoice.id,
-            });
-            return null;
-        }
-
-        const pdfBuffer = await this.generateInvoicePdfBuffer(invoice);
-
-        const documentResult = await AppDataSource.query(
-            `INSERT INTO documents (
+    const documentResult = await AppDataSource.query(
+      `INSERT INTO documents (
                 company_id,
                 document_type,
                 status,
@@ -433,93 +441,93 @@ export class InvoiceService {
                 $6
              )
              RETURNING id`,
-            [
-                companyId,
-                `factura-${invoice.invoiceNumber}.pdf`,
-                `Factura generada por lote ${invoice.invoiceNumber}`,
-                pdfBuffer.length,
-                invoice.id,
-                pdfBuffer,
-            ]
-        );
+      [
+        companyId,
+        `factura-${invoice.invoiceNumber}.pdf`,
+        `Factura generada por lote ${invoice.invoiceNumber}`,
+        pdfBuffer.length,
+        invoice.id,
+        pdfBuffer,
+      ],
+    );
 
-        const documentId = documentResult[0]?.id as string | undefined;
-        if (!documentId) {
-            return null;
-        }
+    const documentId = documentResult[0]?.id as string | undefined;
+    if (!documentId) {
+      return null;
+    }
 
-        const dbUrl = `db://document/${documentId}`;
+    const dbUrl = `db://document/${documentId}`;
 
-        await AppDataSource.query(
-            `UPDATE documents
+    await AppDataSource.query(
+      `UPDATE documents
              SET file_url = $2
              WHERE id = $1`,
-            [documentId, dbUrl]
-        );
+      [documentId, dbUrl],
+    );
 
-        await AppDataSource.query(
-            `UPDATE invoices
+    await AppDataSource.query(
+      `UPDATE invoices
              SET pdf_url = $2,
                  updated_at = NOW()
              WHERE id = $1`,
-            [invoice.id, dbUrl]
-        );
+      [invoice.id, dbUrl],
+    );
 
-        logger.info('Batch invoice PDF persisted in database', {
-            invoiceId: invoice.id,
-            documentId,
-        });
+    logger.info("Batch invoice PDF persisted in database", {
+      invoiceId: invoice.id,
+      documentId,
+    });
 
-        return dbUrl;
-    }
+    return dbUrl;
+  }
 
-    private generateInvoicePdfBuffer(invoice: InvoiceRecord): Promise<Buffer> {
-        return new Promise((resolve, reject) => {
-            const PDFCtor = (PDFDocument as any).default ?? (PDFDocument as any);
-            const doc = new PDFCtor({ size: 'A4', margin: 40 });
-            const chunks: Buffer[] = [];
+  private generateInvoicePdfBuffer(invoice: InvoiceRecord): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const PDFCtor = (PDFDocument as any).default ?? (PDFDocument as any);
+      const doc = new PDFCtor({ size: "A4", margin: 40 });
+      const chunks: Buffer[] = [];
 
-            doc.on('data', (chunk: Buffer | Uint8Array) =>
-                chunks.push(Buffer.from(chunk))
-            );
-            doc.on('end', () => resolve(Buffer.concat(chunks)));
-            doc.on('error', reject);
+      doc.on("data", (chunk: Buffer | Uint8Array) =>
+        chunks.push(Buffer.from(chunk)),
+      );
+      doc.on("end", () => resolve(Buffer.concat(chunks)));
+      doc.on("error", reject);
 
-            doc
-                .fontSize(18)
-                .font('Helvetica-Bold')
-                .text('Factura', { align: 'center' });
-            doc.moveDown();
-            doc.fontSize(10).font('Helvetica');
-            doc.text(`Numero: ${invoice.invoiceNumber}`);
-            doc.text(
-                `Fecha emision: ${
-                    invoice.issuedAt
-                        ? invoice.issuedAt.toISOString().slice(0, 10)
-                        : new Date().toISOString().slice(0, 10)
-                }`
-            );
-            doc.text(`Vencimiento: ${invoice.dueDate.toISOString().slice(0, 10)}`);
-            doc.text(
-                `Periodo: ${invoice.periodStart.toISOString().slice(0, 10)} al ${invoice.periodEnd.toISOString().slice(0, 10)}`
-            );
-            doc.moveDown();
-            doc.text(
-                `Subtotal: ${invoice.currencyCode} ${invoice.subtotal.toLocaleString('es-AR')}`
-            );
-            doc.text(
-                `Mora: ${invoice.currencyCode} ${invoice.lateFee.toLocaleString('es-AR')}`
-            );
-            doc.text(
-                `Ajustes: ${invoice.currencyCode} ${invoice.adjustments.toLocaleString('es-AR')}`
-            );
-            doc.text(
-                `Total: ${invoice.currencyCode} ${invoice.total.toLocaleString('es-AR')}`
-            );
-            doc.moveDown(2);
-            doc.fontSize(8).text(`ID factura: ${invoice.id}`, { align: 'center' });
+      doc
+        .fontSize(18)
+        .font("Helvetica-Bold")
+        .text("Factura", { align: "center" });
+      doc.moveDown();
+      doc.fontSize(10).font("Helvetica");
+      doc.text(`Numero: ${invoice.invoiceNumber}`);
+      doc.text(
+        `Fecha emision: ${
+          invoice.issuedAt
+            ? invoice.issuedAt.toISOString().slice(0, 10)
+            : new Date().toISOString().slice(0, 10)
+        }`,
+      );
+      doc.text(`Vencimiento: ${invoice.dueDate.toISOString().slice(0, 10)}`);
+      doc.text(
+        `Periodo: ${invoice.periodStart.toISOString().slice(0, 10)} al ${invoice.periodEnd.toISOString().slice(0, 10)}`,
+      );
+      doc.moveDown();
+      doc.text(
+        `Subtotal: ${invoice.currencyCode} ${invoice.subtotal.toLocaleString("es-AR")}`,
+      );
+      doc.text(
+        `Mora: ${invoice.currencyCode} ${invoice.lateFee.toLocaleString("es-AR")}`,
+      );
+      doc.text(
+        `Ajustes: ${invoice.currencyCode} ${invoice.adjustments.toLocaleString("es-AR")}`,
+      );
+      doc.text(
+        `Total: ${invoice.currencyCode} ${invoice.total.toLocaleString("es-AR")}`,
+      );
+      doc.moveDown(2);
+      doc.fontSize(8).text(`ID factura: ${invoice.id}`, { align: "center" });
 
-            doc.end();
-        });
-    }
+      doc.end();
+    });
+  }
 }

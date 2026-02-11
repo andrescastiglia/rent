@@ -1,1 +1,1 @@
-export { default } from '../interested/layout';
+export { default } from "../interested/layout";

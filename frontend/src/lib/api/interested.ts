@@ -1,5 +1,5 @@
-import { apiClient, IS_MOCK_MODE } from '../api';
-import { getToken } from '../auth';
+import { apiClient, IS_MOCK_MODE } from "../api";
+import { getToken } from "../auth";
 import {
   InterestedActivity,
   InterestedActivityStatus,
@@ -15,55 +15,60 @@ import {
   InterestedTimelineItem,
   CreateInterestedProfileInput,
   UpdateInterestedProfileInput,
-} from '@/types/interested';
-import { Property } from '@/types/property';
+} from "@/types/interested";
+import { Property } from "@/types/property";
 
-type PaginatedResponse<T> = { data: T[]; total: number; page: number; limit: number };
+type PaginatedResponse<T> = {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+};
 
 const DELAY = 300;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const MOCK_INTERESTED: InterestedProfile[] = [
   {
-    id: 'int-1',
-    firstName: 'Lucia',
-    lastName: 'Perez',
-    phone: '+54 9 11 5555-1111',
+    id: "int-1",
+    firstName: "Lucia",
+    lastName: "Perez",
+    phone: "+54 9 11 5555-1111",
     peopleCount: 3,
     minAmount: 70000,
     maxAmount: 120000,
     hasPets: true,
-    guaranteeTypes: ['Garantia propietaria'],
-    preferredCity: 'CABA',
-    desiredFeatures: ['balcon', 'pileta'],
-    propertyTypePreference: 'house',
-    operation: 'sale',
-    operations: ['sale'],
-    status: 'interested',
-    qualificationLevel: 'mql',
-    notes: 'Busca casa con patio',
+    guaranteeTypes: ["Garantia propietaria"],
+    preferredCity: "CABA",
+    desiredFeatures: ["balcon", "pileta"],
+    propertyTypePreference: "house",
+    operation: "sale",
+    operations: ["sale"],
+    status: "interested",
+    qualificationLevel: "mql",
+    notes: "Busca casa con patio",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
   {
-    id: 'int-2',
-    firstName: 'Diego',
-    lastName: 'Ramos',
-    phone: '+54 9 11 5555-2222',
+    id: "int-2",
+    firstName: "Diego",
+    lastName: "Ramos",
+    phone: "+54 9 11 5555-2222",
     peopleCount: 2,
     minAmount: 50000,
     maxAmount: 90000,
     hasPets: false,
-    guaranteeTypes: ['Seguro de caucion'],
-    preferredCity: 'CABA',
-    desiredFeatures: ['balcon'],
-    propertyTypePreference: 'apartment',
-    operation: 'rent',
-    operations: ['rent'],
-    status: 'tenant',
-    qualificationLevel: 'sql',
-    convertedToTenantId: '1',
-    notes: 'Prospecto convertido para alquiler',
+    guaranteeTypes: ["Seguro de caucion"],
+    preferredCity: "CABA",
+    desiredFeatures: ["balcon"],
+    propertyTypePreference: "apartment",
+    operation: "rent",
+    operations: ["rent"],
+    status: "tenant",
+    qualificationLevel: "sql",
+    convertedToTenantId: "1",
+    notes: "Prospecto convertido para alquiler",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -73,50 +78,74 @@ const mapProfile = (raw: any): InterestedProfile => ({
   // Keep `operation` for backward compatibility while the UI uses `operations`.
   operation: raw.operation,
   operations: Array.isArray(raw.operations)
-    ? raw.operations.filter((item: any): item is 'rent' | 'sale' =>
-        item === 'rent' || item === 'sale',
+    ? raw.operations.filter(
+        (item: any): item is "rent" | "sale" =>
+          item === "rent" || item === "sale",
       )
     : raw.operation
       ? [raw.operation]
-      : ['rent'],
+      : ["rent"],
   id: raw.id,
   firstName: raw.firstName,
   lastName: raw.lastName,
   phone: raw.phone,
   email: raw.email,
-  peopleCount: raw.peopleCount === null || raw.peopleCount === undefined ? undefined : Number(raw.peopleCount),
-  minAmount: raw.minAmount === null || raw.minAmount === undefined ? undefined : Number(raw.minAmount),
-  maxAmount: raw.maxAmount === null || raw.maxAmount === undefined ? undefined : Number(raw.maxAmount),
+  peopleCount:
+    raw.peopleCount === null || raw.peopleCount === undefined
+      ? undefined
+      : Number(raw.peopleCount),
+  minAmount:
+    raw.minAmount === null || raw.minAmount === undefined
+      ? undefined
+      : Number(raw.minAmount),
+  maxAmount:
+    raw.maxAmount === null || raw.maxAmount === undefined
+      ? undefined
+      : Number(raw.maxAmount),
   hasPets: raw.hasPets,
   guaranteeTypes: Array.isArray(raw.guaranteeTypes) ? raw.guaranteeTypes : [],
   preferredZones: Array.isArray(raw.preferredZones) ? raw.preferredZones : [],
   preferredCity: raw.preferredCity,
-  desiredFeatures: Array.isArray(raw.desiredFeatures) ? raw.desiredFeatures : [],
+  desiredFeatures: Array.isArray(raw.desiredFeatures)
+    ? raw.desiredFeatures
+    : [],
   propertyTypePreference: raw.propertyTypePreference,
   status:
-    raw.status === 'interested' || raw.status === 'tenant' || raw.status === 'buyer'
+    raw.status === "interested" ||
+    raw.status === "tenant" ||
+    raw.status === "buyer"
       ? raw.status
       : raw.convertedToTenantId
-        ? 'tenant'
+        ? "tenant"
         : raw.convertedToSaleAgreementId
-          ? 'buyer'
-          : 'interested',
+          ? "buyer"
+          : "interested",
   qualificationLevel: raw.qualificationLevel,
   qualificationNotes: raw.qualificationNotes,
   source: raw.source,
   assignedToUserId: raw.assignedToUserId,
   organizationName: raw.organizationName,
   customFields: raw.customFields,
-  lastContactAt: raw.lastContactAt ? new Date(raw.lastContactAt).toISOString() : undefined,
-  nextContactAt: raw.nextContactAt ? new Date(raw.nextContactAt).toISOString() : undefined,
+  lastContactAt: raw.lastContactAt
+    ? new Date(raw.lastContactAt).toISOString()
+    : undefined,
+  nextContactAt: raw.nextContactAt
+    ? new Date(raw.nextContactAt).toISOString()
+    : undefined,
   lostReason: raw.lostReason,
   consentContact: raw.consentContact,
-  consentRecordedAt: raw.consentRecordedAt ? new Date(raw.consentRecordedAt).toISOString() : undefined,
+  consentRecordedAt: raw.consentRecordedAt
+    ? new Date(raw.consentRecordedAt).toISOString()
+    : undefined,
   convertedToTenantId: raw.convertedToTenantId,
   convertedToSaleAgreementId: raw.convertedToSaleAgreementId,
   notes: raw.notes,
-  createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : new Date().toISOString(),
-  updatedAt: raw.updatedAt ? new Date(raw.updatedAt).toISOString() : new Date().toISOString(),
+  createdAt: raw.createdAt
+    ? new Date(raw.createdAt).toISOString()
+    : new Date().toISOString(),
+  updatedAt: raw.updatedAt
+    ? new Date(raw.updatedAt).toISOString()
+    : new Date().toISOString(),
 });
 
 const mapActivity = (raw: any): InterestedActivity => ({
@@ -127,12 +156,18 @@ const mapActivity = (raw: any): InterestedActivity => ({
   subject: raw.subject,
   body: raw.body,
   dueAt: raw.dueAt ? new Date(raw.dueAt).toISOString() : undefined,
-  completedAt: raw.completedAt ? new Date(raw.completedAt).toISOString() : undefined,
+  completedAt: raw.completedAt
+    ? new Date(raw.completedAt).toISOString()
+    : undefined,
   templateName: raw.templateName,
   metadata: raw.metadata,
   createdByUserId: raw.createdByUserId,
-  createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : new Date().toISOString(),
-  updatedAt: raw.updatedAt ? new Date(raw.updatedAt).toISOString() : new Date().toISOString(),
+  createdAt: raw.createdAt
+    ? new Date(raw.createdAt).toISOString()
+    : new Date().toISOString(),
+  updatedAt: raw.updatedAt
+    ? new Date(raw.updatedAt).toISOString()
+    : new Date().toISOString(),
 });
 
 const mapProperty = (raw: any): Property => ({
@@ -140,30 +175,35 @@ const mapProperty = (raw: any): Property => ({
   name: raw.name,
   description: raw.description,
   type:
-    raw.propertyType === 'apartment'
-      ? 'APARTMENT'
-      : raw.propertyType === 'house'
-        ? 'HOUSE'
-        : raw.propertyType === 'commercial'
-          ? 'COMMERCIAL'
-          : raw.propertyType === 'office'
-            ? 'OFFICE'
-            : raw.propertyType === 'warehouse'
-              ? 'WAREHOUSE'
-            : raw.propertyType === 'land'
-              ? 'LAND'
-              : raw.propertyType === 'parking'
-                ? 'PARKING'
-              : 'OTHER',
-  status: (raw.status === 'active' ? 'ACTIVE' : raw.status === 'under_maintenance' ? 'MAINTENANCE' : 'INACTIVE'),
+    raw.propertyType === "apartment"
+      ? "APARTMENT"
+      : raw.propertyType === "house"
+        ? "HOUSE"
+        : raw.propertyType === "commercial"
+          ? "COMMERCIAL"
+          : raw.propertyType === "office"
+            ? "OFFICE"
+            : raw.propertyType === "warehouse"
+              ? "WAREHOUSE"
+              : raw.propertyType === "land"
+                ? "LAND"
+                : raw.propertyType === "parking"
+                  ? "PARKING"
+                  : "OTHER",
+  status:
+    raw.status === "active"
+      ? "ACTIVE"
+      : raw.status === "under_maintenance"
+        ? "MAINTENANCE"
+        : "INACTIVE",
   address: {
-    street: raw.addressStreet ?? '',
-    number: raw.addressNumber ?? '',
+    street: raw.addressStreet ?? "",
+    number: raw.addressNumber ?? "",
     unit: raw.addressApartment ?? undefined,
-    city: raw.addressCity ?? '',
-    state: raw.addressState ?? '',
-    zipCode: raw.addressPostalCode ?? '',
-    country: raw.addressCountry ?? 'Argentina',
+    city: raw.addressCity ?? "",
+    state: raw.addressState ?? "",
+    zipCode: raw.addressPostalCode ?? "",
+    country: raw.addressCountry ?? "Argentina",
   },
   features: [],
   units: Array.isArray(raw.units)
@@ -175,26 +215,34 @@ const mapProperty = (raw: any): Property => ({
         bathrooms: Number(unit.bathrooms ?? 0),
         area: Number(unit.area ?? 0),
         status:
-          unit.status === 'occupied'
-            ? 'OCCUPIED'
-            : unit.status === 'maintenance'
-              ? 'MAINTENANCE'
-              : 'AVAILABLE',
+          unit.status === "occupied"
+            ? "OCCUPIED"
+            : unit.status === "maintenance"
+              ? "MAINTENANCE"
+              : "AVAILABLE",
         rentAmount: Number(unit.baseRent ?? 0),
       }))
     : [],
   images: [],
-  ownerId: raw.ownerId ?? '',
+  ownerId: raw.ownerId ?? "",
   operations: Array.isArray(raw.operations)
-    ? raw.operations.filter((item: any): item is 'rent' | 'sale' =>
-        item === 'rent' || item === 'sale',
+    ? raw.operations.filter(
+        (item: any): item is "rent" | "sale" =>
+          item === "rent" || item === "sale",
       )
     : raw.salePrice !== null && raw.salePrice !== undefined
-      ? ['rent', 'sale']
-      : ['rent'],
-  createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : new Date().toISOString(),
-  updatedAt: raw.updatedAt ? new Date(raw.updatedAt).toISOString() : new Date().toISOString(),
-  salePrice: raw.salePrice === null || raw.salePrice === undefined ? undefined : Number(raw.salePrice),
+      ? ["rent", "sale"]
+      : ["rent"],
+  createdAt: raw.createdAt
+    ? new Date(raw.createdAt).toISOString()
+    : new Date().toISOString(),
+  updatedAt: raw.updatedAt
+    ? new Date(raw.updatedAt).toISOString()
+    : new Date().toISOString(),
+  salePrice:
+    raw.salePrice === null || raw.salePrice === undefined
+      ? undefined
+      : Number(raw.salePrice),
   saleCurrency: raw.saleCurrency,
   allowsPets: raw.allowsPets,
   acceptedGuaranteeTypes: raw.acceptedGuaranteeTypes,
@@ -206,13 +254,22 @@ const mapMatch = (raw: any): InterestedMatch => ({
   interestedProfileId: raw.interestedProfileId,
   propertyId: raw.propertyId,
   status: raw.status,
-  score: raw.score === null || raw.score === undefined ? undefined : Number(raw.score),
+  score:
+    raw.score === null || raw.score === undefined
+      ? undefined
+      : Number(raw.score),
   matchReasons: Array.isArray(raw.matchReasons) ? raw.matchReasons : [],
-  contactedAt: raw.contactedAt ? new Date(raw.contactedAt).toISOString() : undefined,
+  contactedAt: raw.contactedAt
+    ? new Date(raw.contactedAt).toISOString()
+    : undefined,
   notes: raw.notes,
   property: raw.property ? mapProperty(raw.property) : undefined,
-  createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : new Date().toISOString(),
-  updatedAt: raw.updatedAt ? new Date(raw.updatedAt).toISOString() : new Date().toISOString(),
+  createdAt: raw.createdAt
+    ? new Date(raw.createdAt).toISOString()
+    : new Date().toISOString(),
+  updatedAt: raw.updatedAt
+    ? new Date(raw.updatedAt).toISOString()
+    : new Date().toISOString(),
 });
 
 const mapReservation = (raw: any): PropertyReservation => ({
@@ -224,39 +281,65 @@ const mapReservation = (raw: any): PropertyReservation => ({
   activitySource: raw.activitySource,
   notes: raw.notes ?? undefined,
   reservedByUserId: raw.reservedByUserId ?? undefined,
-  reservedAt: raw.reservedAt ? new Date(raw.reservedAt).toISOString() : new Date().toISOString(),
-  releasedAt: raw.releasedAt ? new Date(raw.releasedAt).toISOString() : undefined,
-  createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : new Date().toISOString(),
-  updatedAt: raw.updatedAt ? new Date(raw.updatedAt).toISOString() : new Date().toISOString(),
+  reservedAt: raw.reservedAt
+    ? new Date(raw.reservedAt).toISOString()
+    : new Date().toISOString(),
+  releasedAt: raw.releasedAt
+    ? new Date(raw.releasedAt).toISOString()
+    : undefined,
+  createdAt: raw.createdAt
+    ? new Date(raw.createdAt).toISOString()
+    : new Date().toISOString(),
+  updatedAt: raw.updatedAt
+    ? new Date(raw.updatedAt).toISOString()
+    : new Date().toISOString(),
   property: raw.property ? mapProperty(raw.property) : undefined,
 });
 
 export const interestedApi = {
-  getAll: async (filters?: InterestedFilters): Promise<PaginatedResponse<InterestedProfile>> => {
+  getAll: async (
+    filters?: InterestedFilters,
+  ): Promise<PaginatedResponse<InterestedProfile>> => {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
       let data = [...MOCK_INTERESTED];
       if (filters?.name) {
         const term = filters.name.toLowerCase();
-        data = data.filter((p) => `${p.firstName ?? ''} ${p.lastName ?? ''}`.toLowerCase().includes(term));
+        data = data.filter((p) =>
+          `${p.firstName ?? ""} ${p.lastName ?? ""}`
+            .toLowerCase()
+            .includes(term),
+        );
       }
-      if (filters?.status) data = data.filter((p) => p.status === filters.status);
+      if (filters?.status)
+        data = data.filter((p) => p.status === filters.status);
       return { data, total: data.length, page: 1, limit: 10 };
     }
 
     const token = getToken();
     const queryParams = new URLSearchParams();
-    if (filters?.name) queryParams.append('name', filters.name);
-    if (filters?.phone) queryParams.append('phone', filters.phone);
-    if (filters?.operation) queryParams.append('operation', filters.operation);
-    if (filters?.propertyTypePreference) queryParams.append('propertyTypePreference', filters.propertyTypePreference);
-    if (filters?.status) queryParams.append('status', filters.status);
-    if (filters?.qualificationLevel) queryParams.append('qualificationLevel', filters.qualificationLevel);
-    if (filters?.page) queryParams.append('page', String(filters.page));
-    if (filters?.limit) queryParams.append('limit', String(filters.limit));
+    if (filters?.name) queryParams.append("name", filters.name);
+    if (filters?.phone) queryParams.append("phone", filters.phone);
+    if (filters?.operation) queryParams.append("operation", filters.operation);
+    if (filters?.propertyTypePreference)
+      queryParams.append(
+        "propertyTypePreference",
+        filters.propertyTypePreference,
+      );
+    if (filters?.status) queryParams.append("status", filters.status);
+    if (filters?.qualificationLevel)
+      queryParams.append("qualificationLevel", filters.qualificationLevel);
+    if (filters?.page) queryParams.append("page", String(filters.page));
+    if (filters?.limit) queryParams.append("limit", String(filters.limit));
 
-    const endpoint = queryParams.toString().length > 0 ? `/interested?${queryParams.toString()}` : '/interested';
-    const result = await apiClient.get<PaginatedResponse<any>>(endpoint, token ?? undefined);
+    const endpoint =
+      queryParams.toString().length > 0
+        ? `/interested?${queryParams.toString()}`
+        : "/interested";
+    const result = await apiClient.get<PaginatedResponse<any>>(
+      endpoint,
+      token ?? undefined,
+    );
 
     return {
       ...result,
@@ -264,7 +347,9 @@ export const interestedApi = {
     };
   },
 
-  create: async (data: CreateInterestedProfileInput): Promise<InterestedProfile> => {
+  create: async (
+    data: CreateInterestedProfileInput,
+  ): Promise<InterestedProfile> => {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
       const newProfile: InterestedProfile = {
@@ -291,11 +376,17 @@ export const interestedApi = {
         assignedToUserId: data.assignedToUserId,
         organizationName: data.organizationName,
         customFields: data.customFields,
-        lastContactAt: data.lastContactAt ? new Date(data.lastContactAt).toISOString() : undefined,
-        nextContactAt: data.nextContactAt ? new Date(data.nextContactAt).toISOString() : undefined,
+        lastContactAt: data.lastContactAt
+          ? new Date(data.lastContactAt).toISOString()
+          : undefined,
+        nextContactAt: data.nextContactAt
+          ? new Date(data.nextContactAt).toISOString()
+          : undefined,
         lostReason: data.lostReason,
         consentContact: data.consentContact,
-        consentRecordedAt: data.consentRecordedAt ? new Date(data.consentRecordedAt).toISOString() : undefined,
+        consentRecordedAt: data.consentRecordedAt
+          ? new Date(data.consentRecordedAt).toISOString()
+          : undefined,
         notes: data.notes,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -305,24 +396,40 @@ export const interestedApi = {
     }
 
     const token = getToken();
-    const result = await apiClient.post<any>('/interested', data, token ?? undefined);
+    const result = await apiClient.post<any>(
+      "/interested",
+      data,
+      token ?? undefined,
+    );
     return mapProfile(result);
   },
 
-  update: async (id: string, data: UpdateInterestedProfileInput): Promise<InterestedProfile> => {
+  update: async (
+    id: string,
+    data: UpdateInterestedProfileInput,
+  ): Promise<InterestedProfile> => {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
       const index = MOCK_INTERESTED.findIndex((p) => p.id === id);
-      if (index === -1) throw new Error('Interested profile not found');
+      if (index === -1) throw new Error("Interested profile not found");
       MOCK_INTERESTED[index] = {
         ...MOCK_INTERESTED[index],
         ...data,
-        operation: data.operations?.[0] ?? data.operation ?? MOCK_INTERESTED[index].operation,
+        operation:
+          data.operations?.[0] ??
+          data.operation ??
+          MOCK_INTERESTED[index].operation,
         operations:
           data.operations ??
-          (data.operation ? [data.operation] : MOCK_INTERESTED[index].operations),
-        lastContactAt: data.lastContactAt ? new Date(data.lastContactAt).toISOString() : MOCK_INTERESTED[index].lastContactAt,
-        nextContactAt: data.nextContactAt ? new Date(data.nextContactAt).toISOString() : MOCK_INTERESTED[index].nextContactAt,
+          (data.operation
+            ? [data.operation]
+            : MOCK_INTERESTED[index].operations),
+        lastContactAt: data.lastContactAt
+          ? new Date(data.lastContactAt).toISOString()
+          : MOCK_INTERESTED[index].lastContactAt,
+        nextContactAt: data.nextContactAt
+          ? new Date(data.nextContactAt).toISOString()
+          : MOCK_INTERESTED[index].nextContactAt,
         consentRecordedAt: data.consentRecordedAt
           ? new Date(data.consentRecordedAt).toISOString()
           : MOCK_INTERESTED[index].consentRecordedAt,
@@ -332,7 +439,11 @@ export const interestedApi = {
     }
 
     const token = getToken();
-    const result = await apiClient.patch<any>(`/interested/${id}`, data, token ?? undefined);
+    const result = await apiClient.patch<any>(
+      `/interested/${id}`,
+      data,
+      token ?? undefined,
+    );
     return mapProfile(result);
   },
 
@@ -352,7 +463,7 @@ export const interestedApi = {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
       const profile = MOCK_INTERESTED.find((item) => item.id === id);
-      if (!profile) throw new Error('Not found');
+      if (!profile) throw new Error("Not found");
       return {
         profile,
         stageHistory: [],
@@ -363,7 +474,10 @@ export const interestedApi = {
     }
 
     const token = getToken();
-    const result = await apiClient.get<any>(`/interested/${id}/summary`, token ?? undefined);
+    const result = await apiClient.get<any>(
+      `/interested/${id}/summary`,
+      token ?? undefined,
+    );
     return {
       profile: mapProfile(result.profile),
       stageHistory: (result.stageHistory ?? []).map((item: any) => ({
@@ -379,7 +493,10 @@ export const interestedApi = {
         interestedName: visit.interestedName,
         comments: visit.comments,
         hasOffer: visit.hasOffer,
-        offerAmount: visit.offerAmount === null || visit.offerAmount === undefined ? undefined : Number(visit.offerAmount),
+        offerAmount:
+          visit.offerAmount === null || visit.offerAmount === undefined
+            ? undefined
+            : Number(visit.offerAmount),
         offerCurrency: visit.offerCurrency,
         property: visit.property ? mapProperty(visit.property) : undefined,
       })),
@@ -393,7 +510,10 @@ export const interestedApi = {
     }
 
     const token = getToken();
-    const result = await apiClient.get<any[]>(`/interested/${id}/timeline`, token ?? undefined);
+    const result = await apiClient.get<any[]>(
+      `/interested/${id}/timeline`,
+      token ?? undefined,
+    );
     return result.map((item) => ({
       ...item,
       at: new Date(item.at).toISOString(),
@@ -407,7 +527,11 @@ export const interestedApi = {
     }
 
     const token = getToken();
-    const result = await apiClient.post<any[]>(`/interested/${id}/matches/refresh`, {}, token ?? undefined);
+    const result = await apiClient.post<any[]>(
+      `/interested/${id}/matches/refresh`,
+      {},
+      token ?? undefined,
+    );
     return result.map(mapMatch);
   },
 
@@ -419,33 +543,45 @@ export const interestedApi = {
   ): Promise<InterestedMatch> => {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
-      throw new Error('Not available in mock');
+      throw new Error("Not available in mock");
     }
 
     const token = getToken();
-    const result = await apiClient.patch<any>(`/interested/${id}/matches/${matchId}`, { status, notes }, token ?? undefined);
+    const result = await apiClient.patch<any>(
+      `/interested/${id}/matches/${matchId}`,
+      { status, notes },
+      token ?? undefined,
+    );
     return mapMatch(result);
   },
 
-  changeStage: async (id: string, toStatus: InterestedStatus, reason?: string): Promise<InterestedProfile> => {
+  changeStage: async (
+    id: string,
+    toStatus: InterestedStatus,
+    reason?: string,
+  ): Promise<InterestedProfile> => {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
       const profile = MOCK_INTERESTED.find((item) => item.id === id);
-      if (!profile) throw new Error('Not found');
+      if (!profile) throw new Error("Not found");
       profile.status = toStatus;
       profile.updatedAt = new Date().toISOString();
       return profile;
     }
 
     const token = getToken();
-    const result = await apiClient.post<any>(`/interested/${id}/stage`, { toStatus, reason }, token ?? undefined);
+    const result = await apiClient.post<any>(
+      `/interested/${id}/stage`,
+      { toStatus, reason },
+      token ?? undefined,
+    );
     return mapProfile(result);
   },
 
   addActivity: async (
     id: string,
     payload: {
-      type: InterestedActivity['type'];
+      type: InterestedActivity["type"];
       subject: string;
       body?: string;
       dueAt?: string;
@@ -460,16 +596,20 @@ export const interestedApi = {
       return {
         id: `act-${Math.random().toString(36).slice(2)}`,
         interestedProfileId: id,
-        createdByUserId: 'mock-user',
+        createdByUserId: "mock-user",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         ...payload,
-        status: payload.status ?? 'pending',
+        status: payload.status ?? "pending",
       };
     }
 
     const token = getToken();
-    const result = await apiClient.post<any>(`/interested/${id}/activities`, payload, token ?? undefined);
+    const result = await apiClient.post<any>(
+      `/interested/${id}/activities`,
+      payload,
+      token ?? undefined,
+    );
     return mapActivity(result);
   },
 
@@ -477,7 +617,7 @@ export const interestedApi = {
     id: string,
     activityId: string,
     payload: Partial<{
-      type: InterestedActivity['type'];
+      type: InterestedActivity["type"];
       subject: string;
       body?: string;
       dueAt?: string;
@@ -489,11 +629,15 @@ export const interestedApi = {
   ): Promise<InterestedActivity> => {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
-      throw new Error('Not available in mock');
+      throw new Error("Not available in mock");
     }
 
     const token = getToken();
-    const result = await apiClient.patch<any>(`/interested/${id}/activities/${activityId}`, payload, token ?? undefined);
+    const result = await apiClient.patch<any>(
+      `/interested/${id}/activities/${activityId}`,
+      payload,
+      token ?? undefined,
+    );
     return mapActivity(result);
   },
 
@@ -536,7 +680,10 @@ export const interestedApi = {
     }
 
     const token = getToken();
-    return apiClient.get<InterestedMetrics>('/interested/metrics/overview', token ?? undefined);
+    return apiClient.get<InterestedMetrics>(
+      "/interested/metrics/overview",
+      token ?? undefined,
+    );
   },
 
   getDuplicates: async (): Promise<InterestedDuplicate[]> => {
@@ -546,7 +693,10 @@ export const interestedApi = {
     }
 
     const token = getToken();
-    return apiClient.get<InterestedDuplicate[]>('/interested/duplicates', token ?? undefined);
+    return apiClient.get<InterestedDuplicate[]>(
+      "/interested/duplicates",
+      token ?? undefined,
+    );
   },
 
   convertToTenant: async (
@@ -563,13 +713,13 @@ export const interestedApi = {
       await delay(DELAY);
       const profile = MOCK_INTERESTED.find((item) => item.id === id);
       if (!profile) {
-        throw new Error('Interested profile not found');
+        throw new Error("Interested profile not found");
       }
 
       if (!profile.convertedToTenantId) {
         profile.convertedToTenantId = `tenant-${profile.id}`;
       }
-      profile.status = 'tenant';
+      profile.status = "tenant";
       profile.updatedAt = new Date().toISOString();
 
       return {
@@ -583,7 +733,11 @@ export const interestedApi = {
     }
 
     const token = getToken();
-    return apiClient.post(`/interested/${id}/convert/tenant`, payload, token ?? undefined);
+    return apiClient.post(
+      `/interested/${id}/convert/tenant`,
+      payload,
+      token ?? undefined,
+    );
   },
 
   convertToBuyer: async (
@@ -602,11 +756,11 @@ export const interestedApi = {
       await delay(DELAY);
       const profile = MOCK_INTERESTED.find((item) => item.id === id);
       if (!profile) {
-        throw new Error('Interested profile not found');
+        throw new Error("Interested profile not found");
       }
 
       profile.convertedToSaleAgreementId = `sale-${profile.id}`;
-      profile.status = 'buyer';
+      profile.status = "buyer";
       profile.updatedAt = new Date().toISOString();
 
       return {
@@ -619,7 +773,11 @@ export const interestedApi = {
     }
 
     const token = getToken();
-    return apiClient.post(`/interested/${id}/convert/buyer`, payload, token ?? undefined);
+    return apiClient.post(
+      `/interested/${id}/convert/buyer`,
+      payload,
+      token ?? undefined,
+    );
   },
 
   getMatches: async (id: string): Promise<Property[]> => {
@@ -629,7 +787,13 @@ export const interestedApi = {
     }
 
     const token = getToken();
-    const result = await apiClient.get<any[]>(`/interested/${id}/matches`, token ?? undefined);
-    return result.map((item) => item.property).filter(Boolean).map(mapProperty);
+    const result = await apiClient.get<any[]>(
+      `/interested/${id}/matches`,
+      token ?? undefined,
+    );
+    return result
+      .map((item) => item.property)
+      .filter(Boolean)
+      .map(mapProperty);
   },
 };

@@ -1,11 +1,12 @@
-import { NextIntlClientProvider } from 'next-intl';
-import { getMessages, getTranslations } from 'next-intl/server';
-import { notFound } from 'next/navigation';
+import { NextIntlClientProvider } from "next-intl";
+import { getMessages, getTranslations } from "next-intl/server";
+import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import "../../styles/globals.css";
 import { AuthProvider } from "@/contexts/auth-context";
-import { locales } from '@/config/locales';
-import { ToastHost } from '@/components/common/ToastHost';
+import { locales } from "@/config/locales";
+import type { Locale } from "@/config/locales";
+import { ToastHost } from "@/components/common/ToastHost";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -13,13 +14,13 @@ type Props = {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: 'metadata' });
-  
+  const t = await getTranslations({ locale, namespace: "metadata" });
+
   return {
-    title: t('title'),
-    description: t('description'),
+    title: t("title"),
+    description: t("description"),
     icons: {
-      icon: '/favicon.ico',
+      icon: "/favicon.ico",
     },
   };
 }
@@ -30,14 +31,14 @@ export function generateStaticParams() {
 
 export default async function LocaleLayout({
   children,
-  params
+  params,
 }: {
   children: React.ReactNode;
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
   // Validar que el locale es soportado
-  if (!locales.includes(locale as any)) {
+  if (!locales.includes(locale as Locale)) {
     notFound();
   }
 

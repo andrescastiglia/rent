@@ -1,4 +1,4 @@
-export type ToastKind = 'error' | 'success' | 'info';
+export type ToastKind = "error" | "success" | "info";
 
 export type ToastMessage = {
   kind: ToastKind;
@@ -9,9 +9,10 @@ export type ToastMessage = {
 type ToastListener = (toast: ToastMessage) => void;
 
 const DEDUPE_WINDOW_MS = 8000;
-let lastToastAtById: Record<string, number> = {};
+const lastToastAtById: Record<string, number> = {};
 
-const target: EventTarget | null = typeof window !== 'undefined' ? new EventTarget() : null;
+const target: EventTarget | null =
+  typeof window !== "undefined" ? new EventTarget() : null;
 
 export function emitToast(toast: ToastMessage): void {
   if (!target) return;
@@ -23,7 +24,9 @@ export function emitToast(toast: ToastMessage): void {
   if (now - lastAt < DEDUPE_WINDOW_MS) return;
   lastToastAtById[id] = now;
 
-  target.dispatchEvent(new CustomEvent<ToastMessage>('toast', { detail: toast }));
+  target.dispatchEvent(
+    new CustomEvent<ToastMessage>("toast", { detail: toast }),
+  );
 }
 
 export function subscribeToToasts(listener: ToastListener): () => void {
@@ -34,6 +37,6 @@ export function subscribeToToasts(listener: ToastListener): () => void {
     listener(custom.detail);
   };
 
-  target.addEventListener('toast', handler);
-  return () => target.removeEventListener('toast', handler);
+  target.addEventListener("toast", handler);
+  return () => target.removeEventListener("toast", handler);
 }

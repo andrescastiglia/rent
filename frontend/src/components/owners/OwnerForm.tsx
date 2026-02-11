@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import React, { useMemo, useState } from 'react';
-import { Loader2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
-import { ownersApi } from '@/lib/api/owners';
-import { CreateOwnerInput, Owner } from '@/types/owner';
+import React, { useMemo, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
+import { ownersApi } from "@/lib/api/owners";
+import { CreateOwnerInput, Owner } from "@/types/owner";
 
 interface OwnerFormProps {
   initialData?: Owner;
@@ -13,17 +13,17 @@ interface OwnerFormProps {
 }
 
 const emptyOwnerForm: CreateOwnerInput = {
-  firstName: '',
-  lastName: '',
-  email: '',
-  phone: '',
-  taxId: '',
-  notes: '',
+  firstName: "",
+  lastName: "",
+  email: "",
+  phone: "",
+  taxId: "",
+  notes: "",
 };
 
 export function OwnerForm({ initialData, isEditing = false }: OwnerFormProps) {
-  const t = useTranslations('properties');
-  const tc = useTranslations('common');
+  const t = useTranslations("properties");
+  const tc = useTranslations("common");
   const router = useLocalizedRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState<CreateOwnerInput>(
@@ -32,9 +32,9 @@ export function OwnerForm({ initialData, isEditing = false }: OwnerFormProps) {
           firstName: initialData.firstName,
           lastName: initialData.lastName,
           email: initialData.email,
-          phone: initialData.phone ?? '',
-          taxId: initialData.taxId ?? '',
-          notes: initialData.notes ?? '',
+          phone: initialData.phone ?? "",
+          taxId: initialData.taxId ?? "",
+          notes: initialData.notes ?? "",
         }
       : emptyOwnerForm,
   );
@@ -42,9 +42,7 @@ export function OwnerForm({ initialData, isEditing = false }: OwnerFormProps) {
   const canSubmit = useMemo(
     () =>
       Boolean(
-        form.firstName?.trim() &&
-          form.lastName?.trim() &&
-          form.email?.trim(),
+        form.firstName?.trim() && form.lastName?.trim() && form.email?.trim(),
       ),
     [form.email, form.firstName, form.lastName],
   );
@@ -70,11 +68,11 @@ export function OwnerForm({ initialData, isEditing = false }: OwnerFormProps) {
         await ownersApi.create(payload);
       }
 
-      router.push('/properties');
+      router.push("/properties");
       router.refresh();
     } catch (error) {
-      console.error('Failed to save owner', error);
-      alert(tc('error'));
+      console.error("Failed to save owner", error);
+      alert(tc("error"));
     } finally {
       setIsSubmitting(false);
     }
@@ -83,67 +81,92 @@ export function OwnerForm({ initialData, isEditing = false }: OwnerFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-6 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700"
+      className="space-y-6 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xs border border-gray-100 dark:border-gray-700"
     >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t('ownerFields.firstName')}
+          <label
+            htmlFor="firstName"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            {t("ownerFields.firstName")}
           </label>
           <input
             id="firstName"
             type="text"
-            value={form.firstName ?? ''}
-            onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
-            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
+            value={form.firstName ?? ""}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, firstName: e.target.value }))
+            }
+            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
           />
         </div>
         <div>
-          <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t('ownerFields.lastName')}
+          <label
+            htmlFor="lastName"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            {t("ownerFields.lastName")}
           </label>
           <input
             id="lastName"
             type="text"
-            value={form.lastName ?? ''}
-            onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
-            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
+            value={form.lastName ?? ""}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, lastName: e.target.value }))
+            }
+            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
           />
         </div>
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t('ownerFields.email')}
+          <label
+            htmlFor="email"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            {t("ownerFields.email")}
           </label>
           <input
             id="email"
             type="email"
-            value={form.email ?? ''}
-            onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
+            value={form.email ?? ""}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, email: e.target.value }))
+            }
+            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
           />
         </div>
         <div>
-          <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t('ownerFields.phone')}
+          <label
+            htmlFor="phone"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            {t("ownerFields.phone")}
           </label>
           <input
             id="phone"
             type="text"
-            value={form.phone ?? ''}
-            onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
-            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
+            value={form.phone ?? ""}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, phone: e.target.value }))
+            }
+            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
           />
         </div>
         <div className="md:col-span-2">
-          <label htmlFor="taxId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t('ownerFields.taxId')}
+          <label
+            htmlFor="taxId"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            {t("ownerFields.taxId")}
           </label>
           <input
             id="taxId"
             type="text"
-            value={form.taxId ?? ''}
-            onChange={(e) => setForm((prev) => ({ ...prev, taxId: e.target.value }))}
-            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
+            value={form.taxId ?? ""}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, taxId: e.target.value }))
+            }
+            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
           />
         </div>
       </div>
@@ -154,7 +177,7 @@ export function OwnerForm({ initialData, isEditing = false }: OwnerFormProps) {
           onClick={() => router.back()}
           className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700"
         >
-          {tc('cancel')}
+          {tc("cancel")}
         </button>
         <button
           type="submit"
@@ -164,10 +187,10 @@ export function OwnerForm({ initialData, isEditing = false }: OwnerFormProps) {
           {isSubmitting ? (
             <>
               <Loader2 className="animate-spin mr-2 h-4 w-4" />
-              {tc('saving')}
+              {tc("saving")}
             </>
           ) : (
-            tc('save')
+            tc("save")
           )}
         </button>
       </div>

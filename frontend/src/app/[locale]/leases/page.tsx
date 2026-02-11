@@ -1,21 +1,21 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { Lease } from '@/types/lease';
-import { leasesApi } from '@/lib/api/leases';
-import { LeaseCard } from '@/components/leases/LeaseCard';
-import { Search, Loader2 } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
-import { useAuth } from '@/contexts/auth-context';
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
+import { Lease } from "@/types/lease";
+import { leasesApi } from "@/lib/api/leases";
+import { LeaseCard } from "@/components/leases/LeaseCard";
+import { Search, Loader2 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { useAuth } from "@/contexts/auth-context";
 
 export default function LeasesPage() {
   const { loading: authLoading } = useAuth();
-  const t = useTranslations('leases');
+  const t = useTranslations("leases");
   const locale = useLocale();
   const [leases, setLeases] = useState<Lease[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [includeFinalized, setIncludeFinalized] = useState(false);
 
   useEffect(() => {
@@ -28,24 +28,31 @@ export default function LeasesPage() {
       const data = await leasesApi.getAll({ includeFinalized: showFinalized });
       setLeases(data);
     } catch (error) {
-      console.error('Failed to load leases', error);
+      console.error("Failed to load leases", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredLeases = leases.filter(lease =>
-    lease.property?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    lease.tenant?.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    lease.tenant?.lastName?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredLeases = leases.filter(
+    (lease) =>
+      lease.property?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      lease.tenant?.firstName
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      lease.tenant?.lastName?.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('title')}</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">{t('subtitle')}</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            {t("title")}
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">
+            {t("subtitle")}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <label className="inline-flex items-center text-sm text-gray-600 dark:text-gray-300">
@@ -55,13 +62,13 @@ export default function LeasesPage() {
               checked={includeFinalized}
               onChange={(e) => setIncludeFinalized(e.target.checked)}
             />
-            {t('showFinalized')}
+            {t("showFinalized")}
           </label>
           <Link
             href={`/${locale}/leases/templates`}
             className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-200"
           >
-            {t('manageTemplates')}
+            {t("manageTemplates")}
           </Link>
         </div>
       </div>
@@ -72,8 +79,8 @@ export default function LeasesPage() {
         </div>
         <input
           type="text"
-          placeholder={t('searchPlaceholder')}
-          className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+          placeholder={t("searchPlaceholder")}
+          className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white focus:outline-hidden focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
@@ -91,8 +98,12 @@ export default function LeasesPage() {
         </div>
       ) : (
         <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">
-          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">{t('noLeases')}</h3>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('noLeasesDescription')}</p>
+          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+            {t("noLeases")}
+          </h3>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            {t("noLeasesDescription")}
+          </p>
         </div>
       )}
     </div>

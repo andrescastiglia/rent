@@ -1,10 +1,15 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { apiClient } from '@/lib/api';
-import { getToken, setToken, getUser, setUser, clearAuth } from '@/lib/auth';
-import type { User, LoginRequest, RegisterRequest, AuthResponse } from '@/types/auth';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { apiClient } from "@/lib/api";
+import { getToken, setToken, getUser, setUser, clearAuth } from "@/lib/auth";
+import type {
+  User,
+  LoginRequest,
+  RegisterRequest,
+  AuthResponse,
+} from "@/types/auth";
 
 interface AuthContextType {
   user: User | null;
@@ -26,12 +31,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Extraer el locale del pathname actual
   const getLocaleFromPath = () => {
-    const segments = pathname.split('/');
+    const segments = pathname.split("/");
     const locale = segments[1];
-    if (['es', 'pt', 'en'].includes(locale)) {
+    if (["es", "pt", "en"].includes(locale)) {
       return locale;
     }
-    return 'es'; // fallback
+    return "es"; // fallback
   };
 
   useEffect(() => {
@@ -41,14 +46,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserState(getUser());
     };
 
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
   const login = async (credentials: LoginRequest) => {
     try {
-      const response = await apiClient.post<AuthResponse>('/auth/login', credentials);
-      
+      const response = await apiClient.post<AuthResponse>(
+        "/auth/login",
+        credentials,
+      );
+
       setToken(response.accessToken);
       setUser(response.user);
       setTokenState(response.accessToken);
@@ -63,8 +71,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (data: RegisterRequest) => {
     try {
-      const response = await apiClient.post<AuthResponse>('/auth/register', data);
-      
+      const response = await apiClient.post<AuthResponse>(
+        "/auth/register",
+        data,
+      );
+
       setToken(response.accessToken);
       setUser(response.user);
       setTokenState(response.accessToken);
@@ -86,7 +97,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>
+    <AuthContext.Provider
+      value={{ user, token, loading, login, register, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -95,7 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }

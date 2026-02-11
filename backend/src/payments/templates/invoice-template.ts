@@ -13,7 +13,7 @@ export function generateInvoicePdf(
   i18n: I18nService,
   lang: string = 'es',
 ): Promise<Buffer> {
-  return new Promise<Buffer>(async (resolve, reject) => {
+  return new Promise<Buffer>((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
     const buffers: Buffer[] = [];
 
@@ -24,135 +24,123 @@ export function generateInvoicePdf(
     });
     doc.on('error', reject);
 
-    // Header (multilingual)
-    doc
-      .fontSize(20)
-      .font('Helvetica-Bold')
-      .text(await i18n.t('invoice.title', { lang }), { align: 'center' })
-      .moveDown();
+    const buildPdf = async () => {
+      // Header (multilingual)
+      doc
+        .fontSize(20)
+        .font('Helvetica-Bold')
+        .text(await i18n.t('invoice.title', { lang }), { align: 'center' })
+        .moveDown();
 
-    doc
-      .fontSize(12)
-      .font('Helvetica')
-      .text(
-        `${await i18n.t('invoice.invoiceNumber', { lang })} ${invoice.invoiceNumber}`,
-        { align: 'right' },
-      )
-      .moveDown(0.5);
+      doc
+        .fontSize(12)
+        .font('Helvetica')
+        .text(
+          `${await i18n.t('invoice.invoiceNumber', { lang })} ${invoice.invoiceNumber}`,
+          { align: 'right' },
+        )
+        .moveDown(0.5);
 
-    doc
-      .fontSize(10)
-      .text(
-        `${await i18n.t('invoice.issueDate', { lang })}: ${invoice.issuedAt ? new Date(invoice.issuedAt).toLocaleDateString(lang) : await i18n.t('invoice.draft', { lang })}`,
-        { align: 'right' },
-      )
-      .moveDown(2);
+      doc
+        .fontSize(10)
+        .text(
+          `${await i18n.t('invoice.issueDate', { lang })}: ${invoice.issuedAt ? new Date(invoice.issuedAt).toLocaleDateString(lang) : await i18n.t('invoice.draft', { lang })}`,
+          { align: 'right' },
+        )
+        .moveDown(2);
 
-    // Owner (multilingual)
-    const owner = invoice.owner;
-    const ownerUser = owner?.user;
-    doc
-      .fontSize(14)
-      .font('Helvetica-Bold')
-      .text(await i18n.t('invoice.issuer', { lang }))
-      .moveDown(0.5);
-
-    doc
-      .fontSize(11)
-      .font('Helvetica')
-      .text(
-        `${await i18n.t('invoice.name', { lang })}: ${ownerUser?.firstName || ''} ${ownerUser?.lastName || ''}`,
-      )
-      .text(
-        `${await i18n.t('invoice.email', { lang })}: ${ownerUser?.email || ''}`,
-      )
-      .moveDown(1.5);
-
-    // Tenant (multilingual)
-    const tenant = invoice.lease?.tenant;
-    const tenantUser = tenant?.user;
-    doc
-      .fontSize(14)
-      .font('Helvetica-Bold')
-      .text(await i18n.t('invoice.client', { lang }))
-      .moveDown(0.5);
-
-    doc
-      .fontSize(11)
-      .font('Helvetica')
-      .text(
-        `${await i18n.t('invoice.name', { lang })}: ${tenantUser?.firstName || ''} ${tenantUser?.lastName || ''}`,
-      )
-      .text(
-        `${await i18n.t('invoice.email', { lang })}: ${tenantUser?.email || ''}`,
-      )
-      .moveDown(1.5);
-
-    // Propiedad
-    const property = invoice.lease?.property;
-    if (property) {
-      doc.fontSize(14).font('Helvetica-Bold').text('INMUEBLE').moveDown(0.5);
+      // Owner (multilingual)
+      const owner = invoice.owner;
+      const ownerUser = owner?.user;
+      doc
+        .fontSize(14)
+        .font('Helvetica-Bold')
+        .text(await i18n.t('invoice.issuer', { lang }))
+        .moveDown(0.5);
 
       doc
         .fontSize(11)
         .font('Helvetica')
         .text(
-          `Dirección: ${property.addressStreet || ''} ${property.addressNumber || ''}, ${property.addressCity || ''}`,
+          `${await i18n.t('invoice.name', { lang })}: ${ownerUser?.firstName || ''} ${ownerUser?.lastName || ''}`,
+        )
+        .text(
+          `${await i18n.t('invoice.email', { lang })}: ${ownerUser?.email || ''}`,
         )
         .moveDown(1.5);
-    }
 
-    // Período
-    doc.fontSize(14).font('Helvetica-Bold').text('PERÍODO').moveDown(0.5);
+      // Tenant (multilingual)
+      const tenant = invoice.lease?.tenant;
+      const tenantUser = tenant?.user;
+      doc
+        .fontSize(14)
+        .font('Helvetica-Bold')
+        .text(await i18n.t('invoice.client', { lang }))
+        .moveDown(0.5);
 
-    doc
-      .fontSize(11)
-      .font('Helvetica')
-      .text(
-        `Desde: ${new Date(invoice.periodStart).toLocaleDateString('es-AR')}`,
-      )
-      .text(`Hasta: ${new Date(invoice.periodEnd).toLocaleDateString('es-AR')}`)
-      .moveDown(1.5);
+      doc
+        .fontSize(11)
+        .font('Helvetica')
+        .text(
+          `${await i18n.t('invoice.name', { lang })}: ${tenantUser?.firstName || ''} ${tenantUser?.lastName || ''}`,
+        )
+        .text(
+          `${await i18n.t('invoice.email', { lang })}: ${tenantUser?.email || ''}`,
+        )
+        .moveDown(1.5);
 
-    // Detalle
-    doc.fontSize(14).font('Helvetica-Bold').text('DETALLE').moveDown(0.5);
+      // Propiedad
+      const property = invoice.lease?.property;
+      if (property) {
+        doc.fontSize(14).font('Helvetica-Bold').text('INMUEBLE').moveDown(0.5);
 
-    const currencySymbol = getCurrencySymbol(invoice.currencyCode);
+        doc
+          .fontSize(11)
+          .font('Helvetica')
+          .text(
+            `Dirección: ${property.addressStreet || ''} ${property.addressNumber || ''}, ${property.addressCity || ''}`,
+          )
+          .moveDown(1.5);
+      }
 
-    // Tabla de detalle
-    const tableTop = doc.y;
-    const col1 = 50;
-    const col2 = 400;
+      // Período
+      doc.fontSize(14).font('Helvetica-Bold').text('PERÍODO').moveDown(0.5);
 
-    doc.fontSize(10).font('Helvetica');
+      doc
+        .fontSize(11)
+        .font('Helvetica')
+        .text(
+          `Desde: ${new Date(invoice.periodStart).toLocaleDateString('es-AR')}`,
+        )
+        .text(`Hasta: ${new Date(invoice.periodEnd).toLocaleDateString('es-AR')}`)
+        .moveDown(1.5);
 
-    doc.text('Concepto', col1, tableTop);
-    doc.text('Monto', col2, tableTop, { width: 100, align: 'right' });
+      // Detalle
+      doc.fontSize(14).font('Helvetica-Bold').text('DETALLE').moveDown(0.5);
 
-    doc
-      .moveTo(col1, tableTop + 15)
-      .lineTo(550, tableTop + 15)
-      .stroke();
+      const currencySymbol = getCurrencySymbol(invoice.currencyCode);
 
-    let y = tableTop + 25;
+      // Tabla de detalle
+      const tableTop = doc.y;
+      const col1 = 50;
+      const col2 = 400;
 
-    // Alquiler
-    doc.text('Alquiler', col1, y);
-    doc.text(
-      `${currencySymbol} ${Number(invoice.subtotal).toLocaleString('es-AR', {
-        minimumFractionDigits: 2,
-      })}`,
-      col2,
-      y,
-      { width: 100, align: 'right' },
-    );
-    y += 20;
+      doc.fontSize(10).font('Helvetica');
 
-    // Mora
-    if (Number(invoice.lateFee) > 0) {
-      doc.text('Mora', col1, y);
+      doc.text('Concepto', col1, tableTop);
+      doc.text('Monto', col2, tableTop, { width: 100, align: 'right' });
+
+      doc
+        .moveTo(col1, tableTop + 15)
+        .lineTo(550, tableTop + 15)
+        .stroke();
+
+      let y = tableTop + 25;
+
+      // Alquiler
+      doc.text('Alquiler', col1, y);
       doc.text(
-        `${currencySymbol} ${Number(invoice.lateFee).toLocaleString('es-AR', {
+        `${currencySymbol} ${Number(invoice.subtotal).toLocaleString('es-AR', {
           minimumFractionDigits: 2,
         })}`,
         col2,
@@ -160,68 +148,84 @@ export function generateInvoicePdf(
         { width: 100, align: 'right' },
       );
       y += 20;
-    }
 
-    // Ajustes
-    if (Number(invoice.adjustments) !== 0) {
-      doc.text('Ajustes', col1, y);
-      doc.text(
-        `${currencySymbol} ${Number(invoice.adjustments).toLocaleString(
-          'es-AR',
-          {
+      // Mora
+      if (Number(invoice.lateFee) > 0) {
+        doc.text('Mora', col1, y);
+        doc.text(
+          `${currencySymbol} ${Number(invoice.lateFee).toLocaleString('es-AR', {
             minimumFractionDigits: 2,
-          },
-        )}`,
-        col2,
-        y,
-        { width: 100, align: 'right' },
-      );
+          })}`,
+          col2,
+          y,
+          { width: 100, align: 'right' },
+        );
+        y += 20;
+      }
+
+      // Ajustes
+      if (Number(invoice.adjustments) !== 0) {
+        doc.text('Ajustes', col1, y);
+        doc.text(
+          `${currencySymbol} ${Number(invoice.adjustments).toLocaleString(
+            'es-AR',
+            {
+              minimumFractionDigits: 2,
+            },
+          )}`,
+          col2,
+          y,
+          { width: 100, align: 'right' },
+        );
+        y += 20;
+      }
+
+      // Línea total
+      doc.moveTo(col1, y).lineTo(550, y).stroke();
+      y += 10;
+
+      // Total
+      doc
+        .fontSize(12)
+        .font('Helvetica-Bold')
+        .text('TOTAL', col1, y)
+        .text(
+          `${currencySymbol} ${Number(invoice.total).toLocaleString('es-AR', {
+            minimumFractionDigits: 2,
+          })}`,
+          col2,
+          y,
+          { width: 100, align: 'right' },
+        );
+
+      y += 30;
+
+      // Vencimiento
+      doc
+        .fontSize(11)
+        .font('Helvetica')
+        .text(
+          `Fecha de vencimiento: ${new Date(invoice.dueDate).toLocaleDateString('es-AR')}`,
+          col1,
+          y,
+        );
+
+      // Estado
       y += 20;
-    }
+      doc.text(`Estado: ${formatInvoiceStatus(invoice.status)}`, col1, y);
 
-    // Línea total
-    doc.moveTo(col1, y).lineTo(550, y).stroke();
-    y += 10;
+      // Footer
+      doc
+        .fontSize(8)
+        .font('Helvetica')
+        .text(`Factura ID: ${invoice.id}`, 50, doc.page.height - 50, {
+          align: 'center',
+        });
 
-    // Total
-    doc
-      .fontSize(12)
-      .font('Helvetica-Bold')
-      .text('TOTAL', col1, y)
-      .text(
-        `${currencySymbol} ${Number(invoice.total).toLocaleString('es-AR', {
-          minimumFractionDigits: 2,
-        })}`,
-        col2,
-        y,
-        { width: 100, align: 'right' },
-      );
+      doc.end();
+    };
 
-    y += 30;
-
-    // Vencimiento
-    doc
-      .fontSize(11)
-      .font('Helvetica')
-      .text(
-        `Fecha de vencimiento: ${new Date(invoice.dueDate).toLocaleDateString('es-AR')}`,
-        col1,
-        y,
-      );
-
-    // Estado
-    y += 20;
-    doc.text(`Estado: ${formatInvoiceStatus(invoice.status)}`, col1, y);
-
-    // Footer
-    doc
-      .fontSize(8)
-      .font('Helvetica')
-      .text(`Factura ID: ${invoice.id}`, 50, doc.page.height - 50, {
-        align: 'center',
-      });
-
-    doc.end();
+    void buildPdf().catch(reject);
   });
 }
 

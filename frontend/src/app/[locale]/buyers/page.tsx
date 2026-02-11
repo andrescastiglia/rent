@@ -1,34 +1,34 @@
-'use client';
+"use client";
 
-import React, { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
-import { InterestedProfile } from '@/types/interested';
-import { interestedApi } from '@/lib/api/interested';
-import { useLocale, useTranslations } from 'next-intl';
-import { useAuth } from '@/contexts/auth-context';
-import { Loader2, Mail, Phone, Search, UserRound } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { InterestedProfile } from "@/types/interested";
+import { interestedApi } from "@/lib/api/interested";
+import { useLocale, useTranslations } from "next-intl";
+import { useAuth } from "@/contexts/auth-context";
+import { Loader2, Mail, Phone, Search, UserRound } from "lucide-react";
 
 export default function BuyersPage() {
   const { loading: authLoading } = useAuth();
-  const t = useTranslations('buyers');
-  const tCommon = useTranslations('common');
+  const t = useTranslations("buyers");
+  const tCommon = useTranslations("common");
   const locale = useLocale();
 
   const [buyers, setBuyers] = useState<InterestedProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
 
   const loadBuyers = useCallback(async (name?: string) => {
     try {
       setLoading(true);
       const result = await interestedApi.getAll({
-        status: 'buyer',
+        status: "buyer",
         name: name?.trim() || undefined,
         limit: 100,
       });
       setBuyers(result.data);
     } catch (error) {
-      console.error('Failed to load buyers', error);
+      console.error("Failed to load buyers", error);
     } finally {
       setLoading(false);
     }
@@ -51,8 +51,12 @@ export default function BuyersPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('title')}</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">{t('subtitle')}</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            {t("title")}
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">
+            {t("subtitle")}
+          </p>
         </div>
       </div>
 
@@ -62,8 +66,8 @@ export default function BuyersPage() {
         </div>
         <input
           type="text"
-          placeholder={t('searchPlaceholder')}
-          className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+          placeholder={t("searchPlaceholder")}
+          className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
@@ -87,10 +91,12 @@ export default function BuyersPage() {
                   </div>
                   <div>
                     <p className="text-lg font-bold text-gray-900 dark:text-white">
-                      {[buyer.firstName, buyer.lastName].filter(Boolean).join(' ') || buyer.phone}
+                      {[buyer.firstName, buyer.lastName]
+                        .filter(Boolean)
+                        .join(" ") || buyer.phone}
                     </p>
-                    <span className="inline-block px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300">
-                      {t('buyerBadge')}
+                    <span className="inline-block px-2 py-0.5 rounded-sm text-xs font-semibold uppercase tracking-wide bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300">
+                      {t("buyerBadge")}
                     </span>
                   </div>
                 </div>
@@ -110,8 +116,11 @@ export default function BuyersPage() {
               </div>
 
               <div className="mt-4 flex items-center justify-end">
-                <Link href={`/${locale}/interested`} className="action-link action-link-primary">
-                  {tCommon('view')}
+                <Link
+                  href={`/${locale}/interested`}
+                  className="action-link action-link-primary"
+                >
+                  {tCommon("view")}
                 </Link>
               </div>
             </div>
@@ -119,8 +128,12 @@ export default function BuyersPage() {
         </div>
       ) : (
         <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">
-          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">{t('noBuyers')}</h3>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('noBuyersDescription')}</p>
+          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+            {t("noBuyers")}
+          </h3>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            {t("noBuyersDescription")}
+          </p>
         </div>
       )}
     </div>

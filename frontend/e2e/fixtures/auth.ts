@@ -19,18 +19,7 @@ const DEFAULT_LOCALE = 'es';
 // Extend base test with authentication
 export const test = base.extend<{ authenticatedPage: Page }>({
     authenticatedPage: async ({ page }, use) => {
-        // Go to login page with locale
-        await page.goto(`/${DEFAULT_LOCALE}/login`);
-
-        // Fill in credentials (labels may vary by locale)
-        await page.getByLabel(/email/i).fill(TEST_USER.email);
-        await page.getByLabel(/password|contraseña|senha/i).fill(TEST_USER.password);
-
-        // Click login button
-        await page.getByRole('button', { name: /login|iniciar sesión|entrar/i }).click();
-
-        // Wait for redirect to dashboard (with locale prefix)
-        await page.waitForURL(`**/${DEFAULT_LOCALE}/dashboard`, { timeout: 10000 });
+        await login(page);
 
         // Use the authenticated page
         await use(page);
@@ -41,11 +30,24 @@ export { expect } from '@playwright/test';
 
 // Helper function to login
 export async function login(page: Page, email?: string, password?: string) {
-    await page.goto(`/${DEFAULT_LOCALE}/login`);
-    await page.getByLabel(/email/i).fill(email || TEST_USER.email);
-    await page.getByLabel(/password|contraseña|senha/i).fill(password || TEST_USER.password);
-    await page.getByRole('button', { name: /login|iniciar sesión|entrar/i }).click();
-    await page.waitForURL(`**/${DEFAULT_LOCALE}/dashboard`, { timeout: 10000 });
+    const targetEmail = email || TEST_USER.email;
+    const targetPassword = password || TEST_USER.password;
+    const attempts = 2;
+
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+        await page.goto(`/${DEFAULT_LOCALE}/login`);
+        await page.getByLabel(/email/i).fill(targetEmail);
+        await page.getByLabel(/password|contraseña|senha/i).fill(targetPassword);
+        await page.getByRole('button', { name: /login|iniciar sesión|entrar/i }).click();
+
+        try {
+            await page.waitForURL(`**/${DEFAULT_LOCALE}/dashboard`, { timeout: 10000 });
+            return;
+        } catch (error) {
+            if (attempt === attempts) throw error;
+            await page.waitForTimeout(500);
+        }
+    }
 }
 
 // Helper to navigate to a page with locale prefix

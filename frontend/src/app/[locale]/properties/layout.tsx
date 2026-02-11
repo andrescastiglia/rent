@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import MainLayout from '@/components/layout/MainLayout';
-import { RoleGuard } from '@/components/common/RoleGuard';
+import MainLayout from "@/components/layout/MainLayout";
+import { RoleGuard } from "@/components/common/RoleGuard";
 
 export default function PropertiesLayout({
   children,
@@ -10,9 +10,7 @@ export default function PropertiesLayout({
 }) {
   return (
     <MainLayout>
-      <RoleGuard allowedRoles={['admin', 'owner']}>
-        {children}
-      </RoleGuard>
+      <RoleGuard allowedRoles={["admin", "owner"]}>{children}</RoleGuard>
     </MainLayout>
   );
 }

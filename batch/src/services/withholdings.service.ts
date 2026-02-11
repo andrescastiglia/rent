@@ -1,50 +1,50 @@
-import { AppDataSource } from '../shared/database';
-import { logger } from '../shared/logger';
+import { AppDataSource } from "../shared/database";
+import { logger } from "../shared/logger";
 
 /**
  * Withholding calculation result.
  */
 export interface WithholdingResult {
-    iibb: number;
-    iibbJurisdiction?: string;
-    iva: number;
-    ganancias: number;
-    total: number;
-    breakdown: WithholdingBreakdown[];
+  iibb: number;
+  iibbJurisdiction?: string;
+  iva: number;
+  ganancias: number;
+  total: number;
+  breakdown: WithholdingBreakdown[];
 }
 
 /**
  * Individual withholding breakdown item.
  */
 export interface WithholdingBreakdown {
-    type: 'iibb' | 'iva' | 'ganancias';
-    rate: number;
-    base: number;
-    amount: number;
-    description: string;
+  type: "iibb" | "iva" | "ganancias";
+  rate: number;
+  base: number;
+  amount: number;
+  description: string;
 }
 
 /**
  * Company withholding configuration.
  */
 export interface WithholdingConfig {
-    isWithholdingAgent: boolean;
-    iibbRate: number;
-    iibbJurisdiction?: string;
-    ivaRate: number;
-    gananciasRate: number;
-    gananciasMinAmount: number;
+  isWithholdingAgent: boolean;
+  iibbRate: number;
+  iibbJurisdiction?: string;
+  ivaRate: number;
+  gananciasRate: number;
+  gananciasMinAmount: number;
 }
 
 /**
  * Owner fiscal data for withholdings.
  */
 export interface OwnerFiscalData {
-    cuit?: string;
-    taxCategory?: string;
-    iibbExempt: boolean;
-    ivaExempt: boolean;
-    gananciasExempt: boolean;
+  cuit?: string;
+  taxCategory?: string;
+  iibbExempt: boolean;
+  ivaExempt: boolean;
+  gananciasExempt: boolean;
 }
 
 /**
@@ -52,167 +52,170 @@ export interface OwnerFiscalData {
  * Supports IIBB, IVA, and Ganancias withholdings for Argentina.
  */
 export class WithholdingsService {
-    /**
-     * Default withholding rates (percentages).
-     */
-    private static readonly DEFAULT_RATES = {
-        iibb: 3.5,
-        iva: 0,
-        ganancias: 6.0,
+  /**
+   * Default withholding rates (percentages).
+   */
+  private static readonly DEFAULT_RATES = {
+    iibb: 3.5,
+    iva: 0,
+    ganancias: 6.0,
+  };
+
+  /**
+   * Minimum amounts for certain withholdings.
+   */
+  private static readonly DEFAULT_MIN_AMOUNTS = {
+    ganancias: 50000, // ARS - typical minimum for ganancias retention
+  };
+
+  /**
+   * Calculates withholdings for an invoice.
+   *
+   * @param companyId - Company ID (withholding agent).
+   * @param ownerId - Owner ID (subject to withholding).
+   * @param amount - Invoice amount (base for calculation).
+   * @returns Withholding result with breakdown.
+   */
+  async calculateWithholdings(
+    companyId: string,
+    ownerId: string,
+    amount: number,
+  ): Promise<WithholdingResult> {
+    const config = await this.getCompanyConfig(companyId);
+    const ownerData = await this.getOwnerFiscalData(ownerId);
+
+    const result: WithholdingResult = {
+      iibb: 0,
+      iva: 0,
+      ganancias: 0,
+      total: 0,
+      breakdown: [],
     };
 
-    /**
-     * Minimum amounts for certain withholdings.
-     */
-    private static readonly DEFAULT_MIN_AMOUNTS = {
-        ganancias: 50000, // ARS - typical minimum for ganancias retention
+    // If company is not a withholding agent, return zeros
+    if (!config.isWithholdingAgent) {
+      return result;
+    }
+
+    // Calculate IIBB withholding
+    if (!ownerData.iibbExempt && config.iibbRate > 0) {
+      const iibb = this.calculateIibb(amount, config);
+      result.iibb = iibb.amount;
+      result.iibbJurisdiction = config.iibbJurisdiction;
+      result.breakdown.push(iibb);
+    }
+
+    // Calculate IVA withholding
+    if (!ownerData.ivaExempt && config.ivaRate > 0) {
+      const iva = this.calculateIva(amount, config);
+      result.iva = iva.amount;
+      result.breakdown.push(iva);
+    }
+
+    // Calculate Ganancias withholding
+    if (!ownerData.gananciasExempt && config.gananciasRate > 0) {
+      const ganancias = this.calculateGanancias(amount, config);
+      result.ganancias = ganancias.amount;
+      if (ganancias.amount > 0) {
+        result.breakdown.push(ganancias);
+      }
+    }
+
+    result.total = result.iibb + result.iva + result.ganancias;
+
+    logger.debug("Withholdings calculated", {
+      companyId,
+      ownerId,
+      amount,
+      result,
+    });
+
+    return result;
+  }
+
+  /**
+   * Calculates IIBB withholding.
+   */
+  private calculateIibb(
+    amount: number,
+    config: WithholdingConfig,
+  ): WithholdingBreakdown {
+    const rate = config.iibbRate;
+    const withholdingAmount = Math.round(amount * (rate / 100) * 100) / 100;
+
+    return {
+      type: "iibb",
+      rate,
+      base: amount,
+      amount: withholdingAmount,
+      description: config.iibbJurisdiction
+        ? `Retención IIBB ${config.iibbJurisdiction} (${rate}%)`
+        : `Retención IIBB (${rate}%)`,
     };
+  }
 
-    /**
-     * Calculates withholdings for an invoice.
-     *
-     * @param companyId - Company ID (withholding agent).
-     * @param ownerId - Owner ID (subject to withholding).
-     * @param amount - Invoice amount (base for calculation).
-     * @returns Withholding result with breakdown.
-     */
-    async calculateWithholdings(
-        companyId: string,
-        ownerId: string,
-        amount: number
-    ): Promise<WithholdingResult> {
-        const config = await this.getCompanyConfig(companyId);
-        const ownerData = await this.getOwnerFiscalData(ownerId);
+  /**
+   * Calculates IVA withholding.
+   */
+  private calculateIva(
+    amount: number,
+    config: WithholdingConfig,
+  ): WithholdingBreakdown {
+    const rate = config.ivaRate;
+    const withholdingAmount = Math.round(amount * (rate / 100) * 100) / 100;
 
-        const result: WithholdingResult = {
-            iibb: 0,
-            iva: 0,
-            ganancias: 0,
-            total: 0,
-            breakdown: [],
-        };
+    return {
+      type: "iva",
+      rate,
+      base: amount,
+      amount: withholdingAmount,
+      description: `Retención IVA (${rate}%)`,
+    };
+  }
 
-        // If company is not a withholding agent, return zeros
-        if (!config.isWithholdingAgent) {
-            return result;
-        }
+  /**
+   * Calculates Ganancias withholding.
+   * Only applies if amount exceeds minimum threshold.
+   */
+  private calculateGanancias(
+    amount: number,
+    config: WithholdingConfig,
+  ): WithholdingBreakdown {
+    const rate = config.gananciasRate;
+    const minAmount =
+      config.gananciasMinAmount ||
+      WithholdingsService.DEFAULT_MIN_AMOUNTS.ganancias;
 
-        // Calculate IIBB withholding
-        if (!ownerData.iibbExempt && config.iibbRate > 0) {
-            const iibb = this.calculateIibb(amount, config);
-            result.iibb = iibb.amount;
-            result.iibbJurisdiction = config.iibbJurisdiction;
-            result.breakdown.push(iibb);
-        }
-
-        // Calculate IVA withholding
-        if (!ownerData.ivaExempt && config.ivaRate > 0) {
-            const iva = this.calculateIva(amount, config);
-            result.iva = iva.amount;
-            result.breakdown.push(iva);
-        }
-
-        // Calculate Ganancias withholding
-        if (!ownerData.gananciasExempt && config.gananciasRate > 0) {
-            const ganancias = this.calculateGanancias(amount, config);
-            result.ganancias = ganancias.amount;
-            if (ganancias.amount > 0) {
-                result.breakdown.push(ganancias);
-            }
-        }
-
-        result.total = result.iibb + result.iva + result.ganancias;
-
-        logger.debug('Withholdings calculated', {
-            companyId,
-            ownerId,
-            amount,
-            result,
-        });
-
-        return result;
+    // Only apply if amount exceeds minimum
+    if (amount < minAmount) {
+      return {
+        type: "ganancias",
+        rate,
+        base: amount,
+        amount: 0,
+        description: `Retención Ganancias no aplica (monto < $${minAmount})`,
+      };
     }
 
-    /**
-     * Calculates IIBB withholding.
-     */
-    private calculateIibb(
-        amount: number,
-        config: WithholdingConfig
-    ): WithholdingBreakdown {
-        const rate = config.iibbRate;
-        const withholdingAmount = Math.round(amount * (rate / 100) * 100) / 100;
+    const withholdingAmount = Math.round(amount * (rate / 100) * 100) / 100;
 
-        return {
-            type: 'iibb',
-            rate,
-            base: amount,
-            amount: withholdingAmount,
-            description: config.iibbJurisdiction
-                ? `Retención IIBB ${config.iibbJurisdiction} (${rate}%)`
-                : `Retención IIBB (${rate}%)`,
-        };
-    }
+    return {
+      type: "ganancias",
+      rate,
+      base: amount,
+      amount: withholdingAmount,
+      description: `Retención Ganancias (${rate}%)`,
+    };
+  }
 
-    /**
-     * Calculates IVA withholding.
-     */
-    private calculateIva(
-        amount: number,
-        config: WithholdingConfig,
-    ): WithholdingBreakdown {
-        const rate = config.ivaRate;
-        const withholdingAmount = Math.round(amount * (rate / 100) * 100) / 100;
-
-        return {
-            type: 'iva',
-            rate,
-            base: amount,
-            amount: withholdingAmount,
-            description: `Retención IVA (${rate}%)`,
-        };
-    }
-
-    /**
-     * Calculates Ganancias withholding.
-     * Only applies if amount exceeds minimum threshold.
-     */
-    private calculateGanancias(
-        amount: number,
-        config: WithholdingConfig
-    ): WithholdingBreakdown {
-        const rate = config.gananciasRate;
-        const minAmount = config.gananciasMinAmount ||
-            WithholdingsService.DEFAULT_MIN_AMOUNTS.ganancias;
-
-        // Only apply if amount exceeds minimum
-        if (amount < minAmount) {
-            return {
-                type: 'ganancias',
-                rate,
-                base: amount,
-                amount: 0,
-                description: `Retención Ganancias no aplica (monto < $${minAmount})`,
-            };
-        }
-
-        const withholdingAmount = Math.round(amount * (rate / 100) * 100) / 100;
-
-        return {
-            type: 'ganancias',
-            rate,
-            base: amount,
-            amount: withholdingAmount,
-            description: `Retención Ganancias (${rate}%)`,
-        };
-    }
-
-    /**
-     * Gets company withholding configuration.
-     */
-    private async getCompanyConfig(companyId: string): Promise<WithholdingConfig> {
-        const result = await AppDataSource.query(
-            `SELECT 
+  /**
+   * Gets company withholding configuration.
+   */
+  private async getCompanyConfig(
+    companyId: string,
+  ): Promise<WithholdingConfig> {
+    const result = await AppDataSource.query(
+      `SELECT 
                 is_withholding_agent as "isWithholdingAgent",
                 withholding_iibb_rate as "iibbRate",
                 withholding_iibb_jurisdiction as "iibbJurisdiction",
@@ -221,36 +224,36 @@ export class WithholdingsService {
                 withholding_ganancias_min_amount as "gananciasMinAmount"
              FROM companies 
              WHERE id = $1`,
-            [companyId]
-        );
+      [companyId],
+    );
 
-        if (result.length === 0) {
-            return {
-                isWithholdingAgent: false,
-                iibbRate: 0,
-                ivaRate: 0,
-                gananciasRate: 0,
-                gananciasMinAmount: 0,
-            };
-        }
-
-        const row = result[0];
-        return {
-            isWithholdingAgent: row.isWithholdingAgent || false,
-            iibbRate: Number.parseFloat(row.iibbRate) || 0,
-            iibbJurisdiction: row.iibbJurisdiction,
-            ivaRate: Number.parseFloat(row.ivaRate) || 0,
-            gananciasRate: Number.parseFloat(row.gananciasRate) || 0,
-            gananciasMinAmount: Number.parseFloat(row.gananciasMinAmount) || 0,
-        };
+    if (result.length === 0) {
+      return {
+        isWithholdingAgent: false,
+        iibbRate: 0,
+        ivaRate: 0,
+        gananciasRate: 0,
+        gananciasMinAmount: 0,
+      };
     }
 
-    /**
-     * Gets owner fiscal data for exemptions.
-     */
-    private async getOwnerFiscalData(ownerId: string): Promise<OwnerFiscalData> {
-        const result = await AppDataSource.query(
-            `SELECT 
+    const row = result[0];
+    return {
+      isWithholdingAgent: row.isWithholdingAgent || false,
+      iibbRate: Number.parseFloat(row.iibbRate) || 0,
+      iibbJurisdiction: row.iibbJurisdiction,
+      ivaRate: Number.parseFloat(row.ivaRate) || 0,
+      gananciasRate: Number.parseFloat(row.gananciasRate) || 0,
+      gananciasMinAmount: Number.parseFloat(row.gananciasMinAmount) || 0,
+    };
+  }
+
+  /**
+   * Gets owner fiscal data for exemptions.
+   */
+  private async getOwnerFiscalData(ownerId: string): Promise<OwnerFiscalData> {
+    const result = await AppDataSource.query(
+      `SELECT 
                 o.cuit,
                 o.tax_category as "taxCategory",
                 COALESCE(o.iibb_exempt, false) as "iibbExempt",
@@ -258,53 +261,53 @@ export class WithholdingsService {
                 COALESCE(o.ganancias_exempt, false) as "gananciasExempt"
              FROM owners o
              WHERE o.user_id = $1`,
-            [ownerId]
-        );
+      [ownerId],
+    );
 
-        if (result.length === 0) {
-            // Default: no exemptions
-            return {
-                iibbExempt: false,
-                ivaExempt: false,
-                gananciasExempt: false,
-            };
-        }
-
-        return result[0];
+    if (result.length === 0) {
+      // Default: no exemptions
+      return {
+        iibbExempt: false,
+        ivaExempt: false,
+        gananciasExempt: false,
+      };
     }
 
-    /**
-     * Validates withholding configuration for a company.
-     *
-     * @param companyId - Company ID to validate.
-     * @returns Validation result with any issues found.
-     */
-    async validateConfiguration(companyId: string): Promise<{
-        valid: boolean;
-        issues: string[];
-    }> {
-        const config = await this.getCompanyConfig(companyId);
-        const issues: string[] = [];
+    return result[0];
+  }
 
-        if (!config.isWithholdingAgent) {
-            return { valid: true, issues: [] };
-        }
+  /**
+   * Validates withholding configuration for a company.
+   *
+   * @param companyId - Company ID to validate.
+   * @returns Validation result with any issues found.
+   */
+  async validateConfiguration(companyId: string): Promise<{
+    valid: boolean;
+    issues: string[];
+  }> {
+    const config = await this.getCompanyConfig(companyId);
+    const issues: string[] = [];
 
-        if (config.iibbRate > 0 && !config.iibbJurisdiction) {
-            issues.push('IIBB rate configured but jurisdiction not specified');
-        }
-
-        if (config.iibbRate > 10) {
-            issues.push(`IIBB rate (${config.iibbRate}%) seems unusually high`);
-        }
-
-        if (config.gananciasRate > 0 && config.gananciasMinAmount === 0) {
-            issues.push('Ganancias rate configured but minimum amount not set');
-        }
-
-        return {
-            valid: issues.length === 0,
-            issues,
-        };
+    if (!config.isWithholdingAgent) {
+      return { valid: true, issues: [] };
     }
+
+    if (config.iibbRate > 0 && !config.iibbJurisdiction) {
+      issues.push("IIBB rate configured but jurisdiction not specified");
+    }
+
+    if (config.iibbRate > 10) {
+      issues.push(`IIBB rate (${config.iibbRate}%) seems unusually high`);
+    }
+
+    if (config.gananciasRate > 0 && config.gananciasMinAmount === 0) {
+      issues.push("Ganancias rate configured but minimum amount not set");
+    }
+
+    return {
+      valid: issues.length === 0,
+      issues,
+    };
+  }
 }

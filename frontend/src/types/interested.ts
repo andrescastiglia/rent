@@ -1,38 +1,35 @@
-import { Property } from './property';
+import { Property } from "./property";
 
-export type InterestedOperation = 'rent' | 'sale';
+export type InterestedOperation = "rent" | "sale";
 export type InterestedPropertyType =
-  | 'apartment'
-  | 'house'
-  | 'commercial'
-  | 'office'
-  | 'warehouse'
-  | 'land'
-  | 'parking'
-  | 'other';
-export type InterestedStatus =
-  | 'interested'
-  | 'tenant'
-  | 'buyer';
-export type InterestedQualificationLevel = 'mql' | 'sql' | 'rejected';
+  | "apartment"
+  | "house"
+  | "commercial"
+  | "office"
+  | "warehouse"
+  | "land"
+  | "parking"
+  | "other";
+export type InterestedStatus = "interested" | "tenant" | "buyer";
+export type InterestedQualificationLevel = "mql" | "sql" | "rejected";
 
 export type InterestedActivityType =
-  | 'call'
-  | 'task'
-  | 'note'
-  | 'email'
-  | 'whatsapp'
-  | 'visit';
+  | "call"
+  | "task"
+  | "note"
+  | "email"
+  | "whatsapp"
+  | "visit";
 
-export type InterestedActivityStatus = 'pending' | 'completed' | 'cancelled';
+export type InterestedActivityStatus = "pending" | "completed" | "cancelled";
 
 export type InterestedMatchStatus =
-  | 'suggested'
-  | 'contacted'
-  | 'visit_scheduled'
-  | 'accepted'
-  | 'rejected'
-  | 'expired';
+  | "suggested"
+  | "contacted"
+  | "visit_scheduled"
+  | "accepted"
+  | "rejected"
+  | "expired";
 
 export interface InterestedProfile {
   id: string;
@@ -101,7 +98,8 @@ export interface CreateInterestedProfileInput {
   notes?: string;
 }
 
-export interface UpdateInterestedProfileInput extends Partial<CreateInterestedProfileInput> {}
+export type UpdateInterestedProfileInput =
+  Partial<CreateInterestedProfileInput>;
 
 export interface InterestedFilters {
   name?: string;
@@ -155,7 +153,7 @@ export interface InterestedMatch {
 
 export interface InterestedTimelineItem {
   id: string;
-  type: 'stage' | 'activity' | 'match' | 'visit';
+  type: "stage" | "activity" | "match" | "visit";
   at: string;
   title: string;
   detail?: string;
@@ -199,7 +197,7 @@ export interface InterestedDuplicate {
   profileIds: string[];
 }
 
-export type PropertyReservationStatus = 'active' | 'released' | 'converted';
+export type PropertyReservationStatus = "active" | "released" | "converted";
 
 export interface PropertyReservation {
   id: string;

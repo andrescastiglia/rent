@@ -1,22 +1,22 @@
-'use client';
+"use client";
 
-import React from 'react';
-import Link from 'next/link';
-import { Tenant } from '@/types/tenant';
-import { User, Mail, Phone, MapPin, Wallet, Edit } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
+import React from "react";
+import Link from "next/link";
+import { Tenant } from "@/types/tenant";
+import { User, Mail, Phone, MapPin, Wallet, Edit } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 
 interface TenantCardProps {
   tenant: Tenant;
 }
 
 export function TenantCard({ tenant }: TenantCardProps) {
-  const t = useTranslations('tenants');
-  const tc = useTranslations('common');
+  const t = useTranslations("tenants");
+  const tc = useTranslations("common");
   const locale = useLocale();
 
   const getStatusLabel = (status: string) => {
-    const statusKey = status.toLowerCase() as 'active' | 'inactive' | 'pending';
+    const statusKey = status.toLowerCase() as "active" | "inactive" | "pending";
     return t(`status.${statusKey}`);
   };
 
@@ -35,16 +35,21 @@ export function TenantCard({ tenant }: TenantCardProps) {
             >
               {tenant.firstName} {tenant.lastName}
             </Link>
-            <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide ${
-              tenant.status === 'ACTIVE' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 
-              tenant.status === 'INACTIVE' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
-            }`}>
+            <span
+              className={`inline-block px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide ${
+                tenant.status === "ACTIVE"
+                  ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                  : tenant.status === "INACTIVE"
+                    ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+                    : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+              }`}
+            >
               {getStatusLabel(tenant.status)}
             </span>
           </div>
         </div>
       </div>
-      
+
       <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
         <div className="flex items-center">
           <Mail size={16} className="mr-2 text-gray-400" />
@@ -58,7 +63,8 @@ export function TenantCard({ tenant }: TenantCardProps) {
           <div className="flex items-center">
             <MapPin size={16} className="mr-2 text-gray-400" />
             <span className="truncate">
-              {tenant.address.street} {tenant.address.number}, {tenant.address.city}
+              {tenant.address.street} {tenant.address.number},{" "}
+              {tenant.address.city}
             </span>
           </div>
         )}
@@ -70,14 +76,14 @@ export function TenantCard({ tenant }: TenantCardProps) {
           className="action-link action-link-primary"
         >
           <Edit size={14} />
-          {tc('edit')}
+          {tc("edit")}
         </Link>
         <Link
           href={`/${locale}/tenants/${tenant.id}#payment-registration`}
           className="action-link action-link-success"
         >
           <Wallet size={14} />
-          {t('paymentRegistration.submit')}
+          {t("paymentRegistration.submit")}
         </Link>
       </div>
     </div>

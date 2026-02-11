@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import Header from '@/components/layout/Header';
-import Sidebar from '@/components/layout/Sidebar';
-import Footer from '@/components/layout/Footer';
-import Breadcrumbs from '@/components/ui/Breadcrumbs';
-import { useAuth } from '@/contexts/auth-context';
-import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
-import { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import Header from "@/components/layout/Header";
+import Sidebar from "@/components/layout/Sidebar";
+import Footer from "@/components/layout/Footer";
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
+import { useAuth } from "@/contexts/auth-context";
+import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
+import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
 
 export default function MainLayout({
   children,
@@ -20,7 +20,7 @@ export default function MainLayout({
 
   useEffect(() => {
     if (!loading && !user) {
-      router.replace('/login');
+      router.replace("/login");
     }
   }, [user, loading, router]);
 

@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import MainLayout from '@/components/layout/MainLayout';
-import { RoleGuard } from '@/components/common/RoleGuard';
+import MainLayout from "@/components/layout/MainLayout";
+import { RoleGuard } from "@/components/common/RoleGuard";
 
 export default function SalesLayout({
   children,
@@ -10,7 +10,7 @@ export default function SalesLayout({
 }) {
   return (
     <MainLayout>
-      <RoleGuard allowedRoles={['admin', 'owner', 'staff']}>
+      <RoleGuard allowedRoles={["admin", "owner", "staff"]}>
         {children}
       </RoleGuard>
     </MainLayout>

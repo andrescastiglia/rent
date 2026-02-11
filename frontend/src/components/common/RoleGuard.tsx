@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { useAuth } from '@/contexts/auth-context';
-import { useRouter } from 'next/navigation';
-import { useTranslations, useLocale } from 'next-intl';
-import { ShieldX, Loader2 } from 'lucide-react';
+import React from "react";
+import { useAuth } from "@/contexts/auth-context";
+import { useRouter } from "next/navigation";
+import { useTranslations, useLocale } from "next-intl";
+import { ShieldX, Loader2 } from "lucide-react";
 
 /**
  * Props for the RoleGuard component.
@@ -25,11 +25,15 @@ interface RoleGuardProps {
  * @param props - RoleGuard component props
  * @returns Protected content or access denied UI
  */
-export function RoleGuard({ allowedRoles, children, redirectTo }: RoleGuardProps) {
+export function RoleGuard({
+  allowedRoles,
+  children,
+  redirectTo,
+}: RoleGuardProps) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const locale = useLocale();
-  const t = useTranslations('common');
+  const t = useTranslations("common");
 
   // Show loading state while checking auth
   if (loading) {
@@ -60,10 +64,10 @@ export function RoleGuard({ allowedRoles, children, redirectTo }: RoleGuardProps
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center px-4">
         <ShieldX className="h-16 w-16 text-red-500 mb-4" />
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-          {t('accessDenied')}
+          {t("accessDenied")}
         </h2>
         <p className="text-gray-600 dark:text-gray-400 max-w-md">
-          {t('accessDeniedMessage')}
+          {t("accessDeniedMessage")}
         </p>
       </div>
     );

@@ -8,6 +8,7 @@
         "start": "next start",
         "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
         "type-check": "tsc --noEmit",
+        "format": "prettier --write \"src/**/*.{ts,tsx}\"",
         "test:e2e": "cross-env NEXT_PUBLIC_MOCK_MODE=true playwright test",
         "test:e2e:ui": "cross-env NEXT_PUBLIC_MOCK_MODE=true playwright test --ui",
         "test:e2e:real": "playwright test"
@@ -24,16 +25,21 @@
     },
     "devDependencies": {
         "@bdellegrazie/playwright-sonar-reporter": "^0.4.0",
-        "@playwright/test": "^1.58.1",
-        "@types/node": "^25.2.0",
-        "@types/react": "^19.2.11",
+        "@eslint/js": "^9.39.2",
+        "@playwright/test": "^1.58.2",
+        "@tailwindcss/postcss": "4.1.18",
+        "@types/node": "^25.2.3",
+        "@types/react": "^19.2.14",
         "@types/react-dom": "^19.2.3",
-        "autoprefixer": "^10.4.24",
         "cross-env": "^10.1.0",
         "eslint": "^9.39.2",
         "eslint-config-next": "^16.1.6",
+        "globals": "^17.3.0",
+        "jiti": "^2.6.1",
         "postcss": "^8.5.6",
-        "tailwindcss": "^3.4.17",
-        "typescript": "^5.9.3"
+        "tailwindcss": "4.1.18",
+        "typescript": "^5.9.3",
+        "typescript-eslint": "^8.55.0",
+        "prettier": "^3.8.1"
     }
 }

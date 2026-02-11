@@ -1,19 +1,19 @@
-'use client';
+"use client";
 
-import React from 'react';
-import Link from 'next/link';
-import { Lease } from '@/types/lease';
-import { LeaseStatusBadge } from './LeaseStatusBadge';
-import { Calendar, DollarSign, User } from 'lucide-react';
-import { useTranslations, useLocale } from 'next-intl';
-import { formatMoney } from '@/lib/format-money';
+import React from "react";
+import Link from "next/link";
+import { Lease } from "@/types/lease";
+import { LeaseStatusBadge } from "./LeaseStatusBadge";
+import { Calendar, DollarSign, User } from "lucide-react";
+import { useTranslations, useLocale } from "next-intl";
+import { formatMoney } from "@/lib/format-money";
 
 interface LeaseCardProps {
   lease: Lease;
 }
 
 export function LeaseCard({ lease }: LeaseCardProps) {
-  const t = useTranslations('leases');
+  const t = useTranslations("leases");
   const locale = useLocale();
 
   return (
@@ -22,7 +22,7 @@ export function LeaseCard({ lease }: LeaseCardProps) {
         <div className="flex justify-between items-start mb-4">
           <div>
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
-              {lease.property?.name || t('unknownProperty')}
+              {lease.property?.name || t("unknownProperty")}
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {t(`contractTypes.${lease.contractType}`)}
@@ -35,17 +35,23 @@ export function LeaseCard({ lease }: LeaseCardProps) {
           <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
             <User size={16} className="mr-2 text-gray-400" />
             <span className="font-medium">
-              {lease.tenant ? `${lease.tenant.firstName} ${lease.tenant.lastName}` : t('unknownTenant')}
+              {lease.tenant
+                ? `${lease.tenant.firstName} ${lease.tenant.lastName}`
+                : t("unknownTenant")}
             </span>
           </div>
 
-          {lease.contractType === 'rental' && (
+          {lease.contractType === "rental" && (
             <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
               <Calendar size={16} className="mr-2 text-gray-400" />
               <span>
-                {(lease.startDate ? new Date(lease.startDate).toLocaleDateString(locale) : '-')}{' '}
-                -{' '}
-                {(lease.endDate ? new Date(lease.endDate).toLocaleDateString(locale) : '-')}
+                {lease.startDate
+                  ? new Date(lease.startDate).toLocaleDateString(locale)
+                  : "-"}{" "}
+                -{" "}
+                {lease.endDate
+                  ? new Date(lease.endDate).toLocaleDateString(locale)
+                  : "-"}
               </span>
             </div>
           )}
@@ -53,12 +59,20 @@ export function LeaseCard({ lease }: LeaseCardProps) {
           <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
             <DollarSign size={16} className="mr-2 text-gray-400" />
             <span className="font-semibold text-gray-900 dark:text-white">
-              {lease.contractType === 'rental'
-                ? formatMoney(Number(lease.rentAmount ?? 0), lease.currencyData, locale)
-                : formatMoney(Number(lease.fiscalValue ?? 0), lease.currencyData, locale)}
+              {lease.contractType === "rental"
+                ? formatMoney(
+                    Number(lease.rentAmount ?? 0),
+                    lease.currencyData,
+                    locale,
+                  )
+                : formatMoney(
+                    Number(lease.fiscalValue ?? 0),
+                    lease.currencyData,
+                    locale,
+                  )}
             </span>
-            {lease.contractType === 'rental' && (
-              <span className="text-gray-400 ml-1">{t('perMonth')}</span>
+            {lease.contractType === "rental" && (
+              <span className="text-gray-400 ml-1">{t("perMonth")}</span>
             )}
           </div>
         </div>

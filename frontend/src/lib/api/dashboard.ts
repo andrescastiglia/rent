@@ -1,7 +1,7 @@
-import { apiClient } from '../api';
-import { getToken } from '../auth';
-import { interestedApi } from './interested';
-import { ownersApi } from './owners';
+import { apiClient } from "../api";
+import { getToken } from "../auth";
+import { interestedApi } from "./interested";
+import { ownersApi } from "./owners";
 
 export interface DashboardStats {
   totalProperties: number;
@@ -14,8 +14,8 @@ export interface DashboardStats {
   monthlyCommissions: number;
 }
 
-export type PersonActivitySource = 'interested' | 'owner';
-export type PersonActivityStatus = 'pending' | 'completed' | 'cancelled';
+export type PersonActivitySource = "interested" | "owner";
+export type PersonActivityStatus = "pending" | "completed" | "cancelled";
 
 export interface PersonActivityItem {
   id: string;
@@ -43,30 +43,35 @@ export interface PeopleActivityResponse {
 export const dashboardApi = {
   getStats: async (): Promise<DashboardStats> => {
     const token = getToken();
-    return apiClient.get<DashboardStats>('/dashboard/stats', token ?? undefined);
+    return apiClient.get<DashboardStats>(
+      "/dashboard/stats",
+      token ?? undefined,
+    );
   },
 
   getRecentActivity: async (
-    limit: 10 | 25 | 50 = 25
+    limit: 10 | 25 | 50 = 25,
   ): Promise<PeopleActivityResponse> => {
     const token = getToken();
     return apiClient.get<PeopleActivityResponse>(
       `/dashboard/recent-activity?limit=${limit}`,
-      token ?? undefined
+      token ?? undefined,
     );
   },
 
-  completePersonActivity: async (activity: PersonActivityItem): Promise<void> => {
-    if (activity.sourceType === 'interested') {
+  completePersonActivity: async (
+    activity: PersonActivityItem,
+  ): Promise<void> => {
+    if (activity.sourceType === "interested") {
       await interestedApi.updateActivity(activity.personId, activity.id, {
-        status: 'completed',
+        status: "completed",
         completedAt: new Date().toISOString(),
       });
       return;
     }
 
     await ownersApi.updateActivity(activity.personId, activity.id, {
-      status: 'completed',
+      status: "completed",
       completedAt: new Date().toISOString(),
     });
   },
@@ -75,7 +80,7 @@ export const dashboardApi = {
     activity: PersonActivityItem,
     comment: string,
   ): Promise<void> => {
-    if (activity.sourceType === 'interested') {
+    if (activity.sourceType === "interested") {
       await interestedApi.updateActivity(activity.personId, activity.id, {
         body: comment,
       });
