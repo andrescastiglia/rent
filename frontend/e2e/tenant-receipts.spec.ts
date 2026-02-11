@@ -6,16 +6,17 @@ test.describe('Tenant Receipts History', () => {
         await page.goto(localePath('/tenants'));
     });
 
-    test('should show receipts history on tenant detail', async ({ page }) => {
+    test('should show payments history on tenant detail', async ({ page }) => {
         const firstTenantDetailLink = page.getByTestId('tenant-detail-link').first();
         await expect(firstTenantDetailLink).toBeVisible({ timeout: 5000 });
         await firstTenantDetailLink.click({ force: true });
 
         await expect(page).toHaveURL(/\/es\/tenants\/[^/]+$/);
-        const receiptsSection = page.locator('section').filter({
-            has: page.getByText('Historial de recibos'),
+        const paymentsSection = page.locator('section').filter({
+            has: page.getByRole('heading', { name: /^pagos$/i }),
         });
-        await expect(receiptsSection).toBeVisible();
-        await expect(receiptsSection.getByText('REC-202411-0001').first()).toBeVisible();
+        await expect(paymentsSection).toBeVisible();
+        await expect(paymentsSection.getByText('REC-202411-0001').first()).toBeVisible();
+        await expect(page.getByText('Historial de recibos')).toHaveCount(0);
     });
 });
