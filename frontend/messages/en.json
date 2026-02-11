@@ -846,7 +846,10 @@
       "rental": "Rental",
       "sale": "Purchase/Sale"
     },
-    "contractTypeFixedByProperty": "Contract type defined by property operation."
+    "contractTypeFixedByProperty": "Contract type defined by property operation.",
+    "contractTypeFixedByInterested": "Contract type defined by the selected interested profile.",
+    "prefilledFieldHint": "Field prefilled automatically based on where the contract was created from.",
+    "templateAutofillHint": "When you select a template, terms are filled with current contract values and updated automatically."
   },
   "payments": {
     "title": "Payments",

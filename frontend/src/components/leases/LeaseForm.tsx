@@ -25,12 +25,55 @@ interface LeaseFormProps {
 interface LeaseTenantOption {
   id: string;
   label: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
 }
 
 interface LeaseBuyerOption {
   id: string;
   label: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
 }
+
+type TemplateContext = Record<string, unknown>;
+
+const toDateString = (value: string | Date | undefined): string | undefined => {
+  if (!value) return undefined;
+  return new Date(value).toISOString().slice(0, 10);
+};
+
+const toNumberOrUndefined = (value: unknown): number | undefined => {
+  if (value === null || value === undefined || value === '') return undefined;
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? undefined : parsed;
+};
+
+const resolveTemplateValue = (context: TemplateContext, path: string): unknown => {
+  const segments = path.split('.');
+  let current: unknown = context;
+
+  for (const segment of segments) {
+    if (!current || typeof current !== 'object') return undefined;
+    current = (current as Record<string, unknown>)[segment];
+  }
+
+  return current;
+};
+
+const renderTemplate = (templateBody: string, context: TemplateContext): string => {
+  return templateBody.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_full, key: string) => {
+    const value = resolveTemplateValue(context, key);
+    if (value === null || value === undefined) {
+      return '';
+    }
+    return String(value);
+  });
+};
 
 export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const router = useLocalizedRouter();
@@ -65,10 +108,13 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     },
   });
 
-  const lateFeeType = watch('lateFeeType');
-  const adjustmentType = watch('adjustmentType');
-  const contractType = watch('contractType');
-  const selectedPropertyId = watch('propertyId');
+  const formValues = watch();
+  const lateFeeType = formValues.lateFeeType;
+  const adjustmentType = formValues.adjustmentType;
+  const contractType = formValues.contractType ?? 'rental';
+  const selectedPropertyId = formValues.propertyId;
+  const selectedOwnerId = formValues.ownerId;
+  const selectedTemplateId = formValues.templateId;
   const preselectedPropertyId = searchParams.get('propertyId');
   const preselectedOwnerId = searchParams.get('ownerId');
   const preselectedTenantId = searchParams.get('tenantId');
@@ -85,10 +131,25 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const selectedPropertyOperations = selectedProperty?.operations ?? [];
   const selectedPropertySupportsRent = selectedPropertyOperations.includes('rent');
   const selectedPropertySupportsSale = selectedPropertyOperations.includes('sale');
+  const selectedOwner = useMemo(
+    () => owners.find((owner) => owner.id === selectedOwnerId),
+    [owners, selectedOwnerId],
+  );
+  const selectedTenantOption = useMemo(
+    () => tenantOptions.find((item) => item.id === formValues.tenantId),
+    [formValues.tenantId, tenantOptions],
+  );
+  const selectedBuyerOption = useMemo(
+    () => buyerOptions.find((item) => item.id === formValues.buyerProfileId),
+    [buyerOptions, formValues.buyerProfileId],
+  );
+  const shouldLockContractTypeByInterested =
+    !isEditing && (hasPreselectedTenant || hasPreselectedBuyer);
   const shouldShowContractTypeSelect =
-    isEditing ||
-    !selectedProperty ||
-    selectedPropertySupportsRent === selectedPropertySupportsSale;
+    !shouldLockContractTypeByInterested &&
+    (isEditing ||
+      !selectedProperty ||
+      selectedPropertySupportsRent === selectedPropertySupportsSale);
 
   useEffect(() => {
     const loadData = async () => {
@@ -100,26 +161,48 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           leasesApi.getTemplates(),
         ]);
         const options = interestedResponse.data
-          .filter((profile) =>
-            !!profile.convertedToTenantId &&
-            profile.status === 'tenant' &&
-            (profile.operations ?? []).some((operation) => operation === 'rent'),
-          )
+          .filter((profile) => {
+            const profileOperations =
+              profile.operations ??
+              (profile.operation ? [profile.operation] : []);
+            return (
+              !!profile.convertedToTenantId &&
+              profileOperations.includes('rent')
+            );
+          })
           .map((profile) => ({
             id: profile.convertedToTenantId as string,
-            label: `${profile.firstName} ${profile.lastName}`.trim(),
+            label:
+              `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim() ||
+              profile.phone,
+            firstName: profile.firstName,
+            lastName: profile.lastName,
+            email: profile.email,
+            phone: profile.phone,
           }))
-          .filter((option, index, all) => all.findIndex((item) => item.id === option.id) === index);
+          .filter(
+            (option, index, all) =>
+              all.findIndex((item) => item.id === option.id) === index,
+          );
 
         const saleProfiles = interestedResponse.data
           .filter(
-            (profile) =>
-              profile.status === 'buyer' &&
-              (profile.operations ?? []).some((operation) => operation === 'sale'),
+            (profile) => {
+              const profileOperations =
+                profile.operations ??
+                (profile.operation ? [profile.operation] : []);
+              return profileOperations.includes('sale');
+            },
           )
           .map((profile) => ({
             id: profile.id,
-            label: `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim() || profile.phone,
+            label:
+              `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim() ||
+              profile.phone,
+            firstName: profile.firstName,
+            lastName: profile.lastName,
+            email: profile.email,
+            phone: profile.phone,
           }));
 
         setProperties(props);
@@ -166,7 +249,9 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   ]);
 
   useEffect(() => {
-    if (isEditing || !selectedProperty) return;
+    if (isEditing || !selectedProperty || shouldLockContractTypeByInterested) {
+      return;
+    }
 
     if (selectedPropertySupportsRent && !selectedPropertySupportsSale) {
       if (contractType !== 'rental') {
@@ -189,16 +274,176 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     selectedPropertySupportsRent,
     selectedPropertySupportsSale,
     setValue,
+    shouldLockContractTypeByInterested,
   ]);
+
+  const filteredProperties = useMemo(() => {
+    const requiredOperation =
+      contractType === 'sale'
+        ? 'sale'
+        : 'rent';
+
+    const filtered = properties.filter((property) => {
+      const ops = property.operations ?? [];
+      if (ops.length === 0) return true;
+      return ops.includes(requiredOperation);
+    });
+
+    if (
+      selectedProperty &&
+      !filtered.some((property) => property.id === selectedProperty.id)
+    ) {
+      return [selectedProperty, ...filtered];
+    }
+
+    return filtered;
+  }, [contractType, properties, selectedProperty]);
+
+  const templatesForType = useMemo(
+    () => templates.filter((item) => item.contractType === contractType),
+    [contractType, templates],
+  );
+
+  useEffect(() => {
+    if (isEditing) return;
+
+    const currentTemplateId = selectedTemplateId ?? '';
+    const hasCurrentTemplate = templatesForType.some(
+      (item) => item.id === currentTemplateId,
+    );
+
+    if (!hasCurrentTemplate) {
+      const nextTemplateId = templatesForType[0]?.id ?? '';
+      if (currentTemplateId !== nextTemplateId) {
+        setValue('templateId', nextTemplateId, { shouldValidate: true });
+      }
+    }
+  }, [isEditing, selectedTemplateId, setValue, templatesForType]);
+
+  const selectedTemplate = useMemo(
+    () => templates.find((template) => template.id === selectedTemplateId),
+    [selectedTemplateId, templates],
+  );
+
+  const templateContext = useMemo<TemplateContext>(() => {
+    const ownerFirstName = selectedOwner?.firstName ?? '';
+    const ownerLastName = selectedOwner?.lastName ?? '';
+    const tenantFirstName = selectedTenantOption?.firstName ?? '';
+    const tenantLastName = selectedTenantOption?.lastName ?? '';
+    const buyerFirstName = selectedBuyerOption?.firstName ?? '';
+    const buyerLastName = selectedBuyerOption?.lastName ?? '';
+
+    return {
+      today: toDateString(new Date()) ?? '',
+      lease: {
+        id: initialData?.id ?? '',
+        contractType,
+        startDate: toDateString(formValues.startDate),
+        endDate: toDateString(formValues.endDate),
+        monthlyRent: toNumberOrUndefined(formValues.rentAmount),
+        fiscalValue: toNumberOrUndefined(formValues.fiscalValue),
+        currency: formValues.currency ?? 'ARS',
+        paymentFrequency: formValues.paymentFrequency,
+        paymentDueDay: toNumberOrUndefined(formValues.paymentDueDay),
+        billingFrequency: formValues.billingFrequency,
+        billingDay: toNumberOrUndefined(formValues.billingDay),
+        lateFeeType: formValues.lateFeeType,
+        lateFeeValue: toNumberOrUndefined(formValues.lateFeeValue),
+        lateFeeGraceDays: toNumberOrUndefined(formValues.lateFeeGraceDays),
+        lateFeeMax: toNumberOrUndefined(formValues.lateFeeMax),
+        adjustmentType: formValues.adjustmentType,
+        adjustmentValue: toNumberOrUndefined(formValues.adjustmentValue),
+        adjustmentFrequencyMonths: toNumberOrUndefined(
+          formValues.adjustmentFrequencyMonths,
+        ),
+        inflationIndexType: formValues.inflationIndexType,
+        securityDeposit: toNumberOrUndefined(formValues.depositAmount),
+      },
+      property: {
+        name: selectedProperty?.name,
+        addressStreet: selectedProperty?.address.street,
+        addressNumber: selectedProperty?.address.number,
+        addressCity: selectedProperty?.address.city,
+        addressState: selectedProperty?.address.state,
+        addressPostalCode: selectedProperty?.address.zipCode,
+        addressCountry: selectedProperty?.address.country,
+      },
+      owner: {
+        firstName: ownerFirstName,
+        lastName: ownerLastName,
+        fullName: `${ownerFirstName} ${ownerLastName}`.trim(),
+        email: selectedOwner?.email ?? '',
+        phone: selectedOwner?.phone ?? '',
+      },
+      tenant: {
+        firstName: tenantFirstName,
+        lastName: tenantLastName,
+        fullName: `${tenantFirstName} ${tenantLastName}`.trim(),
+        email: selectedTenantOption?.email ?? '',
+        phone: selectedTenantOption?.phone ?? '',
+      },
+      buyer: {
+        firstName: buyerFirstName,
+        lastName: buyerLastName,
+        fullName: `${buyerFirstName} ${buyerLastName}`.trim(),
+        email: selectedBuyerOption?.email ?? '',
+        phone: selectedBuyerOption?.phone ?? '',
+      },
+    };
+  }, [
+    contractType,
+    formValues.adjustmentFrequencyMonths,
+    formValues.adjustmentType,
+    formValues.adjustmentValue,
+    formValues.billingDay,
+    formValues.billingFrequency,
+    formValues.currency,
+    formValues.depositAmount,
+    formValues.endDate,
+    formValues.fiscalValue,
+    formValues.inflationIndexType,
+    formValues.lateFeeGraceDays,
+    formValues.lateFeeMax,
+    formValues.lateFeeType,
+    formValues.lateFeeValue,
+    formValues.paymentDueDay,
+    formValues.paymentFrequency,
+    formValues.rentAmount,
+    formValues.startDate,
+    initialData?.id,
+    selectedBuyerOption,
+    selectedOwner,
+    selectedProperty,
+    selectedTenantOption,
+  ]);
+
+  const renderedTemplateTerms = useMemo(() => {
+    if (!selectedTemplate) return '';
+    return renderTemplate(selectedTemplate.templateBody, templateContext).trim();
+  }, [selectedTemplate, templateContext]);
+
+  useEffect(() => {
+    if (!selectedTemplate) return;
+    if ((formValues.terms ?? '').trim() === renderedTemplateTerms) return;
+    setValue('terms', renderedTemplateTerms, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+  }, [formValues.terms, renderedTemplateTerms, selectedTemplate, setValue]);
 
   const onSubmit = async (data: LeaseFormData) => {
     setIsSubmitting(true);
     try {
+      const payload: LeaseFormData = {
+        ...data,
+        terms: selectedTemplate ? renderedTemplateTerms : data.terms,
+      };
+
       if (isEditing && initialData) {
-        const updated = await leasesApi.update(initialData.id, data);
+        const updated = await leasesApi.update(initialData.id, payload);
         router.push(`/leases/${updated.id}`);
       } else {
-        const newLease = await leasesApi.create(data as CreateLeaseInput);
+        const newLease = await leasesApi.create(payload as CreateLeaseInput);
         router.push(`/leases/${newLease.id}`);
       }
       router.refresh();
@@ -211,10 +456,10 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   };
 
   const inputClass = "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white";
+  const readOnlyInputClass = `${inputClass} bg-gray-100 dark:bg-gray-900/40`;
   const labelClass = "block text-sm font-medium text-gray-700 dark:text-gray-300";
   const sectionClass = "space-y-4";
   const sectionTitleClass = "text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2";
-  const templatesForType = templates.filter((item) => item.contractType === contractType);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
@@ -224,13 +469,22 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {hasPreselectedProperty ? (
-            <input type="hidden" {...register('propertyId')} />
+            <div>
+              <input type="hidden" {...register('propertyId')} />
+              <label className={labelClass}>{t('fields.property')}</label>
+              <p className={readOnlyInputClass}>
+                {selectedProperty?.name ?? preselectedPropertyId}
+              </p>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {t('prefilledFieldHint')}
+              </p>
+            </div>
           ) : (
             <div>
               <label htmlFor="propertyId" className={labelClass}>{t('fields.property')}</label>
               <select id="propertyId" {...register('propertyId')} className={inputClass}>
                 <option value="">{t('selectProperty')}</option>
-                {properties.map(p => (
+                {filteredProperties.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
@@ -250,7 +504,9 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
                 <input type="hidden" {...register('contractType')} />
                 <p className={inputClass}>{t(`contractTypes.${contractType}`)}</p>
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {t('contractTypeFixedByProperty')}
+                  {shouldLockContractTypeByInterested
+                    ? t('contractTypeFixedByInterested')
+                    : t('contractTypeFixedByProperty')}
                 </p>
               </>
             )}
@@ -265,10 +521,24 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
                 <option key={template.id} value={template.id}>{template.name}</option>
               ))}
             </select>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {t('templateAutofillHint')}
+            </p>
           </div>
 
           {hasPreselectedOwner ? (
-            <input type="hidden" {...register('ownerId')} />
+            <div>
+              <input type="hidden" {...register('ownerId')} />
+              <label className={labelClass}>{t('fields.owner')}</label>
+              <p className={readOnlyInputClass}>
+                {selectedOwner
+                  ? `${selectedOwner.firstName} ${selectedOwner.lastName}`.trim()
+                  : preselectedOwnerId}
+              </p>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {t('prefilledFieldHint')}
+              </p>
+            </div>
           ) : (
             <div>
               <label htmlFor="ownerId" className={labelClass}>{t('fields.owner')}</label>
@@ -294,7 +564,16 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
 
         {contractType === 'rental' && (
           hasPreselectedTenant ? (
-            <input type="hidden" {...register('tenantId')} />
+            <div>
+              <input type="hidden" {...register('tenantId')} />
+              <label className={labelClass}>{t('fields.tenant')}</label>
+              <p className={readOnlyInputClass}>
+                {selectedTenantOption?.label ?? preselectedTenantId}
+              </p>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {t('prefilledFieldHint')}
+              </p>
+            </div>
           ) : (
             <div>
               <label htmlFor="tenantId" className={labelClass}>{t('fields.tenant')}</label>
@@ -326,7 +605,16 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {hasPreselectedBuyer ? (
-              <input type="hidden" {...register('buyerProfileId')} />
+              <div>
+                <input type="hidden" {...register('buyerProfileId')} />
+                <label className={labelClass}>{t('fields.buyer')}</label>
+                <p className={readOnlyInputClass}>
+                  {selectedBuyerOption?.label ?? preselectedBuyerProfileId}
+                </p>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {t('prefilledFieldHint')}
+                </p>
+              </div>
             ) : (
               <div>
                 <label htmlFor="buyerProfileId" className={labelClass}>{t('fields.buyer')}</label>
@@ -364,7 +652,10 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
 
           <div>
             <label htmlFor="currency" className={labelClass}>{tCurrencies('title')}</label>
-            <CurrencySelect value={watch('currency') || 'ARS'} onChange={(value) => setValue('currency', value)} />
+            <CurrencySelect
+              value={formValues.currency || 'ARS'}
+              onChange={(value) => setValue('currency', value)}
+            />
             {errors.currency && <p className="mt-1 text-sm text-red-600">{errors.currency.message}</p>}
           </div>
         </div>

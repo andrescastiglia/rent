@@ -846,7 +846,10 @@
       "rental": "Aluguel",
       "sale": "Compra/Venda"
     },
-    "contractTypeFixedByProperty": "Tipo de contrato definido pela operação do imóvel."
+    "contractTypeFixedByProperty": "Tipo de contrato definido pela operação do imóvel.",
+    "contractTypeFixedByInterested": "Tipo de contrato definido pelo interessado selecionado.",
+    "prefilledFieldHint": "Campo preenchido automaticamente conforme a origem da criação do contrato.",
+    "templateAutofillHint": "Ao selecionar um modelo, os termos são preenchidos com os valores atuais do contrato e atualizados automaticamente."
   },
   "payments": {
     "title": "Pagamentos",
