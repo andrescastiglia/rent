@@ -630,17 +630,17 @@ export default function TenantDetailPage() {
                                 </p>
                                 <p className="text-gray-500 dark:text-gray-400">
                                   {tPayments("date")}:{" "}
-                                  {new Date(
-                                    invoice.dueDate,
-                                  ).toLocaleDateString(locale)}{" "}
+                                  {new Date(invoice.dueDate).toLocaleDateString(
+                                    locale,
+                                  )}{" "}
                                   · {tPayments(`status.${invoice.status}`)}
                                 </p>
                               </div>
                               <p className="font-semibold text-red-700 dark:text-red-300">
                                 {invoice.currencyCode}{" "}
-                                {getInvoicePendingAmount(invoice).toLocaleString(
-                                  locale,
-                                )}
+                                {getInvoicePendingAmount(
+                                  invoice,
+                                ).toLocaleString(locale)}
                               </p>
                             </div>
                           ))}

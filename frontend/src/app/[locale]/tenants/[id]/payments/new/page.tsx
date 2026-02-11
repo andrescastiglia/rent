@@ -19,7 +19,11 @@ import {
   TenantAccount,
   TenantAccountMovement,
 } from "@/types/payment";
-import { invoicesApi, paymentsApi, tenantAccountsApi } from "@/lib/api/payments";
+import {
+  invoicesApi,
+  paymentsApi,
+  tenantAccountsApi,
+} from "@/lib/api/payments";
 
 const OPEN_INVOICE_STATUSES = new Set<Invoice["status"]>([
   "pending",
@@ -47,8 +51,12 @@ export default function TenantPaymentRegistrationPage() {
 
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [leases, setLeases] = useState<Lease[]>([]);
-  const [tenantAccount, setTenantAccount] = useState<TenantAccount | null>(null);
-  const [accountBalance, setAccountBalance] = useState<AccountBalance | null>(null);
+  const [tenantAccount, setTenantAccount] = useState<TenantAccount | null>(
+    null,
+  );
+  const [accountBalance, setAccountBalance] = useState<AccountBalance | null>(
+    null,
+  );
   const [movements, setMovements] = useState<TenantAccountMovement[]>([]);
   const [openInvoices, setOpenInvoices] = useState<Invoice[]>([]);
   const [registeringPayment, setRegisteringPayment] = useState(false);
@@ -64,11 +72,13 @@ export default function TenantPaymentRegistrationPage() {
   });
 
   const activeLease = useMemo(
-    () => leases.find((lease) => lease.status === "ACTIVE") ?? leases[0] ?? null,
+    () =>
+      leases.find((lease) => lease.status === "ACTIVE") ?? leases[0] ?? null,
     [leases],
   );
 
-  const tenantName = `${tenant?.firstName ?? ""} ${tenant?.lastName ?? ""}`.trim();
+  const tenantName =
+    `${tenant?.firstName ?? ""} ${tenant?.lastName ?? ""}`.trim();
   const propertyName = activeLease?.property?.name ?? "-";
 
   const paymentMethods: PaymentMethod[] = [
@@ -133,9 +143,13 @@ export default function TenantPaymentRegistrationPage() {
           return;
         }
 
-        const leaseHistory = await tenantsApi.getLeaseHistory(data.id).catch(() => []);
+        const leaseHistory = await tenantsApi
+          .getLeaseHistory(data.id)
+          .catch(() => []);
         const currentLease =
-          leaseHistory.find((lease) => lease.status === "ACTIVE") ?? leaseHistory[0] ?? null;
+          leaseHistory.find((lease) => lease.status === "ACTIVE") ??
+          leaseHistory[0] ??
+          null;
 
         let account: TenantAccount | null = null;
         let nextBalance: AccountBalance | null = null;
@@ -155,15 +169,22 @@ export default function TenantPaymentRegistrationPage() {
                 OPEN_INVOICE_STATUSES.has(invoice.status) &&
                 getInvoicePendingAmount(invoice) > 0,
             )
-            .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+            .sort(
+              (a, b) =>
+                new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
+            );
 
           if (account) {
             const [balanceResult, movementsResult] = await Promise.allSettled([
               tenantAccountsApi.getBalance(account.id),
               tenantAccountsApi.getMovements(account.id),
             ]);
-            nextBalance = balanceResult.status === "fulfilled" ? balanceResult.value : null;
-            nextMovements = movementsResult.status === "fulfilled" ? movementsResult.value : [];
+            nextBalance =
+              balanceResult.status === "fulfilled" ? balanceResult.value : null;
+            nextMovements =
+              movementsResult.status === "fulfilled"
+                ? movementsResult.value
+                : [];
           }
         }
 
@@ -238,7 +259,9 @@ export default function TenantPaymentRegistrationPage() {
   if (!tenant) {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t("notFound")}</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          {t("notFound")}
+        </h1>
         <Link
           href={`/${locale}/tenants`}
           className="text-blue-600 hover:underline mt-4 inline-block"
@@ -262,27 +285,37 @@ export default function TenantPaymentRegistrationPage() {
       </div>
 
       <div className="mb-6 space-y-1">
-        <p className="text-2xl font-bold text-gray-900 dark:text-white">{tenantName || "-"}</p>
-        <p className="text-sm text-gray-500 dark:text-gray-400">{propertyName}</p>
+        <p className="text-2xl font-bold text-gray-900 dark:text-white">
+          {tenantName || "-"}
+        </p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          {propertyName}
+        </p>
       </div>
 
       {tenantAccount ? (
         <div className="space-y-4 bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <div className="grid grid-cols-3 gap-3 text-sm">
             <div className="rounded-md bg-gray-50 dark:bg-gray-700 p-3 border border-gray-100 dark:border-gray-600">
-              <p className="text-xs text-gray-500 dark:text-gray-400">{t("paymentRegistration.balance")}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {t("paymentRegistration.balance")}
+              </p>
               <p className="font-semibold text-gray-900 dark:text-white">
                 {(accountBalance?.balance ?? 0).toLocaleString(locale)}
               </p>
             </div>
             <div className="rounded-md bg-gray-50 dark:bg-gray-700 p-3 border border-gray-100 dark:border-gray-600">
-              <p className="text-xs text-gray-500 dark:text-gray-400">{t("paymentRegistration.lateFee")}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {t("paymentRegistration.lateFee")}
+              </p>
               <p className="font-semibold text-amber-700 dark:text-amber-300">
                 {(accountBalance?.lateFee ?? 0).toLocaleString(locale)}
               </p>
             </div>
             <div className="rounded-md bg-gray-50 dark:bg-gray-700 p-3 border border-gray-100 dark:border-gray-600">
-              <p className="text-xs text-gray-500 dark:text-gray-400">{t("paymentRegistration.totalDebt")}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {t("paymentRegistration.totalDebt")}
+              </p>
               <p className="font-semibold text-red-700 dark:text-red-300">
                 {(accountBalance?.total ?? 0).toLocaleString(locale)}
               </p>
@@ -302,14 +335,20 @@ export default function TenantPaymentRegistrationPage() {
                       className="flex items-center justify-between text-xs rounded-sm border border-gray-100 dark:border-gray-600 px-2 py-1 bg-white dark:bg-gray-800"
                     >
                       <div>
-                        <p className="font-medium text-gray-900 dark:text-white">{invoice.invoiceNumber}</p>
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {invoice.invoiceNumber}
+                        </p>
                         <p className="text-gray-500 dark:text-gray-400">
-                          {tPayments("date")}: {new Date(invoice.dueDate).toLocaleDateString(locale)} · {" "}
-                          {tPayments(`status.${invoice.status}`)}
+                          {tPayments("date")}:{" "}
+                          {new Date(invoice.dueDate).toLocaleDateString(locale)}{" "}
+                          · {tPayments(`status.${invoice.status}`)}
                         </p>
                       </div>
                       <p className="font-semibold text-red-700 dark:text-red-300">
-                        {invoice.currencyCode} {getInvoicePendingAmount(invoice).toLocaleString(locale)}
+                        {invoice.currencyCode}{" "}
+                        {getInvoicePendingAmount(invoice).toLocaleString(
+                          locale,
+                        )}
                       </p>
                     </div>
                   ))}
@@ -319,7 +358,9 @@ export default function TenantPaymentRegistrationPage() {
                   {t("paymentRegistration.noPendingInvoices")}
                 </p>
               )}
-              <p className="text-xs text-gray-500 dark:text-gray-400">{t("paymentRegistration.fifoHint")}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {t("paymentRegistration.fifoHint")}
+              </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -410,14 +451,22 @@ export default function TenantPaymentRegistrationPage() {
               className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
             />
 
-            <button type="submit" disabled={registeringPayment} className="btn btn-primary w-full">
+            <button
+              type="submit"
+              disabled={registeringPayment}
+              className="btn btn-primary w-full"
+            >
               <Wallet size={16} className="mr-2" />
-              {registeringPayment ? tCommon("saving") : t("paymentRegistration.submit")}
+              {registeringPayment
+                ? tCommon("saving")
+                : t("paymentRegistration.submit")}
             </button>
           </form>
 
           <div className="space-y-2">
-            <p className="text-sm font-medium text-gray-900 dark:text-white">{t("paymentRegistration.movements")}</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-white">
+              {t("paymentRegistration.movements")}
+            </p>
             {movements.length > 0 ? (
               <div className="space-y-2 max-h-52 overflow-auto">
                 {movements.map((movement) => (
@@ -426,9 +475,13 @@ export default function TenantPaymentRegistrationPage() {
                     className="flex items-center justify-between text-xs bg-gray-50 dark:bg-gray-700 rounded-md border border-gray-100 dark:border-gray-600 p-2"
                   >
                     <div>
-                      <p className="font-medium text-gray-900 dark:text-white">{movement.description}</p>
+                      <p className="font-medium text-gray-900 dark:text-white">
+                        {movement.description}
+                      </p>
                       <p className="text-gray-500 dark:text-gray-400">
-                        {new Date(movement.movementDate).toLocaleDateString(locale)}
+                        {new Date(movement.movementDate).toLocaleDateString(
+                          locale,
+                        )}
                       </p>
                     </div>
                     <div className="text-right">
@@ -442,14 +495,17 @@ export default function TenantPaymentRegistrationPage() {
                         {movement.amount.toLocaleString(locale)}
                       </p>
                       <p className="text-gray-500 dark:text-gray-400">
-                        {t("paymentRegistration.balanceAfter")}: {movement.balanceAfter.toLocaleString(locale)}
+                        {t("paymentRegistration.balanceAfter")}:{" "}
+                        {movement.balanceAfter.toLocaleString(locale)}
                       </p>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-gray-500 dark:text-gray-400">{t("paymentRegistration.noMovements")}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {t("paymentRegistration.noMovements")}
+              </p>
             )}
           </div>
         </div>

@@ -42,11 +42,13 @@ export default function TenantActivityCreatePage() {
   });
 
   const activeLease = useMemo(
-    () => leases.find((lease) => lease.status === "ACTIVE") ?? leases[0] ?? null,
+    () =>
+      leases.find((lease) => lease.status === "ACTIVE") ?? leases[0] ?? null,
     [leases],
   );
 
-  const tenantName = `${tenant?.firstName ?? ""} ${tenant?.lastName ?? ""}`.trim();
+  const tenantName =
+    `${tenant?.firstName ?? ""} ${tenant?.lastName ?? ""}`.trim();
   const propertyName = activeLease?.property?.name ?? "-";
 
   const loadData = useCallback(
@@ -96,7 +98,9 @@ export default function TenantActivityCreatePage() {
           return;
         }
 
-        const leaseHistory = await tenantsApi.getLeaseHistory(data.id).catch(() => []);
+        const leaseHistory = await tenantsApi
+          .getLeaseHistory(data.id)
+          .catch(() => []);
         setTenant(data);
         setLeases(leaseHistory);
       } catch (error) {
@@ -154,7 +158,9 @@ export default function TenantActivityCreatePage() {
   if (!tenant) {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t("notFound")}</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          {t("notFound")}
+        </h1>
         <Link
           href={`/${locale}/tenants`}
           className="text-blue-600 hover:underline mt-4 inline-block"
@@ -178,8 +184,12 @@ export default function TenantActivityCreatePage() {
       </div>
 
       <div className="mb-6 space-y-1">
-        <p className="text-2xl font-bold text-gray-900 dark:text-white">{tenantName || "-"}</p>
-        <p className="text-sm text-gray-500 dark:text-gray-400">{propertyName}</p>
+        <p className="text-2xl font-bold text-gray-900 dark:text-white">
+          {tenantName || "-"}
+        </p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          {propertyName}
+        </p>
       </div>
 
       <form
@@ -242,7 +252,11 @@ export default function TenantActivityCreatePage() {
           className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
         />
 
-        <button type="submit" disabled={saving} className="btn btn-primary w-full">
+        <button
+          type="submit"
+          disabled={saving}
+          className="btn btn-primary w-full"
+        >
           <Plus size={16} className="mr-2" />
           {saving ? tCommon("saving") : t("activities.add")}
         </button>

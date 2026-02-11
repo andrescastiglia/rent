@@ -360,15 +360,19 @@ export default function PropertiesPage() {
                         {ownerProperties.length > 0 ? (
                           <div className="space-y-2">
                             {ownerProperties.map((property) => {
-                      const propertyOperations = property.operations ?? [];
-                      const supportsRent = propertyOperations.includes("rent");
-                      const supportsSale = propertyOperations.includes("sale");
-                      const canCreateContract = supportsRent || supportsSale;
-                      const propertyLeases =
-                        leasesByProperty[property.id] ?? [];
-                      const leaseAction =
-                        resolvePropertyLeaseAction(propertyLeases);
-                      const createContractHref = `/${locale}/leases/new?propertyId=${property.id}`;
+                              const propertyOperations =
+                                property.operations ?? [];
+                              const supportsRent =
+                                propertyOperations.includes("rent");
+                              const supportsSale =
+                                propertyOperations.includes("sale");
+                              const canCreateContract =
+                                supportsRent || supportsSale;
+                              const propertyLeases =
+                                leasesByProperty[property.id] ?? [];
+                              const leaseAction =
+                                resolvePropertyLeaseAction(propertyLeases);
+                              const createContractHref = `/${locale}/leases/new?propertyId=${property.id}`;
 
                               return (
                                 <div
@@ -500,8 +504,10 @@ export default function PropertiesPage() {
                                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                           {tc("loading")}
                                         </div>
-                                      ) : (maintenanceByProperty[property.id] ??
-                                          []).length > 0 ? (
+                                      ) : (
+                                          maintenanceByProperty[property.id] ??
+                                          []
+                                        ).length > 0 ? (
                                         (
                                           maintenanceByProperty[property.id] ??
                                           []
