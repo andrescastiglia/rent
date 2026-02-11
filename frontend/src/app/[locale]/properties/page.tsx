@@ -18,9 +18,11 @@ import {
   FileText,
   ChevronDown,
   ChevronUp,
+  RefreshCw,
 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/auth-context';
+import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
 
 type OwnerMode = 'view' | 'edit' | 'create';
 
@@ -41,11 +43,59 @@ const byMostRecentDate = <T extends { updatedAt: string; createdAt: string }>(
       new Date(a.updatedAt || a.createdAt).getTime(),
   );
 
+const toDateAtStartOfDay = (value: string): Date => {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const isRentalLeaseExpired = (lease: Lease): boolean => {
+  if (lease.contractType !== 'rental' || !lease.endDate) {
+    return false;
+  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return toDateAtStartOfDay(lease.endDate) < today;
+};
+
+type PropertyLeaseAction =
+  | { type: 'view'; lease: Lease }
+  | { type: 'renew'; lease: Lease }
+  | { type: 'none' };
+
+const resolvePropertyLeaseAction = (leases: Lease[]): PropertyLeaseAction => {
+  const ordered = byMostRecentDate(leases);
+
+  const draftLease = ordered.find((lease) => lease.status === 'DRAFT');
+  if (draftLease) {
+    return { type: 'view', lease: draftLease };
+  }
+
+  const activeNonExpired = ordered.find(
+    (lease) => lease.status === 'ACTIVE' && !isRentalLeaseExpired(lease),
+  );
+  if (activeNonExpired) {
+    return { type: 'view', lease: activeNonExpired };
+  }
+
+  const expiredRental = ordered.find((lease) => isRentalLeaseExpired(lease));
+  if (expiredRental) {
+    return { type: 'renew', lease: expiredRental };
+  }
+
+  if (ordered[0]) {
+    return { type: 'view', lease: ordered[0] };
+  }
+
+  return { type: 'none' };
+};
+
 export default function PropertiesPage() {
   const { loading: authLoading } = useAuth();
   const t = useTranslations('properties');
   const tc = useTranslations('common');
   const locale = useLocale();
+  const router = useLocalizedRouter();
 
   const [properties, setProperties] = useState<Property[]>([]);
   const [owners, setOwners] = useState<Owner[]>([]);
@@ -55,12 +105,13 @@ export default function PropertiesPage() {
   const [ownerMode, setOwnerMode] = useState<OwnerMode>('view');
   const [ownerForm, setOwnerForm] = useState<CreateOwnerInput>(emptyOwnerForm);
   const [savingOwner, setSavingOwner] = useState(false);
-  const [leasesByProperty, setLeasesByProperty] = useState<Record<string, Lease | null>>({});
+  const [leasesByProperty, setLeasesByProperty] = useState<Record<string, Lease[]>>({});
   const [expandedPropertyId, setExpandedPropertyId] = useState<string | null>(null);
   const [maintenanceByProperty, setMaintenanceByProperty] = useState<
     Record<string, PropertyMaintenanceTask[]>
   >({});
   const [loadingMaintenancePropertyId, setLoadingMaintenancePropertyId] = useState<string | null>(null);
+  const [renewingLeaseId, setRenewingLeaseId] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -117,12 +168,11 @@ export default function PropertiesPage() {
         }
       }
       const leases = byMostRecentDate(Array.from(leaseMap.values()));
-      const nextLeasesByProperty: Record<string, Lease | null> = {};
+      const nextLeasesByProperty: Record<string, Lease[]> = {};
       for (const lease of leases) {
         if (!lease.propertyId) continue;
-        if (!nextLeasesByProperty[lease.propertyId]) {
-          nextLeasesByProperty[lease.propertyId] = lease;
-        }
+        const list = nextLeasesByProperty[lease.propertyId] ?? [];
+        nextLeasesByProperty[lease.propertyId] = [...list, lease];
       }
       setLeasesByProperty(nextLeasesByProperty);
     } catch (error) {
@@ -189,6 +239,20 @@ export default function PropertiesPage() {
   const handleCreateOwner = () => {
     setOwnerMode('create');
     setOwnerForm(emptyOwnerForm);
+  };
+
+  const handleRenewLease = async (lease: Lease) => {
+    try {
+      setRenewingLeaseId(lease.id);
+      const renewed = await leasesApi.renew(lease.id);
+      await loadData();
+      router.push(`/leases/${renewed.id}`);
+    } catch (error) {
+      console.error('Failed to renew lease', error);
+      alert(tc('error'));
+    } finally {
+      setRenewingLeaseId(null);
+    }
   };
 
   const handleEditOwner = (owner: Owner) => {
@@ -447,7 +511,8 @@ export default function PropertiesPage() {
                             : !supportsRent && supportsSale
                               ? 'sale'
                               : undefined;
-                        const existingLease = leasesByProperty[property.id] ?? null;
+                        const propertyLeases = leasesByProperty[property.id] ?? [];
+                        const leaseAction = resolvePropertyLeaseAction(propertyLeases);
                         const createContractHref = `/${locale}/leases/new?propertyId=${property.id}&ownerId=${selectedOwner.id}${
                           defaultContractType ? `&contractType=${defaultContractType}` : ''
                         }`;
@@ -501,14 +566,28 @@ export default function PropertiesPage() {
                                   <Wrench size={14} />
                                   {t('saveMaintenanceTask')}
                                 </Link>
-                                {existingLease ? (
+                                {leaseAction.type === 'view' ? (
                                   <Link
-                                    href={`/${locale}/leases/${existingLease.id}`}
+                                    href={`/${locale}/leases/${leaseAction.lease.id}`}
                                     className="action-link action-link-success"
                                   >
                                     <FileText size={14} />
                                     {t('viewLease')}
                                   </Link>
+                                ) : leaseAction.type === 'renew' ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleRenewLease(leaseAction.lease)}
+                                    disabled={renewingLeaseId === leaseAction.lease.id}
+                                    className="action-link action-link-success disabled:opacity-60"
+                                  >
+                                    {renewingLeaseId === leaseAction.lease.id ? (
+                                      <Loader2 size={14} className="animate-spin" />
+                                    ) : (
+                                      <RefreshCw size={14} />
+                                    )}
+                                    {t('renewLease')}
+                                  </button>
                                 ) : canCreateContract ? (
                                   <Link
                                     href={createContractHref}

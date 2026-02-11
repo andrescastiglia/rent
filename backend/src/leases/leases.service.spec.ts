@@ -11,6 +11,7 @@ import {
 import { InterestedProfile } from '../interested/entities/interested-profile.entity';
 import { PdfService } from './pdf.service';
 import { LeaseContractTemplate } from './entities/lease-contract-template.entity';
+import { TenantAccountsService } from '../payments/tenant-accounts.service';
 
 type MockRepository<T extends Record<string, any> = any> = Partial<
   Record<keyof Repository<T>, jest.Mock>
@@ -40,10 +41,14 @@ describe('LeasesService', () => {
   let propertyRepository: MockRepository<Property>;
   let interestedRepository: MockRepository<InterestedProfile>;
   let pdfService: { generateContract: jest.Mock };
+  let tenantAccountsService: { createForLease: jest.Mock };
 
   beforeEach(async () => {
     pdfService = {
       generateContract: jest.fn(),
+    };
+    tenantAccountsService = {
+      createForLease: jest.fn().mockResolvedValue({ id: 'tenant-account-1' }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -66,6 +71,7 @@ describe('LeasesService', () => {
           useValue: createMockRepository(),
         },
         { provide: PdfService, useValue: pdfService },
+        { provide: TenantAccountsService, useValue: tenantAccountsService },
       ],
     }).compile();
 

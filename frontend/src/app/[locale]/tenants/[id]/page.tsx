@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Tenant, TenantActivity, TenantActivityType } from '@/types/tenant';
@@ -34,6 +34,19 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/auth-context';
 import { IS_MOCK_MODE } from '@/lib/api';
 import { CurrencySelect } from '@/components/common/CurrencySelect';
+
+const OPEN_INVOICE_STATUSES = new Set<Invoice['status']>([
+  'pending',
+  'sent',
+  'partial',
+  'overdue',
+]);
+
+const getInvoicePendingAmount = (invoice: Invoice): number => {
+  const total = Number(invoice.total ?? 0);
+  const amountPaid = Number(invoice.amountPaid ?? 0);
+  return Math.max(0, total - amountPaid);
+};
 
 export default function TenantDetailPage() {
   const { loading: authLoading, token } = useAuth();
@@ -242,13 +255,7 @@ export default function TenantDetailPage() {
       });
 
       await paymentsApi.confirm(created.id);
-      await Promise.all([
-        loadAccountData(tenantAccount.leaseId),
-        tenantAccountsApi.getReceiptsByTenant(tenant.id).then(setReceipts),
-        paymentsApi
-          .getAll({ tenantId: tenant.id, limit: 100 })
-          .then((result) => setPayments(paymentsByDateDesc(result.data))),
-      ]);
+      await loadTenant(tenant.id);
       setPaymentForm({
         amount: '',
         currencyCode: 'ARS',
@@ -312,6 +319,21 @@ export default function TenantDetailPage() {
       new Date(a.paymentDate ?? a.issuedAt).getTime(),
   );
   const activeLease = leases.find((lease) => lease.status === 'ACTIVE') ?? leases[0];
+  const openInvoices = useMemo(
+    () =>
+      Object.values(invoicesById)
+        .filter(
+          (invoice) =>
+            invoice.leaseId === activeLease?.id &&
+            OPEN_INVOICE_STATUSES.has(invoice.status) &&
+            getInvoicePendingAmount(invoice) > 0,
+        )
+        .sort(
+          (a, b) =>
+            new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
+        ),
+    [activeLease?.id, invoicesById],
+  );
   const paymentMethods: PaymentMethod[] = [
     'cash',
     'bank_transfer',
@@ -577,6 +599,44 @@ export default function TenantDetailPage() {
                     </div>
 
                     <form onSubmit={handleRegisterPayment} className="space-y-3">
+                      <div className="rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-3 space-y-2">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                          {t('paymentRegistration.pendingInvoices')}
+                        </p>
+                        {openInvoices.length > 0 ? (
+                          <div className="space-y-2 max-h-40 overflow-auto">
+                            {openInvoices.map((invoice) => (
+                              <div
+                                key={invoice.id}
+                                className="flex items-center justify-between text-xs rounded border border-gray-100 dark:border-gray-700 px-2 py-1"
+                              >
+                                <div>
+                                  <p className="font-medium text-gray-900 dark:text-white">
+                                    {invoice.invoiceNumber}
+                                  </p>
+                                  <p className="text-gray-500 dark:text-gray-400">
+                                    {tPayments('date')}:{' '}
+                                    {new Date(invoice.dueDate).toLocaleDateString(locale)} ·{' '}
+                                    {tPayments(`status.${invoice.status}`)}
+                                  </p>
+                                </div>
+                                <p className="font-semibold text-red-700 dark:text-red-300">
+                                  {invoice.currencyCode}{' '}
+                                  {getInvoicePendingAmount(invoice).toLocaleString(locale)}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {t('paymentRegistration.noPendingInvoices')}
+                          </p>
+                        )}
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {t('paymentRegistration.fifoHint')}
+                        </p>
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <input
                           type="number"

@@ -512,6 +512,60 @@ export const leasesApi = {
         return mapBackendLeaseToLease(result);
     },
 
+    renew: async (
+        id: string,
+        data: Partial<CreateLeaseInput> = {},
+    ): Promise<Lease> => {
+        if (IS_MOCK_MODE) {
+            await delay(DELAY);
+            const originalIndex = MOCK_LEASES.findIndex((item) => item.id === id);
+            if (originalIndex < 0) {
+                throw new Error('Lease not found');
+            }
+            const original = MOCK_LEASES[originalIndex];
+            const today = new Date();
+            const fallbackStartDate = original.endDate ?? today.toISOString().slice(0, 10);
+            const startDate = data.startDate ?? fallbackStartDate;
+            const fallbackEndDate = (() => {
+                const start = new Date(startDate);
+                start.setFullYear(start.getFullYear() + 1);
+                return start.toISOString().slice(0, 10);
+            })();
+            const endDate = data.endDate ?? original.endDate ?? fallbackEndDate;
+
+            if (original.status === 'ACTIVE') {
+                MOCK_LEASES[originalIndex] = {
+                    ...original,
+                    status: 'FINALIZED',
+                    updatedAt: new Date().toISOString(),
+                };
+            }
+
+            const renewed: Lease = {
+                ...original,
+                ...data,
+                id: `lease-${Math.random().toString(36).slice(2, 10)}`,
+                status: 'DRAFT',
+                previousLeaseId: original.id,
+                startDate,
+                endDate,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            };
+            MOCK_LEASES.unshift(renewed);
+            return renewed;
+        }
+
+        const token = getToken();
+        const payload = toBackendLeasePayload(data, false);
+        const result = await apiClient.patch<BackendLease>(
+            `/leases/${id}/renew`,
+            payload,
+            token ?? undefined,
+        );
+        return mapBackendLeaseToLease(result);
+    },
+
     renderDraft: async (id: string, templateId?: string): Promise<Lease> => {
         if (IS_MOCK_MODE) {
             await delay(DELAY);

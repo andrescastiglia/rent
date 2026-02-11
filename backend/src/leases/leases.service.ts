@@ -24,6 +24,7 @@ import { PdfService } from './pdf.service';
 import { LeaseContractTemplate } from './entities/lease-contract-template.entity';
 import { CreateLeaseContractTemplateDto } from './dto/create-lease-contract-template.dto';
 import { UpdateLeaseContractTemplateDto } from './dto/update-lease-contract-template.dto';
+import { TenantAccountsService } from '../payments/tenant-accounts.service';
 
 @Injectable()
 export class LeasesService {
@@ -37,6 +38,7 @@ export class LeasesService {
     @InjectRepository(InterestedProfile)
     private readonly interestedProfilesRepository: Repository<InterestedProfile>,
     private readonly pdfService: PdfService,
+    private readonly tenantAccountsService: TenantAccountsService,
   ) {}
 
   async create(createLeaseDto: CreateLeaseDto): Promise<Lease> {
@@ -361,6 +363,10 @@ export class LeasesService {
 
     const savedLease = await this.leasesRepository.save(lease);
 
+    if (savedLease.contractType === ContractType.RENTAL) {
+      await this.tenantAccountsService.createForLease(savedLease.id);
+    }
+
     try {
       const document = await this.pdfService.generateContract(
         savedLease,
@@ -404,12 +410,29 @@ export class LeasesService {
   async renew(id: string, newTerms: Partial<CreateLeaseDto>): Promise<Lease> {
     const oldLease = await this.findOne(id);
 
-    if (oldLease.status !== LeaseStatus.ACTIVE) {
-      throw new BadRequestException('Only active contracts can be renewed');
+    if (
+      oldLease.status !== LeaseStatus.ACTIVE &&
+      oldLease.status !== LeaseStatus.FINALIZED
+    ) {
+      throw new BadRequestException(
+        'Only active or finalized contracts can be renewed',
+      );
     }
 
-    oldLease.status = LeaseStatus.FINALIZED;
-    await this.leasesRepository.save(oldLease);
+    if (oldLease.status === LeaseStatus.ACTIVE) {
+      oldLease.status = LeaseStatus.FINALIZED;
+      await this.leasesRepository.save(oldLease);
+    }
+
+    const oldStartDate = oldLease.startDate ?? null;
+    const oldEndDate = oldLease.endDate ?? null;
+    const fallbackStartDate = oldEndDate
+      ? this.toIsoDate(oldEndDate)
+      : this.toIsoDate(new Date());
+    const resolvedStartDate = newTerms.startDate || fallbackStartDate;
+    const resolvedEndDate =
+      newTerms.endDate ||
+      this.computeRenewedEndDate(resolvedStartDate, oldStartDate, oldEndDate);
 
     const payload: CreateLeaseDto = {
       companyId: oldLease.companyId,
@@ -418,10 +441,8 @@ export class LeasesService {
       buyerProfileId: oldLease.buyerProfileId ?? undefined,
       ownerId: oldLease.ownerId,
       contractType: oldLease.contractType,
-      startDate:
-        newTerms.startDate ||
-        (oldLease.endDate ? oldLease.endDate.toISOString().slice(0, 10) : ''),
-      endDate: newTerms.endDate,
+      startDate: resolvedStartDate,
+      endDate: resolvedEndDate,
       monthlyRent: newTerms.monthlyRent ?? Number(oldLease.monthlyRent ?? 0),
       fiscalValue: newTerms.fiscalValue ?? Number(oldLease.fiscalValue ?? 0),
       currency: newTerms.currency || oldLease.currency,
@@ -453,6 +474,32 @@ export class LeasesService {
     };
 
     return this.create(payload);
+  }
+
+  private computeRenewedEndDate(
+    nextStartDate: string,
+    oldStartDate: Date | null,
+    oldEndDate: Date | null,
+  ): string {
+    const start = new Date(nextStartDate);
+    if (Number.isNaN(start.getTime())) {
+      return nextStartDate;
+    }
+
+    if (oldStartDate && oldEndDate) {
+      const originalDurationMs = oldEndDate.getTime() - oldStartDate.getTime();
+      if (originalDurationMs > 0) {
+        return this.toIsoDate(new Date(start.getTime() + originalDurationMs));
+      }
+    }
+
+    const fallback = new Date(start);
+    fallback.setFullYear(fallback.getFullYear() + 1);
+    return this.toIsoDate(fallback);
+  }
+
+  private toIsoDate(date: Date): string {
+    return date.toISOString().slice(0, 10);
   }
 
   async listTemplates(

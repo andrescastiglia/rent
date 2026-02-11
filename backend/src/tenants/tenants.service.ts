@@ -10,7 +10,11 @@ import { User, UserRole } from '../users/entities/user.entity';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { TenantFiltersDto } from './dto/tenant-filters.dto';
-import { Lease } from '../leases/entities/lease.entity';
+import {
+  ContractType,
+  Lease,
+  LeaseStatus,
+} from '../leases/entities/lease.entity';
 import { Tenant } from './entities/tenant.entity';
 import {
   TenantActivity,
@@ -97,9 +101,23 @@ export class TenantsService {
 
     const query = this.usersRepository
       .createQueryBuilder('user')
-      .innerJoin('tenants', 'tenant', 'tenant.user_id = user.id')
+      .innerJoin(
+        'tenants',
+        'tenant',
+        'tenant.user_id = user.id AND tenant.deleted_at IS NULL',
+      )
+      .innerJoin(
+        'leases',
+        'lease',
+        'lease.tenant_id = tenant.id AND lease.contract_type = :rentalType AND lease.status = :activeLeaseStatus AND lease.deleted_at IS NULL',
+        {
+          rentalType: ContractType.RENTAL,
+          activeLeaseStatus: LeaseStatus.ACTIVE,
+        },
+      )
       .where('user.role = :role', { role: UserRole.TENANT })
-      .andWhere('user.deleted_at IS NULL');
+      .andWhere('user.deleted_at IS NULL')
+      .distinct(true);
 
     if (name) {
       query.andWhere(
@@ -136,6 +154,9 @@ export class TenantsService {
     if (!user) {
       throw new NotFoundException(`Tenant with ID ${id} not found`);
     }
+
+    const tenant = await this.findTenantByUserId(id, user.companyId);
+    await this.ensureTenantHasRentalLease(tenant.id);
 
     return user;
   }
@@ -190,9 +211,20 @@ export class TenantsService {
     await this.usersRepository.softDelete(id);
   }
 
-  async getLeaseHistory(tenantId: string): Promise<Lease[]> {
+  async getLeaseHistory(tenantUserId: string): Promise<Lease[]> {
+    const tenant = await this.tenantsRepository.findOne({
+      where: { userId: tenantUserId, deletedAt: IsNull() },
+    });
+    if (!tenant) {
+      throw new NotFoundException(`Tenant with ID ${tenantUserId} not found`);
+    }
+
     return this.leasesRepository.find({
-      where: { tenantId },
+      where: {
+        tenantId: tenant.id,
+        contractType: ContractType.RENTAL,
+        deletedAt: IsNull(),
+      },
       relations: ['property'],
       order: { startDate: 'DESC' },
     });
@@ -211,6 +243,22 @@ export class TenantsService {
     }
 
     return tenant;
+  }
+
+  private async ensureTenantHasRentalLease(tenantId: string): Promise<void> {
+    const lease = await this.leasesRepository.findOne({
+      where: {
+        tenantId,
+        contractType: ContractType.RENTAL,
+        status: LeaseStatus.ACTIVE,
+        deletedAt: IsNull(),
+      },
+      select: ['id'],
+    });
+
+    if (!lease) {
+      throw new NotFoundException(`Tenant with ID ${tenantId} not found`);
+    }
   }
 
   async listActivities(

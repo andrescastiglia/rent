@@ -21,6 +21,7 @@ import {
   Loader2,
   FilePlus,
   FileText,
+  RefreshCw,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -41,8 +42,9 @@ export default function PropertyDetailPage() {
   const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
   const [isSubmittingMaintenance, setIsSubmittingMaintenance] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [currentLease, setCurrentLease] = useState<Lease | null>(null);
+  const [leasesForProperty, setLeasesForProperty] = useState<Lease[]>([]);
   const [loading, setLoading] = useState(true);
+  const [renewingLeaseId, setRenewingLeaseId] = useState<string | null>(null);
 
   const defaultTaskDate = useMemo(() => {
     const now = new Date();
@@ -61,7 +63,7 @@ export default function PropertyDetailPage() {
     setCurrentImageIndex(0);
   }, [property?.id, property?.images?.length]);
 
-  const loadLatestLeaseForProperty = useCallback(async (id: string): Promise<Lease | null> => {
+  const loadLeasesForProperty = useCallback(async (id: string): Promise<Lease[]> => {
     const leaseResults = await Promise.allSettled([
       leasesApi.getAll({ status: 'ACTIVE' }),
       leasesApi.getAll({ status: 'DRAFT' }),
@@ -94,7 +96,7 @@ export default function PropertyDetailPage() {
           new Date(a.updatedAt || a.createdAt).getTime(),
       );
 
-    return candidates[0] ?? null;
+    return candidates;
   }, []);
 
   const loadProperty = useCallback(async (id: string) => {
@@ -102,17 +104,17 @@ export default function PropertyDetailPage() {
       const [data, visitData, leaseData] = await Promise.all([
         propertiesApi.getById(id),
         propertiesApi.getMaintenanceTasks(id),
-        loadLatestLeaseForProperty(id),
+        loadLeasesForProperty(id),
       ]);
       setProperty(data);
       setMaintenanceTasks(visitData);
-      setCurrentLease(leaseData);
+      setLeasesForProperty(leaseData);
     } catch (error) {
       console.error('Failed to load property', error);
     } finally {
       setLoading(false);
     }
-  }, [loadLatestLeaseForProperty]);
+  }, [loadLeasesForProperty]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -130,6 +132,56 @@ export default function PropertyDetailPage() {
     } catch (error) {
       console.error('Failed to delete property', error);
       alert(tCommon('error'));
+    }
+  };
+
+  const isRentalLeaseExpired = (lease: Lease): boolean => {
+    if (lease.contractType !== 'rental' || !lease.endDate) {
+      return false;
+    }
+    const endDate = new Date(lease.endDate);
+    endDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return endDate < today;
+  };
+
+  const resolveLeaseAction = (
+    leases: Lease[],
+  ): { type: 'view'; lease: Lease } | { type: 'renew'; lease: Lease } | { type: 'none' } => {
+    const ordered = [...leases].sort(
+      (a, b) =>
+        new Date(b.updatedAt || b.createdAt).getTime() -
+        new Date(a.updatedAt || a.createdAt).getTime(),
+    );
+
+    const draft = ordered.find((lease) => lease.status === 'DRAFT');
+    if (draft) return { type: 'view', lease: draft };
+
+    const activeNonExpired = ordered.find(
+      (lease) => lease.status === 'ACTIVE' && !isRentalLeaseExpired(lease),
+    );
+    if (activeNonExpired) return { type: 'view', lease: activeNonExpired };
+
+    const expiredRental = ordered.find((lease) => isRentalLeaseExpired(lease));
+    if (expiredRental) return { type: 'renew', lease: expiredRental };
+
+    if (ordered[0]) return { type: 'view', lease: ordered[0] };
+    return { type: 'none' };
+  };
+
+  const handleRenewLease = async (lease: Lease) => {
+    if (!propertyId) return;
+    try {
+      setRenewingLeaseId(lease.id);
+      const renewed = await leasesApi.renew(lease.id);
+      await loadProperty(propertyId);
+      router.push(`/leases/${renewed.id}`);
+    } catch (error) {
+      console.error('Failed to renew lease from property detail', error);
+      alert(tCommon('error'));
+    } finally {
+      setRenewingLeaseId(null);
     }
   };
 
@@ -221,6 +273,7 @@ export default function PropertyDetailPage() {
       : !supportsRent && supportsSale
         ? 'sale'
         : undefined;
+  const leaseAction = resolveLeaseAction(leasesForProperty);
   const createLeaseHref = `/${locale}/leases/new?propertyId=${property.id}&ownerId=${property.ownerId}${
     defaultContractType ? `&contractType=${defaultContractType}` : ''
   }`;
@@ -326,14 +379,28 @@ export default function PropertyDetailPage() {
               </div>
             </div>
             <div className="text-right">
-              {currentLease ? (
+              {leaseAction.type === 'view' ? (
                 <Link
-                  href={`/${locale}/leases/${currentLease.id}`}
+                  href={`/${locale}/leases/${leaseAction.lease.id}`}
                   className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
                 >
                   <FileText size={16} />
                   {t('viewLease')}
                 </Link>
+              ) : leaseAction.type === 'renew' ? (
+                <button
+                  type="button"
+                  onClick={() => void handleRenewLease(leaseAction.lease)}
+                  disabled={renewingLeaseId === leaseAction.lease.id}
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-70"
+                >
+                  {renewingLeaseId === leaseAction.lease.id ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <RefreshCw size={16} />
+                  )}
+                  {t('renewLease')}
+                </button>
               ) : canCreateLease ? (
                 <Link
                   href={createLeaseHref}

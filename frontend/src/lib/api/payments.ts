@@ -14,8 +14,10 @@ import {
 import { apiClient } from '../api';
 import { getToken } from '../auth';
 
-// Check if we're in mock mode (non-production)
-const IS_MOCK_MODE = process.env.NODE_ENV !== 'production';
+// Use mock data only in explicit mock/test contexts.
+const IS_MOCK_MODE = process.env.NODE_ENV === 'test' ||
+    process.env.NEXT_PUBLIC_MOCK_MODE === 'true' ||
+    process.env.CI === 'true';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 // Mock data for development
@@ -116,12 +118,16 @@ const MOCK_PAYMENTS: Payment[] = [
 const DELAY = 500;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const shouldUseMock = (): boolean => {
+    return IS_MOCK_MODE || (getToken()?.startsWith('mock-token-') ?? false);
+};
+
 export const paymentsApi = {
     /**
      * Lista pagos con filtros
      */
     getAll: async (filters?: PaymentFilters): Promise<PaginatedResponse<Payment>> => {
-        if (IS_MOCK_MODE) {
+        if (shouldUseMock()) {
             await delay(DELAY);
             let filtered = [...MOCK_PAYMENTS];
 
@@ -170,7 +176,7 @@ export const paymentsApi = {
      * Obtiene un pago por ID
      */
     getById: async (id: string): Promise<Payment | null> => {
-        if (IS_MOCK_MODE) {
+        if (shouldUseMock()) {
             await delay(DELAY);
             const payment = MOCK_PAYMENTS.find((p) => p.id === id);
             if (!payment) return null;
@@ -191,7 +197,7 @@ export const paymentsApi = {
      * Crea un nuevo pago
      */
     create: async (data: CreatePaymentInput): Promise<Payment> => {
-        if (IS_MOCK_MODE) {
+        if (shouldUseMock()) {
             await delay(DELAY);
             const newPayment: Payment = {
                 id: `pay${Date.now()}`,
@@ -226,7 +232,7 @@ export const paymentsApi = {
      * Confirma un pago
      */
     confirm: async (id: string): Promise<Payment> => {
-        if (IS_MOCK_MODE) {
+        if (shouldUseMock()) {
             await delay(DELAY);
             const index = MOCK_PAYMENTS.findIndex((p) => p.id === id);
             if (index === -1) throw new Error('Payment not found');
@@ -256,7 +262,7 @@ export const paymentsApi = {
      * Cancela un pago
      */
     cancel: async (id: string): Promise<Payment> => {
-        if (IS_MOCK_MODE) {
+        if (shouldUseMock()) {
             await delay(DELAY);
             const index = MOCK_PAYMENTS.findIndex((p) => p.id === id);
             if (index === -1) throw new Error('Payment not found');
@@ -274,7 +280,7 @@ export const paymentsApi = {
     },
 
     update: async (id: string, data: Partial<CreatePaymentInput>): Promise<Payment> => {
-        if (IS_MOCK_MODE) {
+        if (shouldUseMock()) {
             await delay(DELAY);
             const index = MOCK_PAYMENTS.findIndex((p) => p.id === id);
             if (index === -1) throw new Error('Payment not found');
@@ -313,7 +319,7 @@ export const paymentsApi = {
     },
 
     downloadReceiptPdf: async (paymentId: string, receiptNumber?: string): Promise<void> => {
-        if (IS_MOCK_MODE) {
+        if (shouldUseMock()) {
             const blob = new Blob([`Receipt ${receiptNumber ?? paymentId}`], {
                 type: 'application/pdf',
             });
@@ -355,7 +361,7 @@ export const invoicesApi = {
      * Lista facturas con filtros
      */
     getAll: async (filters?: InvoiceFilters): Promise<PaginatedResponse<Invoice>> => {
-        if (IS_MOCK_MODE) {
+        if (shouldUseMock()) {
             await delay(DELAY);
             let filtered = [...MOCK_INVOICES];
 
@@ -389,7 +395,7 @@ export const invoicesApi = {
      * Obtiene una factura por ID
      */
     getById: async (id: string): Promise<Invoice | null> => {
-        if (IS_MOCK_MODE) {
+        if (shouldUseMock()) {
             await delay(DELAY);
             return MOCK_INVOICES.find((i) => i.id === id) || null;
         }
@@ -403,7 +409,7 @@ export const invoicesApi = {
     },
 
     listCreditNotes: async (invoiceId: string): Promise<CreditNote[]> => {
-        if (IS_MOCK_MODE) {
+        if (shouldUseMock()) {
             await delay(DELAY);
             return [];
         }
@@ -417,7 +423,7 @@ export const invoicesApi = {
         invoiceNumber?: string,
         filenamePrefix = 'factura',
     ): Promise<void> => {
-        if (IS_MOCK_MODE) {
+        if (shouldUseMock()) {
             const blob = new Blob([`Invoice ${invoiceNumber ?? invoiceId}`], {
                 type: 'application/pdf',
             });
@@ -457,7 +463,7 @@ export const invoicesApi = {
         creditNoteId: string,
         noteNumber?: string,
     ): Promise<void> => {
-        if (IS_MOCK_MODE) {
+        if (shouldUseMock()) {
             const blob = new Blob([`Credit note ${noteNumber ?? creditNoteId}`], {
                 type: 'application/pdf',
             });
@@ -499,7 +505,7 @@ export const tenantAccountsApi = {
      * Obtiene cuenta por lease ID
      */
     getByLease: async (leaseId: string): Promise<TenantAccount | null> => {
-        if (IS_MOCK_MODE) {
+        if (shouldUseMock()) {
             await delay(DELAY);
             return MOCK_TENANT_ACCOUNTS.find((a) => a.leaseId === leaseId) || null;
         }
@@ -516,7 +522,7 @@ export const tenantAccountsApi = {
      * Obtiene balance de cuenta
      */
     getBalance: async (accountId: string): Promise<AccountBalance> => {
-        if (IS_MOCK_MODE) {
+        if (shouldUseMock()) {
             await delay(DELAY);
             const account = MOCK_TENANT_ACCOUNTS.find((a) => a.id === accountId);
             if (!account) throw new Error('Account not found');
@@ -536,7 +542,7 @@ export const tenantAccountsApi = {
      * Lista movimientos de cuenta
      */
     getMovements: async (accountId: string): Promise<TenantAccountMovement[]> => {
-        if (IS_MOCK_MODE) {
+        if (shouldUseMock()) {
             await delay(DELAY);
             // Mock movements
             return [
@@ -577,7 +583,7 @@ export const tenantAccountsApi = {
      * Lista recibos por inquilino
      */
     getReceiptsByTenant: async (tenantId: string): Promise<TenantReceiptSummary[]> => {
-        if (IS_MOCK_MODE) {
+        if (shouldUseMock()) {
             await delay(DELAY);
             const normalizedTenantId = decodeURIComponent(tenantId).split('?')[0];
             const receipts: TenantReceiptSummary[] = [];

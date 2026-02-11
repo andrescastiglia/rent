@@ -27,6 +27,7 @@ describe('TenantsService', () => {
       innerJoin: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
+      distinct: jest.fn().mockReturnThis(),
       skip: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
       getOne: jest.fn(),
@@ -45,6 +46,7 @@ describe('TenantsService', () => {
 
   const mockUser: Partial<User> = {
     id: 'user-1',
+    companyId: 'company-1',
     email: 'tenant@example.com',
     firstName: 'John',
     lastName: 'Tenant',
@@ -231,6 +233,12 @@ describe('TenantsService', () => {
 
   describe('findOne', () => {
     it('should return a tenant by id', async () => {
+      _tenantRepository.findOne!.mockResolvedValue({
+        id: 'tenant-1',
+        userId: 'user-1',
+        companyId: 'company-1',
+      });
+      leaseRepository.findOne!.mockResolvedValue({ id: 'lease-1' });
       userRepository.findOne!.mockResolvedValue(mockUser);
 
       const result = await service.findOne('user-1');
@@ -246,12 +254,32 @@ describe('TenantsService', () => {
 
       await expect(service.findOne('999')).rejects.toThrow(NotFoundException);
     });
+
+    it('should throw NotFoundException when tenant has no rental lease', async () => {
+      userRepository.findOne!.mockResolvedValue(mockUser);
+      _tenantRepository.findOne!.mockResolvedValue({
+        id: 'tenant-1',
+        userId: 'user-1',
+        companyId: 'company-1',
+      });
+      leaseRepository.findOne!.mockResolvedValue(null);
+
+      await expect(service.findOne('user-1')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
   });
 
   describe('update', () => {
     it('should update tenant information', async () => {
       const updateDto = { firstName: 'Jane', phone: '+111111111' };
       userRepository.findOne!.mockResolvedValue(mockUser);
+      _tenantRepository.findOne!.mockResolvedValue({
+        id: 'tenant-1',
+        userId: 'user-1',
+        companyId: 'company-1',
+      });
+      leaseRepository.findOne!.mockResolvedValue({ id: 'lease-1' });
       userRepository.save!.mockResolvedValue({ ...mockUser, ...updateDto });
       userRepository.query!.mockResolvedValue([]);
 
@@ -264,6 +292,12 @@ describe('TenantsService', () => {
     it('should update tenant-specific fields via raw query', async () => {
       const updateDto = { dni: '87654321' };
       userRepository.findOne!.mockResolvedValue(mockUser);
+      _tenantRepository.findOne!.mockResolvedValue({
+        id: 'tenant-1',
+        userId: 'user-1',
+        companyId: 'company-1',
+      });
+      leaseRepository.findOne!.mockResolvedValue({ id: 'lease-1' });
       userRepository.save!.mockResolvedValue(mockUser);
       userRepository.query!.mockResolvedValue([]);
 
@@ -279,6 +313,12 @@ describe('TenantsService', () => {
   describe('remove', () => {
     it('should soft delete a tenant', async () => {
       userRepository.findOne!.mockResolvedValue(mockUser);
+      _tenantRepository.findOne!.mockResolvedValue({
+        id: 'tenant-1',
+        userId: 'user-1',
+        companyId: 'company-1',
+      });
+      leaseRepository.findOne!.mockResolvedValue({ id: 'lease-1' });
       userRepository.softDelete = jest.fn().mockResolvedValue({ affected: 1 });
 
       await service.remove('user-1');
@@ -288,18 +328,34 @@ describe('TenantsService', () => {
   });
 
   describe('getLeaseHistory', () => {
-    it('should return lease history for tenant', async () => {
-      const mockLeases = [{ id: 'lease-1', tenantId: 'user-1' }];
+    it('should return lease history for tenant user id', async () => {
+      const mockLeases = [{ id: 'lease-1', tenantId: 'tenant-1' }];
+      _tenantRepository.findOne!.mockResolvedValue({
+        id: 'tenant-1',
+        userId: 'user-1',
+        companyId: 'company-1',
+      });
       leaseRepository.find!.mockResolvedValue(mockLeases);
 
       const result = await service.getLeaseHistory('user-1');
 
       expect(leaseRepository.find).toHaveBeenCalledWith({
-        where: { tenantId: 'user-1' },
+        where: expect.objectContaining({
+          tenantId: 'tenant-1',
+          contractType: 'rental',
+        }),
         relations: ['property'],
         order: { startDate: 'DESC' },
       });
       expect(result).toEqual(mockLeases);
+    });
+
+    it('should throw when tenant user id is not found', async () => {
+      _tenantRepository.findOne!.mockResolvedValue(null);
+
+      await expect(service.getLeaseHistory('missing')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

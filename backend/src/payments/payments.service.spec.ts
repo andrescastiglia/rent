@@ -159,6 +159,7 @@ describe('PaymentsService', () => {
   it('should list receipts by tenant', async () => {
     const mockQueryBuilder = {
       leftJoinAndSelect: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       getMany: jest.fn().mockResolvedValue([]),
@@ -169,7 +170,7 @@ describe('PaymentsService', () => {
     await service.findReceiptsByTenant('tenant-1');
 
     expect(mockQueryBuilder.where).toHaveBeenCalledWith(
-      'payment.tenant_id = :tenantId',
+      '(payment.tenant_id = :tenantId OR tenant.user_id = :tenantId)',
       { tenantId: 'tenant-1' },
     );
     expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith(

@@ -14,6 +14,7 @@ import { LeasesController } from './leases.controller';
 import { AmendmentsController } from './amendments.controller';
 import { LeasesContractController } from './leases-contract.controller';
 import { DocumentsModule } from '../documents/documents.module';
+import { PaymentsModule } from '../payments/payments.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { DocumentsModule } from '../documents/documents.module';
       Tenant,
     ]),
     DocumentsModule,
+    PaymentsModule,
   ],
   controllers: [
     LeasesController,

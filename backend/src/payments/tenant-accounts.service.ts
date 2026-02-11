@@ -91,13 +91,11 @@ export class TenantAccountsService {
       relations: ['lease', 'lease.tenant', 'lease.property'],
     });
 
-    if (!account) {
-      throw new NotFoundException(
-        `Tenant account for lease ${leaseId} not found`,
-      );
+    if (account) {
+      return account;
     }
 
-    return account;
+    return this.createForLease(leaseId);
   }
 
   /**

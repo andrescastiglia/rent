@@ -296,7 +296,10 @@ export class PaymentsService {
     return this.receiptsRepository
       .createQueryBuilder('receipt')
       .leftJoinAndSelect('receipt.payment', 'payment')
-      .where('payment.tenant_id = :tenantId', { tenantId })
+      .leftJoin('payment.tenant', 'tenant')
+      .where('(payment.tenant_id = :tenantId OR tenant.user_id = :tenantId)', {
+        tenantId,
+      })
       .orderBy('receipt.issue_date', 'DESC')
       .getMany();
   }
@@ -349,7 +352,10 @@ export class PaymentsService {
       .where('payment.deleted_at IS NULL');
 
     if (tenantId) {
-      query.andWhere('payment.tenant_id = :tenantId', { tenantId });
+      query.andWhere(
+        '(payment.tenant_id = :tenantId OR tenant.user_id = :tenantId)',
+        { tenantId },
+      );
     }
 
     if (tenantAccountId) {
