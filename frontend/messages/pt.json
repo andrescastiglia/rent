@@ -859,6 +859,7 @@
     },
     "contractTypeFixedByProperty": "Tipo de contrato definido pela operação do imóvel.",
     "contractTypeFixedByInterested": "Tipo de contrato definido pelo interessado selecionado.",
+    "ownerFromPropertyHint": "Proprietário definido pelo imóvel selecionado.",
     "prefilledFieldHint": "Campo preenchido automaticamente conforme a origem da criação do contrato.",
     "templateAutofillHint": "Ao selecionar um modelo, os termos são preenchidos com os valores atuais do contrato e atualizados automaticamente."
   },

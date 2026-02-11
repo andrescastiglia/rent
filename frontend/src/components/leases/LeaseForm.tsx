@@ -116,12 +116,9 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const selectedOwnerId = formValues.ownerId;
   const selectedTemplateId = formValues.templateId;
   const preselectedPropertyId = searchParams.get('propertyId');
-  const preselectedOwnerId = searchParams.get('ownerId');
   const preselectedTenantId = searchParams.get('tenantId');
   const preselectedBuyerProfileId = searchParams.get('buyerProfileId');
-  const preselectedContractType = searchParams.get('contractType');
   const hasPreselectedProperty = !isEditing && !!preselectedPropertyId;
-  const hasPreselectedOwner = !isEditing && !!preselectedOwnerId;
   const hasPreselectedTenant = !isEditing && !!preselectedTenantId;
   const hasPreselectedBuyer = !isEditing && !!preselectedBuyerProfileId;
   const selectedProperty = useMemo(
@@ -147,9 +144,17 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     !isEditing && (hasPreselectedTenant || hasPreselectedBuyer);
   const shouldShowContractTypeSelect =
     !shouldLockContractTypeByInterested &&
-    (isEditing ||
-      !selectedProperty ||
-      selectedPropertySupportsRent === selectedPropertySupportsSale);
+    !!selectedProperty &&
+    selectedPropertySupportsRent &&
+    selectedPropertySupportsSale;
+  const hasResolvableContractTypeFromProperty =
+    !!selectedProperty &&
+    (selectedPropertySupportsRent || selectedPropertySupportsSale);
+  const contractTypeHelperText = shouldLockContractTypeByInterested
+    ? t('contractTypeFixedByInterested')
+    : hasResolvableContractTypeFromProperty
+      ? t('contractTypeFixedByProperty')
+      : t('selectProperty');
 
   useEffect(() => {
     const loadData = async () => {
@@ -224,12 +229,6 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     if (preselectedPropertyId) {
       setValue('propertyId', preselectedPropertyId);
     }
-    if (preselectedOwnerId) {
-      setValue('ownerId', preselectedOwnerId);
-    }
-    if (preselectedContractType === 'rental' || preselectedContractType === 'sale') {
-      setValue('contractType', preselectedContractType);
-    }
     if (preselectedTenantId) {
       setValue('tenantId', preselectedTenantId);
       setValue('contractType', 'rental');
@@ -241,15 +240,27 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   }, [
     isEditing,
     preselectedPropertyId,
-    preselectedOwnerId,
     preselectedTenantId,
     preselectedBuyerProfileId,
-    preselectedContractType,
     setValue,
   ]);
 
   useEffect(() => {
-    if (isEditing || !selectedProperty || shouldLockContractTypeByInterested) {
+    if (!selectedProperty?.ownerId) return;
+    if (selectedOwnerId === selectedProperty.ownerId) return;
+    setValue('ownerId', selectedProperty.ownerId, { shouldValidate: true });
+  }, [selectedOwnerId, selectedProperty, setValue]);
+
+  useEffect(() => {
+    if (!selectedProperty) return;
+
+    if (shouldLockContractTypeByInterested) {
+      if (hasPreselectedTenant && contractType !== 'rental') {
+        setValue('contractType', 'rental', { shouldValidate: true });
+      }
+      if (hasPreselectedBuyer && contractType !== 'sale') {
+        setValue('contractType', 'sale', { shouldValidate: true });
+      }
       return;
     }
 
@@ -266,10 +277,16 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
         setValue('contractType', 'sale', { shouldValidate: true });
       }
       setValue('tenantId', undefined, { shouldValidate: true });
+      return;
+    }
+
+    if (contractType !== 'rental' && contractType !== 'sale') {
+      setValue('contractType', 'rental', { shouldValidate: true });
     }
   }, [
     contractType,
-    isEditing,
+    hasPreselectedBuyer,
+    hasPreselectedTenant,
     selectedProperty,
     selectedPropertySupportsRent,
     selectedPropertySupportsSale,
@@ -278,12 +295,11 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   ]);
 
   const filteredProperties = useMemo(() => {
-    const requiredOperation =
-      contractType === 'sale'
-        ? 'sale'
-        : 'rent';
-
     const filtered = properties.filter((property) => {
+      if (!shouldLockContractTypeByInterested) {
+        return true;
+      }
+      const requiredOperation = hasPreselectedBuyer ? 'sale' : 'rent';
       const ops = property.operations ?? [];
       if (ops.length === 0) return true;
       return ops.includes(requiredOperation);
@@ -297,7 +313,12 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     }
 
     return filtered;
-  }, [contractType, properties, selectedProperty]);
+  }, [
+    hasPreselectedBuyer,
+    properties,
+    selectedProperty,
+    shouldLockContractTypeByInterested,
+  ]);
 
   const templatesForType = useMemo(
     () => templates.filter((item) => item.contractType === contractType),
@@ -434,8 +455,21 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const onSubmit = async (data: LeaseFormData) => {
     setIsSubmitting(true);
     try {
+      const resolvedOwnerId = selectedProperty?.ownerId ?? data.ownerId;
+      const resolvedContractType = shouldLockContractTypeByInterested
+        ? hasPreselectedBuyer
+          ? 'sale'
+          : 'rental'
+        : selectedPropertySupportsRent && !selectedPropertySupportsSale
+          ? 'rental'
+          : !selectedPropertySupportsRent && selectedPropertySupportsSale
+            ? 'sale'
+            : data.contractType;
+
       const payload: LeaseFormData = {
         ...data,
+        ownerId: resolvedOwnerId,
+        contractType: resolvedContractType,
         terms: selectedTemplate ? renderedTemplateTerms : data.terms,
       };
 
@@ -473,7 +507,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
               <input type="hidden" {...register('propertyId')} />
               <label className={labelClass}>{t('fields.property')}</label>
               <p className={readOnlyInputClass}>
-                {selectedProperty?.name ?? preselectedPropertyId}
+                {selectedProperty?.name ?? t('unknownProperty')}
               </p>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {t('prefilledFieldHint')}
@@ -502,11 +536,13 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
             ) : (
               <>
                 <input type="hidden" {...register('contractType')} />
-                <p className={inputClass}>{t(`contractTypes.${contractType}`)}</p>
+                <p className={inputClass}>
+                  {hasResolvableContractTypeFromProperty
+                    ? t(`contractTypes.${contractType}`)
+                    : '-'}
+                </p>
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {shouldLockContractTypeByInterested
-                    ? t('contractTypeFixedByInterested')
-                    : t('contractTypeFixedByProperty')}
+                  {contractTypeHelperText}
                 </p>
               </>
             )}
@@ -526,31 +562,19 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
             </p>
           </div>
 
-          {hasPreselectedOwner ? (
-            <div>
-              <input type="hidden" {...register('ownerId')} />
-              <label className={labelClass}>{t('fields.owner')}</label>
-              <p className={readOnlyInputClass}>
-                {selectedOwner
-                  ? `${selectedOwner.firstName} ${selectedOwner.lastName}`.trim()
-                  : preselectedOwnerId}
-              </p>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {t('prefilledFieldHint')}
-              </p>
-            </div>
-          ) : (
-            <div>
-              <label htmlFor="ownerId" className={labelClass}>{t('fields.owner')}</label>
-              <select id="ownerId" {...register('ownerId')} className={inputClass}>
-                <option value="">{t('selectOwner')}</option>
-                {owners.map(owner => (
-                  <option key={owner.id} value={owner.id}>{owner.firstName} {owner.lastName}</option>
-                ))}
-              </select>
-              {errors.ownerId && <p className="mt-1 text-sm text-red-600">{errors.ownerId.message}</p>}
-            </div>
-          )}
+          <div>
+            <input type="hidden" {...register('ownerId')} />
+            <label className={labelClass}>{t('fields.owner')}</label>
+            <p className={readOnlyInputClass}>
+              {selectedOwner
+                ? `${selectedOwner.firstName} ${selectedOwner.lastName}`.trim()
+                : '-'}
+            </p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {t('ownerFromPropertyHint')}
+            </p>
+            {errors.ownerId && <p className="mt-1 text-sm text-red-600">{errors.ownerId.message}</p>}
+          </div>
 
           <div>
             <label htmlFor="status" className={labelClass}>{t('fields.status')}</label>

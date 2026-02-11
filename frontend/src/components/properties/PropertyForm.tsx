@@ -77,7 +77,16 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
 
   const images = watch('images') || [];
   const selectedOperations = watch('operations') || [];
+  const selectedOwnerId = watch('ownerId');
   const preselectedOwnerId = searchParams.get('ownerId');
+  const isOwnerLocked = isEditing || Boolean(preselectedOwnerId);
+  const activeOwnerId = isEditing
+    ? initialData?.ownerId ?? selectedOwnerId
+    : preselectedOwnerId ?? selectedOwnerId;
+  const activeOwner = useMemo(
+    () => owners.find((owner) => owner.id === activeOwnerId),
+    [activeOwnerId, owners],
+  );
 
   useEffect(() => {
     uploadedSessionImagesRef.current = uploadedSessionImages;
@@ -93,9 +102,6 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
 
   useEffect(() => {
     const loadOwners = async () => {
-      if (user?.role !== 'admin') {
-        return;
-      }
       try {
         const data = await ownersApi.getAll();
         setOwners(data);
@@ -104,13 +110,18 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
       }
     };
     void loadOwners();
-  }, [user?.role]);
+  }, []);
 
   useEffect(() => {
     if (isEditing) return;
     if (!preselectedOwnerId) return;
     setValue('ownerId', preselectedOwnerId, { shouldValidate: true });
   }, [isEditing, preselectedOwnerId, setValue]);
+
+  useEffect(() => {
+    if (!isOwnerLocked || !activeOwner) return;
+    setValue('ownerWhatsapp', activeOwner.phone ?? '', { shouldValidate: true });
+  }, [activeOwner, isOwnerLocked, setValue]);
 
   const handleToggleOperation = (operation: 'rent' | 'sale') => {
     const nextOperations = selectedOperations.includes(operation)
@@ -127,15 +138,23 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
 
     setIsSubmitting(true);
     try {
+      const payload = isOwnerLocked && activeOwner
+        ? {
+            ...data,
+            ownerId: activeOwner.id,
+            ownerWhatsapp: activeOwner.phone ?? undefined,
+          }
+        : data;
+
       if (isEditing && initialData) {
-        await propertiesApi.update(initialData.id, data);
+        await propertiesApi.update(initialData.id, payload);
         router.push(`/properties/${initialData.id}`);
       } else {
-        const newProperty = await propertiesApi.create(data as CreatePropertyInput);
+        const newProperty = await propertiesApi.create(payload as CreatePropertyInput);
         router.push(`/properties/${newProperty.id}`);
       }
 
-      const currentImages = Array.isArray(data.images) ? data.images : [];
+      const currentImages = Array.isArray(payload.images) ? payload.images : [];
       const discardedBeforePersist = uploadedSessionImagesRef.current.filter(
         (imageUrl) => !currentImages.includes(imageUrl),
       );
@@ -194,16 +213,29 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
 
           <div>
             <label htmlFor="ownerWhatsapp" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.ownerWhatsapp')}</label>
-            <input
-              id="ownerWhatsapp"
-              {...register('ownerWhatsapp')}
-              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
-              placeholder={t('placeholders.ownerWhatsapp')}
-            />
+            {isOwnerLocked ? (
+              <p className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm sm:text-sm border p-2 bg-gray-100 dark:bg-gray-900/40 dark:text-white">
+                {activeOwner?.phone || '-'}
+              </p>
+            ) : (
+              <input
+                id="ownerWhatsapp"
+                {...register('ownerWhatsapp')}
+                className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
+                placeholder={t('placeholders.ownerWhatsapp')}
+              />
+            )}
             {errors.ownerWhatsapp && <p className="mt-1 text-sm text-red-600">{errors.ownerWhatsapp.message}</p>}
           </div>
 
-          {user?.role === 'admin' && (
+          {isOwnerLocked ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.owner')}</label>
+              <p className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm sm:text-sm border p-2 bg-gray-100 dark:bg-gray-900/40 dark:text-white">
+                {activeOwner ? `${activeOwner.firstName} ${activeOwner.lastName}`.trim() : '-'}
+              </p>
+            </div>
+          ) : user?.role === 'admin' ? (
             <div>
               <label htmlFor="ownerId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.owner')}</label>
               <select
@@ -219,7 +251,7 @@ export function PropertyForm({ initialData, isEditing = false }: PropertyFormPro
                 ))}
               </select>
             </div>
-          )}
+          ) : null}
 
           <div>
             <label htmlFor="type" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.type')}</label>

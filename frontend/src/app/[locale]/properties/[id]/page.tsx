@@ -1,13 +1,12 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import {
   Property,
   PropertyMaintenanceTask,
-  CreatePropertyMaintenanceTaskInput,
 } from '@/types/property';
 import { propertiesApi } from '@/lib/api/properties';
 import { leasesApi } from '@/lib/api/leases';
@@ -39,25 +38,10 @@ export default function PropertyDetailPage() {
   const router = useLocalizedRouter();
   const [property, setProperty] = useState<Property | null>(null);
   const [maintenanceTasks, setMaintenanceTasks] = useState<PropertyMaintenanceTask[]>([]);
-  const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
-  const [isSubmittingMaintenance, setIsSubmittingMaintenance] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [leasesForProperty, setLeasesForProperty] = useState<Lease[]>([]);
   const [loading, setLoading] = useState(true);
   const [renewingLeaseId, setRenewingLeaseId] = useState<string | null>(null);
-
-  const defaultTaskDate = useMemo(() => {
-    const now = new Date();
-    const offsetMinutes = now.getTimezoneOffset();
-    const local = new Date(now.getTime() - offsetMinutes * 60000);
-    return local.toISOString().slice(0, 16);
-  }, []);
-
-  const [maintenanceForm, setMaintenanceForm] = useState({
-    scheduledAt: defaultTaskDate,
-    title: '',
-    notes: '',
-  });
 
   useEffect(() => {
     setCurrentImageIndex(0);
@@ -200,50 +184,6 @@ export default function PropertyDetailPage() {
     return t(`operationState.${stateKey}`);
   };
 
-  const handleMaintenanceInputChange = (field: string, value: string) => {
-    setMaintenanceForm((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleAddMaintenanceTask = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!property) return;
-
-    setMaintenanceError(null);
-
-    if (!maintenanceForm.title.trim()) {
-      setMaintenanceError(t('maintenanceErrors.titleRequired'));
-      return;
-    }
-
-    const parsedScheduledAt = new Date(maintenanceForm.scheduledAt);
-    if (Number.isNaN(parsedScheduledAt.getTime())) {
-      setMaintenanceError(t('maintenanceErrors.invalidDate'));
-      return;
-    }
-
-    const payload: CreatePropertyMaintenanceTaskInput = {
-      scheduledAt: parsedScheduledAt.toISOString(),
-      title: maintenanceForm.title.trim(),
-      notes: maintenanceForm.notes.trim() || undefined,
-    };
-
-    setIsSubmittingMaintenance(true);
-    try {
-      const newTask = await propertiesApi.createMaintenanceTask(property.id, payload);
-      setMaintenanceTasks((prev) => [newTask, ...prev]);
-      setMaintenanceForm((prev) => ({
-        ...prev,
-        title: '',
-        notes: '',
-      }));
-    } catch (error) {
-      console.error('Failed to save maintenance task', error);
-      setMaintenanceError(tCommon('error'));
-    } finally {
-      setIsSubmittingMaintenance(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -267,16 +207,8 @@ export default function PropertyDetailPage() {
   const supportsRent = propertyOperations.includes('rent');
   const supportsSale = propertyOperations.includes('sale');
   const canCreateLease = supportsRent || supportsSale;
-  const defaultContractType =
-    supportsRent && !supportsSale
-      ? 'rental'
-      : !supportsRent && supportsSale
-        ? 'sale'
-        : undefined;
   const leaseAction = resolveLeaseAction(leasesForProperty);
-  const createLeaseHref = `/${locale}/leases/new?propertyId=${property.id}&ownerId=${property.ownerId}${
-    defaultContractType ? `&contractType=${defaultContractType}` : ''
-  }`;
+  const createLeaseHref = `/${locale}/leases/new?propertyId=${property.id}`;
   const hasMultipleImages = property.images.length > 1;
   const currentImage = property.images[currentImageIndex] ?? property.images[0];
 
@@ -442,65 +374,13 @@ export default function PropertyDetailPage() {
               <section id="maintenance-tasks">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t('maintenanceTasks')}</h2>
+                  <Link
+                    href={`/${locale}/properties/${property.id}/maintenance/new`}
+                    className="inline-flex items-center px-3 py-2 rounded-md border border-blue-300 dark:border-blue-700 text-sm text-blue-700 dark:text-blue-300"
+                  >
+                    {t('saveMaintenanceTask')}
+                  </Link>
                 </div>
-
-                <form onSubmit={handleAddMaintenanceTask} className="space-y-4 bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-100 dark:border-gray-600">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="maintenanceDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.scheduledAt')}</label>
-                      <input
-                        id="maintenanceDate"
-                        type="datetime-local"
-                        value={maintenanceForm.scheduledAt}
-                        onChange={(event) => handleMaintenanceInputChange('scheduledAt', event.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-800 dark:text-white"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="maintenanceTitle" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.taskTitle')}</label>
-                      <input
-                        id="maintenanceTitle"
-                        value={maintenanceForm.title}
-                        onChange={(event) => handleMaintenanceInputChange('title', event.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-800 dark:text-white"
-                        placeholder={t('placeholders.taskTitle')}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label htmlFor="maintenanceNotes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('fields.taskNotes')}</label>
-                    <textarea
-                      id="maintenanceNotes"
-                      value={maintenanceForm.notes}
-                      onChange={(event) => handleMaintenanceInputChange('notes', event.target.value)}
-                      rows={3}
-                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-800 dark:text-white"
-                      placeholder={t('placeholders.taskNotes')}
-                    />
-                  </div>
-
-                  {maintenanceError && (
-                    <p className="text-sm text-red-600">{maintenanceError}</p>
-                  )}
-
-                  <div className="flex justify-end">
-                    <button
-                      type="submit"
-                      disabled={isSubmittingMaintenance}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isSubmittingMaintenance ? (
-                        <>
-                          <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
-                          {tCommon('saving')}
-                        </>
-                      ) : (
-                        t('saveMaintenanceTask')
-                      )}
-                    </button>
-                  </div>
-                </form>
 
                 <div className="mt-6 space-y-4">
                   {maintenanceTasks.length > 0 ? (

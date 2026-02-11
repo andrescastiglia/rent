@@ -6,7 +6,7 @@ import { Property, PropertyMaintenanceTask } from '@/types/property';
 import { propertiesApi } from '@/lib/api/properties';
 import { ownersApi } from '@/lib/api/owners';
 import { leasesApi } from '@/lib/api/leases';
-import { CreateOwnerInput, Owner, UpdateOwnerInput } from '@/types/owner';
+import { Owner } from '@/types/owner';
 import { Lease } from '@/types/lease';
 import {
   Plus,
@@ -23,16 +23,6 @@ import {
 import { useLocale, useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/auth-context';
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter';
-
-type OwnerMode = 'view' | 'edit' | 'create';
-
-const emptyOwnerForm: CreateOwnerInput = {
-  firstName: '',
-  lastName: '',
-  email: '',
-  phone: '',
-  taxId: '',
-};
 
 const byMostRecentDate = <T extends { updatedAt: string; createdAt: string }>(
   items: T[],
@@ -102,9 +92,6 @@ export default function PropertiesPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(null);
-  const [ownerMode, setOwnerMode] = useState<OwnerMode>('view');
-  const [ownerForm, setOwnerForm] = useState<CreateOwnerInput>(emptyOwnerForm);
-  const [savingOwner, setSavingOwner] = useState(false);
   const [leasesByProperty, setLeasesByProperty] = useState<Record<string, Lease[]>>({});
   const [expandedPropertyId, setExpandedPropertyId] = useState<string | null>(null);
   const [maintenanceByProperty, setMaintenanceByProperty] = useState<
@@ -119,18 +106,8 @@ export default function PropertiesPage() {
   }, [authLoading]);
 
   useEffect(() => {
-    if (!selectedOwnerId && owners.length > 0) {
-      setSelectedOwnerId(owners[0].id);
-      setOwnerMode('view');
-      setOwnerForm(emptyOwnerForm);
-      setExpandedPropertyId(null);
-      return;
-    }
-
     if (selectedOwnerId && !owners.some((owner) => owner.id === selectedOwnerId)) {
-      setSelectedOwnerId(owners.length > 0 ? owners[0].id : null);
-      setOwnerMode('view');
-      setOwnerForm(emptyOwnerForm);
+      setSelectedOwnerId(null);
       setExpandedPropertyId(null);
     }
   }, [owners, selectedOwnerId]);
@@ -205,8 +182,6 @@ export default function PropertiesPage() {
 
   const handleSelectOwner = (owner: Owner) => {
     setSelectedOwnerId(owner.id);
-    setOwnerMode('view');
-    setOwnerForm(emptyOwnerForm);
     setExpandedPropertyId(null);
   };
 
@@ -236,11 +211,6 @@ export default function PropertiesPage() {
     }
   };
 
-  const handleCreateOwner = () => {
-    setOwnerMode('create');
-    setOwnerForm(emptyOwnerForm);
-  };
-
   const handleRenewLease = async (lease: Lease) => {
     try {
       setRenewingLeaseId(lease.id);
@@ -255,127 +225,6 @@ export default function PropertiesPage() {
     }
   };
 
-  const handleEditOwner = (owner: Owner) => {
-    setSelectedOwnerId(owner.id);
-    setOwnerMode('edit');
-    setOwnerForm({
-      firstName: owner.firstName,
-      lastName: owner.lastName,
-      email: owner.email,
-      phone: owner.phone ?? '',
-      taxId: owner.taxId ?? '',
-      notes: owner.notes ?? '',
-    });
-  };
-
-  const handleCancelOwnerForm = () => {
-    setOwnerMode('view');
-    setOwnerForm(emptyOwnerForm);
-  };
-
-  const handleSaveOwner = async () => {
-    if (!ownerForm.firstName?.trim() || !ownerForm.lastName?.trim() || !ownerForm.email?.trim()) {
-      return;
-    }
-
-    setSavingOwner(true);
-    try {
-      if (ownerMode === 'create') {
-        const created = await ownersApi.create({
-          ...ownerForm,
-          firstName: ownerForm.firstName.trim(),
-          lastName: ownerForm.lastName.trim(),
-          email: ownerForm.email.trim(),
-          phone: ownerForm.phone?.trim() || undefined,
-          taxId: ownerForm.taxId?.trim() || undefined,
-          notes: ownerForm.notes?.trim() || undefined,
-        });
-        setOwners((prev) => [created, ...prev]);
-        setSelectedOwnerId(created.id);
-        setOwnerMode('view');
-        setOwnerForm(emptyOwnerForm);
-      } else if (ownerMode === 'edit' && selectedOwner) {
-        const updated = await ownersApi.update(selectedOwner.id, {
-          ...(ownerForm as UpdateOwnerInput),
-          firstName: ownerForm.firstName?.trim() || selectedOwner.firstName,
-          lastName: ownerForm.lastName?.trim() || selectedOwner.lastName,
-          email: ownerForm.email?.trim() || selectedOwner.email,
-          phone: ownerForm.phone?.trim() || undefined,
-          taxId: ownerForm.taxId?.trim() || undefined,
-          notes: ownerForm.notes?.trim() || undefined,
-        });
-        setOwners((prev) => prev.map((owner) => (owner.id === updated.id ? updated : owner)));
-        setOwnerMode('view');
-        setOwnerForm(emptyOwnerForm);
-      }
-    } catch (error) {
-      console.error('Failed to save owner', error);
-      alert(tc('error'));
-    } finally {
-      setSavingOwner(false);
-    }
-  };
-
-  const renderOwnerForm = (title: string) => (
-    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-4">
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <input
-          type="text"
-          value={ownerForm.firstName ?? ''}
-          onChange={(e) => setOwnerForm((prev) => ({ ...prev, firstName: e.target.value }))}
-          placeholder={t('ownerFields.firstName')}
-          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-        />
-        <input
-          type="text"
-          value={ownerForm.lastName ?? ''}
-          onChange={(e) => setOwnerForm((prev) => ({ ...prev, lastName: e.target.value }))}
-          placeholder={t('ownerFields.lastName')}
-          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-        />
-        <input
-          type="email"
-          value={ownerForm.email ?? ''}
-          onChange={(e) => setOwnerForm((prev) => ({ ...prev, email: e.target.value }))}
-          placeholder={t('ownerFields.email')}
-          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-        />
-        <input
-          type="text"
-          value={ownerForm.phone ?? ''}
-          onChange={(e) => setOwnerForm((prev) => ({ ...prev, phone: e.target.value }))}
-          placeholder={t('ownerFields.phone')}
-          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-        />
-        <input
-          type="text"
-          value={ownerForm.taxId ?? ''}
-          onChange={(e) => setOwnerForm((prev) => ({ ...prev, taxId: e.target.value }))}
-          placeholder={t('ownerFields.taxId')}
-          className="md:col-span-2 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-        />
-      </div>
-      <div className="flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={handleCancelOwnerForm}
-          className="px-3 py-2 rounded-md bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200 text-sm"
-        >
-          {tc('cancel')}
-        </button>
-        <button
-          type="button"
-          onClick={() => void handleSaveOwner()}
-          disabled={savingOwner}
-          className="px-3 py-2 rounded-md bg-blue-600 text-white text-sm disabled:opacity-50"
-        >
-          {savingOwner ? tc('saving') : tc('save')}
-        </button>
-      </div>
-    </div>
-  );
-
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
@@ -383,14 +232,13 @@ export default function PropertiesPage() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('ownersTitle')}</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">{t('ownerListSubtitle')}</p>
         </div>
-        <button
-          type="button"
-          onClick={handleCreateOwner}
+        <Link
+          href={`/${locale}/properties/owners/new`}
           className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
         >
           <Plus size={18} className="mr-2" />
           {t('addOwner')}
-        </button>
+        </Link>
       </div>
 
       {loading ? (
@@ -431,13 +279,12 @@ export default function PropertiesPage() {
                       <p className="text-xs text-gray-500 dark:text-gray-400">{owner.phone || '-'}</p>
                     </button>
                     <div className="mt-2 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => handleEditOwner(owner)}
+                      <Link
+                        href={`/${locale}/properties/owners/${owner.id}/edit`}
                         className="px-2 py-1 text-xs rounded bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
                       >
                         {tc('edit')}
-                      </button>
+                      </Link>
                     </div>
                   </div>
                 ))
@@ -451,207 +298,162 @@ export default function PropertiesPage() {
           </div>
 
           <div className="xl:col-span-8 space-y-4">
-            {ownerMode === 'create' ? renderOwnerForm(t('createOwnerTitle')) : null}
-
             {selectedOwner ? (
-              <>
-                {ownerMode === 'edit' ? renderOwnerForm(t('editOwnerTitle')) : (
-                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {selectedOwner.firstName} {selectedOwner.lastName}
-                      </h2>
-                      <button
-                        type="button"
-                        onClick={() => handleEditOwner(selectedOwner)}
-                        className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm"
-                      >
-                        {tc('edit')}
-                      </button>
-                    </div>
-                    <dl className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <dt className="text-gray-500 dark:text-gray-400">{t('ownerFields.email')}</dt>
-                        <dd className="text-gray-900 dark:text-white">{selectedOwner.email}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-gray-500 dark:text-gray-400">{t('ownerFields.phone')}</dt>
-                        <dd className="text-gray-900 dark:text-white">{selectedOwner.phone || '-'}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-gray-500 dark:text-gray-400">{t('ownerFields.taxId')}</dt>
-                        <dd className="text-gray-900 dark:text-white">{selectedOwner.taxId || '-'}</dd>
-                      </div>
-                    </dl>
-                  </div>
-                )}
+              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('ownerAssignedProperties')}</h3>
+                  <Link
+                    href={`/${locale}/properties/new?ownerId=${selectedOwner.id}`}
+                    className="inline-flex items-center px-3 py-2 rounded-md border border-blue-300 dark:border-blue-700 text-sm text-blue-700 dark:text-blue-300"
+                  >
+                    <Plus size={16} className="mr-2" />
+                    {t('addProperty')}
+                  </Link>
+                </div>
 
-                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('ownerAssignedProperties')}</h3>
-                    <Link
-                      href={`/${locale}/properties/new?ownerId=${selectedOwner.id}`}
-                      className="inline-flex items-center px-3 py-2 rounded-md border border-blue-300 dark:border-blue-700 text-sm text-blue-700 dark:text-blue-300"
-                    >
-                      <Plus size={16} className="mr-2" />
-                      {t('addProperty')}
-                    </Link>
-                  </div>
+                {selectedOwnerProperties.length > 0 ? (
+                  <div className="space-y-2">
+                    {selectedOwnerProperties.map((property) => {
+                      const propertyOperations = property.operations ?? [];
+                      const supportsRent = propertyOperations.includes('rent');
+                      const supportsSale = propertyOperations.includes('sale');
+                      const canCreateContract = supportsRent || supportsSale;
+                      const propertyLeases = leasesByProperty[property.id] ?? [];
+                      const leaseAction = resolvePropertyLeaseAction(propertyLeases);
+                      const createContractHref = `/${locale}/leases/new?propertyId=${property.id}`;
 
-                  {selectedOwnerProperties.length > 0 ? (
-                    <div className="space-y-2">
-                      {selectedOwnerProperties.map((property) => {
-                        const propertyOperations = property.operations ?? [];
-                        const supportsRent = propertyOperations.includes('rent');
-                        const supportsSale = propertyOperations.includes('sale');
-                        const canCreateContract = supportsRent || supportsSale;
-                        const defaultContractType =
-                          supportsRent && !supportsSale
-                            ? 'rental'
-                            : !supportsRent && supportsSale
-                              ? 'sale'
-                              : undefined;
-                        const propertyLeases = leasesByProperty[property.id] ?? [];
-                        const leaseAction = resolvePropertyLeaseAction(propertyLeases);
-                        const createContractHref = `/${locale}/leases/new?propertyId=${property.id}&ownerId=${selectedOwner.id}${
-                          defaultContractType ? `&contractType=${defaultContractType}` : ''
-                        }`;
-
-                        return (
+                      return (
+                        <div
+                          key={property.id}
+                          className={`rounded-md border transition ${
+                            expandedPropertyId === property.id
+                              ? 'border-blue-400 bg-blue-50/50 dark:bg-blue-900/10 dark:border-blue-700'
+                              : 'border-gray-200 dark:border-gray-700'
+                          }`}
+                        >
                           <div
-                            key={property.id}
-                            className={`rounded-md border transition ${
-                              expandedPropertyId === property.id
-                                ? 'border-blue-400 bg-blue-50/50 dark:bg-blue-900/10 dark:border-blue-700'
-                                : 'border-gray-200 dark:border-gray-700'
-                            }`}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => void handleTogglePropertyMaintenance(property.id)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                void handleTogglePropertyMaintenance(property.id);
+                              }
+                            }}
+                            className="w-full p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-left cursor-pointer"
                           >
-                            <div
-                              role="button"
-                              tabIndex={0}
-                              onClick={() => void handleTogglePropertyMaintenance(property.id)}
-                              onKeyDown={(event) => {
-                                if (event.key === 'Enter' || event.key === ' ') {
-                                  event.preventDefault();
-                                  void handleTogglePropertyMaintenance(property.id);
-                                }
-                              }}
-                              className="w-full p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-left cursor-pointer"
-                            >
-                              <div>
-                                <p className="text-sm font-semibold text-gray-900 dark:text-white">{property.name}</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  {property.address.street} {property.address.number}, {property.address.city}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-2" onClick={(event) => event.stopPropagation()}>
-                                <Link
-                                  href={`/${locale}/properties/${property.id}`}
-                                  className="action-link action-link-primary"
-                                >
-                                  <Eye size={14} />
-                                  {tc('view')}
-                                </Link>
-                                <Link
-                                  href={`/${locale}/properties/${property.id}/edit`}
-                                  className="action-link action-link-primary"
-                                >
-                                  <Edit size={14} />
-                                  {tc('edit')}
-                                </Link>
-                                <Link
-                                  href={`/${locale}/properties/${property.id}#maintenance-tasks`}
-                                  className="action-link action-link-primary"
-                                >
-                                  <Wrench size={14} />
-                                  {t('saveMaintenanceTask')}
-                                </Link>
-                                {leaseAction.type === 'view' ? (
-                                  <Link
-                                    href={`/${locale}/leases/${leaseAction.lease.id}`}
-                                    className="action-link action-link-success"
-                                  >
-                                    <FileText size={14} />
-                                    {t('viewLease')}
-                                  </Link>
-                                ) : leaseAction.type === 'renew' ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => void handleRenewLease(leaseAction.lease)}
-                                    disabled={renewingLeaseId === leaseAction.lease.id}
-                                    className="action-link action-link-success disabled:opacity-60"
-                                  >
-                                    {renewingLeaseId === leaseAction.lease.id ? (
-                                      <Loader2 size={14} className="animate-spin" />
-                                    ) : (
-                                      <RefreshCw size={14} />
-                                    )}
-                                    {t('renewLease')}
-                                  </button>
-                                ) : canCreateContract ? (
-                                  <Link
-                                    href={createContractHref}
-                                    className="action-link action-link-success"
-                                  >
-                                    <FilePlus size={14} />
-                                    {t('createLease')}
-                                  </Link>
-                                ) : null}
-                              </div>
-                              <div className="text-gray-400 dark:text-gray-500">
-                                {expandedPropertyId === property.id ? (
-                                  <ChevronUp size={16} />
-                                ) : (
-                                  <ChevronDown size={16} />
-                                )}
-                              </div>
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white">{property.name}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {property.address.street} {property.address.number}, {property.address.city}
+                              </p>
                             </div>
-
-                            {expandedPropertyId === property.id ? (
-                              <div className="border-t border-gray-200 dark:border-gray-700 px-3 py-3 space-y-2">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                  {t('recentMaintenanceTasks')}
-                                </p>
-                                {loadingMaintenancePropertyId === property.id ? (
-                                  <div className="flex items-center py-2 text-sm text-gray-500 dark:text-gray-400">
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    {tc('loading')}
-                                  </div>
-                                ) : (maintenanceByProperty[property.id] ?? []).length > 0 ? (
-                                  (maintenanceByProperty[property.id] ?? []).map((task) => (
-                                    <div
-                                      key={task.id}
-                                      className="rounded-md border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2"
-                                    >
-                                      <p className="text-sm font-medium text-gray-900 dark:text-white">{task.title}</p>
-                                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                                        {new Date(task.scheduledAt).toLocaleString(locale)}
-                                      </p>
-                                      {task.notes ? (
-                                        <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">{task.notes}</p>
-                                      ) : null}
-                                    </div>
-                                  ))
-                                ) : (
-                                  <p className="text-sm text-gray-500 dark:text-gray-400">{t('noMaintenanceTasks')}</p>
-                                )}
-                              </div>
-                            ) : null}
+                            <div className="flex items-center gap-2" onClick={(event) => event.stopPropagation()}>
+                              <Link
+                                href={`/${locale}/properties/${property.id}`}
+                                className="action-link action-link-primary"
+                              >
+                                <Eye size={14} />
+                                {tc('view')}
+                              </Link>
+                              <Link
+                                href={`/${locale}/properties/${property.id}/edit`}
+                                className="action-link action-link-primary"
+                              >
+                                <Edit size={14} />
+                                {tc('edit')}
+                              </Link>
+                              <Link
+                                href={`/${locale}/properties/${property.id}/maintenance/new`}
+                                className="action-link action-link-primary"
+                              >
+                                <Wrench size={14} />
+                                {t('saveMaintenanceTask')}
+                              </Link>
+                              {leaseAction.type === 'view' ? (
+                                <Link
+                                  href={`/${locale}/leases/${leaseAction.lease.id}`}
+                                  className="action-link action-link-success"
+                                >
+                                  <FileText size={14} />
+                                  {t('viewLease')}
+                                </Link>
+                              ) : leaseAction.type === 'renew' ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleRenewLease(leaseAction.lease)}
+                                  disabled={renewingLeaseId === leaseAction.lease.id}
+                                  className="action-link action-link-success disabled:opacity-60"
+                                >
+                                  {renewingLeaseId === leaseAction.lease.id ? (
+                                    <Loader2 size={14} className="animate-spin" />
+                                  ) : (
+                                    <RefreshCw size={14} />
+                                  )}
+                                  {t('renewLease')}
+                                </button>
+                              ) : canCreateContract ? (
+                                <Link
+                                  href={createContractHref}
+                                  className="action-link action-link-success"
+                                >
+                                  <FilePlus size={14} />
+                                  {t('createLease')}
+                                </Link>
+                              ) : null}
+                            </div>
+                            <div className="text-gray-400 dark:text-gray-500">
+                              {expandedPropertyId === property.id ? (
+                                <ChevronUp size={16} />
+                              ) : (
+                                <ChevronDown size={16} />
+                              )}
+                            </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('ownerNoProperties')}</p>
-                  )}
-                </div>
-              </>
+
+                          {expandedPropertyId === property.id ? (
+                            <div className="border-t border-gray-200 dark:border-gray-700 px-3 py-3 space-y-2">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                {t('recentMaintenanceTasks')}
+                              </p>
+                              {loadingMaintenancePropertyId === property.id ? (
+                                <div className="flex items-center py-2 text-sm text-gray-500 dark:text-gray-400">
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  {tc('loading')}
+                                </div>
+                              ) : (maintenanceByProperty[property.id] ?? []).length > 0 ? (
+                                (maintenanceByProperty[property.id] ?? []).map((task) => (
+                                  <div
+                                    key={task.id}
+                                    className="rounded-md border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2"
+                                  >
+                                    <p className="text-sm font-medium text-gray-900 dark:text-white">{task.title}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                      {new Date(task.scheduledAt).toLocaleString(locale)}
+                                    </p>
+                                    {task.notes ? (
+                                      <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">{task.notes}</p>
+                                    ) : null}
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="text-sm text-gray-500 dark:text-gray-400">{t('noMaintenanceTasks')}</p>
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{t('ownerNoProperties')}</p>
+                )}
+              </div>
             ) : (
-              ownerMode !== 'create' ? (
-                <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                  {t('noOwnersDescription')}
-                </div>
-              ) : null
+              <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                {t('selectOwner')}
+              </div>
             )}
           </div>
         </div>
