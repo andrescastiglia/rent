@@ -93,12 +93,6 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                       className="block px-4 py-2 text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed"
                       title={t("comingSoon")}
                     >
-                      {t("myProfile")}
-                    </div>
-                    <div
-                      className="block px-4 py-2 text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                      title={t("comingSoon")}
-                    >
                       {t("settings")}
                     </div>
                     <hr className="my-1 border-gray-200 dark:border-gray-700" />
