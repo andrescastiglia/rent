@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Lock, Save } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 import type { Locale } from "@/config/locales";
@@ -364,7 +364,9 @@ export default function SettingsPage() {
           >
             {savingProfile ? (
               <Loader2 size={14} className="animate-spin" />
-            ) : null}
+            ) : (
+              <Save size={14} />
+            )}
             {savingProfile ? tCommon("saving") : tCommon("save")}
           </button>
         </form>
@@ -440,7 +442,9 @@ export default function SettingsPage() {
           >
             {savingPassword ? (
               <Loader2 size={14} className="animate-spin" />
-            ) : null}
+            ) : (
+              <Lock size={14} />
+            )}
             {savingPassword ? t("changingPassword") : t("changePassword")}
           </button>
         </form>

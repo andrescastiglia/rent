@@ -1020,12 +1020,18 @@
     "activate": "Activar",
     "deactivate": "Desactivar",
     "resetPassword": "Blanquear clave",
+    "resetPasswordDialog": {
+      "title": "Blanquear contraseña",
+      "subtitle": "Ingresá una nueva contraseña para {name}.",
+      "hint": "La contraseña debe tener al menos 8 caracteres."
+    },
     "newPasswordPrompt": "Nueva contraseña (dejar vacío para generar temporal):",
     "errors": {
       "load": "No se pudo cargar el listado de usuarios.",
       "save": "No se pudo guardar el usuario.",
       "activation": "No se pudo actualizar el estado del usuario.",
-      "resetPassword": "No se pudo blanquear la contraseña."
+      "resetPassword": "No se pudo blanquear la contraseña.",
+      "passwordMinLength": "La contraseña debe tener al menos 8 caracteres."
     },
     "messages": {
       "created": "Usuario creado correctamente.",

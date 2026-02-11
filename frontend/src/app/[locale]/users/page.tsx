@@ -48,6 +48,13 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
+  const isEditing = showForm && editingUser !== null;
+  const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
+  const [resetPasswordValue, setResetPasswordValue] = useState("");
+  const [resetPasswordError, setResetPasswordError] = useState<string | null>(
+    null,
+  );
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   const roleOptions = useMemo(
     () => ["admin", "staff", "owner", "tenant"] as const,
@@ -165,21 +172,52 @@ export default function UsersPage() {
     }
   };
 
-  const handleResetPassword = async (user: User) => {
-    const typed = window.prompt(tUsers("newPasswordPrompt"), "");
-    const explicitPassword =
-      typed && typed.trim().length > 0 ? typed.trim() : undefined;
+  const openResetPasswordDialog = (user: User) => {
+    setResetPasswordUser(user);
+    setResetPasswordValue("");
+    setResetPasswordError(null);
+    setError(null);
+    setSuccess(null);
+  };
 
+  const closeResetPasswordDialog = () => {
+    if (resettingPassword) return;
+    setResetPasswordUser(null);
+    setResetPasswordValue("");
+    setResetPasswordError(null);
+  };
+
+  const handleResetPasswordSubmit = async (
+    event: FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+    if (!resetPasswordUser) return;
+
+    const normalizedPassword = resetPasswordValue.trim();
+    if (normalizedPassword.length < 8) {
+      setResetPasswordError(tUsers("errors.passwordMinLength"));
+      return;
+    }
+
+    setResettingPassword(true);
+    setResetPasswordError(null);
     setError(null);
     setSuccess(null);
     try {
-      const result = await usersApi.resetPassword(user.id, explicitPassword);
+      const result = await usersApi.resetPassword(
+        resetPasswordUser.id,
+        normalizedPassword,
+      );
       setSuccess(
         `${tUsers("messages.passwordReset")}: ${result.temporaryPassword}`,
       );
+      setResetPasswordUser(null);
+      setResetPasswordValue("");
     } catch (err) {
       console.error("Failed to reset password", err);
       setError(tUsers("errors.resetPassword"));
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -202,14 +240,16 @@ export default function UsersPage() {
             {tUsers("subtitle")}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          <Plus className="h-4 w-4" />
-          {tUsers("newUser")}
-        </button>
+        {!isEditing ? (
+          <button
+            type="button"
+            onClick={openCreate}
+            className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            <Plus className="h-4 w-4" />
+            {tUsers("newUser")}
+          </button>
+        ) : null}
       </header>
 
       {error ? (
@@ -340,86 +380,162 @@ export default function UsersPage() {
         </form>
       ) : null}
 
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-2 text-left font-medium text-gray-600">
-                {tAuth("email")}
-              </th>
-              <th className="px-4 py-2 text-left font-medium text-gray-600">
-                {tAuth("firstName")}
-              </th>
-              <th className="px-4 py-2 text-left font-medium text-gray-600">
-                {tAuth("lastName")}
-              </th>
-              <th className="px-4 py-2 text-left font-medium text-gray-600">
-                {tAuth("role")}
-              </th>
-              <th className="px-4 py-2 text-left font-medium text-gray-600">
-                {tUsers("status")}
-              </th>
-              <th className="px-4 py-2 text-right font-medium text-gray-600">
-                {tCommon("actions")}
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {users.map((user) => (
-              <tr key={user.id}>
-                <td className="px-4 py-2 text-gray-700">{user.email}</td>
-                <td className="px-4 py-2 text-gray-700">{user.firstName}</td>
-                <td className="px-4 py-2 text-gray-700">{user.lastName}</td>
-                <td className="px-4 py-2 text-gray-700">{user.role}</td>
-                <td className="px-4 py-2 text-gray-700">
-                  {user.isActive ? tUsers("active") : tUsers("inactive")}
-                </td>
-                <td className="px-4 py-2">
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openEdit(user)}
-                      className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700"
-                    >
-                      <UserPen className="h-3.5 w-3.5" />
-                      {tCommon("edit")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleResetPassword(user)}
-                      className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      {tUsers("resetPassword")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleToggleActive(user)}
-                      className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700"
-                    >
-                      {user.isActive ? (
-                        <ShieldX className="h-3.5 w-3.5" />
-                      ) : (
-                        <ShieldCheck className="h-3.5 w-3.5" />
-                      )}
-                      {user.isActive
-                        ? tUsers("deactivate")
-                        : tUsers("activate")}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {users.length === 0 ? (
+      {!isEditing ? (
+        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead className="bg-gray-50">
               <tr>
-                <td className="px-4 py-6 text-center text-gray-500" colSpan={6}>
-                  {tUsers("noUsers")}
-                </td>
+                <th className="px-4 py-2 text-left font-medium text-gray-600">
+                  {tAuth("email")}
+                </th>
+                <th className="px-4 py-2 text-left font-medium text-gray-600">
+                  {tAuth("firstName")}
+                </th>
+                <th className="px-4 py-2 text-left font-medium text-gray-600">
+                  {tAuth("lastName")}
+                </th>
+                <th className="px-4 py-2 text-left font-medium text-gray-600">
+                  {tAuth("role")}
+                </th>
+                <th className="px-4 py-2 text-left font-medium text-gray-600">
+                  {tUsers("status")}
+                </th>
+                <th className="px-4 py-2 text-right font-medium text-gray-600">
+                  {tCommon("actions")}
+                </th>
               </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {users.map((user) => (
+                <tr key={user.id}>
+                  <td className="px-4 py-2 text-gray-700">{user.email}</td>
+                  <td className="px-4 py-2 text-gray-700">{user.firstName}</td>
+                  <td className="px-4 py-2 text-gray-700">{user.lastName}</td>
+                  <td className="px-4 py-2 text-gray-700">{user.role}</td>
+                  <td className="px-4 py-2 text-gray-700">
+                    {user.isActive ? tUsers("active") : tUsers("inactive")}
+                  </td>
+                  <td className="px-4 py-2">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(user)}
+                        className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700"
+                      >
+                        <UserPen className="h-3.5 w-3.5" />
+                        {tCommon("edit")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openResetPasswordDialog(user)}
+                        className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        {tUsers("resetPassword")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleToggleActive(user)}
+                        className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700"
+                      >
+                        {user.isActive ? (
+                          <ShieldX className="h-3.5 w-3.5" />
+                        ) : (
+                          <ShieldCheck className="h-3.5 w-3.5" />
+                        )}
+                        {user.isActive
+                          ? tUsers("deactivate")
+                          : tUsers("activate")}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {users.length === 0 ? (
+                <tr>
+                  <td
+                    className="px-4 py-6 text-center text-gray-500"
+                    colSpan={6}
+                  >
+                    {tUsers("noUsers")}
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      {resetPasswordUser ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              closeResetPasswordDialog();
+            }
+          }}
+        >
+          <form
+            onSubmit={handleResetPasswordSubmit}
+            className="w-full max-w-md rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800"
+          >
+            <div className="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                {tUsers("resetPasswordDialog.title")}
+              </h3>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {tUsers("resetPasswordDialog.subtitle", {
+                  name: `${resetPasswordUser.firstName} ${resetPasswordUser.lastName}`.trim(),
+                })}
+              </p>
+            </div>
+
+            <div className="space-y-2 p-4">
+              <label className="block text-sm text-gray-700 dark:text-gray-200">
+                {tAuth("password")}
+              </label>
+              <input
+                required
+                minLength={8}
+                autoFocus
+                type="password"
+                value={resetPasswordValue}
+                onChange={(event) => {
+                  setResetPasswordValue(event.target.value);
+                  if (resetPasswordError) {
+                    setResetPasswordError(null);
+                  }
+                }}
+                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {tUsers("resetPasswordDialog.hint")}
+              </p>
+              {resetPasswordError ? (
+                <p className="text-xs text-red-600">{resetPasswordError}</p>
+              ) : null}
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+              <button
+                type="button"
+                onClick={closeResetPasswordDialog}
+                disabled={resettingPassword}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 disabled:opacity-60 dark:border-gray-600 dark:text-gray-200"
+              >
+                {tCommon("cancel")}
+              </button>
+              <button
+                type="submit"
+                disabled={resettingPassword}
+                className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+              >
+                {resettingPassword ? tCommon("saving") : tCommon("confirm")}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </section>
   );
 }

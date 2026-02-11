@@ -1020,12 +1020,18 @@
     "activate": "Activate",
     "deactivate": "Deactivate",
     "resetPassword": "Reset password",
+    "resetPasswordDialog": {
+      "title": "Reset password",
+      "subtitle": "Enter a new password for {name}.",
+      "hint": "Password must be at least 8 characters long."
+    },
     "newPasswordPrompt": "New password (leave blank to auto-generate):",
     "errors": {
       "load": "Could not load users.",
       "save": "Could not save user.",
       "activation": "Could not update user status.",
-      "resetPassword": "Could not reset password."
+      "resetPassword": "Could not reset password.",
+      "passwordMinLength": "Password must be at least 8 characters long."
     },
     "messages": {
       "created": "User created successfully.",

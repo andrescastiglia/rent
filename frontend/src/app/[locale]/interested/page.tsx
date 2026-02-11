@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Loader2, RefreshCw } from "lucide-react";
+import { CheckCircle2, Loader2, Search } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { interestedApi } from "@/lib/api/interested";
 import {
@@ -58,7 +58,6 @@ export default function InterestedPage() {
 
   const [loading, setLoading] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [refreshingMatches, setRefreshingMatches] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [operationFilter, setOperationFilter] = useState<
     "all" | InterestedOperation
@@ -253,21 +252,6 @@ export default function InterestedPage() {
     void loadInitial();
   }, [authLoading, loadInitial]);
 
-  const handleRefreshMatches = useCallback(async () => {
-    if (!selectedProfile) return;
-
-    setRefreshingMatches(true);
-    try {
-      await interestedApi.refreshMatches(selectedProfile.id);
-      await selectProfile(selectedProfile);
-    } catch (error) {
-      console.error("Failed to refresh matches", error);
-      alert(tc("error"));
-    } finally {
-      setRefreshingMatches(false);
-    }
-  }, [selectedProfile, selectProfile, tc]);
-
   const handleConfirmMatch = useCallback(
     async (match: InterestedMatch) => {
       const currentProfile = summary?.profile ?? selectedProfile;
@@ -340,13 +324,18 @@ export default function InterestedPage() {
           {t("listTitle")}
         </h2>
 
-        <input
-          type="text"
-          placeholder={t("listSearchPlaceholder")}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-        />
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-gray-400" />
+          </div>
+          <input
+            type="text"
+            placeholder={t("listSearchPlaceholder")}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white focus:outline-hidden focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+          />
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <select
@@ -450,19 +439,6 @@ export default function InterestedPage() {
                           <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                             {t("matchesTitle")}
                           </h3>
-                          <button
-                            type="button"
-                            onClick={() => void handleRefreshMatches()}
-                            disabled={refreshingMatches || !selectedProfile}
-                            className="px-2 py-1 rounded-md border border-gray-300 dark:border-gray-600 text-xs inline-flex items-center gap-2"
-                          >
-                            {refreshingMatches ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <RefreshCw className="h-4 w-4" />
-                            )}
-                            {t("actions.refreshMatches")}
-                          </button>
                         </div>
 
                         {summary?.matches?.length ? (

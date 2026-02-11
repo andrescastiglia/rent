@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   Eye,
   Plus,
+  Edit,
 } from "lucide-react";
 import { Lease } from "@/types/lease";
 import { Invoice, Payment } from "@/types/payment";
@@ -306,6 +307,13 @@ export default function TenantDetailPage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Link
+                href={`/${locale}/tenants/${tenantToRender.id}/edit`}
+                className="btn btn-secondary"
+              >
+                <Edit size={16} className="mr-2" />
+                {tCommon("edit")}
+              </Link>
               <Link
                 href={`/${locale}/tenants/${tenantToRender.id}/payments/new`}
                 className="btn btn-success"

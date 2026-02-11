@@ -1020,12 +1020,18 @@
     "activate": "Ativar",
     "deactivate": "Desativar",
     "resetPassword": "Redefinir senha",
+    "resetPasswordDialog": {
+      "title": "Redefinir senha",
+      "subtitle": "Digite uma nova senha para {name}.",
+      "hint": "A senha deve ter pelo menos 8 caracteres."
+    },
     "newPasswordPrompt": "Nova senha (deixe em branco para gerar temporária):",
     "errors": {
       "load": "Não foi possível carregar os usuários.",
       "save": "Não foi possível salvar o usuário.",
       "activation": "Não foi possível atualizar o status do usuário.",
-      "resetPassword": "Não foi possível redefinir a senha."
+      "resetPassword": "Não foi possível redefinir a senha.",
+      "passwordMinLength": "A senha deve ter pelo menos 8 caracteres."
     },
     "messages": {
       "created": "Usuário criado com sucesso.",
