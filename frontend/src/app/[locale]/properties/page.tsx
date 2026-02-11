@@ -80,6 +80,9 @@ const resolvePropertyLeaseAction = (leases: Lease[]): PropertyLeaseAction => {
   return { type: "none" };
 };
 
+const ownerActionClass =
+  "inline-flex items-center px-3 py-2 rounded-md border border-blue-300 dark:border-blue-700 text-sm text-blue-700 dark:text-blue-300";
+
 export default function PropertiesPage() {
   const { loading: authLoading } = useAuth();
   const t = useTranslations("properties");
@@ -329,14 +332,14 @@ export default function PropertiesPage() {
                       >
                         <Link
                           href={`/${locale}/properties/new?ownerId=${owner.id}`}
-                          className="inline-flex items-center px-3 py-2 rounded-md border border-blue-300 dark:border-blue-700 text-sm text-blue-700 dark:text-blue-300"
+                          className={ownerActionClass}
                         >
                           <Plus size={14} className="mr-1" />
                           {t("addProperty")}
                         </Link>
                         <Link
                           href={`/${locale}/properties/owners/${owner.id}/edit`}
-                          className="px-2 py-1 text-xs rounded-sm bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+                          className={ownerActionClass}
                         >
                           {tc("edit")}
                         </Link>
