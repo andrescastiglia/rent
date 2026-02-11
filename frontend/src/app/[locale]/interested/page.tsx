@@ -33,6 +33,20 @@ const MATCH_STATUS_OPTIONS: InterestedMatchStatus[] = [
   'expired',
 ];
 
+const MATCH_REASON_KEY_PREFIX = 'interested.matchReasons.';
+const MATCH_REASON_KEYS = [
+  'propertyTypeMatches',
+  'operationMatches',
+  'priceWithinRange',
+  'capacityAdequate',
+  'petsAllowed',
+  'cityMatches',
+  'featuresMatch',
+  'guaranteeMatches',
+  'partialMatch',
+] as const;
+type MatchReasonKey = (typeof MATCH_REASON_KEYS)[number];
+
 const emptyForm: CreateInterestedProfileInput = {
   firstName: '',
   lastName: '',
@@ -122,6 +136,22 @@ export default function InterestedPage() {
         );
       });
   }, [profiles, searchTerm, operationFilter, statusFilter]);
+
+  const formatMatchReason = useCallback(
+    (reason: string): string => {
+      const normalizedReason = reason.trim();
+      const shortKey = normalizedReason.startsWith(MATCH_REASON_KEY_PREFIX)
+        ? normalizedReason.slice(MATCH_REASON_KEY_PREFIX.length)
+        : normalizedReason;
+
+      if ((MATCH_REASON_KEYS as readonly string[]).includes(shortKey)) {
+        return t(`matchReasons.${shortKey as MatchReasonKey}`);
+      }
+
+      return normalizedReason;
+    },
+    [t],
+  );
 
   const profileToForm = useCallback(
     (profile: InterestedProfile): CreateInterestedProfileInput => ({
@@ -882,7 +912,9 @@ export default function InterestedPage() {
                               ) : null}
                             </div>
                             {match.matchReasons?.length ? (
-                              <p className="text-xs text-gray-500 dark:text-gray-400">{match.matchReasons.join(' · ')}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {match.matchReasons.map(formatMatchReason).join(' · ')}
+                              </p>
                             ) : null}
                           </div>
                         );

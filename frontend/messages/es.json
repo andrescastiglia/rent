@@ -347,6 +347,17 @@
     "labels": {
       "score": "Puntaje"
     },
+    "matchReasons": {
+      "propertyTypeMatches": "Tipo de propiedad coincide",
+      "operationMatches": "Modo de operación coincide",
+      "priceWithinRange": "Precio dentro del rango",
+      "capacityAdequate": "Capacidad adecuada",
+      "petsAllowed": "Acepta mascotas",
+      "cityMatches": "La ciudad coincide",
+      "featuresMatch": "Coinciden las características solicitadas",
+      "guaranteeMatches": "Condiciones de garantía compatibles",
+      "partialMatch": "Coincidencia parcial de criterios"
+    },
     "status": {
       "new": "Nuevo",
       "qualified": "Calificado",

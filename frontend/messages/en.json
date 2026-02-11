@@ -347,6 +347,17 @@
     "labels": {
       "score": "Score"
     },
+    "matchReasons": {
+      "propertyTypeMatches": "Property type matches",
+      "operationMatches": "Operation mode matches",
+      "priceWithinRange": "Price within range",
+      "capacityAdequate": "Capacity adequate",
+      "petsAllowed": "Pets allowed",
+      "cityMatches": "City matches",
+      "featuresMatch": "Requested features match",
+      "guaranteeMatches": "Guarantee conditions match",
+      "partialMatch": "Partial criteria match"
+    },
     "status": {
       "new": "New",
       "qualified": "Qualified",

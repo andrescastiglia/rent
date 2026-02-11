@@ -1650,8 +1650,30 @@ export class InterestedService {
     return pool;
   }
 
+  private resolveSupportedLang(lang?: string): 'es' | 'en' | 'pt' {
+    const normalizedLang = (lang ?? '').trim().toLowerCase();
+
+    if (normalizedLang.startsWith('en')) {
+      return 'en';
+    }
+
+    if (normalizedLang.startsWith('pt')) {
+      return 'pt';
+    }
+
+    return 'es';
+  }
+
   private t(key: string, args?: Record<string, unknown>): string {
-    const lang = I18nContext.current()?.lang;
-    return this.i18n.t(key, { lang, args });
+    const lang = this.resolveSupportedLang(I18nContext.current()?.lang);
+    const translated = this.i18n.t(key, { lang, args });
+    const translatedText = typeof translated === 'string' ? translated : key;
+
+    if (translatedText === key && lang !== 'es') {
+      const fallback = this.i18n.t(key, { lang: 'es', args });
+      return typeof fallback === 'string' ? fallback : key;
+    }
+
+    return translatedText;
   }
 }
