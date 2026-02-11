@@ -73,7 +73,7 @@ export default function EditTenantPage() {
             {t("backToDetails")}
           </Link>
           <Link
-            href={`/${locale}/tenants/${tenant.id}#payment-registration`}
+            href={`/${locale}/tenants/${tenant.id}/payments/new`}
             className="inline-flex items-center px-3 py-1.5 rounded-md border border-green-200 text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-300 dark:hover:bg-green-900/20 text-sm"
           >
             <Wallet size={14} className="mr-1" />

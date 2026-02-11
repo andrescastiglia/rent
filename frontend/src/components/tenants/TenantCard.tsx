@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { Tenant } from "@/types/tenant";
-import { User, Mail, Phone, MapPin, Wallet, Edit } from "lucide-react";
+import { User, Mail, Phone, MapPin, Wallet, Edit, Plus } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 interface TenantCardProps {
@@ -79,11 +79,18 @@ export function TenantCard({ tenant }: TenantCardProps) {
           {tc("edit")}
         </Link>
         <Link
-          href={`/${locale}/tenants/${tenant.id}#payment-registration`}
+          href={`/${locale}/tenants/${tenant.id}/payments/new`}
           className="action-link action-link-success"
         >
           <Wallet size={14} />
           {t("paymentRegistration.submit")}
+        </Link>
+        <Link
+          href={`/${locale}/tenants/${tenant.id}/activities/new`}
+          className="action-link action-link-primary"
+        >
+          <Plus size={14} />
+          {t("activities.add")}
         </Link>
       </div>
     </div>
