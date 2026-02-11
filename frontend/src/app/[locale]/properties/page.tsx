@@ -179,20 +179,30 @@ export default function PropertiesPage() {
     });
   }, [owners, searchTerm]);
 
-  const selectedOwner = useMemo(
-    () => owners.find((owner) => owner.id === selectedOwnerId) ?? null,
-    [owners, selectedOwnerId],
-  );
+  const propertiesByOwner = useMemo(() => {
+    const grouped: Record<string, Property[]> = {};
 
-  const selectedOwnerProperties = useMemo(() => {
-    if (!selectedOwner) return [];
-    return properties
-      .filter((property) => property.ownerId === selectedOwner.id)
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [properties, selectedOwner]);
+    for (const owner of owners) {
+      grouped[owner.id] = [];
+    }
+
+    for (const property of properties) {
+      if (!property.ownerId) continue;
+      const list = grouped[property.ownerId] ?? [];
+      grouped[property.ownerId] = [...list, property];
+    }
+
+    for (const ownerId of Object.keys(grouped)) {
+      grouped[ownerId] = grouped[ownerId].sort((a, b) =>
+        a.name.localeCompare(b.name),
+      );
+    }
+
+    return grouped;
+  }, [owners, properties]);
 
   const handleSelectOwner = (owner: Owner) => {
-    setSelectedOwnerId(owner.id);
+    setSelectedOwnerId((prev) => (prev === owner.id ? null : owner.id));
     setExpandedPropertyId(null);
   };
 
@@ -261,82 +271,95 @@ export default function PropertiesPage() {
           <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-          <div className="xl:col-span-4">
-            <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {t("ownerListTitle")}
-              </h2>
-              <input
-                type="text"
-                placeholder={t("ownerSearchPlaceholder")}
-                className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              {filteredOwners.length > 0 ? (
-                filteredOwners.map((owner) => (
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            {t("ownerListTitle")}
+          </h2>
+          <input
+            type="text"
+            placeholder={t("ownerSearchPlaceholder")}
+            className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+
+          {filteredOwners.length > 0 ? (
+            <div className="space-y-3">
+              {filteredOwners.map((owner) => {
+                const isSelected = selectedOwnerId === owner.id;
+                const ownerProperties = propertiesByOwner[owner.id] ?? [];
+
+                return (
                   <div
                     key={owner.id}
-                    className={`rounded-lg border p-3 ${
-                      selectedOwnerId === owner.id
-                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                    className={`rounded-lg border transition ${
+                      isSelected
+                        ? "border-blue-500 bg-blue-50/60 dark:bg-blue-900/20"
                         : "border-gray-200 dark:border-gray-700"
                     }`}
                   >
-                    <button
-                      type="button"
+                    <div
+                      data-testid="owner-row-toggle"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => handleSelectOwner(owner)}
-                      className="w-full text-left"
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          handleSelectOwner(owner);
+                        }
+                      }}
+                      className="w-full p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-left cursor-pointer"
                     >
-                      <p className="font-semibold text-gray-900 dark:text-white">
-                        {owner.firstName} {owner.lastName}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {owner.email}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {owner.phone || "-"}
-                      </p>
-                    </button>
-                    <div className="mt-2 flex justify-end">
-                      <Link
-                        href={`/${locale}/properties/owners/${owner.id}/edit`}
-                        className="px-2 py-1 text-xs rounded-sm bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+                      <div data-testid="owner-row-main" className="min-w-0">
+                        <p className="font-semibold text-gray-900 dark:text-white">
+                          {owner.firstName} {owner.lastName}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 break-all">
+                          {owner.email}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {owner.phone || "-"}
+                        </p>
+                      </div>
+
+                      <div
+                        className="flex items-center gap-2"
+                        onClick={(event) => event.stopPropagation()}
                       >
-                        {tc("edit")}
-                      </Link>
+                        <Link
+                          href={`/${locale}/properties/new?ownerId=${owner.id}`}
+                          className="inline-flex items-center px-3 py-2 rounded-md border border-blue-300 dark:border-blue-700 text-sm text-blue-700 dark:text-blue-300"
+                        >
+                          <Plus size={14} className="mr-1" />
+                          {t("addProperty")}
+                        </Link>
+                        <Link
+                          href={`/${locale}/properties/owners/${owner.id}/edit`}
+                          className="px-2 py-1 text-xs rounded-sm bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+                        >
+                          {tc("edit")}
+                        </Link>
+                      </div>
+
+                      <div className="text-gray-400 dark:text-gray-500">
+                        {isSelected ? (
+                          <ChevronUp size={16} />
+                        ) : (
+                          <ChevronDown size={16} />
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                  <p>{t("noOwners")}</p>
-                  <p className="mt-1">{t("noOwnersDescription")}</p>
-                </div>
-              )}
-            </div>
-          </div>
 
-          <div className="xl:col-span-8 space-y-4">
-            {selectedOwner ? (
-              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-                    {t("ownerAssignedProperties")}
-                  </h3>
-                  <Link
-                    href={`/${locale}/properties/new?ownerId=${selectedOwner.id}`}
-                    className="inline-flex items-center px-3 py-2 rounded-md border border-blue-300 dark:border-blue-700 text-sm text-blue-700 dark:text-blue-300"
-                  >
-                    <Plus size={16} className="mr-2" />
-                    {t("addProperty")}
-                  </Link>
-                </div>
+                    {isSelected ? (
+                      <div className="border-t border-gray-200 dark:border-gray-700 px-3 py-3 space-y-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          {t("ownerAssignedProperties")}
+                        </p>
 
-                {selectedOwnerProperties.length > 0 ? (
-                  <div className="space-y-2">
-                    {selectedOwnerProperties.map((property) => {
+                        {ownerProperties.length > 0 ? (
+                          <div className="space-y-2">
+                            {ownerProperties.map((property) => {
                       const propertyOperations = property.operations ?? [];
                       const supportsRent = propertyOperations.includes("rent");
                       const supportsSale = propertyOperations.includes("sale");
@@ -347,171 +370,189 @@ export default function PropertiesPage() {
                         resolvePropertyLeaseAction(propertyLeases);
                       const createContractHref = `/${locale}/leases/new?propertyId=${property.id}`;
 
-                      return (
-                        <div
-                          key={property.id}
-                          className={`rounded-md border transition ${
-                            expandedPropertyId === property.id
-                              ? "border-blue-400 bg-blue-50/50 dark:bg-blue-900/10 dark:border-blue-700"
-                              : "border-gray-200 dark:border-gray-700"
-                          }`}
-                        >
-                          <div
-                            role="button"
-                            tabIndex={0}
-                            onClick={() =>
-                              void handleTogglePropertyMaintenance(property.id)
-                            }
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter" || event.key === " ") {
-                                event.preventDefault();
-                                void handleTogglePropertyMaintenance(
-                                  property.id,
-                                );
-                              }
-                            }}
-                            className="w-full p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-left cursor-pointer"
-                          >
-                            <div>
-                              <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                                {property.name}
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {property.address.street}{" "}
-                                {property.address.number},{" "}
-                                {property.address.city}
-                              </p>
-                            </div>
-                            <div
-                              className="flex items-center gap-2"
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              <Link
-                                href={`/${locale}/properties/${property.id}`}
-                                className="action-link action-link-primary"
-                              >
-                                <Eye size={14} />
-                                {tc("view")}
-                              </Link>
-                              <Link
-                                href={`/${locale}/properties/${property.id}/edit`}
-                                className="action-link action-link-primary"
-                              >
-                                <Edit size={14} />
-                                {tc("edit")}
-                              </Link>
-                              <Link
-                                href={`/${locale}/properties/${property.id}/maintenance/new`}
-                                className="action-link action-link-primary"
-                              >
-                                <Wrench size={14} />
-                                {t("saveMaintenanceTask")}
-                              </Link>
-                              {leaseAction.type === "view" ? (
-                                <Link
-                                  href={`/${locale}/leases/${leaseAction.lease.id}`}
-                                  className="action-link action-link-success"
+                              return (
+                                <div
+                                  key={property.id}
+                                  className={`rounded-md border transition ${
+                                    expandedPropertyId === property.id
+                                      ? "border-blue-400 bg-blue-50/50 dark:bg-blue-900/10 dark:border-blue-700"
+                                      : "border-gray-200 dark:border-gray-700"
+                                  }`}
                                 >
-                                  <FileText size={14} />
-                                  {t("viewLease")}
-                                </Link>
-                              ) : leaseAction.type === "renew" ? (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    void handleRenewLease(leaseAction.lease)
-                                  }
-                                  disabled={
-                                    renewingLeaseId === leaseAction.lease.id
-                                  }
-                                  className="action-link action-link-success disabled:opacity-60"
-                                >
-                                  {renewingLeaseId === leaseAction.lease.id ? (
-                                    <Loader2
-                                      size={14}
-                                      className="animate-spin"
-                                    />
-                                  ) : (
-                                    <RefreshCw size={14} />
-                                  )}
-                                  {t("renewLease")}
-                                </button>
-                              ) : canCreateContract ? (
-                                <Link
-                                  href={createContractHref}
-                                  className="action-link action-link-success"
-                                >
-                                  <FilePlus size={14} />
-                                  {t("createLease")}
-                                </Link>
-                              ) : null}
-                            </div>
-                            <div className="text-gray-400 dark:text-gray-500">
-                              {expandedPropertyId === property.id ? (
-                                <ChevronUp size={16} />
-                              ) : (
-                                <ChevronDown size={16} />
-                              )}
-                            </div>
-                          </div>
-
-                          {expandedPropertyId === property.id ? (
-                            <div className="border-t border-gray-200 dark:border-gray-700 px-3 py-3 space-y-2">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                {t("recentMaintenanceTasks")}
-                              </p>
-                              {loadingMaintenancePropertyId === property.id ? (
-                                <div className="flex items-center py-2 text-sm text-gray-500 dark:text-gray-400">
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  {tc("loading")}
-                                </div>
-                              ) : (maintenanceByProperty[property.id] ?? [])
-                                  .length > 0 ? (
-                                (maintenanceByProperty[property.id] ?? []).map(
-                                  (task) => (
-                                    <div
-                                      key={task.id}
-                                      className="rounded-md border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2"
-                                    >
-                                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                        {task.title}
+                                  <div
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() =>
+                                      void handleTogglePropertyMaintenance(
+                                        property.id,
+                                      )
+                                    }
+                                    onKeyDown={(event) => {
+                                      if (
+                                        event.key === "Enter" ||
+                                        event.key === " "
+                                      ) {
+                                        event.preventDefault();
+                                        void handleTogglePropertyMaintenance(
+                                          property.id,
+                                        );
+                                      }
+                                    }}
+                                    className="w-full p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-left cursor-pointer"
+                                  >
+                                    <div>
+                                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                        {property.name}
                                       </p>
                                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                                        {new Date(
-                                          task.scheduledAt,
-                                        ).toLocaleString(locale)}
+                                        {property.address.street}{" "}
+                                        {property.address.number},{" "}
+                                        {property.address.city}
                                       </p>
-                                      {task.notes ? (
-                                        <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
-                                          {task.notes}
-                                        </p>
+                                    </div>
+                                    <div
+                                      className="flex items-center gap-2"
+                                      onClick={(event) =>
+                                        event.stopPropagation()
+                                      }
+                                    >
+                                      <Link
+                                        href={`/${locale}/properties/${property.id}`}
+                                        className="action-link action-link-primary"
+                                      >
+                                        <Eye size={14} />
+                                        {tc("view")}
+                                      </Link>
+                                      <Link
+                                        href={`/${locale}/properties/${property.id}/edit`}
+                                        className="action-link action-link-primary"
+                                      >
+                                        <Edit size={14} />
+                                        {tc("edit")}
+                                      </Link>
+                                      <Link
+                                        href={`/${locale}/properties/${property.id}/maintenance/new`}
+                                        className="action-link action-link-primary"
+                                      >
+                                        <Wrench size={14} />
+                                        {t("saveMaintenanceTask")}
+                                      </Link>
+                                      {leaseAction.type === "view" ? (
+                                        <Link
+                                          href={`/${locale}/leases/${leaseAction.lease.id}`}
+                                          className="action-link action-link-success"
+                                        >
+                                          <FileText size={14} />
+                                          {t("viewLease")}
+                                        </Link>
+                                      ) : leaseAction.type === "renew" ? (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            void handleRenewLease(
+                                              leaseAction.lease,
+                                            )
+                                          }
+                                          disabled={
+                                            renewingLeaseId ===
+                                            leaseAction.lease.id
+                                          }
+                                          className="action-link action-link-success disabled:opacity-60"
+                                        >
+                                          {renewingLeaseId ===
+                                          leaseAction.lease.id ? (
+                                            <Loader2
+                                              size={14}
+                                              className="animate-spin"
+                                            />
+                                          ) : (
+                                            <RefreshCw size={14} />
+                                          )}
+                                          {t("renewLease")}
+                                        </button>
+                                      ) : canCreateContract ? (
+                                        <Link
+                                          href={createContractHref}
+                                          className="action-link action-link-success"
+                                        >
+                                          <FilePlus size={14} />
+                                          {t("createLease")}
+                                        </Link>
                                       ) : null}
                                     </div>
-                                  ),
-                                )
-                              ) : (
-                                <p className="text-sm text-gray-500 dark:text-gray-400">
-                                  {t("noMaintenanceTasks")}
-                                </p>
-                              )}
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })}
+                                    <div className="text-gray-400 dark:text-gray-500">
+                                      {expandedPropertyId === property.id ? (
+                                        <ChevronUp size={16} />
+                                      ) : (
+                                        <ChevronDown size={16} />
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {expandedPropertyId === property.id ? (
+                                    <div className="border-t border-gray-200 dark:border-gray-700 px-3 py-3 space-y-2">
+                                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                        {t("recentMaintenanceTasks")}
+                                      </p>
+                                      {loadingMaintenancePropertyId ===
+                                      property.id ? (
+                                        <div className="flex items-center py-2 text-sm text-gray-500 dark:text-gray-400">
+                                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                          {tc("loading")}
+                                        </div>
+                                      ) : (maintenanceByProperty[property.id] ??
+                                          []).length > 0 ? (
+                                        (
+                                          maintenanceByProperty[property.id] ??
+                                          []
+                                        ).map((task) => (
+                                          <div
+                                            key={task.id}
+                                            className="rounded-md border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2"
+                                          >
+                                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                              {task.title}
+                                            </p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                              {new Date(
+                                                task.scheduledAt,
+                                              ).toLocaleString(locale)}
+                                            </p>
+                                            {task.notes ? (
+                                              <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                                                {task.notes}
+                                              </p>
+                                            ) : null}
+                                          </div>
+                                        ))
+                                      ) : (
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                                          {t("noMaintenanceTasks")}
+                                        </p>
+                                      )}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {t("ownerNoProperties")}
+                          </p>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
-                ) : (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t("ownerNoProperties")}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                {t("selectOwner")}
-              </div>
-            )}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              <p>{t("noOwners")}</p>
+              <p className="mt-1">{t("noOwnersDescription")}</p>
+            </div>
+          )}
         </div>
       )}
     </div>

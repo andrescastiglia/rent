@@ -1,7 +1,7 @@
 import { test, expect, login, localePath } from './fixtures/auth';
 
 test.describe('Property Creation Flow', () => {
-    const ownerButtonSelector = 'button.w-full.text-left';
+    const ownerButtonSelector = '[data-testid="owner-row-main"]';
     const addPropertyForOwnerSelector = 'a[href*="/properties/new?ownerId="]';
     const propertyDetailLinkSelector =
         'a[href*="/properties/"]:not([href*="/properties/new"]):not([href*="/properties/owners/"]):not([href*="/edit"]):not([href*="/maintenance/new"]):not([href*="#"])';
@@ -18,7 +18,7 @@ test.describe('Property Creation Flow', () => {
 
     test('should navigate to create property page', async ({ page }) => {
         await page.locator(ownerButtonSelector).first().click();
-        await page.locator(addPropertyForOwnerSelector).click();
+        await page.locator(addPropertyForOwnerSelector).first().click();
 
         await expect(page).toHaveURL(/\/es\/properties\/new\?ownerId=/);
     });

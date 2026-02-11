@@ -1,7 +1,7 @@
 import { test, expect, login, localePath } from './fixtures/auth';
 
 test.describe('Property Maintenance Log', () => {
-    const ownerButtonSelector = 'button.w-full.text-left';
+    const ownerButtonSelector = '[data-testid="owner-row-main"]';
     const propertyDetailLinkSelector =
         'a[href*="/properties/"]:not([href*="/properties/new"]):not([href*="/properties/owners/"]):not([href*="/edit"]):not([href*="/maintenance/new"]):not([href*="#"])';
 
