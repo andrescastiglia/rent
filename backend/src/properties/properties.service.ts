@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, IsNull, Repository } from 'typeorm';
+import { In, IsNull, Repository, SelectQueryBuilder } from 'typeorm';
 import { existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { Property } from './entities/property.entity';
@@ -15,11 +15,19 @@ import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
 import { PropertyFiltersDto } from './dto/property-filters.dto';
 import { Owner } from '../owners/entities/owner.entity';
+import {
+  ContractType,
+  Lease,
+  LeaseStatus,
+} from '../leases/entities/lease.entity';
+import { UserRole } from '../users/entities/user.entity';
 
 interface UserContext {
   id: string;
   role: string;
   companyId?: string;
+  email?: string | null;
+  phone?: string | null;
 }
 
 @Injectable()
@@ -76,6 +84,7 @@ export class PropertiesService {
 
   async findAll(
     filters: PropertyFiltersDto,
+    user?: UserContext,
   ): Promise<{ data: Property[]; total: number; page: number; limit: number }> {
     const {
       ownerId,
@@ -96,7 +105,15 @@ export class PropertiesService {
     const query = this.propertiesRepository
       .createQueryBuilder('property')
       .leftJoinAndSelect('property.units', 'units')
+      .leftJoin('property.owner', 'owner')
+      .leftJoin('owner.user', 'ownerUser')
       .where('property.deleted_at IS NULL');
+
+    if (user?.companyId) {
+      query.andWhere('property.company_id = :companyId', {
+        companyId: user.companyId,
+      });
+    }
 
     if (ownerId) {
       query.andWhere('property.owner_id = :ownerId', { ownerId });
@@ -157,6 +174,10 @@ export class PropertiesService {
       }
     }
 
+    if (user) {
+      this.applyVisibilityScope(query, user);
+    }
+
     query.skip((page - 1) * limit).take(limit);
 
     const [data, total] = await query.getManyAndCount();
@@ -172,9 +193,36 @@ export class PropertiesService {
   async findOne(id: string): Promise<Property> {
     const property = await this.propertiesRepository.findOne({
       where: { id },
-      relations: ['units', 'features', 'owner', 'company'],
+      relations: ['units', 'features', 'owner', 'owner.user', 'company'],
     });
 
+    if (!property) {
+      throw new NotFoundException(`Property with ID ${id} not found`);
+    }
+
+    return property;
+  }
+
+  async findOneScoped(id: string, user: UserContext): Promise<Property> {
+    const query = this.propertiesRepository
+      .createQueryBuilder('property')
+      .leftJoinAndSelect('property.units', 'units')
+      .leftJoinAndSelect('property.features', 'features')
+      .leftJoinAndSelect('property.owner', 'owner')
+      .leftJoinAndSelect('owner.user', 'ownerUser')
+      .leftJoinAndSelect('property.company', 'company')
+      .where('property.id = :id', { id })
+      .andWhere('property.deleted_at IS NULL');
+
+    if (user.companyId) {
+      query.andWhere('property.company_id = :companyId', {
+        companyId: user.companyId,
+      });
+    }
+
+    this.applyVisibilityScope(query, user);
+
+    const property = await query.getOne();
     if (!property) {
       throw new NotFoundException(`Property with ID ${id} not found`);
     }
@@ -312,6 +360,53 @@ export class PropertiesService {
     }
 
     return image;
+  }
+
+  private applyVisibilityScope(
+    query: SelectQueryBuilder<Property>,
+    user: UserContext,
+  ) {
+    if (user.role === UserRole.ADMIN || user.role === UserRole.STAFF) {
+      return;
+    }
+
+    const email = (user.email ?? '').trim().toLowerCase();
+    const phone = (user.phone ?? '').trim();
+
+    if (user.role === UserRole.OWNER) {
+      query.andWhere(
+        `(owner.user_id = :scopeUserId OR LOWER(ownerUser.email) = :scopeEmail OR (:scopePhone <> '' AND ownerUser.phone = :scopePhone))`,
+        {
+          scopeUserId: user.id,
+          scopeEmail: email,
+          scopePhone: phone,
+        },
+      );
+      return;
+    }
+
+    if (user.role === UserRole.TENANT) {
+      query
+        .innerJoin(
+          Lease,
+          'tenantLease',
+          'tenantLease.property_id = property.id AND tenantLease.contract_type = :rentalType AND tenantLease.status = :activeStatus AND tenantLease.deleted_at IS NULL',
+          {
+            rentalType: ContractType.RENTAL,
+            activeStatus: LeaseStatus.ACTIVE,
+          },
+        )
+        .innerJoin('tenantLease.tenant', 'tenant')
+        .innerJoin('tenant.user', 'tenantUser')
+        .andWhere(
+          `(tenant.user_id = :scopeUserId OR LOWER(tenantUser.email) = :scopeEmail OR (:scopePhone <> '' AND tenantUser.phone = :scopePhone))`,
+          {
+            scopeUserId: user.id,
+            scopeEmail: email,
+            scopePhone: phone,
+          },
+        );
+    }
   }
 
   private async resolveOwnerForCreate(

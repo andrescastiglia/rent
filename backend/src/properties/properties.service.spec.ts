@@ -36,6 +36,7 @@ describe('PropertiesService', () => {
     count: jest.fn(),
     createQueryBuilder: jest.fn(() => ({
       leftJoinAndSelect: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       skip: jest.fn().mockReturnThis(),
@@ -180,6 +181,7 @@ describe('PropertiesService', () => {
       const filters = { page: 1, limit: 10 };
       const mockQueryBuilder = {
         leftJoinAndSelect: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
@@ -203,6 +205,7 @@ describe('PropertiesService', () => {
       const filters = { addressCity: 'Test', page: 1, limit: 10 };
       const mockQueryBuilder = {
         leftJoinAndSelect: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
@@ -229,6 +232,7 @@ describe('PropertiesService', () => {
       };
       const mockQueryBuilder = {
         leftJoinAndSelect: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
@@ -259,7 +263,7 @@ describe('PropertiesService', () => {
 
       expect(propertyRepository.findOne).toHaveBeenCalledWith({
         where: { id: '1' },
-        relations: ['units', 'features', 'owner', 'company'],
+        relations: ['units', 'features', 'owner', 'owner.user', 'company'],
       });
       expect(result).toEqual(mockProperty);
     });

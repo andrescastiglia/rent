@@ -30,11 +30,21 @@ export class RolesGuard implements CanActivate {
     }
 
     // Get user from request (injected by JwtStrategy)
-    const { user } = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest();
+    const { user } = request;
 
     // If no user found, allow the request to proceed
     // The AuthGuard at controller level will handle authentication
     if (!user) {
+      return true;
+    }
+
+    // Staff inherits admin access except for user administration endpoints.
+    if (
+      user.role === UserRole.STAFF &&
+      requiredRoles.includes(UserRole.ADMIN) &&
+      !String(request.path ?? request.originalUrl ?? '').startsWith('/users')
+    ) {
       return true;
     }
 

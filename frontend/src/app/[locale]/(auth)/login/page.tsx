@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -12,8 +12,17 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const t = useTranslations("auth");
-  const getErrorMessage = (error: unknown): string =>
-    error instanceof Error ? error.message : t("errors.loginError");
+  const locale = useLocale();
+  const getErrorMessage = (error: unknown): string => {
+    if (!(error instanceof Error)) return t("errors.loginError");
+    if (error.message === "user.blocked") {
+      return t("errors.blocked");
+    }
+    if (error.message === "Invalid credentials") {
+      return t("errors.invalidCredentials");
+    }
+    return error.message;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,7 +105,7 @@ export default function LoginPage() {
             {t("noAccount")}{" "}
           </span>
           <Link
-            href="/register"
+            href={`/${locale}/register`}
             className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400"
           >
             {t("register")}

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -14,14 +14,24 @@ export default function RegisterPage() {
     firstName: "",
     lastName: "",
     phone: "",
+    role: "tenant" as "owner" | "tenant",
   });
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const t = useTranslations("auth");
-  const getErrorMessage = (error: unknown): string =>
-    error instanceof Error ? error.message : t("errors.registerError");
+  const locale = useLocale();
+  const getErrorMessage = (error: unknown): string => {
+    if (!(error instanceof Error)) return t("errors.registerError");
+    if (error.message === "Email already exists") {
+      return t("errors.emailAlreadyRegistered");
+    }
+    return error.message;
+  };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
@@ -31,6 +41,7 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
 
     if (formData.password !== formData.confirmPassword) {
       setError(t("errors.passwordMismatch"));
@@ -45,13 +56,17 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      await register({
+      const response = await register({
         email: formData.email,
         password: formData.password,
         firstName: formData.firstName,
         lastName: formData.lastName,
         phone: formData.phone || undefined,
+        role: formData.role,
       });
+      if (response.pendingApproval) {
+        setSuccess(t("messages.pendingApproval"));
+      }
     } catch (error: unknown) {
       setError(getErrorMessage(error));
     } finally {
@@ -74,6 +89,11 @@ export default function RegisterPage() {
         {error && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-sm">
             {error}
+          </div>
+        )}
+        {success && (
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 px-4 py-3 rounded-sm">
+            {success}
           </div>
         )}
 
@@ -131,6 +151,25 @@ export default function RegisterPage() {
             onChange={handleChange}
             className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-xs focus:outline-hidden focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
           />
+        </div>
+
+        <div>
+          <label
+            htmlFor="role"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            {t("role")}
+          </label>
+          <select
+            id="role"
+            name="role"
+            value={formData.role}
+            onChange={handleChange}
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-xs focus:outline-hidden focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+          >
+            <option value="tenant">{t("roles.tenant")}</option>
+            <option value="owner">{t("roles.owner")}</option>
+          </select>
         </div>
 
         <div>
@@ -199,7 +238,7 @@ export default function RegisterPage() {
             {t("alreadyHaveAccount")}{" "}
           </span>
           <Link
-            href="/login"
+            href={`/${locale}/login`}
             className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400"
           >
             {t("login")}

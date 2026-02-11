@@ -15,6 +15,8 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { SetUserActivationDto } from './dto/set-user-activation.dto';
+import { ResetUserPasswordDto } from './dto/reset-user-password.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from './entities/user.entity';
 import { I18n, I18nContext } from 'nestjs-i18n';
@@ -26,14 +28,25 @@ export class UsersController {
 
   @Post()
   @Roles(UserRole.ADMIN)
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  async create(@Body() createUserDto: CreateUserDto) {
+    const created = await this.usersService.create(createUserDto);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { passwordHash, ...safeUser } = created;
+    return safeUser;
   }
 
   @Get()
   @Roles(UserRole.ADMIN)
-  findAll(@Query('page') page?: number, @Query('limit') limit?: number) {
-    return this.usersService.findAll(page, limit);
+  async findAll(@Query('page') page?: number, @Query('limit') limit?: number) {
+    const result = await this.usersService.findAll(page, limit);
+    return {
+      ...result,
+      data: result.data.map((user) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { passwordHash, ...safeUser } = user;
+        return safeUser;
+      }),
+    };
   }
 
   @Get('profile/me')
@@ -42,7 +55,10 @@ export class UsersController {
   }
 
   @Patch('profile/me')
-  async updateProfile(@Request() req: any, @Body() updateUserDto: UpdateUserDto) {
+  async updateProfile(
+    @Request() req: any,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
     const updated = await this.usersService.updateProfile(
       req.user.id,
       updateUserDto,
@@ -68,8 +84,12 @@ export class UsersController {
 
   @Get(':id')
   @Roles(UserRole.ADMIN)
-  findOne(@Param('id') id: string) {
-    return this.usersService.findOneById(id);
+  async findOne(@Param('id') id: string) {
+    const user = await this.usersService.findOneById(id);
+    if (!user) return user;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { passwordHash, ...safeUser } = user;
+    return safeUser;
   }
 
   @Patch(':id')
@@ -79,6 +99,32 @@ export class UsersController {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash, ...safeUser } = updated;
     return safeUser;
+  }
+
+  @Patch(':id/activation')
+  @Roles(UserRole.ADMIN)
+  async setActivation(
+    @Param('id') id: string,
+    @Body() dto: SetUserActivationDto,
+  ) {
+    const updated = await this.usersService.setActivation(id, dto.isActive);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { passwordHash, ...safeUser } = updated;
+    return safeUser;
+  }
+
+  @Post(':id/reset-password')
+  @Roles(UserRole.ADMIN)
+  async resetPassword(
+    @Param('id') id: string,
+    @Body() dto: ResetUserPasswordDto,
+    @I18n() i18n: I18nContext,
+  ) {
+    const result = await this.usersService.resetPassword(id, dto.newPassword);
+    return {
+      message: await i18n.t('user.passwordChanged'),
+      temporaryPassword: result.temporaryPassword,
+    };
   }
 
   @Delete(':id')

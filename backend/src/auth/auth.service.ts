@@ -1,7 +1,13 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
+import { UserRole } from '../users/entities/user.entity';
 
 @Injectable()
 export class AuthService {
@@ -13,6 +19,9 @@ export class AuthService {
   async validateUser(email: string, pass: string): Promise<any> {
     const user = await this.usersService.findOneByEmail(email);
     if (user && (await bcrypt.compare(pass, user.passwordHash))) {
+      if (!user.isActive) {
+        throw new UnauthorizedException('user.blocked');
+      }
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { passwordHash, ...result } = user;
       return result;
@@ -45,22 +54,28 @@ export class AuthService {
   }
 
   async register(userData: any) {
+    if (
+      userData.role &&
+      ![UserRole.OWNER, UserRole.TENANT].includes(userData.role)
+    ) {
+      throw new BadRequestException('Only owner or tenant roles are allowed');
+    }
+
     const existingUser = await this.usersService.findOneByEmail(userData.email);
     if (existingUser) {
       throw new ConflictException('Email already exists');
     }
 
-    const salt = await bcrypt.genSalt();
-    const hashedPassword = await bcrypt.hash(userData.password, salt);
-
     const newUser = await this.usersService.create({
       ...userData,
-      passwordHash: hashedPassword,
+      role: userData.role ?? UserRole.TENANT,
+      isActive: false,
     });
 
-    // Return the same format as login (with accessToken)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { passwordHash, ...userWithoutPassword } = newUser;
-    return this.login(userWithoutPassword);
+    return {
+      pendingApproval: true,
+      userId: newUser.id,
+      message: 'registration.pendingApproval',
+    };
   }
 }

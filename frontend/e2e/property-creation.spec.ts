@@ -3,8 +3,7 @@ import { test, expect, login, localePath } from './fixtures/auth';
 test.describe('Property Creation Flow', () => {
     const ownerButtonSelector = '[data-testid="owner-row-main"]';
     const addPropertyForOwnerSelector = 'a[href*="/properties/new?ownerId="]';
-    const propertyDetailLinkSelector =
-        'a[href*="/properties/"]:not([href*="/properties/new"]):not([href*="/properties/owners/"]):not([href*="/edit"]):not([href*="/maintenance/new"]):not([href*="#"])';
+    const propertyDetailLinkSelector = '[data-testid^="property-view-link-"]';
 
     test.beforeEach(async ({ page }) => {
         await login(page);
@@ -74,9 +73,13 @@ test.describe('Property Creation Flow', () => {
         await page.locator(ownerButtonSelector).first().click();
 
         await page.waitForSelector(propertyDetailLinkSelector, { timeout: 10000 });
-        await page.locator(propertyDetailLinkSelector).first().click({ force: true });
-
-        await expect(page).toHaveURL(/\/es\/properties\/[^/]+$/);
+        await page.locator(propertyDetailLinkSelector).first().click({
+            noWaitAfter: true,
+        });
+        await page.waitForURL(/\/es\/properties\/[^/]+$/, {
+            timeout: 30000,
+            waitUntil: 'commit',
+        });
     });
 
     test('should display edit button on property detail page', async ({ page }) => {
@@ -84,7 +87,13 @@ test.describe('Property Creation Flow', () => {
         await page.locator(ownerButtonSelector).first().click();
 
         await page.waitForSelector(propertyDetailLinkSelector, { timeout: 10000 });
-        await page.locator(propertyDetailLinkSelector).first().click({ force: true });
+        await page.locator(propertyDetailLinkSelector).first().click({
+            noWaitAfter: true,
+        });
+        await page.waitForURL(/\/es\/properties\/[^/]+$/, {
+            timeout: 30000,
+            waitUntil: 'commit',
+        });
 
         await expect(page.getByRole('link', { name: /edit|editar/i }).first()).toBeVisible();
     });

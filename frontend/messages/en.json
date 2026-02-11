@@ -62,6 +62,10 @@
     "lastName": "Last Name",
     "phone": "Phone",
     "role": "Role",
+    "roles": {
+      "owner": "Owner",
+      "tenant": "Tenant"
+    },
     "createAccount": "Create Account",
     "alreadyHaveAccount": "Already have an account?",
     "noAccount": "Don't have an account?",
@@ -75,11 +79,15 @@
       "registerError": "Error registering user",
       "passwordMismatch": "Passwords do not match",
       "passwordTooShort": "Password must be at least 8 characters",
+      "blocked": "Your account is pending approval.",
       "unauthorized": "Unauthorized. Please sign in to continue."
     },
     "placeholders": {
       "email": "your@email.com",
       "password": "••••••••"
+    },
+    "messages": {
+      "pendingApproval": "Registration submitted. Your account is pending administrator approval."
     }
   },
   "userSettings": {
@@ -1001,10 +1009,31 @@
   },
   "users": {
     "title": "Users",
+    "subtitle": "Account and approval management",
     "newUser": "New User",
     "viewUser": "View User",
     "userDetails": "User Details",
-    "noUsers": "No users registered"
+    "noUsers": "No users registered",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "resetPassword": "Reset password",
+    "newPasswordPrompt": "New password (leave blank to auto-generate):",
+    "errors": {
+      "load": "Could not load users.",
+      "save": "Could not save user.",
+      "activation": "Could not update user status.",
+      "resetPassword": "Could not reset password."
+    },
+    "messages": {
+      "created": "User created successfully.",
+      "updated": "User updated successfully.",
+      "activated": "User activated successfully.",
+      "deactivated": "User deactivated successfully.",
+      "passwordReset": "Password reset"
+    }
   },
   "forms": {
     "required": "This field is required",

@@ -15,6 +15,7 @@ import type {
   LoginRequest,
   RegisterRequest,
   AuthResponse,
+  RegisterResponse,
 } from "@/types/auth";
 
 interface AuthContextType {
@@ -22,7 +23,7 @@ interface AuthContextType {
   token: string | null;
   loading: boolean;
   login: (credentials: LoginRequest) => Promise<void>;
-  register: (data: RegisterRequest) => Promise<void>;
+  register: (data: RegisterRequest) => Promise<RegisterResponse>;
   logout: () => void;
   updateUser: (nextUser: User) => void;
 }
@@ -78,18 +79,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (data: RegisterRequest) => {
     try {
-      const response = await apiClient.post<AuthResponse>(
+      const response = await apiClient.post<RegisterResponse>(
         "/auth/register",
         data,
       );
-
-      setToken(response.accessToken);
-      setUser(response.user);
-      setTokenState(response.accessToken);
-      setUserState(response.user);
-
-      const locale = getLocaleFromPath();
-      router.push(`/${locale}/dashboard`);
+      return response;
     } catch (error) {
       throw error;
     }

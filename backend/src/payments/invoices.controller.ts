@@ -7,6 +7,7 @@ import {
   Body,
   Query,
   UseGuards,
+  Request,
   Res,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -37,7 +38,7 @@ export class InvoicesController {
    * Crea una nueva factura.
    */
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   create(@Body() dto: CreateInvoiceDto) {
     return this.invoicesService.create(dto);
   }
@@ -46,7 +47,7 @@ export class InvoicesController {
    * Genera factura mensual para un contrato con fechas automáticas.
    */
   @Post('lease/:leaseId/generate')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   generateForLease(
     @Param('leaseId') leaseId: string,
     @Body() dto: GenerateInvoiceDto,
@@ -58,11 +59,10 @@ export class InvoicesController {
    * Emite una factura (genera PDF y registra en cuenta).
    */
   @Patch(':id/issue')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   async issue(@Param('id') id: string) {
     const invoice = await this.invoicesService.issue(id);
 
-    // Generar PDF
     try {
       const pdfUrl = await this.invoicePdfService.generate(invoice);
       return this.invoicesService.attachPdf(invoice.id, pdfUrl);
@@ -83,29 +83,34 @@ export class InvoicesController {
     @Query('status') status?: InvoiceStatus,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
+    @Request() req?: any,
   ) {
-    return this.invoicesService.findAll({
-      leaseId,
-      ownerId,
-      status,
-      page: page ? Number(page) : 1,
-      limit: limit ? Number(limit) : 10,
-    });
+    return this.invoicesService.findAll(
+      {
+        leaseId,
+        ownerId,
+        status,
+        page: page ? Number(page) : 1,
+        limit: limit ? Number(limit) : 10,
+      },
+      req?.user,
+    );
   }
 
   /**
    * Obtiene una factura por ID.
    */
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.invoicesService.findOne(id);
+  findOne(@Param('id') id: string, @Request() req: any) {
+    return this.invoicesService.findOneScoped(id, req.user);
   }
 
   /**
    * Lista notas de crédito de una factura.
    */
   @Get(':id/credit-notes')
-  listCreditNotes(@Param('id') id: string) {
+  async listCreditNotes(@Param('id') id: string, @Request() req: any) {
+    await this.invoicesService.findOneScoped(id, req.user);
     return this.paymentsService.listCreditNotesByInvoice(id);
   }
 
@@ -113,7 +118,7 @@ export class InvoicesController {
    * Cancela una factura.
    */
   @Patch(':id/cancel')
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   cancel(@Param('id') id: string) {
     return this.invoicesService.cancel(id);
   }
@@ -122,8 +127,12 @@ export class InvoicesController {
    * Descarga el PDF de una factura.
    */
   @Get(':id/pdf')
-  async getPdf(@Param('id') id: string, @Res() res: Response) {
-    const invoice = await this.invoicesService.findOne(id);
+  async getPdf(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Res() res: Response,
+  ) {
+    const invoice = await this.invoicesService.findOneScoped(id, req.user);
 
     if (!invoice.pdfUrl) {
       return res.status(404).json({ message: 'PDF not found' });
@@ -147,9 +156,11 @@ export class InvoicesController {
   @Get('credit-notes/:creditNoteId/pdf')
   async getCreditNotePdf(
     @Param('creditNoteId') creditNoteId: string,
+    @Request() req: any,
     @Res() res: Response,
   ) {
     const note = await this.paymentsService.findCreditNoteById(creditNoteId);
+    await this.invoicesService.findOneScoped(note.invoiceId, req.user);
 
     if (!note.pdfUrl) {
       return res.status(404).json({ message: 'Credit note PDF not found' });

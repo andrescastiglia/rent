@@ -38,13 +38,13 @@ export class PropertiesController {
   }
 
   @Get()
-  findAll(@Query() filters: PropertyFiltersDto) {
-    return this.propertiesService.findAll(filters);
+  findAll(@Query() filters: PropertyFiltersDto, @Request() req: any) {
+    return this.propertiesService.findAll(filters, req.user);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.propertiesService.findOne(id);
+  findOne(@Param('id') id: string, @Request() req: any) {
+    return this.propertiesService.findOneScoped(id, req.user);
   }
 
   @Patch(':id')

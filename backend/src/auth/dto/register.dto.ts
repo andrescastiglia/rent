@@ -1,6 +1,6 @@
 import {
   IsEmail,
-  IsEnum,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -26,7 +26,7 @@ export class RegisterDto {
   @IsNotEmpty()
   lastName: string;
 
-  @IsEnum(UserRole)
+  @IsIn([UserRole.OWNER, UserRole.TENANT])
   @IsOptional()
   role?: UserRole = UserRole.TENANT;
 

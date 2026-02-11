@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, Repository, SelectQueryBuilder } from 'typeorm';
 import { Payment, PaymentStatus } from './entities/payment.entity';
 import { PaymentItem, PaymentItemType } from './entities/payment-item.entity';
 import { Receipt } from './entities/receipt.entity';
@@ -16,6 +16,14 @@ import { CreatePaymentDto, PaymentFiltersDto } from './dto';
 import { UpdatePaymentDto } from './dto';
 import { ReceiptPdfService } from './receipt-pdf.service';
 import { CreditNotePdfService } from './credit-note-pdf.service';
+import { UserRole } from '../users/entities/user.entity';
+
+type RequestUser = {
+  id: string;
+  role: UserRole;
+  email?: string | null;
+  phone?: string | null;
+};
 
 /**
  * Servicio para gestionar pagos de inquilinos.
@@ -292,16 +300,52 @@ export class PaymentsService {
     return payment;
   }
 
-  async findReceiptsByTenant(tenantId: string): Promise<Receipt[]> {
-    return this.receiptsRepository
+  async findOneScoped(id: string, user: RequestUser): Promise<Payment> {
+    const query = this.paymentsRepository
+      .createQueryBuilder('payment')
+      .leftJoinAndSelect('payment.tenantAccount', 'account')
+      .leftJoinAndSelect('account.lease', 'lease')
+      .leftJoinAndSelect('lease.tenant', 'tenant')
+      .leftJoinAndSelect('tenant.user', 'tenantUser')
+      .leftJoinAndSelect('lease.property', 'property')
+      .leftJoinAndSelect('property.owner', 'owner')
+      .leftJoinAndSelect('owner.user', 'ownerUser')
+      .leftJoinAndSelect('payment.receipt', 'receipt')
+      .leftJoinAndSelect('payment.items', 'items')
+      .where('payment.id = :id', { id })
+      .andWhere('payment.deleted_at IS NULL');
+
+    this.applyVisibilityScope(query, user);
+
+    const payment = await query.getOne();
+    if (!payment) {
+      throw new NotFoundException(`Payment with ID ${id} not found`);
+    }
+    return payment;
+  }
+
+  async findReceiptsByTenant(
+    tenantId: string,
+    user: RequestUser,
+  ): Promise<Receipt[]> {
+    const query = this.receiptsRepository
       .createQueryBuilder('receipt')
       .leftJoinAndSelect('receipt.payment', 'payment')
+      .leftJoin('payment.tenantAccount', 'account')
+      .leftJoin('account.lease', 'lease')
+      .leftJoin('lease.property', 'property')
+      .leftJoin('property.owner', 'owner')
+      .leftJoin('owner.user', 'ownerUser')
       .leftJoin('payment.tenant', 'tenant')
+      .leftJoin('tenant.user', 'tenantUser')
       .where('(payment.tenant_id = :tenantId OR tenant.user_id = :tenantId)', {
         tenantId,
       })
-      .orderBy('receipt.issue_date', 'DESC')
-      .getMany();
+      .andWhere('payment.deleted_at IS NULL')
+      .orderBy('receipt.issue_date', 'DESC');
+
+    this.applyVisibilityScope(query, user);
+    return query.getMany();
   }
 
   async listCreditNotesByInvoice(invoiceId: string): Promise<CreditNote[]> {
@@ -329,6 +373,7 @@ export class PaymentsService {
    */
   async findAll(
     filters: PaymentFiltersDto,
+    user?: RequestUser,
   ): Promise<{ data: Payment[]; total: number; page: number; limit: number }> {
     const {
       tenantId,
@@ -346,7 +391,11 @@ export class PaymentsService {
       .createQueryBuilder('payment')
       .leftJoinAndSelect('payment.tenantAccount', 'account')
       .leftJoinAndSelect('account.lease', 'lease')
+      .leftJoinAndSelect('lease.property', 'property')
+      .leftJoinAndSelect('property.owner', 'owner')
+      .leftJoinAndSelect('owner.user', 'ownerUser')
       .leftJoinAndSelect('lease.tenant', 'tenant')
+      .leftJoinAndSelect('tenant.user', 'tenantUser')
       .leftJoinAndSelect('payment.receipt', 'receipt')
       .leftJoinAndSelect('payment.items', 'items')
       .where('payment.deleted_at IS NULL');
@@ -384,6 +433,10 @@ export class PaymentsService {
       query.andWhere('payment.payment_date <= :toDate', { toDate });
     }
 
+    if (user) {
+      this.applyVisibilityScope(query, user);
+    }
+
     query
       .orderBy('payment.paymentDate', 'DESC')
       .addOrderBy('payment.id', 'DESC')
@@ -393,6 +446,41 @@ export class PaymentsService {
     const [data, total] = await query.getManyAndCount();
 
     return { data, total, page, limit };
+  }
+
+  private applyVisibilityScope(
+    query: SelectQueryBuilder<any>,
+    user: RequestUser,
+  ) {
+    if (user.role === UserRole.ADMIN || user.role === UserRole.STAFF) {
+      return;
+    }
+
+    const email = (user.email ?? '').trim().toLowerCase();
+    const phone = (user.phone ?? '').trim();
+
+    if (user.role === UserRole.OWNER) {
+      query.andWhere(
+        `(owner.user_id = :scopeUserId OR LOWER(ownerUser.email) = :scopeEmail OR (:scopePhone <> '' AND ownerUser.phone = :scopePhone))`,
+        {
+          scopeUserId: user.id,
+          scopeEmail: email,
+          scopePhone: phone,
+        },
+      );
+      return;
+    }
+
+    if (user.role === UserRole.TENANT) {
+      query.andWhere(
+        `(tenant.user_id = :scopeUserId OR LOWER(tenantUser.email) = :scopeEmail OR (:scopePhone <> '' AND tenantUser.phone = :scopePhone))`,
+        {
+          scopeUserId: user.id,
+          scopeEmail: email,
+          scopePhone: phone,
+        },
+      );
+    }
   }
 
   /**

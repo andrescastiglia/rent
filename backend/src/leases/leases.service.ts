@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { IsNull, Repository, SelectQueryBuilder } from 'typeorm';
 import {
   ContractType,
   LateFeeType,
@@ -25,6 +25,14 @@ import { LeaseContractTemplate } from './entities/lease-contract-template.entity
 import { CreateLeaseContractTemplateDto } from './dto/create-lease-contract-template.dto';
 import { UpdateLeaseContractTemplateDto } from './dto/update-lease-contract-template.dto';
 import { TenantAccountsService } from '../payments/tenant-accounts.service';
+import { UserRole } from '../users/entities/user.entity';
+
+type RequestUser = {
+  id: string;
+  role: UserRole;
+  email?: string | null;
+  phone?: string | null;
+};
 
 @Injectable()
 export class LeasesService {
@@ -149,6 +157,7 @@ export class LeasesService {
 
   async findAll(
     filters: LeaseFiltersDto,
+    user?: RequestUser,
   ): Promise<{ data: Lease[]; total: number; page: number; limit: number }> {
     const {
       propertyId,
@@ -165,7 +174,10 @@ export class LeasesService {
     const query = this.leasesRepository
       .createQueryBuilder('lease')
       .leftJoinAndSelect('lease.property', 'property')
+      .leftJoinAndSelect('property.owner', 'owner')
+      .leftJoinAndSelect('owner.user', 'ownerUser')
       .leftJoinAndSelect('lease.tenant', 'tenant')
+      .leftJoinAndSelect('tenant.user', 'tenantUser')
       .leftJoinAndSelect('lease.buyerProfile', 'buyerProfile')
       .where('lease.deleted_at IS NULL');
 
@@ -213,6 +225,10 @@ export class LeasesService {
       );
     }
 
+    if (user) {
+      this.applyVisibilityScope(query, user);
+    }
+
     query
       .orderBy('lease.created_at', 'DESC')
       .skip((page - 1) * limit)
@@ -244,6 +260,31 @@ export class LeasesService {
       ],
     });
 
+    if (!lease) {
+      throw new NotFoundException(`Lease with ID ${id} not found`);
+    }
+
+    return lease;
+  }
+
+  async findOneScoped(id: string, user: RequestUser): Promise<Lease> {
+    const query = this.leasesRepository
+      .createQueryBuilder('lease')
+      .leftJoinAndSelect('lease.property', 'property')
+      .leftJoinAndSelect('property.owner', 'owner')
+      .leftJoinAndSelect('owner.user', 'ownerUser')
+      .leftJoinAndSelect('lease.tenant', 'tenant')
+      .leftJoinAndSelect('tenant.user', 'tenantUser')
+      .leftJoinAndSelect('lease.buyerProfile', 'buyerProfile')
+      .leftJoinAndSelect('lease.template', 'template')
+      .leftJoinAndSelect('lease.previousLease', 'previousLease')
+      .leftJoinAndSelect('lease.amendments', 'amendments')
+      .where('lease.id = :id', { id })
+      .andWhere('lease.deleted_at IS NULL');
+
+    this.applyVisibilityScope(query, user);
+
+    const lease = await query.getOne();
     if (!lease) {
       throw new NotFoundException(`Lease with ID ${id} not found`);
     }
@@ -927,6 +968,41 @@ export class LeasesService {
     });
     if (!buyer) {
       throw new NotFoundException('Buyer profile not found');
+    }
+  }
+
+  private applyVisibilityScope(
+    query: SelectQueryBuilder<Lease>,
+    user: RequestUser,
+  ) {
+    if (user.role === UserRole.ADMIN || user.role === UserRole.STAFF) {
+      return;
+    }
+
+    const email = (user.email ?? '').trim().toLowerCase();
+    const phone = (user.phone ?? '').trim();
+
+    if (user.role === UserRole.OWNER) {
+      query.andWhere(
+        `(owner.user_id = :scopeUserId OR LOWER(ownerUser.email) = :scopeEmail OR (:scopePhone <> '' AND ownerUser.phone = :scopePhone))`,
+        {
+          scopeUserId: user.id,
+          scopeEmail: email,
+          scopePhone: phone,
+        },
+      );
+      return;
+    }
+
+    if (user.role === UserRole.TENANT) {
+      query.andWhere(
+        `(tenant.user_id = :scopeUserId OR LOWER(tenantUser.email) = :scopeEmail OR (:scopePhone <> '' AND tenantUser.phone = :scopePhone))`,
+        {
+          scopeUserId: user.id,
+          scopeEmail: email,
+          scopePhone: phone,
+        },
+      );
     }
   }
 }

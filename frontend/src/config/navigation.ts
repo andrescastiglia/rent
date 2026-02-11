@@ -46,7 +46,6 @@ export const navigationItems: NavItem[] = [
     labelKey: "users",
     href: "/users",
     roles: ["admin"],
-    disabled: true,
   },
 ];
 

@@ -30,6 +30,9 @@ interface AuthenticatedRequest {
   user: {
     id: string;
     companyId: string;
+    role: UserRole;
+    email?: string | null;
+    phone?: string | null;
   };
 }
 
@@ -39,18 +42,21 @@ export class LeasesController {
   constructor(private readonly leasesService: LeasesService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   create(@Body() createLeaseDto: CreateLeaseDto) {
     return this.leasesService.create(createLeaseDto);
   }
 
   @Get()
-  findAll(@Query() filters: LeaseFiltersDto) {
-    return this.leasesService.findAll(filters);
+  findAll(
+    @Query() filters: LeaseFiltersDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.leasesService.findAll(filters, req.user);
   }
 
   @Get('templates')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   listTemplates(
     @Query('contractType') contractType: ContractType | undefined,
     @Request() req: AuthenticatedRequest,
@@ -65,7 +71,7 @@ export class LeasesController {
   }
 
   @Post('templates')
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   createTemplate(
     @Body() dto: CreateLeaseContractTemplateDto,
     @Request() req: AuthenticatedRequest,
@@ -74,7 +80,7 @@ export class LeasesController {
   }
 
   @Patch('templates/:templateId')
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   updateTemplate(
     @Param('templateId', ParseUUIDPipe) templateId: string,
     @Body() dto: UpdateLeaseContractTemplateDto,
@@ -88,18 +94,18 @@ export class LeasesController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.leasesService.findOne(id);
+  findOne(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    return this.leasesService.findOneScoped(id, req.user);
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   update(@Param('id') id: string, @Body() updateLeaseDto: UpdateLeaseDto) {
     return this.leasesService.update(id, updateLeaseDto);
   }
 
   @Post(':id/draft/render')
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   renderDraft(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RenderLeaseDraftDto,
@@ -108,7 +114,7 @@ export class LeasesController {
   }
 
   @Patch(':id/draft-text')
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   updateDraftText(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateLeaseDraftTextDto,
@@ -117,7 +123,7 @@ export class LeasesController {
   }
 
   @Post(':id/confirm')
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   confirmDraft(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ConfirmLeaseDraftDto,
@@ -127,31 +133,31 @@ export class LeasesController {
   }
 
   @Patch(':id/activate')
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   activate(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     return this.leasesService.activate(id, req.user.id);
   }
 
   @Patch(':id/terminate')
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   terminate(@Param('id') id: string, @Body('reason') reason?: string) {
     return this.leasesService.terminate(id, reason);
   }
 
   @Patch(':id/finalize')
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   finalize(@Param('id') id: string, @Body('reason') reason?: string) {
     return this.leasesService.terminate(id, reason);
   }
 
   @Patch(':id/renew')
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   renew(@Param('id') id: string, @Body() newTerms: Partial<CreateLeaseDto>) {
     return this.leasesService.renew(id, newTerms);
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   async remove(@Param('id') id: string) {
     await this.leasesService.remove(id);
     return { message: 'Lease deleted successfully' };

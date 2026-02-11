@@ -12,7 +12,7 @@ export class DashboardController {
   @Get('stats')
   async getStats(@Request() req: any): Promise<DashboardStatsDto> {
     const companyId = req.user.companyId;
-    return this.dashboardService.getStats(companyId);
+    return this.dashboardService.getStats(companyId, req.user);
   }
 
   @Get('recent-activity')
@@ -22,6 +22,10 @@ export class DashboardController {
   ): Promise<RecentActivityDto> {
     const limitNum = limit ? parseInt(limit, 10) : 10;
     const companyId = req.user.companyId;
-    return this.dashboardService.getRecentActivity(companyId, limitNum);
+    return this.dashboardService.getRecentActivity(
+      companyId,
+      req.user,
+      limitNum,
+    );
   }
 }

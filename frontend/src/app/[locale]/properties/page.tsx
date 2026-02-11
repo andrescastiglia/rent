@@ -300,20 +300,13 @@ export default function PropertiesPage() {
                         : "border-gray-200 dark:border-gray-700"
                     }`}
                   >
-                    <div
-                      data-testid="owner-row-toggle"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => handleSelectOwner(owner)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          handleSelectOwner(owner);
-                        }
-                      }}
-                      className="w-full p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-left cursor-pointer"
-                    >
-                      <div data-testid="owner-row-main" className="min-w-0">
+                    <div className="w-full p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-left">
+                      <button
+                        type="button"
+                        data-testid="owner-row-main"
+                        onClick={() => handleSelectOwner(owner)}
+                        className="min-w-0 text-left cursor-pointer"
+                      >
                         <p className="font-semibold text-gray-900 dark:text-white">
                           {owner.firstName} {owner.lastName}
                         </p>
@@ -323,12 +316,9 @@ export default function PropertiesPage() {
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                           {owner.phone || "-"}
                         </p>
-                      </div>
+                      </button>
 
-                      <div
-                        className="ml-auto flex items-center gap-2"
-                        onClick={(event) => event.stopPropagation()}
-                      >
+                      <div className="ml-auto flex items-center gap-2">
                         <Link
                           href={`/${locale}/properties/new?ownerId=${owner.id}`}
                           className={ownerActionClass}
@@ -344,11 +334,18 @@ export default function PropertiesPage() {
                           {tc("edit")}
                         </Link>
                         <span className="text-gray-400 dark:text-gray-500">
-                          {isSelected ? (
-                            <ChevronUp size={16} />
-                          ) : (
-                            <ChevronDown size={16} />
-                          )}
+                          <button
+                            type="button"
+                            data-testid="owner-row-toggle"
+                            onClick={() => handleSelectOwner(owner)}
+                            className="inline-flex items-center"
+                          >
+                            {isSelected ? (
+                              <ChevronUp size={16} />
+                            ) : (
+                              <ChevronDown size={16} />
+                            )}
+                          </button>
                         </span>
                       </div>
                     </div>
@@ -402,28 +399,16 @@ export default function PropertiesPage() {
                                       : "border-gray-200 dark:border-gray-700"
                                   }`}
                                 >
-                                  <div
-                                    role="button"
-                                    tabIndex={0}
-                                    onClick={() =>
-                                      void handleTogglePropertyMaintenance(
-                                        property.id,
-                                      )
-                                    }
-                                    onKeyDown={(event) => {
-                                      if (
-                                        event.key === "Enter" ||
-                                        event.key === " "
-                                      ) {
-                                        event.preventDefault();
+                                  <div className="w-full p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-left">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
                                         void handleTogglePropertyMaintenance(
                                           property.id,
-                                        );
+                                        )
                                       }
-                                    }}
-                                    className="w-full p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-left cursor-pointer"
-                                  >
-                                    <div>
+                                      className="text-left cursor-pointer"
+                                    >
                                       <p className="text-sm font-semibold text-gray-900 dark:text-white">
                                         {property.name}
                                       </p>
@@ -432,34 +417,30 @@ export default function PropertiesPage() {
                                         {property.address.number},{" "}
                                         {property.address.city}
                                       </p>
-                                    </div>
-                                    <div
-                                      className="ml-auto flex items-center gap-2"
-                                      onClick={(event) =>
-                                        event.stopPropagation()
-                                      }
-                                    >
-                                      <Link
+                                    </button>
+                                    <div className="ml-auto flex items-center gap-2">
+                                      <a
                                         href={`/${locale}/properties/${property.id}`}
+                                        data-testid={`property-view-link-${property.id}`}
                                         className="action-link action-link-primary"
                                       >
                                         <Eye size={14} />
                                         {tc("view")}
-                                      </Link>
-                                      <Link
+                                      </a>
+                                      <a
                                         href={`/${locale}/properties/${property.id}/edit`}
                                         className="action-link action-link-primary"
                                       >
                                         <Edit size={14} />
                                         {tc("edit")}
-                                      </Link>
-                                      <Link
+                                      </a>
+                                      <a
                                         href={`/${locale}/properties/${property.id}/maintenance/new`}
                                         className="action-link action-link-primary"
                                       >
                                         <Wrench size={14} />
                                         {t("saveMaintenanceTask")}
-                                      </Link>
+                                      </a>
                                       {leaseAction.type === "view" ? (
                                         <Link
                                           href={`/${locale}/leases/${leaseAction.lease.id}`}
@@ -503,11 +484,22 @@ export default function PropertiesPage() {
                                         </Link>
                                       ) : null}
                                       <span className="text-gray-400 dark:text-gray-500">
-                                        {expandedPropertyId === property.id ? (
-                                          <ChevronUp size={16} />
-                                        ) : (
-                                          <ChevronDown size={16} />
-                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            void handleTogglePropertyMaintenance(
+                                              property.id,
+                                            )
+                                          }
+                                          className="inline-flex items-center"
+                                        >
+                                          {expandedPropertyId ===
+                                          property.id ? (
+                                            <ChevronUp size={16} />
+                                          ) : (
+                                            <ChevronDown size={16} />
+                                          )}
+                                        </button>
                                       </span>
                                     </div>
                                   </div>

@@ -7,9 +7,15 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
 import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+
+type CreateUserInput = CreateUserDto & {
+  isActive?: boolean;
+  companyId?: string;
+};
 
 @Injectable()
 export class UsersService {
@@ -18,12 +24,13 @@ export class UsersService {
     private usersRepository: Repository<User>,
   ) {}
 
-  async create(createUserDto: CreateUserDto): Promise<User> {
+  async create(createUserDto: CreateUserInput): Promise<User> {
     const salt = await bcrypt.genSalt();
     const hashedPassword = await bcrypt.hash(createUserDto.password, salt);
 
     const user = this.usersRepository.create({
       ...createUserDto,
+      email: createUserDto.email.trim().toLowerCase(),
       passwordHash: hashedPassword,
     });
     return this.usersRepository.save(user);
@@ -112,6 +119,37 @@ export class UsersService {
     await this.usersRepository.save(user);
   }
 
+  async setActivation(userId: string, isActive: boolean): Promise<User> {
+    const user = await this.findOneById(userId);
+    if (!user) {
+      throw new NotFoundException('user.notFound');
+    }
+
+    user.isActive = isActive;
+    return this.usersRepository.save(user);
+  }
+
+  async resetPassword(
+    userId: string,
+    newPassword?: string,
+  ): Promise<{ user: User; temporaryPassword: string }> {
+    const user = await this.findOneById(userId);
+    if (!user) {
+      throw new NotFoundException('user.notFound');
+    }
+
+    const temporaryPassword =
+      newPassword && newPassword.trim().length >= 8
+        ? newPassword.trim()
+        : this.generateTemporaryPassword();
+
+    const salt = await bcrypt.genSalt();
+    user.passwordHash = await bcrypt.hash(temporaryPassword, salt);
+    await this.usersRepository.save(user);
+
+    return { user, temporaryPassword };
+  }
+
   private async applyUserUpdates(
     user: User,
     updateUserDto: UpdateUserDto,
@@ -145,5 +183,9 @@ export class UsersService {
       const avatar = (updateUserDto.avatarUrl ?? '').trim();
       user.avatarUrl = avatar.length > 0 ? avatar : null;
     }
+  }
+
+  private generateTemporaryPassword(): string {
+    return randomBytes(8).toString('hex');
   }
 }

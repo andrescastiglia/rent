@@ -22,6 +22,13 @@ export interface RegisterRequest {
   firstName: string;
   lastName: string;
   phone?: string;
+  role?: "owner" | "tenant";
+}
+
+export interface RegisterResponse {
+  pendingApproval: boolean;
+  userId: string;
+  message: string;
 }
 
 export interface AuthResponse {

@@ -10,6 +10,7 @@ import { CreditNote } from './entities/credit-note.entity';
 import { TenantAccountsService } from './tenant-accounts.service';
 import { ReceiptPdfService } from './receipt-pdf.service';
 import { CreditNotePdfService } from './credit-note-pdf.service';
+import { UserRole } from '../users/entities/user.entity';
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
@@ -161,13 +162,17 @@ describe('PaymentsService', () => {
       leftJoinAndSelect: jest.fn().mockReturnThis(),
       leftJoin: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       getMany: jest.fn().mockResolvedValue([]),
     };
 
     receiptsRepository.createQueryBuilder!.mockReturnValue(mockQueryBuilder);
 
-    await service.findReceiptsByTenant('tenant-1');
+    await service.findReceiptsByTenant('tenant-1', {
+      id: 'admin-1',
+      role: UserRole.ADMIN,
+    });
 
     expect(mockQueryBuilder.where).toHaveBeenCalledWith(
       '(payment.tenant_id = :tenantId OR tenant.user_id = :tenantId)',
@@ -176,6 +181,9 @@ describe('PaymentsService', () => {
     expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith(
       'receipt.issue_date',
       'DESC',
+    );
+    expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+      'payment.deleted_at IS NULL',
     );
   });
 });

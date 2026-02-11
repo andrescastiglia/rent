@@ -62,6 +62,10 @@
     "lastName": "Sobrenome",
     "phone": "Telefone",
     "role": "Função",
+    "roles": {
+      "owner": "Proprietário",
+      "tenant": "Inquilino"
+    },
     "createAccount": "Criar Conta",
     "alreadyHaveAccount": "Já tem uma conta?",
     "noAccount": "Não tem uma conta?",
@@ -75,11 +79,15 @@
       "registerError": "Erro ao cadastrar usuário",
       "passwordMismatch": "As senhas não coincidem",
       "passwordTooShort": "A senha deve ter pelo menos 8 caracteres",
+      "blocked": "Sua conta está pendente de aprovação.",
       "unauthorized": "Não autorizado. Faça login para continuar."
     },
     "placeholders": {
       "email": "seu@email.com",
       "password": "••••••••"
+    },
+    "messages": {
+      "pendingApproval": "Cadastro enviado. Sua conta está pendente de aprovação do administrador."
     }
   },
   "userSettings": {
@@ -1001,10 +1009,31 @@
   },
   "users": {
     "title": "Usuários",
+    "subtitle": "Gestão de contas e aprovações",
     "newUser": "Novo Usuário",
     "viewUser": "Ver Usuário",
     "userDetails": "Detalhes do Usuário",
-    "noUsers": "Nenhum usuário cadastrado"
+    "noUsers": "Nenhum usuário cadastrado",
+    "status": "Status",
+    "active": "Ativo",
+    "inactive": "Inativo",
+    "activate": "Ativar",
+    "deactivate": "Desativar",
+    "resetPassword": "Redefinir senha",
+    "newPasswordPrompt": "Nova senha (deixe em branco para gerar temporária):",
+    "errors": {
+      "load": "Não foi possível carregar os usuários.",
+      "save": "Não foi possível salvar o usuário.",
+      "activation": "Não foi possível atualizar o status do usuário.",
+      "resetPassword": "Não foi possível redefinir a senha."
+    },
+    "messages": {
+      "created": "Usuário criado com sucesso.",
+      "updated": "Usuário atualizado com sucesso.",
+      "activated": "Usuário ativado com sucesso.",
+      "deactivated": "Usuário desativado com sucesso.",
+      "passwordReset": "Senha redefinida"
+    }
   },
   "forms": {
     "required": "Este campo é obrigatório",

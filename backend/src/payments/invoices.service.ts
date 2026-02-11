@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { Invoice, InvoiceStatus } from './entities/invoice.entity';
 import {
   CommissionInvoice,
@@ -20,6 +20,14 @@ import {
   AdjustmentType,
   InflationIndexType,
 } from '../leases/entities/lease.entity';
+import { UserRole } from '../users/entities/user.entity';
+
+type RequestUser = {
+  id: string;
+  role: UserRole;
+  email?: string | null;
+  phone?: string | null;
+};
 
 /**
  * Servicio para gestionar facturas.
@@ -226,24 +234,53 @@ export class InvoicesService {
     return invoice;
   }
 
+  async findOneScoped(id: string, user: RequestUser): Promise<Invoice> {
+    const query = this.invoicesRepository
+      .createQueryBuilder('invoice')
+      .leftJoinAndSelect('invoice.lease', 'lease')
+      .leftJoinAndSelect('lease.tenant', 'tenant')
+      .leftJoinAndSelect('tenant.user', 'tenantUser')
+      .leftJoinAndSelect('lease.property', 'property')
+      .leftJoinAndSelect('property.owner', 'owner')
+      .leftJoinAndSelect('owner.user', 'ownerUser')
+      .where('invoice.id = :id', { id })
+      .andWhere('invoice.deleted_at IS NULL');
+
+    this.applyVisibilityScope(query, user);
+
+    const invoice = await query.getOne();
+    if (!invoice) {
+      throw new NotFoundException(`Invoice with ID ${id} not found`);
+    }
+
+    return invoice;
+  }
+
   /**
    * Lista facturas con filtros.
    * @param filters Filtros
    * @returns Lista paginada
    */
-  async findAll(filters: {
-    leaseId?: string;
-    ownerId?: string;
-    status?: InvoiceStatus;
-    page?: number;
-    limit?: number;
-  }): Promise<{ data: Invoice[]; total: number; page: number; limit: number }> {
+  async findAll(
+    filters: {
+      leaseId?: string;
+      ownerId?: string;
+      status?: InvoiceStatus;
+      page?: number;
+      limit?: number;
+    },
+    user?: RequestUser,
+  ): Promise<{ data: Invoice[]; total: number; page: number; limit: number }> {
     const { leaseId, ownerId, status, page = 1, limit = 10 } = filters;
 
     const query = this.invoicesRepository
       .createQueryBuilder('invoice')
       .leftJoinAndSelect('invoice.lease', 'lease')
       .leftJoinAndSelect('lease.tenant', 'tenant')
+      .leftJoinAndSelect('tenant.user', 'tenantUser')
+      .leftJoinAndSelect('lease.property', 'property')
+      .leftJoinAndSelect('property.owner', 'owner')
+      .leftJoinAndSelect('owner.user', 'ownerUser')
       .where('invoice.deleted_at IS NULL');
 
     if (leaseId) {
@@ -258,6 +295,10 @@ export class InvoicesService {
       query.andWhere('invoice.status = :status', { status });
     }
 
+    if (user) {
+      this.applyVisibilityScope(query, user);
+    }
+
     query
       .orderBy('invoice.issuedAt', 'DESC')
       .addOrderBy('invoice.id', 'DESC')
@@ -267,6 +308,41 @@ export class InvoicesService {
     const [data, total] = await query.getManyAndCount();
 
     return { data, total, page, limit };
+  }
+
+  private applyVisibilityScope(
+    query: SelectQueryBuilder<Invoice>,
+    user: RequestUser,
+  ) {
+    if (user.role === UserRole.ADMIN || user.role === UserRole.STAFF) {
+      return;
+    }
+
+    const email = (user.email ?? '').trim().toLowerCase();
+    const phone = (user.phone ?? '').trim();
+
+    if (user.role === UserRole.OWNER) {
+      query.andWhere(
+        `(owner.user_id = :scopeUserId OR LOWER(ownerUser.email) = :scopeEmail OR (:scopePhone <> '' AND ownerUser.phone = :scopePhone))`,
+        {
+          scopeUserId: user.id,
+          scopeEmail: email,
+          scopePhone: phone,
+        },
+      );
+      return;
+    }
+
+    if (user.role === UserRole.TENANT) {
+      query.andWhere(
+        `(tenant.user_id = :scopeUserId OR LOWER(tenantUser.email) = :scopeEmail OR (:scopePhone <> '' AND tenantUser.phone = :scopePhone))`,
+        {
+          scopeUserId: user.id,
+          scopeEmail: email,
+          scopePhone: phone,
+        },
+      );
+    }
   }
 
   private computeBillingPeriod(

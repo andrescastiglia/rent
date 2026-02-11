@@ -24,6 +24,7 @@ import { SalesModule } from './sales/sales.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
+import { ReadonlyRoleGuard } from './common/guards/readonly-role.guard';
 import { I18nModule, AcceptLanguageResolver } from 'nestjs-i18n';
 import * as path from 'path';
 
@@ -73,6 +74,10 @@ import * as path from 'path';
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ReadonlyRoleGuard,
     },
     {
       provide: APP_GUARD,

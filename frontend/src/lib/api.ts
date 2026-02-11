@@ -76,6 +76,9 @@ async function handleMockAuth(endpoint: string, data: any): Promise<any> {
     if (!user) {
       throw new Error("Credenciales inválidas");
     }
+    if (!user.isActive) {
+      throw new Error("user.blocked");
+    }
     const { password: _, ...userWithoutPassword } = user;
     return {
       accessToken: `mock-token-${user.id}-${Date.now()}`,
@@ -98,16 +101,16 @@ async function handleMockAuth(endpoint: string, data: any): Promise<any> {
       avatarUrl: null,
       language: "es" as const,
       name: `${data.firstName} ${data.lastName}`,
-      role: "owner" as const,
-      isActive: true,
+      role: data.role === "owner" ? ("owner" as const) : ("tenant" as const),
+      isActive: false,
     };
     // Add user to mock database so login works
     MOCK_USERS.push(newUser);
 
-    const { password: _, ...userWithoutPassword } = newUser;
     return {
-      accessToken: `mock-token-${newUser.id}-${Date.now()}`,
-      user: userWithoutPassword,
+      pendingApproval: true,
+      userId: newUser.id,
+      message: "registration.pendingApproval",
     };
   }
 

@@ -2,8 +2,7 @@ import { test, expect, login, localePath } from './fixtures/auth';
 
 test.describe('Property Maintenance Log', () => {
     const ownerButtonSelector = '[data-testid="owner-row-main"]';
-    const propertyDetailLinkSelector =
-        'a[href*="/properties/"]:not([href*="/properties/new"]):not([href*="/properties/owners/"]):not([href*="/edit"]):not([href*="/maintenance/new"]):not([href*="#"])';
+    const propertyDetailLinkSelector = '[data-testid^="property-view-link-"]';
 
     test.beforeEach(async ({ page }) => {
         await login(page);
@@ -13,9 +12,13 @@ test.describe('Property Maintenance Log', () => {
     test('should add a maintenance task and show it in history', async ({ page }) => {
         await page.locator(ownerButtonSelector).first().click();
         await page.waitForSelector(propertyDetailLinkSelector, { timeout: 10000 });
-        await page.locator(propertyDetailLinkSelector).first().click({ force: true });
-
-        await expect(page).toHaveURL(/\/es\/properties\/[^/]+$/);
+        await page.locator(propertyDetailLinkSelector).first().click({
+            noWaitAfter: true,
+        });
+        await page.waitForURL(/\/es\/properties\/[^/]+$/, {
+            timeout: 30000,
+            waitUntil: 'commit',
+        });
 
         await page.locator('a[href*="/maintenance/new"]').first().click();
         await expect(page).toHaveURL(/\/es\/properties\/[^/]+\/maintenance\/new$/);
