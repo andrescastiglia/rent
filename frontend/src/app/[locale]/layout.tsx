@@ -46,8 +46,34 @@ export default async function LocaleLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale}>
+    <html lang={locale} className="light" suppressHydrationWarning>
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var root = document.documentElement;
+                  var mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                  var applyTheme = function(isDark) {
+                    root.classList.toggle('dark', isDark);
+                    root.classList.toggle('light', !isDark);
+                  };
+                  applyTheme(mediaQuery.matches);
+                  if (typeof mediaQuery.addEventListener === 'function') {
+                    mediaQuery.addEventListener('change', function(event) {
+                      applyTheme(event.matches);
+                    });
+                  } else if (typeof mediaQuery.addListener === 'function') {
+                    mediaQuery.addListener(function(event) {
+                      applyTheme(event.matches);
+                    });
+                  }
+                } catch (error) {}
+              })();
+            `,
+          }}
+        />
         <meta name="referrer" content="strict-origin-when-cross-origin" />
       </head>
       <body>
