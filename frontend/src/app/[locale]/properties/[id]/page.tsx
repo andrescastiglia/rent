@@ -235,7 +235,14 @@ export default function PropertyDetailPage() {
   const supportsSale = propertyOperations.includes("sale");
   const canCreateLease = supportsRent || supportsSale;
   const leaseAction = resolveLeaseAction(leasesForProperty);
-  const createLeaseHref = `/${locale}/leases/new?propertyId=${property.id}`;
+  const createLeaseQuery = new URLSearchParams({
+    propertyId: property.id,
+    propertyName: property.name,
+  });
+  if (propertyOperations.length > 0) {
+    createLeaseQuery.set("propertyOperations", propertyOperations.join(","));
+  }
+  const createLeaseHref = `/${locale}/leases/new?${createLeaseQuery.toString()}`;
   const hasMultipleImages = property.images.length > 1;
   const currentImage = property.images[currentImageIndex] ?? property.images[0];
 

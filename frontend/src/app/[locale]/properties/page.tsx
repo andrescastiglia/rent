@@ -375,7 +375,24 @@ export default function PropertiesPage() {
                                 leasesByProperty[property.id] ?? [];
                               const leaseAction =
                                 resolvePropertyLeaseAction(propertyLeases);
-                              const createContractHref = `/${locale}/leases/new?propertyId=${property.id}`;
+                              const createContractQuery = new URLSearchParams({
+                                propertyId: property.id,
+                                propertyName: property.name,
+                              });
+                              if (propertyOperations.length > 0) {
+                                createContractQuery.set(
+                                  "propertyOperations",
+                                  propertyOperations.join(","),
+                                );
+                              }
+                              const ownerName =
+                                `${owner.firstName} ${owner.lastName}`.trim() ||
+                                owner.email ||
+                                "";
+                              if (ownerName) {
+                                createContractQuery.set("ownerName", ownerName);
+                              }
+                              const createContractHref = `/${locale}/leases/new?${createContractQuery.toString()}`;
 
                               return (
                                 <div

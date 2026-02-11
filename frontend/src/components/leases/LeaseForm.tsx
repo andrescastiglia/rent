@@ -134,6 +134,10 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const selectedOwnerId = formValues.ownerId;
   const selectedTemplateId = formValues.templateId;
   const preselectedPropertyId = searchParams.get("propertyId");
+  const preselectedPropertyName = searchParams.get("propertyName");
+  const preselectedOwnerName = searchParams.get("ownerName");
+  const preselectedPropertyOperationsRaw =
+    searchParams.get("propertyOperations");
   const preselectedTenantId = searchParams.get("tenantId");
   const preselectedBuyerProfileId = searchParams.get("buyerProfileId");
   const hasPreselectedProperty = !isEditing && !!preselectedPropertyId;
@@ -143,7 +147,21 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     () => properties.find((property) => property.id === selectedPropertyId),
     [properties, selectedPropertyId],
   );
-  const selectedPropertyOperations = selectedProperty?.operations ?? [];
+  const preselectedPropertyOperations = useMemo(
+    () =>
+      (preselectedPropertyOperationsRaw ?? "")
+        .split(",")
+        .map((item) => item.trim().toLowerCase())
+        .filter((item): item is "rent" | "sale" => {
+          return item === "rent" || item === "sale";
+        }),
+    [preselectedPropertyOperationsRaw],
+  );
+  const selectedPropertyOperations =
+    selectedProperty?.operations?.length &&
+    selectedProperty.operations.length > 0
+      ? selectedProperty.operations
+      : preselectedPropertyOperations;
   const selectedPropertySupportsRent =
     selectedPropertyOperations.includes("rent");
   const selectedPropertySupportsSale =
@@ -164,12 +182,17 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     !isEditing && (hasPreselectedTenant || hasPreselectedBuyer);
   const shouldShowContractTypeSelect =
     !shouldLockContractTypeByInterested &&
-    !!selectedProperty &&
     selectedPropertySupportsRent &&
     selectedPropertySupportsSale;
   const hasResolvableContractTypeFromProperty =
-    !!selectedProperty &&
-    (selectedPropertySupportsRent || selectedPropertySupportsSale);
+    selectedPropertySupportsRent || selectedPropertySupportsSale;
+  const selectedPropertyDisplayName =
+    selectedProperty?.name ?? preselectedPropertyName ?? t("unknownProperty");
+  const selectedOwnerDisplayName =
+    selectedOwner &&
+    `${selectedOwner.firstName} ${selectedOwner.lastName}`.trim()
+      ? `${selectedOwner.firstName} ${selectedOwner.lastName}`.trim()
+      : (preselectedOwnerName ?? "-");
   const contractTypeHelperText = shouldLockContractTypeByInterested
     ? t("contractTypeFixedByInterested")
     : hasResolvableContractTypeFromProperty
@@ -186,6 +209,40 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
             ownersApi.getAll(),
             leasesApi.getTemplates(),
           ]);
+        let resolvedProperties = props;
+        let resolvedOwners = owns;
+
+        if (
+          preselectedPropertyId &&
+          !resolvedProperties.some(
+            (property) => property.id === preselectedPropertyId,
+          )
+        ) {
+          const preselectedProperty = await propertiesApi.getById(
+            preselectedPropertyId,
+          );
+          if (preselectedProperty) {
+            resolvedProperties = [preselectedProperty, ...resolvedProperties];
+          }
+        }
+
+        const ownerIdFromPreselectedProperty = resolvedProperties.find(
+          (property) => property.id === preselectedPropertyId,
+        )?.ownerId;
+        if (
+          ownerIdFromPreselectedProperty &&
+          !resolvedOwners.some(
+            (owner) => owner.id === ownerIdFromPreselectedProperty,
+          )
+        ) {
+          const ownerFromPreselectedProperty = await ownersApi.getById(
+            ownerIdFromPreselectedProperty,
+          );
+          if (ownerFromPreselectedProperty) {
+            resolvedOwners = [ownerFromPreselectedProperty, ...resolvedOwners];
+          }
+        }
+
         const options = interestedResponse.data
           .filter((profile) => {
             const profileOperations =
@@ -229,17 +286,43 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
             phone: profile.phone,
           }));
 
-        setProperties(props);
+        setProperties(resolvedProperties);
         setTenantOptions(options);
         setBuyerOptions(saleProfiles);
-        setOwners(owns);
+        setOwners(resolvedOwners);
         setTemplates(leaseTemplates);
       } catch (error) {
         console.error("Failed to load form data", error);
       }
     };
     loadData();
-  }, []);
+  }, [preselectedPropertyId]);
+
+  useEffect(() => {
+    if (!selectedProperty?.ownerId) return;
+    if (owners.some((owner) => owner.id === selectedProperty.ownerId)) return;
+
+    let active = true;
+    const loadMissingOwner = async () => {
+      try {
+        const missingOwner = await ownersApi.getById(selectedProperty.ownerId);
+        if (!missingOwner || !active) return;
+        setOwners((currentOwners) => {
+          if (currentOwners.some((owner) => owner.id === missingOwner.id)) {
+            return currentOwners;
+          }
+          return [missingOwner, ...currentOwners];
+        });
+      } catch (error) {
+        console.error("Failed to load owner for selected property", error);
+      }
+    };
+
+    void loadMissingOwner();
+    return () => {
+      active = false;
+    };
+  }, [owners, selectedProperty?.ownerId]);
 
   useEffect(() => {
     if (isEditing) {
@@ -475,6 +558,11 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   }, [formValues.terms, renderedTemplateTerms, selectedTemplate, setValue]);
 
   const onSubmit = async (data: LeaseFormData) => {
+    if (hasPreselectedProperty && !selectedProperty) {
+      alert(t("unknownProperty"));
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const resolvedOwnerId = selectedProperty?.ownerId ?? data.ownerId;
@@ -535,7 +623,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
               <input type="hidden" {...register("propertyId")} />
               <label className={labelClass}>{t("fields.property")}</label>
               <p className={readOnlyInputClass}>
-                {selectedProperty?.name ?? t("unknownProperty")}
+                {selectedPropertyDisplayName}
               </p>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {t("prefilledFieldHint")}
@@ -623,11 +711,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           <div>
             <input type="hidden" {...register("ownerId")} />
             <label className={labelClass}>{t("fields.owner")}</label>
-            <p className={readOnlyInputClass}>
-              {selectedOwner
-                ? `${selectedOwner.firstName} ${selectedOwner.lastName}`.trim()
-                : "-"}
-            </p>
+            <p className={readOnlyInputClass}>{selectedOwnerDisplayName}</p>
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {t("ownerFromPropertyHint")}
             </p>
