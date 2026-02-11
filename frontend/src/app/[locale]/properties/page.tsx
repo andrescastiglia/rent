@@ -80,8 +80,7 @@ const resolvePropertyLeaseAction = (leases: Lease[]): PropertyLeaseAction => {
   return { type: "none" };
 };
 
-const ownerActionClass =
-  "inline-flex items-center px-3 py-2 rounded-md border border-blue-300 dark:border-blue-700 text-sm text-blue-700 dark:text-blue-300";
+const ownerActionClass = "action-link action-link-primary";
 
 export default function PropertiesPage() {
   const { loading: authLoading } = useAuth();
@@ -327,30 +326,30 @@ export default function PropertiesPage() {
                       </div>
 
                       <div
-                        className="flex items-center gap-2"
+                        className="ml-auto flex items-center gap-2"
                         onClick={(event) => event.stopPropagation()}
                       >
                         <Link
                           href={`/${locale}/properties/new?ownerId=${owner.id}`}
                           className={ownerActionClass}
                         >
-                          <Plus size={14} className="mr-1" />
+                          <Plus size={14} />
                           {t("addProperty")}
                         </Link>
                         <Link
                           href={`/${locale}/properties/owners/${owner.id}/edit`}
                           className={ownerActionClass}
                         >
+                          <Edit size={14} />
                           {tc("edit")}
                         </Link>
-                      </div>
-
-                      <div className="text-gray-400 dark:text-gray-500">
-                        {isSelected ? (
-                          <ChevronUp size={16} />
-                        ) : (
-                          <ChevronDown size={16} />
-                        )}
+                        <span className="text-gray-400 dark:text-gray-500">
+                          {isSelected ? (
+                            <ChevronUp size={16} />
+                          ) : (
+                            <ChevronDown size={16} />
+                          )}
+                        </span>
                       </div>
                     </div>
 
@@ -435,7 +434,7 @@ export default function PropertiesPage() {
                                       </p>
                                     </div>
                                     <div
-                                      className="flex items-center gap-2"
+                                      className="ml-auto flex items-center gap-2"
                                       onClick={(event) =>
                                         event.stopPropagation()
                                       }
@@ -503,13 +502,13 @@ export default function PropertiesPage() {
                                           {t("createLease")}
                                         </Link>
                                       ) : null}
-                                    </div>
-                                    <div className="text-gray-400 dark:text-gray-500">
-                                      {expandedPropertyId === property.id ? (
-                                        <ChevronUp size={16} />
-                                      ) : (
-                                        <ChevronDown size={16} />
-                                      )}
+                                      <span className="text-gray-400 dark:text-gray-500">
+                                        {expandedPropertyId === property.id ? (
+                                          <ChevronUp size={16} />
+                                        ) : (
+                                          <ChevronDown size={16} />
+                                        )}
+                                      </span>
                                     </div>
                                   </div>
 

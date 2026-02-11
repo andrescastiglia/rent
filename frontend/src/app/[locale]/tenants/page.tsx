@@ -1,16 +1,18 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import { Tenant } from "@/types/tenant";
 import { tenantsApi } from "@/lib/api/tenants";
-import { TenantCard } from "@/components/tenants/TenantCard";
-import { Search, Loader2 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { Search, Loader2, Edit, Wallet, Plus } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
 
 export default function TenantsPage() {
   const { loading: authLoading } = useAuth();
   const t = useTranslations("tenants");
+  const tc = useTranslations("common");
+  const locale = useLocale();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -41,6 +43,11 @@ export default function TenantsPage() {
   };
 
   const filteredTenants = tenants;
+
+  const getStatusLabel = (status: string) => {
+    const statusKey = status.toLowerCase() as "active" | "inactive" | "pending";
+    return t(`status.${statusKey}`);
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -73,9 +80,65 @@ export default function TenantsPage() {
           <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
         </div>
       ) : filteredTenants.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
           {filteredTenants.map((tenant) => (
-            <TenantCard key={tenant.id} tenant={tenant} />
+            <div
+              key={tenant.id}
+              className="rounded-lg border border-gray-200 dark:border-gray-700 p-3"
+            >
+              <div className="flex flex-col md:flex-row md:items-center gap-3">
+                <div className="min-w-0">
+                  <Link
+                    href={`/${locale}/tenants/${tenant.id}`}
+                    data-testid="tenant-detail-link"
+                    className="font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-300"
+                  >
+                    {tenant.firstName} {tenant.lastName}
+                  </Link>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 break-all">
+                    {tenant.email}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {tenant.phone || "-"}
+                  </p>
+                </div>
+
+                <div className="md:ml-auto flex flex-wrap items-center gap-2">
+                  <span
+                    className={`inline-block px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide ${
+                      tenant.status === "ACTIVE"
+                        ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                        : tenant.status === "INACTIVE"
+                          ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+                          : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+                    }`}
+                  >
+                    {getStatusLabel(tenant.status)}
+                  </span>
+                  <Link
+                    href={`/${locale}/tenants/${tenant.id}/edit`}
+                    className="action-link action-link-primary"
+                  >
+                    <Edit size={14} />
+                    {tc("edit")}
+                  </Link>
+                  <Link
+                    href={`/${locale}/tenants/${tenant.id}/payments/new`}
+                    className="action-link action-link-success"
+                  >
+                    <Wallet size={14} />
+                    {t("paymentRegistration.submit")}
+                  </Link>
+                  <Link
+                    href={`/${locale}/tenants/${tenant.id}/activities/new`}
+                    className="action-link action-link-primary"
+                  >
+                    <Plus size={14} />
+                    {t("activities.add")}
+                  </Link>
+                </div>
+              </div>
+            </div>
           ))}
         </div>
       ) : (

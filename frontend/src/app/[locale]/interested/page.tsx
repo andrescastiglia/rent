@@ -6,6 +6,7 @@ import { CheckCircle2, Loader2, RefreshCw } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { interestedApi } from "@/lib/api/interested";
 import {
+  InterestedActivity,
   InterestedMatch,
   InterestedOperation,
   InterestedProfile,
@@ -30,7 +31,7 @@ const MATCH_REASON_KEYS = [
 ] as const;
 type MatchReasonKey = (typeof MATCH_REASON_KEYS)[number];
 
-type ContractAction = {
+type ContractLink = {
   href: string;
   label: string;
 };
@@ -135,76 +136,6 @@ export default function InterestedPage() {
     return profiles.find((profile) => profile.id === selectedProfileId) ?? null;
   }, [profiles, selectedProfileId, summary?.profile]);
 
-  const resolveContractAction = useCallback(
-    (profile: InterestedProfile): ContractAction | null => {
-      const operations = getProfileOperations(profile);
-      const supportsRent = operations.includes("rent");
-      const supportsSale = operations.includes("sale");
-
-      if (supportsSale && !supportsRent) {
-        return {
-          href: `/${locale}/leases/new?buyerProfileId=${profile.id}&contractType=sale`,
-          label: t("actions.newSaleContract"),
-        };
-      }
-
-      if (supportsRent && profile.convertedToTenantId) {
-        return {
-          href: `/${locale}/leases/new?tenantId=${profile.convertedToTenantId}&contractType=rental`,
-          label: t("actions.newRentalContract"),
-        };
-      }
-
-      if (supportsSale) {
-        return {
-          href: `/${locale}/leases/new?buyerProfileId=${profile.id}&contractType=sale`,
-          label: t("actions.newSaleContract"),
-        };
-      }
-
-      return null;
-    },
-    [locale, t],
-  );
-
-  const selectProfile = useCallback(async (profile: InterestedProfile) => {
-    setSelectedProfileId(profile.id);
-    setLoadingDetail(true);
-    try {
-      const summaryResult = await interestedApi.getSummary(profile.id);
-      setSummary(summaryResult);
-      setProfiles((prev) =>
-        prev.map((item) =>
-          item.id === summaryResult.profile.id
-            ? { ...item, ...summaryResult.profile }
-            : item,
-        ),
-      );
-    } catch (error) {
-      console.error("Failed to load interested summary", error);
-      setSummary(null);
-    } finally {
-      setLoadingDetail(false);
-    }
-  }, []);
-
-  const loadInitial = useCallback(async () => {
-    setLoading(true);
-    try {
-      const profilesResult = await interestedApi.getAll({ limit: 100 });
-      setProfiles(profilesResult.data);
-    } catch (error) {
-      console.error("Failed to load CRM interested data", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (authLoading) return;
-    void loadInitial();
-  }, [authLoading, loadInitial]);
-
   const resolveMatchConfirmationAction = useCallback(
     (
       profile: InterestedProfile,
@@ -223,6 +154,104 @@ export default function InterestedPage() {
     },
     [],
   );
+
+  const resolveMatchContractLinks = useCallback(
+    (profile: InterestedProfile, match: InterestedMatch): ContractLink[] => {
+      if (!match.propertyId) return [];
+
+      const profileOperations = getProfileOperations(profile);
+      const propertyOperations = match.property?.operations ?? [];
+      const links: ContractLink[] = [];
+
+      const baseQuery = new URLSearchParams({
+        propertyId: match.propertyId,
+      });
+
+      if (match.property?.name) {
+        baseQuery.set("propertyName", match.property.name);
+      }
+      if (propertyOperations.length > 0) {
+        baseQuery.set("propertyOperations", propertyOperations.join(","));
+      }
+
+      if (
+        profileOperations.includes("rent") &&
+        propertyOperations.includes("rent") &&
+        profile.convertedToTenantId
+      ) {
+        const rentQuery = new URLSearchParams(baseQuery);
+        rentQuery.set("tenantId", profile.convertedToTenantId);
+        rentQuery.set("contractType", "rental");
+        links.push({
+          href: `/${locale}/leases/new?${rentQuery.toString()}`,
+          label: t("actions.newRentalContract"),
+        });
+      }
+
+      if (
+        profileOperations.includes("sale") &&
+        propertyOperations.includes("sale")
+      ) {
+        const saleQuery = new URLSearchParams(baseQuery);
+        saleQuery.set("buyerProfileId", profile.id);
+        saleQuery.set("contractType", "sale");
+        links.push({
+          href: `/${locale}/leases/new?${saleQuery.toString()}`,
+          label: t("actions.newSaleContract"),
+        });
+      }
+
+      return links;
+    },
+    [locale, t],
+  );
+
+  const selectProfile = useCallback(
+    async (profile: InterestedProfile) => {
+      if (selectedProfileId === profile.id) {
+        setSelectedProfileId(null);
+        setSummary(null);
+        return;
+      }
+
+      setSelectedProfileId(profile.id);
+      setLoadingDetail(true);
+      try {
+        const summaryResult = await interestedApi.getSummary(profile.id);
+        setSummary(summaryResult);
+        setProfiles((prev) =>
+          prev.map((item) =>
+            item.id === summaryResult.profile.id
+              ? { ...item, ...summaryResult.profile }
+              : item,
+          ),
+        );
+      } catch (error) {
+        console.error("Failed to load interested summary", error);
+        setSummary(null);
+      } finally {
+        setLoadingDetail(false);
+      }
+    },
+    [selectedProfileId],
+  );
+
+  const loadInitial = useCallback(async () => {
+    setLoading(true);
+    try {
+      const profilesResult = await interestedApi.getAll({ limit: 100 });
+      setProfiles(profilesResult.data);
+    } catch (error) {
+      console.error("Failed to load CRM interested data", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (authLoading) return;
+    void loadInitial();
+  }, [authLoading, loadInitial]);
 
   const handleRefreshMatches = useCallback(async () => {
     if (!selectedProfile) return;
@@ -289,6 +318,14 @@ export default function InterestedPage() {
     ],
   );
 
+  const sortedActivities = useMemo(() => {
+    return [...(summary?.activities ?? [])].sort(
+      (a, b) =>
+        new Date(b.dueAt ?? b.createdAt).getTime() -
+        new Date(a.dueAt ?? a.createdAt).getTime(),
+    );
+  }, [summary?.activities]);
+
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
       <div>
@@ -347,8 +384,9 @@ export default function InterestedPage() {
           <div className="space-y-3">
             {filteredProfiles.map((profile) => {
               const operations = getProfileOperations(profile);
-              const contractAction = resolveContractAction(profile);
               const isSelected = selectedProfileId === profile.id;
+              const hasLoadedSummary =
+                isSelected && summary?.profile.id === profile.id;
 
               return (
                 <div
@@ -393,22 +431,6 @@ export default function InterestedPage() {
                     >
                       {t("actions.edit")}
                     </Link>
-                    {contractAction ? (
-                      <Link
-                        href={contractAction.href}
-                        className="px-3 py-1.5 rounded-md border border-blue-300 dark:border-blue-700 text-xs text-blue-700 dark:text-blue-300"
-                      >
-                        {contractAction.label}
-                      </Link>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled
-                        className="px-3 py-1.5 rounded-md border border-gray-200 dark:border-gray-700 text-xs text-gray-400 cursor-not-allowed"
-                      >
-                        {t("actions.newRentalContract")}
-                      </button>
-                    )}
                     <Link
                       href={`/${locale}/interested/${profile.id}/activities/new`}
                       className="px-3 py-1.5 rounded-md border border-green-300 dark:border-green-700 text-xs text-green-700 dark:text-green-300"
@@ -416,6 +438,168 @@ export default function InterestedPage() {
                       {t("activities.add")}
                     </Link>
                   </div>
+
+                  {isSelected ? (
+                    loadingDetail && !hasLoadedSummary ? (
+                      <div className="flex justify-center py-6">
+                        <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                      </div>
+                    ) : (
+                      <div className="space-y-3 border-t border-blue-200/70 dark:border-blue-900 pt-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {t("matchesTitle")}
+                          </h3>
+                          <button
+                            type="button"
+                            onClick={() => void handleRefreshMatches()}
+                            disabled={refreshingMatches || !selectedProfile}
+                            className="px-2 py-1 rounded-md border border-gray-300 dark:border-gray-600 text-xs inline-flex items-center gap-2"
+                          >
+                            {refreshingMatches ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-4 w-4" />
+                            )}
+                            {t("actions.refreshMatches")}
+                          </button>
+                        </div>
+
+                        {summary?.matches?.length ? (
+                          <div className="space-y-2">
+                            {summary.matches.map((match) => {
+                              const confirmationAction =
+                                selectedProfile &&
+                                resolveMatchConfirmationAction(
+                                  selectedProfile,
+                                  match,
+                                );
+                              const contractLinks = selectedProfile
+                                ? resolveMatchContractLinks(
+                                    selectedProfile,
+                                    match,
+                                  )
+                                : [];
+
+                              return (
+                                <div
+                                  key={match.id}
+                                  className="border border-gray-200 dark:border-gray-700 rounded-md p-3 space-y-2 bg-white/70 dark:bg-gray-900/20"
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div>
+                                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                        {match.property?.name ??
+                                          match.propertyId}
+                                      </p>
+                                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        {t("labels.score")}:{" "}
+                                        {(match.score ?? 0).toFixed(2)}%
+                                      </p>
+                                    </div>
+                                    <span className="text-xs px-2 py-1 rounded-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                                      {t(`matchStatus.${match.status}`)}
+                                    </span>
+                                  </div>
+
+                                  {match.matchReasons?.length ? (
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                      {match.matchReasons
+                                        .map(formatMatchReason)
+                                        .join(" · ")}
+                                    </p>
+                                  ) : null}
+
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void handleConfirmMatch(match)
+                                      }
+                                      disabled={
+                                        !confirmationAction ||
+                                        confirmingMatchId === match.id
+                                      }
+                                      className="px-3 py-1.5 rounded-md border border-green-300 text-green-700 text-xs disabled:opacity-60"
+                                    >
+                                      {confirmingMatchId === match.id
+                                        ? t("actions.confirming")
+                                        : confirmationAction === "sale"
+                                          ? t("actions.confirmPurchase")
+                                          : t("actions.confirmRent")}
+                                    </button>
+
+                                    {contractLinks.map((link) => (
+                                      <Link
+                                        key={link.href}
+                                        href={link.href}
+                                        className="px-3 py-1.5 rounded-md border border-blue-300 dark:border-blue-700 text-xs text-blue-700 dark:text-blue-300"
+                                      >
+                                        {link.label}
+                                      </Link>
+                                    ))}
+
+                                    {match.status === "accepted" ? (
+                                      <span className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-300">
+                                        <CheckCircle2 className="h-3.5 w-3.5" />
+                                        {t("matchStatus.accepted")}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {t("noMatches")}
+                          </p>
+                        )}
+
+                        <div className="space-y-2">
+                          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {t("activities.title")}
+                          </h3>
+                          {sortedActivities.length > 0 ? (
+                            <div className="space-y-2">
+                              {sortedActivities.map(
+                                (activity: InterestedActivity) => (
+                                  <div
+                                    key={activity.id}
+                                    className="border border-gray-200 dark:border-gray-700 rounded-md p-3 bg-white/70 dark:bg-gray-900/20"
+                                  >
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                        {activity.subject}
+                                      </p>
+                                      <span className="text-xs px-2 py-1 rounded-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                                        {t(`activityStatus.${activity.status}`)}
+                                      </span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                      {t(`activityTypes.${activity.type}`)} ·{" "}
+                                      {new Date(
+                                        activity.createdAt,
+                                      ).toLocaleString(locale)}
+                                    </p>
+                                    {activity.body ? (
+                                      <p className="text-xs text-gray-700 dark:text-gray-300 mt-2 whitespace-pre-wrap">
+                                        {activity.body}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                ),
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {t("activities.empty")}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  ) : null}
                 </div>
               );
             })}
@@ -426,103 +610,6 @@ export default function InterestedPage() {
           </p>
         )}
       </div>
-
-      {selectedProfileId ? (
-        loadingDetail ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-          </div>
-        ) : (
-          <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-                {t("matchesTitle")}
-              </h3>
-              <button
-                type="button"
-                onClick={() => void handleRefreshMatches()}
-                disabled={refreshingMatches || !selectedProfile}
-                className="px-2 py-1 rounded-md border border-gray-300 dark:border-gray-600 text-xs inline-flex items-center gap-2"
-              >
-                {refreshingMatches ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-                {t("actions.refreshMatches")}
-              </button>
-            </div>
-
-            {summary?.matches?.length ? (
-              <div className="space-y-3">
-                {summary.matches.map((match) => {
-                  const confirmationAction =
-                    selectedProfile &&
-                    resolveMatchConfirmationAction(selectedProfile, match);
-
-                  return (
-                    <div
-                      key={match.id}
-                      className="border border-gray-200 dark:border-gray-700 rounded-md p-3 space-y-2"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">
-                            {match.property?.name ?? match.propertyId}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {t("labels.score")}: {(match.score ?? 0).toFixed(2)}
-                            %
-                          </p>
-                        </div>
-                        <span className="text-xs px-2 py-1 rounded-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-                          {t(`matchStatus.${match.status}`)}
-                        </span>
-                      </div>
-
-                      {match.matchReasons?.length ? (
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {match.matchReasons
-                            .map(formatMatchReason)
-                            .join(" · ")}
-                        </p>
-                      ) : null}
-
-                      <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => void handleConfirmMatch(match)}
-                          disabled={
-                            !confirmationAction ||
-                            confirmingMatchId === match.id
-                          }
-                          className="px-3 py-1.5 rounded-md border border-green-300 text-green-700 text-xs disabled:opacity-60"
-                        >
-                          {confirmingMatchId === match.id
-                            ? t("actions.confirming")
-                            : confirmationAction === "sale"
-                              ? t("actions.confirmPurchase")
-                              : t("actions.confirmRent")}
-                        </button>
-                        {match.status === "accepted" ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-300">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            {t("matchStatus.accepted")}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {t("noMatches")}
-              </p>
-            )}
-          </div>
-        )
-      ) : null}
     </div>
   );
 }
