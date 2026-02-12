@@ -77,6 +77,11 @@ export interface InvoiceRecord {
   createdAt: Date;
 }
 
+export interface InvoiceReminderContact {
+  tenantPhone: string | null;
+  tenantName: string | null;
+}
+
 /**
  * Lease data needed for billing.
  */
@@ -218,6 +223,31 @@ export class InvoiceService {
     );
 
     return result.map(this.mapToRecord);
+  }
+
+  async getReminderContact(invoiceId: string): Promise<InvoiceReminderContact> {
+    const result = await AppDataSource.query(
+      `SELECT
+          tu.phone AS tenant_phone,
+          CONCAT_WS(' ', tu.first_name, tu.last_name) AS tenant_name
+       FROM invoices i
+       JOIN leases l ON l.id = i.lease_id
+       JOIN tenants t ON t.id = l.tenant_id
+       JOIN users tu ON tu.id = t.user_id
+       WHERE i.id = $1
+       LIMIT 1`,
+      [invoiceId],
+    );
+
+    const row = (result[0] ?? {}) as {
+      tenant_phone?: string | null;
+      tenant_name?: string | null;
+    };
+
+    return {
+      tenantPhone: row.tenant_phone ?? null,
+      tenantName: row.tenant_name ?? null,
+    };
   }
 
   /**

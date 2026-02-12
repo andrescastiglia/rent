@@ -14,9 +14,11 @@ import { PropertiesController } from './properties.controller';
 import { PropertyImagesController } from './property-images.controller';
 import { UnitsController } from './units.controller';
 import { PropertyVisitsController } from './property-visits.controller';
+import { WhatsappModule } from '../whatsapp/whatsapp.module';
 
 @Module({
   imports: [
+    WhatsappModule,
     TypeOrmModule.forFeature([
       Property,
       Unit,

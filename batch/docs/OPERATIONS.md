@@ -29,10 +29,9 @@ BCRA_ICL_VARIABLE_ID=40
 DATOS_AR_API_URL=https://apis.datos.gob.ar/series/api/series
 DATOS_AR_IPC_SERIES_ID=148.3_INIVELNAL_DICI_M_26
 
-# Notificaciones por email (reminders)
-SENDGRID_API_KEY=SG.xxx
-EMAIL_FROM=noreply@example.com
-EMAIL_FROM_NAME="Sistema de Alquileres"
+# WhatsApp (vía backend)
+BATCH_BACKEND_API_URL=http://localhost:3001
+BATCH_WHATSAPP_INTERNAL_TOKEN=replace_with_shared_secret
 
 # Logs
 LOG_LEVEL=info
@@ -47,7 +46,7 @@ LOG_DIR=./logs
 |---------|-------------|
 | `billing` | Generar facturas del día |
 | `overdue` | Marcar facturas vencidas |
-| `reminders` | Enviar recordatorios por email (SendGrid) |
+| `reminders` | Enviar recordatorios por WhatsApp |
 | `sync-indices` | Sincronizar índices `icl` (BCRA) e `ipc` (datos.gob.ar) |
 | `sync-rates` | Sincronizar tipos de cambio `USD/ARS`, `BRL/ARS`, `USD/BRL` |
 | `reports` | Generar reportes PDF (`monthly` o `settlement`) por propietario |
@@ -55,7 +54,7 @@ LOG_DIR=./logs
 
 Notas operativas:
 - La opción `late-fees` fue eliminada del CLI batch.
-- `reminders` actualmente usa email. No hay envío por WhatsApp en batch.
+- `reminders` usa WhatsApp a través del endpoint interno del backend.
 - `sync-indices` sincroniza `ipc` diariamente y persiste un registro por mes (`period_date`) para evitar duplicados.
 - `sync-indices` sincroniza `icl` diariamente y persiste solo el último valor disponible de cada mes.
 - `igp_m` (Brasil) está deshabilitado para sincronización en batch.
@@ -77,7 +76,7 @@ npm run start -- billing --date 2025-12-01
 # Marcar vencidas
 npm run start -- overdue
 
-# Recordatorios por email 5 días antes
+# Recordatorios por WhatsApp 5 días antes
 npm run start -- reminders --days-before 5
 
 # Sincronizar solo ICL
@@ -121,7 +120,7 @@ Editar crontab con `crontab -e`:
 # Marcar facturas vencidas (diario 8:00 AM)
 0 8 * * * cd /opt/rent/batch && npm run start -- overdue --log /var/log/batch/overdue.log
 
-# Enviar recordatorios por email (diario 9:00 AM)
+# Enviar recordatorios por WhatsApp (diario 9:00 AM)
 0 9 * * * cd /opt/rent/batch && npm run start -- reminders --log /var/log/batch/reminders.log
 
 # Generar reportes mensuales (día 1 de cada mes, 10:00 AM)
@@ -157,7 +156,7 @@ npm run start -- billing --dry-run
 |-----------|--------|
 | Billing falla | Notificar admin |
 | >10 facturas fallidas | Revisar manualmente |
-| Servicio de email caído | Reintentar en 30min |
+| Servicio de WhatsApp caído | Reintentar en 30min |
 | API BCRA no responde | Usar último valor cached |
 
 ---
@@ -173,10 +172,10 @@ sudo systemctl status postgresql
 env | grep DATABASE
 ```
 
-### Error: SendGrid quota exceeded
+### Error: WhatsApp API unavailable
 ```bash
-# Verificar uso de API
-# Dashboard: https://app.sendgrid.com
+# Verificar credenciales y conectividad con Graph API
+# Endpoint: https://graph.facebook.com/v22.0/{phone-id}/messages
 ```
 
 ### Error: Puppeteer no genera PDF

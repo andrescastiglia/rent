@@ -310,16 +310,16 @@ Integrar servicios externos críticos para el negocio.
 
 - **T231**: Servicio de notificaciones
   - Abstraer NotificationService
-  - Plantillas de emails
+  - Plantillas de mensajes de WhatsApp
   - Sistema de cola para notificaciones
 
-- **T232**: Integración con SendGrid (Email)
+- **T232**: Integración con WhatsApp Cloud API (Email)
   - Configuración de API key
-  - Templates en SendGrid
-  - Envío de emails transaccionales
+  - Templates en WhatsApp Cloud API
+  - Envío de mensajes transaccionales por WhatsApp
   - Tracking de envíos
 
-- **T233**: Integración con Twilio (SMS)
+- **T233**: Integración con WhatsApp Cloud API (SMS)
   - Configuración de cuenta
   - Envío de SMS
   - Log de mensajes enviados
@@ -345,7 +345,7 @@ Integrar servicios externos críticos para el negocio.
   - Tests de errores de pago
 
 - **T252**: Tests de notificaciones
-  - Mocks de SendGrid/Twilio
+  - Mocks de WhatsApp Cloud API
   - Verificar envío correcto
   - Templates rendering
 
@@ -768,7 +768,7 @@ Implementar sistema de cobranza multicanal y liquidación a propietarios.
 
 - **T872**: Comando `send-receipts`
   - Enviar recibos pendientes
-  - Email con PDF adjunto
+  - Mensaje de WhatsApp con referencia al PDF
 
 ### 8.8 Liquidaciones
 

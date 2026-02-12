@@ -100,7 +100,7 @@ Componentes:
     * **Tipos de cambio**: BCRA API (USD/ARS, BRL/ARS), BCB (USD/BRL).
     * **Firmas digitales**: DocuSign, Adobe Sign, proveedores locales.
     * **Portales inmobiliarios**: APIs de publicación.
-    * **Servicios de email/SMS**: SendGrid, Twilio.
+    * **Servicios de whatsapp**: WhatsApp Cloud API.
     * **Sistemas contables**: Export / SFTP / API.
 
 13. **Observability stack**
@@ -160,7 +160,7 @@ Consideraciones multi-tenant: separar datos por `company_id` en cada tabla o usa
 ## 5. Patrones de comunicación y consistencia
 
 * **Sincronía**: Peticiones HTTP/HTTPS entre front y API; API Gateway maneja autenticación y throttling.
-* **Asincronía**: Tareas de larga duración (procesar cobros, reintentos de pagos, envío masivo de emails, generación de reportes) a través de mensajes en la cola.
+* **Asincronía**: Tareas de larga duración (procesar cobros, reintentos de pagos, envío masivo de mensajes por WhatsApp, generación de reportes) a través de mensajes en la cola.
 * **Event-driven**: publicar eventos importantes (pago_realizado, contrato_firmado, ticket_abierto) en un bus para integraciones y para alimentar analytics en tiempo real.
 * **Consistency**: operación financiera y creación de recibos deben ser ACID en la base de datos transaccional. Para procesos que cruzan servicios, usar sagas/compensaciones (ej. si un pago falla luego de marcar como cobrado, disparar compensación que anula el estado y genera notificación).
 
@@ -288,8 +288,8 @@ Consideraciones multi-tenant: separar datos por `company_id` en cada tabla o usa
 | **Ethereum RPC** | Infura / Alchemy | JSON-RPC | Verificar transacciones |
 | **Polygon RPC** | Polygon | JSON-RPC | Verificar transacciones |
 | **DocuSign** | DocuSign | REST API | Firma digital |
-| **SendGrid** | SendGrid | REST API | Envío de emails |
-| **Twilio** | Twilio | REST API | SMS |
+| **WhatsApp Cloud API** | WhatsApp Cloud API | REST API | Envío de mensajes por WhatsApp |
+| **WhatsApp Cloud API** | WhatsApp Cloud API | REST API | SMS |
 
 ### 12.2 APIs Expuestas
 
@@ -309,7 +309,7 @@ Consideraciones multi-tenant: separar datos por `company_id` en cada tabla o usa
 ### Fase 1 — MVP (3–4 meses estimados)
 
 * Modular monolito con: autenticación, CRUD propiedades, inquilinos, contratos básicos, portal inquilinos/propietarios (PWA), pagos manuales, creación de tickets y básico de reportes.
-* Integración con 1 PSP (Stripe/MercadoPago) y 1 proveedor de mails (SendGrid).
+* Integración con 1 PSP (Stripe/MercadoPago) y 1 proveedor de mails (WhatsApp Cloud API).
 * Observability mínima (logs + métricas).
 
 ### Fase 2 — Producción y operación (1–2 meses)
@@ -356,7 +356,7 @@ Consideraciones multi-tenant: separar datos por `company_id` en cada tabla o usa
 * **Crypto**: **bitcoinjs-lib**, **ethers.js**, **lnurl-pay**
 * **Facturación electrónica**: **soap** (para ARCA/AFIP)
 * **Firma digital**: **DocuSign** / proveedor local
-* **Email/SMS**: **SendGrid / Twilio**
+* **WhatsApp**: **WhatsApp Cloud API**
 * **Índices/TC**: **BCRA API**, **BCB API**
 
 ---

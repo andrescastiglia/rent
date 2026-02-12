@@ -17,7 +17,7 @@ Convertir "Interesados" en un CRM integrado a la aplicación, con:
 ### Alcance funcional propuesto
 - Contactos y cuentas (interesados individuales y grupos familiares/empresas).
 - Embudo comercial configurable con estados y probabilidades.
-- Actividades (llamadas, visitas, tareas, notas, emails, WhatsApp).
+- Actividades (llamadas, visitas, tareas, notas, WhatsApp).
 - Matching y recomendaciones con trazabilidad de qué propiedad se sugirió y cuándo.
 - Conversión de interesado a inquilino o comprador.
 - Métricas básicas y tableros.
@@ -80,7 +80,7 @@ Convertir "Interesados" en un CRM integrado a la aplicación, con:
 
 **ID: US-CRM-10 - Registro de Actividades**
 *Como* agente,
-*quiero* registrar llamadas, mensajes, emails, visitas y tareas asociadas al interesado,
+*quiero* registrar llamadas, mensajes de WhatsApp, visitas y tareas asociadas al interesado,
 *para* llevar trazabilidad completa del seguimiento.
 
 **ID: US-CRM-11 - Recordatorios y Vencimientos**

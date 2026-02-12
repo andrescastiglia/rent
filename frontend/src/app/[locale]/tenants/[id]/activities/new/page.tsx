@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { IS_MOCK_MODE } from "@/lib/api";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { tenantsApi } from "@/lib/api/tenants";
+import { whatsappApi } from "@/lib/api/whatsapp";
 import { Lease } from "@/types/lease";
 import { Tenant, TenantActivityType } from "@/types/tenant";
 
@@ -16,7 +17,6 @@ const ACTIVITY_TYPES: TenantActivityType[] = [
   "task",
   "call",
   "note",
-  "email",
   "whatsapp",
   "visit",
 ];
@@ -128,6 +128,10 @@ export default function TenantActivityCreatePage() {
       alert(t("errors.activitySubjectRequired"));
       return;
     }
+    if (form.type === "whatsapp" && !tenant.phone?.trim()) {
+      alert(t("errors.phoneRequired"));
+      return;
+    }
 
     try {
       setSaving(true);
@@ -137,6 +141,17 @@ export default function TenantActivityCreatePage() {
         body: form.body.trim() || undefined,
         dueAt: form.dueAt || undefined,
       });
+
+      if (form.type === "whatsapp" && tenant.phone?.trim()) {
+        const text = [form.subject.trim(), form.body.trim()]
+          .filter(Boolean)
+          .join("\n\n");
+        await whatsappApi.sendMessage({
+          to: tenant.phone.trim(),
+          text,
+        });
+      }
+
       router.push(`/tenants/${tenant.id}#activities`);
       router.refresh();
     } catch (error) {

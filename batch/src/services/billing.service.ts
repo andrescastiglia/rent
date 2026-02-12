@@ -9,6 +9,7 @@ import {
 import { AdjustmentService, LeaseAdjustmentData } from "./adjustment.service";
 import { ExchangeRateService } from "./exchange-rate.service";
 import { WithholdingsService } from "./withholdings.service";
+import { WhatsappService } from "./whatsapp.service";
 
 /**
  * Result of a billing run.
@@ -57,6 +58,7 @@ export class BillingService {
   private readonly adjustmentService: AdjustmentService;
   private readonly exchangeRateService: ExchangeRateService;
   private readonly withholdingsService: WithholdingsService;
+  private readonly whatsappService: WhatsappService;
 
   /**
    * Default late fee rate (percentage).
@@ -71,11 +73,13 @@ export class BillingService {
     adjustmentService?: AdjustmentService,
     exchangeRateService?: ExchangeRateService,
     withholdingsService?: WithholdingsService,
+    whatsappService?: WhatsappService,
   ) {
     this.invoiceService = invoiceService || new InvoiceService();
     this.adjustmentService = adjustmentService || new AdjustmentService();
     this.exchangeRateService = exchangeRateService || new ExchangeRateService();
     this.withholdingsService = withholdingsService || new WithholdingsService();
+    this.whatsappService = whatsappService || new WhatsappService();
   }
 
   /**
@@ -117,6 +121,7 @@ export class BillingService {
         if (invoice) {
           result.invoicesCreated++;
           result.totalAmount += invoice.total;
+          await this.notifyInvoiceGenerated(invoice);
         }
       } catch (error) {
         result.invoicesFailed++;
@@ -133,6 +138,59 @@ export class BillingService {
 
     logger.info("Billing run completed", result);
     return result;
+  }
+
+  private async notifyInvoiceGenerated(invoice: InvoiceRecord): Promise<void> {
+    try {
+      if (!invoice.pdfUrl) {
+        logger.warn("Skipping invoice WhatsApp without PDF URL", {
+          invoiceId: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+        });
+        return;
+      }
+
+      const contact = await this.invoiceService.getReminderContact(invoice.id);
+      if (!contact.tenantPhone) {
+        logger.warn("Skipping invoice WhatsApp without tenant phone", {
+          invoiceId: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+        });
+        return;
+      }
+
+      const tenantName = contact.tenantName || "inquilino/a";
+      const dueDate = invoice.dueDate.toISOString().slice(0, 10);
+      const amount = invoice.total.toLocaleString("es-AR", {
+        minimumFractionDigits: 2,
+      });
+      const text = [
+        `Hola ${tenantName},`,
+        `tu factura ${invoice.invoiceNumber} ya está disponible.`,
+        `Vencimiento: ${dueDate}.`,
+        `Monto: ${invoice.currencyCode} ${amount}.`,
+      ].join(" ");
+
+      const sendResult = await this.whatsappService.sendTextMessage(
+        contact.tenantPhone,
+        text,
+        invoice.pdfUrl,
+      );
+
+      if (!sendResult.success) {
+        logger.warn("Invoice WhatsApp failed", {
+          invoiceId: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+          error: sendResult.error,
+        });
+      }
+    } catch (error) {
+      logger.warn("Invoice WhatsApp notification failed", {
+        invoiceId: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   /**

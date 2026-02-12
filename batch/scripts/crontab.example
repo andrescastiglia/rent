@@ -21,7 +21,7 @@ LOG_DIR=/var/log/rent
 # Overdue: Mark overdue invoices (09:00 AM)
 0 9 * * * cd $BATCH_DIR && node index.js overdue --log $LOG_DIR/overdue.log
 
-# Reminders: Send payment reminders (10:00 AM)
+# Reminders: Send payment reminders via WhatsApp (10:00 AM)
 0 10 * * * cd $BATCH_DIR && node index.js reminders --log $LOG_DIR/reminders.log
 
 # -----------------------------------------------------------------------------
@@ -45,4 +45,4 @@ LOG_DIR=/var/log/rent
 0 2 * * 0 find $LOG_DIR -name "*.log" -mtime +30 -delete
 
 # Health Check: Verify batch system is operational (every 6 hours)
-0 */6 * * * cd $BATCH_DIR && node index.js --version >> /dev/null 2>&1 || echo "Batch system health check failed" | mail -s "ALERT: Batch System Down" admin@rent.local
+0 */6 * * * cd $BATCH_DIR && node index.js --version >> /dev/null 2>&1 || echo "Batch system health check failed" >> $LOG_DIR/alerts.log

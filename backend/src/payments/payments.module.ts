@@ -32,6 +32,7 @@ import { PaymentDocumentTemplatesController } from './payment-document-templates
 
 // Modules
 import { DocumentsModule } from '../documents/documents.module';
+import { WhatsappModule } from '../whatsapp/whatsapp.module';
 
 /**
  * Módulo de pagos.
@@ -54,6 +55,7 @@ import { DocumentsModule } from '../documents/documents.module';
       Document,
     ]),
     DocumentsModule,
+    WhatsappModule,
   ],
   controllers: [
     TenantAccountsController,

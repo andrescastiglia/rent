@@ -12,6 +12,7 @@ import { TenantAccountsService } from './tenant-accounts.service';
 import { ReceiptPdfService } from './receipt-pdf.service';
 import { CreditNotePdfService } from './credit-note-pdf.service';
 import { UserRole } from '../users/entities/user.entity';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
@@ -69,6 +70,10 @@ describe('PaymentsService', () => {
         { provide: TenantAccountsService, useValue: tenantAccountsService },
         { provide: ReceiptPdfService, useValue: { generate: jest.fn() } },
         { provide: CreditNotePdfService, useValue: { generate: jest.fn() } },
+        {
+          provide: WhatsappService,
+          useValue: { sendTextMessage: jest.fn() },
+        },
       ],
     }).compile();
 

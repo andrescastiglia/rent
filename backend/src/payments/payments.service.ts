@@ -17,6 +17,7 @@ import { UpdatePaymentDto } from './dto';
 import { ReceiptPdfService } from './receipt-pdf.service';
 import { CreditNotePdfService } from './credit-note-pdf.service';
 import { UserRole } from '../users/entities/user.entity';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 
 type RequestUser = {
   id: string;
@@ -44,6 +45,7 @@ export class PaymentsService {
     private tenantAccountsService: TenantAccountsService,
     private receiptPdfService: ReceiptPdfService,
     private creditNotePdfService: CreditNotePdfService,
+    private whatsappService: WhatsappService,
   ) {}
 
   /**
@@ -265,6 +267,15 @@ export class PaymentsService {
       );
       savedReceipt.pdfUrl = pdfUrl;
       await this.receiptsRepository.save(savedReceipt);
+      const tenantPhone =
+        payment.tenant?.user?.phone ??
+        payment.tenantAccount?.lease?.tenant?.user?.phone ??
+        null;
+      await this.sendTenantPdfWhatsapp(
+        tenantPhone,
+        `Tu recibo ${savedReceipt.receiptNumber} ya está disponible.`,
+        savedReceipt.pdfUrl,
+      );
     } catch (error) {
       console.error('Failed to generate receipt PDF:', error);
     }
@@ -307,6 +318,9 @@ export class PaymentsService {
         'tenantAccount',
         'tenantAccount.lease',
         'tenantAccount.lease.tenant',
+        'tenantAccount.lease.tenant.user',
+        'tenant',
+        'tenant.user',
         'items',
         'receipt',
         'currency',
@@ -587,6 +601,11 @@ export class PaymentsService {
             fullInvoice,
           );
           await this.creditNotesRepository.save(savedNote);
+          await this.sendTenantPdfWhatsapp(
+            fullInvoice.lease?.tenant?.user?.phone ?? null,
+            `Se emitió la nota de crédito ${savedNote.noteNumber} por ${savedNote.currencyCode} ${Number(savedNote.amount).toLocaleString('es-AR', { minimumFractionDigits: 2 })}.`,
+            savedNote.pdfUrl,
+          );
         }
       } catch (error) {
         console.error('Failed to generate credit note PDF:', error);
@@ -630,6 +649,22 @@ export class PaymentsService {
     throw new BadRequestException(
       'Payment cannot be confirmed without a tenant account',
     );
+  }
+
+  private async sendTenantPdfWhatsapp(
+    phone: string | null | undefined,
+    text: string,
+    pdfUrl?: string | null,
+  ): Promise<void> {
+    if (!phone || !pdfUrl) {
+      return;
+    }
+
+    try {
+      await this.whatsappService.sendTextMessage(phone, text, pdfUrl);
+    } catch (error) {
+      console.error('Failed to send WhatsApp PDF notification:', error);
+    }
   }
 
   private computePaymentAmount(

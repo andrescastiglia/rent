@@ -167,8 +167,8 @@ graph TB
     subgraph external["🔌 INTEGRACIONES EXTERNAS"]
         stripe["Stripe/MercadoPago<br/>(Pagos)"]
         docusign["DocuSign<br/>(Firma Digital)"]
-        sendgrid["SendGrid<br/>(Email)"]
-        twilio["Twilio<br/>(SMS)"]
+        sendgrid["WhatsApp Cloud API<br/>(Email)"]
+        twilio["WhatsApp Cloud API<br/>(SMS)"]
     end
 
     %% Usuarios a Frontend
@@ -234,8 +234,8 @@ graph TB
 **Integraciones Clave**
 - Stripe / MercadoPago (Pagos)
 - DocuSign (Firma digital)
-- SendGrid (Email)
-- Twilio (SMS)
+- WhatsApp Cloud API (Email)
+- WhatsApp Cloud API (SMS)
 - AWS S3 (Almacenamiento)
 
 ## 🚀 Fases del Proyecto

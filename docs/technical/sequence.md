@@ -8,7 +8,7 @@ sequenceDiagram
     participant Worker
     participant PSP as Pasarela Pago
     participant DB
-    participant Email
+    participant WhatsApp
 
     Scheduler->>Worker: Trigger cobros diarios
     Worker->>DB: Buscar contratos con cobro pendiente
@@ -20,11 +20,11 @@ sequenceDiagram
             PSP-->>Worker: Success
             Worker->>DB: Crear registro Payment
             Worker->>DB: Actualizar estado cuenta
-            Worker->>Email: Enviar recibo
+            Worker->>WhatsApp: Enviar recibo
         else Pago Fallido
             PSP-->>Worker: Error
             Worker->>DB: Registrar intento fallido
-            Worker->>Email: Notificar fallo pago
+            Worker->>WhatsApp: Notificar fallo pago
         end
     end
 ```
@@ -44,7 +44,7 @@ sequenceDiagram
     DocuSign-->>Backend: Envelope ID
     Backend->>DocuSign: Enviar a firmantes
     
-    DocuSign->>Tenant: Email con link de firma
+    DocuSign->>Tenant: WhatsApp con link de firma
     Tenant->>DocuSign: Firma documento online
     
     DocuSign->>Webhook: Evento: Signed
@@ -120,7 +120,7 @@ sequenceDiagram
     participant DB
     participant Worker
     participant S3
-    participant Email
+    participant WhatsApp
 
     Admin->>ReportAPI: POST /reports/generate (template, params)
     ReportAPI->>ReportService: Validar parámetros
@@ -143,8 +143,8 @@ sequenceDiagram
     
     S3-->>Worker: URL del archivo
     Worker->>DB: Actualizar ejecución (Completado)
-    Worker->>Email: Enviar notificación con link
-    Email->>Admin: Email con reporte adjunto
+    Worker->>WhatsApp: Enviar notificación con link
+    WhatsApp->>Admin: WhatsApp con reporte adjunto
 ```
 
 ### 6. Captura y Seguimiento de Leads (CRM)
@@ -165,7 +165,7 @@ sequenceDiagram
     
     CRM->>DB: Guardar matches automáticos
     CRM->>Notification: Alertar agente asignado
-    Notification->>Agent: Email/SMS: Nuevo lead con matches
+    Notification->>Agent: WhatsApp: Nuevo lead con matches
     
     Agent->>CRM: Registrar actividad (llamada)
     CRM->>DB: Guardar LEAD_ACTIVITY
@@ -203,7 +203,7 @@ sequenceDiagram
         
         alt Buen historial
             Lease->>Notification: Enviar propuesta de renovación
-            Notification->>Tenant: Email con términos de renovación
+            Notification->>Tenant: WhatsApp con términos de renovación
             Notification->>Owner: Notificar propuesta enviada
             
             Tenant->>Lease: Aceptar renovación (1-click)
@@ -234,7 +234,7 @@ sequenceDiagram
     participant ArcaSvc as ArcaService
     participant ARCA
     participant DB
-    participant Email
+    participant WhatsApp
 
     Cron->>Batch: billing --date today
     Batch->>DB: Buscar contratos con facturación hoy
@@ -265,7 +265,7 @@ sequenceDiagram
             ArcaSvc->>DB: UPDATE Invoice (CAE, QR)
         end
         
-        BillingSvc->>Email: Enviar factura al tenant
+        BillingSvc->>WhatsApp: Enviar factura al tenant
     end
     
     Batch->>DB: Registrar BillingJob (auditoría)
@@ -283,7 +283,7 @@ sequenceDiagram
     participant PaymentSvc as PaymentService
     participant ReceiptSvc as ReceiptService
     participant SettlementSvc as SettlementService
-    participant Email
+    participant WhatsApp
 
     Tenant->>Frontend: Click "Pagar"
     Frontend->>Backend: POST /payments/mercadopago/preference
@@ -301,7 +301,7 @@ sequenceDiagram
     
     PaymentSvc->>ReceiptSvc: generate(payment)
     ReceiptSvc->>DB: CREATE Receipt
-    ReceiptSvc->>Email: Enviar recibo PDF
+    ReceiptSvc->>WhatsApp: Enviar recibo PDF
     
     PaymentSvc->>SettlementSvc: scheduleForPayment(payment)
     SettlementSvc->>DB: CREATE Settlement (status=scheduled)
@@ -318,7 +318,7 @@ sequenceDiagram
     participant Blockchain
     participant DB
     participant PaymentSvc as PaymentService
-    participant Email
+    participant WhatsApp
 
     Tenant->>Frontend: Seleccionar pago crypto
     Frontend->>Backend: POST /payments/crypto/address
@@ -349,7 +349,7 @@ sequenceDiagram
     alt Confirmaciones >= threshold
         Blockchain-->>CryptoSvc: Confirmado
         CryptoSvc->>PaymentSvc: confirmPayment(paymentId)
-        PaymentSvc->>Email: Enviar recibo
+        PaymentSvc->>WhatsApp: Enviar recibo
     else Pendiente
         Blockchain-->>CryptoSvc: Esperando confirmaciones
     end
@@ -411,7 +411,7 @@ sequenceDiagram
     participant BankAPI as API Banco
     participant CryptoSvc as CryptoPaymentService
     participant Blockchain
-    participant Email
+    participant WhatsApp
     participant Owner
 
     Cron->>Batch: process-settlements
@@ -433,8 +433,8 @@ sequenceDiagram
         end
         
         SettlementSvc->>DB: UPDATE status='completed', tx_reference
-        SettlementSvc->>Email: sendSettlementCompleted(settlement)
-        Email->>Owner: Email con detalle de liquidación
+        SettlementSvc->>WhatsApp: sendSettlementCompleted(settlement)
+        WhatsApp->>Owner: WhatsApp con detalle de liquidación
     end
 ```
 
@@ -484,7 +484,7 @@ sequenceDiagram
     participant Cron
     participant Batch as Batch CLI
     participant DB
-    participant Email
+    participant WhatsApp
     participant Tenant
 
     Note over Cron,Batch: Recordatorios (3 días antes)
@@ -493,8 +493,8 @@ sequenceDiagram
     DB-->>Batch: Lista de facturas próximas a vencer
     
     loop Para cada factura
-        Batch->>Email: send(payment-reminder.hbs)
-        Email->>Tenant: Recordatorio de pago
+        Batch->>WhatsApp: send(whatsapp-payment-reminder)
+        WhatsApp->>Tenant: Recordatorio de pago
         Batch->>DB: UPDATE notification_sent = true
     end
     
@@ -503,8 +503,8 @@ sequenceDiagram
     Batch->>DB: UPDATE invoices SET status='overdue' WHERE due_date < today AND status='pending'
     
     loop Para cada factura vencida
-        Batch->>Email: send(overdue-notice.hbs)
-        Email->>Tenant: Aviso de mora
+        Batch->>WhatsApp: send(whatsapp-overdue-notice)
+        WhatsApp->>Tenant: Aviso de mora
     end
     
     Note over Cron,Batch: Intereses por mora

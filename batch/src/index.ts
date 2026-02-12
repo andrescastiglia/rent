@@ -181,17 +181,17 @@ program
   });
 
 /**
- * Reminders command - Send payment reminders.
+ * Reminders command - Send payment reminders via WhatsApp.
  */
 program
   .command("reminders")
-  .description("Send payment reminder emails for upcoming due dates")
+  .description("Send payment reminder WhatsApp messages for upcoming due dates")
   .option("--log <file>", "Write logs to the given file (no rotation)")
-  .option("-d, --dry-run", "Run without sending emails", false)
+  .option("-d, --dry-run", "Run without sending WhatsApp messages", false)
   .option("--days-before <days>", "Days before due date to send reminder", "3")
   .action(async (options) => {
     const { InvoiceService } = await import("./services/invoice.service");
-    const { EmailService } = await import("./services/email.service");
+    const { WhatsappService } = await import("./services/whatsapp.service");
 
     logger.info("Starting reminders process", { options });
     let jobId: string | undefined;
@@ -209,7 +209,7 @@ program
       );
 
       const invoiceService = new InvoiceService();
-      const emailService = new EmailService();
+      const whatsappService = new WhatsappService();
 
       const pendingInvoices =
         await invoiceService.findPendingDueSoon(daysBefore);
@@ -229,11 +229,28 @@ program
           });
           sent++;
         } else {
-          const result = await emailService.sendPaymentReminder({
-            invoice,
-            tenant: { email: "tenant@example.com" }, // TODO: get from DB
-            daysUntilDue,
-          });
+          const contact = await invoiceService.getReminderContact(invoice.id);
+          if (!contact.tenantPhone) {
+            logger.warn("Skipping reminder without tenant phone", {
+              invoiceId: invoice.id,
+              invoiceNumber: invoice.invoiceNumber,
+            });
+            failed++;
+            continue;
+          }
+
+          const tenantName = contact.tenantName || "inquilino/a";
+          const text = [
+            `Hola ${tenantName},`,
+            `recordatorio de pago de la factura ${invoice.invoiceNumber}.`,
+            `Vence en ${daysUntilDue} ${daysUntilDue === 1 ? "día" : "días"} (${invoice.dueDate.toISOString().slice(0, 10)}).`,
+            `Monto: ${invoice.currencyCode} ${invoice.total.toLocaleString("es-AR", { minimumFractionDigits: 2 })}.`,
+          ].join(" ");
+
+          const result = await whatsappService.sendTextMessage(
+            contact.tenantPhone,
+            text,
+          );
           if (result.success) {
             sent++;
           } else {

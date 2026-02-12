@@ -8,6 +8,7 @@ import { ArrowLeft, Loader2, Plus } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { interestedApi } from "@/lib/api/interested";
+import { whatsappApi } from "@/lib/api/whatsapp";
 import {
   InterestedActivity,
   InterestedProfile,
@@ -18,7 +19,6 @@ const ACTIVITY_TYPES: InterestedActivity["type"][] = [
   "task",
   "call",
   "note",
-  "email",
   "whatsapp",
   "visit",
 ];
@@ -97,6 +97,10 @@ export default function InterestedActivityCreatePage() {
       alert(t("errors.activitySubjectRequired"));
       return;
     }
+    if (form.type === "whatsapp" && !profile.phone?.trim()) {
+      alert(t("errors.phoneRequired"));
+      return;
+    }
 
     if (form.markReserved && !form.propertyId) {
       alert(t("errors.propertyRequiredForReservation"));
@@ -113,6 +117,17 @@ export default function InterestedActivityCreatePage() {
         propertyId: form.propertyId || undefined,
         markReserved: form.markReserved,
       });
+
+      if (form.type === "whatsapp" && profile.phone?.trim()) {
+        const text = [form.subject.trim(), form.body.trim()]
+          .filter(Boolean)
+          .join("\n\n");
+        await whatsappApi.sendMessage({
+          to: profile.phone.trim(),
+          text,
+        });
+      }
+
       router.push("/interested");
       router.refresh();
     } catch (error) {

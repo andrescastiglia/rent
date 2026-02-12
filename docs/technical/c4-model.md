@@ -55,8 +55,8 @@ C4Context
     }
 
     System_Boundary(communication, "Sistemas de Comunicación") {
-        System_Ext(email, "Email", "SendGrid")
-        System_Ext(sms, "SMS", "Twilio")
+        System_Ext(email, "Email", "WhatsApp Cloud API")
+        System_Ext(sms, "SMS", "WhatsApp Cloud API")
         System_Ext(push, "Push Notifications", "Firebase")
     }
 
@@ -79,7 +79,7 @@ C4Context
     Rel(rental_system, docusign, "Firma contratos", "API/HTTPS")
 
     %% Communication
-    Rel(rental_system, email, "Envía emails", "API/HTTPS")
+    Rel(rental_system, email, "Envía mensajes de WhatsApp", "API/HTTPS")
     Rel(rental_system, sms, "Envía SMS", "API/HTTPS")
     Rel(rental_system, push, "Envía notificaciones", "API/HTTPS")
 
@@ -108,7 +108,7 @@ C4Context
 
     System_Ext(psp, "Pagos", "Stripe/MercadoPago")
     System_Ext(docusign, "Firma Digital", "DocuSign")
-    System_Ext(comm, "Comunicación", "Email/SMS/Push")
+    System_Ext(comm, "Comunicación", "WhatsApp/Push")
     System_Ext(accounting, "Contabilidad", "ERP/AFIP")
     System_Ext(portals, "Portales", "Airbnb/Zillow")
 
@@ -178,7 +178,7 @@ C4Container
 
     System_Ext(psp, "Pasarela de Pagos", "Stripe/MercadoPago")
     System_Ext(docusign, "Firma Digital", "DocuSign")
-    System_Ext(email, "Email Service", "SendGrid")
+    System_Ext(email, "Email Service", "WhatsApp Cloud API")
 
     %% Gateway to Backend
     Rel(api_gateway, backend_api, "Proxies requests", "HTTP")
@@ -254,7 +254,7 @@ C4Container
     }
 
     System_Ext(psp, "Pagos", "Stripe")
-    System_Ext(email, "Email", "SendGrid")
+    System_Ext(email, "Email", "WhatsApp Cloud API")
 
     %% User to Frontend
     Rel(user, web_app, "Usa", "HTTPS")
@@ -458,7 +458,7 @@ C4Component
         Component(report_svc, "Report Service", "Service", "Exportación PDF/Excel")
         
         %% Notification
-        Component(notif_svc, "Notification Service", "Service", "Email/SMS/Push")
+        Component(notif_svc, "Notification Service", "Service", "WhatsApp/Push")
         
         %% Document
         Component(doc_svc, "Document Service", "Service", "Generación PDFs")
@@ -855,14 +855,14 @@ classDiagram
         <<interface>>
         +send(to, subject, body)
     }
-    class SendGridProvider {
+    class WhatsApp Cloud APIProvider {
         +send(to, subject, body)
     }
     class SMSProvider {
         <<interface>>
         +send(phone, message)
     }
-    class TwilioProvider {
+    class WhatsApp Cloud APIProvider {
         +send(phone, message)
     }
     class NotificationRepository {
@@ -897,8 +897,8 @@ classDiagram
     NotificationService --> EmailProvider
     NotificationService --> SMSProvider
     NotificationService --> NotificationRepository
-    EmailProvider <|.. SendGridProvider
-    SMSProvider <|.. TwilioProvider
+    EmailProvider <|.. WhatsApp Cloud APIProvider
+    SMSProvider <|.. WhatsApp Cloud APIProvider
 
     DocumentService --> DocumentRepository
 
@@ -931,6 +931,5 @@ classDiagram
 
     MaintenanceService --> NotificationService : Notifica asignaciones
 ```
-
 
 

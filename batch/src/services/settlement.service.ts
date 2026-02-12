@@ -476,10 +476,10 @@ export class SettlementService {
   }
 
   /**
-   * Notifies owner about the settlement via email.
+   * Notifies owner about the settlement.
    */
   private async notifyOwner(calculation: SettlementCalculation): Promise<void> {
-    // TODO: Integrate with EmailService to send notification
+    // TODO: Integrate with WhatsappService/notification gateway to send notification
     logger.info("Owner notification sent", {
       ownerId: calculation.ownerId,
       ownerName: calculation.ownerName,

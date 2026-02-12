@@ -27,7 +27,7 @@ La plataforma se estructurará en los siguientes módulos o áreas funcionales c
 - **Gestión de Mantenimiento**: sistema de tickets para solicitudes de reparación o servicios. Los inquilinos podrán crear órdenes de trabajo (descripción del problema, fotos) [5](#ref-5); el personal de mantenimiento las asignará, actualizará estado (pendiente, en proceso, resuelto) y registrará costos asociados. Debe permitir adjuntar fotos, historial de intervenciones y notificar avances.
 - **Gestión de Pagos y Facturación**: registro de pagos de rentas y otros cargos. Debe generar recibos electrónicos (comprobantes), procesar pagos en línea (tarjeta de crédito, transferencia) e integrarse con pasarelas de pago. Incluirá cálculo automático de intereses por mora (punitorio) y emisión de liquidaciones mensuales [6](#ref-6). Soporta pagos recurrentes: programar cobranzas periódicas automáticas. Se debe llevar el historial de pagos por inquilino y contabilidad interna.
 - **Reportes Financieros y Estadísticas**: generación de reportes estándar (resumen de ingresos por período, rent roll, cuentas por cobrar vencidas, flujo de caja) y personalizados. Debe permitir filtrar por propiedad, periodo y tipo de ingreso/egreso. Asimismo, incluirá dashboards con indicadores clave (ingresos, ocupación, morosidad). Facilitar exportación a PDF/Excel.
-- **Notificaciones y Alertas**: módulo para enviar avisos por email/SMS/push. Envío de recordatorios de pago, alertas de contratos próximos a vencer, confirmaciones de mantenimientos, campañas de marketing. Debe gestionar plantillas de mensajes y registros de envíos (registro de notificaciones enviadas).
+- **Notificaciones y Alertas**: módulo para enviar avisos por whatsapp/push. Envío de recordatorios de pago, alertas de contratos próximos a vencer, confirmaciones de mantenimientos, campañas de marketing. Debe gestionar plantillas de mensajes y registros de envíos (registro de notificaciones enviadas).
 - **Seguridad y Control de Acceso (RBAC)**: aunque no es un “módulo funcional” de negocio, el sistema debe incluir gestión de usuarios y roles. Cada usuario tendrá credenciales y permisos basados en su rol (administrador, gestor, propietario, inquilino, etc.), de modo que sólo pueda acceder a las funciones y datos autorizados.
 
 Estos módulos básicos cubren todas las áreas de la operación inmobiliaria. En ellos se incluirán todas las acciones típicas (crear/editar/eliminar/consultar) y flujos de trabajo asociados, tal como ocurre en soluciones avanzadas de gestión de propiedades [7](#ref-7) [8](#ref-8).
@@ -49,7 +49,7 @@ A continuación se describen las funcionalidades detalladas por cada módulo, in
 - **Editar contrato**: modificar términos antes de la firma (por ejemplo, plazo o renta). Luego de la firma, las ediciones estarán sujetas a renovaciones o anexos.
 - **Renovar contrato**: registrar prórrogas con nuevos términos. El sistema debe generar anexo de renovación y actualizar fechas.
 - **Cancelar / finalizar contrato**: registrar terminación anticipada o por vencimiento. Al finalizar, calcular liquidación final y liberar la propiedad.
-- **Alertas y recordatorios**: el sistema notificará automáticamente (email/SMS) cuando queden X días para el vencimiento del contrato. Las alertas pueden configurarse (plazo para aviso).
+- **Alertas y recordatorios**: el sistema notificará automáticamente (whatsapp) cuando queden X días para el vencimiento del contrato. Las alertas pueden configurarse (plazo para aviso).
 - **Consulta de contratos**: listar todos los contratos con filtros por estado (vigente, vencido, pendiente de firma) y buscar por inquilino o propiedad. Mostrar detalles financieros (renta, comisión).
 - **Validaciones**: evitar solapamiento de contratos para la misma propiedad. Verificar que la fecha de inicio sea anterior a fin. Controlar coeficientes de actualización vigentes (p.ej. IPC).
 
@@ -63,9 +63,9 @@ A continuación se describen las funcionalidades detalladas por cada módulo, in
 
 ### 3.4 Gestión Comercial / CRM
 - **Captura de leads**: registrar interesados mediante formularios web o manualmente (nombre, contacto, requerimientos).
-- **Seguimiento de oportunidades**: asignar responsables y estados (nuevo, contactado, visitado, cerrado). Registrar notas de contacto y actividades (llamadas, emails).
+- **Seguimiento de oportunidades**: asignar responsables y estados (nuevo, contactado, visitado, cerrado). Registrar notas de contacto y actividades (llamadas, WhatsApp).
 - **Emparejamiento automático**: sugerir propiedades al interesado según criterios (zona, precio), generando alertas de coincidencias [3](#ref-3).
-- **Comunicación masiva**: enviar boletines o promociones a listas de interesados/cliente. El sistema permitirá cargar plantillas de emails y programar envíos (integrable con servicios de email marketing).
+- **Comunicación masiva**: enviar boletines o promociones a listas de interesados/cliente. El sistema permitirá cargar plantillas de mensajes de WhatsApp y programar envíos (integrable con plataformas de mensajería de WhatsApp).
 - **Reportes de ventas**: estadísticas de conversión (porcentaje de leads convertidos en inquilinos), tiempo de cierre promedio, etc.
 
 ### 3.5 Portal de Propietarios e Inquilinos
@@ -95,8 +95,8 @@ A continuación se describen las funcionalidades detalladas por cada módulo, in
 - **Automatización de reportes**: posibilidad de programar envíos automáticos de reportes periódicos (diarios/semanales/mensuales) a administradores o propietarios.
 
 ### 3.9 Notificaciones
-- **Emails y SMS**: el sistema enviará correos electrónicos y SMS automáticos en eventos clave (nuevo contrato firmado, recibo generado, mantenimiento completado, etc.).
-- **Preferencias del usuario**: cada propietario o inquilino elegirá qué notificaciones recibe (por ejemplo, algunos podrían preferir solo email y no SMS).
+- **WhatsApp**: el sistema enviará mensajes de WhatsApp automáticos en eventos clave (nuevo contrato firmado, recibo generado, mantenimiento completado, etc.).
+- **Preferencias del usuario**: cada propietario o inquilino elegirá qué notificaciones recibe (por ejemplo, algunos podrían preferir solo WhatsApp).
 - **Plantillas dinámicas**: se administrarán plantillas con campos dinámicos (nombre, monto, fecha) para cada tipo de mensaje, facilitando personalizar la comunicación sin programar.
 - **Registro de envíos**: se almacenará un log de todas las notificaciones enviadas para auditoría.
 
@@ -126,7 +126,7 @@ El sistema se integrará con servicios y plataformas de terceros para potenciar 
 - **Facturación electrónica y contabilidad**: comunicación con sistemas contables externos (p.ej. QuickBooks, Xero o soluciones locales como Contpaqi/SAP) para exportar transacciones financieras [10](#ref-10). Si corresponde al país, integración con servicios de facturación electrónica nacional (por ejemplo AFIP en Argentina) [9](#ref-9), de modo que los comprobantes emitidos en la plataforma queden también registrados ante la autoridad tributaria.
 - **Firmas digitales**: uso de APIs de proveedores de firma electrónica (DocuSign, Adobe Sign o plataformas locales) para firmar contratos de manera online con validez legal. Al firmar un contrato en la plataforma, se enviará automáticamente al inquilino/propietario para firma digital.
 - **Portales y listados inmobiliarios**: consumo de APIs de portales inmobiliarios (Idealista, Zillow, Airbnb, Booking.com, etc.) para publicar automáticamente las propiedades vacantes y sincronizar estados de reservas en el caso de alquileres vacacionales. Esto amplía la visibilidad de las propiedades gestionadas.
-- **Servicios de mensajería**: integración con proveedores de SMS y WhatsApp (p.ej. Twilio, Nexmo) para enviar alertas y notificaciones; con plataformas de email masivo (p.ej. SendGrid, Mailchimp) para campañas de CRM. Estos servicios permitirán escalar las notificaciones sin cargar el servidor principal.
+- **Servicios de mensajería**: integración con proveedores de SMS y WhatsApp (p.ej. WhatsApp Cloud API, Nexmo) para enviar alertas y notificaciones; con plataformas de email masivo (p.ej. WhatsApp Cloud API, Mailchimp) para campañas de CRM. Estos servicios permitirán escalar las notificaciones sin cargar el servidor principal.
 - **Servicios de notificaciones push**: en caso de contar con apps móviles futuras, integración con servicios de notificaciones push (Firebase, OneSignal) para alertar eventos en tiempo real.
 - **APIs de análisis y datos externos**: opcionalmente, integración con APIs de datos de mercado (por ejemplo, información de precios de referencia de la zona) para alimentar módulos de analítica.
 - **Infraestructura en la nube**: uso de servicios cloud (bases de datos gestionadas, buckets de almacenamiento) para asegurar escalabilidad. Por ejemplo, almacenamiento de archivos en Amazon S3, base de datos PostgreSQL en RDS, etc.

@@ -8,12 +8,14 @@ import {
   PropertyVisitNotification,
   VisitNotificationStatus,
 } from './entities/property-visit-notification.entity';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 
 describe('PropertyVisitsService', () => {
   let service: PropertyVisitsService;
   let propertiesRepository: MockRepository<Property>;
   let visitsRepository: MockRepository<PropertyVisit>;
   let notificationsRepository: MockRepository<PropertyVisitNotification>;
+  let whatsappService: { sendTextMessage: jest.Mock };
 
   type MockRepository<T extends Record<string, any> = any> = Partial<
     Record<keyof Repository<T>, jest.Mock>
@@ -27,6 +29,12 @@ describe('PropertyVisitsService', () => {
   });
 
   beforeEach(async () => {
+    whatsappService = {
+      sendTextMessage: jest
+        .fn()
+        .mockResolvedValue({ messageId: 'wamid.test', raw: {} }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PropertyVisitsService,
@@ -42,6 +50,7 @@ describe('PropertyVisitsService', () => {
           provide: getRepositoryToken(PropertyVisitNotification),
           useValue: createMockRepository(),
         },
+        { provide: WhatsappService, useValue: whatsappService },
       ],
     }).compile();
 
@@ -59,7 +68,7 @@ describe('PropertyVisitsService', () => {
       name: 'Casa Linda',
       companyId: 'company-1',
       ownerWhatsapp: '+54 9 11 1234-5678',
-      owner: { user: { email: 'owner@example.com' }, userId: 'owner-1' },
+      owner: { userId: 'owner-1' },
     } as Property;
 
     propertiesRepository.findOne!.mockResolvedValue(property);
@@ -90,8 +99,9 @@ describe('PropertyVisitsService', () => {
     );
 
     expect(result.notifications).toBeDefined();
-    expect(result.notifications).toHaveLength(2);
+    expect(result.notifications).toHaveLength(1);
     expect(notificationsRepository.save).toHaveBeenCalledTimes(2);
+    expect(whatsappService.sendTextMessage).toHaveBeenCalledTimes(1);
 
     const savedNotifications = notificationsRepository.save!.mock.calls[1][0];
     for (const notification of savedNotifications) {

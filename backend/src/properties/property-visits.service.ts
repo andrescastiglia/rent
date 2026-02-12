@@ -15,6 +15,7 @@ import {
 } from './entities/property-visit-notification.entity';
 import { CreatePropertyVisitDto } from './dto/create-property-visit.dto';
 import { CreatePropertyMaintenanceTaskDto } from './dto/create-property-maintenance-task.dto';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 
 interface VisitUserContext {
   id: string;
@@ -31,6 +32,7 @@ export class PropertyVisitsService {
     private readonly propertyVisitsRepository: Repository<PropertyVisit>,
     @InjectRepository(PropertyVisitNotification)
     private readonly notificationsRepository: Repository<PropertyVisitNotification>,
+    private readonly whatsappService: WhatsappService,
   ) {}
 
   async create(
@@ -167,19 +169,6 @@ export class PropertyVisitsService {
       );
     }
 
-    const ownerEmail = property.owner?.user?.email;
-    if (ownerEmail) {
-      notifications.push(
-        this.notificationsRepository.create({
-          visitId: visit.id,
-          channel: VisitNotificationChannel.EMAIL,
-          recipient: ownerEmail,
-          message,
-          status: VisitNotificationStatus.QUEUED,
-        }),
-      );
-    }
-
     return notifications;
   }
 
@@ -206,15 +195,9 @@ export class PropertyVisitsService {
     notification: PropertyVisitNotification,
   ): Promise<void> {
     if (notification.channel === VisitNotificationChannel.WHATSAPP) {
-      console.info(
-        `WhatsApp notification to ${notification.recipient}: ${notification.message}`,
-      );
-      return;
-    }
-
-    if (notification.channel === VisitNotificationChannel.EMAIL) {
-      console.info(
-        `Email notification to ${notification.recipient}: ${notification.message}`,
+      await this.whatsappService.sendTextMessage(
+        notification.recipient,
+        notification.message,
       );
       return;
     }
