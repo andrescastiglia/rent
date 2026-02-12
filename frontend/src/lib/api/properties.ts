@@ -264,18 +264,12 @@ const mapFrontendPropertyStatusToBackend = (
   }
 };
 
-const getCurrentCompanyId = (): string | undefined => {
-  const user = getUser();
-  return user?.companyId;
-};
-
 const serializeCreatePayload = (
   data: CreatePropertyInput,
 ): BackendCreatePropertyPayload => {
   const backendType = mapFrontendPropertyTypeToBackend(data.type) ?? "other";
   const ownerId = isUuid(data.ownerId) ? data.ownerId : undefined;
   return {
-    companyId: getCurrentCompanyId(),
     ownerId,
     name: data.name,
     ownerWhatsapp: data.ownerWhatsapp,
