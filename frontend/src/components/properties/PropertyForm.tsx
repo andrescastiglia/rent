@@ -100,6 +100,7 @@ export function PropertyForm({
 
   const images = watch("images") || [];
   const selectedOperations = watch("operations") || [];
+  const isSaleOperationSelected = selectedOperations.includes("sale");
   const selectedOwnerId = watch("ownerId");
   const preselectedOwnerId = searchParams.get("ownerId");
   const isOwnerLocked = isEditing || Boolean(preselectedOwnerId);
@@ -152,6 +153,11 @@ export function PropertyForm({
       shouldValidate: true,
     });
   }, [activeOwner, isOwnerLocked, setValue]);
+
+  useEffect(() => {
+    if (isSaleOperationSelected) return;
+    setValue("salePrice", undefined, { shouldValidate: true });
+  }, [isSaleOperationSelected, setValue]);
 
   const handleToggleOperation = (operation: "rent" | "sale") => {
     const nextOperations = selectedOperations.includes(operation)
@@ -356,11 +362,12 @@ export function PropertyForm({
               type="number"
               min="0"
               step="0.01"
+              disabled={!isSaleOperationSelected}
               {...register("salePrice", {
                 setValueAs: (value) =>
                   value === "" || value === null ? undefined : Number(value),
               })}
-              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed dark:disabled:bg-gray-900/40 dark:disabled:text-gray-400"
               placeholder={t("placeholders.salePrice")}
             />
             {errors.salePrice && (
