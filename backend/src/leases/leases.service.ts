@@ -230,7 +230,7 @@ export class LeasesService {
     }
 
     query
-      .orderBy('lease.created_at', 'DESC')
+      .orderBy('lease.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -551,7 +551,7 @@ export class LeasesService {
       .createQueryBuilder('template')
       .where('template.company_id = :companyId', { companyId })
       .andWhere('template.deleted_at IS NULL')
-      .orderBy('template.updated_at', 'DESC');
+      .orderBy('template.updatedAt', 'DESC');
 
     if (contractType) {
       query.andWhere('template.contract_type = :contractType', {
@@ -889,8 +889,12 @@ export class LeasesService {
     for (const paragraph of paragraphs) {
       let hasMissingValue = false;
       const rendered = paragraph.replace(
-        /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g,
-        (_full, key: string) => {
+        /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}|\{([a-zA-Z0-9_.]+)\}/g,
+        (_full, keyWithDoubleBraces?: string, keyWithSingleBraces?: string) => {
+          const key = keyWithDoubleBraces ?? keyWithSingleBraces;
+          if (!key) {
+            return '';
+          }
           const value = this.resolveTemplateValue(context, key);
           if (value === null || value === undefined || value === '') {
             hasMissingValue = true;

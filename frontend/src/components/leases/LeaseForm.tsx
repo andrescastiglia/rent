@@ -41,6 +41,8 @@ interface LeaseBuyerOption {
 }
 
 type TemplateContext = Record<string, unknown>;
+const TEMPLATE_PLACEHOLDER_REGEX =
+  /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}|\{([a-zA-Z0-9_.]+)\}/g;
 
 const toDateString = (value: string | Date | undefined): string | undefined => {
   if (!value) return undefined;
@@ -72,16 +74,41 @@ const renderTemplate = (
   templateBody: string,
   context: TemplateContext,
 ): string => {
-  return templateBody.replace(
-    /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g,
-    (_full, key: string) => {
-      const value = resolveTemplateValue(context, key);
-      if (value === null || value === undefined) {
-        return "";
-      }
-      return String(value);
-    },
-  );
+  const paragraphs = templateBody.split(/\n\s*\n/);
+  const renderedParagraphs: string[] = [];
+
+  for (const paragraph of paragraphs) {
+    let hasMissingValue = false;
+    const rendered = paragraph.replace(
+      TEMPLATE_PLACEHOLDER_REGEX,
+      (_full, keyWithDoubleBraces?: string, keyWithSingleBraces?: string) => {
+        const key = keyWithDoubleBraces ?? keyWithSingleBraces;
+        if (!key) return "";
+
+        const value = resolveTemplateValue(context, key);
+        if (value === null || value === undefined || value === "") {
+          hasMissingValue = true;
+          return "";
+        }
+        return String(value);
+      },
+    );
+
+    if (!hasMissingValue && rendered.trim().length > 0) {
+      renderedParagraphs.push(rendered.trim());
+    }
+  }
+
+  return renderedParagraphs.join("\n\n");
+};
+
+const getLeaseNumber = (lease?: Lease): string | undefined => {
+  if (!lease) return undefined;
+  const withLeaseNumber = lease as Lease & { leaseNumber?: string };
+  if (typeof withLeaseNumber.leaseNumber === "string") {
+    return withLeaseNumber.leaseNumber;
+  }
+  return undefined;
 };
 
 export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
@@ -460,7 +487,9 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
       today: toDateString(new Date()) ?? "",
       lease: {
         id: initialData?.id ?? "",
+        leaseNumber: getLeaseNumber(initialData) ?? "",
         contractType,
+        status: formValues.status,
         startDate: toDateString(formValues.startDate),
         endDate: toDateString(formValues.endDate),
         monthlyRent: toNumberOrUndefined(formValues.rentAmount),
@@ -480,7 +509,10 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           formValues.adjustmentFrequencyMonths,
         ),
         inflationIndexType: formValues.inflationIndexType,
+        nextAdjustmentDate: toDateString(formValues.nextAdjustmentDate),
+        autoGenerateInvoices: formValues.autoGenerateInvoices,
         securityDeposit: toNumberOrUndefined(formValues.depositAmount),
+        termsAndConditions: formValues.terms ?? "",
       },
       property: {
         name: selectedProperty?.name,
@@ -518,6 +550,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     formValues.adjustmentFrequencyMonths,
     formValues.adjustmentType,
     formValues.adjustmentValue,
+    formValues.autoGenerateInvoices,
     formValues.billingDay,
     formValues.billingFrequency,
     formValues.currency,
@@ -529,11 +562,14 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     formValues.lateFeeMax,
     formValues.lateFeeType,
     formValues.lateFeeValue,
+    formValues.nextAdjustmentDate,
     formValues.paymentDueDay,
     formValues.paymentFrequency,
     formValues.rentAmount,
     formValues.startDate,
-    initialData?.id,
+    formValues.status,
+    formValues.terms,
+    initialData,
     selectedBuyerOption,
     selectedOwner,
     selectedProperty,
@@ -706,6 +742,11 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {t("templateAutofillHint")}
             </p>
+            {selectedTemplate ? (
+              <p className="mt-1 text-xs text-blue-700 dark:text-blue-300">
+                {t("templateInUse")}: {selectedTemplate.name}
+              </p>
+            ) : null}
           </div>
 
           <div>
@@ -1213,10 +1254,16 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           <textarea
             id="terms"
             {...register("terms")}
-            rows={4}
-            className={inputClass}
+            rows={selectedTemplate ? 12 : 6}
+            readOnly={Boolean(selectedTemplate)}
+            className={selectedTemplate ? readOnlyInputClass : inputClass}
             placeholder={t("leaseTermsPlaceholder")}
           />
+          {selectedTemplate ? (
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {t("templateAutofillHint")}
+            </p>
+          ) : null}
         </div>
       </div>
 
