@@ -51,13 +51,11 @@ export class LeasesService {
 
   async create(createLeaseDto: CreateLeaseDto): Promise<Lease> {
     const contractType = createLeaseDto.contractType ?? ContractType.RENTAL;
-    const template = createLeaseDto.templateId
-      ? await this.findTemplate(
-          createLeaseDto.templateId,
-          createLeaseDto.companyId,
-          contractType,
-        )
-      : null;
+    const template = await this.resolveTemplateForLease(
+      createLeaseDto.companyId,
+      contractType,
+      createLeaseDto.templateId,
+    );
     if (createLeaseDto.templateId && !template) {
       throw new NotFoundException(
         `Template with ID ${createLeaseDto.templateId} not found`,
@@ -687,6 +685,7 @@ export class LeasesService {
     dto: UpdateLeaseDto,
     effectiveType: ContractType,
   ): Promise<void> {
+    const previousContractType = lease.contractType;
     if (effectiveType === ContractType.RENTAL) {
       this.validateRentalDates(
         dto.startDate ?? lease.startDate?.toISOString(),
@@ -735,6 +734,17 @@ export class LeasesService {
         lease.templateId = template.id;
         lease.templateName = template.name;
       }
+    } else if (
+      dto.contractType !== undefined &&
+      previousContractType !== effectiveType
+    ) {
+      const resolvedTemplate = await this.resolveTemplateForLease(
+        lease.companyId,
+        effectiveType,
+        undefined,
+      );
+      lease.templateId = resolvedTemplate?.id ?? null;
+      lease.templateName = resolvedTemplate?.name ?? null;
     }
 
     Object.assign(lease, {
@@ -788,6 +798,29 @@ export class LeasesService {
     }
 
     return template;
+  }
+
+  private async resolveTemplateForLease(
+    companyId: string,
+    contractType: ContractType,
+    requestedTemplateId?: string,
+  ): Promise<LeaseContractTemplate | null> {
+    if (requestedTemplateId) {
+      return this.findTemplate(requestedTemplateId, companyId, contractType);
+    }
+
+    const candidates = await this.templatesRepository.find({
+      where: {
+        companyId,
+        contractType,
+        isActive: true,
+        deletedAt: IsNull(),
+      },
+      order: { updatedAt: 'DESC' },
+      take: 2,
+    });
+
+    return candidates.length === 1 ? candidates[0] : null;
   }
 
   private renderTemplateBody(templateBody: string, lease: Lease): string {

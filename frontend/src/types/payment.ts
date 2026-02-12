@@ -147,6 +147,7 @@ export interface PaymentDocumentTemplate {
   name: string;
   templateBody: string;
   isActive: boolean;
+  isDefault: boolean;
   createdAt: string;
   updatedAt: string;
 }

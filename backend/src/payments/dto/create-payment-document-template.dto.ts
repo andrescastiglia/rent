@@ -24,4 +24,8 @@ export class CreatePaymentDocumentTemplateDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isDefault?: boolean;
 }

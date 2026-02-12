@@ -1838,6 +1838,7 @@ CREATE TABLE payment_document_templates (
     name VARCHAR(120) NOT NULL,
     template_body TEXT NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    is_default BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMPTZ
@@ -1850,6 +1851,9 @@ CREATE INDEX idx_payment_document_templates_type
 CREATE INDEX idx_payment_document_templates_active
     ON payment_document_templates(company_id, type, is_active)
     WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX uq_payment_document_templates_default_per_type
+    ON payment_document_templates(company_id, type)
+    WHERE deleted_at IS NULL AND is_default = TRUE;
 
 CREATE TRIGGER update_payment_document_templates_updated_at
     BEFORE UPDATE ON payment_document_templates FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

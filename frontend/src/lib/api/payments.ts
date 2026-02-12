@@ -126,6 +126,7 @@ const MOCK_PAYMENT_DOCUMENT_TEMPLATES: PaymentDocumentTemplate[] = [
     templateBody:
       "Recibo {{receipt.number}}\nFecha: {{receipt.issuedAt}}\nInquilino: {{tenant.fullName}}\nMonto: {{receipt.currencySymbol}} {{receipt.amount}}\nMétodo: {{payment.method}}\nReferencia: {{payment.reference}}",
     isActive: true,
+    isDefault: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -136,6 +137,7 @@ const MOCK_PAYMENT_DOCUMENT_TEMPLATES: PaymentDocumentTemplate[] = [
     templateBody:
       "Factura {{invoice.number}}\nEmisión: {{invoice.issueDate}}\nVencimiento: {{invoice.dueDate}}\nCliente: {{tenant.fullName}}\nTotal: {{invoice.currencySymbol}} {{invoice.total}}\nEstado: {{invoice.status}}",
     isActive: true,
+    isDefault: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -146,10 +148,23 @@ const MOCK_PAYMENT_DOCUMENT_TEMPLATES: PaymentDocumentTemplate[] = [
     templateBody:
       "Nota de crédito {{creditNote.number}}\nFactura vinculada: {{invoice.number}}\nMonto: {{creditNote.currency}} {{creditNote.amount}}\nMotivo: {{creditNote.reason}}",
     isActive: true,
+    isDefault: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
 ];
+
+const ensureSingleDefaultTemplate = (
+  type: PaymentDocumentTemplateType,
+  defaultTemplateId: string,
+) => {
+  for (const template of MOCK_PAYMENT_DOCUMENT_TEMPLATES) {
+    if (template.type === type && template.id !== defaultTemplateId) {
+      template.isDefault = false;
+      template.updatedAt = new Date().toISOString();
+    }
+  }
+};
 
 const DELAY = 500;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -752,19 +767,28 @@ export const paymentDocumentTemplatesApi = {
     name: string;
     templateBody: string;
     isActive?: boolean;
+    isDefault?: boolean;
   }): Promise<PaymentDocumentTemplate> => {
     if (shouldUseMock()) {
       await delay(DELAY);
+      const isFirstForType = !MOCK_PAYMENT_DOCUMENT_TEMPLATES.some(
+        (item) => item.type === data.type,
+      );
+      const isDefault = data.isDefault ?? isFirstForType;
       const created: PaymentDocumentTemplate = {
         id: `tpl-${Math.random().toString(36).slice(2, 10)}`,
         type: data.type,
         name: data.name,
         templateBody: data.templateBody,
         isActive: data.isActive ?? true,
+        isDefault,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
       MOCK_PAYMENT_DOCUMENT_TEMPLATES.unshift(created);
+      if (isDefault) {
+        ensureSingleDefaultTemplate(data.type, created.id);
+      }
       return created;
     }
 
@@ -783,6 +807,7 @@ export const paymentDocumentTemplatesApi = {
       name: string;
       templateBody: string;
       isActive: boolean;
+      isDefault: boolean;
     }>,
   ): Promise<PaymentDocumentTemplate> => {
     if (shouldUseMock()) {
@@ -799,6 +824,9 @@ export const paymentDocumentTemplatesApi = {
         updatedAt: new Date().toISOString(),
       } as PaymentDocumentTemplate;
       MOCK_PAYMENT_DOCUMENT_TEMPLATES[index] = updated;
+      if (updated.isDefault) {
+        ensureSingleDefaultTemplate(updated.type, updated.id);
+      }
       return updated;
     }
 

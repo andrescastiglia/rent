@@ -453,10 +453,20 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     () => templates.filter((item) => item.contractType === contractType),
     [contractType, templates],
   );
+  const singleTemplateForType =
+    templatesForType.length === 1 ? templatesForType[0] : null;
 
   useEffect(() => {
-    if (isEditing) return;
+    if (singleTemplateForType) {
+      if (selectedTemplateId !== singleTemplateForType.id) {
+        setValue("templateId", singleTemplateForType.id, {
+          shouldValidate: true,
+        });
+      }
+      return;
+    }
 
+    if (isEditing) return;
     const currentTemplateId = selectedTemplateId ?? "";
     const hasCurrentTemplate = templatesForType.some(
       (item) => item.id === currentTemplateId,
@@ -468,7 +478,13 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
         setValue("templateId", nextTemplateId, { shouldValidate: true });
       }
     }
-  }, [isEditing, selectedTemplateId, setValue, templatesForType]);
+  }, [
+    isEditing,
+    selectedTemplateId,
+    setValue,
+    singleTemplateForType,
+    templatesForType,
+  ]);
 
   const selectedTemplate = useMemo(
     () => templates.find((template) => template.id === selectedTemplateId),
@@ -727,18 +743,28 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
             <label htmlFor="templateId" className={labelClass}>
               {t("fields.template")}
             </label>
-            <select
-              id="templateId"
-              {...register("templateId")}
-              className={inputClass}
-            >
-              <option value="">{t("templates.select")}</option>
-              {templatesForType.map((template) => (
-                <option key={template.id} value={template.id}>
-                  {template.name}
-                </option>
-              ))}
-            </select>
+            {singleTemplateForType ? (
+              <>
+                <input type="hidden" {...register("templateId")} />
+                <p className={inputClass}>{singleTemplateForType.name}</p>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {t("templateLockedHint")}
+                </p>
+              </>
+            ) : (
+              <select
+                id="templateId"
+                {...register("templateId")}
+                className={inputClass}
+              >
+                <option value="">{t("templates.select")}</option>
+                {templatesForType.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name}
+                  </option>
+                ))}
+              </select>
+            )}
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {t("templateAutofillHint")}
             </p>

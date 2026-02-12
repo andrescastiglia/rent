@@ -913,7 +913,8 @@
     "contractTypeFixedByInterested": "Tipo de contrato definido pelo interessado selecionado.",
     "ownerFromPropertyHint": "Proprietário definido pelo imóvel selecionado.",
     "prefilledFieldHint": "Campo preenchido automaticamente conforme a origem da criação do contrato.",
-    "templateAutofillHint": "Ao selecionar um modelo, os termos são preenchidos com os valores atuais do contrato e atualizados automaticamente."
+    "templateAutofillHint": "Ao selecionar um modelo, os termos são preenchidos com os valores atuais do contrato e atualizados automaticamente.",
+    "templateLockedHint": "Existe apenas um modelo disponível para este tipo de contrato."
   },
   "payments": {
     "title": "Pagamentos",
@@ -1062,6 +1063,7 @@
   "templatesHub": {
     "title": "Modelos de Documentos",
     "subtitle": "Gerencie modelos para contratos, recibos, faturas e notas de crédito.",
+    "editorSubtitle": "Crie ou edite um modelo e depois volte para a listagem.",
     "scopes": {
       "contractRental": "Contrato (aluguel)",
       "contractSale": "Contrato (venda)",
@@ -1069,11 +1071,16 @@
       "invoice": "Fatura",
       "creditNote": "Nota de crédito"
     },
+    "backToList": "Voltar para a lista",
+    "createTemplate": "Criar modelo",
+    "editTemplate": "Editar modelo",
+    "templateNotFound": "O modelo selecionado não foi encontrado.",
     "newTemplate": "Novo modelo",
     "listTitle": "Modelos",
     "empty": "Não há modelos para este tipo.",
     "active": "Ativo",
     "inactive": "Inativo",
+    "defaultLabel": "Padrão",
     "namePlaceholder": "Nome do modelo",
     "bodyPlaceholder": "Conteúdo do modelo...",
     "variablesTitle": "Variáveis disponíveis",

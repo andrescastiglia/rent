@@ -581,7 +581,7 @@ SET
 -- Payment document templates (receipt, invoice, credit note)
 -- -----------------------------------------------------------------------------
 INSERT INTO payment_document_templates (
-    id, company_id, type, name, template_body, is_active, created_at, updated_at
+    id, company_id, type, name, template_body, is_active, is_default, created_at, updated_at
 )
 VALUES
     (
@@ -595,6 +595,7 @@ VALUES
       'Monto: {{receipt.currencySymbol}} {{receipt.amount}}' || E'\n' ||
       'Metodo: {{payment.method}}' || E'\n' ||
       'Referencia: {{payment.reference}}',
+      TRUE,
       TRUE,
       NOW(),
       NOW()
@@ -611,6 +612,7 @@ VALUES
       'Total: {{invoice.currencySymbol}} {{invoice.total}}' || E'\n' ||
       'Estado: {{invoice.status}}',
       TRUE,
+      TRUE,
       NOW(),
       NOW()
     ),
@@ -624,6 +626,7 @@ VALUES
       'Monto: {{creditNote.currency}} {{creditNote.amount}}' || E'\n' ||
       'Motivo: {{creditNote.reason}}',
       TRUE,
+      TRUE,
       NOW(),
       NOW()
     )
@@ -634,6 +637,7 @@ SET
     name = EXCLUDED.name,
     template_body = EXCLUDED.template_body,
     is_active = EXCLUDED.is_active,
+    is_default = EXCLUDED.is_default,
     updated_at = NOW();
 
 -- -----------------------------------------------------------------------------

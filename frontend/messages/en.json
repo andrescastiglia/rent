@@ -913,7 +913,8 @@
     "contractTypeFixedByInterested": "Contract type defined by the selected interested profile.",
     "ownerFromPropertyHint": "Owner defined by the selected property.",
     "prefilledFieldHint": "Field prefilled automatically based on where the contract was created from.",
-    "templateAutofillHint": "When you select a template, terms are filled with current contract values and updated automatically."
+    "templateAutofillHint": "When you select a template, terms are filled with current contract values and updated automatically.",
+    "templateLockedHint": "There is only one available template for this contract type."
   },
   "payments": {
     "title": "Payments",
@@ -1062,6 +1063,7 @@
   "templatesHub": {
     "title": "Document Templates",
     "subtitle": "Manage templates for contracts, receipts, invoices and credit notes.",
+    "editorSubtitle": "Create or edit a template and then return to the list.",
     "scopes": {
       "contractRental": "Contract (rental)",
       "contractSale": "Contract (sale)",
@@ -1069,11 +1071,16 @@
       "invoice": "Invoice",
       "creditNote": "Credit note"
     },
+    "backToList": "Back to list",
+    "createTemplate": "Create template",
+    "editTemplate": "Edit template",
+    "templateNotFound": "The selected template was not found.",
     "newTemplate": "New template",
     "listTitle": "Templates",
     "empty": "No templates for this type.",
     "active": "Active",
     "inactive": "Inactive",
+    "defaultLabel": "Default",
     "namePlaceholder": "Template name",
     "bodyPlaceholder": "Template content...",
     "variablesTitle": "Available variables",

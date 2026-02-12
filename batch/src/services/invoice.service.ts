@@ -592,7 +592,7 @@ export class InvoiceService {
           AND type = 'invoice'
           AND is_active = TRUE
           AND deleted_at IS NULL
-        ORDER BY updated_at DESC
+        ORDER BY is_default DESC, updated_at DESC
         LIMIT 1`,
       [companyId],
     );
