@@ -145,12 +145,11 @@ export class PaymentsService {
       throw new BadRequestException('Payment is not pending');
     }
 
-    payment.status = PaymentStatus.COMPLETED;
-    await this.paymentsRepository.save(payment);
+    const tenantAccountId = await this.resolveTenantAccountId(payment);
 
     // Registrar movimiento en cuenta corriente (reduce deuda)
     await this.tenantAccountsService.addMovement(
-      payment.tenantAccountId,
+      tenantAccountId,
       MovementType.PAYMENT,
       -Number(payment.amount), // Negativo porque reduce la deuda
       'payment',
@@ -159,11 +158,22 @@ export class PaymentsService {
     );
 
     // Aplicar pago a facturas pendientes
-    const settledInvoices = await this.applyPaymentToInvoices(payment);
-    await this.createCreditNotesForSettledLateFees(payment, settledInvoices);
+    const settledInvoices = await this.applyPaymentToInvoices(
+      payment,
+      tenantAccountId,
+    );
+    await this.createCreditNotesForSettledLateFees(
+      payment,
+      tenantAccountId,
+      settledInvoices,
+    );
 
     // Generar recibo
     await this.generateReceipt(payment);
+
+    payment.tenantAccountId = tenantAccountId;
+    payment.status = PaymentStatus.COMPLETED;
+    await this.paymentsRepository.save(payment);
 
     return this.findOne(id);
   }
@@ -172,11 +182,14 @@ export class PaymentsService {
    * Aplica un pago a las facturas pendientes (FIFO).
    * @param payment Pago a aplicar
    */
-  private async applyPaymentToInvoices(payment: Payment): Promise<Invoice[]> {
+  private async applyPaymentToInvoices(
+    payment: Payment,
+    tenantAccountId: string,
+  ): Promise<Invoice[]> {
     // Obtener facturas pendientes ordenadas por fecha
     const pendingInvoices = await this.invoicesRepository.find({
       where: {
-        tenantAccountId: payment.tenantAccountId,
+        tenantAccountId,
         status: In([
           InvoiceStatus.PENDING,
           InvoiceStatus.SENT,
@@ -223,6 +236,13 @@ export class PaymentsService {
    * @returns El recibo generado
    */
   private async generateReceipt(payment: Payment): Promise<Receipt> {
+    const existingReceipt = await this.receiptsRepository.findOne({
+      where: { paymentId: payment.id },
+    });
+    if (existingReceipt) {
+      return existingReceipt;
+    }
+
     const receiptNumber = await this.generateReceiptNumber();
 
     const receipt = this.receiptsRepository.create({
@@ -256,8 +276,9 @@ export class PaymentsService {
    * @returns Número de recibo
    */
   private async generateReceiptNumber(): Promise<string> {
-    const lastReceipt = await this.receiptsRepository.findOne({
+    const [lastReceipt] = await this.receiptsRepository.find({
       order: { createdAt: 'DESC' },
+      take: 1,
     });
 
     const date = new Date();
@@ -265,11 +286,9 @@ export class PaymentsService {
     const month = String(date.getMonth() + 1).padStart(2, '0');
 
     let sequence = 1;
-    if (lastReceipt) {
-      const parts = lastReceipt.receiptNumber.split('-');
-      if (parts.length >= 3) {
-        sequence = parseInt(parts[parts.length - 1], 10) + 1;
-      }
+    const numberMatch = (lastReceipt?.receiptNumber ?? '').match(/-(\d+)$/);
+    if (numberMatch?.[1]) {
+      sequence = parseInt(numberMatch[1], 10) + 1;
     }
 
     return `REC-${year}${month}-${String(sequence).padStart(4, '0')}`;
@@ -513,6 +532,7 @@ export class PaymentsService {
 
   private async createCreditNotesForSettledLateFees(
     payment: Payment,
+    tenantAccountId: string,
     invoices: Invoice[],
   ): Promise<void> {
     for (const invoice of invoices) {
@@ -533,7 +553,7 @@ export class PaymentsService {
         companyId: payment.companyId,
         invoiceId: invoice.id,
         paymentId: payment.id,
-        tenantAccountId: payment.tenantAccountId,
+        tenantAccountId,
         noteNumber,
         amount: lateFeeAmount,
         currencyCode: invoice.currencyCode || payment.currencyCode || 'ARS',
@@ -545,7 +565,7 @@ export class PaymentsService {
 
       // Apply a credit movement to the tenant account for the late fee.
       await this.tenantAccountsService.addMovement(
-        payment.tenantAccountId,
+        tenantAccountId,
         MovementType.DISCOUNT,
         -lateFeeAmount,
         'credit_note',
@@ -572,8 +592,9 @@ export class PaymentsService {
   }
 
   private async generateCreditNoteNumber(): Promise<string> {
-    const lastNote = await this.creditNotesRepository.findOne({
+    const [lastNote] = await this.creditNotesRepository.find({
       order: { createdAt: 'DESC' },
+      take: 1,
     });
 
     const date = new Date();
@@ -581,14 +602,31 @@ export class PaymentsService {
     const month = String(date.getMonth() + 1).padStart(2, '0');
 
     let sequence = 1;
-    if (lastNote) {
-      const parts = lastNote.noteNumber.split('-');
-      if (parts.length >= 3) {
-        sequence = parseInt(parts[parts.length - 1], 10) + 1;
-      }
+    const numberMatch = (lastNote?.noteNumber ?? '').match(/-(\d+)$/);
+    if (numberMatch?.[1]) {
+      sequence = parseInt(numberMatch[1], 10) + 1;
     }
 
     return `NC-${year}${month}-${String(sequence).padStart(4, '0')}`;
+  }
+
+  private async resolveTenantAccountId(payment: Payment): Promise<string> {
+    if (payment.tenantAccountId) {
+      return payment.tenantAccountId;
+    }
+
+    if (payment.invoiceId) {
+      const invoice = await this.invoicesRepository.findOne({
+        where: { id: payment.invoiceId },
+      });
+      if (invoice?.tenantAccountId) {
+        return invoice.tenantAccountId;
+      }
+    }
+
+    throw new BadRequestException(
+      'Payment cannot be confirmed without a tenant account',
+    );
   }
 
   private computePaymentAmount(

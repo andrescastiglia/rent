@@ -1,9 +1,4 @@
-import {
-  IsOptional,
-  IsEnum,
-  IsDateString,
-  Matches,
-} from 'class-validator';
+import { IsOptional, IsEnum, IsDateString, Matches } from 'class-validator';
 import { PaymentStatus, PaymentMethod } from '../entities/payment.entity';
 
 const UUID_CANONICAL_REGEX =

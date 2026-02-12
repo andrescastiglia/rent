@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PaymentsService } from './payments.service';
@@ -185,5 +186,88 @@ describe('PaymentsService', () => {
     expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
       'payment.deleted_at IS NULL',
     );
+  });
+
+  it('should confirm payment using tenant account from invoice when payment lacks tenantAccountId', async () => {
+    const payment = {
+      id: 'pay-1',
+      status: PaymentStatus.PENDING,
+      amount: 100,
+      method: 'cash',
+      invoiceId: 'inv-1',
+      tenantAccountId: null,
+      companyId: 'company-1',
+      currencyCode: 'ARS',
+    } as unknown as Payment;
+
+    const confirmedPayment = {
+      ...payment,
+      status: PaymentStatus.COMPLETED,
+      tenantAccountId: 'acc-from-invoice',
+    } as unknown as Payment;
+
+    jest
+      .spyOn(service, 'findOne')
+      .mockResolvedValueOnce(payment)
+      .mockResolvedValueOnce(confirmedPayment);
+
+    _invoicesRepository.findOne!.mockResolvedValue({
+      id: 'inv-1',
+      tenantAccountId: 'acc-from-invoice',
+    });
+
+    (tenantAccountsService.addMovement as jest.Mock).mockResolvedValue({
+      id: 'mov-1',
+    });
+
+    jest
+      .spyOn(service as any, 'applyPaymentToInvoices')
+      .mockResolvedValueOnce([]);
+    jest
+      .spyOn(service as any, 'createCreditNotesForSettledLateFees')
+      .mockResolvedValueOnce(undefined);
+    jest
+      .spyOn(service as any, 'generateReceipt')
+      .mockResolvedValueOnce({ id: 'rec-1' } as Receipt);
+
+    paymentsRepository.save!.mockResolvedValue(confirmedPayment);
+
+    const result = await service.confirm('pay-1');
+
+    expect(tenantAccountsService.addMovement).toHaveBeenCalledWith(
+      'acc-from-invoice',
+      expect.anything(),
+      -100,
+      'payment',
+      'pay-1',
+      expect.stringContaining('Pago recibido'),
+    );
+    expect(paymentsRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'pay-1',
+        status: PaymentStatus.COMPLETED,
+        tenantAccountId: 'acc-from-invoice',
+      }),
+    );
+    expect(result).toEqual(confirmedPayment);
+  });
+
+  it('should throw bad request when confirming payment without tenant account', async () => {
+    const payment = {
+      id: 'pay-1',
+      status: PaymentStatus.PENDING,
+      amount: 100,
+      method: 'cash',
+      invoiceId: null,
+      tenantAccountId: null,
+    } as unknown as Payment;
+
+    jest.spyOn(service, 'findOne').mockResolvedValue(payment);
+
+    await expect(service.confirm('pay-1')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(paymentsRepository.save).not.toHaveBeenCalled();
+    expect(tenantAccountsService.addMovement).not.toHaveBeenCalled();
   });
 });
