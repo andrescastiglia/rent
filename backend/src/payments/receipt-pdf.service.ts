@@ -31,7 +31,7 @@ export class ReceiptPdfService {
    * Genera el PDF de un recibo y lo guarda en la base de datos.
    * @param receipt Recibo
    * @param payment Pago asociado
-   * @returns URL del PDF en S3
+   * @returns URL del PDF almacenado en DB (db://document/{id})
    */
   async generate(receipt: Receipt, payment: Payment): Promise<string> {
     // Obtener idioma preferido del usuario o default

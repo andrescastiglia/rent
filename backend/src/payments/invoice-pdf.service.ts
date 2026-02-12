@@ -27,9 +27,9 @@ export class InvoicePdfService {
   ) {}
 
   /**
-   * Genera el PDF de una factura y lo sube a S3.
+   * Genera el PDF de una factura y lo guarda en la base de datos.
    * @param invoice Factura
-   * @returns URL del PDF en S3
+   * @returns URL del PDF almacenado en DB (db://document/{id})
    */
   async generate(invoice: Invoice): Promise<string> {
     // Obtener idioma preferido del usuario o default

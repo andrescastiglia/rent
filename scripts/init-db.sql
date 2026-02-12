@@ -1254,6 +1254,9 @@ CREATE TABLE leases (
             AND (late_fee_type = 'none'::late_fee_type OR late_fee_type IS NULL)
             AND COALESCE(adjustment_value, 0) = 0
         )
+    ),
+    CONSTRAINT leases_contract_pdf_url_db_chk CHECK (
+        contract_pdf_url IS NULL OR contract_pdf_url LIKE 'db://document/%'
     )
 );
 
@@ -1527,7 +1530,10 @@ CREATE TABLE invoices (
     deleted_at TIMESTAMPTZ,
     CONSTRAINT invoices_number_company_unique UNIQUE (company_id, invoice_number),
     CONSTRAINT invoices_period_check CHECK (period_end >= period_start),
-    CONSTRAINT invoices_amounts_check CHECK (total_amount >= 0 AND paid_amount >= 0)
+    CONSTRAINT invoices_amounts_check CHECK (total_amount >= 0 AND paid_amount >= 0),
+    CONSTRAINT invoices_pdf_url_db_chk CHECK (
+        pdf_url IS NULL OR pdf_url LIKE 'db://document/%'
+    )
 );
 
 CREATE INDEX idx_invoices_company ON invoices(company_id);
@@ -1784,7 +1790,10 @@ CREATE TABLE receipts (
     sent_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT receipts_number_company_unique UNIQUE (company_id, receipt_number)
+    CONSTRAINT receipts_number_company_unique UNIQUE (company_id, receipt_number),
+    CONSTRAINT receipts_pdf_url_db_chk CHECK (
+        pdf_url IS NULL OR pdf_url LIKE 'db://document/%'
+    )
 );
 
 CREATE INDEX idx_receipts_company ON receipts(company_id);
@@ -1815,7 +1824,10 @@ CREATE TABLE credit_notes (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMPTZ,
-    CONSTRAINT uq_credit_notes_note_number UNIQUE(note_number)
+    CONSTRAINT uq_credit_notes_note_number UNIQUE(note_number),
+    CONSTRAINT credit_notes_pdf_url_db_chk CHECK (
+        pdf_url IS NULL OR pdf_url LIKE 'db://document/%'
+    )
 );
 
 CREATE INDEX idx_credit_notes_invoice_id ON credit_notes(invoice_id);

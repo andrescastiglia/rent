@@ -189,10 +189,7 @@ export class InvoiceService {
       });
 
       const created = this.mapToRecord(result[0]);
-      const pdfUrl = await this.generateAndPersistPdf(created, data.companyId);
-      if (pdfUrl) {
-        created.pdfUrl = pdfUrl;
-      }
+      created.pdfUrl = await this.generateAndPersistPdf(created, data.companyId);
       return created;
     } catch (error) {
       logger.error("Failed to create invoice", {
@@ -401,18 +398,15 @@ export class InvoiceService {
   private async generateAndPersistPdf(
     invoice: InvoiceRecord,
     companyId?: string,
-  ): Promise<string | null> {
-    if (!companyId) {
-      logger.warn(
-        "Skipping batch invoice PDF generation because companyId is missing",
-        {
-          invoiceId: invoice.id,
-        },
-      );
-      return null;
-    }
-
-    const pdfBuffer = await this.generateInvoicePdfBuffer(invoice, companyId);
+  ): Promise<string> {
+    const resolvedCompanyId = await this.resolveInvoiceCompanyId(
+      invoice,
+      companyId,
+    );
+    const pdfBuffer = await this.generateInvoicePdfBuffer(
+      invoice,
+      resolvedCompanyId,
+    );
 
     const documentResult = await AppDataSource.query(
       `INSERT INTO documents (
@@ -434,7 +428,7 @@ export class InvoiceService {
                 'approved',
                 $2,
                 $3,
-                'db://pending',
+                'db://document/pending',
                 $4,
                 'application/pdf',
                 'invoice',
@@ -444,7 +438,7 @@ export class InvoiceService {
              )
              RETURNING id`,
       [
-        companyId,
+        resolvedCompanyId,
         `factura-${invoice.invoiceNumber}.pdf`,
         `Factura generada por lote ${invoice.invoiceNumber}`,
         pdfBuffer.length,
@@ -455,7 +449,9 @@ export class InvoiceService {
 
     const documentId = documentResult[0]?.id as string | undefined;
     if (!documentId) {
-      return null;
+      throw new Error(
+        `Failed to persist batch invoice PDF document for invoice ${invoice.id}`,
+      );
     }
 
     const dbUrl = `db://document/${documentId}`;
@@ -481,6 +477,31 @@ export class InvoiceService {
     });
 
     return dbUrl;
+  }
+
+  private async resolveInvoiceCompanyId(
+    invoice: InvoiceRecord,
+    companyId?: string,
+  ): Promise<string> {
+    if (companyId) {
+      return companyId;
+    }
+
+    const result = await AppDataSource.query(
+      `SELECT company_id
+         FROM leases
+        WHERE id = $1`,
+      [invoice.leaseId],
+    );
+
+    const resolved = result[0]?.company_id as string | undefined;
+    if (resolved) {
+      return resolved;
+    }
+
+    throw new Error(
+      `Missing companyId for batch invoice ${invoice.id} (lease ${invoice.leaseId})`,
+    );
   }
 
   private async generateInvoicePdfBuffer(
