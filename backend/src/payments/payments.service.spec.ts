@@ -29,6 +29,7 @@ describe('PaymentsService', () => {
   const createMockRepository = (): MockRepository => ({
     create: jest.fn(),
     save: jest.fn(),
+    update: jest.fn(),
     findOne: jest.fn(),
     delete: jest.fn(),
     createQueryBuilder: jest.fn(),
@@ -230,7 +231,7 @@ describe('PaymentsService', () => {
       .spyOn(service as any, 'generateReceipt')
       .mockResolvedValueOnce({ id: 'rec-1' } as Receipt);
 
-    paymentsRepository.save!.mockResolvedValue(confirmedPayment);
+    paymentsRepository.update!.mockResolvedValue({ affected: 1 });
 
     const result = await service.confirm('pay-1');
 
@@ -242,13 +243,10 @@ describe('PaymentsService', () => {
       'pay-1',
       expect.stringContaining('Pago recibido'),
     );
-    expect(paymentsRepository.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: 'pay-1',
-        status: PaymentStatus.COMPLETED,
-        tenantAccountId: 'acc-from-invoice',
-      }),
-    );
+    expect(paymentsRepository.update).toHaveBeenCalledWith('pay-1', {
+      status: PaymentStatus.COMPLETED,
+      tenantAccountId: 'acc-from-invoice',
+    });
     expect(result).toEqual(confirmedPayment);
   });
 
@@ -267,7 +265,7 @@ describe('PaymentsService', () => {
     await expect(service.confirm('pay-1')).rejects.toBeInstanceOf(
       BadRequestException,
     );
-    expect(paymentsRepository.save).not.toHaveBeenCalled();
+    expect(paymentsRepository.update).not.toHaveBeenCalled();
     expect(tenantAccountsService.addMovement).not.toHaveBeenCalled();
   });
 });

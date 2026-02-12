@@ -171,9 +171,10 @@ export class PaymentsService {
     // Generar recibo
     await this.generateReceipt(payment);
 
-    payment.tenantAccountId = tenantAccountId;
-    payment.status = PaymentStatus.COMPLETED;
-    await this.paymentsRepository.save(payment);
+    await this.paymentsRepository.update(payment.id, {
+      tenantAccountId,
+      status: PaymentStatus.COMPLETED,
+    });
 
     return this.findOne(id);
   }
@@ -526,8 +527,10 @@ export class PaymentsService {
       );
     }
 
-    payment.status = PaymentStatus.CANCELLED;
-    return this.paymentsRepository.save(payment);
+    await this.paymentsRepository.update(payment.id, {
+      status: PaymentStatus.CANCELLED,
+    });
+    return this.findOne(id);
   }
 
   private async createCreditNotesForSettledLateFees(
