@@ -146,12 +146,12 @@ describe('InvoicesService', () => {
     expect(new Date(created.dueDate).getDate()).toBe(5);
   });
 
-  it('should use Casa Propia index for inflation adjustments', async () => {
+  it('should use IPC index for inflation adjustments', async () => {
     const lease = {
       id: 'lease-3',
       monthlyRent: 1000,
       adjustmentType: AdjustmentType.INFLATION_INDEX,
-      inflationIndexType: InflationIndexType.CASA_PROPIA,
+      inflationIndexType: InflationIndexType.IPC,
       adjustmentFrequencyMonths: 12,
       nextAdjustmentDate: new Date('2024-01-01T00:00:00Z'),
     } as unknown as Lease;
@@ -169,7 +169,7 @@ describe('InvoicesService', () => {
 
     expect(inflationIndexRepository.findOne).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { indexType: IndexTypeEntity.CASA_PROPIA },
+        where: { indexType: IndexTypeEntity.IPC },
       }),
     );
     expect(result).toBe(1100);

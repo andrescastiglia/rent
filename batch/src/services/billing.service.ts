@@ -271,8 +271,8 @@ export class BillingService {
       if (inflationIndexType === "igp_m") return "igp_m";
       if (inflationIndexType === "igpm") return "igp_m";
       if (inflationIndexType === "ipc") return "ipc";
-      if (inflationIndexType === "casa_propia") return "casa_propia";
-      return "icl";
+      if (inflationIndexType === "icl") return "icl";
+      return "none";
     }
 
     if (adjustmentType === "percentage") {

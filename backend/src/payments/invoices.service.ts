@@ -415,15 +415,15 @@ export class InvoicesService {
   }
 
   private async findLatestIndex(type: InflationIndexType) {
-    let mapped = IndexTypeEntity.ICL;
+    let mapped: IndexTypeEntity;
     if (type === InflationIndexType.IGP_M) {
       mapped = IndexTypeEntity.IGPM;
     } else if (type === InflationIndexType.IPC) {
       mapped = IndexTypeEntity.IPC;
-    } else if (type === InflationIndexType.CASA_PROPIA) {
-      mapped = IndexTypeEntity.CASA_PROPIA;
-    } else if (type === InflationIndexType.CUSTOM) {
-      mapped = IndexTypeEntity.CUSTOM;
+    } else if (type === InflationIndexType.ICL) {
+      mapped = IndexTypeEntity.ICL;
+    } else {
+      return null;
     }
 
     return this.inflationIndexRepository.findOne({

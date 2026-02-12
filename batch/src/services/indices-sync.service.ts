@@ -1,14 +1,13 @@
 import { AppDataSource } from "../shared/database";
 import { logger } from "../shared/logger";
 import { BcraService, IclIndexData } from "./indices/bcra.service";
-import { FgvService, IgpmIndexData } from "./indices/fgv.service";
 import { IpcArService, IpcIndexData } from "./indices/ipc-ar.service";
 
 /**
  * Result of a sync operation.
  */
 export interface SyncResult {
-  indexType: "icl" | "igpm" | "ipc";
+  indexType: "icl" | "ipc";
   recordsProcessed: number;
   recordsInserted: number;
   recordsSkipped: number;
@@ -18,33 +17,28 @@ export interface SyncResult {
 
 /**
  * Service for synchronizing inflation indices with external APIs.
- * Fetches ICL (BCRA), IGP-M (BCB), and IPC (datos.gob.ar) data and stores in
- * database.
+ * Fetches ICL (BCRA) and IPC (datos.gob.ar) data and stores in database.
  */
 export class IndicesSyncService {
   private readonly bcraService: BcraService;
-  private readonly fgvService: FgvService;
   private readonly ipcArService: IpcArService;
 
   /**
    * Creates an instance of IndicesSyncService.
    *
    * @param bcraService - Service for BCRA API calls.
-   * @param fgvService - Service for BCB/FGV API calls.
    * @param ipcArService - Service for datos.gob.ar IPC API calls.
    */
   constructor(
     bcraService?: BcraService,
-    fgvService?: FgvService,
     ipcArService?: IpcArService,
   ) {
     this.bcraService = bcraService || new BcraService();
-    this.fgvService = fgvService || new FgvService();
     this.ipcArService = ipcArService || new IpcArService();
   }
 
   /**
-   * Synchronizes all indices (ICL, IGP-M, and IPC).
+   * Synchronizes all enabled indices (ICL and IPC).
    *
    * @returns Array of sync results for each index type.
    */
@@ -59,19 +53,6 @@ export class IndicesSyncService {
     } catch (error) {
       results.push({
         indexType: "icl",
-        recordsProcessed: 0,
-        recordsInserted: 0,
-        recordsSkipped: 0,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-
-    try {
-      const igpmResult = await this.syncIgpm();
-      results.push(igpmResult);
-    } catch (error) {
-      results.push({
-        indexType: "igpm",
         recordsProcessed: 0,
         recordsInserted: 0,
         recordsSkipped: 0,
@@ -177,63 +158,6 @@ export class IndicesSyncService {
   }
 
   /**
-   * Synchronizes IGP-M index from BCB.
-   *
-   * @returns Sync result for IGP-M.
-   */
-  async syncIgpm(): Promise<SyncResult> {
-    logger.info("Starting IGP-M synchronization");
-
-    const result: SyncResult = {
-      indexType: "igpm",
-      recordsProcessed: 0,
-      recordsInserted: 0,
-      recordsSkipped: 0,
-    };
-
-    try {
-      // Get date range: last 12 months
-      const toDate = new Date();
-      const fromDate = new Date();
-      fromDate.setFullYear(fromDate.getFullYear() - 1);
-
-      const igpmData = await this.fgvService.getIgpm(fromDate, toDate);
-      result.recordsProcessed = igpmData.length;
-
-      for (const data of igpmData) {
-        const inserted = await this.upsertIndex(
-          "igp_m",
-          data.date,
-          data.value,
-          "BCB",
-          "https://api.bcb.gov.br/dados/serie",
-        );
-        if (inserted) {
-          result.recordsInserted++;
-        } else {
-          result.recordsSkipped++;
-        }
-      }
-
-      if (igpmData.length > 0) {
-        const sortedData = [...igpmData].sort(
-          (a: IgpmIndexData, b: IgpmIndexData) =>
-            b.date.getTime() - a.date.getTime(),
-        );
-        result.latestPeriod = sortedData[0].date;
-      }
-
-      logger.info("IGP-M synchronization completed", { result });
-
-      return result;
-    } catch (error) {
-      result.error = error instanceof Error ? error.message : String(error);
-      logger.error("IGP-M synchronization failed", { error: result.error });
-      throw error;
-    }
-  }
-
-  /**
    * Synchronizes IPC index from datos.gob.ar.
    *
    * @returns Sync result for IPC.
@@ -292,7 +216,7 @@ export class IndicesSyncService {
   /**
    * Upserts an index record into the database.
    *
-   * @param indexType - Type of index (icl or igpm).
+   * @param indexType - Type of index (icl or ipc).
    * @param period - Period date (first day of month).
    * @param value - Index value.
    * @param source - Source name (BCRA or BCB).
@@ -300,7 +224,7 @@ export class IndicesSyncService {
    * @returns True if a new record was inserted, false if skipped/updated.
    */
   private async upsertIndex(
-    indexType: "icl" | "igp_m" | "ipc",
+    indexType: "icl" | "ipc",
     period: Date,
     value: number,
     source: string,

@@ -138,6 +138,12 @@ const isPaginatedResponse = <T>(value: any): value is PaginatedResponse<T> => {
   return !!value && typeof value === "object" && Array.isArray(value.data);
 };
 
+const isSupportedInflationIndexType = (
+  value: unknown,
+): value is NonNullable<Lease["inflationIndexType"]> => {
+  return value === "icl" || value === "ipc" || value === "igp_m";
+};
+
 const normalizeDate = (value: string | Date | null | undefined): string => {
   if (!value) return new Date().toISOString();
   return new Date(value).toISOString();
@@ -322,7 +328,9 @@ const mapBackendLeaseToLease = (raw: BackendLease): Lease => {
     adjustmentType: (raw.adjustmentType as any) ?? undefined,
     adjustmentValue: raw.adjustmentValue ?? undefined,
     adjustmentFrequencyMonths: raw.adjustmentFrequencyMonths ?? undefined,
-    inflationIndexType: (raw.inflationIndexType as any) ?? undefined,
+    inflationIndexType: isSupportedInflationIndexType(raw.inflationIndexType)
+      ? raw.inflationIndexType
+      : undefined,
     nextAdjustmentDate: raw.nextAdjustmentDate
       ? normalizeDate(raw.nextAdjustmentDate)
       : undefined,

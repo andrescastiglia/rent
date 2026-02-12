@@ -25,9 +25,7 @@ export type AdjustmentType = "fixed" | "percentage" | "inflation_index";
 export type InflationIndexType =
   | "icl"
   | "ipc"
-  | "igp_m"
-  | "casa_propia"
-  | "custom";
+  | "igp_m";
 
 export interface LeaseTemplate {
   id: string;

@@ -153,7 +153,7 @@ export const createLeaseSchema = (t: TranslationFunction) =>
       adjustmentValue: z.coerce.number().min(0).optional(),
       adjustmentFrequencyMonths: z.coerce.number().min(1).optional(),
       inflationIndexType: z
-        .enum(["icl", "ipc", "igp_m", "casa_propia", "custom"] as const)
+        .enum(["icl", "ipc", "igp_m"] as const)
         .optional(),
       nextAdjustmentDate: z.string().optional(),
     })

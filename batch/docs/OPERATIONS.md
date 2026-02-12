@@ -26,7 +26,6 @@ DATABASE_NAME=rent_db
 BCRA_API_URL=https://api.bcra.gob.ar
 BCRA_ICL_VARIABLE_ID=40
 # BCRA_API_INSECURE=true   # opcional solo si el entorno no valida el certificado TLS
-BCB_API_URL=https://api.bcb.gov.br
 DATOS_AR_API_URL=https://apis.datos.gob.ar/series/api/series
 DATOS_AR_IPC_SERIES_ID=148.3_INIVELNAL_DICI_M_26
 
@@ -52,7 +51,7 @@ LOG_DIR=./logs
 | `billing` | Generar facturas del día |
 | `overdue` | Marcar facturas vencidas |
 | `reminders` | Enviar recordatorios por email (SendGrid) |
-| `sync-indices` | Sincronizar índices `icl` (BCRA), `igpm` (BCB) e `ipc` (datos.gob.ar) |
+| `sync-indices` | Sincronizar índices `icl` (BCRA) e `ipc` (datos.gob.ar) |
 | `sync-rates` | Sincronizar tipos de cambio `USD/ARS`, `BRL/ARS`, `USD/BRL` |
 | `reports` | Generar reportes PDF (`monthly` o `settlement`) por propietario |
 | `process-settlements` | Calcular/procesar liquidaciones de propietarios |
@@ -62,6 +61,7 @@ Notas operativas:
 - `reminders` actualmente usa email. No hay envío por WhatsApp en batch.
 - `sync-indices` sincroniza `ipc` diariamente y persiste un registro por mes (`period_date`) para evitar duplicados.
 - `sync-indices` sincroniza `icl` diariamente y persiste solo el último valor disponible de cada mes.
+- `igp_m` (Brasil) está deshabilitado para sincronización en batch.
 - En facturación, `icl` toma el valor del mes anterior al mes facturado; si falta, usa el mes previo disponible.
 - `reports` requiere `--owner-id`.
 

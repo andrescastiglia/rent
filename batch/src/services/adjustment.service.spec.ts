@@ -132,30 +132,6 @@ describe("AdjustmentService", () => {
 
     });
 
-    it("should calculate Casa Propia adjustment", async () => {
-      const lease = {
-        id: "lease-1",
-        rentAmount: 80000,
-        adjustmentType: "casa_propia" as const,
-        nextAdjustmentDate: new Date("2024-12-01"),
-        lastAdjustmentDate: new Date("2024-06-01"),
-      };
-
-      mockQuery.mockResolvedValueOnce([
-        { value: "110.00", period_date: "2024-12-01" },
-      ]);
-      mockQuery.mockResolvedValueOnce([
-        { value: "100.00", period_date: "2024-06-01" },
-      ]);
-
-      const result = await service.calculateAdjustedRent(
-        lease,
-        new Date("2024-12-15"),
-      );
-
-      expect(result.adjustedAmount).toBeCloseTo(88000, 0);
-    });
-
     it("should use billed month IPC and fallback to previous month when missing", async () => {
       const lease = {
         id: "lease-2",

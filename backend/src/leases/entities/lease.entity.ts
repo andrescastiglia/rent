@@ -85,8 +85,6 @@ export enum InflationIndexType {
   ICL = 'icl',
   IPC = 'ipc',
   IGP_M = 'igp_m',
-  CASA_PROPIA = 'casa_propia',
-  CUSTOM = 'custom',
 }
 
 @Entity('leases')

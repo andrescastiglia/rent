@@ -10,7 +10,6 @@ export type AdjustmentType =
   | "icl"
   | "igp_m"
   | "ipc"
-  | "casa_propia"
   | "fixed"
   | "none"
   | "igpm";
@@ -95,15 +94,6 @@ export class AdjustmentService {
       return this.applyIndexAdjustment("ipc", lease, result, billingDate);
     }
 
-    if (lease.adjustmentType === "casa_propia") {
-      return this.applyIndexAdjustment(
-        "casa_propia",
-        lease,
-        result,
-        billingDate,
-      );
-    }
-
     return result;
   }
 
@@ -124,7 +114,7 @@ export class AdjustmentService {
    * Applies ICL-based adjustment for Argentina.
    */
   private async applyIndexAdjustment(
-    indexType: "icl" | "igp_m" | "ipc" | "casa_propia",
+    indexType: "icl" | "igp_m" | "ipc",
     lease: LeaseAdjustmentData,
     result: AdjustmentResult,
     billingDate: Date,
@@ -179,7 +169,7 @@ export class AdjustmentService {
    * @returns Latest index data or null if not found.
    */
   async getLatestIndex(
-    indexType: "icl" | "igp_m" | "ipc" | "casa_propia" | "igpm",
+    indexType: "icl" | "igp_m" | "ipc" | "igpm",
   ): Promise<{ value: number; period: Date } | null> {
     const normalizedIndexType = this.normalizeIndexType(indexType);
     const result = await AppDataSource.query(
@@ -206,7 +196,7 @@ export class AdjustmentService {
    * the latest prior month. If no prior value exists, returns null.
    */
   private async getIndexForPeriod(
-    indexType: "icl" | "igp_m" | "ipc" | "casa_propia" | "igpm",
+    indexType: "icl" | "igp_m" | "ipc" | "igpm",
     targetDate: Date,
   ): Promise<{ value: number; period: Date } | null> {
     const normalizedIndexType = this.normalizeIndexType(indexType);
@@ -240,7 +230,7 @@ export class AdjustmentService {
    * @returns Base index data or null if not found.
    */
   private async getBaseIndex(
-    indexType: "icl" | "igp_m" | "ipc" | "casa_propia" | "igpm",
+    indexType: "icl" | "igp_m" | "ipc" | "igpm",
     lease: LeaseAdjustmentData,
     billingDate: Date,
   ): Promise<{ value: number; period: Date } | null> {
@@ -279,7 +269,7 @@ export class AdjustmentService {
   }
 
   private resolveCurrentIndexTargetDate(
-    indexType: "icl" | "igp_m" | "ipc" | "casa_propia",
+    indexType: "icl" | "igp_m" | "ipc",
     billingDate: Date,
   ): Date {
     const monthStart = this.toMonthStartUtc(billingDate);

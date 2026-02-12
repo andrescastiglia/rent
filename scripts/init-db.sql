@@ -276,7 +276,7 @@ CREATE TYPE arca_tipo_comprobante AS ENUM (
 );
 
 -- Inflation index types
-CREATE TYPE inflation_index_type AS ENUM ('icl', 'ipc', 'igp_m', 'casa_propia', 'custom');
+CREATE TYPE inflation_index_type AS ENUM ('icl', 'ipc', 'igp_m');
 
 -- Notification types
 CREATE TYPE notification_type AS ENUM (

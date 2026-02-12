@@ -273,9 +273,9 @@ program
  */
 program
   .command("sync-indices")
-  .description("Fetch and store latest inflation indices (ICL, IGP-M, IPC)")
+  .description("Fetch and store latest inflation indices (ICL, IPC)")
   .option("--log <file>", "Write logs to the given file (no rotation)")
-  .option("--index <type>", "Specific index to sync (icl, igpm, ipc)", "all")
+  .option("--index <type>", "Specific index to sync (icl, ipc)", "all")
   .action(async (options) => {
     const { IndicesSyncService } =
       await import("./services/indices-sync.service");
@@ -322,16 +322,6 @@ program
       } else if (options.index === "icl") {
         const result = await syncService.syncIcl();
         logger.info("ICL sync completed", {
-          processed: result.recordsProcessed,
-          inserted: result.recordsInserted,
-          skipped: result.recordsSkipped,
-          latestPeriod: result.latestPeriod,
-        });
-        totalProcessed = result.recordsProcessed || 0;
-        totalInserted = result.recordsInserted || 0;
-      } else if (options.index === "igpm") {
-        const result = await syncService.syncIgpm();
-        logger.info("IGP-M sync completed", {
           processed: result.recordsProcessed,
           inserted: result.recordsInserted,
           skipped: result.recordsSkipped,

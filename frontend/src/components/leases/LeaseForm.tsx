@@ -1225,14 +1225,8 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
                       <option value="ipc">
                         {t("inflationIndexTypes.ipc")}
                       </option>
-                      <option value="igp_m">
-                        {t("inflationIndexTypes.igp_m")}
-                      </option>
-                      <option value="casa_propia">
-                        {t("inflationIndexTypes.casa_propia")}
-                      </option>
-                      <option value="custom">
-                        {t("inflationIndexTypes.custom")}
+                      <option value="igp_m" disabled>
+                        {t("inflationIndexTypes.igp_m_disabled")}
                       </option>
                     </select>
                   </div>

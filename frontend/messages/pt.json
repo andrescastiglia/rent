@@ -884,8 +884,7 @@
       "icl": "ICL (Argentina)",
       "ipc": "IPC",
       "igp_m": "IGP-M (Brasil)",
-      "casa_propia": "Casa Propia",
-      "custom": "Personalizado"
+      "igp_m_disabled": "IGP-M (Brasil) - desabilitado"
     },
     "selectOwner": "Selecionar Proprietário",
     "status": {
