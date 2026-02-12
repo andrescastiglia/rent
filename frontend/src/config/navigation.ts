@@ -33,6 +33,11 @@ export const navigationItems: NavItem[] = [
     roles: ["admin", "staff"],
   },
   {
+    labelKey: "reports",
+    href: "/reports",
+    roles: ["admin", "owner", "staff"],
+  },
+  {
     labelKey: "payments",
     href: "/payments",
     roles: ["admin", "owner", "tenant", "staff"],

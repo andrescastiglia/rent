@@ -40,6 +40,39 @@ export interface PeopleActivityResponse {
   total: number;
 }
 
+export type BatchReportType = "monthly_summary" | "settlement";
+export type BatchReportStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "partial_failure";
+
+export interface BatchReportRun {
+  id: string;
+  reportType: BatchReportType;
+  status: BatchReportStatus;
+  ownerId: string;
+  ownerName: string;
+  period: string | null;
+  recordsTotal: number;
+  recordsProcessed: number;
+  recordsFailed: number;
+  dryRun: boolean;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  errorMessage: string | null;
+  errorLog: Record<string, unknown>[];
+}
+
+export interface ReportRunsResponse {
+  data: BatchReportRun[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export const dashboardApi = {
   getStats: async (): Promise<DashboardStats> => {
     const token = getToken();
@@ -55,6 +88,17 @@ export const dashboardApi = {
     const token = getToken();
     return apiClient.get<PeopleActivityResponse>(
       `/dashboard/recent-activity?limit=${limit}`,
+      token ?? undefined,
+    );
+  },
+
+  getReports: async (
+    page: number = 1,
+    limit: number = 25,
+  ): Promise<ReportRunsResponse> => {
+    const token = getToken();
+    return apiClient.get<ReportRunsResponse>(
+      `/dashboard/reports?page=${page}&limit=${limit}`,
       token ?? undefined,
     );
   },

@@ -43,7 +43,8 @@
     "interested": "Interesados",
     "buyers": "Compradores",
     "users": "Usuarios",
-    "templates": "Plantillas"
+    "templates": "Plantillas",
+    "reports": "Reportes"
   },
   "breadcrumbs": {
     "home": "Inicio",
@@ -1023,6 +1024,36 @@
       "overdue": "Vencida",
       "cancelled": "Anulada",
       "refunded": "Reintegrada"
+    }
+  },
+  "reports": {
+    "title": "Reportes Batch",
+    "subtitle": "Historial de reportes generados (monthly_summary y settlement), ordenado por fecha descendente.",
+    "empty": "No hay reportes generados para mostrar.",
+    "dryRun": "Simulación",
+    "failedCount": "{count} fallidos",
+    "pagination": "Página {page} de {totalPages} - {total} registros",
+    "prev": "Anterior",
+    "next": "Siguiente",
+    "columns": {
+      "type": "Tipo",
+      "owner": "Propietario",
+      "period": "Período",
+      "status": "Estado",
+      "createdAt": "Creado",
+      "completedAt": "Finalizado",
+      "records": "Registros"
+    },
+    "types": {
+      "monthly_summary": "Resumen mensual",
+      "settlement": "Liquidación"
+    },
+    "status": {
+      "pending": "Pendiente",
+      "running": "Ejecutando",
+      "completed": "Completado",
+      "failed": "Fallido",
+      "partial_failure": "Parcial"
     }
   },
   "users": {

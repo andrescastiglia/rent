@@ -10,7 +10,10 @@ import {
 import { User, UserRole } from '../users/entities/user.entity';
 import { Payment } from '../payments/entities/payment.entity';
 import { Invoice } from '../payments/entities/invoice.entity';
-import { BillingJob } from '../payments/entities/billing-job.entity';
+import {
+  BillingJob,
+  BillingJobType,
+} from '../payments/entities/billing-job.entity';
 import {
   CommissionInvoice,
   CommissionInvoiceStatus,
@@ -20,6 +23,11 @@ import {
   PersonActivityItemDto,
   RecentActivityDto,
 } from './dto/recent-activity.dto';
+import {
+  BatchReportType,
+  ReportJobItemDto,
+  ReportJobsDto,
+} from './dto/report-jobs.dto';
 import {
   InterestedActivity,
   InterestedActivityStatus,
@@ -53,6 +61,24 @@ type ActivityRow = {
   property_name: string | null;
   created_at: string | Date;
   updated_at: string | Date;
+};
+
+type ReportJobRow = {
+  id: string;
+  status: string;
+  records_total: string | number;
+  records_processed: string | number;
+  records_failed: string | number;
+  dry_run: boolean;
+  started_at: string | Date | null;
+  completed_at: string | Date | null;
+  created_at: string | Date;
+  error_message: string | null;
+  error_log: Record<string, unknown>[] | null;
+  owner_id: string;
+  owner_name: string;
+  report_type: string | null;
+  report_month: string | null;
 };
 
 @Injectable()
@@ -477,6 +503,97 @@ export class DashboardService {
     };
   }
 
+  async getReportJobs(
+    companyId: string,
+    user: RequestUser,
+    page: number = 1,
+    limit: number = 25,
+  ): Promise<ReportJobsDto> {
+    const pageNumber = Number.isFinite(page) ? Math.max(1, page) : 1;
+    const pageLimit = Number.isFinite(limit)
+      ? Math.min(100, Math.max(1, limit))
+      : 25;
+
+    const query = this.billingJobRepository
+      .createQueryBuilder('job')
+      .innerJoin(
+        Owner,
+        'owner',
+        "owner.id::text = (job.parameters ->> 'ownerId') AND owner.deleted_at IS NULL",
+      )
+      .innerJoin(User, 'ownerUser', 'ownerUser.id = owner.user_id')
+      .where('job.job_type = :jobType', { jobType: BillingJobType.REPORTS })
+      .andWhere('owner.company_id = :companyId', { companyId })
+      .andWhere("(job.parameters ->> 'type') IN (:...reportTypes)", {
+        reportTypes: ['monthly', 'monthly_summary', 'settlement'],
+      });
+
+    if (user.role === UserRole.OWNER) {
+      this.applyOwnerScope(query, user, 'owner', 'ownerUser');
+    }
+
+    const total = await query.getCount();
+
+    const rows = await query
+      .clone()
+      .select([
+        'job.id AS id',
+        'job.status AS status',
+        'job.records_total AS records_total',
+        'job.records_processed AS records_processed',
+        'job.records_failed AS records_failed',
+        'job.dry_run AS dry_run',
+        'job.started_at AS started_at',
+        'job.completed_at AS completed_at',
+        'job.created_at AS created_at',
+        'job.error_message AS error_message',
+        'job.error_log AS error_log',
+        'owner.id AS owner_id',
+        "COALESCE(NULLIF(TRIM(ownerUser.first_name || ' ' || ownerUser.last_name), ''), ownerUser.email) AS owner_name",
+        "(job.parameters ->> 'type') AS report_type",
+        "NULLIF(job.parameters ->> 'month', '') AS report_month",
+      ])
+      .orderBy('job.created_at', 'DESC')
+      .addOrderBy('job.started_at', 'DESC')
+      .offset((pageNumber - 1) * pageLimit)
+      .limit(pageLimit)
+      .getRawMany<ReportJobRow>();
+
+    const data: ReportJobItemDto[] = rows
+      .map((row) => {
+        const reportType = this.normalizeBatchReportType(row.report_type);
+        if (!reportType) {
+          return null;
+        }
+
+        return {
+          id: row.id,
+          reportType,
+          status: row.status as ReportJobItemDto['status'],
+          ownerId: row.owner_id,
+          ownerName: row.owner_name,
+          period: row.report_month,
+          recordsTotal: Number(row.records_total ?? 0),
+          recordsProcessed: Number(row.records_processed ?? 0),
+          recordsFailed: Number(row.records_failed ?? 0),
+          dryRun: Boolean(row.dry_run),
+          startedAt: row.started_at ? new Date(row.started_at) : null,
+          completedAt: row.completed_at ? new Date(row.completed_at) : null,
+          createdAt: new Date(row.created_at),
+          errorMessage: row.error_message,
+          errorLog: row.error_log ?? [],
+        };
+      })
+      .filter((row): row is ReportJobItemDto => row !== null);
+
+    return {
+      data,
+      total,
+      page: pageNumber,
+      limit: pageLimit,
+    };
+  }
+
   private buildOwnerActivityQuery(
     companyId: string,
     user: RequestUser,
@@ -551,6 +668,16 @@ export class DashboardService {
 
   private isPrivilegedUser(role: UserRole): boolean {
     return role === UserRole.ADMIN || role === UserRole.STAFF;
+  }
+
+  private normalizeBatchReportType(value: string | null): BatchReportType | null {
+    if (value === 'monthly' || value === 'monthly_summary') {
+      return 'monthly_summary';
+    }
+    if (value === 'settlement') {
+      return 'settlement';
+    }
+    return null;
   }
 
   private applyOwnerScope(

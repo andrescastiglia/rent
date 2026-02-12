@@ -43,7 +43,8 @@
     "interested": "Interested",
     "buyers": "Buyers",
     "users": "Users",
-    "templates": "Templates"
+    "templates": "Templates",
+    "reports": "Reports"
   },
   "breadcrumbs": {
     "home": "Home",
@@ -1023,6 +1024,36 @@
       "overdue": "Overdue",
       "cancelled": "Cancelled",
       "refunded": "Refunded"
+    }
+  },
+  "reports": {
+    "title": "Batch Reports",
+    "subtitle": "History of generated reports (monthly_summary and settlement), sorted by newest first.",
+    "empty": "No generated reports to display.",
+    "dryRun": "Dry run",
+    "failedCount": "{count} failed",
+    "pagination": "Page {page} of {totalPages} - {total} records",
+    "prev": "Previous",
+    "next": "Next",
+    "columns": {
+      "type": "Type",
+      "owner": "Owner",
+      "period": "Period",
+      "status": "Status",
+      "createdAt": "Created",
+      "completedAt": "Completed",
+      "records": "Records"
+    },
+    "types": {
+      "monthly_summary": "Monthly summary",
+      "settlement": "Settlement"
+    },
+    "status": {
+      "pending": "Pending",
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed",
+      "partial_failure": "Partial"
     }
   },
   "users": {
