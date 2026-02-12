@@ -5,7 +5,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  IsUUID,
+  Matches,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -13,11 +13,16 @@ import { PaymentMethod } from '../entities/payment.entity';
 import { PaymentItemDto } from './payment-item.dto';
 import { Type } from 'class-transformer';
 
+const UUID_CANONICAL_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * DTO para crear un nuevo pago.
  */
 export class CreatePaymentDto {
-  @IsUUID()
+  @Matches(UUID_CANONICAL_REGEX, {
+    message: 'tenantAccountId must be a UUID',
+  })
   @IsNotEmpty()
   tenantAccountId: string;
 

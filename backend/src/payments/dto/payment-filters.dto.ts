@@ -1,17 +1,27 @@
-import { IsOptional, IsUUID, IsEnum, IsDateString } from 'class-validator';
+import {
+  IsOptional,
+  IsEnum,
+  IsDateString,
+  Matches,
+} from 'class-validator';
 import { PaymentStatus, PaymentMethod } from '../entities/payment.entity';
+
+const UUID_CANONICAL_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export class PaymentFiltersDto {
   @IsOptional()
-  @IsUUID()
+  @Matches(UUID_CANONICAL_REGEX, { message: 'tenantId must be a UUID' })
   tenantId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @Matches(UUID_CANONICAL_REGEX, {
+    message: 'tenantAccountId must be a UUID',
+  })
   tenantAccountId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @Matches(UUID_CANONICAL_REGEX, { message: 'leaseId must be a UUID' })
   leaseId?: string;
 
   @IsOptional()
