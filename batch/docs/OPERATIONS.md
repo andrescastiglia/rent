@@ -25,6 +25,8 @@ DATABASE_NAME=rent_db
 # APIs Externas
 BCRA_API_URL=https://api.bcra.gob.ar
 BCB_API_URL=https://api.bcb.gov.br
+DATOS_AR_API_URL=https://apis.datos.gob.ar/series/api/series
+DATOS_AR_IPC_SERIES_ID=148.3_INIVELNAL_DICI_M_26
 
 # Notificaciones por email (reminders)
 SENDGRID_API_KEY=SG.xxx
@@ -48,7 +50,7 @@ LOG_DIR=./logs
 | `billing` | Generar facturas del día |
 | `overdue` | Marcar facturas vencidas |
 | `reminders` | Enviar recordatorios por email (SendGrid) |
-| `sync-indices` | Sincronizar índices `icl` (BCRA) e `igpm` (BCB) |
+| `sync-indices` | Sincronizar índices `icl` (BCRA), `igpm` (BCB) e `ipc` (datos.gob.ar) |
 | `sync-rates` | Sincronizar tipos de cambio `USD/ARS`, `BRL/ARS`, `USD/BRL` |
 | `reports` | Generar reportes PDF (`monthly` o `settlement`) por propietario |
 | `process-settlements` | Calcular/procesar liquidaciones de propietarios |
@@ -56,7 +58,7 @@ LOG_DIR=./logs
 Notas operativas:
 - La opción `late-fees` fue eliminada del CLI batch.
 - `reminders` actualmente usa email. No hay envío por WhatsApp en batch.
-- `sync-indices` no sincroniza `ipc` ni `casa_propia` en esta implementación.
+- `sync-indices` sincroniza `ipc` diariamente y persiste un registro por mes (`period_date`) para evitar duplicados.
 - `reports` requiere `--owner-id`.
 
 ### Ejemplos
@@ -79,6 +81,9 @@ npm run start -- reminders --days-before 5
 
 # Sincronizar solo ICL
 npm run start -- sync-indices --index icl
+
+# Sincronizar solo IPC
+npm run start -- sync-indices --index ipc
 
 # Sincronizar tipos de cambio
 npm run start -- sync-rates

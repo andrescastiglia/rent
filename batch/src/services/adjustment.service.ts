@@ -66,6 +66,7 @@ export class AdjustmentService {
    */
   async calculateAdjustedRent(
     lease: LeaseAdjustmentData,
+    billingDate: Date = new Date(),
   ): Promise<AdjustmentResult> {
     const result: AdjustmentResult = {
       originalAmount: lease.rentAmount,
@@ -83,19 +84,24 @@ export class AdjustmentService {
     }
 
     if (lease.adjustmentType === "icl") {
-      return this.applyIndexAdjustment("icl", lease, result);
+      return this.applyIndexAdjustment("icl", lease, result, billingDate);
     }
 
     if (lease.adjustmentType === "igp_m" || lease.adjustmentType === "igpm") {
-      return this.applyIndexAdjustment("igp_m", lease, result);
+      return this.applyIndexAdjustment("igp_m", lease, result, billingDate);
     }
 
     if (lease.adjustmentType === "ipc") {
-      return this.applyIndexAdjustment("ipc", lease, result);
+      return this.applyIndexAdjustment("ipc", lease, result, billingDate);
     }
 
     if (lease.adjustmentType === "casa_propia") {
-      return this.applyIndexAdjustment("casa_propia", lease, result);
+      return this.applyIndexAdjustment(
+        "casa_propia",
+        lease,
+        result,
+        billingDate,
+      );
     }
 
     return result;
@@ -121,12 +127,21 @@ export class AdjustmentService {
     indexType: "icl" | "igp_m" | "ipc" | "casa_propia",
     lease: LeaseAdjustmentData,
     result: AdjustmentResult,
+    billingDate: Date,
   ): Promise<AdjustmentResult> {
     try {
-      const currentIndex = await this.getLatestIndex(indexType);
-      const baseIndex = await this.getBaseIndex(indexType, lease);
+      const currentIndex = await this.getIndexForPeriod(indexType, billingDate);
+      if (!currentIndex) {
+        logger.warn(`${indexType} index not available for billing period`, {
+          leaseId: lease.id,
+          billingDate,
+        });
+        return result;
+      }
 
-      if (!currentIndex || !baseIndex) {
+      const baseIndex = await this.getBaseIndex(indexType, lease, billingDate);
+
+      if (!baseIndex) {
         logger.warn(`${indexType} indices not available for adjustment`, {
           leaseId: lease.id,
         });
@@ -160,10 +175,10 @@ export class AdjustmentService {
   ): Promise<{ value: number; period: Date } | null> {
     const normalizedIndexType = this.normalizeIndexType(indexType);
     const result = await AppDataSource.query(
-      `SELECT value, period 
+      `SELECT value, period_date 
              FROM inflation_indices 
              WHERE index_type = $1 
-             ORDER BY period DESC 
+             ORDER BY period_date DESC 
              LIMIT 1`,
       [normalizedIndexType],
     );
@@ -174,7 +189,37 @@ export class AdjustmentService {
 
     return {
       value: Number.parseFloat(result[0].value),
-      period: new Date(result[0].period),
+      period: new Date(result[0].period_date),
+    };
+  }
+
+  /**
+   * Gets the index value for a billing month. If missing for that month, uses
+   * the latest prior month. If no prior value exists, returns null.
+   */
+  private async getIndexForPeriod(
+    indexType: "icl" | "igp_m" | "ipc" | "casa_propia" | "igpm",
+    targetDate: Date,
+  ): Promise<{ value: number; period: Date } | null> {
+    const normalizedIndexType = this.normalizeIndexType(indexType);
+    const startOfMonth = this.toMonthStartUtc(targetDate);
+
+    const result = await AppDataSource.query(
+      `SELECT value, period_date
+             FROM inflation_indices
+             WHERE index_type = $1 AND period_date <= $2
+             ORDER BY period_date DESC
+             LIMIT 1`,
+      [normalizedIndexType, startOfMonth],
+    );
+
+    if (result.length === 0) {
+      return null;
+    }
+
+    return {
+      value: Number.parseFloat(result[0].value),
+      period: new Date(result[0].period_date),
     };
   }
 
@@ -189,20 +234,17 @@ export class AdjustmentService {
   private async getBaseIndex(
     indexType: "icl" | "igp_m" | "ipc" | "casa_propia" | "igpm",
     lease: LeaseAdjustmentData,
+    billingDate: Date,
   ): Promise<{ value: number; period: Date } | null> {
     const normalizedIndexType = this.normalizeIndexType(indexType);
-    const baseDate = lease.lastAdjustmentDate || new Date();
-    const startOfMonth = new Date(
-      baseDate.getFullYear(),
-      baseDate.getMonth(),
-      1,
-    );
+    const baseDate = lease.lastAdjustmentDate || billingDate;
+    const startOfMonth = this.toMonthStartUtc(baseDate);
 
     const result = await AppDataSource.query(
-      `SELECT value, period 
+      `SELECT value, period_date 
              FROM inflation_indices 
-             WHERE index_type = $1 AND period <= $2
-             ORDER BY period DESC 
+             WHERE index_type = $1 AND period_date <= $2
+             ORDER BY period_date DESC 
              LIMIT 1`,
       [normalizedIndexType, startOfMonth],
     );
@@ -213,7 +255,7 @@ export class AdjustmentService {
 
     return {
       value: Number.parseFloat(result[0].value),
-      period: new Date(result[0].period),
+      period: new Date(result[0].period_date),
     };
   }
 
@@ -222,6 +264,10 @@ export class AdjustmentService {
       return "igp_m";
     }
     return indexType;
+  }
+
+  private toMonthStartUtc(date: Date): Date {
+    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
   }
 
   /**

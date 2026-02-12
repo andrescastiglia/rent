@@ -164,7 +164,10 @@ export class BillingService {
 
     // Calculate adjusted rent
     const adjustment =
-      await this.adjustmentService.calculateAdjustedRent(adjustmentData);
+      await this.adjustmentService.calculateAdjustedRent(
+        adjustmentData,
+        billingDate,
+      );
 
     let subtotal = adjustment.adjustedAmount;
     let exchangeRateUsed: number | undefined;
