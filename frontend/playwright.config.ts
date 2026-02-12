@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// Check if we're using mock mode (set by test:e2e script or CI)
-const useMockMode = process.env.NEXT_PUBLIC_MOCK_MODE === 'true' || process.env.CI === 'true';
+// Use mock mode by default unless explicitly disabled.
+const useMockMode = process.env.NEXT_PUBLIC_MOCK_MODE !== 'false';
 
 /**
  * See https://playwright.dev/docs/test-configuration.

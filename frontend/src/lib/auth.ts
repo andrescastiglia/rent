@@ -19,7 +19,15 @@ export function removeToken(): void {
 export function getUser(): any | null {
   if (typeof window === "undefined") return null;
   const userStr = localStorage.getItem(USER_KEY);
-  return userStr ? JSON.parse(userStr) : null;
+  if (!userStr) return null;
+
+  try {
+    return JSON.parse(userStr);
+  } catch {
+    // Recover from corrupted localStorage value to avoid crashing the app.
+    localStorage.removeItem(USER_KEY);
+    return null;
+  }
 }
 
 export function setUser(user: any): void {
