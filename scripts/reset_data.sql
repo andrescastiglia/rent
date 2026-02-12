@@ -171,7 +171,7 @@ SET
 INSERT INTO properties (
     id, company_id, owner_id, name, property_type, status,
     address_street, address_number, address_city, address_state, address_country,
-    sale_price, sale_currency, operations, operation_state,
+    sale_price, rent_price, sale_currency, operations, operation_state,
     allows_pets, max_occupants, created_at, updated_at
 )
 VALUES
@@ -188,6 +188,7 @@ VALUES
       'CABA',
       'Argentina',
       NULL,
+      280000.00,
       'ARS',
       ARRAY['rent'::property_operation],
       'available',
@@ -209,6 +210,7 @@ VALUES
       'CABA',
       'Argentina',
       NULL,
+      320000.00,
       'ARS',
       ARRAY['rent'::property_operation],
       'rented',
@@ -230,6 +232,7 @@ VALUES
       'Cordoba',
       'Argentina',
       95000000.00,
+      NULL,
       'ARS',
       ARRAY['sale'::property_operation],
       'available',
@@ -251,6 +254,7 @@ VALUES
       'Buenos Aires',
       'Argentina',
       120000000.00,
+      450000.00,
       'ARS',
       ARRAY['rent'::property_operation, 'sale'::property_operation],
       'reserved',
@@ -272,6 +276,7 @@ SET
     address_state = EXCLUDED.address_state,
     address_country = EXCLUDED.address_country,
     sale_price = EXCLUDED.sale_price,
+    rent_price = EXCLUDED.rent_price,
     sale_currency = EXCLUDED.sale_currency,
     operations = EXCLUDED.operations,
     operation_state = EXCLUDED.operation_state,
@@ -568,6 +573,65 @@ SET
     company_id = EXCLUDED.company_id,
     name = EXCLUDED.name,
     contract_type = EXCLUDED.contract_type,
+    template_body = EXCLUDED.template_body,
+    is_active = EXCLUDED.is_active,
+    updated_at = NOW();
+
+-- -----------------------------------------------------------------------------
+-- Payment document templates (receipt, invoice, credit note)
+-- -----------------------------------------------------------------------------
+INSERT INTO payment_document_templates (
+    id, company_id, type, name, template_body, is_active, created_at, updated_at
+)
+VALUES
+    (
+      '10000000-0000-0000-0000-000000001151',
+      '10000000-0000-0000-0000-000000000001',
+      'receipt',
+      'Recibo base',
+      'Recibo {{receipt.number}}' || E'\n' ||
+      'Fecha: {{receipt.issuedAt}}' || E'\n' ||
+      'Inquilino: {{tenant.fullName}}' || E'\n' ||
+      'Monto: {{receipt.currencySymbol}} {{receipt.amount}}' || E'\n' ||
+      'Metodo: {{payment.method}}' || E'\n' ||
+      'Referencia: {{payment.reference}}',
+      TRUE,
+      NOW(),
+      NOW()
+    ),
+    (
+      '10000000-0000-0000-0000-000000001152',
+      '10000000-0000-0000-0000-000000000001',
+      'invoice',
+      'Factura base',
+      'Factura {{invoice.number}}' || E'\n' ||
+      'Emision: {{invoice.issueDate}}' || E'\n' ||
+      'Vencimiento: {{invoice.dueDate}}' || E'\n' ||
+      'Cliente: {{tenant.fullName}}' || E'\n' ||
+      'Total: {{invoice.currencySymbol}} {{invoice.total}}' || E'\n' ||
+      'Estado: {{invoice.status}}',
+      TRUE,
+      NOW(),
+      NOW()
+    ),
+    (
+      '10000000-0000-0000-0000-000000001153',
+      '10000000-0000-0000-0000-000000000001',
+      'credit_note',
+      'Nota de credito base',
+      'Nota de credito {{creditNote.number}}' || E'\n' ||
+      'Factura vinculada: {{invoice.number}}' || E'\n' ||
+      'Monto: {{creditNote.currency}} {{creditNote.amount}}' || E'\n' ||
+      'Motivo: {{creditNote.reason}}',
+      TRUE,
+      NOW(),
+      NOW()
+    )
+ON CONFLICT (id) DO UPDATE
+SET
+    company_id = EXCLUDED.company_id,
+    type = EXCLUDED.type,
+    name = EXCLUDED.name,
     template_body = EXCLUDED.template_body,
     is_active = EXCLUDED.is_active,
     updated_at = NOW();

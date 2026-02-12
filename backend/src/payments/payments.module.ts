@@ -10,6 +10,7 @@ import { Payment } from './entities/payment.entity';
 import { PaymentItem } from './entities/payment-item.entity';
 import { Receipt } from './entities/receipt.entity';
 import { CreditNote } from './entities/credit-note.entity';
+import { PaymentDocumentTemplate } from './entities/payment-document-template.entity';
 import { Lease } from '../leases/entities/lease.entity';
 import { Document } from '../documents/entities/document.entity';
 import { InflationIndex } from './entities/inflation-index.entity';
@@ -21,11 +22,13 @@ import { PaymentsService } from './payments.service';
 import { ReceiptPdfService } from './receipt-pdf.service';
 import { InvoicePdfService } from './invoice-pdf.service';
 import { CreditNotePdfService } from './credit-note-pdf.service';
+import { PaymentDocumentTemplatesService } from './payment-document-templates.service';
 
 // Controllers
 import { TenantAccountsController } from './tenant-accounts.controller';
 import { InvoicesController } from './invoices.controller';
 import { PaymentsController } from './payments.controller';
+import { PaymentDocumentTemplatesController } from './payment-document-templates.controller';
 
 // Modules
 import { DocumentsModule } from '../documents/documents.module';
@@ -45,6 +48,7 @@ import { DocumentsModule } from '../documents/documents.module';
       PaymentItem,
       Receipt,
       CreditNote,
+      PaymentDocumentTemplate,
       InflationIndex,
       Lease,
       Document,
@@ -55,6 +59,7 @@ import { DocumentsModule } from '../documents/documents.module';
     TenantAccountsController,
     InvoicesController,
     PaymentsController,
+    PaymentDocumentTemplatesController,
   ],
   providers: [
     TenantAccountsService,
@@ -63,12 +68,14 @@ import { DocumentsModule } from '../documents/documents.module';
     ReceiptPdfService,
     InvoicePdfService,
     CreditNotePdfService,
+    PaymentDocumentTemplatesService,
   ],
   exports: [
     TypeOrmModule,
     TenantAccountsService,
     InvoicesService,
     PaymentsService,
+    PaymentDocumentTemplatesService,
   ],
 })
 export class PaymentsModule {}

@@ -10,6 +10,8 @@ import {
   InvoiceFilters,
   PaginatedResponse,
   TenantReceiptSummary,
+  PaymentDocumentTemplate,
+  PaymentDocumentTemplateType,
 } from "@/types/payment";
 import { apiClient } from "../api";
 import { getToken } from "../auth";
@@ -113,6 +115,39 @@ const MOCK_PAYMENTS: Payment[] = [
     },
     createdAt: "2024-11-15T14:30:00Z",
     updatedAt: "2024-11-15T14:30:00Z",
+  },
+];
+
+const MOCK_PAYMENT_DOCUMENT_TEMPLATES: PaymentDocumentTemplate[] = [
+  {
+    id: "tpl-receipt-1",
+    type: "receipt",
+    name: "Plantilla recibo base",
+    templateBody:
+      "Recibo {{receipt.number}}\nFecha: {{receipt.issuedAt}}\nInquilino: {{tenant.fullName}}\nMonto: {{receipt.currencySymbol}} {{receipt.amount}}\nMétodo: {{payment.method}}\nReferencia: {{payment.reference}}",
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "tpl-invoice-1",
+    type: "invoice",
+    name: "Plantilla factura base",
+    templateBody:
+      "Factura {{invoice.number}}\nEmisión: {{invoice.issueDate}}\nVencimiento: {{invoice.dueDate}}\nCliente: {{tenant.fullName}}\nTotal: {{invoice.currencySymbol}} {{invoice.total}}\nEstado: {{invoice.status}}",
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "tpl-credit-note-1",
+    type: "credit_note",
+    name: "Plantilla nota de crédito base",
+    templateBody:
+      "Nota de crédito {{creditNote.number}}\nFactura vinculada: {{invoice.number}}\nMonto: {{creditNote.currency}} {{creditNote.amount}}\nMotivo: {{creditNote.reason}}",
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   },
 ];
 
@@ -685,6 +720,92 @@ export const tenantAccountsApi = {
     const token = getToken();
     return apiClient.get<TenantReceiptSummary[]>(
       `/payments/tenant/${tenantId}/receipts`,
+      token ?? undefined,
+    );
+  },
+};
+
+export const paymentDocumentTemplatesApi = {
+  list: async (
+    type?: PaymentDocumentTemplateType,
+  ): Promise<PaymentDocumentTemplate[]> => {
+    if (shouldUseMock()) {
+      await delay(DELAY);
+      if (!type) {
+        return [...MOCK_PAYMENT_DOCUMENT_TEMPLATES];
+      }
+      return MOCK_PAYMENT_DOCUMENT_TEMPLATES.filter(
+        (item) => item.type === type,
+      );
+    }
+
+    const token = getToken();
+    const query = type ? `?type=${type}` : "";
+    return apiClient.get<PaymentDocumentTemplate[]>(
+      `/payment-templates${query}`,
+      token ?? undefined,
+    );
+  },
+
+  create: async (data: {
+    type: PaymentDocumentTemplateType;
+    name: string;
+    templateBody: string;
+    isActive?: boolean;
+  }): Promise<PaymentDocumentTemplate> => {
+    if (shouldUseMock()) {
+      await delay(DELAY);
+      const created: PaymentDocumentTemplate = {
+        id: `tpl-${Math.random().toString(36).slice(2, 10)}`,
+        type: data.type,
+        name: data.name,
+        templateBody: data.templateBody,
+        isActive: data.isActive ?? true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      MOCK_PAYMENT_DOCUMENT_TEMPLATES.unshift(created);
+      return created;
+    }
+
+    const token = getToken();
+    return apiClient.post<PaymentDocumentTemplate>(
+      "/payment-templates",
+      data,
+      token ?? undefined,
+    );
+  },
+
+  update: async (
+    templateId: string,
+    data: Partial<{
+      type: PaymentDocumentTemplateType;
+      name: string;
+      templateBody: string;
+      isActive: boolean;
+    }>,
+  ): Promise<PaymentDocumentTemplate> => {
+    if (shouldUseMock()) {
+      await delay(DELAY);
+      const index = MOCK_PAYMENT_DOCUMENT_TEMPLATES.findIndex(
+        (item) => item.id === templateId,
+      );
+      if (index < 0) {
+        throw new Error("Template not found");
+      }
+      const updated: PaymentDocumentTemplate = {
+        ...MOCK_PAYMENT_DOCUMENT_TEMPLATES[index],
+        ...data,
+        updatedAt: new Date().toISOString(),
+      } as PaymentDocumentTemplate;
+      MOCK_PAYMENT_DOCUMENT_TEMPLATES[index] = updated;
+      return updated;
+    }
+
+    const token = getToken();
+    return apiClient.patch<PaymentDocumentTemplate>(
+      `/payment-templates/${templateId}`,
+      data,
       token ?? undefined,
     );
   },

@@ -42,7 +42,8 @@
     "sales": "Sales",
     "interested": "Interested",
     "buyers": "Buyers",
-    "users": "Users"
+    "users": "Users",
+    "templates": "Templates"
   },
   "breadcrumbs": {
     "home": "Home",
@@ -1056,6 +1057,39 @@
       "activated": "User activated successfully.",
       "deactivated": "User deactivated successfully.",
       "passwordReset": "Password reset"
+    }
+  },
+  "templatesHub": {
+    "title": "Document Templates",
+    "subtitle": "Manage templates for contracts, receipts, invoices and credit notes.",
+    "scopes": {
+      "contractRental": "Contract (rental)",
+      "contractSale": "Contract (sale)",
+      "receipt": "Receipt",
+      "invoice": "Invoice",
+      "creditNote": "Credit note"
+    },
+    "newTemplate": "New template",
+    "listTitle": "Templates",
+    "empty": "No templates for this type.",
+    "active": "Active",
+    "inactive": "Inactive",
+    "namePlaceholder": "Template name",
+    "bodyPlaceholder": "Template content...",
+    "variablesTitle": "Available variables",
+    "variablesDescription": "Click a variable to insert it in the body.",
+    "activeLabel": "Active template",
+    "variableGroups": {
+      "global": "Global",
+      "lease": "Lease",
+      "property": "Property",
+      "owner": "Owner",
+      "tenant": "Tenant",
+      "buyer": "Buyer",
+      "receipt": "Receipt",
+      "payment": "Payment",
+      "invoice": "Invoice",
+      "creditNote": "Credit note"
     }
   },
   "forms": {

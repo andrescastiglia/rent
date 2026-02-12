@@ -38,6 +38,7 @@ export type InvoiceStatus =
   | "refunded";
 
 export type CreditNoteStatus = "draft" | "issued" | "cancelled";
+export type PaymentDocumentTemplateType = "receipt" | "invoice" | "credit_note";
 
 /**
  * Tipo de movimiento en cuenta corriente
@@ -138,6 +139,16 @@ export interface CreditNote {
   reason: string | null;
   pdfUrl: string | null;
   issuedAt: string;
+}
+
+export interface PaymentDocumentTemplate {
+  id: string;
+  type: PaymentDocumentTemplateType;
+  name: string;
+  templateBody: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**

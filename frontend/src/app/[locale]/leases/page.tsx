@@ -65,7 +65,7 @@ export default function LeasesPage() {
             {t("showFinalized")}
           </label>
           <Link
-            href={`/${locale}/leases/templates`}
+            href={`/${locale}/templates`}
             className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-200"
           >
             {t("manageTemplates")}

@@ -28,6 +28,11 @@ export const navigationItems: NavItem[] = [
     roles: ["admin", "owner", "tenant"],
   },
   {
+    labelKey: "templates",
+    href: "/templates",
+    roles: ["admin", "staff"],
+  },
+  {
     labelKey: "payments",
     href: "/payments",
     roles: ["admin", "owner", "tenant", "staff"],

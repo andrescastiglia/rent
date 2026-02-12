@@ -326,9 +326,12 @@ CREATE TYPE property_reservation_status AS ENUM ('active', 'released', 'converte
 -- Credit notes
 CREATE TYPE credit_note_status AS ENUM ('draft', 'issued', 'cancelled');
 
+-- Payment document templates
+CREATE TYPE payment_document_template_type AS ENUM ('receipt', 'invoice', 'credit_note');
+
 -- Billing job types
 CREATE TYPE billing_job_type AS ENUM (
-    'billing', 'overdue', 'reminders', 'late_fees', 'sync_indices', 'reports', 'exchange_rates'
+    'billing', 'overdue', 'reminders', 'late_fees', 'sync_indices', 'reports', 'exchange_rates', 'process_settlements'
 );
 
 -- Billing job status
@@ -740,6 +743,7 @@ CREATE TABLE properties (
     documents JSONB DEFAULT '[]',
     notes TEXT,
     sale_price DECIMAL(12, 2),
+    rent_price DECIMAL(12, 2),
     sale_currency VARCHAR(3) DEFAULT 'ARS',
     operations property_operation[] NOT NULL DEFAULT ARRAY['rent'::property_operation],
     operation_state property_operation_state NOT NULL DEFAULT 'available',
@@ -757,6 +761,7 @@ CREATE INDEX idx_properties_type ON properties(property_type);
 CREATE INDEX idx_properties_status ON properties(status);
 CREATE INDEX idx_properties_city ON properties(address_city);
 CREATE INDEX idx_properties_sale_price ON properties(sale_price) WHERE sale_price IS NOT NULL;
+CREATE INDEX idx_properties_rent_price ON properties(rent_price);
 CREATE INDEX idx_properties_operations ON properties USING GIN (operations);
 CREATE INDEX idx_properties_operation_state ON properties(operation_state);
 CREATE INDEX idx_properties_deleted ON properties(deleted_at) WHERE deleted_at IS NULL;
@@ -1823,6 +1828,34 @@ CREATE TRIGGER update_credit_notes_updated_at
 
 COMMENT ON TABLE credit_notes IS 'Credit notes linked to invoices and payments';
 
+-- -----------------------------------------------------------------------------
+-- Payment Document Templates
+-- -----------------------------------------------------------------------------
+CREATE TABLE payment_document_templates (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id),
+    type payment_document_template_type NOT NULL,
+    name VARCHAR(120) NOT NULL,
+    template_body TEXT NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_payment_document_templates_company_id
+    ON payment_document_templates(company_id);
+CREATE INDEX idx_payment_document_templates_type
+    ON payment_document_templates(type);
+CREATE INDEX idx_payment_document_templates_active
+    ON payment_document_templates(company_id, type, is_active)
+    WHERE deleted_at IS NULL;
+
+CREATE TRIGGER update_payment_document_templates_updated_at
+    BEFORE UPDATE ON payment_document_templates FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE payment_document_templates IS 'Templates for payment receipts, invoices and credit notes';
+
 \echo '✓ Tablas financieras creadas'
 
 -- =============================================================================
@@ -2494,7 +2527,7 @@ SET TIME ZONE 'America/Argentina/Buenos_Aires';
 \echo '  - Documents: documents'
 \echo '  - Leases: leases, lease_amendments'
 \echo '  - Financial: tenant_accounts, movements, invoices,'
-\echo '               commission_invoices, payments, receipts'
+\echo '               commission_invoices, payments, receipts, credit_notes, payment_document_templates'
 \echo '  - Banking: bank_accounts, crypto_wallets, lightning_invoices'
 \echo '  - Settlements: settlements'
 \echo '  - Reference: currencies, inflation_indices, exchange_rates'

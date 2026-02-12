@@ -2,6 +2,8 @@ import { AppDataSource } from "../shared/database";
 import { logger } from "../shared/logger";
 import * as PDFDocument from "pdfkit";
 
+const TEMPLATE_PLACEHOLDER_REGEX = /{{\s*([a-zA-Z0-9_.]+)\s*}}/g;
+
 /**
  * Status of an invoice.
  */
@@ -410,7 +412,7 @@ export class InvoiceService {
       return null;
     }
 
-    const pdfBuffer = await this.generateInvoicePdfBuffer(invoice);
+    const pdfBuffer = await this.generateInvoicePdfBuffer(invoice, companyId);
 
     const documentResult = await AppDataSource.query(
       `INSERT INTO documents (
@@ -481,7 +483,23 @@ export class InvoiceService {
     return dbUrl;
   }
 
-  private generateInvoicePdfBuffer(invoice: InvoiceRecord): Promise<Buffer> {
+  private async generateInvoicePdfBuffer(
+    invoice: InvoiceRecord,
+    companyId?: string,
+  ): Promise<Buffer> {
+    if (companyId) {
+      const templateBody = await this.findActiveInvoiceTemplate(companyId);
+      if (templateBody) {
+        return this.generateTemplateInvoicePdfBuffer(invoice, templateBody);
+      }
+    }
+
+    return this.generateDefaultInvoicePdfBuffer(invoice);
+  }
+
+  private generateDefaultInvoicePdfBuffer(
+    invoice: InvoiceRecord,
+  ): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       const PDFCtor = (PDFDocument as any).default ?? (PDFDocument as any);
       const doc = new PDFCtor({ size: "A4", margin: 40 });
@@ -529,5 +547,172 @@ export class InvoiceService {
 
       doc.end();
     });
+  }
+
+  private async generateTemplateInvoicePdfBuffer(
+    invoice: InvoiceRecord,
+    templateBody: string,
+  ): Promise<Buffer> {
+    const context = await this.buildInvoiceTemplateContext(invoice);
+    const rendered = this.renderTemplate(templateBody, context);
+
+    return new Promise((resolve, reject) => {
+      const PDFCtor = (PDFDocument as any).default ?? (PDFDocument as any);
+      const doc = new PDFCtor({ size: "A4", margin: 40 });
+      const chunks: Buffer[] = [];
+
+      doc.on("data", (chunk: Buffer | Uint8Array) =>
+        chunks.push(Buffer.from(chunk)),
+      );
+      doc.on("end", () => resolve(Buffer.concat(chunks)));
+      doc.on("error", reject);
+
+      doc
+        .fontSize(18)
+        .font("Helvetica-Bold")
+        .text(`Factura ${invoice.invoiceNumber}`, { align: "center" });
+      doc.moveDown();
+      doc.fontSize(10).font("Helvetica").text(rendered, {
+        align: "left",
+        lineGap: 4,
+      });
+      doc.moveDown(2);
+      doc.fontSize(8).text(`ID factura: ${invoice.id}`, { align: "center" });
+      doc.end();
+    });
+  }
+
+  private async findActiveInvoiceTemplate(
+    companyId: string,
+  ): Promise<string | null> {
+    const result = await AppDataSource.query(
+      `SELECT template_body
+         FROM payment_document_templates
+        WHERE company_id = $1
+          AND type = 'invoice'
+          AND is_active = TRUE
+          AND deleted_at IS NULL
+        ORDER BY updated_at DESC
+        LIMIT 1`,
+      [companyId],
+    );
+
+    const templateBody = result[0]?.template_body as string | undefined;
+    return templateBody ?? null;
+  }
+
+  private async buildInvoiceTemplateContext(
+    invoice: InvoiceRecord,
+  ): Promise<Record<string, unknown>> {
+    const detailsResult = await AppDataSource.query(
+      `SELECT
+          ou.first_name AS owner_first_name,
+          ou.last_name AS owner_last_name,
+          ou.email AS owner_email,
+          tu.first_name AS tenant_first_name,
+          tu.last_name AS tenant_last_name,
+          tu.email AS tenant_email,
+          p.name AS property_name,
+          p.address_street AS property_address_street,
+          p.address_number AS property_address_number,
+          p.address_city AS property_address_city,
+          p.address_state AS property_address_state
+       FROM invoices i
+       LEFT JOIN leases l ON l.id = i.lease_id
+       LEFT JOIN properties p ON p.id = l.property_id
+       LEFT JOIN owners o ON o.id = i.owner_id
+       LEFT JOIN users ou ON ou.id = o.user_id
+       LEFT JOIN tenants t ON t.id = l.tenant_id
+       LEFT JOIN users tu ON tu.id = t.user_id
+       WHERE i.id = $1
+       LIMIT 1`,
+      [invoice.id],
+    );
+
+    const details = (detailsResult[0] ?? {}) as Record<string, string | null>;
+    const issueDate =
+      invoice.issuedAt?.toISOString().slice(0, 10) ??
+      new Date().toISOString().slice(0, 10);
+
+    const ownerFullName =
+      `${details.owner_first_name ?? ""} ${details.owner_last_name ?? ""}`.trim();
+    const tenantFullName =
+      `${details.tenant_first_name ?? ""} ${details.tenant_last_name ?? ""}`.trim();
+    const currencySymbol = this.getCurrencySymbol(invoice.currencyCode);
+
+    return {
+      today: new Date().toISOString().slice(0, 10),
+      invoice: {
+        id: invoice.id,
+        number: invoice.invoiceNumber,
+        issueDate,
+        dueDate: invoice.dueDate.toISOString().slice(0, 10),
+        periodStart: invoice.periodStart.toISOString().slice(0, 10),
+        periodEnd: invoice.periodEnd.toISOString().slice(0, 10),
+        status: invoice.status,
+        subtotal: invoice.subtotal.toFixed(2),
+        lateFee: invoice.lateFee.toFixed(2),
+        adjustments: invoice.adjustments.toFixed(2),
+        total: invoice.total.toFixed(2),
+        currency: invoice.currencyCode,
+        currencySymbol,
+      },
+      owner: {
+        firstName: details.owner_first_name ?? "",
+        lastName: details.owner_last_name ?? "",
+        fullName: ownerFullName,
+        email: details.owner_email ?? "",
+      },
+      tenant: {
+        firstName: details.tenant_first_name ?? "",
+        lastName: details.tenant_last_name ?? "",
+        fullName: tenantFullName,
+        email: details.tenant_email ?? "",
+      },
+      property: {
+        name: details.property_name ?? "",
+        addressStreet: details.property_address_street ?? "",
+        addressNumber: details.property_address_number ?? "",
+        addressCity: details.property_address_city ?? "",
+        addressState: details.property_address_state ?? "",
+      },
+    };
+  }
+
+  private renderTemplate(
+    templateBody: string,
+    context: Record<string, unknown>,
+  ): string {
+    return templateBody.replace(
+      TEMPLATE_PLACEHOLDER_REGEX,
+      (_token, key: string) => {
+        const value = key.split(".").reduce<unknown>((current, part) => {
+          if (current === null || current === undefined) {
+            return undefined;
+          }
+          if (typeof current !== "object") {
+            return undefined;
+          }
+          return (current as Record<string, unknown>)[part];
+        }, context);
+
+        if (value === null || value === undefined) {
+          return "";
+        }
+        if (typeof value === "string") {
+          return value;
+        }
+        return String(value);
+      },
+    );
+  }
+
+  private getCurrencySymbol(code: string): string {
+    const symbols: Record<string, string> = {
+      ARS: "$",
+      USD: "US$",
+      BRL: "R$",
+    };
+    return symbols[code] || code;
   }
 }

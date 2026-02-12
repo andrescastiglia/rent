@@ -14,6 +14,7 @@ const segmentTranslationMap: Record<
   properties: { namespace: "nav", key: "properties" },
   tenants: { namespace: "nav", key: "tenants" },
   leases: { namespace: "nav", key: "leases" },
+  templates: { namespace: "nav", key: "templates" },
   payments: { namespace: "nav", key: "payments" },
   invoices: { namespace: "nav", key: "invoices" },
   sales: { namespace: "nav", key: "sales" },

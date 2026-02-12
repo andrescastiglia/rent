@@ -42,7 +42,8 @@
     "sales": "Ventas",
     "interested": "Interesados",
     "buyers": "Compradores",
-    "users": "Usuarios"
+    "users": "Usuarios",
+    "templates": "Plantillas"
   },
   "breadcrumbs": {
     "home": "Inicio",
@@ -1056,6 +1057,39 @@
       "activated": "Usuario activado correctamente.",
       "deactivated": "Usuario desactivado correctamente.",
       "passwordReset": "Contraseña blanqueada"
+    }
+  },
+  "templatesHub": {
+    "title": "Plantillas de Comprobantes",
+    "subtitle": "Administra plantillas para contratos, recibos, facturas y notas de crédito.",
+    "scopes": {
+      "contractRental": "Contrato (alquiler)",
+      "contractSale": "Contrato (venta)",
+      "receipt": "Recibo",
+      "invoice": "Factura",
+      "creditNote": "Nota de crédito"
+    },
+    "newTemplate": "Nueva plantilla",
+    "listTitle": "Plantillas",
+    "empty": "No hay plantillas para este tipo.",
+    "active": "Activa",
+    "inactive": "Inactiva",
+    "namePlaceholder": "Nombre de la plantilla",
+    "bodyPlaceholder": "Contenido de la plantilla...",
+    "variablesTitle": "Variables disponibles",
+    "variablesDescription": "Haz clic en una variable para insertarla en el cuerpo.",
+    "activeLabel": "Plantilla activa",
+    "variableGroups": {
+      "global": "Global",
+      "lease": "Contrato",
+      "property": "Propiedad",
+      "owner": "Propietario",
+      "tenant": "Inquilino",
+      "buyer": "Comprador",
+      "receipt": "Recibo",
+      "payment": "Pago",
+      "invoice": "Factura",
+      "creditNote": "Nota de crédito"
     }
   },
   "forms": {

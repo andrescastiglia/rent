@@ -42,7 +42,8 @@
     "sales": "Vendas",
     "interested": "Interessados",
     "buyers": "Compradores",
-    "users": "Usuários"
+    "users": "Usuários",
+    "templates": "Modelos"
   },
   "breadcrumbs": {
     "home": "Início",
@@ -1056,6 +1057,39 @@
       "activated": "Usuário ativado com sucesso.",
       "deactivated": "Usuário desativado com sucesso.",
       "passwordReset": "Senha redefinida"
+    }
+  },
+  "templatesHub": {
+    "title": "Modelos de Documentos",
+    "subtitle": "Gerencie modelos para contratos, recibos, faturas e notas de crédito.",
+    "scopes": {
+      "contractRental": "Contrato (aluguel)",
+      "contractSale": "Contrato (venda)",
+      "receipt": "Recibo",
+      "invoice": "Fatura",
+      "creditNote": "Nota de crédito"
+    },
+    "newTemplate": "Novo modelo",
+    "listTitle": "Modelos",
+    "empty": "Não há modelos para este tipo.",
+    "active": "Ativo",
+    "inactive": "Inativo",
+    "namePlaceholder": "Nome do modelo",
+    "bodyPlaceholder": "Conteúdo do modelo...",
+    "variablesTitle": "Variáveis disponíveis",
+    "variablesDescription": "Clique em uma variável para inseri-la no conteúdo.",
+    "activeLabel": "Modelo ativo",
+    "variableGroups": {
+      "global": "Global",
+      "lease": "Contrato",
+      "property": "Imóvel",
+      "owner": "Proprietário",
+      "tenant": "Inquilino",
+      "buyer": "Comprador",
+      "receipt": "Recibo",
+      "payment": "Pagamento",
+      "invoice": "Fatura",
+      "creditNote": "Nota de crédito"
     }
   },
   "forms": {
