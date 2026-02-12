@@ -35,6 +35,9 @@ export function PropertyForm({
   const tCommon = useTranslations("common");
   const tValidation = useTranslations("validation");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [submitErrorMessage, setSubmitErrorMessage] = React.useState<
+    string | null
+  >(null);
   const [owners, setOwners] = React.useState<Owner[]>([]);
   const [uploadedSessionImages, setUploadedSessionImages] = React.useState<
     string[]
@@ -54,6 +57,7 @@ export function PropertyForm({
     handleSubmit,
     setValue,
     watch,
+    clearErrors,
     formState: { errors },
   } = useForm<PropertyFormData>({
     resolver: zodResolver(propertySchema) as Resolver<PropertyFormData>,
@@ -156,10 +160,17 @@ export function PropertyForm({
 
   useEffect(() => {
     if (isSaleOperationSelected) return;
-    setValue("salePrice", undefined, { shouldValidate: true });
-  }, [isSaleOperationSelected, setValue]);
+    setValue("salePrice", undefined);
+    clearErrors("salePrice");
+  }, [clearErrors, isSaleOperationSelected, setValue]);
 
   const handleToggleOperation = (operation: "rent" | "sale") => {
+    if (
+      selectedOperations.includes(operation) &&
+      selectedOperations.length === 1
+    ) {
+      return;
+    }
     const nextOperations = selectedOperations.includes(operation)
       ? selectedOperations.filter((item) => item !== operation)
       : [...selectedOperations, operation];
@@ -167,6 +178,7 @@ export function PropertyForm({
   };
 
   const onSubmit = async (data: PropertyFormData) => {
+    setSubmitErrorMessage(null);
     if (user?.role === "admin" && !data.ownerId) {
       alert(tValidation("ownerRequired"));
       return;
@@ -212,6 +224,10 @@ export function PropertyForm({
     }
   };
 
+  const onInvalid = () => {
+    setSubmitErrorMessage(tValidation("required"));
+  };
+
   const handleImageUpload = async (file: File) => {
     const url = await propertiesApi.uploadImage(file);
     setUploadedSessionImages((prev) =>
@@ -237,9 +253,14 @@ export function PropertyForm({
 
   return (
     <form
-      onSubmit={handleSubmit(onSubmit)}
+      onSubmit={handleSubmit(onSubmit, onInvalid)}
       className="space-y-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xs border border-gray-100 dark:border-gray-700"
     >
+      {submitErrorMessage ? (
+        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {submitErrorMessage}
+        </p>
+      ) : null}
       <input type="hidden" {...register("ownerId")} />
       <div className="space-y-4">
         <h3 className="text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2">
