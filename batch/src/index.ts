@@ -480,7 +480,7 @@ program
             );
 
       if (result.success) {
-        logger.info("Report generated", { pdfPath: result.pdfPath });
+        logger.info("Report generated", { pdfUrl: result.pdfUrl });
         await billingJobService.completeJob(jobId, {
           recordsTotal: 1,
           recordsProcessed: 1,

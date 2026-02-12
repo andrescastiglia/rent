@@ -1,5 +1,3 @@
-import * as fs from "node:fs";
-import * as path from "node:path";
 import PDFDocument from "pdfkit";
 import { AppDataSource } from "../shared/database";
 import { logger } from "../shared/logger";
@@ -65,7 +63,7 @@ export interface SettlementData {
  */
 export interface ReportResult {
   success: boolean;
-  pdfPath?: string;
+  pdfUrl?: string;
   pdfBuffer?: Buffer;
   error?: string;
 }
@@ -74,32 +72,13 @@ export interface ReportResult {
  * Service for generating PDF reports.
  */
 export class ReportService {
-  private readonly outputDir: string;
-
-  /**
-   * Creates an instance of ReportService.
-   */
-  constructor() {
-    this.outputDir = process.env.REPORTS_OUTPUT_DIR || "./reports";
-    this.ensureOutputDir();
-  }
-
-  /**
-   * Ensures the output directory exists.
-   */
-  private ensureOutputDir(): void {
-    if (!fs.existsSync(this.outputDir)) {
-      fs.mkdirSync(this.outputDir, { recursive: true });
-    }
-  }
-
   /**
    * Generates a monthly summary report for an owner.
    *
    * @param ownerId - Owner ID.
    * @param year - Year.
    * @param month - Month (1-12).
-   * @returns Report result with PDF path.
+   * @returns Report result with DB-backed PDF URL.
    */
   async generateMonthlySummary(
     ownerId: string,
@@ -111,9 +90,17 @@ export class ReportService {
     try {
       const data = await this.fetchMonthlySummaryData(ownerId, year, month);
       const filename = `monthly_summary_${ownerId}_${year}_${month}.pdf`;
-      const pdfPath = await this.generateMonthlySummaryPdf(data, filename);
+      const pdfBuffer = await this.generateMonthlySummaryPdf(data);
+      const pdfUrl = await this.persistPdfDocument(
+        ownerId,
+        "monthly_summary",
+        filename,
+        `Resumen mensual ${year}-${String(month).padStart(2, "0")} (${ownerId})`,
+        pdfBuffer,
+        { year, month },
+      );
 
-      return { success: true, pdfPath };
+      return { success: true, pdfUrl };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       logger.error("Failed to generate monthly summary", {
@@ -129,7 +116,7 @@ export class ReportService {
    *
    * @param ownerId - Owner ID.
    * @param period - Period string (e.g., "2025-12").
-   * @returns Report result with PDF path.
+   * @returns Report result with DB-backed PDF URL.
    */
   async generateSettlement(
     ownerId: string,
@@ -140,9 +127,17 @@ export class ReportService {
     try {
       const data = await this.fetchSettlementData(ownerId, period);
       const filename = `settlement_${ownerId}_${period}.pdf`;
-      const pdfPath = await this.generateSettlementPdf(data, filename);
+      const pdfBuffer = await this.generateSettlementPdf(data);
+      const pdfUrl = await this.persistPdfDocument(
+        ownerId,
+        "settlement",
+        filename,
+        `Liquidación ${period} (${ownerId})`,
+        pdfBuffer,
+        { period },
+      );
 
-      return { success: true, pdfPath };
+      return { success: true, pdfUrl };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       logger.error("Failed to generate settlement", {
@@ -154,14 +149,12 @@ export class ReportService {
   }
 
   /**
-   * Generates PDF for a monthly summary.
+   * Generates PDF buffer for a monthly summary.
    */
   private async generateMonthlySummaryPdf(
     data: MonthlySummaryData,
-    filename: string,
-  ): Promise<string> {
-    const pdfPath = path.join(this.outputDir, filename);
-    await this.writePdf(pdfPath, (doc) => {
+  ): Promise<Buffer> {
+    const pdfBuffer = await this.writePdf((doc) => {
       const monthNames = [
         "Enero",
         "Febrero",
@@ -295,19 +288,18 @@ export class ReportService {
       doc.text(`Pendiente: ${this.formatCurrency(data.totals.pending)}`);
     });
 
-    logger.info("PDF generated", { pdfPath });
-    return pdfPath;
+    logger.info("Monthly summary PDF rendered in memory", {
+      ownerId: data.ownerId,
+      byteLength: pdfBuffer.length,
+    });
+    return pdfBuffer;
   }
 
   /**
-   * Generates PDF for a settlement.
+   * Generates PDF buffer for a settlement.
    */
-  private async generateSettlementPdf(
-    data: SettlementData,
-    filename: string,
-  ): Promise<string> {
-    const pdfPath = path.join(this.outputDir, filename);
-    await this.writePdf(pdfPath, (doc) => {
+  private async generateSettlementPdf(data: SettlementData): Promise<Buffer> {
+    const pdfBuffer = await this.writePdf((doc) => {
       doc.fontSize(18).text("Liquidación", { align: "center" });
       doc.moveDown(0.25);
       doc.fontSize(12).text(`Período: ${data.period}`, { align: "center" });
@@ -403,26 +395,29 @@ export class ReportService {
       doc.font("Helvetica");
     });
 
-    logger.info("PDF generated", { pdfPath });
-    return pdfPath;
+    logger.info("Settlement PDF rendered in memory", {
+      ownerId: data.ownerId,
+      period: data.period,
+      byteLength: pdfBuffer.length,
+    });
+    return pdfBuffer;
   }
 
   private async writePdf(
-    pdfPath: string,
     render: (doc: InstanceType<typeof PDFDocument>) => void,
-  ): Promise<void> {
-    await new Promise<void>((resolve, reject) => {
+  ): Promise<Buffer> {
+    return new Promise<Buffer>((resolve, reject) => {
       const doc = new PDFDocument({
         size: "A4",
         margin: 50,
         autoFirstPage: true,
       });
-
-      const stream = fs.createWriteStream(pdfPath);
-      stream.on("finish", () => resolve());
-      stream.on("error", (e) => reject(e));
-
-      doc.pipe(stream);
+      const chunks: Buffer[] = [];
+      doc.on("data", (chunk: Buffer | Uint8Array) =>
+        chunks.push(Buffer.from(chunk)),
+      );
+      doc.on("end", () => resolve(Buffer.concat(chunks)));
+      doc.on("error", reject);
       try {
         render(doc);
         doc.end();
@@ -430,6 +425,99 @@ export class ReportService {
         reject(e);
       }
     });
+  }
+
+  private async persistPdfDocument(
+    ownerId: string,
+    reportType: ReportType,
+    filename: string,
+    description: string,
+    pdfBuffer: Buffer,
+    metadata: Record<string, unknown>,
+  ): Promise<string> {
+    const companyId = await this.resolveOwnerCompanyId(ownerId);
+    const result = await AppDataSource.query(
+      `INSERT INTO documents (
+                company_id,
+                document_type,
+                status,
+                name,
+                description,
+                file_url,
+                file_size,
+                file_mime_type,
+                entity_type,
+                entity_id,
+                metadata,
+                file_data
+             ) VALUES (
+                $1,
+                'other',
+                'approved',
+                $2,
+                $3,
+                'db://document/pending',
+                $4,
+                'application/pdf',
+                'owner',
+                $5,
+                $6::jsonb,
+                $7
+             )
+             RETURNING id`,
+      [
+        companyId,
+        filename,
+        description,
+        pdfBuffer.length,
+        ownerId,
+        JSON.stringify({ reportType, ...metadata }),
+        pdfBuffer,
+      ],
+    );
+
+    const documentId = result[0]?.id as string | undefined;
+    if (!documentId) {
+      throw new Error(
+        `Failed to persist report PDF for owner ${ownerId} (${reportType})`,
+      );
+    }
+
+    const dbUrl = `db://document/${documentId}`;
+    await AppDataSource.query(
+      `UPDATE documents
+             SET file_url = $2
+             WHERE id = $1`,
+      [documentId, dbUrl],
+    );
+
+    logger.info("Report PDF persisted in database", {
+      ownerId,
+      reportType,
+      documentId,
+      byteLength: pdfBuffer.length,
+    });
+
+    return dbUrl;
+  }
+
+  private async resolveOwnerCompanyId(ownerId: string): Promise<string> {
+    const result = await AppDataSource.query(
+      `SELECT company_id
+             FROM owners
+             WHERE id = $1
+                OR user_id = $1
+             ORDER BY CASE WHEN id = $1 THEN 0 ELSE 1 END
+             LIMIT 1`,
+      [ownerId],
+    );
+
+    const companyId = result[0]?.company_id as string | undefined;
+    if (!companyId) {
+      throw new Error(`Missing company for owner reference ${ownerId}`);
+    }
+
+    return companyId;
   }
 
   private formatCurrency(value: number): string {

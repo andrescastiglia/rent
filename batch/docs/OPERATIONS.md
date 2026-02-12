@@ -34,9 +34,6 @@ SENDGRID_API_KEY=SG.xxx
 EMAIL_FROM=noreply@example.com
 EMAIL_FROM_NAME="Sistema de Alquileres"
 
-# Reportes
-REPORTS_OUTPUT_DIR=./reports
-
 # Logs
 LOG_LEVEL=info
 LOG_DIR=./logs
