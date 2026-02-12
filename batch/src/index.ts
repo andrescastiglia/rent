@@ -269,78 +269,6 @@ program
   });
 
 /**
- * Late-fees command - Apply late fees to overdue invoices.
- */
-program
-  .command("late-fees")
-  .description("Calculate and apply late fees to overdue invoices")
-  .option("--log <file>", "Write logs to the given file (no rotation)")
-  .option("-d, --dry-run", "Run without making changes", false)
-  .option("--rate <rate>", "Late fee rate percentage", "2")
-  .action(async (options) => {
-    const { BillingService } = await import("./services/billing.service");
-
-    logger.info("Starting late-fees process", { options });
-    let jobId: string | undefined;
-    try {
-      await initializeDatabase();
-      billingJobService = newBillingJobService();
-
-      const rate = Number.parseFloat(options.rate) / 100;
-
-      // Start job logging
-      jobId = await billingJobService.startJob(
-        "late_fees",
-        { rate: options.rate },
-        options.dryRun,
-      );
-
-      if (options.dryRun) {
-        const { InvoiceService } = await import("./services/invoice.service");
-        const invoiceService = new InvoiceService();
-        const overdueInvoices = await invoiceService.findOverdue();
-        const potentialFees = overdueInvoices
-          .filter((i) => i.lateFee === 0)
-          .reduce((sum, i) => sum + i.subtotal * rate, 0);
-        logger.info("Dry run: would apply late fees", {
-          invoicesCount: overdueInvoices.length,
-          potentialFees,
-        });
-
-        await billingJobService.completeJob(jobId, {
-          recordsTotal: overdueInvoices.length,
-          recordsProcessed: 0,
-          recordsFailed: 0,
-        });
-      } else {
-        const billingService = new BillingService();
-        const result = await billingService.processLateFees(rate);
-        logger.info("Late-fees process completed", {
-          feesApplied: result.feesApplied,
-          totalFees: result.totalFees,
-        });
-
-        await billingJobService.completeJob(jobId, {
-          recordsTotal: result.feesApplied,
-          recordsProcessed: result.feesApplied,
-          recordsFailed: 0,
-        });
-      }
-    } catch (error) {
-      logger.error("Late-fees process failed", { error });
-      if (jobId) {
-        await billingJobService.failJob(
-          jobId,
-          error instanceof Error ? error.message : "Unknown error",
-        );
-      }
-      process.exit(1);
-    } finally {
-      await closeDatabase();
-    }
-  });
-
-/**
  * Sync-indices command - Synchronize inflation indices.
  */
 program
@@ -508,7 +436,7 @@ program
  */
 program
   .command("reports")
-  .description("Generate and send monthly reports to property owners")
+  .description("Generate monthly reports for property owners")
   .option("--log <file>", "Write logs to the given file (no rotation)")
   .option("--type <type>", "Report type (monthly, settlement)", "monthly")
   .option("--owner-id <id>", "Generate for specific owner only")

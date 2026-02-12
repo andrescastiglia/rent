@@ -24,9 +24,6 @@ LOG_DIR=/var/log/rent
 # Reminders: Send payment reminders (10:00 AM)
 0 10 * * * cd $BATCH_DIR && node index.js reminders --log $LOG_DIR/reminders.log
 
-# Late Fees: Apply late fees (10:30 AM)
-30 10 * * * cd $BATCH_DIR && node index.js late-fees --log $LOG_DIR/late-fees.log
-
 # -----------------------------------------------------------------------------
 # Monthly Jobs
 # -----------------------------------------------------------------------------
@@ -36,6 +33,9 @@ LOG_DIR=/var/log/rent
 
 # Reports: Generate monthly owner reports (1st of month, 06:00 AM)
 0 6 1 * * cd $BATCH_DIR && node index.js reports --type=monthly --log $LOG_DIR/reports.log
+
+# Settlements: Calculate owner settlements (2nd of month, 07:00 AM)
+0 7 2 * * cd $BATCH_DIR && node index.js process-settlements --log $LOG_DIR/process-settlements.log
 
 # -----------------------------------------------------------------------------
 # Maintenance Jobs
