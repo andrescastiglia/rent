@@ -113,21 +113,22 @@ export class IndicesSyncService {
     };
 
     try {
-      // Get date range: last 12 months
+      // ICL is daily; fetch enough history and persist only the last value for
+      // each month.
       const toDate = new Date();
-      const fromDate = new Date();
-      fromDate.setFullYear(fromDate.getFullYear() - 1);
+      const fromDate = new Date(2020, 5, 1); // ICL base period starts in 2020
 
       const iclData = await this.bcraService.getIcl(fromDate, toDate);
-      result.recordsProcessed = iclData.length;
+      const monthlyIclData = this.keepLatestPerMonth(iclData);
+      result.recordsProcessed = monthlyIclData.length;
 
-      for (const data of iclData) {
+      for (const data of monthlyIclData) {
         const inserted = await this.upsertIndex(
           "icl",
           data.date,
           data.value,
           "BCRA",
-          "https://api.bcra.gob.ar/estadisticas/v2.0",
+          "https://api.bcra.gob.ar/estadisticas/v3.0/monetarias",
         );
         if (inserted) {
           result.recordsInserted++;
@@ -136,8 +137,8 @@ export class IndicesSyncService {
         }
       }
 
-      if (iclData.length > 0) {
-        const sortedData = [...iclData].sort(
+      if (monthlyIclData.length > 0) {
+        const sortedData = [...monthlyIclData].sort(
           (a: IclIndexData, b: IclIndexData) =>
             b.date.getTime() - a.date.getTime(),
         );
@@ -152,6 +153,27 @@ export class IndicesSyncService {
       logger.error("ICL synchronization failed", { error: result.error });
       throw error;
     }
+  }
+
+  /**
+   * Keeps only the latest daily value for each month.
+   */
+  private keepLatestPerMonth(data: IclIndexData[]): IclIndexData[] {
+    const latestByMonth = new Map<string, IclIndexData>();
+
+    for (const point of data) {
+      const monthKey = `${point.date.getUTCFullYear()}-${String(
+        point.date.getUTCMonth() + 1,
+      ).padStart(2, "0")}`;
+      const existing = latestByMonth.get(monthKey);
+      if (!existing || point.date.getTime() > existing.date.getTime()) {
+        latestByMonth.set(monthKey, point);
+      }
+    }
+
+    return Array.from(latestByMonth.values()).sort(
+      (a, b) => a.date.getTime() - b.date.getTime(),
+    );
   }
 
   /**
@@ -286,9 +308,7 @@ export class IndicesSyncService {
   ): Promise<boolean> {
     // Normalize to first day of month
     const normalizedPeriod = new Date(
-      period.getFullYear(),
-      period.getMonth(),
-      1,
+      Date.UTC(period.getUTCFullYear(), period.getUTCMonth(), 1),
     );
 
     try {

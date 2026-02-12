@@ -54,16 +54,16 @@ describe("AdjustmentService", () => {
         rentAmount: 100000,
         adjustmentType: "icl" as const,
         nextAdjustmentDate: new Date("2024-12-01"),
-        lastAdjustmentDate: new Date("2024-11-01"),
+        lastAdjustmentDate: new Date("2024-10-01"),
       };
 
-      // Mock current index
+      // Current index should be fetched from the previous month to billing.
       mockQuery.mockResolvedValueOnce([
-        { value: "1200.00", period_date: "2024-12-01" },
+        { value: "1200.00", period_date: "2024-11-01" },
       ]);
       // Mock base index
       mockQuery.mockResolvedValueOnce([
-        { value: "1000.00", period_date: "2024-11-01" },
+        { value: "1000.00", period_date: "2024-10-01" },
       ]);
 
       const billingDate = new Date("2024-12-15");
@@ -72,7 +72,36 @@ describe("AdjustmentService", () => {
       // 20% increase (1200/1000 = 1.2)
       expect(result.adjustedAmount).toBeCloseTo(120000, 0);
       expect(result.adjustmentRate).toBeCloseTo(20, 0);
+      expect(mockQuery).toHaveBeenNthCalledWith(
+        1,
+        expect.stringContaining("period_date <= $2"),
+        ["icl", new Date("2024-11-01")],
+      );
+    });
 
+    it("should fallback to an earlier month when previous ICL month is missing", async () => {
+      const lease = {
+        id: "lease-icl-fallback",
+        rentAmount: 150000,
+        adjustmentType: "icl" as const,
+        lastAdjustmentDate: new Date("2024-08-01"),
+      };
+
+      // Billing in Dec-2024 -> target is Nov-2024, fallback to Oct-2024.
+      mockQuery.mockResolvedValueOnce([
+        { value: "1300.00", period_date: "2024-10-01" },
+      ]);
+      mockQuery.mockResolvedValueOnce([
+        { value: "1000.00", period_date: "2024-08-01" },
+      ]);
+
+      const result = await service.calculateAdjustedRent(
+        lease,
+        new Date("2024-12-20"),
+      );
+
+      expect(result.adjustedAmount).toBeCloseTo(195000, 0);
+      expect(result.adjustmentRate).toBeCloseTo(30, 2);
     });
 
     it("should calculate IGP-M based adjustment", async () => {

@@ -24,6 +24,8 @@ DATABASE_NAME=rent_db
 
 # APIs Externas
 BCRA_API_URL=https://api.bcra.gob.ar
+BCRA_ICL_VARIABLE_ID=40
+# BCRA_API_INSECURE=true   # opcional solo si el entorno no valida el certificado TLS
 BCB_API_URL=https://api.bcb.gov.br
 DATOS_AR_API_URL=https://apis.datos.gob.ar/series/api/series
 DATOS_AR_IPC_SERIES_ID=148.3_INIVELNAL_DICI_M_26
@@ -59,6 +61,8 @@ Notas operativas:
 - La opción `late-fees` fue eliminada del CLI batch.
 - `reminders` actualmente usa email. No hay envío por WhatsApp en batch.
 - `sync-indices` sincroniza `ipc` diariamente y persiste un registro por mes (`period_date`) para evitar duplicados.
+- `sync-indices` sincroniza `icl` diariamente y persiste solo el último valor disponible de cada mes.
+- En facturación, `icl` toma el valor del mes anterior al mes facturado; si falta, usa el mes previo disponible.
 - `reports` requiere `--owner-id`.
 
 ### Ejemplos

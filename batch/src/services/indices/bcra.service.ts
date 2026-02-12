@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from "axios";
+import https from "https";
 import { logger } from "../../shared/logger";
 
 /**
@@ -16,6 +17,13 @@ interface BcraVariableData {
 interface BcraApiResponse {
   status: number;
   results: BcraVariableData[];
+  metadata?: {
+    resultset?: {
+      count?: number;
+      offset?: number;
+      limit?: number;
+    };
+  };
 }
 
 /**
@@ -30,14 +38,15 @@ export interface IclIndexData {
  * Service for fetching inflation indices from BCRA.
  * Provides access to ICL (Índice para Contratos de Locación) data.
  *
- * @see https://api.bcra.gob.ar/estadisticas/v2.0
+ * @see https://api.bcra.gob.ar/estadisticas/v3.0
  */
 export class BcraService {
   private readonly apiUrl: string;
   private readonly client: AxiosInstance;
+  private readonly iclVariableId: number;
 
   /** BCRA variable ID for ICL index. */
-  private static readonly ICL_VARIABLE_ID = 41;
+  private static readonly DEFAULT_ICL_VARIABLE_ID = 40;
 
   /**
    * Creates an instance of BcraService.
@@ -45,10 +54,18 @@ export class BcraService {
    * @param apiUrl - Base URL for BCRA API, defaults to env or official URL.
    */
   constructor(apiUrl?: string) {
-    this.apiUrl =
-      apiUrl ||
-      process.env.BCRA_API_URL ||
-      "https://api.bcra.gob.ar/estadisticas/v2.0";
+    const configuredBase =
+      apiUrl || process.env.BCRA_API_URL || "https://api.bcra.gob.ar";
+    this.apiUrl = this.normalizeApiUrl(configuredBase);
+    const configuredVariableId = Number.parseInt(
+      process.env.BCRA_ICL_VARIABLE_ID || "",
+      10,
+    );
+    this.iclVariableId = Number.isFinite(configuredVariableId)
+      ? configuredVariableId
+      : BcraService.DEFAULT_ICL_VARIABLE_ID;
+
+    const insecureTls = process.env.BCRA_API_INSECURE === "true";
 
     this.client = axios.create({
       baseURL: this.apiUrl,
@@ -56,6 +73,13 @@ export class BcraService {
       headers: {
         Accept: "application/json",
       },
+      ...(insecureTls
+        ? {
+            httpsAgent: new https.Agent({
+              rejectUnauthorized: false,
+            }),
+          }
+        : {}),
     });
   }
 
@@ -71,12 +95,18 @@ export class BcraService {
     const from = this.formatDate(fromDate);
     const to = this.formatDate(toDate);
 
-    const endpoint = `/datosvariable/${BcraService.ICL_VARIABLE_ID}/${from}/${to}`;
+    const endpoint = `/monetarias/${this.iclVariableId}`;
 
     logger.info("Fetching ICL data from BCRA", { from, to, endpoint });
 
     try {
-      const response = await this.client.get<BcraApiResponse>(endpoint);
+      const response = await this.client.get<BcraApiResponse>(endpoint, {
+        params: {
+          desde: from,
+          hasta: to,
+          limit: 5000,
+        },
+      });
 
       if (!response.data.results || response.data.results.length === 0) {
         logger.warn("No ICL data returned from BCRA", { from, to });
@@ -131,17 +161,29 @@ export class BcraService {
    * Formats a date as YYYY-MM-DD for BCRA API.
    */
   private formatDate(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   }
 
   /**
-   * Parses a date string from BCRA API (DD/MM/YYYY format).
+   * Parses a date string from BCRA API.
    */
   private parseDate(dateStr: string): Date {
+    if (dateStr.includes("-")) {
+      const [year, month, day] = dateStr.split("-").map(Number);
+      return new Date(Date.UTC(year, month - 1, day));
+    }
     const [day, month, year] = dateStr.split("/").map(Number);
-    return new Date(year, month - 1, day);
+    return new Date(Date.UTC(year, month - 1, day));
+  }
+
+  private normalizeApiUrl(url: string): string {
+    const trimmed = url.replace(/\/+$/, "");
+    if (/\/estadisticas\/v\d+(\.\d+)?$/i.test(trimmed)) {
+      return trimmed;
+    }
+    return `${trimmed}/estadisticas/v3.0`;
   }
 }

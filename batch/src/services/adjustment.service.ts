@@ -130,11 +130,19 @@ export class AdjustmentService {
     billingDate: Date,
   ): Promise<AdjustmentResult> {
     try {
-      const currentIndex = await this.getIndexForPeriod(indexType, billingDate);
+      const currentIndexTargetDate = this.resolveCurrentIndexTargetDate(
+        indexType,
+        billingDate,
+      );
+      const currentIndex = await this.getIndexForPeriod(
+        indexType,
+        currentIndexTargetDate,
+      );
       if (!currentIndex) {
         logger.warn(`${indexType} index not available for billing period`, {
           leaseId: lease.id,
           billingDate,
+          targetDate: currentIndexTargetDate,
         });
         return result;
       }
@@ -268,6 +276,19 @@ export class AdjustmentService {
 
   private toMonthStartUtc(date: Date): Date {
     return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+  }
+
+  private resolveCurrentIndexTargetDate(
+    indexType: "icl" | "igp_m" | "ipc" | "casa_propia",
+    billingDate: Date,
+  ): Date {
+    const monthStart = this.toMonthStartUtc(billingDate);
+    if (indexType !== "icl") {
+      return monthStart;
+    }
+    const previousMonth = new Date(monthStart);
+    previousMonth.setUTCMonth(previousMonth.getUTCMonth() - 1);
+    return previousMonth;
   }
 
   /**
