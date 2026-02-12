@@ -50,6 +50,21 @@ export function PropertyForm({
     () => createPropertySchema(tValidation),
     [tValidation],
   );
+  const guaranteeTypeOptions = useMemo(
+    () => [
+      { value: "propietaria", label: t("guaranteeTypes.propietaria") },
+      {
+        value: "seguro_caucion",
+        label: t("guaranteeTypes.seguro_caucion"),
+      },
+      { value: "garante", label: t("guaranteeTypes.garante") },
+      {
+        value: "aval_bancario",
+        label: t("guaranteeTypes.aval_bancario"),
+      },
+    ],
+    [t],
+  );
 
   const {
     register,
@@ -105,6 +120,7 @@ export function PropertyForm({
   const images = watch("images") || [];
   const selectedOperations = watch("operations") || [];
   const isSaleOperationSelected = selectedOperations.includes("sale");
+  const selectedGuaranteeType = (watch("acceptedGuaranteeTypes") || [])[0] || "";
   const selectedOwnerId = watch("ownerId");
   const preselectedOwnerId = searchParams.get("ownerId");
   const isOwnerLocked = isEditing || Boolean(preselectedOwnerId);
@@ -466,21 +482,33 @@ export function PropertyForm({
             >
               {t("fields.acceptedGuaranteeTypes")}
             </label>
-            <input
+            <select
               id="acceptedGuaranteeTypes"
-              {...register("acceptedGuaranteeTypes")}
-              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
-              placeholder={t("placeholders.acceptedGuaranteeTypes")}
+              value={selectedGuaranteeType}
               onChange={(event) =>
                 setValue(
                   "acceptedGuaranteeTypes",
-                  event.target.value
-                    .split(",")
-                    .map((value) => value.trim())
-                    .filter(Boolean),
+                  event.target.value ? [event.target.value] : [],
+                  { shouldValidate: true },
                 )
               }
-            />
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
+            >
+              <option value="">{t("guaranteeTypes.none")}</option>
+              {guaranteeTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+              {selectedGuaranteeType &&
+              !guaranteeTypeOptions.some(
+                (option) => option.value === selectedGuaranteeType,
+              ) ? (
+                <option value={selectedGuaranteeType}>
+                  {selectedGuaranteeType}
+                </option>
+              ) : null}
+            </select>
           </div>
 
           <div>

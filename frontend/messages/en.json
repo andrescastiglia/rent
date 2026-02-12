@@ -325,6 +325,13 @@
       "sale": "Sale",
       "leasing": "Leasing"
     },
+    "guaranteeTypes": {
+      "none": "No preference",
+      "propietaria": "Property guarantee",
+      "seguro_caucion": "Surety insurance",
+      "garante": "Guarantor",
+      "aval_bancario": "Bank guarantee"
+    },
     "operationState": {
       "available": "Released",
       "rented": "Rented",

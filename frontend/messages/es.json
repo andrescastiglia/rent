@@ -325,6 +325,13 @@
       "sale": "Venta",
       "leasing": "Leasing"
     },
+    "guaranteeTypes": {
+      "none": "Sin requisito",
+      "propietaria": "Garantía propietaria",
+      "seguro_caucion": "Seguro de caución",
+      "garante": "Garante",
+      "aval_bancario": "Aval bancario"
+    },
     "operationState": {
       "available": "Liberada",
       "rented": "Alquilada",
