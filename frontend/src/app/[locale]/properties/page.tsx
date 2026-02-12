@@ -81,7 +81,12 @@ const resolvePropertyLeaseAction = (leases: Lease[]): PropertyLeaseAction => {
   return { type: "none" };
 };
 
-const ownerActionClass = "action-link action-link-primary";
+const ownerActionClass =
+  "action-link action-link-primary whitespace-nowrap px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm";
+const propertyPrimaryActionClass =
+  "action-link action-link-primary whitespace-nowrap px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm";
+const propertySuccessActionClass =
+  "action-link action-link-success whitespace-nowrap px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm";
 
 export default function PropertiesPage() {
   const { loading: authLoading } = useAuth();
@@ -311,7 +316,7 @@ export default function PropertiesPage() {
                         type="button"
                         data-testid="owner-row-main"
                         onClick={() => handleSelectOwner(owner)}
-                        className="min-w-0 text-left cursor-pointer"
+                        className="min-w-0 w-full md:w-auto text-left cursor-pointer"
                       >
                         <p className="font-semibold text-gray-900 dark:text-white">
                           {owner.firstName} {owner.lastName}
@@ -324,7 +329,7 @@ export default function PropertiesPage() {
                         </p>
                       </button>
 
-                      <div className="ml-auto flex items-center gap-2">
+                      <div className="flex w-full flex-wrap items-center gap-2 md:ml-auto md:w-auto md:justify-end">
                         <Link
                           href={`/${locale}/properties/new?ownerId=${owner.id}`}
                           className={ownerActionClass}
@@ -339,7 +344,7 @@ export default function PropertiesPage() {
                           <Edit size={14} />
                           {tc("edit")}
                         </Link>
-                        <span className="text-gray-400 dark:text-gray-500">
+                        <span className="ml-auto text-gray-400 dark:text-gray-500 md:ml-0">
                           <button
                             type="button"
                             data-testid="owner-row-toggle"
@@ -413,36 +418,36 @@ export default function PropertiesPage() {
                                           property.id,
                                         )
                                       }
-                                      className="text-left cursor-pointer"
+                                      className="min-w-0 w-full md:w-auto text-left cursor-pointer"
                                     >
                                       <p className="text-sm font-semibold text-gray-900 dark:text-white">
                                         {property.name}
                                       </p>
-                                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                                      <p className="text-xs text-gray-500 dark:text-gray-400 break-words">
                                         {property.address.street}{" "}
                                         {property.address.number},{" "}
                                         {property.address.city}
                                       </p>
                                     </button>
-                                    <div className="ml-auto flex items-center gap-2">
+                                    <div className="flex w-full flex-wrap items-center gap-2 md:ml-auto md:w-auto md:justify-end">
                                       <a
                                         href={`/${locale}/properties/${property.id}`}
                                         data-testid={`property-view-link-${property.id}`}
-                                        className="action-link action-link-primary"
+                                        className={propertyPrimaryActionClass}
                                       >
                                         <Eye size={14} />
                                         {tc("view")}
                                       </a>
                                       <a
                                         href={`/${locale}/properties/${property.id}/edit`}
-                                        className="action-link action-link-primary"
+                                        className={propertyPrimaryActionClass}
                                       >
                                         <Edit size={14} />
                                         {tc("edit")}
                                       </a>
                                       <a
                                         href={`/${locale}/properties/${property.id}/maintenance/new`}
-                                        className="action-link action-link-primary"
+                                        className={propertyPrimaryActionClass}
                                       >
                                         <Wrench size={14} />
                                         {t("saveMaintenanceTask")}
@@ -450,7 +455,7 @@ export default function PropertiesPage() {
                                       {leaseAction.type === "view" ? (
                                         <Link
                                           href={`/${locale}/leases/${leaseAction.lease.id}`}
-                                          className="action-link action-link-success"
+                                          className={propertySuccessActionClass}
                                         >
                                           <FileText size={14} />
                                           {t("viewLease")}
@@ -467,7 +472,7 @@ export default function PropertiesPage() {
                                             renewingLeaseId ===
                                             leaseAction.lease.id
                                           }
-                                          className="action-link action-link-success disabled:opacity-60"
+                                          className={`${propertySuccessActionClass} disabled:opacity-60`}
                                         >
                                           {renewingLeaseId ===
                                           leaseAction.lease.id ? (
@@ -483,13 +488,13 @@ export default function PropertiesPage() {
                                       ) : canCreateContract ? (
                                         <Link
                                           href={createContractHref}
-                                          className="action-link action-link-success"
+                                          className={propertySuccessActionClass}
                                         >
                                           <FilePlus size={14} />
                                           {t("createLease")}
                                         </Link>
                                       ) : null}
-                                      <span className="text-gray-400 dark:text-gray-500">
+                                      <span className="ml-auto text-gray-400 dark:text-gray-500 md:ml-0">
                                         <button
                                           type="button"
                                           onClick={() =>

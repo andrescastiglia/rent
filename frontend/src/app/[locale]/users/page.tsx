@@ -221,6 +221,39 @@ export default function UsersPage() {
     }
   };
 
+  const renderUserActions = (user: User) => (
+    <>
+      <button
+        type="button"
+        onClick={() => openEdit(user)}
+        className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700"
+      >
+        <UserPen className="h-3.5 w-3.5" />
+        {tCommon("edit")}
+      </button>
+      <button
+        type="button"
+        onClick={() => openResetPasswordDialog(user)}
+        className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700"
+      >
+        <RotateCcw className="h-3.5 w-3.5" />
+        {tUsers("resetPassword")}
+      </button>
+      <button
+        type="button"
+        onClick={() => void handleToggleActive(user)}
+        className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700"
+      >
+        {user.isActive ? (
+          <ShieldX className="h-3.5 w-3.5" />
+        ) : (
+          <ShieldCheck className="h-3.5 w-3.5" />
+        )}
+        {user.isActive ? tUsers("deactivate") : tUsers("activate")}
+      </button>
+    </>
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -382,87 +415,102 @@ export default function UsersPage() {
 
       {!isEditing ? (
         <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">
-                  {tAuth("email")}
-                </th>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">
-                  {tAuth("firstName")}
-                </th>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">
-                  {tAuth("lastName")}
-                </th>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">
-                  {tAuth("role")}
-                </th>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">
-                  {tUsers("status")}
-                </th>
-                <th className="px-4 py-2 text-right font-medium text-gray-600">
-                  {tCommon("actions")}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {users.map((user) => (
-                <tr key={user.id}>
-                  <td className="px-4 py-2 text-gray-700">{user.email}</td>
-                  <td className="px-4 py-2 text-gray-700">{user.firstName}</td>
-                  <td className="px-4 py-2 text-gray-700">{user.lastName}</td>
-                  <td className="px-4 py-2 text-gray-700">{user.role}</td>
-                  <td className="px-4 py-2 text-gray-700">
-                    {user.isActive ? tUsers("active") : tUsers("inactive")}
-                  </td>
-                  <td className="px-4 py-2">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(user)}
-                        className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700"
-                      >
-                        <UserPen className="h-3.5 w-3.5" />
-                        {tCommon("edit")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openResetPasswordDialog(user)}
-                        className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700"
-                      >
-                        <RotateCcw className="h-3.5 w-3.5" />
-                        {tUsers("resetPassword")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleToggleActive(user)}
-                        className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700"
-                      >
-                        {user.isActive ? (
-                          <ShieldX className="h-3.5 w-3.5" />
-                        ) : (
-                          <ShieldCheck className="h-3.5 w-3.5" />
-                        )}
-                        {user.isActive
-                          ? tUsers("deactivate")
-                          : tUsers("activate")}
-                      </button>
+          <div className="divide-y divide-gray-100 md:hidden">
+            {users.length === 0 ? (
+              <p className="px-4 py-6 text-center text-sm text-gray-500">
+                {tUsers("noUsers")}
+              </p>
+            ) : (
+              users.map((user) => (
+                <article key={user.id} className="space-y-3 p-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 break-all">
+                      {user.email}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {user.firstName} {user.lastName}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <p className="font-medium text-gray-500">
+                        {tAuth("role")}
+                      </p>
+                      <p className="text-gray-700">{user.role}</p>
                     </div>
-                  </td>
-                </tr>
-              ))}
-              {users.length === 0 ? (
+                    <div>
+                      <p className="font-medium text-gray-500">
+                        {tUsers("status")}
+                      </p>
+                      <p className="text-gray-700">
+                        {user.isActive ? tUsers("active") : tUsers("inactive")}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {renderUserActions(user)}
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+
+          <div className="hidden overflow-x-auto md:block">
+            <table className="min-w-[760px] w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50">
                 <tr>
-                  <td
-                    className="px-4 py-6 text-center text-gray-500"
-                    colSpan={6}
-                  >
-                    {tUsers("noUsers")}
-                  </td>
+                  <th className="px-4 py-2 text-left font-medium text-gray-600">
+                    {tAuth("email")}
+                  </th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-600">
+                    {tAuth("firstName")}
+                  </th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-600">
+                    {tAuth("lastName")}
+                  </th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-600">
+                    {tAuth("role")}
+                  </th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-600">
+                    {tUsers("status")}
+                  </th>
+                  <th className="px-4 py-2 text-right font-medium text-gray-600">
+                    {tCommon("actions")}
+                  </th>
                 </tr>
-              ) : null}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {users.map((user) => (
+                  <tr key={user.id}>
+                    <td className="px-4 py-2 text-gray-700">{user.email}</td>
+                    <td className="px-4 py-2 text-gray-700">
+                      {user.firstName}
+                    </td>
+                    <td className="px-4 py-2 text-gray-700">{user.lastName}</td>
+                    <td className="px-4 py-2 text-gray-700">{user.role}</td>
+                    <td className="px-4 py-2 text-gray-700">
+                      {user.isActive ? tUsers("active") : tUsers("inactive")}
+                    </td>
+                    <td className="px-4 py-2">
+                      <div className="flex items-center justify-end gap-2">
+                        {renderUserActions(user)}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {users.length === 0 ? (
+                  <tr>
+                    <td
+                      className="px-4 py-6 text-center text-gray-500"
+                      colSpan={6}
+                    >
+                      {tUsers("noUsers")}
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : null}
 
