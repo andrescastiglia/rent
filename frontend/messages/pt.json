@@ -449,7 +449,14 @@
       "add": "Adicionar atividade",
       "empty": "Sem atividades registradas.",
       "noProperty": "Sem imóvel vinculado",
-      "markReserved": "Marcar como reservada"
+      "markReserved": "Marcar como reservada",
+      "matchContactSubject": "Contato por match",
+      "matchContactBody": "Contato realizado na propriedade {propertyId}",
+      "closeRentSubject": "Fechamento por aluguel",
+      "closeSaleSubject": "Fechamento por compra",
+      "closeSaleDefaultBody": "Requer conversão para comprador",
+      "convertedToTenantSubject": "Lead convertido para inquilino",
+      "convertedToTenantBody": "Inquilino {tenantId} / Usuário {userEmail}"
     },
     "conversion": {
       "tenantTitle": "Converter para inquilino",

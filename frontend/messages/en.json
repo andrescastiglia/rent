@@ -449,7 +449,14 @@
       "add": "Add activity",
       "empty": "No activities yet.",
       "noProperty": "No property linked",
-      "markReserved": "Mark as reserved"
+      "markReserved": "Mark as reserved",
+      "matchContactSubject": "Match contact",
+      "matchContactBody": "Contacted property {propertyId}",
+      "closeRentSubject": "Closed by rent",
+      "closeSaleSubject": "Closed by purchase",
+      "closeSaleDefaultBody": "Requires conversion to buyer",
+      "convertedToTenantSubject": "Lead converted to tenant",
+      "convertedToTenantBody": "Tenant {tenantId} / User {userEmail}"
     },
     "conversion": {
       "tenantTitle": "Convert to tenant",

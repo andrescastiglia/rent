@@ -18,6 +18,7 @@ import { useAuth } from "@/contexts/auth-context";
 const STAGE_OPTIONS: InterestedStatus[] = ["interested", "tenant", "buyer"];
 
 const MATCH_REASON_KEY_PREFIX = "interested.matchReasons.";
+const ACTIVITY_KEY_PREFIX = "interested.";
 const MATCH_REASON_KEYS = [
   "propertyTypeMatches",
   "operationMatches",
@@ -86,6 +87,51 @@ export default function InterestedPage() {
       }
 
       return normalizedReason;
+    },
+    [t],
+  );
+
+  const formatActivityText = useCallback(
+    (
+      value?: string,
+      metadata?: Record<string, unknown>,
+    ): string | undefined => {
+      if (!value) return value;
+
+      const normalizedValue = value.trim();
+      if (!normalizedValue.startsWith(ACTIVITY_KEY_PREFIX)) {
+        return normalizedValue;
+      }
+
+      const translationKey = normalizedValue.slice(ACTIVITY_KEY_PREFIX.length);
+      const args: Record<string, string> = {};
+      if (typeof metadata?.propertyId === "string") {
+        args.propertyId = metadata.propertyId;
+      }
+      if (typeof metadata?.tenantId === "string") {
+        args.tenantId = metadata.tenantId;
+      }
+      if (typeof metadata?.userEmail === "string") {
+        args.userEmail = metadata.userEmail;
+      }
+
+      if (
+        translationKey === "activities.matchContactBody" &&
+        !args.propertyId
+      ) {
+        args.propertyId = "-";
+      }
+
+      if (translationKey === "activities.convertedToTenantBody") {
+        args.tenantId = args.tenantId ?? "-";
+        args.userEmail = args.userEmail ?? "-";
+      }
+
+      try {
+        return t(translationKey, args);
+      } catch {
+        return normalizedValue;
+      }
     },
     [t],
   );
@@ -554,7 +600,10 @@ export default function InterestedPage() {
                                   >
                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                       <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                        {activity.subject}
+                                        {formatActivityText(
+                                          activity.subject,
+                                          activity.metadata,
+                                        )}
                                       </p>
                                       <span className="text-xs px-2 py-1 rounded-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
                                         {t(`activityStatus.${activity.status}`)}
@@ -568,7 +617,10 @@ export default function InterestedPage() {
                                     </p>
                                     {activity.body ? (
                                       <p className="text-xs text-gray-700 dark:text-gray-300 mt-2 whitespace-pre-wrap">
-                                        {activity.body}
+                                        {formatActivityText(
+                                          activity.body,
+                                          activity.metadata,
+                                        )}
                                       </p>
                                     ) : null}
                                   </div>
