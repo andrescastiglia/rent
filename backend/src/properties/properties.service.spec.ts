@@ -174,6 +174,53 @@ describe('PropertiesService', () => {
       });
       expect(result.ownerWhatsapp).toBe('+54 9 11 1234-5678');
     });
+
+    it('should create a property with separate rent and sale prices', async () => {
+      const createPropertyDto = {
+        ownerId: 'owner-1',
+        companyId: 'company-1',
+        name: 'Dual operation property',
+        propertyType: PropertyType.APARTMENT,
+        addressStreet: 'Main 123',
+        addressCity: 'Test City',
+        addressState: 'Test State',
+        addressPostalCode: '12345',
+        status: PropertyStatus.ACTIVE,
+        rentPrice: 1200,
+        salePrice: 100000,
+      };
+
+      propertyRepository.create!.mockReturnValue({
+        ...mockProperty,
+        rentPrice: 1200,
+        salePrice: 100000,
+      });
+      propertyRepository.save!.mockResolvedValue({
+        ...mockProperty,
+        rentPrice: 1200,
+        salePrice: 100000,
+      });
+      ownerRepository.findOne!.mockResolvedValue({
+        id: 'owner-1',
+        companyId: 'company-1',
+        userId: 'owner-user-1',
+      } as any);
+
+      const result = await service.create(createPropertyDto, {
+        id: 'admin-user',
+        role: 'admin',
+        companyId: 'company-1',
+      });
+
+      expect(propertyRepository.create).toHaveBeenCalledWith({
+        ...createPropertyDto,
+        companyId: 'company-1',
+        ownerId: 'owner-1',
+        images: [],
+      });
+      expect(result.rentPrice).toBe(1200);
+      expect(result.salePrice).toBe(100000);
+    });
   });
 
   describe('findAll', () => {

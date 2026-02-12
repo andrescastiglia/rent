@@ -143,6 +143,15 @@ export class Property {
   description: string;
 
   @Column({
+    name: 'rent_price',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
+  rentPrice: number;
+
+  @Column({
     name: 'sale_price',
     type: 'decimal',
     precision: 12,

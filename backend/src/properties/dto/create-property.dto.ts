@@ -111,6 +111,12 @@ export class CreatePropertyDto {
   @Min(0)
   @IsOptional()
   @Type(() => Number)
+  rentPrice?: number;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
   salePrice?: number;
 
   @IsString()

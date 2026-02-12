@@ -225,14 +225,22 @@ const mapProperty = (raw: any): Property => ({
     : [],
   images: [],
   ownerId: raw.ownerId ?? "",
+  rentPrice:
+    raw.rentPrice === null || raw.rentPrice === undefined
+      ? undefined
+      : Number(raw.rentPrice),
   operations: Array.isArray(raw.operations)
     ? raw.operations.filter(
         (item: any): item is "rent" | "sale" =>
           item === "rent" || item === "sale",
       )
-    : raw.salePrice !== null && raw.salePrice !== undefined
-      ? ["rent", "sale"]
-      : ["rent"],
+    : raw.rentPrice !== null && raw.rentPrice !== undefined
+      ? raw.salePrice !== null && raw.salePrice !== undefined
+        ? ["rent", "sale"]
+        : ["rent"]
+      : raw.salePrice !== null && raw.salePrice !== undefined
+        ? ["sale"]
+        : ["rent"],
   createdAt: raw.createdAt
     ? new Date(raw.createdAt).toISOString()
     : new Date().toISOString(),

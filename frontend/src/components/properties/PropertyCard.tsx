@@ -14,6 +14,9 @@ interface PropertyCardProps {
 export function PropertyCard({ property }: PropertyCardProps) {
   const t = useTranslations("properties");
   const locale = useLocale();
+  const operations = property.operations ?? [];
+  const showsRent = operations.includes("rent");
+  const showsSale = operations.includes("sale");
 
   return (
     <Link href={`/${locale}/properties/${property.id}`} className="block group">
@@ -66,6 +69,27 @@ export function PropertyCard({ property }: PropertyCardProps) {
               {t(`operationState.${property.operationState ?? "available"}`)}
             </span>
           </div>
+
+          {(showsRent || showsSale) && (
+            <div className="mb-3 space-y-1">
+              {showsRent ? (
+                <p className="text-xs text-gray-600">
+                  <span className="font-medium">{t("fields.rentPrice")}:</span>{" "}
+                  {property.rentPrice !== undefined
+                    ? property.rentPrice.toLocaleString(locale)
+                    : "-"}
+                </p>
+              ) : null}
+              {showsSale ? (
+                <p className="text-xs text-gray-600">
+                  <span className="font-medium">{t("fields.salePrice")}:</span>{" "}
+                  {property.salePrice !== undefined
+                    ? `${property.salePrice.toLocaleString(locale)}${property.saleCurrency ? ` ${property.saleCurrency}` : ""}`
+                    : "-"}
+                </p>
+              ) : null}
+            </div>
+          )}
 
           <div className="grid grid-cols-3 gap-2 py-3 border-t border-gray-100">
             <div className="flex flex-col items-center justify-center text-gray-600">

@@ -42,6 +42,7 @@ type BackendProperty = {
   images?: any[] | null;
   ownerId?: string | null;
   ownerWhatsapp?: string | null;
+  rentPrice?: number | string | null;
   salePrice?: number | string | null;
   saleCurrency?: string | null;
   operations?: string[] | null;
@@ -82,6 +83,7 @@ type BackendCreatePropertyPayload = {
   addressCountry?: string;
   addressPostalCode?: string;
   description?: string;
+  rentPrice?: number;
   salePrice?: number;
   saleCurrency?: string;
   operations?: Array<"rent" | "sale">;
@@ -286,6 +288,7 @@ const serializeCreatePayload = (
     addressCountry: data.address.country,
     addressPostalCode: data.address.zipCode,
     description: data.description,
+    rentPrice: data.rentPrice,
     salePrice: data.salePrice,
     saleCurrency: data.saleCurrency,
     operations: data.operations,
@@ -324,6 +327,7 @@ const serializeUpdatePayload = (
   if (data.address?.zipCode !== undefined)
     payload.addressPostalCode = data.address.zipCode;
   if (data.description !== undefined) payload.description = data.description;
+  if (data.rentPrice !== undefined) payload.rentPrice = data.rentPrice;
   if (data.salePrice !== undefined) payload.salePrice = data.salePrice;
   if (data.saleCurrency !== undefined) payload.saleCurrency = data.saleCurrency;
   if (data.operations !== undefined) payload.operations = data.operations;
@@ -397,9 +401,13 @@ const mapBackendPropertyToProperty = (raw: BackendProperty): Property => {
   const operations: Property["operations"] =
     normalizedOperations.length > 0
       ? normalizedOperations
-      : raw.salePrice !== undefined && raw.salePrice !== null
-        ? ["rent", "sale"]
-        : ["rent"];
+      : raw.rentPrice !== undefined && raw.rentPrice !== null
+        ? raw.salePrice !== undefined && raw.salePrice !== null
+          ? ["rent", "sale"]
+          : ["rent"]
+        : raw.salePrice !== undefined && raw.salePrice !== null
+          ? ["sale"]
+          : ["rent"];
 
   return {
     id: raw.id,
@@ -436,6 +444,10 @@ const mapBackendPropertyToProperty = (raw: BackendProperty): Property => {
     images: normalizeImages(raw.images),
     ownerId: raw.ownerId ?? "",
     ownerWhatsapp: raw.ownerWhatsapp ?? undefined,
+    rentPrice:
+      raw.rentPrice !== undefined && raw.rentPrice !== null
+        ? Number(raw.rentPrice)
+        : undefined,
     salePrice:
       raw.salePrice !== undefined && raw.salePrice !== null
         ? Number(raw.salePrice)
@@ -501,6 +513,7 @@ const MOCK_PROPERTIES: Property[] = [
     images: ["/placeholder-property.svg"],
     ownerId: "owner1",
     ownerWhatsapp: "+54 9 11 5555-1234",
+    rentPrice: 125000,
     salePrice: 150000,
     saleCurrency: "USD",
     operations: ["rent", "sale"],
@@ -530,6 +543,7 @@ const MOCK_PROPERTIES: Property[] = [
     images: ["/placeholder-property.svg"],
     ownerId: "owner2",
     ownerWhatsapp: "+54 9 11 5555-5678",
+    rentPrice: 89000,
     salePrice: 98000,
     saleCurrency: "USD",
     operations: ["rent", "sale"],
@@ -582,6 +596,16 @@ export const propertiesApi = {
       if (filters?.maxSalePrice !== undefined) {
         filtered = filtered.filter(
           (p) => (p.salePrice ?? 0) <= filters.maxSalePrice!,
+        );
+      }
+      if (filters?.minRent !== undefined) {
+        filtered = filtered.filter(
+          (p) => (p.rentPrice ?? 0) >= filters.minRent!,
+        );
+      }
+      if (filters?.maxRent !== undefined) {
+        filtered = filtered.filter(
+          (p) => (p.rentPrice ?? 0) <= filters.maxRent!,
         );
       }
       return filtered;

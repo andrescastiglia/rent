@@ -479,6 +479,38 @@ export default function PropertyDetailPage() {
             <div className="space-y-6">
               <div className="bg-gray-50 dark:bg-gray-700 p-6 rounded-lg border border-gray-100 dark:border-gray-600">
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-4">
+                  {t("pricingTitle")}
+                </h3>
+                <dl className="space-y-3">
+                  {supportsRent ? (
+                    <div className="flex justify-between">
+                      <dt className="text-gray-500 dark:text-gray-400">
+                        {t("fields.rentPrice")}
+                      </dt>
+                      <dd className="font-medium text-gray-900 dark:text-white">
+                        {property.rentPrice !== undefined
+                          ? property.rentPrice.toLocaleString(locale)
+                          : "-"}
+                      </dd>
+                    </div>
+                  ) : null}
+                  {supportsSale ? (
+                    <div className="flex justify-between">
+                      <dt className="text-gray-500 dark:text-gray-400">
+                        {t("fields.salePrice")}
+                      </dt>
+                      <dd className="font-medium text-gray-900 dark:text-white">
+                        {property.salePrice !== undefined
+                          ? `${property.salePrice.toLocaleString(locale)}${property.saleCurrency ? ` ${property.saleCurrency}` : ""}`
+                          : "-"}
+                      </dd>
+                    </div>
+                  ) : null}
+                </dl>
+              </div>
+
+              <div className="bg-gray-50 dark:bg-gray-700 p-6 rounded-lg border border-gray-100 dark:border-gray-600">
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-4">
                   {t("ownerContact")}
                 </h3>
                 <dl className="space-y-3">

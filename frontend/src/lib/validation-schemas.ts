@@ -55,6 +55,7 @@ export const createPropertySchema = (t: TranslationFunction) =>
       .refine((value) => !value || value.length >= 6, {
         message: t("invalidPhone"),
       }),
+    rentPrice: z.coerce.number().min(0, t("positive")).optional(),
     salePrice: z.coerce.number().min(0, t("positive")).optional(),
     saleCurrency: z.string().optional(),
     operations: z

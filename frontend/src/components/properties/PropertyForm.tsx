@@ -84,6 +84,7 @@ export function PropertyForm({
             value: f.value,
           })),
           ownerWhatsapp: initialData.ownerWhatsapp ?? "",
+          rentPrice: initialData.rentPrice ?? undefined,
           salePrice: initialData.salePrice ?? undefined,
           saleCurrency: initialData.saleCurrency ?? "ARS",
           operations: initialData.operations ?? ["rent"],
@@ -99,6 +100,7 @@ export function PropertyForm({
           features: [],
           ownerId: "",
           ownerWhatsapp: "",
+          rentPrice: undefined,
           salePrice: undefined,
           saleCurrency: "ARS",
           operations: ["rent"],
@@ -119,8 +121,10 @@ export function PropertyForm({
 
   const images = watch("images") || [];
   const selectedOperations = watch("operations") || [];
+  const isRentOperationSelected = selectedOperations.includes("rent");
   const isSaleOperationSelected = selectedOperations.includes("sale");
-  const selectedGuaranteeType = (watch("acceptedGuaranteeTypes") || [])[0] || "";
+  const selectedGuaranteeType =
+    (watch("acceptedGuaranteeTypes") || [])[0] || "";
   const selectedOwnerId = watch("ownerId");
   const preselectedOwnerId = searchParams.get("ownerId");
   const isOwnerLocked = isEditing || Boolean(preselectedOwnerId);
@@ -173,6 +177,12 @@ export function PropertyForm({
       shouldValidate: true,
     });
   }, [activeOwner, isOwnerLocked, setValue]);
+
+  useEffect(() => {
+    if (isRentOperationSelected) return;
+    setValue("rentPrice", undefined);
+    clearErrors("rentPrice");
+  }, [clearErrors, isRentOperationSelected, setValue]);
 
   useEffect(() => {
     if (isSaleOperationSelected) return;
@@ -384,6 +394,33 @@ export function PropertyForm({
             </select>
             {errors.type && (
               <p className="mt-1 text-sm text-red-600">{errors.type.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label
+              htmlFor="rentPrice"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              {t("fields.rentPrice")}
+            </label>
+            <input
+              id="rentPrice"
+              type="number"
+              min="0"
+              step="0.01"
+              disabled={!isRentOperationSelected}
+              {...register("rentPrice", {
+                setValueAs: (value) =>
+                  value === "" || value === null ? undefined : Number(value),
+              })}
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed dark:disabled:bg-gray-900/40 dark:disabled:text-gray-400"
+              placeholder={t("placeholders.rentPrice")}
+            />
+            {errors.rentPrice && (
+              <p className="mt-1 text-sm text-red-600">
+                {errors.rentPrice.message}
+              </p>
             )}
           </div>
 

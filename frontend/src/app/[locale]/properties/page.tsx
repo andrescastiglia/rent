@@ -428,6 +428,24 @@ export default function PropertiesPage() {
                                         {property.address.number},{" "}
                                         {property.address.city}
                                       </p>
+                                      {propertyOperations.includes("rent") ? (
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                          {t("fields.rentPrice")}:{" "}
+                                          {property.rentPrice !== undefined
+                                            ? property.rentPrice.toLocaleString(
+                                                locale,
+                                              )
+                                            : "-"}
+                                        </p>
+                                      ) : null}
+                                      {propertyOperations.includes("sale") ? (
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                          {t("fields.salePrice")}:{" "}
+                                          {property.salePrice !== undefined
+                                            ? `${property.salePrice.toLocaleString(locale)}${property.saleCurrency ? ` ${property.saleCurrency}` : ""}`
+                                            : "-"}
+                                        </p>
+                                      ) : null}
                                     </button>
                                     <div className="flex w-full flex-wrap items-center gap-2 md:ml-auto md:w-auto md:justify-end">
                                       <a

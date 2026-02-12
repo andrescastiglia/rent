@@ -151,10 +151,16 @@ export class PropertiesService {
       bathrooms !== undefined
     ) {
       if (minRent !== undefined) {
-        query.andWhere('units.base_rent >= :minRent', { minRent });
+        query.andWhere(
+          '(property.rent_price >= :minRent OR units.base_rent >= :minRent)',
+          { minRent },
+        );
       }
       if (maxRent !== undefined) {
-        query.andWhere('units.base_rent <= :maxRent', { maxRent });
+        query.andWhere(
+          '(property.rent_price <= :maxRent OR units.base_rent <= :maxRent)',
+          { maxRent },
+        );
       }
       if (minSalePrice !== undefined) {
         query.andWhere('property.sale_price >= :minSalePrice', {

@@ -1270,11 +1270,20 @@ export class InterestedService {
       return fromProperty;
     }
 
+    const hasRentPrice = this.getAvailableRentPrice(property) !== null;
     const hasSalePrice =
       property.salePrice !== null && property.salePrice !== undefined;
-    return hasSalePrice
-      ? [PropertyOperation.RENT, PropertyOperation.SALE]
-      : [PropertyOperation.RENT];
+
+    if (hasRentPrice && hasSalePrice) {
+      return [PropertyOperation.RENT, PropertyOperation.SALE];
+    }
+    if (hasSalePrice) {
+      return [PropertyOperation.SALE];
+    }
+    if (hasRentPrice) {
+      return [PropertyOperation.RENT];
+    }
+    return [PropertyOperation.RENT];
   }
 
   private isOperationCompatible(
@@ -1559,6 +1568,10 @@ export class InterestedService {
   }
 
   private getAvailableRentPrice(property: Property): number | null {
+    if (property.rentPrice !== null && property.rentPrice !== undefined) {
+      return Number(property.rentPrice);
+    }
+
     const availableRentValues = (property.units ?? [])
       .filter((unit) => unit.status === UnitStatus.AVAILABLE)
       .map((unit) =>

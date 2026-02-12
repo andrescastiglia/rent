@@ -64,6 +64,7 @@ export interface Property {
   images: string[];
   ownerId: string;
   ownerWhatsapp?: string;
+  rentPrice?: number;
   salePrice?: number;
   saleCurrency?: string;
   operations?: PropertyOperation[];
@@ -84,6 +85,7 @@ export interface CreatePropertyInput {
   images?: string[];
   ownerId?: string;
   ownerWhatsapp?: string;
+  rentPrice?: number;
   salePrice?: number;
   saleCurrency?: string;
   operations?: PropertyOperation[];
