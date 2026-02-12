@@ -22,10 +22,7 @@ export type LateFeeType =
   | "daily_fixed"
   | "daily_percentage";
 export type AdjustmentType = "fixed" | "percentage" | "inflation_index";
-export type InflationIndexType =
-  | "icl"
-  | "ipc"
-  | "igp_m";
+export type InflationIndexType = "icl" | "ipc" | "igp_m";
 
 export interface LeaseTemplate {
   id: string;

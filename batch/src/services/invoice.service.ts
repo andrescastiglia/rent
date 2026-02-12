@@ -189,7 +189,10 @@ export class InvoiceService {
       });
 
       const created = this.mapToRecord(result[0]);
-      created.pdfUrl = await this.generateAndPersistPdf(created, data.companyId);
+      created.pdfUrl = await this.generateAndPersistPdf(
+        created,
+        data.companyId,
+      );
       return created;
     } catch (error) {
       logger.error("Failed to create invoice", {

@@ -100,8 +100,7 @@ export class PaymentDocumentTemplatesService {
 
     return this.templatesRepository.manager.transaction(
       async (entityManager) => {
-        const repository =
-          entityManager.getRepository(PaymentDocumentTemplate);
+        const repository = entityManager.getRepository(PaymentDocumentTemplate);
         const template = await repository.findOne({
           where: { id, companyId, deletedAt: IsNull() },
         });

@@ -59,7 +59,9 @@ export default function TemplateEditorPage() {
       setNotFound(false);
       try {
         if (isContractScope(scope)) {
-          const templates = await leasesApi.getTemplates(scopeToContractType[scope]);
+          const templates = await leasesApi.getTemplates(
+            scopeToContractType[scope],
+          );
           const target = templates.find((item) => item.id === templateId);
           if (!target) {
             setNotFound(true);
@@ -118,7 +120,9 @@ export default function TemplateEditorPage() {
     const token = `{{${variableKey}}}`;
     setForm((prev) => ({
       ...prev,
-      templateBody: prev.templateBody ? `${prev.templateBody}\n${token}` : token,
+      templateBody: prev.templateBody
+        ? `${prev.templateBody}\n${token}`
+        : token,
     }));
   };
 

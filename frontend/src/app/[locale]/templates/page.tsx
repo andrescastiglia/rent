@@ -129,7 +129,9 @@ export default function TemplatesPage() {
         </div>
       ) : templates.length === 0 ? (
         <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center">
-          <p className="text-sm text-gray-600 dark:text-gray-300">{t("empty")}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            {t("empty")}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

@@ -670,7 +670,9 @@ export class DashboardService {
     return role === UserRole.ADMIN || role === UserRole.STAFF;
   }
 
-  private normalizeBatchReportType(value: string | null): BatchReportType | null {
+  private normalizeBatchReportType(
+    value: string | null,
+  ): BatchReportType | null {
     if (value === 'monthly' || value === 'monthly_summary') {
       return 'monthly_summary';
     }

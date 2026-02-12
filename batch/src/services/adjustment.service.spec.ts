@@ -129,7 +129,6 @@ describe("AdjustmentService", () => {
 
       // 10% increase (550/500 = 1.1)
       expect(result.adjustedAmount).toBeCloseTo(55000, 0);
-
     });
 
     it("should use billed month IPC and fallback to previous month when missing", async () => {

@@ -20,6 +20,7 @@ type MockRepository<T extends Record<string, any> = any> = Partial<
 const createMockRepository = (): MockRepository => ({
   create: jest.fn(),
   save: jest.fn(),
+  find: jest.fn().mockResolvedValue([]),
   findOne: jest.fn(),
   update: jest.fn(),
   softDelete: jest.fn(),

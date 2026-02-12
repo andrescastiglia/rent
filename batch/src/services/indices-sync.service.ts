@@ -29,10 +29,7 @@ export class IndicesSyncService {
    * @param bcraService - Service for BCRA API calls.
    * @param ipcArService - Service for datos.gob.ar IPC API calls.
    */
-  constructor(
-    bcraService?: BcraService,
-    ipcArService?: IpcArService,
-  ) {
+  constructor(bcraService?: BcraService, ipcArService?: IpcArService) {
     this.bcraService = bcraService || new BcraService();
     this.ipcArService = ipcArService || new IpcArService();
   }
