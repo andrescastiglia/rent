@@ -1027,8 +1027,8 @@
     }
   },
   "reports": {
-    "title": "Batch Reports",
-    "subtitle": "History of generated reports (monthly_summary and settlement), sorted by newest first.",
+    "title": "Reports",
+    "subtitle": "Sorted by newest first.",
     "empty": "No generated reports to display.",
     "dryRun": "Dry run",
     "failedCount": "{count} failed",

@@ -1027,8 +1027,8 @@
     }
   },
   "reports": {
-    "title": "Relatórios do Batch",
-    "subtitle": "Histórico de relatórios gerados (monthly_summary e settlement), ordenado do mais recente para o mais antigo.",
+    "title": "Relatórios",
+    "subtitle": "ordenado do mais recente para o mais antigo.",
     "empty": "Não há relatórios gerados para exibir.",
     "dryRun": "Simulação",
     "failedCount": "{count} falhos",

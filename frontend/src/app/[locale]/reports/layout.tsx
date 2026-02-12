@@ -3,16 +3,14 @@
 import MainLayout from "@/components/layout/MainLayout";
 import { RoleGuard } from "@/components/common/RoleGuard";
 
-export default function PropertiesLayout({
+export default function ReportsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
     <MainLayout>
-      <RoleGuard allowedRoles={["admin", "owner", "staff"]}>
-        {children}
-      </RoleGuard>
+      <RoleGuard allowedRoles={["admin", "staff"]}>{children}</RoleGuard>
     </MainLayout>
   );
 }

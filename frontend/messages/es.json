@@ -1027,8 +1027,8 @@
     }
   },
   "reports": {
-    "title": "Reportes Batch",
-    "subtitle": "Historial de reportes generados (monthly_summary y settlement), ordenado por fecha descendente.",
+    "title": "Reportes",
+    "subtitle": "Ordenado por fecha descendente.",
     "empty": "No hay reportes generados para mostrar.",
     "dryRun": "Simulación",
     "failedCount": "{count} fallidos",
