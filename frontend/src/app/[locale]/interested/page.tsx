@@ -320,9 +320,17 @@ export default function InterestedPage() {
       </div>
 
       <div className="space-y-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-          {t("listTitle")}
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            {t("listTitle")}
+          </h2>
+          <Link
+            href={`/${locale}/interested/new`}
+            className="inline-flex items-center rounded-md border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 dark:border-blue-700 dark:text-blue-300"
+          >
+            {t("actions.new")}
+          </Link>
+        </div>
 
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
