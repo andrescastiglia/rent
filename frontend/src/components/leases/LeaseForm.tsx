@@ -232,7 +232,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
         const [props, interestedResponse, owns, leaseTemplates] =
           await Promise.all([
             propertiesApi.getAll(),
-            interestedApi.getAll({ limit: 200 }),
+            interestedApi.getAll({ limit: 100 }),
             ownersApi.getAll(),
             leasesApi.getTemplates(),
           ]);

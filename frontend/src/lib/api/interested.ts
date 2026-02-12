@@ -27,6 +27,7 @@ type PaginatedResponse<T> = {
 
 const DELAY = 300;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const MAX_INTERESTED_PAGE_SIZE = 100;
 
 const MOCK_INTERESTED: InterestedProfile[] = [
   {
@@ -338,7 +339,12 @@ export const interestedApi = {
     if (filters?.qualificationLevel)
       queryParams.append("qualificationLevel", filters.qualificationLevel);
     if (filters?.page) queryParams.append("page", String(filters.page));
-    if (filters?.limit) queryParams.append("limit", String(filters.limit));
+    if (filters?.limit) {
+      queryParams.append(
+        "limit",
+        String(Math.min(filters.limit, MAX_INTERESTED_PAGE_SIZE)),
+      );
+    }
 
     const endpoint =
       queryParams.toString().length > 0
