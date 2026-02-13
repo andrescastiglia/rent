@@ -135,6 +135,7 @@ describe('Properties Management (e2e)', () => {
     });
 
     it('should fail without authentication', () => {
+      expect.hasAssertions();
       const propertyDto = {
         companyId: companyId,
         ownerId: ownerId,
@@ -288,6 +289,7 @@ describe('Properties Management (e2e)', () => {
     });
 
     it('should fail to delete property with occupied units', async () => {
+      expect.hasAssertions();
       // This would require creating a unit and lease, simplified for this test
       return request(app.getHttpServer())
         .delete(`/properties/${propertyId}`)

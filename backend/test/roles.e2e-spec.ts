@@ -79,6 +79,7 @@ describe('Role-Based Access Control (e2e)', () => {
 
   describe('OwnersController RBAC', () => {
     it('should allow Admin to access owners list', () => {
+      expect.hasAssertions();
       return request(app.getHttpServer())
         .get('/owners')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -86,6 +87,7 @@ describe('Role-Based Access Control (e2e)', () => {
     });
 
     it('should deny Tenant access to owners list', () => {
+      expect.hasAssertions();
       return request(app.getHttpServer())
         .get('/owners')
         .set('Authorization', `Bearer ${tenantToken}`)
@@ -93,6 +95,7 @@ describe('Role-Based Access Control (e2e)', () => {
     });
 
     it('should deny unauthenticated access to owners list', () => {
+      expect.hasAssertions();
       return request(app.getHttpServer()).get('/owners').expect(401);
     });
   });

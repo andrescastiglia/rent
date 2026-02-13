@@ -284,6 +284,7 @@ describe('Lease Creation Flow (e2e)', () => {
     });
 
     it('Step 8: Should prevent creating another active lease for same unit', async () => {
+      expect.hasAssertions();
       const leaseDto = {
         companyId: companyId,
         unitId: unitId,

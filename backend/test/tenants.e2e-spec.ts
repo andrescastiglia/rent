@@ -102,6 +102,7 @@ describe('Tenants Management (e2e)', () => {
     });
 
     it('should fail with duplicate DNI', async () => {
+      expect.hasAssertions();
       const tenantDto = {
         email: `dup-dni-1@t-${shortId}.test`,
         password: 'Password123!',
@@ -131,6 +132,7 @@ describe('Tenants Management (e2e)', () => {
     });
 
     it('should fail with duplicate email', async () => {
+      expect.hasAssertions();
       const email = `dup-email@t-${shortId}.test`;
 
       // Create first tenant
@@ -305,6 +307,7 @@ describe('Tenants Management (e2e)', () => {
     });
 
     it('should delete tenant', () => {
+      expect.hasAssertions();
       return request(app.getHttpServer())
         .delete(`/tenants/${tenantId}`)
         .set('Authorization', `Bearer ${ownerToken}`)
@@ -312,6 +315,7 @@ describe('Tenants Management (e2e)', () => {
     });
 
     it('should not find deleted tenant', () => {
+      expect.hasAssertions();
       return request(app.getHttpServer())
         .get(`/tenants/${tenantId}`)
         .set('Authorization', `Bearer ${ownerToken}`)

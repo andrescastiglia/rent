@@ -61,6 +61,7 @@ describe('Authentication (e2e)', () => {
     });
 
     it('should fail with duplicate email', async () => {
+      expect.hasAssertions();
       const registerDto = {
         email: `duplicate@auth-${uniqueId}.test`,
         password: 'Password123!',
@@ -83,6 +84,7 @@ describe('Authentication (e2e)', () => {
     });
 
     it('should fail with invalid email', () => {
+      expect.hasAssertions();
       const registerDto = {
         email: 'invalid-email',
         password: 'Password123!',
@@ -98,6 +100,7 @@ describe('Authentication (e2e)', () => {
     });
 
     it('should fail with weak password', () => {
+      expect.hasAssertions();
       const registerDto = {
         email: `weakpass@auth-${uniqueId}.test`,
         password: '123',
@@ -144,6 +147,7 @@ describe('Authentication (e2e)', () => {
     });
 
     it('should fail with invalid password', () => {
+      expect.hasAssertions();
       return request(app.getHttpServer())
         .post('/auth/login')
         .send({
@@ -154,6 +158,7 @@ describe('Authentication (e2e)', () => {
     });
 
     it('should fail with non-existent user', () => {
+      expect.hasAssertions();
       return request(app.getHttpServer())
         .post('/auth/login')
         .send({
@@ -196,10 +201,12 @@ describe('Authentication (e2e)', () => {
     });
 
     it('should fail to access protected route without token', () => {
+      expect.hasAssertions();
       return request(app.getHttpServer()).get('/auth/profile').expect(401);
     });
 
     it('should fail to access protected route with invalid token', () => {
+      expect.hasAssertions();
       return request(app.getHttpServer())
         .get('/auth/profile')
         .set('Authorization', 'Bearer invalid-token')
@@ -207,6 +214,7 @@ describe('Authentication (e2e)', () => {
     });
 
     it('should fail to access protected route with malformed header', () => {
+      expect.hasAssertions();
       return request(app.getHttpServer())
         .get('/auth/profile')
         .set('Authorization', accessToken) // Missing "Bearer"
