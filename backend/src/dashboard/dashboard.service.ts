@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import { Property } from '../properties/entities/property.entity';
 import {
@@ -38,6 +38,7 @@ import {
   OwnerActivityStatus,
 } from '../owners/entities/owner-activity.entity';
 import { Owner } from '../owners/entities/owner.entity';
+import { DataSource } from 'typeorm';
 
 type RequestUser = {
   id: string;
@@ -106,6 +107,8 @@ export class DashboardService {
     private readonly ownerActivityRepository: Repository<OwnerActivity>,
     @InjectRepository(Owner)
     private readonly ownerRepository: Repository<Owner>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   async getStats(
@@ -275,11 +278,40 @@ export class DashboardService {
       monthlyCommissions = Number(commissionResult?.total ?? 0);
     }
 
+    let monthlyExpenses = 0;
+    if (isPrivileged || user.role === UserRole.OWNER) {
+      const params: Array<string | Date> = [
+        companyId,
+        firstDayOfMonth,
+        lastDayOfMonth,
+      ];
+      const ownerScope =
+        user.role === UserRole.OWNER
+          ? `AND owner_entity.user_id = $${params.push(user.id)}`
+          : '';
+
+      const expensesRows = await this.dataSource.query(
+        `SELECT COALESCE(SUM(s.net_amount), 0) AS total
+           FROM settlements s
+           INNER JOIN owners owner_entity
+             ON owner_entity.id = s.owner_id
+            AND owner_entity.company_id = $1
+            AND owner_entity.deleted_at IS NULL
+          WHERE s.status = 'completed'
+            AND s.processed_at >= $2
+            AND s.processed_at <= $3
+            ${ownerScope}`,
+        params,
+      );
+      monthlyExpenses = Number(expensesRows?.[0]?.total ?? 0);
+    }
+
     return {
       totalProperties,
       totalTenants,
       activeLeases,
       monthlyIncome,
+      monthlyExpenses,
       currencyCode,
       totalPayments,
       totalInvoices,

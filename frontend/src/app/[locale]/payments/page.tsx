@@ -3,16 +3,27 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Payment, PaymentFilters, PaymentStatus } from "@/types/payment";
 import { paymentsApi } from "@/lib/api/payments";
-import { PaymentCard } from "@/components/payments/PaymentCard";
-import { Search, Loader2, Filter } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { ownersApi } from "@/lib/api/owners";
+import { OwnerSettlementSummary } from "@/types/owner";
+import { Search, Loader2, Filter, Download, Eye } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
+import Link from "next/link";
+import { formatMoneyByCode } from "@/lib/format-money";
+
+type PaymentTimelineItem =
+  | { kind: "tenant"; date: string; payment: Payment }
+  | { kind: "owner"; date: string; payment: OwnerSettlementSummary };
 
 export default function PaymentsPage() {
   const { loading: authLoading } = useAuth();
   const t = useTranslations("payments");
+  const locale = useLocale();
 
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [ownerPayments, setOwnerPayments] = useState<OwnerSettlementSummary[]>(
+    [],
+  );
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
@@ -24,8 +35,12 @@ export default function PaymentsPage() {
       if (statusFilter) {
         filters.status = statusFilter as PaymentStatus;
       }
-      const result = await paymentsApi.getAll(filters);
-      setPayments(result.data);
+      const [tenantResult, ownerResult] = await Promise.all([
+        paymentsApi.getAll(filters),
+        ownersApi.listSettlementPayments(200),
+      ]);
+      setPayments(tenantResult.data);
+      setOwnerPayments(ownerResult);
     } catch (error) {
       console.error("Failed to load payments", error);
     } finally {
@@ -38,13 +53,34 @@ export default function PaymentsPage() {
     loadPayments();
   }, [loadPayments, authLoading]);
 
-  const filteredPayments = payments.filter(
-    (payment) =>
-      payment.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.receipt?.receiptNumber
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()),
-  );
+  const timeline: PaymentTimelineItem[] = [
+    ...payments.map((payment) => ({
+      kind: "tenant" as const,
+      date: payment.paymentDate,
+      payment,
+    })),
+    ...ownerPayments.map((payment) => ({
+      kind: "owner" as const,
+      date: payment.processedAt ?? payment.updatedAt,
+      payment,
+    })),
+  ]
+    .filter((item) => {
+      const term = searchTerm.trim().toLowerCase();
+      if (!term) return true;
+      if (item.kind === "tenant") {
+        return (
+          item.payment.reference?.toLowerCase().includes(term) ||
+          item.payment.receipt?.receiptNumber?.toLowerCase().includes(term)
+        );
+      }
+      return (
+        item.payment.ownerName.toLowerCase().includes(term) ||
+        item.payment.period.toLowerCase().includes(term) ||
+        item.payment.transferReference?.toLowerCase().includes(term)
+      );
+    })
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -96,11 +132,117 @@ export default function PaymentsPage() {
         <div className="flex justify-center items-center h-64">
           <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
         </div>
-      ) : filteredPayments.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredPayments.map((payment) => (
-            <PaymentCard key={payment.id} payment={payment} />
-          ))}
+      ) : timeline.length > 0 ? (
+        <div className="space-y-3">
+          {timeline.map((item) =>
+            item.kind === "tenant" ? (
+              <div
+                key={`tenant-${item.payment.id}`}
+                className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4"
+              >
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                      {t("tenantPaymentEntry")}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {new Date(item.payment.paymentDate).toLocaleDateString(
+                        locale,
+                      )}
+                    </p>
+                    {item.payment.reference ? (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {item.payment.reference}
+                      </p>
+                    ) : null}
+                  </div>
+                  <p className="text-lg font-bold text-green-700 dark:text-green-400">
+                    +{" "}
+                    {formatMoneyByCode(
+                      item.payment.amount,
+                      item.payment.currencyCode,
+                      locale,
+                    )}
+                  </p>
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <Link
+                    href={`/${locale}/payments/${item.payment.id}`}
+                    className="btn btn-secondary btn-sm"
+                  >
+                    <Eye size={14} />
+                    {t("viewPayment")}
+                  </Link>
+                  {item.payment.receipt ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void paymentsApi.downloadReceiptPdf(
+                          item.payment.id,
+                          item.payment.receipt?.receiptNumber,
+                        )
+                      }
+                      className="btn btn-success btn-sm"
+                    >
+                      <Download size={14} />
+                      {t("actions.downloadReceipt")}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : (
+              <div
+                key={`owner-${item.payment.id}`}
+                className="rounded-lg border border-red-200 dark:border-red-900 bg-white dark:bg-gray-800 p-4"
+              >
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                      {t("ownerPaymentEntry")}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {item.payment.ownerName} · {item.payment.period}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {(item.payment.processedAt ?? item.payment.updatedAt) &&
+                        new Date(
+                          item.payment.processedAt ?? item.payment.updatedAt,
+                        ).toLocaleDateString(locale)}
+                    </p>
+                  </div>
+                  <p className="text-lg font-bold text-red-700 dark:text-red-400">
+                    -{" "}
+                    {formatMoneyByCode(
+                      item.payment.netAmount,
+                      item.payment.currencyCode,
+                      locale,
+                    )}
+                  </p>
+                </div>
+                <div className="mt-2 flex gap-2">
+                  {item.payment.receiptPdfUrl ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void ownersApi.downloadSettlementReceipt(
+                          item.payment.id,
+                          item.payment.receiptName ?? undefined,
+                        )
+                      }
+                      className="btn btn-secondary btn-sm"
+                    >
+                      <Download size={14} />
+                      {t("downloadOwnerReceipt")}
+                    </button>
+                  ) : (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {t("ownerReceiptPending")}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ),
+          )}
         </div>
       ) : (
         <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">

@@ -6,7 +6,7 @@ import { Property, PropertyMaintenanceTask } from "@/types/property";
 import { propertiesApi } from "@/lib/api/properties";
 import { ownersApi } from "@/lib/api/owners";
 import { leasesApi } from "@/lib/api/leases";
-import { Owner } from "@/types/owner";
+import { Owner, OwnerSettlementSummary } from "@/types/owner";
 import { Lease } from "@/types/lease";
 import {
   Plus,
@@ -14,9 +14,11 @@ import {
   Search,
   Eye,
   Edit,
+  Wallet,
   Wrench,
   FilePlus,
   FileText,
+  Download,
   ChevronDown,
   ChevronUp,
   RefreshCw,
@@ -112,6 +114,12 @@ export default function PropertiesPage() {
   const [loadingMaintenancePropertyId, setLoadingMaintenancePropertyId] =
     useState<string | null>(null);
   const [renewingLeaseId, setRenewingLeaseId] = useState<string | null>(null);
+  const [recentPaymentsByOwner, setRecentPaymentsByOwner] = useState<
+    Record<string, OwnerSettlementSummary[]>
+  >({});
+  const [loadingPaymentsOwnerId, setLoadingPaymentsOwnerId] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -212,6 +220,22 @@ export default function PropertiesPage() {
   const handleSelectOwner = (owner: Owner) => {
     setSelectedOwnerId((prev) => (prev === owner.id ? null : owner.id));
     setExpandedPropertyId(null);
+    if (!recentPaymentsByOwner[owner.id]) {
+      void loadRecentOwnerPayments(owner.id);
+    }
+  };
+
+  const loadRecentOwnerPayments = async (ownerId: string) => {
+    setLoadingPaymentsOwnerId(ownerId);
+    try {
+      const items = await ownersApi.getSettlements(ownerId, "completed", 5);
+      setRecentPaymentsByOwner((prev) => ({ ...prev, [ownerId]: items }));
+    } catch (error) {
+      console.error("Failed to load recent owner payments", error);
+      setRecentPaymentsByOwner((prev) => ({ ...prev, [ownerId]: [] }));
+    } finally {
+      setLoadingPaymentsOwnerId(null);
+    }
   };
 
   const handleTogglePropertyMaintenance = async (propertyId: string) => {
@@ -343,6 +367,13 @@ export default function PropertiesPage() {
                         >
                           <Edit size={14} />
                           {tc("edit")}
+                        </Link>
+                        <Link
+                          href={`/${locale}/properties/owners/${owner.id}/payments/new`}
+                          className={ownerActionClass}
+                        >
+                          <Wallet size={14} />
+                          {t("ownerPay")}
                         </Link>
                         <span className="ml-auto text-gray-400 dark:text-gray-500 md:ml-0">
                           <button
@@ -587,6 +618,70 @@ export default function PropertiesPage() {
                             {t("ownerNoProperties")}
                           </p>
                         )}
+
+                        <div className="pt-2">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                            {t("ownerRecentPayments")}
+                          </p>
+                          {loadingPaymentsOwnerId === owner.id ? (
+                            <div className="flex items-center py-2 text-sm text-gray-500 dark:text-gray-400">
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              {tc("loading")}
+                            </div>
+                          ) : (recentPaymentsByOwner[owner.id] ?? []).length >
+                            0 ? (
+                            <div className="space-y-2">
+                              {(recentPaymentsByOwner[owner.id] ?? []).map(
+                                (payment) => (
+                                  <div
+                                    key={payment.id}
+                                    className="rounded-md border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 flex items-center justify-between gap-2"
+                                  >
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                        {payment.period} ·{" "}
+                                        {payment.netAmount.toLocaleString(
+                                          locale,
+                                          { minimumFractionDigits: 2 },
+                                        )}
+                                      </p>
+                                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        {payment.processedAt
+                                          ? new Date(
+                                              payment.processedAt,
+                                            ).toLocaleDateString(locale)
+                                          : "-"}
+                                      </p>
+                                    </div>
+                                    {payment.receiptPdfUrl ? (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          void ownersApi.downloadSettlementReceipt(
+                                            payment.id,
+                                            payment.receiptName ?? undefined,
+                                          )
+                                        }
+                                        className="btn btn-secondary btn-sm"
+                                      >
+                                        <Download size={14} />
+                                        {t("downloadOwnerReceipt")}
+                                      </button>
+                                    ) : (
+                                      <span className="text-xs text-gray-400">
+                                        {t("ownerReceiptPending")}
+                                      </span>
+                                    )}
+                                  </div>
+                                ),
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {t("ownerNoRecentPayments")}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     ) : null}
                   </div>

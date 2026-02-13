@@ -1,6 +1,7 @@
 import {
   Owner,
   OwnerActivity,
+  OwnerSettlementSummary,
   CreateOwnerInput,
   UpdateOwnerInput,
 } from "@/types/owner";
@@ -88,6 +89,27 @@ const mapOwner = (raw: BackendOwner): Owner => ({
   paymentMethod: raw.paymentMethod ?? undefined,
   commissionRate: raw.commissionRate ?? undefined,
   notes: raw.notes ?? undefined,
+  createdAt: raw.createdAt ?? new Date().toISOString(),
+  updatedAt: raw.updatedAt ?? new Date().toISOString(),
+});
+
+const mapSettlement = (raw: any): OwnerSettlementSummary => ({
+  id: raw.id,
+  ownerId: raw.ownerId,
+  ownerName: raw.ownerName,
+  period: raw.period,
+  grossAmount: Number(raw.grossAmount ?? 0),
+  commissionAmount: Number(raw.commissionAmount ?? 0),
+  withholdingsAmount: Number(raw.withholdingsAmount ?? 0),
+  netAmount: Number(raw.netAmount ?? 0),
+  status: raw.status,
+  scheduledDate: raw.scheduledDate ?? null,
+  processedAt: raw.processedAt ?? null,
+  transferReference: raw.transferReference ?? null,
+  notes: raw.notes ?? null,
+  receiptPdfUrl: raw.receiptPdfUrl ?? null,
+  receiptName: raw.receiptName ?? null,
+  currencyCode: raw.currencyCode ?? "ARS",
   createdAt: raw.createdAt ?? new Date().toISOString(),
   updatedAt: raw.updatedAt ?? new Date().toISOString(),
 });
@@ -233,5 +255,114 @@ export const ownersApi = {
       data,
       token ?? undefined,
     );
+  },
+
+  getSettlements: async (
+    ownerId: string,
+    status: "all" | "pending" | "completed" = "all",
+    limit = 12,
+  ): Promise<OwnerSettlementSummary[]> => {
+    const token = getToken();
+    if (IS_MOCK_MODE) {
+      await delay(DELAY);
+      return [];
+    }
+
+    const params = new URLSearchParams();
+    params.set("status", status);
+    params.set("limit", String(limit));
+    const data = await apiClient.get<any[]>(
+      `/owners/${ownerId}/settlements?${params.toString()}`,
+      token ?? undefined,
+    );
+    return data.map(mapSettlement);
+  },
+
+  registerSettlementPayment: async (
+    ownerId: string,
+    settlementId: string,
+    payload: {
+      paymentDate?: string;
+      reference?: string;
+      notes?: string;
+      amount?: number;
+    },
+  ): Promise<OwnerSettlementSummary> => {
+    const token = getToken();
+    if (IS_MOCK_MODE) {
+      await delay(DELAY);
+      return {
+        id: settlementId,
+        ownerId,
+        ownerName: "Mock Owner",
+        period: "2026-01",
+        grossAmount: 100000,
+        commissionAmount: 10000,
+        withholdingsAmount: 0,
+        netAmount: payload.amount ?? 90000,
+        status: "completed",
+        scheduledDate: new Date().toISOString(),
+        processedAt: payload.paymentDate ?? new Date().toISOString(),
+        transferReference: payload.reference ?? null,
+        notes: payload.notes ?? null,
+        receiptPdfUrl: "db://document/mock",
+        receiptName: "recibo-liquidacion-mock.pdf",
+        currencyCode: "ARS",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    const data = await apiClient.post<any>(
+      `/owners/${ownerId}/settlements/${settlementId}/pay`,
+      payload,
+      token ?? undefined,
+    );
+    return mapSettlement(data);
+  },
+
+  listSettlementPayments: async (
+    limit = 100,
+  ): Promise<OwnerSettlementSummary[]> => {
+    const token = getToken();
+    if (IS_MOCK_MODE) {
+      await delay(DELAY);
+      return [];
+    }
+
+    const data = await apiClient.get<any[]>(
+      `/owners/settlements/payments?limit=${limit}`,
+      token ?? undefined,
+    );
+    return data.map(mapSettlement);
+  },
+
+  downloadSettlementReceipt: async (
+    settlementId: string,
+    filename?: string,
+  ): Promise<void> => {
+    const token = getToken();
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+    const response = await fetch(
+      `${baseUrl}/owners/settlements/${settlementId}/receipt`,
+      {
+        method: "GET",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to download owner settlement receipt");
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename ?? `recibo-liquidacion-${settlementId}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   },
 };

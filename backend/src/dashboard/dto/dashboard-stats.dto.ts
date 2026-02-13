@@ -3,6 +3,7 @@ export class DashboardStatsDto {
   totalTenants: number;
   activeLeases: number;
   monthlyIncome: number;
+  monthlyExpenses: number;
   currencyCode: string;
   totalPayments: number;
   totalInvoices: number;

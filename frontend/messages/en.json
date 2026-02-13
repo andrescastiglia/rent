@@ -127,6 +127,7 @@
       "tenants": "Tenants",
       "activeLeases": "Active Leases",
       "monthlyIncome": "Monthly Income",
+      "monthlyExpenses": "Monthly Expenses",
       "monthlyCommissions": "Monthly Commissions",
       "payments": "Payments",
       "invoices": "Invoices"
@@ -220,6 +221,20 @@
     "pricingTitle": "Pricing",
     "ownerSearchPlaceholder": "Search by owner, email or phone...",
     "addPropertyForOwner": "Add property",
+    "ownerPay": "Pay",
+    "ownerRecentPayments": "Latest owner payments",
+    "ownerNoRecentPayments": "No owner payments registered.",
+    "downloadOwnerReceipt": "Download receipt",
+    "ownerReceiptPending": "Receipt pending",
+    "registerOwnerPayment": "Register owner payment",
+    "ownerNoPendingSettlements": "No pending settlements to pay.",
+    "ownerSettlement": "Settlement",
+    "paymentDate": "Payment date",
+    "amountToPay": "Amount to pay",
+    "reference": "Reference",
+    "referencePlaceholder": "e.g. TRF-SETTLEMENT-001",
+    "notes": "Notes",
+    "registerPayment": "Register payment",
     "ownerNoProperties": "This owner does not have properties yet.",
     "unassignedOwnerTitle": "Properties without assigned owner",
     "searchPlaceholder": "Search properties by name or city...",
@@ -983,7 +998,11 @@
       "downloadReceipt": "Download receipt",
       "downloadInvoice": "Download invoice",
       "downloadCreditNote": "Download credit note"
-    }
+    },
+    "tenantPaymentEntry": "Tenant collection",
+    "ownerPaymentEntry": "Owner payout",
+    "downloadOwnerReceipt": "Download owner receipt",
+    "ownerReceiptPending": "Owner receipt pending"
   },
   "invoices": {
     "title": "Invoices",

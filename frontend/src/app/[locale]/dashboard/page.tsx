@@ -238,17 +238,6 @@ export default function DashboardPage() {
             {loading ? "..." : (stats?.totalTenants ?? 0)}
           </p>
         </Link>
-        <Link
-          href={`/${locale}/leases`}
-          className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4"
-        >
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t("stats.activeLeases")}
-          </p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">
-            {loading ? "..." : (stats?.activeLeases ?? 0)}
-          </p>
-        </Link>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {t("stats.monthlyIncome")}
@@ -261,6 +250,20 @@ export default function DashboardPage() {
                   stats?.currencyCode ?? "ARS",
                   locale,
                 )}
+          </p>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {t("stats.monthlyExpenses")}
+          </p>
+          <p className="text-2xl font-bold text-red-700 dark:text-red-400">
+            {loading
+              ? "..."
+              : `-${formatMoneyByCode(
+                  Math.abs(stats?.monthlyExpenses ?? 0),
+                  stats?.currencyCode ?? "ARS",
+                  locale,
+                )}`}
           </p>
         </div>
       </div>

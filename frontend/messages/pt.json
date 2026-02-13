@@ -127,6 +127,7 @@
       "tenants": "Inquilinos",
       "activeLeases": "Contratos Ativos",
       "monthlyIncome": "Renda Mensal",
+      "monthlyExpenses": "Despesas Mensais",
       "monthlyCommissions": "Comissões do Mês",
       "payments": "Pagamentos",
       "invoices": "Faturas"
@@ -220,6 +221,20 @@
     "pricingTitle": "Preços",
     "ownerSearchPlaceholder": "Buscar por proprietário, e-mail ou telefone...",
     "addPropertyForOwner": "Adicionar imóvel",
+    "ownerPay": "Pagar",
+    "ownerRecentPayments": "Últimos pagamentos ao proprietário",
+    "ownerNoRecentPayments": "Sem pagamentos ao proprietário registrados.",
+    "downloadOwnerReceipt": "Baixar recibo",
+    "ownerReceiptPending": "Recibo pendente",
+    "registerOwnerPayment": "Registrar pagamento ao proprietário",
+    "ownerNoPendingSettlements": "Não há liquidações pendentes para pagar.",
+    "ownerSettlement": "Liquidação",
+    "paymentDate": "Data do pagamento",
+    "amountToPay": "Valor a pagar",
+    "reference": "Referência",
+    "referencePlaceholder": "ex. TRF-SETTLEMENT-001",
+    "notes": "Observações",
+    "registerPayment": "Registrar pagamento",
     "ownerNoProperties": "Este proprietário ainda não tem imóveis cadastrados.",
     "unassignedOwnerTitle": "Imóveis sem proprietário associado",
     "searchPlaceholder": "Buscar imóveis por nome ou cidade...",
@@ -983,7 +998,11 @@
       "downloadReceipt": "Baixar recibo",
       "downloadInvoice": "Baixar fatura",
       "downloadCreditNote": "Baixar nota de crédito"
-    }
+    },
+    "tenantPaymentEntry": "Cobrança de inquilino",
+    "ownerPaymentEntry": "Pagamento ao proprietário",
+    "downloadOwnerReceipt": "Baixar recibo do proprietário",
+    "ownerReceiptPending": "Recibo do proprietário pendente"
   },
   "invoices": {
     "title": "Faturas",

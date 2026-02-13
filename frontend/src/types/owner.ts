@@ -31,6 +31,33 @@ export interface Owner {
   updatedAt: string;
 }
 
+export type OwnerSettlementStatus =
+  | "pending"
+  | "processing"
+  | "completed"
+  | "failed";
+
+export interface OwnerSettlementSummary {
+  id: string;
+  ownerId: string;
+  ownerName: string;
+  period: string;
+  grossAmount: number;
+  commissionAmount: number;
+  withholdingsAmount: number;
+  netAmount: number;
+  status: OwnerSettlementStatus;
+  scheduledDate: string | null;
+  processedAt: string | null;
+  transferReference: string | null;
+  notes: string | null;
+  receiptPdfUrl: string | null;
+  receiptName: string | null;
+  currencyCode: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type OwnerActivityType =
   | "call"
   | "task"
