@@ -56,7 +56,7 @@ export class AiToolExecutorService {
     this.assertRoleAllowed(definition, context.role);
     this.assertContext(context);
 
-    const parsed = definition.parameters.parse(args ?? {});
+    const parsed = this.parseArguments(definition, args ?? {});
     this.auditLog('start', toolName, context, parsed);
 
     try {
@@ -73,6 +73,44 @@ export class AiToolExecutorService {
       });
       throw error;
     }
+  }
+
+  private parseArguments(
+    definition: AiToolDefinition,
+    args: unknown,
+  ): unknown {
+    const firstPass = definition.parameters.safeParse(args);
+    if (firstPass.success) {
+      return firstPass.data;
+    }
+
+    const normalizedArgs = this.nullsToUndefined(args);
+    const secondPass = definition.parameters.safeParse(normalizedArgs);
+    if (secondPass.success) {
+      return secondPass.data;
+    }
+
+    throw firstPass.error;
+  }
+
+  private nullsToUndefined(value: unknown): unknown {
+    if (value === null) {
+      return undefined;
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((item) => this.nullsToUndefined(item));
+    }
+
+    if (value && typeof value === 'object') {
+      const output: Record<string, unknown> = {};
+      for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+        output[key] = this.nullsToUndefined(val);
+      }
+      return output;
+    }
+
+    return value;
   }
 
   private assertModeAllowsExecution(
