@@ -71,22 +71,11 @@ export class LeasesService {
       );
     }
 
-    if (contractType === ContractType.RENTAL) {
-      this.validateRentalCreate(createLeaseDto);
-      const existingActiveLease = await this.leasesRepository.findOne({
-        where: {
-          propertyId: property.id,
-          contractType: ContractType.RENTAL,
-          status: LeaseStatus.ACTIVE,
-          deletedAt: IsNull(),
-        },
-      });
-      if (existingActiveLease) {
-        throw new ConflictException('Property already has an active contract');
-      }
-    } else {
-      await this.validateSaleCreate(createLeaseDto);
-    }
+    await this.validateCreateForContractType(
+      contractType,
+      createLeaseDto,
+      property.id,
+    );
 
     const lease = this.leasesRepository.create({
       ...createLeaseDto,
@@ -686,55 +675,121 @@ export class LeasesService {
     effectiveType: ContractType,
   ): Promise<void> {
     const previousContractType = lease.contractType;
+    this.validateContractTypeTransition(lease, dto, effectiveType);
+    await this.applyPropertyUpdate(lease, dto);
+    await this.applyTemplateUpdate(
+      lease,
+      dto,
+      effectiveType,
+      previousContractType,
+    );
+    this.applyCoreLeaseUpdate(lease, dto, effectiveType);
+    this.resetRentalFieldsWhenSale(lease, effectiveType);
+  }
+
+  private async validateCreateForContractType(
+    contractType: ContractType,
+    dto: CreateLeaseDto,
+    propertyId: string,
+  ): Promise<void> {
+    if (contractType === ContractType.RENTAL) {
+      this.validateRentalCreate(dto);
+      await this.ensureNoActiveRentalLease(propertyId);
+      return;
+    }
+
+    await this.validateSaleCreate(dto);
+  }
+
+  private async ensureNoActiveRentalLease(propertyId: string): Promise<void> {
+    const existingActiveLease = await this.leasesRepository.findOne({
+      where: {
+        propertyId,
+        contractType: ContractType.RENTAL,
+        status: LeaseStatus.ACTIVE,
+        deletedAt: IsNull(),
+      },
+    });
+
+    if (existingActiveLease) {
+      throw new ConflictException('Property already has an active contract');
+    }
+  }
+
+  private validateContractTypeTransition(
+    lease: Lease,
+    dto: UpdateLeaseDto,
+    effectiveType: ContractType,
+  ): void {
     if (effectiveType === ContractType.RENTAL) {
       this.validateRentalDates(
         dto.startDate ?? lease.startDate?.toISOString(),
         dto.endDate ?? lease.endDate?.toISOString(),
       );
-    } else if (effectiveType === ContractType.SALE) {
-      if (!dto.buyerProfileId && !lease.buyerProfileId) {
-        throw new BadRequestException('Sale contracts require buyerProfileId');
-      }
-      if (
-        dto.fiscalValue === undefined &&
-        (lease.fiscalValue === undefined || lease.fiscalValue === null)
-      ) {
-        throw new BadRequestException('Sale contracts require fiscalValue');
-      }
+      return;
     }
 
-    if (dto.propertyId) {
-      const property = await this.propertiesRepository.findOne({
-        where: { id: dto.propertyId, deletedAt: IsNull() },
-      });
-      if (!property) {
-        throw new NotFoundException('Property not found');
-      }
-      lease.propertyId = property.id;
-      if (!dto.ownerId) {
-        lease.ownerId = property.ownerId;
-      }
+    if (!dto.buyerProfileId && !lease.buyerProfileId) {
+      throw new BadRequestException('Sale contracts require buyerProfileId');
+    }
+    if (
+      dto.fiscalValue === undefined &&
+      (lease.fiscalValue === undefined || lease.fiscalValue === null)
+    ) {
+      throw new BadRequestException('Sale contracts require fiscalValue');
+    }
+  }
+
+  private async applyPropertyUpdate(
+    lease: Lease,
+    dto: UpdateLeaseDto,
+  ): Promise<void> {
+    if (!dto.propertyId) {
+      return;
     }
 
+    const property = await this.propertiesRepository.findOne({
+      where: { id: dto.propertyId, deletedAt: IsNull() },
+    });
+    if (!property) {
+      throw new NotFoundException('Property not found');
+    }
+
+    lease.propertyId = property.id;
+    if (!dto.ownerId) {
+      lease.ownerId = property.ownerId;
+    }
+  }
+
+  private async applyTemplateUpdate(
+    lease: Lease,
+    dto: UpdateLeaseDto,
+    effectiveType: ContractType,
+    previousContractType: ContractType,
+  ): Promise<void> {
     if (dto.templateId !== undefined) {
       if (!dto.templateId) {
         lease.templateId = null;
         lease.templateName = null;
-      } else {
-        const template = await this.findTemplate(
-          dto.templateId,
-          lease.companyId,
-          effectiveType,
-        );
-        if (!template) {
-          throw new NotFoundException(
-            `Template with ID ${dto.templateId} not found`,
-          );
-        }
-        lease.templateId = template.id;
-        lease.templateName = template.name;
+        return;
       }
-    } else if (
+
+      const template = await this.findTemplate(
+        dto.templateId,
+        lease.companyId,
+        effectiveType,
+      );
+      if (!template) {
+        throw new NotFoundException(
+          `Template with ID ${dto.templateId} not found`,
+        );
+      }
+      lease.templateId = template.id;
+      lease.templateName = template.name;
+      return;
+    }
+
+    if (
       dto.contractType !== undefined &&
       previousContractType !== effectiveType
     ) {
@@ -746,7 +801,13 @@ export class LeasesService {
       lease.templateId = resolvedTemplate?.id ?? null;
       lease.templateName = resolvedTemplate?.name ?? null;
     }
+  }
 
+  private applyCoreLeaseUpdate(
+    lease: Lease,
+    dto: UpdateLeaseDto,
+    effectiveType: ContractType,
+  ): void {
     Object.assign(lease, {
       ...dto,
       contractType: effectiveType,
@@ -763,16 +824,23 @@ export class LeasesService {
             : null
           : lease.endDate,
     });
+  }
 
-    if (effectiveType === ContractType.SALE) {
-      lease.tenantId = null;
-      lease.monthlyRent = null;
-      lease.startDate = null;
-      lease.endDate = null;
-      lease.lateFeeType = LateFeeType.NONE;
-      lease.lateFeeValue = 0;
-      lease.adjustmentValue = 0;
+  private resetRentalFieldsWhenSale(
+    lease: Lease,
+    effectiveType: ContractType,
+  ): void {
+    if (effectiveType !== ContractType.SALE) {
+      return;
     }
+
+    lease.tenantId = null;
+    lease.monthlyRent = null;
+    lease.startDate = null;
+    lease.endDate = null;
+    lease.lateFeeType = LateFeeType.NONE;
+    lease.lateFeeValue = 0;
+    lease.adjustmentValue = 0;
   }
 
   private async findTemplate(

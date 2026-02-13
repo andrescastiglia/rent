@@ -43,7 +43,9 @@ export default function ReportsPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    void loadReports();
+    loadReports().catch((error) => {
+      console.error("Failed to load reports", error);
+    });
   }, [authLoading, loadReports]);
 
   const formatDateTime = (value: string | null) => {

@@ -48,7 +48,9 @@ export default function OwnerSettlementPaymentPage() {
       }
     };
 
-    void load();
+    load().catch((error) => {
+      console.error("Failed to load owner settlements", error);
+    });
   }, [ownerId]);
 
   const selectedSettlement = useMemo(

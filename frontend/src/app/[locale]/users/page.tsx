@@ -76,7 +76,9 @@ export default function UsersPage() {
   }, [tUsers]);
 
   useEffect(() => {
-    void loadUsers();
+    loadUsers().catch((error) => {
+      console.error("Failed to load users", error);
+    });
   }, [loadUsers]);
 
   const openCreate = () => {
@@ -241,7 +243,11 @@ export default function UsersPage() {
       </button>
       <button
         type="button"
-        onClick={() => void handleToggleActive(user)}
+        onClick={() => {
+          handleToggleActive(user).catch((error) => {
+            console.error("Failed to update activation", error);
+          });
+        }}
         className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700"
       >
         {user.isActive ? (

@@ -41,7 +41,9 @@ export default function LeaseDetailPage() {
   useEffect(() => {
     if (authLoading) return;
     if (leaseId) {
-      loadLease(leaseId);
+      loadLease(leaseId).catch((error) => {
+        console.error("Failed to load lease", error);
+      });
     }
   }, [leaseId, authLoading]);
 
@@ -280,7 +282,11 @@ export default function LeaseDetailPage() {
                       <div className="flex flex-wrap justify-end gap-2">
                         <button
                           type="button"
-                          onClick={() => void handleRenderDraft()}
+                          onClick={() => {
+                            handleRenderDraft().catch((error) => {
+                              console.error("Failed to render draft", error);
+                            });
+                          }}
                           disabled={renderingDraft}
                           className="btn btn-secondary"
                         >
@@ -290,7 +296,11 @@ export default function LeaseDetailPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => void handleSaveDraftText()}
+                          onClick={() => {
+                            handleSaveDraftText().catch((error) => {
+                              console.error("Failed to save draft text", error);
+                            });
+                          }}
                           disabled={savingDraftText}
                           className="btn btn-ghost"
                         >
@@ -300,7 +310,11 @@ export default function LeaseDetailPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => void handleConfirmDraft()}
+                          onClick={() => {
+                            handleConfirmDraft().catch((error) => {
+                              console.error("Failed to confirm draft", error);
+                            });
+                          }}
                           disabled={confirmingDraft}
                           className="btn btn-success"
                         >

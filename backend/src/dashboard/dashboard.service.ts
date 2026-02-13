@@ -117,33 +117,7 @@ export class DashboardService {
   ): Promise<DashboardStatsDto> {
     const isPrivileged = this.isPrivilegedUser(user.role);
 
-    const propertiesQuery = this.propertiesRepository
-      .createQueryBuilder('property')
-      .where('property.company_id = :companyId', { companyId })
-      .andWhere('property.deleted_at IS NULL');
-
-    if (user.role === UserRole.OWNER) {
-      propertiesQuery
-        .innerJoin('property.owner', 'owner')
-        .innerJoin('owner.user', 'ownerUser');
-      this.applyOwnerScope(propertiesQuery, user, 'owner', 'ownerUser');
-    }
-
-    if (user.role === UserRole.TENANT) {
-      propertiesQuery
-        .innerJoin(
-          Lease,
-          'tenantLease',
-          'tenantLease.property_id = property.id AND tenantLease.contract_type = :rentalType AND tenantLease.status = :activeStatus AND tenantLease.deleted_at IS NULL',
-          {
-            rentalType: ContractType.RENTAL,
-            activeStatus: LeaseStatus.ACTIVE,
-          },
-        )
-        .innerJoin('tenantLease.tenant', 'tenant')
-        .innerJoin('tenant.user', 'tenantUser');
-      this.applyTenantScope(propertiesQuery, user, 'tenant', 'tenantUser');
-    }
+    const propertiesQuery = this.buildScopedPropertiesQuery(companyId, user);
 
     const totalPropertiesResult = await propertiesQuery
       .select('COUNT(DISTINCT property.id)', 'total')
@@ -164,12 +138,12 @@ export class DashboardService {
       .andWhere('lease.status = :status', { status: LeaseStatus.ACTIVE })
       .andWhere('lease.deleted_at IS NULL');
 
-    if (user.role === UserRole.OWNER) {
-      this.applyOwnerScope(tenantsCountQuery, user, 'owner', 'ownerUser');
-    }
-    if (user.role === UserRole.TENANT) {
-      this.applyTenantScope(tenantsCountQuery, user, 'tenant', 'tenantUser');
-    }
+    this.applyRoleScope(tenantsCountQuery, user, {
+      ownerAlias: 'owner',
+      ownerUserAlias: 'ownerUser',
+      tenantAlias: 'tenant',
+      tenantUserAlias: 'tenantUser',
+    });
 
     const totalTenantsResult = await tenantsCountQuery
       .select('COUNT(DISTINCT tenant.id)', 'total')
@@ -190,12 +164,12 @@ export class DashboardService {
       })
       .andWhere('lease.deleted_at IS NULL');
 
-    if (user.role === UserRole.OWNER) {
-      this.applyOwnerScope(activeLeasesQuery, user, 'owner', 'ownerUser');
-    }
-    if (user.role === UserRole.TENANT) {
-      this.applyTenantScope(activeLeasesQuery, user, 'tenant', 'tenantUser');
-    }
+    this.applyRoleScope(activeLeasesQuery, user, {
+      ownerAlias: 'owner',
+      ownerUserAlias: 'ownerUser',
+      tenantAlias: 'tenant',
+      tenantUserAlias: 'tenantUser',
+    });
 
     const activeLeasesList = await activeLeasesQuery.getMany();
     const activeLeases = activeLeasesList.length;
@@ -220,12 +194,12 @@ export class DashboardService {
       .where('property.company_id = :companyId', { companyId })
       .andWhere('payment.deleted_at IS NULL');
 
-    if (user.role === UserRole.OWNER) {
-      this.applyOwnerScope(paymentsQuery, user, 'owner', 'ownerUser');
-    }
-    if (user.role === UserRole.TENANT) {
-      this.applyTenantScope(paymentsQuery, user, 'tenant', 'tenantUser');
-    }
+    this.applyRoleScope(paymentsQuery, user, {
+      ownerAlias: 'owner',
+      ownerUserAlias: 'ownerUser',
+      tenantAlias: 'tenant',
+      tenantUserAlias: 'tenantUser',
+    });
 
     const totalPayments = await paymentsQuery.getCount();
 
@@ -240,12 +214,12 @@ export class DashboardService {
       .where('property.company_id = :companyId', { companyId })
       .andWhere('invoice.deleted_at IS NULL');
 
-    if (user.role === UserRole.OWNER) {
-      this.applyOwnerScope(invoicesQuery, user, 'owner', 'ownerUser');
-    }
-    if (user.role === UserRole.TENANT) {
-      this.applyTenantScope(invoicesQuery, user, 'tenant', 'tenantUser');
-    }
+    this.applyRoleScope(invoicesQuery, user, {
+      ownerAlias: 'owner',
+      ownerUserAlias: 'ownerUser',
+      tenantAlias: 'tenant',
+      tenantUserAlias: 'tenantUser',
+    });
 
     const totalInvoices = await invoicesQuery.getCount();
 
@@ -253,58 +227,21 @@ export class DashboardService {
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-    let monthlyCommissions = 0;
-    if (isPrivileged || user.role === UserRole.OWNER) {
-      const commissionQuery = this.commissionInvoiceRepository
-        .createQueryBuilder('ci')
-        .innerJoin('ci.owner', 'owner')
-        .innerJoin('owner.user', 'ownerUser')
-        .select('COALESCE(SUM(ci.commission_amount), 0)', 'total')
-        .where('ci.company_id = :companyId', { companyId })
-        .andWhere('ci.status = :status', {
-          status: CommissionInvoiceStatus.PAID,
-        })
-        .andWhere('ci.paid_at >= :startDate', { startDate: firstDayOfMonth })
-        .andWhere('ci.paid_at <= :endDate', { endDate: lastDayOfMonth })
-        .andWhere('ci.deleted_at IS NULL');
+    const monthlyCommissions = await this.getMonthlyCommissions(
+      companyId,
+      user,
+      isPrivileged,
+      firstDayOfMonth,
+      lastDayOfMonth,
+    );
 
-      if (user.role === UserRole.OWNER) {
-        this.applyOwnerScope(commissionQuery, user, 'owner', 'ownerUser');
-      }
-
-      const commissionResult = await commissionQuery.getRawOne<{
-        total: string;
-      }>();
-      monthlyCommissions = Number(commissionResult?.total ?? 0);
-    }
-
-    let monthlyExpenses = 0;
-    if (isPrivileged || user.role === UserRole.OWNER) {
-      const params: Array<string | Date> = [
-        companyId,
-        firstDayOfMonth,
-        lastDayOfMonth,
-      ];
-      const ownerScope =
-        user.role === UserRole.OWNER
-          ? `AND owner_entity.user_id = $${params.push(user.id)}`
-          : '';
-
-      const expensesRows = await this.dataSource.query(
-        `SELECT COALESCE(SUM(s.net_amount), 0) AS total
-           FROM settlements s
-           INNER JOIN owners owner_entity
-             ON owner_entity.id = s.owner_id
-            AND owner_entity.company_id = $1
-            AND owner_entity.deleted_at IS NULL
-          WHERE s.status = 'completed'
-            AND s.processed_at >= $2
-            AND s.processed_at <= $3
-            ${ownerScope}`,
-        params,
-      );
-      monthlyExpenses = Number(expensesRows?.[0]?.total ?? 0);
-    }
+    const monthlyExpenses = await this.getMonthlyExpenses(
+      companyId,
+      user,
+      isPrivileged,
+      firstDayOfMonth,
+      lastDayOfMonth,
+    );
 
     return {
       totalProperties,
@@ -317,6 +254,113 @@ export class DashboardService {
       totalInvoices,
       monthlyCommissions,
     };
+  }
+
+  private buildScopedPropertiesQuery(
+    companyId: string,
+    user: RequestUser,
+  ): SelectQueryBuilder<Property> {
+    const propertiesQuery = this.propertiesRepository
+      .createQueryBuilder('property')
+      .where('property.company_id = :companyId', { companyId })
+      .andWhere('property.deleted_at IS NULL');
+
+    if (user.role === UserRole.OWNER) {
+      propertiesQuery
+        .innerJoin('property.owner', 'owner')
+        .innerJoin('owner.user', 'ownerUser');
+      this.applyOwnerScope(propertiesQuery, user, 'owner', 'ownerUser');
+      return propertiesQuery;
+    }
+
+    if (user.role === UserRole.TENANT) {
+      propertiesQuery
+        .innerJoin(
+          Lease,
+          'tenantLease',
+          'tenantLease.property_id = property.id AND tenantLease.contract_type = :rentalType AND tenantLease.status = :activeStatus AND tenantLease.deleted_at IS NULL',
+          {
+            rentalType: ContractType.RENTAL,
+            activeStatus: LeaseStatus.ACTIVE,
+          },
+        )
+        .innerJoin('tenantLease.tenant', 'tenant')
+        .innerJoin('tenant.user', 'tenantUser');
+      this.applyTenantScope(propertiesQuery, user, 'tenant', 'tenantUser');
+    }
+
+    return propertiesQuery;
+  }
+
+  private async getMonthlyCommissions(
+    companyId: string,
+    user: RequestUser,
+    isPrivileged: boolean,
+    firstDayOfMonth: Date,
+    lastDayOfMonth: Date,
+  ): Promise<number> {
+    if (!isPrivileged && user.role !== UserRole.OWNER) {
+      return 0;
+    }
+
+    const commissionQuery = this.commissionInvoiceRepository
+      .createQueryBuilder('ci')
+      .innerJoin('ci.owner', 'owner')
+      .innerJoin('owner.user', 'ownerUser')
+      .select('COALESCE(SUM(ci.commission_amount), 0)', 'total')
+      .where('ci.company_id = :companyId', { companyId })
+      .andWhere('ci.status = :status', {
+        status: CommissionInvoiceStatus.PAID,
+      })
+      .andWhere('ci.paid_at >= :startDate', { startDate: firstDayOfMonth })
+      .andWhere('ci.paid_at <= :endDate', { endDate: lastDayOfMonth })
+      .andWhere('ci.deleted_at IS NULL');
+
+    if (user.role === UserRole.OWNER) {
+      this.applyOwnerScope(commissionQuery, user, 'owner', 'ownerUser');
+    }
+
+    const commissionResult = await commissionQuery.getRawOne<{
+      total: string;
+    }>();
+    return Number(commissionResult?.total ?? 0);
+  }
+
+  private async getMonthlyExpenses(
+    companyId: string,
+    user: RequestUser,
+    isPrivileged: boolean,
+    firstDayOfMonth: Date,
+    lastDayOfMonth: Date,
+  ): Promise<number> {
+    if (!isPrivileged && user.role !== UserRole.OWNER) {
+      return 0;
+    }
+
+    const params: Array<string | Date> = [
+      companyId,
+      firstDayOfMonth,
+      lastDayOfMonth,
+    ];
+    const ownerScope =
+      user.role === UserRole.OWNER
+        ? `AND owner_entity.user_id = $${params.push(user.id)}`
+        : '';
+
+    const expensesRows = await this.dataSource.query(
+      `SELECT COALESCE(SUM(s.net_amount), 0) AS total
+         FROM settlements s
+         INNER JOIN owners owner_entity
+           ON owner_entity.id = s.owner_id
+          AND owner_entity.company_id = $1
+          AND owner_entity.deleted_at IS NULL
+        WHERE s.status = 'completed'
+          AND s.processed_at >= $2
+          AND s.processed_at <= $3
+          ${ownerScope}`,
+      params,
+    );
+    return Number(expensesRows?.[0]?.total ?? 0);
   }
 
   async getRecentActivity(
@@ -700,6 +744,36 @@ export class DashboardService {
 
   private isPrivilegedUser(role: UserRole): boolean {
     return role === UserRole.ADMIN || role === UserRole.STAFF;
+  }
+
+  private applyRoleScope(
+    query: SelectQueryBuilder<{ id: string }>,
+    user: RequestUser,
+    aliases: {
+      ownerAlias: string;
+      ownerUserAlias: string;
+      tenantAlias: string;
+      tenantUserAlias: string;
+    },
+  ) {
+    if (user.role === UserRole.OWNER) {
+      this.applyOwnerScope(
+        query,
+        user,
+        aliases.ownerAlias,
+        aliases.ownerUserAlias,
+      );
+      return;
+    }
+
+    if (user.role === UserRole.TENANT) {
+      this.applyTenantScope(
+        query,
+        user,
+        aliases.tenantAlias,
+        aliases.tenantUserAlias,
+      );
+    }
   }
 
   private normalizeBatchReportType(

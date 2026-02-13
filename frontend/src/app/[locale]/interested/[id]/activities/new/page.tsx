@@ -86,7 +86,9 @@ export default function InterestedActivityCreatePage() {
   useEffect(() => {
     if (authLoading) return;
     if (!interestedId) return;
-    void loadData(interestedId);
+    loadData(interestedId).catch((error) => {
+      console.error("Failed to load interested activity creation data", error);
+    });
   }, [authLoading, interestedId, loadData]);
 
   const handleSubmit = async (event: React.FormEvent) => {

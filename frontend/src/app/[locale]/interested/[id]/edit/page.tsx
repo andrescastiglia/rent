@@ -92,7 +92,9 @@ export default function EditInterestedPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!interestedId) return;
-    void loadProfile(interestedId);
+    loadProfile(interestedId).catch((error) => {
+      console.error("Failed to load interested profile", error);
+    });
   }, [authLoading, interestedId, loadProfile]);
 
   const handleSubmit = async (event: React.FormEvent) => {

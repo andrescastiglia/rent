@@ -109,76 +109,22 @@ export class PropertiesService {
       .leftJoin('owner.user', 'ownerUser')
       .where('property.deleted_at IS NULL');
 
-    if (user?.companyId) {
-      query.andWhere('property.company_id = :companyId', {
-        companyId: user.companyId,
-      });
-    }
-
-    if (ownerId) {
-      query.andWhere('property.owner_id = :ownerId', { ownerId });
-    }
-
-    if (addressCity) {
-      query.andWhere('property.address_city ILIKE :addressCity', {
-        addressCity: `%${addressCity}%`,
-      });
-    }
-
-    if (addressState) {
-      query.andWhere('property.address_state ILIKE :addressState', {
-        addressState: `%${addressState}%`,
-      });
-    }
-
-    if (propertyType) {
-      query.andWhere('property.property_type = :propertyType', {
-        propertyType,
-      });
-    }
-
-    if (status) {
-      query.andWhere('property.status = :status', { status });
-    }
-
-    // Filter by unit specifications
-    if (
-      minRent !== undefined ||
-      maxRent !== undefined ||
-      minSalePrice !== undefined ||
-      maxSalePrice !== undefined ||
-      bedrooms !== undefined ||
-      bathrooms !== undefined
-    ) {
-      if (minRent !== undefined) {
-        query.andWhere(
-          '(property.rent_price >= :minRent OR units.base_rent >= :minRent)',
-          { minRent },
-        );
-      }
-      if (maxRent !== undefined) {
-        query.andWhere(
-          '(property.rent_price <= :maxRent OR units.base_rent <= :maxRent)',
-          { maxRent },
-        );
-      }
-      if (minSalePrice !== undefined) {
-        query.andWhere('property.sale_price >= :minSalePrice', {
-          minSalePrice,
-        });
-      }
-      if (maxSalePrice !== undefined) {
-        query.andWhere('property.sale_price <= :maxSalePrice', {
-          maxSalePrice,
-        });
-      }
-      if (bedrooms !== undefined) {
-        query.andWhere('units.bedrooms = :bedrooms', { bedrooms });
-      }
-      if (bathrooms !== undefined) {
-        query.andWhere('units.bathrooms = :bathrooms', { bathrooms });
-      }
-    }
+    this.applyGeneralPropertyFilters(query, {
+      companyId: user?.companyId,
+      ownerId,
+      addressCity,
+      addressState,
+      propertyType,
+      status,
+    });
+    this.applyUnitBasedFilters(query, {
+      minRent,
+      maxRent,
+      minSalePrice,
+      maxSalePrice,
+      bedrooms,
+      bathrooms,
+    });
 
     if (user) {
       this.applyVisibilityScope(query, user);
@@ -194,6 +140,99 @@ export class PropertiesService {
       page,
       limit,
     };
+  }
+
+  private applyGeneralPropertyFilters(
+    query: SelectQueryBuilder<Property>,
+    filters: {
+      companyId?: string;
+      ownerId?: string;
+      addressCity?: string;
+      addressState?: string;
+      propertyType?: Property['propertyType'];
+      status?: Property['status'];
+    },
+  ): void {
+    if (filters.companyId) {
+      query.andWhere('property.company_id = :companyId', {
+        companyId: filters.companyId,
+      });
+    }
+
+    if (filters.ownerId) {
+      query.andWhere('property.owner_id = :ownerId', {
+        ownerId: filters.ownerId,
+      });
+    }
+
+    if (filters.addressCity) {
+      query.andWhere('property.address_city ILIKE :addressCity', {
+        addressCity: `%${filters.addressCity}%`,
+      });
+    }
+
+    if (filters.addressState) {
+      query.andWhere('property.address_state ILIKE :addressState', {
+        addressState: `%${filters.addressState}%`,
+      });
+    }
+
+    if (filters.propertyType) {
+      query.andWhere('property.property_type = :propertyType', {
+        propertyType: filters.propertyType,
+      });
+    }
+
+    if (filters.status) {
+      query.andWhere('property.status = :status', {
+        status: filters.status,
+      });
+    }
+  }
+
+  private applyUnitBasedFilters(
+    query: SelectQueryBuilder<Property>,
+    filters: {
+      minRent?: number;
+      maxRent?: number;
+      minSalePrice?: number;
+      maxSalePrice?: number;
+      bedrooms?: number;
+      bathrooms?: number;
+    },
+  ): void {
+    if (filters.minRent !== undefined) {
+      query.andWhere(
+        '(property.rent_price >= :minRent OR units.base_rent >= :minRent)',
+        { minRent: filters.minRent },
+      );
+    }
+    if (filters.maxRent !== undefined) {
+      query.andWhere(
+        '(property.rent_price <= :maxRent OR units.base_rent <= :maxRent)',
+        { maxRent: filters.maxRent },
+      );
+    }
+    if (filters.minSalePrice !== undefined) {
+      query.andWhere('property.sale_price >= :minSalePrice', {
+        minSalePrice: filters.minSalePrice,
+      });
+    }
+    if (filters.maxSalePrice !== undefined) {
+      query.andWhere('property.sale_price <= :maxSalePrice', {
+        maxSalePrice: filters.maxSalePrice,
+      });
+    }
+    if (filters.bedrooms !== undefined) {
+      query.andWhere('units.bedrooms = :bedrooms', {
+        bedrooms: filters.bedrooms,
+      });
+    }
+    if (filters.bathrooms !== undefined) {
+      query.andWhere('units.bathrooms = :bathrooms', {
+        bathrooms: filters.bathrooms,
+      });
+    }
   }
 
   async findOne(id: string): Promise<Property> {

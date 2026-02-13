@@ -88,7 +88,9 @@ export default function SettingsPage() {
       }
     };
 
-    void loadProfile();
+    loadProfile().catch((error) => {
+      console.error("Failed to load user profile", error);
+    });
   }, [authLoading, t, updateUser, user]);
 
   const avatarInitials = useMemo(() => {

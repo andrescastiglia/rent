@@ -212,7 +212,9 @@ export default function TenantPaymentRegistrationPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!tenantId) return;
-    void loadData(tenantId);
+    loadData(tenantId).catch((error) => {
+      console.error("Failed to load tenant payment registration data", error);
+    });
   }, [authLoading, tenantId, loadData]);
 
   const handleRegisterPayment = async (event: React.FormEvent) => {

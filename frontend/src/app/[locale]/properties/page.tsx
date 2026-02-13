@@ -123,7 +123,9 @@ export default function PropertiesPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    void loadData();
+    loadData().catch((error) => {
+      console.error("Failed to load owner/property data", error);
+    });
   }, [authLoading]);
 
   useEffect(() => {
@@ -221,7 +223,9 @@ export default function PropertiesPage() {
     setSelectedOwnerId((prev) => (prev === owner.id ? null : owner.id));
     setExpandedPropertyId(null);
     if (!recentPaymentsByOwner[owner.id]) {
-      void loadRecentOwnerPayments(owner.id);
+      loadRecentOwnerPayments(owner.id).catch((error) => {
+        console.error("Failed to load recent owner payments", error);
+      });
     }
   };
 
@@ -444,11 +448,16 @@ export default function PropertiesPage() {
                                   <div className="w-full p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-left">
                                     <button
                                       type="button"
-                                      onClick={() =>
-                                        void handleTogglePropertyMaintenance(
+                                      onClick={() => {
+                                        handleTogglePropertyMaintenance(
                                           property.id,
-                                        )
-                                      }
+                                        ).catch((error) => {
+                                          console.error(
+                                            "Failed to load property maintenance tasks",
+                                            error,
+                                          );
+                                        });
+                                      }}
                                       className="min-w-0 w-full md:w-auto text-left cursor-pointer"
                                     >
                                       <p className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -512,11 +521,16 @@ export default function PropertiesPage() {
                                       ) : leaseAction.type === "renew" ? (
                                         <button
                                           type="button"
-                                          onClick={() =>
-                                            void handleRenewLease(
+                                          onClick={() => {
+                                            handleRenewLease(
                                               leaseAction.lease,
-                                            )
-                                          }
+                                            ).catch((error) => {
+                                              console.error(
+                                                "Failed to renew lease",
+                                                error,
+                                              );
+                                            });
+                                          }}
                                           disabled={
                                             renewingLeaseId ===
                                             leaseAction.lease.id
@@ -546,11 +560,16 @@ export default function PropertiesPage() {
                                       <span className="ml-auto text-gray-400 dark:text-gray-500 md:ml-0">
                                         <button
                                           type="button"
-                                          onClick={() =>
-                                            void handleTogglePropertyMaintenance(
+                                          onClick={() => {
+                                            handleTogglePropertyMaintenance(
                                               property.id,
-                                            )
-                                          }
+                                            ).catch((error) => {
+                                              console.error(
+                                                "Failed to load property maintenance tasks",
+                                                error,
+                                              );
+                                            });
+                                          }}
                                           className="inline-flex items-center"
                                         >
                                           {expandedPropertyId ===
@@ -656,12 +675,19 @@ export default function PropertiesPage() {
                                     {payment.receiptPdfUrl ? (
                                       <button
                                         type="button"
-                                        onClick={() =>
-                                          void ownersApi.downloadSettlementReceipt(
-                                            payment.id,
-                                            payment.receiptName ?? undefined,
-                                          )
-                                        }
+                                        onClick={() => {
+                                          ownersApi
+                                            .downloadSettlementReceipt(
+                                              payment.id,
+                                              payment.receiptName ?? undefined,
+                                            )
+                                            .catch((error) => {
+                                              console.error(
+                                                "Failed to download owner settlement receipt",
+                                                error,
+                                              );
+                                            });
+                                        }}
                                         className="btn btn-secondary btn-sm"
                                       >
                                         <Download size={14} />

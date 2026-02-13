@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -24,18 +25,20 @@ import { GenerateUploadUrlDto } from './dto/generate-upload-url.dto';
 import { getS3Config, S3_BUCKET_NAME } from '../config/s3.config';
 
 @Injectable()
-export class DocumentsService {
-  private s3Client: S3Client;
-  private bucketName: string;
+export class DocumentsService implements OnModuleInit {
+  private s3Client!: S3Client;
+  private bucketName!: string;
 
   constructor(
     @InjectRepository(Document)
     private documentsRepository: Repository<Document>,
     private configService: ConfigService,
-  ) {
-    this.s3Client = getS3Config(configService);
+  ) {}
+
+  async onModuleInit(): Promise<void> {
+    this.s3Client = getS3Config(this.configService);
     this.bucketName = S3_BUCKET_NAME;
-    this.ensureBucketExists();
+    await this.ensureBucketExists();
   }
 
   private async ensureBucketExists() {

@@ -117,7 +117,9 @@ export default function TenantActivityCreatePage() {
   useEffect(() => {
     if (authLoading) return;
     if (!tenantId) return;
-    void loadData(tenantId);
+    loadData(tenantId).catch((error) => {
+      console.error("Failed to load tenant activity creation data", error);
+    });
   }, [authLoading, tenantId, loadData]);
 
   const handleSubmit = async (event: React.FormEvent) => {

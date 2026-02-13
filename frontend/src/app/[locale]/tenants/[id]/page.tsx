@@ -152,7 +152,9 @@ export default function TenantDetailPage() {
   useEffect(() => {
     if (authLoading) return;
     if (tenantId) {
-      loadTenant(tenantId);
+      loadTenant(tenantId).catch((error) => {
+        console.error("Failed to load tenant", error);
+      });
     }
   }, [tenantId, authLoading, loadTenant]);
 
@@ -425,9 +427,16 @@ export default function TenantDetailPage() {
                           {activity.status === "pending" ? (
                             <button
                               type="button"
-                              onClick={() =>
-                                void handleCompleteActivity(activity)
-                              }
+                              onClick={() => {
+                                handleCompleteActivity(activity).catch(
+                                  (error) => {
+                                    console.error(
+                                      "Failed to complete tenant activity",
+                                      error,
+                                    );
+                                  },
+                                );
+                              }}
                               disabled={completingActivityId === activity.id}
                               className="btn btn-success btn-sm"
                             >
@@ -505,9 +514,16 @@ export default function TenantDetailPage() {
                             {linkedInvoice ? (
                               <button
                                 type="button"
-                                onClick={() =>
-                                  void handleDownloadInvoice(linkedInvoice)
-                                }
+                                onClick={() => {
+                                  handleDownloadInvoice(linkedInvoice).catch(
+                                    (error) => {
+                                      console.error(
+                                        "Failed to download invoice PDF",
+                                        error,
+                                      );
+                                    },
+                                  );
+                                }}
                                 disabled={
                                   downloadingInvoiceId === linkedInvoice.id
                                 }

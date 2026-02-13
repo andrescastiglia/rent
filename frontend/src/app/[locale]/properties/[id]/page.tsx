@@ -110,7 +110,9 @@ export default function PropertyDetailPage() {
   useEffect(() => {
     if (authLoading) return;
     if (propertyId) {
-      void loadProperty(propertyId);
+      loadProperty(propertyId).catch((error) => {
+        console.error("Failed to load property", error);
+      });
     }
   }, [propertyId, authLoading, loadProperty]);
 
@@ -368,7 +370,14 @@ export default function PropertyDetailPage() {
               ) : leaseAction.type === "renew" ? (
                 <button
                   type="button"
-                  onClick={() => void handleRenewLease(leaseAction.lease)}
+                  onClick={() => {
+                    handleRenewLease(leaseAction.lease).catch((error) => {
+                      console.error(
+                        "Failed to renew lease from property detail",
+                        error,
+                      );
+                    });
+                  }}
                   disabled={renewingLeaseId === leaseAction.lease.id}
                   className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-70"
                 >

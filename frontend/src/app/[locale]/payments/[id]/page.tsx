@@ -83,7 +83,9 @@ export default function PaymentDetailPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    loadPayment();
+    loadPayment().catch((error) => {
+      console.error("Failed to load payment", error);
+    });
   }, [loadPayment, authLoading]);
 
   const handleConfirm = async () => {
@@ -538,7 +540,14 @@ export default function PaymentDetailPage() {
                 {linkedInvoice ? (
                   <button
                     type="button"
-                    onClick={() => void handleDownloadInvoice()}
+                    onClick={() => {
+                      handleDownloadInvoice().catch((error) => {
+                        console.error(
+                          "Failed to download invoice from payment detail",
+                          error,
+                        );
+                      });
+                    }}
                     disabled={downloadingInvoice}
                     className="btn btn-primary btn-sm"
                   >
@@ -552,7 +561,14 @@ export default function PaymentDetailPage() {
                   <button
                     key={note.id}
                     type="button"
-                    onClick={() => void handleDownloadCreditNote(note)}
+                    onClick={() => {
+                      handleDownloadCreditNote(note).catch((error) => {
+                        console.error(
+                          "Failed to download credit note from payment detail",
+                          error,
+                        );
+                      });
+                    }}
                     disabled={downloadingCreditNoteId === note.id}
                     className="btn btn-secondary btn-sm"
                   >

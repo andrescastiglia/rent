@@ -51,7 +51,12 @@ export default function CreatePropertyMaintenanceTaskPage() {
       }
     };
 
-    void loadProperty();
+    loadProperty().catch((error) => {
+      console.error(
+        "Failed to load property for maintenance task creation",
+        error,
+      );
+    });
   }, [authLoading, propertyId]);
 
   const handleSubmit = async (event: React.FormEvent) => {

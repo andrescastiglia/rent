@@ -37,7 +37,9 @@ export default function InvoiceDetailPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    loadInvoice();
+    loadInvoice().catch((error) => {
+      console.error("Failed to load invoice", error);
+    });
   }, [loadInvoice, authLoading]);
 
   if (loading) {
@@ -117,7 +119,14 @@ export default function InvoiceDetailPage() {
             {invoice.pdfUrl && (
               <button
                 type="button"
-                onClick={() => void handleDownloadPdf()}
+                onClick={() => {
+                  handleDownloadPdf().catch((error) => {
+                    console.error(
+                      "Failed to download invoice PDF from detail",
+                      error,
+                    );
+                  });
+                }}
                 disabled={downloadingPdf}
                 className="btn btn-success"
               >

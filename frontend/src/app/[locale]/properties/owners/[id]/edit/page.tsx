@@ -33,7 +33,9 @@ export default function EditOwnerPage() {
       }
     };
 
-    void loadOwner();
+    loadOwner().catch((error) => {
+      console.error("Failed to load owner", error);
+    });
   }, [authLoading, ownerId]);
 
   if (loading) {

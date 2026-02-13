@@ -109,7 +109,11 @@ export function InvoiceCard({ invoice }: InvoiceCardProps) {
           {invoice.pdfUrl && (
             <button
               type="button"
-              onClick={() => void handleDownloadInvoice()}
+              onClick={() => {
+                handleDownloadInvoice().catch((error) => {
+                  console.error("Failed to download invoice from list", error);
+                });
+              }}
               disabled={downloading}
               className="btn btn-primary btn-sm"
             >

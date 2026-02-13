@@ -36,13 +36,17 @@ export default function BuyersPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    void loadBuyers();
+    loadBuyers().catch((error) => {
+      console.error("Failed to load buyers", error);
+    });
   }, [authLoading, loadBuyers]);
 
   useEffect(() => {
     if (authLoading) return;
     const handle = setTimeout(() => {
-      void loadBuyers(searchTerm);
+      loadBuyers(searchTerm).catch((error) => {
+        console.error("Failed to load buyers", error);
+      });
     }, 300);
     return () => clearTimeout(handle);
   }, [searchTerm, authLoading, loadBuyers]);

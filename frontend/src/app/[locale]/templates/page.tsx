@@ -65,7 +65,9 @@ export default function TemplatesPage() {
   };
 
   useEffect(() => {
-    void loadTemplates(scope);
+    loadTemplates(scope).catch((error) => {
+      console.error("Failed to load templates", error);
+    });
   }, [scope]);
 
   const scopeOptions: Array<{ value: TemplateScope; label: string }> = useMemo(

@@ -50,7 +50,9 @@ export default function PaymentsPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    loadPayments();
+    loadPayments().catch((error) => {
+      console.error("Failed to load payments", error);
+    });
   }, [loadPayments, authLoading]);
 
   const timeline: PaymentTimelineItem[] = [
@@ -176,12 +178,16 @@ export default function PaymentsPage() {
                   {item.payment.receipt ? (
                     <button
                       type="button"
-                      onClick={() =>
-                        void paymentsApi.downloadReceiptPdf(
-                          item.payment.id,
-                          item.payment.receipt?.receiptNumber,
-                        )
-                      }
+                      onClick={() => {
+                        paymentsApi
+                          .downloadReceiptPdf(
+                            item.payment.id,
+                            item.payment.receipt?.receiptNumber,
+                          )
+                          .catch((error) => {
+                            console.error("Failed to download receipt", error);
+                          });
+                      }}
                       className="btn btn-success btn-sm"
                     >
                       <Download size={14} />
@@ -223,12 +229,19 @@ export default function PaymentsPage() {
                   {item.payment.receiptPdfUrl ? (
                     <button
                       type="button"
-                      onClick={() =>
-                        void ownersApi.downloadSettlementReceipt(
-                          item.payment.id,
-                          item.payment.receiptName ?? undefined,
-                        )
-                      }
+                      onClick={() => {
+                        ownersApi
+                          .downloadSettlementReceipt(
+                            item.payment.id,
+                            item.payment.receiptName ?? undefined,
+                          )
+                          .catch((error) => {
+                            console.error(
+                              "Failed to download owner settlement receipt",
+                              error,
+                            );
+                          });
+                      }}
                       className="btn btn-secondary btn-sm"
                     >
                       <Download size={14} />

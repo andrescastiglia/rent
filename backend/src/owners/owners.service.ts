@@ -204,8 +204,19 @@ export class OwnersService {
     companyId: string,
   ): Promise<Owner> {
     const owner = await this.findOne(id, companyId);
+    await this.applyOwnerUserUpdates(owner, dto);
+    await this.usersRepository.save(owner.user);
+    this.applyOwnerProfileUpdates(owner, dto);
+    await this.ownersRepository.save(owner);
 
-    if (dto.email) {
+    return this.findOne(id, companyId);
+  }
+
+  private async applyOwnerUserUpdates(
+    owner: Owner,
+    dto: UpdateOwnerDto,
+  ): Promise<void> {
+    if (dto.email !== undefined) {
       const normalizedEmail = dto.email.trim().toLowerCase();
       if (normalizedEmail !== owner.user.email) {
         const existingUser = await this.usersRepository.findOne({
@@ -218,41 +229,46 @@ export class OwnersService {
       owner.user.email = normalizedEmail;
     }
 
-    if (dto.firstName !== undefined) {
-      owner.user.firstName = dto.firstName.trim();
-    }
-    if (dto.lastName !== undefined) {
-      owner.user.lastName = dto.lastName.trim();
-    }
-    if (dto.phone !== undefined) {
-      owner.user.phone = dto.phone.trim();
-    }
+    this.assignTrimmedIfDefined(owner.user, 'firstName', dto.firstName);
+    this.assignTrimmedIfDefined(owner.user, 'lastName', dto.lastName);
+    this.assignTrimmedIfDefined(owner.user, 'phone', dto.phone);
+  }
 
-    await this.usersRepository.save(owner.user);
+  private applyOwnerProfileUpdates(owner: Owner, dto: UpdateOwnerDto): void {
+    this.assignTrimmedIfDefined(owner, 'taxId', dto.taxId);
+    this.assignTrimmedIfDefined(owner, 'taxIdType', dto.taxIdType);
+    this.assignTrimmedIfDefined(owner, 'address', dto.address);
+    this.assignTrimmedIfDefined(owner, 'city', dto.city);
+    this.assignTrimmedIfDefined(owner, 'state', dto.state);
+    this.assignTrimmedIfDefined(owner, 'country', dto.country);
+    this.assignTrimmedIfDefined(owner, 'postalCode', dto.postalCode);
+    this.assignTrimmedIfDefined(owner, 'bankName', dto.bankName);
+    this.assignTrimmedIfDefined(owner, 'bankAccountType', dto.bankAccountType);
+    this.assignTrimmedIfDefined(
+      owner,
+      'bankAccountNumber',
+      dto.bankAccountNumber,
+    );
+    this.assignTrimmedIfDefined(owner, 'bankCbu', dto.bankCbu);
+    this.assignTrimmedIfDefined(owner, 'bankAlias', dto.bankAlias);
+    this.assignTrimmedIfDefined(owner, 'notes', dto.notes);
 
-    if (dto.taxId !== undefined) owner.taxId = dto.taxId.trim();
-    if (dto.taxIdType !== undefined) owner.taxIdType = dto.taxIdType.trim();
-    if (dto.address !== undefined) owner.address = dto.address.trim();
-    if (dto.city !== undefined) owner.city = dto.city.trim();
-    if (dto.state !== undefined) owner.state = dto.state.trim();
-    if (dto.country !== undefined) owner.country = dto.country.trim();
-    if (dto.postalCode !== undefined) owner.postalCode = dto.postalCode.trim();
-    if (dto.bankName !== undefined) owner.bankName = dto.bankName.trim();
-    if (dto.bankAccountType !== undefined)
-      owner.bankAccountType = dto.bankAccountType.trim();
-    if (dto.bankAccountNumber !== undefined)
-      owner.bankAccountNumber = dto.bankAccountNumber.trim();
-    if (dto.bankCbu !== undefined) owner.bankCbu = dto.bankCbu.trim();
-    if (dto.bankAlias !== undefined) owner.bankAlias = dto.bankAlias.trim();
-    if (dto.paymentMethod !== undefined)
+    if (dto.paymentMethod !== undefined) {
       owner.paymentMethod = dto.paymentMethod;
-    if (dto.commissionRate !== undefined)
+    }
+    if (dto.commissionRate !== undefined) {
       owner.commissionRate = dto.commissionRate;
-    if (dto.notes !== undefined) owner.notes = dto.notes.trim();
+    }
+  }
 
-    await this.ownersRepository.save(owner);
-
-    return this.findOne(id, companyId);
+  private assignTrimmedIfDefined<
+    T extends object,
+    K extends Extract<keyof T, string>,
+  >(target: T, key: K, value: unknown): void {
+    if (value !== undefined) {
+      (target as Record<string, unknown>)[key] =
+        typeof value === 'string' ? value.trim() : value;
+    }
   }
 
   async listSettlements(

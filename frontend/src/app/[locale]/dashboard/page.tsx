@@ -63,12 +63,16 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    void fetchStats();
+    fetchStats().catch((error) => {
+      console.error("Error fetching dashboard stats:", error);
+    });
   }, [authLoading]);
 
   useEffect(() => {
     if (authLoading) return;
-    void fetchPeopleActivity();
+    fetchPeopleActivity().catch((error) => {
+      console.error("Error fetching people activity:", error);
+    });
   }, [authLoading, fetchPeopleActivity]);
 
   const formatDateTime = (dateStr: string | null): string => {
@@ -347,7 +351,11 @@ export default function DashboardPage() {
               </button>
               <button
                 type="button"
-                onClick={() => void handleSaveComment()}
+                onClick={() => {
+                  handleSaveComment().catch((error) => {
+                    console.error("Failed to edit activity comment", error);
+                  });
+                }}
                 disabled={updatingActivityId === editingActivity.id}
                 className="px-3 py-2 rounded-md bg-blue-600 text-white text-sm disabled:opacity-50"
               >

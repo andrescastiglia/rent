@@ -98,7 +98,9 @@ export default function TemplateEditorPage() {
       }
     };
 
-    void loadTemplate();
+    loadTemplate().catch((error) => {
+      console.error("Failed to load template", error);
+    });
   }, [scope, templateId]);
 
   const variableGroups = useMemo(

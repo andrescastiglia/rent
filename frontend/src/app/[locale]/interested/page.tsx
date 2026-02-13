@@ -295,7 +295,9 @@ export default function InterestedPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    void loadInitial();
+    loadInitial().catch((error) => {
+      console.error("Failed to load CRM interested data", error);
+    });
   }, [authLoading, loadInitial]);
 
   const handleConfirmMatch = useCallback(
@@ -442,7 +444,11 @@ export default function InterestedPage() {
                 >
                   <button
                     type="button"
-                    onClick={() => void selectProfile(profile)}
+                    onClick={() => {
+                      selectProfile(profile).catch((error) => {
+                        console.error("Failed to select profile", error);
+                      });
+                    }}
                     className="w-full text-left"
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -543,9 +549,16 @@ export default function InterestedPage() {
                                   <div className="flex flex-wrap items-center gap-2">
                                     <button
                                       type="button"
-                                      onClick={() =>
-                                        void handleConfirmMatch(match)
-                                      }
+                                      onClick={() => {
+                                        handleConfirmMatch(match).catch(
+                                          (error) => {
+                                            console.error(
+                                              "Failed to confirm suggested property",
+                                              error,
+                                            );
+                                          },
+                                        );
+                                      }}
                                       disabled={
                                         !confirmationAction ||
                                         confirmingMatchId === match.id
