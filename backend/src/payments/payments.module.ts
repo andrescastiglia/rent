@@ -76,6 +76,7 @@ import { WhatsappModule } from '../whatsapp/whatsapp.module';
     TypeOrmModule,
     TenantAccountsService,
     InvoicesService,
+    InvoicePdfService,
     PaymentsService,
     PaymentDocumentTemplatesService,
   ],

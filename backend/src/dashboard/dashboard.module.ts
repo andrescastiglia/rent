@@ -32,5 +32,6 @@ import { Owner } from '../owners/entities/owner.entity';
   ],
   controllers: [DashboardController],
   providers: [DashboardService],
+  exports: [DashboardService],
 })
 export class DashboardModule {}
