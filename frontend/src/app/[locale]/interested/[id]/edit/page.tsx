@@ -32,6 +32,23 @@ const emptyForm: CreateInterestedProfileInput = {
   notes: "",
 };
 
+const toggleOperation = (
+  form: CreateInterestedProfileInput,
+  operation: InterestedOperation,
+  checked: boolean,
+): CreateInterestedProfileInput => {
+  const current = form.operations ?? [];
+  const operations = checked
+    ? [...new Set([...current, operation])]
+    : current.filter((item) => item !== operation);
+
+  return {
+    ...form,
+    operations,
+    operation: operations[0] ?? "rent",
+  };
+};
+
 const profileToForm = (
   profile: InterestedProfile,
 ): CreateInterestedProfileInput => ({
@@ -149,6 +166,13 @@ export default function EditInterestedPage() {
     }
   };
 
+  const handleOperationChange = (
+    operation: InterestedOperation,
+    checked: boolean,
+  ) => {
+    setForm((prev) => toggleOperation(prev, operation, checked));
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -245,17 +269,7 @@ export default function EditInterestedPage() {
                     type="checkbox"
                     checked={operations.includes(operation)}
                     onChange={(e) =>
-                      setForm((prev) => {
-                        const current = prev.operations ?? [];
-                        const next = e.target.checked
-                          ? [...new Set([...current, operation])]
-                          : current.filter((item) => item !== operation);
-                        return {
-                          ...prev,
-                          operations: next,
-                          operation: next[0] ?? "rent",
-                        };
-                      })
+                      handleOperationChange(operation, e.target.checked)
                     }
                     className="rounded-sm border-gray-300 dark:border-gray-600"
                   />

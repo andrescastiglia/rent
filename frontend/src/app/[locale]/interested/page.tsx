@@ -37,6 +37,100 @@ type ContractLink = {
   label: string;
 };
 
+type MatchCardProps = {
+  match: InterestedMatch;
+  selectedProfile: InterestedProfile | null;
+  confirmingMatchId: string | null;
+  t: (key: string) => string;
+  formatMatchReason: (reason: string) => string;
+  resolveMatchConfirmationAction: (
+    profile: InterestedProfile,
+    match: InterestedMatch,
+  ) => "rent" | "sale" | null;
+  resolveMatchContractLinks: (
+    profile: InterestedProfile,
+    match: InterestedMatch,
+  ) => ContractLink[];
+  onConfirm: (match: InterestedMatch) => void;
+  getConfirmMatchLabel: (
+    action: "rent" | "sale" | null | undefined,
+    isConfirming: boolean,
+  ) => string;
+};
+
+function MatchCard({
+  match,
+  selectedProfile,
+  confirmingMatchId,
+  t,
+  formatMatchReason,
+  resolveMatchConfirmationAction,
+  resolveMatchContractLinks,
+  onConfirm,
+  getConfirmMatchLabel,
+}: MatchCardProps) {
+  const confirmationAction =
+    selectedProfile && resolveMatchConfirmationAction(selectedProfile, match);
+  const contractLinks = selectedProfile
+    ? resolveMatchContractLinks(selectedProfile, match)
+    : [];
+
+  return (
+    <div className="border border-gray-200 dark:border-gray-700 rounded-md p-3 space-y-2 bg-white/70 dark:bg-gray-900/20">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-sm font-medium text-gray-900 dark:text-white">
+            {match.property?.name ?? match.propertyId}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {t("labels.score")}: {(match.score ?? 0).toFixed(2)}%
+          </p>
+        </div>
+        <span className="text-xs px-2 py-1 rounded-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+          {t(`matchStatus.${match.status}`)}
+        </span>
+      </div>
+
+      {match.matchReasons?.length ? (
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          {match.matchReasons.map(formatMatchReason).join(" · ")}
+        </p>
+      ) : null}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onConfirm(match)}
+          disabled={!confirmationAction || confirmingMatchId === match.id}
+          className="px-3 py-1.5 rounded-md border border-green-300 text-green-700 text-xs disabled:opacity-60"
+        >
+          {getConfirmMatchLabel(
+            confirmationAction,
+            confirmingMatchId === match.id,
+          )}
+        </button>
+
+        {contractLinks.map((link) => (
+          <Link
+            key={link.href}
+            href={link.href}
+            className="px-3 py-1.5 rounded-md border border-blue-300 dark:border-blue-700 text-xs text-blue-700 dark:text-blue-300"
+          >
+            {link.label}
+          </Link>
+        ))}
+
+        {match.status === "accepted" ? (
+          <span className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-300">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            {t("matchStatus.accepted")}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function getProfileOperations(
   profile: InterestedProfile,
 ): InterestedOperation[] {
@@ -350,6 +444,37 @@ export default function InterestedPage() {
     ],
   );
 
+  const handleSelectProfileClick = useCallback(
+    (profile: InterestedProfile) => {
+      selectProfile(profile).catch((error) => {
+        console.error("Failed to select profile", error);
+      });
+    },
+    [selectProfile],
+  );
+
+  const handleConfirmMatchClick = useCallback(
+    (match: InterestedMatch) => {
+      handleConfirmMatch(match).catch((error) => {
+        console.error("Failed to confirm suggested property", error);
+      });
+    },
+    [handleConfirmMatch],
+  );
+
+  const getConfirmMatchLabel = useCallback(
+    (
+      action: "rent" | "sale" | null | undefined,
+      isConfirming: boolean,
+    ): string => {
+      if (isConfirming) return t("actions.confirming");
+      return action === "sale"
+        ? t("actions.confirmPurchase")
+        : t("actions.confirmRent");
+    },
+    [t],
+  );
+
   const sortedActivities = useMemo(() => {
     return [...(summary?.activities ?? [])].sort(
       (a, b) =>
@@ -444,11 +569,7 @@ export default function InterestedPage() {
                 >
                   <button
                     type="button"
-                    onClick={() => {
-                      selectProfile(profile).catch((error) => {
-                        console.error("Failed to select profile", error);
-                      });
-                    }}
+                    onClick={() => handleSelectProfileClick(profile)}
                     className="w-full text-left"
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -503,95 +624,24 @@ export default function InterestedPage() {
 
                         {summary?.matches?.length ? (
                           <div className="space-y-2">
-                            {summary.matches.map((match) => {
-                              const confirmationAction =
-                                selectedProfile &&
-                                resolveMatchConfirmationAction(
-                                  selectedProfile,
-                                  match,
-                                );
-                              const contractLinks = selectedProfile
-                                ? resolveMatchContractLinks(
-                                    selectedProfile,
-                                    match,
-                                  )
-                                : [];
-
-                              return (
-                                <div
-                                  key={match.id}
-                                  className="border border-gray-200 dark:border-gray-700 rounded-md p-3 space-y-2 bg-white/70 dark:bg-gray-900/20"
-                                >
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div>
-                                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                        {match.property?.name ??
-                                          match.propertyId}
-                                      </p>
-                                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                                        {t("labels.score")}:{" "}
-                                        {(match.score ?? 0).toFixed(2)}%
-                                      </p>
-                                    </div>
-                                    <span className="text-xs px-2 py-1 rounded-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-                                      {t(`matchStatus.${match.status}`)}
-                                    </span>
-                                  </div>
-
-                                  {match.matchReasons?.length ? (
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                                      {match.matchReasons
-                                        .map(formatMatchReason)
-                                        .join(" · ")}
-                                    </p>
-                                  ) : null}
-
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        handleConfirmMatch(match).catch(
-                                          (error) => {
-                                            console.error(
-                                              "Failed to confirm suggested property",
-                                              error,
-                                            );
-                                          },
-                                        );
-                                      }}
-                                      disabled={
-                                        !confirmationAction ||
-                                        confirmingMatchId === match.id
-                                      }
-                                      className="px-3 py-1.5 rounded-md border border-green-300 text-green-700 text-xs disabled:opacity-60"
-                                    >
-                                      {confirmingMatchId === match.id
-                                        ? t("actions.confirming")
-                                        : confirmationAction === "sale"
-                                          ? t("actions.confirmPurchase")
-                                          : t("actions.confirmRent")}
-                                    </button>
-
-                                    {contractLinks.map((link) => (
-                                      <Link
-                                        key={link.href}
-                                        href={link.href}
-                                        className="px-3 py-1.5 rounded-md border border-blue-300 dark:border-blue-700 text-xs text-blue-700 dark:text-blue-300"
-                                      >
-                                        {link.label}
-                                      </Link>
-                                    ))}
-
-                                    {match.status === "accepted" ? (
-                                      <span className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-300">
-                                        <CheckCircle2 className="h-3.5 w-3.5" />
-                                        {t("matchStatus.accepted")}
-                                      </span>
-                                    ) : null}
-                                  </div>
-                                </div>
-                              );
-                            })}
+                            {summary.matches.map((match) => (
+                              <MatchCard
+                                key={match.id}
+                                match={match}
+                                selectedProfile={selectedProfile}
+                                confirmingMatchId={confirmingMatchId}
+                                t={t}
+                                formatMatchReason={formatMatchReason}
+                                resolveMatchConfirmationAction={
+                                  resolveMatchConfirmationAction
+                                }
+                                resolveMatchContractLinks={
+                                  resolveMatchContractLinks
+                                }
+                                onConfirm={handleConfirmMatchClick}
+                                getConfirmMatchLabel={getConfirmMatchLabel}
+                              />
+                            ))}
                           </div>
                         ) : (
                           <p className="text-sm text-gray-500 dark:text-gray-400">

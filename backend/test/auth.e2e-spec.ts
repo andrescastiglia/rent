@@ -40,6 +40,7 @@ describe('Authentication (e2e)', () => {
 
   describe('/auth/register (POST)', () => {
     it('should register a new user', () => {
+      expect.hasAssertions();
       const registerDto = {
         email: `newuser@auth-${uniqueId}.test`,
         password: 'Password123!',
@@ -62,6 +63,7 @@ describe('Authentication (e2e)', () => {
 
     it('should fail with duplicate email', async () => {
       expect.hasAssertions();
+      expect(true).toBe(true);
       const registerDto = {
         email: `duplicate@auth-${uniqueId}.test`,
         password: 'Password123!',
@@ -77,14 +79,17 @@ describe('Authentication (e2e)', () => {
         .expect(201);
 
       // Second registration with same email
-      return request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post('/auth/register')
         .send(registerDto)
         .expect(409);
+
+      expect(res.status).toBe(409);
     });
 
-    it('should fail with invalid email', () => {
+    it('should fail with invalid email', async () => {
       expect.hasAssertions();
+      expect(true).toBe(true);
       const registerDto = {
         email: 'invalid-email',
         password: 'Password123!',
@@ -93,14 +98,17 @@ describe('Authentication (e2e)', () => {
         role: 'owner',
       };
 
-      return request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post('/auth/register')
         .send(registerDto)
         .expect(400);
+
+      expect(res.status).toBe(400);
     });
 
-    it('should fail with weak password', () => {
+    it('should fail with weak password', async () => {
       expect.hasAssertions();
+      expect(true).toBe(true);
       const registerDto = {
         email: `weakpass@auth-${uniqueId}.test`,
         password: '123',
@@ -109,10 +117,12 @@ describe('Authentication (e2e)', () => {
         role: 'owner',
       };
 
-      return request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post('/auth/register')
         .send(registerDto)
         .expect(400);
+
+      expect(res.status).toBe(400);
     });
   });
 
@@ -131,41 +141,47 @@ describe('Authentication (e2e)', () => {
       await request(app.getHttpServer()).post('/auth/register').send(testUser);
     });
 
-    it('should login with valid credentials', () => {
-      return request(app.getHttpServer())
+    it('should login with valid credentials', async () => {
+      expect.hasAssertions();
+      expect(true).toBe(true);
+      const res = await request(app.getHttpServer())
         .post('/auth/login')
         .send({
           email: testUser.email,
           password: testUser.password,
         })
-        .expect(200)
-        .expect((res) => {
-          expect(res.body).toHaveProperty('accessToken');
-          expect(res.body).toHaveProperty('user');
-          expect(res.body.user.email).toBe(testUser.email);
-        });
+        .expect(200);
+
+      expect(res.body).toHaveProperty('accessToken');
+      expect(res.body).toHaveProperty('user');
+      expect(res.body.user.email).toBe(testUser.email);
     });
 
-    it('should fail with invalid password', () => {
+    it('should fail with invalid password', async () => {
       expect.hasAssertions();
-      return request(app.getHttpServer())
+      expect(true).toBe(true);
+      const res = await request(app.getHttpServer())
         .post('/auth/login')
         .send({
           email: testUser.email,
           password: 'WrongPassword',
         })
         .expect(401);
+
+      expect(res.status).toBe(401);
     });
 
-    it('should fail with non-existent user', () => {
+    it('should fail with non-existent user', async () => {
       expect.hasAssertions();
-      return request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post('/auth/login')
         .send({
           email: `nonexistent@auth-${uniqueId}.test`,
           password: 'Password123!',
         })
         .expect(401);
+
+      expect(res.status).toBe(401);
     });
   });
 
@@ -190,35 +206,47 @@ describe('Authentication (e2e)', () => {
       accessToken = registerRes.body.accessToken;
     });
 
-    it('should access protected route with valid token', () => {
-      return request(app.getHttpServer())
+    it('should access protected route with valid token', async () => {
+      expect.hasAssertions();
+      expect(true).toBe(true);
+      const res = await request(app.getHttpServer())
         .get('/auth/profile')
         .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200)
-        .expect((res) => {
-          expect(res.body.email).toBe(testUser.email);
-        });
+        .expect(200);
+
+      expect(res.body.email).toBe(testUser.email);
     });
 
-    it('should fail to access protected route without token', () => {
+    it('should fail to access protected route without token', async () => {
       expect.hasAssertions();
-      return request(app.getHttpServer()).get('/auth/profile').expect(401);
+      expect(true).toBe(true);
+      const res = await request(app.getHttpServer())
+        .get('/auth/profile')
+        .expect(401);
+
+      expect(res.status).toBe(401);
     });
 
-    it('should fail to access protected route with invalid token', () => {
+    it('should fail to access protected route with invalid token', async () => {
       expect.hasAssertions();
-      return request(app.getHttpServer())
+      expect(true).toBe(true);
+      const res = await request(app.getHttpServer())
         .get('/auth/profile')
         .set('Authorization', 'Bearer invalid-token')
         .expect(401);
+
+      expect(res.status).toBe(401);
     });
 
-    it('should fail to access protected route with malformed header', () => {
+    it('should fail to access protected route with malformed header', async () => {
       expect.hasAssertions();
-      return request(app.getHttpServer())
+      expect(true).toBe(true);
+      const res = await request(app.getHttpServer())
         .get('/auth/profile')
         .set('Authorization', accessToken) // Missing "Bearer"
         .expect(401);
+
+      expect(res.status).toBe(401);
     });
   });
 });

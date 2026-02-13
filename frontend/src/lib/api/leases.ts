@@ -149,9 +149,72 @@ const normalizeDate = (value: string | Date | null | undefined): string => {
   return new Date(value).toISOString();
 };
 
+const toIsoOrNow = (value?: string | Date | null): string =>
+  value ? new Date(value).toISOString() : new Date().toISOString();
+
+const toOptionalString = (value: unknown): string | undefined =>
+  typeof value === "string" && value.length > 0 ? value : undefined;
+
 const getCurrentCompanyId = (): string | undefined => {
   const user = getUser();
   return user?.companyId;
+};
+
+const assignDefinedLeaseField = <K extends keyof BackendLeasePayload>(
+  payload: BackendLeasePayload,
+  key: K,
+  value: BackendLeasePayload[K] | undefined,
+) => {
+  if (value !== undefined) {
+    payload[key] = value;
+  }
+};
+
+const getLeasePayloadMappedFields = (
+  data: Partial<CreateLeaseInput | UpdateLeaseInput>,
+): Array<
+  [
+    keyof BackendLeasePayload,
+    BackendLeasePayload[keyof BackendLeasePayload] | undefined,
+  ]
+> => [
+  ["propertyId", data.propertyId],
+  ["tenantId", data.tenantId],
+  ["buyerProfileId", data.buyerProfileId],
+  ["ownerId", data.ownerId],
+  ["templateId", data.templateId],
+  ["contractType", data.contractType],
+  ["startDate", data.startDate],
+  ["endDate", data.endDate],
+  ["monthlyRent", data.rentAmount],
+  ["fiscalValue", data.fiscalValue],
+  ["securityDeposit", data.depositAmount],
+  ["currency", data.currency],
+  ["paymentFrequency", data.paymentFrequency],
+  ["paymentDueDay", data.paymentDueDay],
+  ["billingFrequency", data.billingFrequency],
+  ["billingDay", data.billingDay],
+  ["autoGenerateInvoices", data.autoGenerateInvoices],
+  ["lateFeeType", data.lateFeeType],
+  ["lateFeeValue", data.lateFeeValue],
+  ["lateFeeGraceDays", data.lateFeeGraceDays],
+  ["lateFeeMax", data.lateFeeMax],
+  ["adjustmentType", data.adjustmentType],
+  ["adjustmentValue", data.adjustmentValue],
+  ["adjustmentFrequencyMonths", data.adjustmentFrequencyMonths],
+  ["inflationIndexType", data.inflationIndexType],
+  ["nextAdjustmentDate", data.nextAdjustmentDate],
+  ["termsAndConditions", data.terms],
+];
+
+const addLeaseMappedFieldsToPayload = (
+  payload: BackendLeasePayload,
+  data: Partial<CreateLeaseInput | UpdateLeaseInput>,
+) => {
+  const mappedFields = getLeasePayloadMappedFields(data);
+  for (const [key, value] of mappedFields) {
+    assignDefinedLeaseField(payload, key, value);
+  }
 };
 
 const toBackendLeasePayload = (
@@ -159,49 +222,12 @@ const toBackendLeasePayload = (
   includeCompanyId: boolean,
 ): BackendLeasePayload => {
   const payload: BackendLeasePayload = {};
+
   if (includeCompanyId) {
     payload.companyId = getCurrentCompanyId();
   }
-  if (data.propertyId !== undefined) payload.propertyId = data.propertyId;
-  if (data.tenantId !== undefined) payload.tenantId = data.tenantId;
-  if (data.buyerProfileId !== undefined)
-    payload.buyerProfileId = data.buyerProfileId;
-  if (data.ownerId !== undefined) payload.ownerId = data.ownerId;
-  if (data.templateId !== undefined) payload.templateId = data.templateId;
-  if (data.contractType !== undefined) payload.contractType = data.contractType;
-  if (data.startDate !== undefined) payload.startDate = data.startDate;
-  if (data.endDate !== undefined) payload.endDate = data.endDate;
-  if (data.rentAmount !== undefined) payload.monthlyRent = data.rentAmount;
-  if (data.fiscalValue !== undefined) payload.fiscalValue = data.fiscalValue;
-  if (data.depositAmount !== undefined)
-    payload.securityDeposit = data.depositAmount;
-  if (data.currency !== undefined) payload.currency = data.currency;
-  if (data.paymentFrequency !== undefined)
-    payload.paymentFrequency = data.paymentFrequency;
-  if (data.paymentDueDay !== undefined)
-    payload.paymentDueDay = data.paymentDueDay;
-  if (data.billingFrequency !== undefined)
-    payload.billingFrequency = data.billingFrequency;
-  if (data.billingDay !== undefined) payload.billingDay = data.billingDay;
-  if (data.autoGenerateInvoices !== undefined)
-    payload.autoGenerateInvoices = data.autoGenerateInvoices;
-  if (data.lateFeeType !== undefined) payload.lateFeeType = data.lateFeeType;
-  if (data.lateFeeValue !== undefined) payload.lateFeeValue = data.lateFeeValue;
-  if (data.lateFeeGraceDays !== undefined)
-    payload.lateFeeGraceDays = data.lateFeeGraceDays;
-  if (data.lateFeeMax !== undefined) payload.lateFeeMax = data.lateFeeMax;
-  if (data.adjustmentType !== undefined)
-    payload.adjustmentType = data.adjustmentType;
-  if (data.adjustmentValue !== undefined)
-    payload.adjustmentValue = data.adjustmentValue;
-  if (data.adjustmentFrequencyMonths !== undefined) {
-    payload.adjustmentFrequencyMonths = data.adjustmentFrequencyMonths;
-  }
-  if (data.inflationIndexType !== undefined)
-    payload.inflationIndexType = data.inflationIndexType;
-  if (data.nextAdjustmentDate !== undefined)
-    payload.nextAdjustmentDate = data.nextAdjustmentDate;
-  if (data.terms !== undefined) payload.termsAndConditions = data.terms;
+  addLeaseMappedFieldsToPayload(payload, data);
+
   return payload;
 };
 
@@ -217,71 +243,150 @@ const mapLeaseStatus = (value: string | null | undefined): Lease["status"] => {
   }
 };
 
+const mapTenantFromBackend = (raw: BackendLease): Tenant | undefined => {
+  const tenantUser = raw.tenant?.user ?? null;
+  if (!tenantUser) {
+    return undefined;
+  }
+
+  return {
+    id: raw.tenantId || "",
+    firstName: tenantUser.firstName ?? "",
+    lastName: tenantUser.lastName ?? "",
+    email: tenantUser.email ?? "",
+    phone: tenantUser.phone ?? "",
+    dni: raw.tenant?.dni ?? raw.tenantId ?? "",
+    status: (tenantUser.isActive ?? true) ? "ACTIVE" : "INACTIVE",
+    createdAt: toIsoOrNow(),
+    updatedAt: toIsoOrNow(),
+  };
+};
+
+const toPropertyImageUrl = (img: any): string | undefined => {
+  if (typeof img === "string") {
+    return img;
+  }
+  return toOptionalString(img?.url);
+};
+
+const mapPropertyImages = (images: any): string[] =>
+  Array.isArray(images)
+    ? images
+        .map(toPropertyImageUrl)
+        .filter((value): value is string => typeof value === "string")
+    : [];
+
+const mapPropertyFromBackendLease = (
+  raw: BackendLease,
+): Property | undefined => {
+  const propertyRef = raw.property ?? null;
+  if (!propertyRef) {
+    return undefined;
+  }
+
+  return {
+    id: propertyRef.id,
+    name: propertyRef.name ?? "",
+    description: propertyRef.description ?? undefined,
+    type: "OTHER",
+    status: "ACTIVE",
+    address: {
+      street: propertyRef.addressStreet ?? "",
+      number: propertyRef.addressNumber ?? "",
+      unit: undefined,
+      city: propertyRef.addressCity ?? "",
+      state: propertyRef.addressState ?? "",
+      zipCode: propertyRef.addressPostalCode ?? "",
+      country: propertyRef.addressCountry ?? "Argentina",
+    },
+    features: [],
+    units: [],
+    images: mapPropertyImages(propertyRef.images),
+    ownerId: propertyRef.ownerId ?? raw.ownerId,
+    createdAt: toIsoOrNow(propertyRef.createdAt),
+    updatedAt: toIsoOrNow(propertyRef.updatedAt),
+  };
+};
+
+const mapBuyerProfileFromBackend = (
+  raw: BackendLease,
+): Lease["buyerProfile"] | undefined => {
+  if (!raw.buyerProfile) {
+    return undefined;
+  }
+
+  return {
+    id: raw.buyerProfile.id,
+    firstName: raw.buyerProfile.firstName ?? undefined,
+    lastName: raw.buyerProfile.lastName ?? undefined,
+    phone: raw.buyerProfile.phone ?? "",
+    email: raw.buyerProfile.email ?? undefined,
+    operations: ["sale" as const],
+    status: "interested" as const,
+    createdAt: toIsoOrNow(),
+    updatedAt: toIsoOrNow(),
+  };
+};
+
+const toOptionalNumber = (
+  value: number | null | undefined,
+): number | undefined =>
+  value === null || value === undefined ? undefined : Number(value);
+
+const toStringArray = (value: any[] | null | undefined): string[] =>
+  Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+
+const mapLeaseFinancialFields = (raw: BackendLease) => ({
+  rentAmount: toOptionalNumber(raw.monthlyRent),
+  depositAmount: Number(raw.securityDeposit ?? 0),
+  fiscalValue: toOptionalNumber(raw.fiscalValue),
+  currency: raw.currency ?? "ARS",
+});
+
+const mapLeaseDatesAndDocs = (raw: BackendLease) => ({
+  startDate: raw.startDate ? normalizeDate(raw.startDate) : undefined,
+  endDate: raw.endDate ? normalizeDate(raw.endDate) : undefined,
+  confirmedAt: raw.confirmedAt ? normalizeDate(raw.confirmedAt) : undefined,
+  nextAdjustmentDate: raw.nextAdjustmentDate
+    ? normalizeDate(raw.nextAdjustmentDate)
+    : undefined,
+  lastAdjustmentDate: raw.lastAdjustmentDate
+    ? normalizeDate(raw.lastAdjustmentDate)
+    : undefined,
+  documents: toStringArray(raw.documents),
+  createdAt: normalizeDate(raw.createdAt),
+  updatedAt: normalizeDate(raw.updatedAt),
+});
+
+const mapLeaseRules = (raw: BackendLease) => ({
+  paymentFrequency: (raw.paymentFrequency as any) ?? undefined,
+  paymentDueDay: raw.paymentDueDay ?? undefined,
+  billingFrequency: (raw.billingFrequency as any) ?? undefined,
+  billingDay: raw.billingDay ?? undefined,
+  autoGenerateInvoices: raw.autoGenerateInvoices ?? undefined,
+  lateFeeType: (raw.lateFeeType as any) ?? undefined,
+  lateFeeValue: raw.lateFeeValue ?? undefined,
+  lateFeeGraceDays: raw.lateFeeGraceDays ?? undefined,
+  lateFeeMax: raw.lateFeeMax ?? undefined,
+  adjustmentType: (raw.adjustmentType as any) ?? undefined,
+  adjustmentValue: raw.adjustmentValue ?? undefined,
+  adjustmentFrequencyMonths: raw.adjustmentFrequencyMonths ?? undefined,
+  inflationIndexType: isSupportedInflationIndexType(raw.inflationIndexType)
+    ? raw.inflationIndexType
+    : undefined,
+});
+
 const mapBackendLeaseToLease = (raw: BackendLease): Lease => {
   const propertyRef = raw.property ?? null;
   const propertyId = raw.propertyId ?? propertyRef?.id ?? "";
-
-  const tenantUser = raw.tenant?.user ?? null;
-  const tenant: Tenant | undefined = tenantUser
-    ? {
-        id: raw.tenantId || "",
-        firstName: tenantUser.firstName ?? "",
-        lastName: tenantUser.lastName ?? "",
-        email: tenantUser.email ?? "",
-        phone: tenantUser.phone ?? "",
-        dni: raw.tenant?.dni ?? raw.tenantId ?? "",
-        status: (tenantUser.isActive ?? true) ? "ACTIVE" : "INACTIVE",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
-    : undefined;
-
-  const property: Property | undefined = propertyRef
-    ? {
-        id: propertyRef.id,
-        name: propertyRef.name ?? "",
-        description: propertyRef.description ?? undefined,
-        type: "OTHER",
-        status: "ACTIVE",
-        address: {
-          street: propertyRef.addressStreet ?? "",
-          number: propertyRef.addressNumber ?? "",
-          unit: undefined,
-          city: propertyRef.addressCity ?? "",
-          state: propertyRef.addressState ?? "",
-          zipCode: propertyRef.addressPostalCode ?? "",
-          country: propertyRef.addressCountry ?? "Argentina",
-        },
-        features: [],
-        units: [],
-        images: Array.isArray(propertyRef.images)
-          ? propertyRef.images
-              .map((img: any) => (typeof img === "string" ? img : img?.url))
-              .filter((v: any) => typeof v === "string" && v.length > 0)
-          : [],
-        ownerId: propertyRef.ownerId ?? raw.ownerId,
-        createdAt: propertyRef.createdAt
-          ? new Date(propertyRef.createdAt).toISOString()
-          : new Date().toISOString(),
-        updatedAt: propertyRef.updatedAt
-          ? new Date(propertyRef.updatedAt).toISOString()
-          : new Date().toISOString(),
-      }
-    : undefined;
-
-  const buyerProfile = raw.buyerProfile
-    ? {
-        id: raw.buyerProfile.id,
-        firstName: raw.buyerProfile.firstName ?? undefined,
-        lastName: raw.buyerProfile.lastName ?? undefined,
-        phone: raw.buyerProfile.phone ?? "",
-        email: raw.buyerProfile.email ?? undefined,
-        operations: ["sale" as const],
-        status: "interested" as const,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
-    : undefined;
+  const tenant = mapTenantFromBackend(raw);
+  const property = mapPropertyFromBackendLease(raw);
+  const buyerProfile = mapBuyerProfileFromBackend(raw);
+  const financial = mapLeaseFinancialFields(raw);
+  const datesAndDocs = mapLeaseDatesAndDocs(raw);
+  const rules = mapLeaseRules(raw);
 
   return {
     id: raw.id,
@@ -292,51 +397,15 @@ const mapBackendLeaseToLease = (raw: BackendLease): Lease => {
     templateId: raw.templateId ?? undefined,
     templateName: raw.templateName ?? undefined,
     contractType: raw.contractType ?? "rental",
-    startDate: raw.startDate ? normalizeDate(raw.startDate) : undefined,
-    endDate: raw.endDate ? normalizeDate(raw.endDate) : undefined,
-    rentAmount:
-      raw.monthlyRent === null || raw.monthlyRent === undefined
-        ? undefined
-        : Number(raw.monthlyRent),
-    depositAmount: Number(raw.securityDeposit ?? 0),
-    fiscalValue:
-      raw.fiscalValue === null || raw.fiscalValue === undefined
-        ? undefined
-        : Number(raw.fiscalValue),
-    currency: raw.currency ?? "ARS",
+    ...financial,
     status: mapLeaseStatus(raw.status),
     terms: raw.termsAndConditions ?? undefined,
     draftContractText: raw.draftContractText ?? undefined,
     confirmedContractText: raw.confirmedContractText ?? undefined,
-    confirmedAt: raw.confirmedAt ? normalizeDate(raw.confirmedAt) : undefined,
     previousLeaseId: raw.previousLeaseId ?? undefined,
     versionNumber: raw.versionNumber ?? undefined,
-    documents: Array.isArray(raw.documents)
-      ? raw.documents.filter((d) => typeof d === "string")
-      : [],
-    createdAt: normalizeDate(raw.createdAt),
-    updatedAt: normalizeDate(raw.updatedAt),
-    paymentFrequency: (raw.paymentFrequency as any) ?? undefined,
-    paymentDueDay: raw.paymentDueDay ?? undefined,
-    billingFrequency: (raw.billingFrequency as any) ?? undefined,
-    billingDay: raw.billingDay ?? undefined,
-    autoGenerateInvoices: raw.autoGenerateInvoices ?? undefined,
-    lateFeeType: (raw.lateFeeType as any) ?? undefined,
-    lateFeeValue: raw.lateFeeValue ?? undefined,
-    lateFeeGraceDays: raw.lateFeeGraceDays ?? undefined,
-    lateFeeMax: raw.lateFeeMax ?? undefined,
-    adjustmentType: (raw.adjustmentType as any) ?? undefined,
-    adjustmentValue: raw.adjustmentValue ?? undefined,
-    adjustmentFrequencyMonths: raw.adjustmentFrequencyMonths ?? undefined,
-    inflationIndexType: isSupportedInflationIndexType(raw.inflationIndexType)
-      ? raw.inflationIndexType
-      : undefined,
-    nextAdjustmentDate: raw.nextAdjustmentDate
-      ? normalizeDate(raw.nextAdjustmentDate)
-      : undefined,
-    lastAdjustmentDate: raw.lastAdjustmentDate
-      ? normalizeDate(raw.lastAdjustmentDate)
-      : undefined,
+    ...datesAndDocs,
+    ...rules,
     property,
     tenant,
     buyerProfile,
@@ -439,35 +508,41 @@ const IS_MOCK_MODE =
 const DELAY = 500;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const enrichMockLeaseWithRelations = async (lease: Lease): Promise<Lease> => {
+  const property = await propertiesApi.getById(lease.propertyId);
+  const tenant = lease.tenantId
+    ? await tenantsApi.getById(lease.tenantId)
+    : null;
+  return {
+    ...lease,
+    property: property || undefined,
+    tenant: tenant || undefined,
+  };
+};
+
+const filterMockLeases = (
+  leases: Lease[],
+  filters?: LeaseListFilters,
+): Lease[] => {
+  if (filters?.includeFinalized) {
+    return leases.filter(
+      (item) => item.status === "ACTIVE" || item.status === "FINALIZED",
+    );
+  }
+  if (filters?.status) {
+    return leases.filter((item) => item.status === filters.status);
+  }
+  return leases.filter((item) => item.status === "ACTIVE");
+};
+
 export const leasesApi = {
   getAll: async (filters?: LeaseListFilters): Promise<Lease[]> => {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
-      // Enrich with related data for list view
       const leasesWithRelations = await Promise.all(
-        MOCK_LEASES.map(async (lease) => {
-          const property = await propertiesApi.getById(lease.propertyId);
-          const tenant = lease.tenantId
-            ? await tenantsApi.getById(lease.tenantId)
-            : null;
-          return {
-            ...lease,
-            property: property || undefined,
-            tenant: tenant || undefined,
-          };
-        }),
+        MOCK_LEASES.map(enrichMockLeaseWithRelations),
       );
-      if (filters?.includeFinalized) {
-        return leasesWithRelations.filter(
-          (item) => item.status === "ACTIVE" || item.status === "FINALIZED",
-        );
-      }
-      if (filters?.status) {
-        return leasesWithRelations.filter(
-          (item) => item.status === filters.status,
-        );
-      }
-      return leasesWithRelations.filter((item) => item.status === "ACTIVE");
+      return filterMockLeases(leasesWithRelations, filters);
     }
 
     const token = getToken();

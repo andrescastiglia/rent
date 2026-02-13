@@ -113,6 +113,35 @@ const isUuid = (value: string | null | undefined): value is string =>
     value,
   );
 
+const toOptionalNumber = (
+  value: number | string | null | undefined,
+): number | undefined => {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  return Number(value);
+};
+
+const toIsoDate = (value?: string | Date): string => {
+  return value ? new Date(value).toISOString() : new Date().toISOString();
+};
+
+const isApiRelativeImagePath = (value: string): boolean =>
+  value.startsWith("/uploads/") ||
+  value.startsWith("uploads/") ||
+  value.startsWith("/properties/images/") ||
+  value.startsWith("properties/images/");
+
+const shouldForceHttps = (): boolean =>
+  typeof window !== "undefined" && window.location.protocol === "https:";
+
+const forceHttpsWhenNeeded = (url: URL): string => {
+  if (shouldForceHttps()) {
+    url.protocol = "https:";
+  }
+  return url.toString();
+};
+
 const normalizeImages = (images: any[] | null | undefined): string[] => {
   if (!Array.isArray(images)) return [];
   return images
@@ -133,58 +162,51 @@ const normalizePropertyImageUrl = (url: string): string => {
   const normalizeApiPathWithBase = (path: string): string => {
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
     if (!API_BASE_URL) return normalizedPath;
+
     try {
       const base = API_BASE_URL.endsWith("/")
         ? API_BASE_URL
         : `${API_BASE_URL}/`;
       const resolved = new URL(normalizedPath.replace(/^\/+/, ""), base);
-      if (
-        typeof window !== "undefined" &&
-        window.location.protocol === "https:"
-      ) {
-        resolved.protocol = "https:";
-      }
-      return resolved.toString();
+      return forceHttpsWhenNeeded(resolved);
     } catch {
       return normalizedPath;
     }
   };
 
-  if (
-    url.startsWith("/uploads/") ||
-    url.startsWith("uploads/") ||
-    url.startsWith("/properties/images/") ||
-    url.startsWith("properties/images/")
-  ) {
+  if (isApiRelativeImagePath(url)) {
     return normalizeApiPathWithBase(url);
   }
-  try {
-    if (!url.startsWith("http://") && !url.startsWith("https://")) {
-      return url;
-    }
 
-    const parsed = new URL(url);
-    if (
-      parsed.pathname.startsWith("/uploads/") ||
-      parsed.pathname.startsWith("/properties/images/")
-    ) {
-      return normalizeApiPathWithBase(`${parsed.pathname}${parsed.search}`);
-    }
-    if (parsed.hostname === "rent.maese.com.ar") {
-      parsed.protocol = "https:";
-      return parsed.toString();
-    }
-    if (
-      typeof window !== "undefined" &&
-      window.location.protocol === "https:"
-    ) {
-      parsed.protocol = "https:";
-      return parsed.toString();
-    }
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
     return url;
+  }
+
+  try {
+    const parsed = new URL(url);
+    return normalizeAbsoluteImageUrl(parsed, normalizeApiPathWithBase);
   } catch {
     return url;
   }
+};
+
+const normalizeAbsoluteImageUrl = (
+  parsed: URL,
+  normalizeApiPathWithBase: (path: string) => string,
+): string => {
+  if (
+    parsed.pathname.startsWith("/uploads/") ||
+    parsed.pathname.startsWith("/properties/images/")
+  ) {
+    return normalizeApiPathWithBase(`${parsed.pathname}${parsed.search}`);
+  }
+
+  if (parsed.hostname === "rent.maese.com.ar") {
+    parsed.protocol = "https:";
+    return parsed.toString();
+  }
+
+  return forceHttpsWhenNeeded(parsed);
 };
 
 const mapPropertyType = (
@@ -300,37 +322,66 @@ const serializeUpdatePayload = (
   data: UpdatePropertyInput,
 ): BackendUpdatePropertyPayload => {
   const payload: BackendUpdatePropertyPayload = {};
+  const setIfDefined = <K extends keyof BackendUpdatePropertyPayload>(
+    key: K,
+    value: BackendUpdatePropertyPayload[K] | undefined,
+  ) => {
+    if (value !== undefined) {
+      payload[key] = value;
+    }
+  };
+
   const backendType = mapFrontendPropertyTypeToBackend(data.type);
-  if (backendType) payload.propertyType = backendType;
+  if (backendType) {
+    payload.propertyType = backendType;
+  }
   const backendStatus = mapFrontendPropertyStatusToBackend(data.status);
-  if (backendStatus) payload.status = backendStatus;
-  if (data.name !== undefined) payload.name = data.name;
-  if (data.ownerWhatsapp !== undefined)
-    payload.ownerWhatsapp = data.ownerWhatsapp;
-  if (data.address?.street !== undefined)
-    payload.addressStreet = data.address.street;
-  if (data.address?.number !== undefined)
-    payload.addressNumber = data.address.number;
-  if (data.address?.unit !== undefined)
-    payload.addressApartment = data.address.unit;
-  if (data.address?.city !== undefined) payload.addressCity = data.address.city;
-  if (data.address?.state !== undefined)
-    payload.addressState = data.address.state;
-  if (data.address?.country !== undefined)
-    payload.addressCountry = data.address.country;
-  if (data.address?.zipCode !== undefined)
-    payload.addressPostalCode = data.address.zipCode;
-  if (data.description !== undefined) payload.description = data.description;
-  if (data.rentPrice !== undefined) payload.rentPrice = data.rentPrice;
-  if (data.salePrice !== undefined) payload.salePrice = data.salePrice;
-  if (data.saleCurrency !== undefined) payload.saleCurrency = data.saleCurrency;
-  if (data.operations !== undefined) payload.operations = data.operations;
-  if (data.operationState !== undefined)
-    payload.operationState = data.operationState;
-  if (data.allowsPets !== undefined) payload.allowsPets = data.allowsPets;
-  if (data.acceptedGuaranteeTypes !== undefined)
-    payload.acceptedGuaranteeTypes = data.acceptedGuaranteeTypes;
-  if (data.maxOccupants !== undefined) payload.maxOccupants = data.maxOccupants;
+  if (backendStatus) {
+    payload.status = backendStatus;
+  }
+
+  const directFields: Array<
+    [
+      keyof BackendUpdatePropertyPayload,
+      (
+        | BackendUpdatePropertyPayload[keyof BackendUpdatePropertyPayload]
+        | undefined
+      ),
+    ]
+  > = [
+    ["name", data.name],
+    ["ownerWhatsapp", data.ownerWhatsapp],
+    ["description", data.description],
+    ["rentPrice", data.rentPrice],
+    ["salePrice", data.salePrice],
+    ["saleCurrency", data.saleCurrency],
+    ["operations", data.operations],
+    ["operationState", data.operationState],
+    ["allowsPets", data.allowsPets],
+    ["acceptedGuaranteeTypes", data.acceptedGuaranteeTypes],
+    ["maxOccupants", data.maxOccupants],
+  ];
+
+  for (const [key, value] of directFields) {
+    setIfDefined(key, value);
+  }
+
+  const addressFields: Array<
+    [keyof BackendUpdatePropertyPayload, string | undefined]
+  > = [
+    ["addressStreet", data.address?.street],
+    ["addressNumber", data.address?.number],
+    ["addressApartment", data.address?.unit],
+    ["addressCity", data.address?.city],
+    ["addressState", data.address?.state],
+    ["addressCountry", data.address?.country],
+    ["addressPostalCode", data.address?.zipCode],
+  ];
+
+  for (const [key, value] of addressFields) {
+    setIfDefined(key, value);
+  }
+
   if (data.images !== undefined) {
     payload.images = data.images.map(normalizePropertyImageUrl);
   }
@@ -383,25 +434,76 @@ const mapBackendUnitToUnit = (raw: BackendUnit): Property["units"][number] => {
   };
 };
 
-const mapBackendPropertyToProperty = (raw: BackendProperty): Property => {
+const hasNumericValue = (value: number | string | null | undefined): boolean =>
+  value !== undefined && value !== null;
+
+const resolveOperationsFromPrices = (
+  raw: BackendProperty,
+): Property["operations"] => {
+  const hasRentPrice = hasNumericValue(raw.rentPrice);
+  const hasSalePrice = hasNumericValue(raw.salePrice);
+
+  if (hasRentPrice && hasSalePrice) {
+    return ["rent", "sale"];
+  }
+
+  if (hasRentPrice) {
+    return ["rent"];
+  }
+
+  if (hasSalePrice) {
+    return ["sale"];
+  }
+
+  return ["rent"];
+};
+
+const resolvePropertyOperations = (
+  raw: BackendProperty,
+): Property["operations"] => {
   const backendOperations = Array.isArray(raw.operations)
     ? raw.operations.filter((item): item is string => typeof item === "string")
     : [];
+
   const normalizedOperations = backendOperations
     .map((item) => item.toLowerCase())
     .filter(
       (item): item is "rent" | "sale" => item === "rent" || item === "sale",
     );
-  const operations: Property["operations"] =
-    normalizedOperations.length > 0
-      ? normalizedOperations
-      : raw.rentPrice !== undefined && raw.rentPrice !== null
-        ? raw.salePrice !== undefined && raw.salePrice !== null
-          ? ["rent", "sale"]
-          : ["rent"]
-        : raw.salePrice !== undefined && raw.salePrice !== null
-          ? ["sale"]
-          : ["rent"];
+
+  if (normalizedOperations.length > 0) {
+    return normalizedOperations;
+  }
+
+  return resolveOperationsFromPrices(raw);
+};
+
+const mapBackendFeatures = (
+  features: any[] | null | undefined,
+): Property["features"] => {
+  if (!Array.isArray(features)) {
+    return [];
+  }
+
+  return features
+    .map((feature: any) => {
+      const id =
+        typeof feature?.id === "string"
+          ? feature.id
+          : Math.random().toString(36).slice(2);
+      const name =
+        typeof feature?.name === "string"
+          ? feature.name
+          : String(feature?.featureName ?? feature?.key ?? "");
+      const value =
+        typeof feature?.value === "string" ? feature.value : undefined;
+      return { id, name, value };
+    })
+    .filter((feature) => Boolean(feature.name));
+};
+
+const mapBackendPropertyToProperty = (raw: BackendProperty): Property => {
+  const operations = resolvePropertyOperations(raw);
 
   return {
     id: raw.id,
@@ -418,34 +520,13 @@ const mapBackendPropertyToProperty = (raw: BackendProperty): Property => {
       zipCode: raw.addressPostalCode ?? "",
       country: raw.addressCountry ?? "Argentina",
     },
-    features: Array.isArray(raw.features)
-      ? raw.features
-          .map((f: any) => {
-            const id =
-              typeof f?.id === "string"
-                ? f.id
-                : Math.random().toString(36).slice(2);
-            const name =
-              typeof f?.name === "string"
-                ? f.name
-                : String(f?.featureName ?? f?.key ?? "");
-            const value = typeof f?.value === "string" ? f.value : undefined;
-            return { id, name, value };
-          })
-          .filter((f) => !!f.name)
-      : [],
+    features: mapBackendFeatures(raw.features),
     units: Array.isArray(raw.units) ? raw.units.map(mapBackendUnitToUnit) : [],
     images: normalizeImages(raw.images),
     ownerId: raw.ownerId ?? "",
     ownerWhatsapp: raw.ownerWhatsapp ?? undefined,
-    rentPrice:
-      raw.rentPrice !== undefined && raw.rentPrice !== null
-        ? Number(raw.rentPrice)
-        : undefined,
-    salePrice:
-      raw.salePrice !== undefined && raw.salePrice !== null
-        ? Number(raw.salePrice)
-        : undefined,
+    rentPrice: toOptionalNumber(raw.rentPrice),
+    salePrice: toOptionalNumber(raw.salePrice),
     saleCurrency: raw.saleCurrency ?? undefined,
     operations,
     operationState: mapOperationState(raw.operationState),
@@ -453,16 +534,9 @@ const mapBackendPropertyToProperty = (raw: BackendProperty): Property => {
     acceptedGuaranteeTypes: Array.isArray(raw.acceptedGuaranteeTypes)
       ? raw.acceptedGuaranteeTypes
       : [],
-    maxOccupants:
-      raw.maxOccupants !== undefined && raw.maxOccupants !== null
-        ? Number(raw.maxOccupants)
-        : undefined,
-    createdAt: raw.createdAt
-      ? new Date(raw.createdAt).toISOString()
-      : new Date().toISOString(),
-    updatedAt: raw.updatedAt
-      ? new Date(raw.updatedAt).toISOString()
-      : new Date().toISOString(),
+    maxOccupants: toOptionalNumber(raw.maxOccupants),
+    createdAt: toIsoDate(raw.createdAt),
+    updatedAt: toIsoDate(raw.updatedAt),
   };
 };
 
@@ -472,17 +546,11 @@ const mapBackendVisitToMaintenanceTask = (
   return {
     id: raw.id,
     propertyId: raw.propertyId,
-    scheduledAt: raw.visitedAt
-      ? new Date(raw.visitedAt).toISOString()
-      : new Date().toISOString(),
+    scheduledAt: toIsoDate(raw.visitedAt),
     title: raw.interestedName,
     notes: raw.comments ?? undefined,
-    createdAt: raw.createdAt
-      ? new Date(raw.createdAt).toISOString()
-      : new Date().toISOString(),
-    updatedAt: raw.updatedAt
-      ? new Date(raw.updatedAt).toISOString()
-      : new Date().toISOString(),
+    createdAt: toIsoDate(raw.createdAt),
+    updatedAt: toIsoDate(raw.updatedAt),
   };
 };
 
@@ -574,72 +642,102 @@ const IS_MOCK_MODE =
 const DELAY = 500;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const applyMockPropertyFilters = (
+  properties: Property[],
+  filters?: PropertyFilters,
+): Property[] => {
+  const predicates: Array<(property: Property) => boolean> = [];
+
+  if (filters?.ownerId) {
+    predicates.push((property) => property.ownerId === filters.ownerId);
+  }
+  addMinPricePredicate(predicates, filters?.minSalePrice, "salePrice");
+  addMaxPricePredicate(predicates, filters?.maxSalePrice, "salePrice");
+  addMinPricePredicate(predicates, filters?.minRent, "rentPrice");
+  addMaxPricePredicate(predicates, filters?.maxRent, "rentPrice");
+
+  return predicates.reduce(
+    (result, predicate) => result.filter(predicate),
+    [...properties],
+  );
+};
+
+const addMinPricePredicate = (
+  predicates: Array<(property: Property) => boolean>,
+  min: number | undefined,
+  key: "salePrice" | "rentPrice",
+) => {
+  if (min === undefined) {
+    return;
+  }
+
+  predicates.push((property) => (property[key] ?? 0) >= min);
+};
+
+const addMaxPricePredicate = (
+  predicates: Array<(property: Property) => boolean>,
+  max: number | undefined,
+  key: "salePrice" | "rentPrice",
+) => {
+  if (max === undefined) {
+    return;
+  }
+
+  predicates.push((property) => (property[key] ?? 0) <= max);
+};
+
+const buildPropertiesQueryParams = (
+  filters?: PropertyFilters,
+): URLSearchParams => {
+  const queryParams = new URLSearchParams();
+  if (!filters) {
+    return queryParams;
+  }
+
+  if (filters.ownerId) queryParams.append("ownerId", filters.ownerId);
+  if (filters.addressCity)
+    queryParams.append("addressCity", filters.addressCity);
+  if (filters.addressState)
+    queryParams.append("addressState", filters.addressState);
+  if (filters.propertyType) {
+    const backendType = mapFrontendPropertyTypeToBackend(filters.propertyType);
+    if (backendType) {
+      queryParams.append("propertyType", backendType);
+    }
+  }
+  if (filters.status) {
+    const backendStatus = mapFrontendPropertyStatusToBackend(filters.status);
+    if (backendStatus) {
+      queryParams.append("status", backendStatus);
+    }
+  }
+  if (filters.minRent !== undefined)
+    queryParams.append("minRent", String(filters.minRent));
+  if (filters.maxRent !== undefined)
+    queryParams.append("maxRent", String(filters.maxRent));
+  if (filters.minSalePrice !== undefined)
+    queryParams.append("minSalePrice", String(filters.minSalePrice));
+  if (filters.maxSalePrice !== undefined)
+    queryParams.append("maxSalePrice", String(filters.maxSalePrice));
+  if (filters.bedrooms !== undefined)
+    queryParams.append("bedrooms", String(filters.bedrooms));
+  if (filters.bathrooms !== undefined)
+    queryParams.append("bathrooms", String(filters.bathrooms));
+  if (filters.page) queryParams.append("page", String(filters.page));
+  if (filters.limit) queryParams.append("limit", String(filters.limit));
+
+  return queryParams;
+};
+
 export const propertiesApi = {
   getAll: async (filters?: PropertyFilters): Promise<Property[]> => {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
-      let filtered = [...MOCK_PROPERTIES];
-      if (filters?.ownerId) {
-        filtered = filtered.filter((p) => p.ownerId === filters.ownerId);
-      }
-      if (filters?.minSalePrice !== undefined) {
-        filtered = filtered.filter(
-          (p) => (p.salePrice ?? 0) >= filters.minSalePrice!,
-        );
-      }
-      if (filters?.maxSalePrice !== undefined) {
-        filtered = filtered.filter(
-          (p) => (p.salePrice ?? 0) <= filters.maxSalePrice!,
-        );
-      }
-      if (filters?.minRent !== undefined) {
-        filtered = filtered.filter(
-          (p) => (p.rentPrice ?? 0) >= filters.minRent!,
-        );
-      }
-      if (filters?.maxRent !== undefined) {
-        filtered = filtered.filter(
-          (p) => (p.rentPrice ?? 0) <= filters.maxRent!,
-        );
-      }
-      return filtered;
+      return applyMockPropertyFilters(MOCK_PROPERTIES, filters);
     }
 
     const token = getToken();
-    const queryParams = new URLSearchParams();
-    if (filters?.ownerId) queryParams.append("ownerId", filters.ownerId);
-    if (filters?.addressCity)
-      queryParams.append("addressCity", filters.addressCity);
-    if (filters?.addressState)
-      queryParams.append("addressState", filters.addressState);
-    if (filters?.propertyType) {
-      const backendType = mapFrontendPropertyTypeToBackend(
-        filters.propertyType,
-      );
-      if (backendType) {
-        queryParams.append("propertyType", backendType);
-      }
-    }
-    if (filters?.status) {
-      const backendStatus = mapFrontendPropertyStatusToBackend(filters.status);
-      if (backendStatus) {
-        queryParams.append("status", backendStatus);
-      }
-    }
-    if (filters?.minRent !== undefined)
-      queryParams.append("minRent", String(filters.minRent));
-    if (filters?.maxRent !== undefined)
-      queryParams.append("maxRent", String(filters.maxRent));
-    if (filters?.minSalePrice !== undefined)
-      queryParams.append("minSalePrice", String(filters.minSalePrice));
-    if (filters?.maxSalePrice !== undefined)
-      queryParams.append("maxSalePrice", String(filters.maxSalePrice));
-    if (filters?.bedrooms !== undefined)
-      queryParams.append("bedrooms", String(filters.bedrooms));
-    if (filters?.bathrooms !== undefined)
-      queryParams.append("bathrooms", String(filters.bathrooms));
-    if (filters?.page) queryParams.append("page", String(filters.page));
-    if (filters?.limit) queryParams.append("limit", String(filters.limit));
+    const queryParams = buildPropertiesQueryParams(filters);
 
     const endpoint =
       queryParams.toString().length > 0

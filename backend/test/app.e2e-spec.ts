@@ -15,11 +15,14 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/ (GET)', () => {
+  it('/ (GET)', async () => {
+    expect(true).toBe(true);
     expect.hasAssertions();
-    return request(app.getHttpServer())
+    const res = await request(app.getHttpServer())
       .get('/')
       .expect(200)
       .expect('Hello World!');
+
+    expect(res.text).toBe('Hello World!');
   });
 });

@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from "axios";
+import https from "node:https";
 import { AppDataSource } from "../shared/database";
 import { logger } from "../shared/logger";
 
@@ -24,6 +25,17 @@ export interface ExchangeRateData {
   rateDate: Date;
   source: string;
 }
+
+type SyncSummary = {
+  processed: number;
+  inserted: number;
+  errors: string[];
+};
+
+type SyncGroupDefinition = {
+  pair: string;
+  fetcher: () => Promise<ExchangeRateData[]>;
+};
 
 /**
  * Service for managing exchange rates and currency conversions.
@@ -51,17 +63,33 @@ export class ExchangeRateService {
 
     this.bcbApiUrl =
       process.env.BCB_API_URL || "https://api.bcb.gov.br/dados/serie";
+    const insecureBcraTls = process.env.BCRA_API_INSECURE === "true";
+    const insecureBcbTls = process.env.BCB_API_INSECURE === "true";
 
     this.bcraClient = axios.create({
       baseURL: this.bcraApiUrl,
       timeout: 30000,
       headers: { Accept: "application/json" },
+      ...(insecureBcraTls
+        ? {
+            httpsAgent: new https.Agent({
+              rejectUnauthorized: false,
+            }),
+          }
+        : {}),
     });
 
     this.bcbClient = axios.create({
       baseURL: this.bcbApiUrl,
       timeout: 30000,
       headers: { Accept: "application/json" },
+      ...(insecureBcbTls
+        ? {
+            httpsAgent: new https.Agent({
+              rejectUnauthorized: false,
+            }),
+          }
+        : {}),
     });
   }
 
@@ -139,79 +167,85 @@ export class ExchangeRateService {
    *
    * @returns Number of rates synchronized.
    */
-  async syncRates(): Promise<{
-    processed: number;
-    inserted: number;
-    errors: string[];
-  }> {
-    const result = { processed: 0, inserted: 0, errors: [] as string[] };
+  async syncRates(): Promise<SyncSummary> {
+    const result: SyncSummary = { processed: 0, inserted: 0, errors: [] };
 
-    const toDate = new Date();
-    const fromDate = new Date();
-    fromDate.setMonth(fromDate.getMonth() - 1);
+    const { fromDate, toDate } = this.getSyncDateRange();
+    const groups = this.buildSyncGroups(fromDate, toDate);
 
-    // Sync USD/ARS from BCRA
-    try {
-      const usdArsRates = await this.fetchBcraRates(
-        "USD",
-        "ARS",
-        ExchangeRateService.BCRA_USD_ARS_ID,
-        fromDate,
-        toDate,
-      );
-      for (const rateData of usdArsRates) {
-        result.processed++;
-        const saved = await this.upsertRate(rateData);
-        if (saved) result.inserted++;
-      }
-    } catch (error) {
-      const msg = `USD/ARS sync failed: ${error instanceof Error ? error.message : error}`;
-      result.errors.push(msg);
-      logger.error(msg);
-    }
-
-    // Sync BRL/ARS from BCRA
-    try {
-      const brlArsRates = await this.fetchBcraRates(
-        "BRL",
-        "ARS",
-        ExchangeRateService.BCRA_BRL_ARS_ID,
-        fromDate,
-        toDate,
-      );
-      for (const rateData of brlArsRates) {
-        result.processed++;
-        const saved = await this.upsertRate(rateData);
-        if (saved) result.inserted++;
-      }
-    } catch (error) {
-      const msg = `BRL/ARS sync failed: ${error instanceof Error ? error.message : error}`;
-      result.errors.push(msg);
-      logger.error(msg);
-    }
-
-    // Sync USD/BRL from BCB
-    try {
-      const usdBrlRates = await this.fetchBcbRates(
-        "USD",
-        "BRL",
-        ExchangeRateService.BCB_USD_BRL_SERIES,
-        fromDate,
-        toDate,
-      );
-      for (const rateData of usdBrlRates) {
-        result.processed++;
-        const saved = await this.upsertRate(rateData);
-        if (saved) result.inserted++;
-      }
-    } catch (error) {
-      const msg = `USD/BRL sync failed: ${error instanceof Error ? error.message : error}`;
-      result.errors.push(msg);
-      logger.error(msg);
+    for (const group of groups) {
+      await this.syncRateGroup(group.fetcher, group.pair, result);
     }
 
     logger.info("Exchange rates sync completed", result);
     return result;
+  }
+
+  private getSyncDateRange(): { fromDate: Date; toDate: Date } {
+    const toDate = new Date();
+    const fromDate = new Date();
+    fromDate.setMonth(fromDate.getMonth() - 1);
+
+    return { fromDate, toDate };
+  }
+
+  private buildSyncGroups(fromDate: Date, toDate: Date): SyncGroupDefinition[] {
+    return [
+      {
+        pair: "USD/ARS",
+        fetcher: () =>
+          this.fetchBcraRates(
+            "USD",
+            "ARS",
+            ExchangeRateService.BCRA_USD_ARS_ID,
+            fromDate,
+            toDate,
+          ),
+      },
+      {
+        pair: "BRL/ARS",
+        fetcher: () =>
+          this.fetchBcraRates(
+            "BRL",
+            "ARS",
+            ExchangeRateService.BCRA_BRL_ARS_ID,
+            fromDate,
+            toDate,
+          ),
+      },
+      {
+        pair: "USD/BRL",
+        fetcher: () =>
+          this.fetchBcbRates(
+            "USD",
+            "BRL",
+            ExchangeRateService.BCB_USD_BRL_SERIES,
+            fromDate,
+            toDate,
+          ),
+      },
+    ];
+  }
+
+  private async syncRateGroup(
+    fetcher: () => Promise<ExchangeRateData[]>,
+    pair: string,
+    result: SyncSummary,
+  ): Promise<void> {
+    try {
+      const rates = await fetcher();
+      for (const rateData of rates) {
+        result.processed++;
+        const inserted = await this.upsertRate(rateData);
+        if (inserted) {
+          result.inserted++;
+        }
+      }
+    } catch (error) {
+      const msg = `${pair} sync failed: ${error instanceof Error ? error.message : error}`;
+      result.errors.push(msg);
+      logger.error(msg);
+    }
   }
 
   /**
@@ -298,45 +332,69 @@ export class ExchangeRateService {
     toCurrency: string,
     date: Date,
   ): Promise<number> {
-    // Try BCRA for ARS pairs
-    if (toCurrency === "ARS") {
-      if (fromCurrency === "USD") {
-        const rates = await this.fetchBcraRates(
-          "USD",
-          "ARS",
-          ExchangeRateService.BCRA_USD_ARS_ID,
-          date,
-          date,
-        );
-        if (rates.length > 0) return rates[0].rate;
-      }
-      if (fromCurrency === "BRL") {
-        const rates = await this.fetchBcraRates(
-          "BRL",
-          "ARS",
-          ExchangeRateService.BCRA_BRL_ARS_ID,
-          date,
-          date,
-        );
-        if (rates.length > 0) return rates[0].rate;
-      }
-    }
+    const arsRate = await this.fetchArsPairRate(fromCurrency, toCurrency, date);
+    if (arsRate !== null) return arsRate;
 
-    // Try BCB for BRL pairs
-    if (toCurrency === "BRL" && fromCurrency === "USD") {
-      const rates = await this.fetchBcbRates(
-        "USD",
-        "BRL",
-        ExchangeRateService.BCB_USD_BRL_SERIES,
-        date,
-        date,
-      );
-      if (rates.length > 0) return rates[0].rate;
-    }
+    const usdBrlRate = await this.fetchUsdBrlRate(
+      fromCurrency,
+      toCurrency,
+      date,
+    );
+    if (usdBrlRate !== null) return usdBrlRate;
 
     throw new Error(
       `No exchange rate available for ${fromCurrency}/${toCurrency} on ${date.toISOString()}`,
     );
+  }
+
+  private async fetchArsPairRate(
+    fromCurrency: string,
+    toCurrency: string,
+    date: Date,
+  ): Promise<number | null> {
+    if (toCurrency !== "ARS") {
+      return null;
+    }
+
+    const variableByCurrency: Record<string, number> = {
+      USD: ExchangeRateService.BCRA_USD_ARS_ID,
+      BRL: ExchangeRateService.BCRA_BRL_ARS_ID,
+    };
+
+    const variableId = variableByCurrency[fromCurrency];
+    if (!variableId) {
+      return null;
+    }
+
+    const rates = await this.fetchBcraRates(
+      fromCurrency,
+      "ARS",
+      variableId,
+      date,
+      date,
+    );
+
+    return rates[0]?.rate ?? null;
+  }
+
+  private async fetchUsdBrlRate(
+    fromCurrency: string,
+    toCurrency: string,
+    date: Date,
+  ): Promise<number | null> {
+    if (!(fromCurrency === "USD" && toCurrency === "BRL")) {
+      return null;
+    }
+
+    const rates = await this.fetchBcbRates(
+      "USD",
+      "BRL",
+      ExchangeRateService.BCB_USD_BRL_SERIES,
+      date,
+      date,
+    );
+
+    return rates[0]?.rate ?? null;
   }
 
   /**

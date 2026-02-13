@@ -47,6 +47,368 @@ const program = new Command();
 // Use dynamic import inside main() so ESLint does not complain about require().
 let logger: any;
 
+async function processReminderInvoice(
+  invoiceService: any,
+  whatsappService: any,
+  invoice: any,
+  dryRun: boolean,
+): Promise<{ sent: number; failed: number }> {
+  const daysUntilDue = Math.ceil(
+    (new Date(invoice.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+  );
+
+  if (dryRun) {
+    logger.info("Dry run: would send reminder", {
+      invoiceNumber: invoice.invoiceNumber,
+      daysUntilDue,
+    });
+    return { sent: 1, failed: 0 };
+  }
+
+  const contact = await invoiceService.getReminderContact(invoice.id);
+  if (!contact.tenantPhone) {
+    logger.warn("Skipping reminder without tenant phone", {
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+    });
+    return { sent: 0, failed: 1 };
+  }
+
+  const tenantName = contact.tenantName || "inquilino/a";
+  const text = [
+    `Hola ${tenantName},`,
+    `recordatorio de pago de la factura ${invoice.invoiceNumber}.`,
+    `Vence en ${daysUntilDue} ${daysUntilDue === 1 ? "día" : "días"} (${invoice.dueDate.toISOString().slice(0, 10)}).`,
+    `Monto: ${invoice.currencyCode} ${invoice.total.toLocaleString("es-AR", { minimumFractionDigits: 2 })}.`,
+  ].join(" ");
+
+  const result = await whatsappService.sendTextMessage(
+    contact.tenantPhone,
+    text,
+  );
+  return result.success ? { sent: 1, failed: 0 } : { sent: 0, failed: 1 };
+}
+
+async function runReminders(
+  invoiceService: any,
+  whatsappService: any,
+  daysBefore: number,
+  dryRun: boolean,
+): Promise<{ total: number; sent: number; failed: number }> {
+  const pendingInvoices = await invoiceService.findPendingDueSoon(daysBefore);
+  let sent = 0;
+  let failed = 0;
+
+  for (const invoice of pendingInvoices) {
+    const result = await processReminderInvoice(
+      invoiceService,
+      whatsappService,
+      invoice,
+      dryRun,
+    );
+    sent += result.sent;
+    failed += result.failed;
+  }
+
+  return { total: pendingInvoices.length, sent, failed };
+}
+
+type SyncIndicesSummary = {
+  recordsTotal: number;
+  recordsProcessed: number;
+  recordsFailed: number;
+  errorLog: object[];
+};
+
+function logSyncIndexError(
+  indexType: string,
+  error: string,
+  summary: {
+    totalErrors: number;
+    errorLog: object[];
+  },
+): void {
+  logger.error(`${indexType.toUpperCase()} sync failed`, { error });
+  summary.totalErrors++;
+  summary.errorLog.push({ indexType, error });
+}
+
+function accumulateSyncIndexSuccess(
+  result: {
+    recordsProcessed?: number;
+    recordsInserted?: number;
+    recordsSkipped?: number;
+    latestPeriod?: string;
+    indexType: string;
+  },
+  summary: {
+    totalProcessed: number;
+    totalInserted: number;
+  },
+): void {
+  logger.info(`${result.indexType.toUpperCase()} sync completed`, {
+    processed: result.recordsProcessed,
+    inserted: result.recordsInserted,
+    skipped: result.recordsSkipped,
+    latestPeriod: result.latestPeriod,
+  });
+  summary.totalProcessed += result.recordsProcessed || 0;
+  summary.totalInserted += result.recordsInserted || 0;
+}
+
+async function runAllIndicesSync(
+  syncService: any,
+): Promise<SyncIndicesSummary> {
+  const results = await syncService.syncAll();
+  const summary = {
+    totalProcessed: 0,
+    totalInserted: 0,
+    totalErrors: 0,
+    errorLog: [] as object[],
+  };
+
+  for (const result of results) {
+    if (result.error) {
+      logSyncIndexError(result.indexType, result.error, summary);
+      continue;
+    }
+    accumulateSyncIndexSuccess(result, summary);
+  }
+
+  return {
+    recordsTotal: summary.totalProcessed,
+    recordsProcessed: summary.totalInserted,
+    recordsFailed: summary.totalErrors,
+    errorLog: summary.errorLog,
+  };
+}
+
+async function runSingleIndexSync(
+  syncService: any,
+  index: "icl" | "ipc",
+): Promise<SyncIndicesSummary> {
+  const result =
+    index === "icl" ? await syncService.syncIcl() : await syncService.syncIpc();
+
+  logger.info(`${index.toUpperCase()} sync completed`, {
+    processed: result.recordsProcessed,
+    inserted: result.recordsInserted,
+    skipped: result.recordsSkipped,
+    latestPeriod: result.latestPeriod,
+  });
+
+  return {
+    recordsTotal: result.recordsProcessed || 0,
+    recordsProcessed: result.recordsInserted || 0,
+    recordsFailed: 0,
+    errorLog: [],
+  };
+}
+
+async function runSyncIndices(
+  syncService: any,
+  index: string,
+): Promise<SyncIndicesSummary> {
+  if (index === "all") {
+    return runAllIndicesSync(syncService);
+  }
+
+  if (index === "icl" || index === "ipc") {
+    return runSingleIndexSync(syncService, index);
+  }
+
+  throw new Error(`Invalid index type: ${index}`);
+}
+
+async function processPendingSettlements(settlementService: any) {
+  const pending = await settlementService.getPendingSettlements();
+  let processed = 0;
+  let failed = 0;
+  let totalAmount = 0;
+
+  for (const { ownerId, period: settlementPeriod } of pending) {
+    const processedSettlement = await processAndAccumulateSettlement(
+      settlementService,
+      ownerId,
+      settlementPeriod,
+    );
+
+    if (!processedSettlement.success) {
+      failed++;
+      continue;
+    }
+
+    processed++;
+    totalAmount += processedSettlement.netAmount;
+  }
+
+  logger.info("Settlements processed", {
+    processed,
+    failed,
+    totalAmount,
+  });
+
+  return {
+    recordsTotal: pending.length,
+    recordsProcessed: processed,
+    recordsFailed: failed,
+  };
+}
+
+async function processAndAccumulateSettlement(
+  settlementService: any,
+  ownerId: string,
+  period: string,
+): Promise<{ success: boolean; netAmount: number }> {
+  const result = await settlementService.processSettlement(
+    ownerId,
+    period,
+    false,
+  );
+  if (!result.success) {
+    return { success: false, netAmount: 0 };
+  }
+
+  const calc = await settlementService.calculateSettlement(ownerId, period);
+  return { success: true, netAmount: calc.netAmount };
+}
+
+async function processSingleOwnerSettlement(
+  settlementService: any,
+  ownerId: string,
+  period: string,
+  dryRun: boolean,
+) {
+  return dryRun
+    ? processSingleOwnerSettlementDryRun(settlementService, ownerId, period)
+    : processSingleOwnerSettlementLive(settlementService, ownerId, period);
+}
+
+async function processSingleOwnerSettlementDryRun(
+  settlementService: any,
+  ownerId: string,
+  period: string,
+) {
+  const settlement = await settlementService.calculateSettlement(
+    ownerId,
+    period,
+  );
+  logger.info("Settlement calculated (dry run)", {
+    ownerId,
+    period,
+    grossAmount: settlement.grossAmount,
+    commissionAmount: settlement.commission.amount,
+    netAmount: settlement.netAmount,
+    scheduledDate: settlement.scheduledDate,
+  });
+
+  return {
+    recordsTotal: 1,
+    recordsProcessed: 0,
+    recordsFailed: 0,
+  };
+}
+
+async function processSingleOwnerSettlementLive(
+  settlementService: any,
+  ownerId: string,
+  period: string,
+) {
+  const result = await settlementService.processSettlement(
+    ownerId,
+    period,
+    false,
+  );
+  logger.info("Settlement processed", {
+    ownerId,
+    period,
+    success: result.success,
+    settlementId: result.settlementId,
+    transferReference: result.transferReference,
+  });
+
+  return {
+    recordsTotal: 1,
+    recordsProcessed: result.success ? 1 : 0,
+    recordsFailed: result.success ? 0 : 1,
+  };
+}
+
+async function processAllOwnersSettlements(
+  settlementService: any,
+  period: string,
+  dryRun: boolean,
+) {
+  const pending = await settlementService.getPendingSettlements();
+  let total = 0;
+  let successful = 0;
+  let failedCount = 0;
+  let totalNetAmount = 0;
+
+  for (const { ownerId, period: settlementPeriod } of pending) {
+    total++;
+    const settlementResult = await processSettlementForOwner(
+      settlementService,
+      ownerId,
+      settlementPeriod,
+      dryRun,
+    );
+
+    if (!settlementResult.success) {
+      failedCount++;
+      continue;
+    }
+
+    successful++;
+    totalNetAmount += settlementResult.netAmount;
+  }
+
+  logger.info("All settlements calculated", {
+    period,
+    total,
+    successful,
+    failed: failedCount,
+    totalNetAmount,
+    dryRun,
+  });
+
+  return {
+    recordsTotal: total,
+    recordsProcessed: successful,
+    recordsFailed: failedCount,
+  };
+}
+
+async function processSettlementForOwner(
+  settlementService: any,
+  ownerId: string,
+  settlementPeriod: string,
+  dryRun: boolean,
+) {
+  if (dryRun) {
+    return calculateSettlementOnly(
+      settlementService,
+      ownerId,
+      settlementPeriod,
+    );
+  }
+
+  return processAndAccumulateSettlement(
+    settlementService,
+    ownerId,
+    settlementPeriod,
+  );
+}
+
+async function calculateSettlementOnly(
+  settlementService: any,
+  ownerId: string,
+  period: string,
+): Promise<{ success: boolean; netAmount: number }> {
+  const calc = await settlementService.calculateSettlement(ownerId, period);
+  return { success: true, netAmount: calc.netAmount };
+}
+
 program
   .name("billing-batch")
   .description("Batch billing system for rent management platform")
@@ -211,65 +573,24 @@ program
       const invoiceService = new InvoiceService();
       const whatsappService = new WhatsappService();
 
-      const pendingInvoices =
-        await invoiceService.findPendingDueSoon(daysBefore);
-      let sent = 0;
-      let failed = 0;
-
-      for (const invoice of pendingInvoices) {
-        const daysUntilDue = Math.ceil(
-          (new Date(invoice.dueDate).getTime() - Date.now()) /
-            (1000 * 60 * 60 * 24),
-        );
-
-        if (options.dryRun) {
-          logger.info("Dry run: would send reminder", {
-            invoiceNumber: invoice.invoiceNumber,
-            daysUntilDue,
-          });
-          sent++;
-        } else {
-          const contact = await invoiceService.getReminderContact(invoice.id);
-          if (!contact.tenantPhone) {
-            logger.warn("Skipping reminder without tenant phone", {
-              invoiceId: invoice.id,
-              invoiceNumber: invoice.invoiceNumber,
-            });
-            failed++;
-            continue;
-          }
-
-          const tenantName = contact.tenantName || "inquilino/a";
-          const text = [
-            `Hola ${tenantName},`,
-            `recordatorio de pago de la factura ${invoice.invoiceNumber}.`,
-            `Vence en ${daysUntilDue} ${daysUntilDue === 1 ? "día" : "días"} (${invoice.dueDate.toISOString().slice(0, 10)}).`,
-            `Monto: ${invoice.currencyCode} ${invoice.total.toLocaleString("es-AR", { minimumFractionDigits: 2 })}.`,
-          ].join(" ");
-
-          const result = await whatsappService.sendTextMessage(
-            contact.tenantPhone,
-            text,
-          );
-          if (result.success) {
-            sent++;
-          } else {
-            failed++;
-          }
-        }
-      }
+      const reminderResult = await runReminders(
+        invoiceService,
+        whatsappService,
+        daysBefore,
+        options.dryRun,
+      );
 
       logger.info("Reminders process completed", {
-        total: pendingInvoices.length,
-        sent,
-        failed,
+        total: reminderResult.total,
+        sent: reminderResult.sent,
+        failed: reminderResult.failed,
       });
 
       // Complete job logging
       await billingJobService.completeJob(jobId, {
-        recordsTotal: pendingInvoices.length,
-        recordsProcessed: sent,
-        recordsFailed: failed,
+        recordsTotal: reminderResult.total,
+        recordsProcessed: reminderResult.sent,
+        recordsFailed: reminderResult.failed,
       });
     } catch (error) {
       logger.error("Reminders process failed", { error });
@@ -311,66 +632,14 @@ program
       );
 
       const syncService = new IndicesSyncService();
-      let totalProcessed = 0;
-      let totalInserted = 0;
-      let totalErrors = 0;
-      const errorLog: object[] = [];
-
-      if (options.index === "all") {
-        const results = await syncService.syncAll();
-        for (const result of results) {
-          if (result.error) {
-            logger.error(`${result.indexType.toUpperCase()} sync failed`, {
-              error: result.error,
-            });
-            totalErrors++;
-            errorLog.push({ indexType: result.indexType, error: result.error });
-          } else {
-            logger.info(`${result.indexType.toUpperCase()} sync completed`, {
-              processed: result.recordsProcessed,
-              inserted: result.recordsInserted,
-              skipped: result.recordsSkipped,
-              latestPeriod: result.latestPeriod,
-            });
-            totalProcessed += result.recordsProcessed || 0;
-            totalInserted += result.recordsInserted || 0;
-          }
-        }
-      } else if (options.index === "icl") {
-        const result = await syncService.syncIcl();
-        logger.info("ICL sync completed", {
-          processed: result.recordsProcessed,
-          inserted: result.recordsInserted,
-          skipped: result.recordsSkipped,
-          latestPeriod: result.latestPeriod,
-        });
-        totalProcessed = result.recordsProcessed || 0;
-        totalInserted = result.recordsInserted || 0;
-      } else if (options.index === "ipc") {
-        const result = await syncService.syncIpc();
-        logger.info("IPC sync completed", {
-          processed: result.recordsProcessed,
-          inserted: result.recordsInserted,
-          skipped: result.recordsSkipped,
-          latestPeriod: result.latestPeriod,
-        });
-        totalProcessed = result.recordsProcessed || 0;
-        totalInserted = result.recordsInserted || 0;
-      } else {
-        logger.error("Invalid index type", { index: options.index });
-        await billingJobService.failJob(
-          jobId,
-          `Invalid index type: ${options.index}`,
-        );
-        process.exit(1);
-      }
+      const syncSummary = await runSyncIndices(syncService, options.index);
 
       // Complete job logging
       await billingJobService.completeJob(jobId, {
-        recordsTotal: totalProcessed,
-        recordsProcessed: totalInserted,
-        recordsFailed: totalErrors,
-        errorLog,
+        recordsTotal: syncSummary.recordsTotal,
+        recordsProcessed: syncSummary.recordsProcessed,
+        recordsFailed: syncSummary.recordsFailed,
+        errorLog: syncSummary.errorLog,
       });
 
       logger.info("Sync-indices process completed");
@@ -413,25 +682,7 @@ program
       const exchangeService = new ExchangeRateService();
       const result = await exchangeService.syncRates();
 
-      logger.info("Exchange rates sync completed", {
-        processed: result.processed,
-        inserted: result.inserted,
-        errors: result.errors.length,
-      });
-
-      // Complete job logging
-      await billingJobService.completeJob(jobId, {
-        recordsTotal: result.processed,
-        recordsProcessed: result.inserted,
-        recordsFailed: result.errors.length,
-        errorLog: result.errors.map((e) => ({ error: e })),
-      });
-
-      if (result.errors.length > 0) {
-        logger.warn("Some exchange rate syncs failed", {
-          errors: result.errors,
-        });
-      }
+      await finalizeExchangeRatesJob(jobId, result);
 
       logger.info("Sync-rates process completed");
     } catch (error) {
@@ -447,6 +698,32 @@ program
       await closeDatabase();
     }
   });
+
+async function finalizeExchangeRatesJob(
+  jobId: string,
+  result: { processed: number; inserted: number; errors: string[] },
+): Promise<void> {
+  logger.info("Exchange rates sync completed", {
+    processed: result.processed,
+    inserted: result.inserted,
+    errors: result.errors.length,
+  });
+
+  await billingJobService.completeJob(jobId, {
+    recordsTotal: result.processed,
+    recordsProcessed: result.inserted,
+    recordsFailed: result.errors.length,
+    errorLog: result.errors.map((errorMessage) => ({ error: errorMessage })),
+  });
+
+  if (result.errors.length === 0) {
+    return;
+  }
+
+  logger.warn("Some exchange rate syncs failed", {
+    errors: result.errors,
+  });
+}
 
 /**
  * Reports command - Generate monthly reports.
@@ -568,135 +845,13 @@ program
         options.period ||
         `${now.getFullYear()}-${String(now.getMonth()).padStart(2, "0")}`;
 
-      if (options.process) {
-        // Process pending settlements
-        const pending = await settlementService.getPendingSettlements();
-        let processed = 0;
-        let failed = 0;
-        let totalAmount = 0;
+      const summary = await resolveSettlementsSummary(
+        settlementService,
+        options,
+        period,
+      );
 
-        for (const { ownerId, period: settlementPeriod } of pending) {
-          const result = await settlementService.processSettlement(
-            ownerId,
-            settlementPeriod,
-            false,
-          );
-          if (result.success) {
-            processed++;
-            // Get the calculation to sum up amounts
-            const calc = await settlementService.calculateSettlement(
-              ownerId,
-              settlementPeriod,
-            );
-            totalAmount += calc.netAmount;
-          } else {
-            failed++;
-          }
-        }
-
-        logger.info("Settlements processed", {
-          processed,
-          failed,
-          totalAmount,
-        });
-
-        await billingJobService.completeJob(jobId, {
-          recordsTotal: pending.length,
-          recordsProcessed: processed,
-          recordsFailed: failed,
-        });
-      } else if (options.ownerId) {
-        // Calculate for specific owner
-        if (options.dryRun) {
-          const settlement = await settlementService.calculateSettlement(
-            options.ownerId,
-            period,
-          );
-          logger.info("Settlement calculated (dry run)", {
-            ownerId: options.ownerId,
-            period,
-            grossAmount: settlement.grossAmount,
-            commissionAmount: settlement.commission.amount,
-            netAmount: settlement.netAmount,
-            scheduledDate: settlement.scheduledDate,
-          });
-
-          await billingJobService.completeJob(jobId, {
-            recordsTotal: 1,
-            recordsProcessed: 0,
-            recordsFailed: 0,
-          });
-        } else {
-          const result = await settlementService.processSettlement(
-            options.ownerId,
-            period,
-            false,
-          );
-          logger.info("Settlement processed", {
-            ownerId: options.ownerId,
-            period,
-            success: result.success,
-            settlementId: result.settlementId,
-            transferReference: result.transferReference,
-          });
-
-          await billingJobService.completeJob(jobId, {
-            recordsTotal: 1,
-            recordsProcessed: result.success ? 1 : 0,
-            recordsFailed: result.success ? 0 : 1,
-          });
-        }
-      } else {
-        // Calculate for all owners
-        const pending = await settlementService.getPendingSettlements();
-        let total = 0;
-        let successful = 0;
-        let failedCount = 0;
-        let totalNetAmount = 0;
-
-        for (const { ownerId, period: settlementPeriod } of pending) {
-          total++;
-          if (options.dryRun) {
-            const calc = await settlementService.calculateSettlement(
-              ownerId,
-              settlementPeriod,
-            );
-            totalNetAmount += calc.netAmount;
-            successful++;
-          } else {
-            const result = await settlementService.processSettlement(
-              ownerId,
-              settlementPeriod,
-              false,
-            );
-            if (result.success) {
-              const calc = await settlementService.calculateSettlement(
-                ownerId,
-                settlementPeriod,
-              );
-              totalNetAmount += calc.netAmount;
-              successful++;
-            } else {
-              failedCount++;
-            }
-          }
-        }
-
-        logger.info("All settlements calculated", {
-          period,
-          total,
-          successful,
-          failed: failedCount,
-          totalNetAmount,
-          dryRun: options.dryRun,
-        });
-
-        await billingJobService.completeJob(jobId, {
-          recordsTotal: total,
-          recordsProcessed: successful,
-          recordsFailed: failedCount,
-        });
-      }
+      await billingJobService.completeJob(jobId, summary);
 
       logger.info("Process-settlements completed");
     } catch (error) {
@@ -712,6 +867,27 @@ program
       await closeDatabase();
     }
   });
+
+async function resolveSettlementsSummary(
+  settlementService: any,
+  options: { process: boolean; ownerId?: string; dryRun: boolean },
+  period: string,
+) {
+  if (options.process) {
+    return processPendingSettlements(settlementService);
+  }
+
+  if (options.ownerId) {
+    return processSingleOwnerSettlement(
+      settlementService,
+      options.ownerId,
+      period,
+      options.dryRun,
+    );
+  }
+
+  return processAllOwnersSettlements(settlementService, period, options.dryRun);
+}
 
 async function main() {
   const mod = await import("./shared/logger");

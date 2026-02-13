@@ -12,6 +12,10 @@ import { AppDataSource } from "../shared/database";
 describe("WithholdingsService", () => {
   let service: WithholdingsService;
   const mockQuery = AppDataSource.query as jest.Mock;
+  const mockLegacySchema = () =>
+    mockQuery.mockResolvedValueOnce([{ column_name: "is_withholding_agent" }]);
+  const mockJsonSchema = () =>
+    mockQuery.mockResolvedValueOnce([{ column_name: "withholding_rates" }]);
 
   beforeEach(() => {
     service = new WithholdingsService();
@@ -20,8 +24,8 @@ describe("WithholdingsService", () => {
 
   describe("calculateWithholdings", () => {
     it("should return zeros when company is not withholding agent", async () => {
+      mockLegacySchema();
       mockQuery.mockResolvedValueOnce([{ isWithholdingAgent: false }]);
-      mockQuery.mockResolvedValueOnce([]);
 
       const result = await service.calculateWithholdings(
         "company-1",
@@ -36,6 +40,7 @@ describe("WithholdingsService", () => {
     });
 
     it("should calculate IIBB withholding correctly", async () => {
+      mockLegacySchema();
       mockQuery.mockResolvedValueOnce([
         {
           isWithholdingAgent: true,
@@ -66,6 +71,7 @@ describe("WithholdingsService", () => {
     });
 
     it("should calculate Ganancias only when above minimum", async () => {
+      mockLegacySchema();
       mockQuery.mockResolvedValueOnce([
         {
           isWithholdingAgent: true,
@@ -92,6 +98,7 @@ describe("WithholdingsService", () => {
       expect(result1.ganancias).toBe(0);
 
       // Reset and test above minimum
+      mockLegacySchema();
       mockQuery.mockResolvedValueOnce([
         {
           isWithholdingAgent: true,
@@ -118,6 +125,7 @@ describe("WithholdingsService", () => {
     });
 
     it("should respect owner exemptions", async () => {
+      mockLegacySchema();
       mockQuery.mockResolvedValueOnce([
         {
           isWithholdingAgent: true,
@@ -147,6 +155,7 @@ describe("WithholdingsService", () => {
     });
 
     it("should calculate combined withholdings", async () => {
+      mockLegacySchema();
       mockQuery.mockResolvedValueOnce([
         {
           isWithholdingAgent: true,
@@ -176,10 +185,47 @@ describe("WithholdingsService", () => {
       expect(result.total).toBe(20000);
       expect(result.breakdown.length).toBe(3);
     });
+
+    it("should read config from JSON withholding schema", async () => {
+      mockJsonSchema();
+      mockQuery.mockResolvedValueOnce([
+        {
+          withholdingAgentIibb: true,
+          withholdingAgentGanancias: true,
+          withholdingRates: {
+            iibb: "3.5",
+            iva: "10.5",
+            ganancias: "6",
+            gananciasMinAmount: "50000",
+            iibbJurisdiction: "CABA",
+          },
+        },
+      ]);
+      mockQuery.mockResolvedValueOnce([
+        {
+          iibbExempt: false,
+          ivaExempt: false,
+          gananciasExempt: false,
+        },
+      ]);
+
+      const result = await service.calculateWithholdings(
+        "company-1",
+        "owner-1",
+        100000,
+      );
+
+      expect(result.iibb).toBe(3500);
+      expect(result.iva).toBe(10500);
+      expect(result.ganancias).toBe(6000);
+      expect(result.iibbJurisdiction).toBe("CABA");
+      expect(result.total).toBe(20000);
+    });
   });
 
   describe("validateConfiguration", () => {
     it("should return valid for non-withholding agent", async () => {
+      mockLegacySchema();
       mockQuery.mockResolvedValueOnce([{ isWithholdingAgent: false }]);
 
       const result = await service.validateConfiguration("company-1");
@@ -189,6 +235,7 @@ describe("WithholdingsService", () => {
     });
 
     it("should detect missing jurisdiction for IIBB", async () => {
+      mockLegacySchema();
       mockQuery.mockResolvedValueOnce([
         {
           isWithholdingAgent: true,

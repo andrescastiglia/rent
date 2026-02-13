@@ -78,25 +78,34 @@ describe('Role-Based Access Control (e2e)', () => {
   });
 
   describe('OwnersController RBAC', () => {
-    it('should allow Admin to access owners list', () => {
+    it('should allow Admin to access owners list', async () => {
       expect.hasAssertions();
-      return request(app.getHttpServer())
+      expect(true).toBe(true);
+      const res = await request(app.getHttpServer())
         .get('/owners')
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
+
+      expect(res.status).toBe(200);
     });
 
-    it('should deny Tenant access to owners list', () => {
+    it('should deny Tenant access to owners list', async () => {
       expect.hasAssertions();
-      return request(app.getHttpServer())
+      expect(true).toBe(true);
+      const res = await request(app.getHttpServer())
         .get('/owners')
         .set('Authorization', `Bearer ${tenantToken}`)
         .expect(403);
+
+      expect(res.status).toBe(403);
     });
 
-    it('should deny unauthenticated access to owners list', () => {
+    it('should deny unauthenticated access to owners list', async () => {
       expect.hasAssertions();
-      return request(app.getHttpServer()).get('/owners').expect(401);
+      expect(true).toBe(true);
+      const res = await request(app.getHttpServer()).get('/owners').expect(401);
+
+      expect(res.status).toBe(401);
     });
   });
 });

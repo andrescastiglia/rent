@@ -17,6 +17,278 @@ import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { CurrencySelect } from "@/components/common/CurrencySelect";
 
+type PaymentItemRowProps = {
+  index: number;
+  item: NonNullable<CreatePaymentInput["items"]>[number];
+  t: (key: string) => string;
+  onDescriptionChange: (index: number, description: string) => void;
+  onAmountChange: (index: number, amount: number) => void;
+  onQuantityChange: (index: number, quantity: number) => void;
+  onTypeChange: (index: number, type: PaymentItemType) => void;
+  onRemove: (index: number) => void;
+};
+
+function PaymentItemRow({
+  index,
+  item,
+  t,
+  onDescriptionChange,
+  onAmountChange,
+  onQuantityChange,
+  onTypeChange,
+  onRemove,
+}: PaymentItemRowProps) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+      <input
+        type="text"
+        placeholder={t("items.description")}
+        value={item.description}
+        onChange={(e) => onDescriptionChange(index, e.target.value)}
+        className="md:col-span-2 w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+      />
+      <input
+        type="number"
+        min="0"
+        step="0.01"
+        value={item.amount}
+        onChange={(e) => onAmountChange(index, Number(e.target.value))}
+        className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+      />
+      <input
+        type="number"
+        min="1"
+        value={item.quantity ?? 1}
+        onChange={(e) => onQuantityChange(index, Number(e.target.value))}
+        className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+      />
+      <div className="flex gap-2">
+        <select
+          value={item.type ?? "charge"}
+          onChange={(e) =>
+            onTypeChange(index, e.target.value as PaymentItemType)
+          }
+          className="flex-1 rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+        >
+          <option value="charge">{t("items.charge")}</option>
+          <option value="discount">{t("items.discount")}</option>
+        </select>
+        <button
+          type="button"
+          onClick={() => onRemove(index)}
+          className="px-2 text-sm text-red-600 hover:text-red-700"
+        >
+          {t("items.remove")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+type LeaseSelectionCardProps = {
+  t: (key: string) => string;
+  loadingLeases: boolean;
+  leases: Lease[];
+  selectedLeaseId: string;
+  onSelectLease: (leaseId: string) => void;
+  account: TenantAccount | null;
+  balanceInfo: { balance: number; lateFee: number; total: number } | null;
+};
+
+function LeaseSelectionCard({
+  t,
+  loadingLeases,
+  leases,
+  selectedLeaseId,
+  onSelectLease,
+  account,
+  balanceInfo,
+}: LeaseSelectionCardProps) {
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        {t("selectLease")}
+      </h2>
+
+      {loadingLeases ? (
+        <div className="flex justify-center py-4">
+          <Loader2 className="animate-spin h-6 w-6 text-blue-500" />
+        </div>
+      ) : (
+        <select
+          value={selectedLeaseId}
+          onChange={(e) => onSelectLease(e.target.value)}
+          required
+          className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+        >
+          <option value="">{t("selectLeasePlaceholder")}</option>
+          {leases.map((lease) => (
+            <option key={lease.id} value={lease.id}>
+              {lease.property?.name || "Propiedad"} - {lease.tenant?.firstName}{" "}
+              {lease.tenant?.lastName}
+            </option>
+          ))}
+        </select>
+      )}
+
+      {account ? (
+        <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-md">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            {t("currentBalance")}:
+            <span
+              className={`ml-2 font-bold ${account.balance > 0 ? "text-red-600" : "text-green-600"}`}
+            >
+              ${account.balance.toLocaleString("es-AR")}
+            </span>
+          </p>
+          {balanceInfo ? (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              {t("lateFee")}: {balanceInfo.lateFee.toLocaleString("es-AR")}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+type PaymentDetailsCardProps = {
+  t: (key: string) => string;
+  tCurrencies: (key: string) => string;
+  paymentMethods: PaymentMethod[];
+  totalFromItems: number;
+  itemsLength: number;
+  paymentDate?: string;
+  method?: PaymentMethod;
+  currencyCode?: string;
+  reference?: string;
+  notes?: string;
+  onAmountChange: (value: string) => void;
+  onPaymentDateChange: (value: string) => void;
+  onMethodChange: (value: string) => void;
+  onCurrencyChange: (value: string) => void;
+  onReferenceChange: (value: string) => void;
+  onNotesChange: (value: string) => void;
+};
+
+function PaymentDetailsCard({
+  t,
+  tCurrencies,
+  paymentMethods,
+  totalFromItems,
+  itemsLength,
+  paymentDate,
+  method,
+  currencyCode,
+  reference,
+  notes,
+  onAmountChange,
+  onPaymentDateChange,
+  onMethodChange,
+  onCurrencyChange,
+  onReferenceChange,
+  onNotesChange,
+}: PaymentDetailsCardProps) {
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        {t("paymentDetails")}
+      </h2>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            {t("amount")} *
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            min="0.01"
+            required
+            value={totalFromItems}
+            onChange={(e) => onAmountChange(e.target.value)}
+            disabled={itemsLength > 0}
+            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-800"
+          />
+          {itemsLength > 0 ? (
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {t("items.totalAuto")}
+            </p>
+          ) : null}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            {t("date")} *
+          </label>
+          <input
+            type="date"
+            required
+            value={paymentDate}
+            onChange={(e) => onPaymentDateChange(e.target.value)}
+            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            {t("method.label")} *
+          </label>
+          <select
+            required
+            value={method}
+            onChange={(e) => onMethodChange(e.target.value)}
+            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          >
+            {paymentMethods.map((paymentMethod) => (
+              <option key={paymentMethod} value={paymentMethod}>
+                {t(`method.${paymentMethod}`)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            {tCurrencies("title")} *
+          </label>
+          <CurrencySelect
+            id="currencyCode"
+            name="currencyCode"
+            value={currencyCode || ""}
+            onChange={onCurrencyChange}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            {t("reference")}
+          </label>
+          <input
+            type="text"
+            value={reference}
+            onChange={(e) => onReferenceChange(e.target.value)}
+            placeholder={t("referencePlaceholder")}
+            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          {t("notes")}
+        </label>
+        <textarea
+          rows={3}
+          value={notes}
+          onChange={(e) => onNotesChange(e.target.value)}
+          className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function NewPaymentPage() {
   const { loading: authLoading } = useAuth();
   const router = useRouter();
@@ -135,6 +407,100 @@ export default function NewPaymentPage() {
     }
   };
 
+  const addItem = () => {
+    setFormData((prev) => ({
+      ...prev,
+      items: [
+        ...(prev.items || []),
+        {
+          description: "",
+          amount: 0,
+          quantity: 1,
+          type: "charge" as PaymentItemType,
+        },
+      ],
+    }));
+  };
+
+  const updateItem = (
+    index: number,
+    updater: (
+      item: NonNullable<CreatePaymentInput["items"]>[number],
+    ) => NonNullable<CreatePaymentInput["items"]>[number],
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      items: prev.items?.map((item, itemIndex) =>
+        itemIndex === index ? updater(item) : item,
+      ),
+    }));
+  };
+
+  const removeItem = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      items: prev.items?.filter((_, itemIndex) => itemIndex !== index),
+    }));
+  };
+
+  const handleItemDescriptionChange = (index: number, description: string) => {
+    updateItem(index, (current) => ({
+      ...current,
+      description,
+    }));
+  };
+
+  const handleItemAmountChange = (index: number, amount: number) => {
+    updateItem(index, (current) => ({
+      ...current,
+      amount,
+    }));
+  };
+
+  const handleItemQuantityChange = (index: number, quantity: number) => {
+    updateItem(index, (current) => ({
+      ...current,
+      quantity,
+    }));
+  };
+
+  const handleItemTypeChange = (index: number, type: PaymentItemType) => {
+    updateItem(index, (current) => ({
+      ...current,
+      type,
+    }));
+  };
+
+  const handleAmountChange = (value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      amount: Number.parseFloat(value),
+    }));
+  };
+
+  const handlePaymentDateChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, paymentDate: value }));
+  };
+
+  const handleMethodChange = (value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      method: value as PaymentMethod,
+    }));
+  };
+
+  const handleCurrencyChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, currencyCode: value }));
+  };
+
+  const handleReferenceChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, reference: value }));
+  };
+
+  const handleNotesChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, notes: value }));
+  };
+
   const paymentMethods: PaymentMethod[] = [
     "cash",
     "bank_transfer",
@@ -161,167 +527,34 @@ export default function NewPaymentPage() {
       </h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Lease Selection */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            {t("selectLease")}
-          </h2>
+        <LeaseSelectionCard
+          t={t}
+          loadingLeases={loadingLeases}
+          leases={leases}
+          selectedLeaseId={selectedLeaseId}
+          onSelectLease={setSelectedLeaseId}
+          account={account}
+          balanceInfo={balanceInfo}
+        />
 
-          {loadingLeases ? (
-            <div className="flex justify-center py-4">
-              <Loader2 className="animate-spin h-6 w-6 text-blue-500" />
-            </div>
-          ) : (
-            <select
-              value={selectedLeaseId}
-              onChange={(e) => setSelectedLeaseId(e.target.value)}
-              required
-              className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">{t("selectLeasePlaceholder")}</option>
-              {leases.map((lease) => (
-                <option key={lease.id} value={lease.id}>
-                  {lease.property?.name || "Propiedad"} -{" "}
-                  {lease.tenant?.firstName} {lease.tenant?.lastName}
-                </option>
-              ))}
-            </select>
-          )}
-
-          {account && (
-            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-md">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {t("currentBalance")}:
-                <span
-                  className={`ml-2 font-bold ${account.balance > 0 ? "text-red-600" : "text-green-600"}`}
-                >
-                  ${account.balance.toLocaleString("es-AR")}
-                </span>
-              </p>
-              {balanceInfo && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  {t("lateFee")}: {balanceInfo.lateFee.toLocaleString("es-AR")}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Payment Details */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            {t("paymentDetails")}
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t("amount")} *
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                required
-                value={totalFromItems}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    amount: Number.parseFloat(e.target.value),
-                  })
-                }
-                disabled={items.length > 0}
-                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-800"
-              />
-              {items.length > 0 && (
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {t("items.totalAuto")}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t("date")} *
-              </label>
-              <input
-                type="date"
-                required
-                value={formData.paymentDate}
-                onChange={(e) =>
-                  setFormData({ ...formData, paymentDate: e.target.value })
-                }
-                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t("method.label")} *
-              </label>
-              <select
-                required
-                value={formData.method}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    method: e.target.value as PaymentMethod,
-                  })
-                }
-                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              >
-                {paymentMethods.map((method) => (
-                  <option key={method} value={method}>
-                    {t(`method.${method}`)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {tCurrencies("title")} *
-              </label>
-              <CurrencySelect
-                id="currencyCode"
-                name="currencyCode"
-                value={formData.currencyCode || ""}
-                onChange={(value) =>
-                  setFormData({ ...formData, currencyCode: value })
-                }
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t("reference")}
-              </label>
-              <input
-                type="text"
-                value={formData.reference}
-                onChange={(e) =>
-                  setFormData({ ...formData, reference: e.target.value })
-                }
-                placeholder={t("referencePlaceholder")}
-                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              />
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t("notes")}
-            </label>
-            <textarea
-              rows={3}
-              value={formData.notes}
-              onChange={(e) =>
-                setFormData({ ...formData, notes: e.target.value })
-              }
-              className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-          </div>
-        </div>
+        <PaymentDetailsCard
+          t={t}
+          tCurrencies={tCurrencies}
+          paymentMethods={paymentMethods}
+          totalFromItems={totalFromItems}
+          itemsLength={items.length}
+          paymentDate={formData.paymentDate}
+          method={formData.method as PaymentMethod | undefined}
+          currencyCode={formData.currencyCode}
+          reference={formData.reference}
+          notes={formData.notes}
+          onAmountChange={handleAmountChange}
+          onPaymentDateChange={handlePaymentDateChange}
+          onMethodChange={handleMethodChange}
+          onCurrencyChange={handleCurrencyChange}
+          onReferenceChange={handleReferenceChange}
+          onNotesChange={handleNotesChange}
+        />
 
         {/* Variable Items */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
@@ -331,20 +564,7 @@ export default function NewPaymentPage() {
             </h2>
             <button
               type="button"
-              onClick={() =>
-                setFormData((prev) => ({
-                  ...prev,
-                  items: [
-                    ...(prev.items || []),
-                    {
-                      description: "",
-                      amount: 0,
-                      quantity: 1,
-                      type: "charge" as PaymentItemType,
-                    },
-                  ],
-                }))
-              }
+              onClick={addItem}
               className="px-3 py-1 text-sm rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
             >
               {t("items.add")}
@@ -358,94 +578,17 @@ export default function NewPaymentPage() {
           ) : (
             <div className="space-y-3">
               {items.map((item, index) => (
-                <div
+                <PaymentItemRow
                   key={`${item.description}-${item.amount}-${item.quantity}-${item.type}`}
-                  className="grid grid-cols-1 md:grid-cols-5 gap-3"
-                >
-                  <input
-                    type="text"
-                    placeholder={t("items.description")}
-                    value={item.description}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        items: prev.items?.map((it, i) =>
-                          i === index
-                            ? { ...it, description: e.target.value }
-                            : it,
-                        ),
-                      }))
-                    }
-                    className="md:col-span-2 w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                  />
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={item.amount}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        items: prev.items?.map((it, i) =>
-                          i === index
-                            ? { ...it, amount: Number(e.target.value) }
-                            : it,
-                        ),
-                      }))
-                    }
-                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                  />
-                  <input
-                    type="number"
-                    min="1"
-                    value={item.quantity ?? 1}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        items: prev.items?.map((it, i) =>
-                          i === index
-                            ? { ...it, quantity: Number(e.target.value) }
-                            : it,
-                        ),
-                      }))
-                    }
-                    className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                  />
-                  <div className="flex gap-2">
-                    <select
-                      value={item.type ?? "charge"}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          items: prev.items?.map((it, i) =>
-                            i === index
-                              ? {
-                                  ...it,
-                                  type: e.target.value as PaymentItemType,
-                                }
-                              : it,
-                          ),
-                        }))
-                      }
-                      className="flex-1 rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                    >
-                      <option value="charge">{t("items.charge")}</option>
-                      <option value="discount">{t("items.discount")}</option>
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          items: prev.items?.filter((_, i) => i !== index),
-                        }))
-                      }
-                      className="px-2 text-sm text-red-600 hover:text-red-700"
-                    >
-                      {t("items.remove")}
-                    </button>
-                  </div>
-                </div>
+                  index={index}
+                  item={item}
+                  t={t}
+                  onDescriptionChange={handleItemDescriptionChange}
+                  onAmountChange={handleItemAmountChange}
+                  onQuantityChange={handleItemQuantityChange}
+                  onTypeChange={handleItemTypeChange}
+                  onRemove={removeItem}
+                />
               ))}
             </div>
           )}

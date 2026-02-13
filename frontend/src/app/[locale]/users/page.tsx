@@ -35,6 +35,59 @@ const INITIAL_FORM: FormState = {
   password: "",
 };
 
+async function submitUserForm(
+  editingUser: User | null,
+  form: FormState,
+  setUsers: React.Dispatch<React.SetStateAction<User[]>>,
+): Promise<"updated" | "created"> {
+  if (editingUser) {
+    const payload: UpdateManagedUserInput = {
+      email: form.email,
+      firstName: form.firstName,
+      lastName: form.lastName,
+      phone: form.phone,
+      role: form.role,
+    };
+    const updated = await usersApi.update(editingUser.id, payload);
+    setUsers((prev) =>
+      prev.map((item) => (item.id === updated.id ? updated : item)),
+    );
+    return "updated";
+  }
+
+  const payload: CreateManagedUserInput = {
+    email: form.email,
+    password: form.password,
+    firstName: form.firstName,
+    lastName: form.lastName,
+    phone: form.phone || undefined,
+    role: form.role,
+  };
+  const created = await usersApi.create(payload);
+  setUsers((prev) => [created, ...prev]);
+  return "created";
+}
+
+async function toggleUserActivation(
+  user: User,
+  setUsers: React.Dispatch<React.SetStateAction<User[]>>,
+): Promise<boolean> {
+  const nextIsActive = !(user.isActive ?? true);
+  const updated = await usersApi.setActivation(user.id, nextIsActive);
+  setUsers((prev) =>
+    prev.map((item) => (item.id === updated.id ? updated : item)),
+  );
+  return updated.isActive ?? nextIsActive;
+}
+
+async function submitResetPassword(
+  userId: string,
+  password: string,
+): Promise<string> {
+  const result = await usersApi.resetPassword(userId, password);
+  return result.temporaryPassword;
+}
+
 export default function UsersPage() {
   const tUsers = useTranslations("users");
   const tCommon = useTranslations("common");
@@ -76,9 +129,7 @@ export default function UsersPage() {
   }, [tUsers]);
 
   useEffect(() => {
-    loadUsers().catch((error) => {
-      console.error("Failed to load users", error);
-    });
+    void loadUsers();
   }, [loadUsers]);
 
   const openCreate = () => {
@@ -117,32 +168,12 @@ export default function UsersPage() {
     setSuccess(null);
 
     try {
-      if (editingUser) {
-        const payload: UpdateManagedUserInput = {
-          email: form.email,
-          firstName: form.firstName,
-          lastName: form.lastName,
-          phone: form.phone,
-          role: form.role,
-        };
-        const updated = await usersApi.update(editingUser.id, payload);
-        setUsers((prev) =>
-          prev.map((item) => (item.id === updated.id ? updated : item)),
-        );
-        setSuccess(tUsers("messages.updated"));
-      } else {
-        const payload: CreateManagedUserInput = {
-          email: form.email,
-          password: form.password,
-          firstName: form.firstName,
-          lastName: form.lastName,
-          phone: form.phone || undefined,
-          role: form.role,
-        };
-        const created = await usersApi.create(payload);
-        setUsers((prev) => [created, ...prev]);
-        setSuccess(tUsers("messages.created"));
-      }
+      const action = await submitUserForm(editingUser, form, setUsers);
+      setSuccess(
+        action === "updated"
+          ? tUsers("messages.updated")
+          : tUsers("messages.created"),
+      );
       closeForm();
     } catch (err) {
       console.error("Failed to save user", err);
@@ -156,15 +187,9 @@ export default function UsersPage() {
     setError(null);
     setSuccess(null);
     try {
-      const updated = await usersApi.setActivation(
-        user.id,
-        !(user.isActive ?? true),
-      );
-      setUsers((prev) =>
-        prev.map((item) => (item.id === updated.id ? updated : item)),
-      );
+      const isActive = await toggleUserActivation(user, setUsers);
       setSuccess(
-        updated.isActive
+        isActive
           ? tUsers("messages.activated")
           : tUsers("messages.deactivated"),
       );
@@ -172,6 +197,12 @@ export default function UsersPage() {
       console.error("Failed to update activation", err);
       setError(tUsers("errors.activation"));
     }
+  };
+
+  const handleToggleActiveClick = (user: User) => {
+    handleToggleActive(user).catch((error) => {
+      console.error("Failed to update activation", error);
+    });
   };
 
   const openResetPasswordDialog = (user: User) => {
@@ -206,13 +237,11 @@ export default function UsersPage() {
     setError(null);
     setSuccess(null);
     try {
-      const result = await usersApi.resetPassword(
+      const temporaryPassword = await submitResetPassword(
         resetPasswordUser.id,
         normalizedPassword,
       );
-      setSuccess(
-        `${tUsers("messages.passwordReset")}: ${result.temporaryPassword}`,
-      );
+      setSuccess(`${tUsers("messages.passwordReset")}: ${temporaryPassword}`);
       setResetPasswordUser(null);
       setResetPasswordValue("");
     } catch (err) {
@@ -243,11 +272,7 @@ export default function UsersPage() {
       </button>
       <button
         type="button"
-        onClick={() => {
-          handleToggleActive(user).catch((error) => {
-            console.error("Failed to update activation", error);
-          });
-        }}
+        onClick={() => handleToggleActiveClick(user)}
         className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700"
       >
         {user.isActive ? (

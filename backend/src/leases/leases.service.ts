@@ -50,34 +50,102 @@ export class LeasesService {
   ) {}
 
   async create(createLeaseDto: CreateLeaseDto): Promise<Lease> {
+    const { contractType, template, property } =
+      await this.prepareCreateLeaseContext(createLeaseDto);
+
+    const lease = this.leasesRepository.create(
+      this.buildCreateLeaseData(
+        createLeaseDto,
+        contractType,
+        property,
+        template,
+      ),
+    );
+    const saved = await this.leasesRepository.save(lease);
+    return this.fetchCreatedLease(saved.id, template?.id);
+  }
+
+  private async prepareCreateLeaseContext(
+    createLeaseDto: CreateLeaseDto,
+  ): Promise<{
+    contractType: ContractType;
+    template: LeaseContractTemplate | null;
+    property: Property;
+  }> {
     const contractType = createLeaseDto.contractType ?? ContractType.RENTAL;
     const template = await this.resolveTemplateForLease(
       createLeaseDto.companyId,
       contractType,
       createLeaseDto.templateId,
     );
-    if (createLeaseDto.templateId && !template) {
-      throw new NotFoundException(
-        `Template with ID ${createLeaseDto.templateId} not found`,
-      );
-    }
+    this.ensureRequestedTemplateExists(createLeaseDto.templateId, template);
 
-    const property = await this.propertiesRepository.findOne({
-      where: { id: createLeaseDto.propertyId, deletedAt: IsNull() },
-    });
-    if (!property) {
-      throw new NotFoundException(
-        `Property with ID ${createLeaseDto.propertyId} not found`,
-      );
-    }
-
+    const property = await this.findPropertyOrThrow(createLeaseDto.propertyId);
     await this.validateCreateForContractType(
       contractType,
       createLeaseDto,
       property.id,
     );
 
-    const lease = this.leasesRepository.create({
+    return { contractType, template, property };
+  }
+
+  private fetchCreatedLease(
+    leaseId: string,
+    templateId?: string | null,
+  ): Promise<Lease> {
+    if (templateId) {
+      return this.renderDraft(leaseId, templateId);
+    }
+
+    return this.findOne(leaseId);
+  }
+
+  private ensureRequestedTemplateExists(
+    requestedTemplateId: string | undefined,
+    template: LeaseContractTemplate | null,
+  ): void {
+    if (!requestedTemplateId || template) {
+      return;
+    }
+
+    throw new NotFoundException(
+      `Template with ID ${requestedTemplateId} not found`,
+    );
+  }
+
+  private async findPropertyOrThrow(propertyId: string): Promise<Property> {
+    const property = await this.propertiesRepository.findOne({
+      where: { id: propertyId, deletedAt: IsNull() },
+    });
+
+    if (property) {
+      return property;
+    }
+
+    throw new NotFoundException(`Property with ID ${propertyId} not found`);
+  }
+
+  private buildCreateLeaseData(
+    createLeaseDto: CreateLeaseDto,
+    contractType: ContractType,
+    property: Property,
+    template: LeaseContractTemplate | null,
+  ): Partial<Lease> {
+    const isRental = contractType === ContractType.RENTAL;
+    const startDate =
+      isRental && createLeaseDto.startDate
+        ? new Date(createLeaseDto.startDate)
+        : null;
+    const endDate =
+      isRental && createLeaseDto.endDate
+        ? new Date(createLeaseDto.endDate)
+        : null;
+    const nextAdjustmentDate = createLeaseDto.nextAdjustmentDate
+      ? new Date(createLeaseDto.nextAdjustmentDate)
+      : undefined;
+
+    return {
       ...createLeaseDto,
       contractType,
       propertyId: property.id,
@@ -87,59 +155,23 @@ export class LeasesService {
       templateName: template?.name ?? null,
       previousLeaseId: null,
       versionNumber: 1,
-      tenantId:
-        contractType === ContractType.RENTAL
-          ? (createLeaseDto.tenantId ?? null)
-          : null,
-      buyerProfileId:
-        contractType === ContractType.SALE
-          ? (createLeaseDto.buyerProfileId ?? null)
-          : null,
-      monthlyRent:
-        contractType === ContractType.RENTAL
-          ? Number(createLeaseDto.monthlyRent ?? 0)
-          : null,
-      startDate:
-        contractType === ContractType.RENTAL
-          ? createLeaseDto.startDate
-            ? new Date(createLeaseDto.startDate)
-            : null
-          : null,
-      endDate:
-        contractType === ContractType.RENTAL
-          ? createLeaseDto.endDate
-            ? new Date(createLeaseDto.endDate)
-            : null
-          : null,
-      fiscalValue:
-        contractType === ContractType.SALE
-          ? Number(createLeaseDto.fiscalValue ?? 0)
-          : null,
-      lateFeeType:
-        contractType === ContractType.RENTAL
-          ? createLeaseDto.lateFeeType || LateFeeType.NONE
-          : LateFeeType.NONE,
-      lateFeeValue:
-        contractType === ContractType.RENTAL
-          ? Number(createLeaseDto.lateFeeValue ?? 0)
-          : 0,
-      adjustmentValue:
-        contractType === ContractType.RENTAL
-          ? createLeaseDto.adjustmentValue
-          : 0,
+      tenantId: isRental ? (createLeaseDto.tenantId ?? null) : null,
+      buyerProfileId: isRental ? null : (createLeaseDto.buyerProfileId ?? null),
+      monthlyRent: isRental ? Number(createLeaseDto.monthlyRent ?? 0) : null,
+      startDate,
+      endDate,
+      fiscalValue: isRental ? null : Number(createLeaseDto.fiscalValue ?? 0),
+      lateFeeType: isRental
+        ? (createLeaseDto.lateFeeType ?? LateFeeType.NONE)
+        : LateFeeType.NONE,
+      lateFeeValue: isRental ? Number(createLeaseDto.lateFeeValue ?? 0) : 0,
+      adjustmentValue: isRental ? createLeaseDto.adjustmentValue : 0,
+      nextAdjustmentDate,
       draftContractText: null,
       confirmedContractText: null,
       confirmedAt: null,
       contractPdfUrl: null,
-    });
-
-    const saved = await this.leasesRepository.save(lease);
-
-    if (template) {
-      return this.renderDraft(saved.id, template.id);
-    }
-
-    return this.findOne(saved.id);
+    };
   }
 
   async findAll(

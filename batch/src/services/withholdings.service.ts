@@ -68,6 +68,14 @@ export class WithholdingsService {
     ganancias: 50000, // ARS - typical minimum for ganancias retention
   };
 
+  private static readonly DEFAULT_CONFIG: WithholdingConfig = {
+    isWithholdingAgent: false,
+    iibbRate: 0,
+    ivaRate: 0,
+    gananciasRate: 0,
+    gananciasMinAmount: 0,
+  };
+
   /**
    * Calculates withholdings for an invoice.
    *
@@ -82,7 +90,6 @@ export class WithholdingsService {
     amount: number,
   ): Promise<WithholdingResult> {
     const config = await this.getCompanyConfig(companyId);
-    const ownerData = await this.getOwnerFiscalData(ownerId);
 
     const result: WithholdingResult = {
       iibb: 0,
@@ -96,6 +103,8 @@ export class WithholdingsService {
     if (!config.isWithholdingAgent) {
       return result;
     }
+
+    const ownerData = await this.getOwnerFiscalData(ownerId);
 
     // Calculate IIBB withholding
     if (!ownerData.iibbExempt && config.iibbRate > 0) {
@@ -214,38 +223,127 @@ export class WithholdingsService {
   private async getCompanyConfig(
     companyId: string,
   ): Promise<WithholdingConfig> {
+    const columns = await this.getCompaniesColumns();
+    const hasLegacyColumns = columns.has("is_withholding_agent");
+
+    if (hasLegacyColumns) {
+      return this.getLegacyCompanyConfig(companyId);
+    }
+
+    return this.getJsonCompanyConfig(companyId);
+  }
+
+  private async getCompaniesColumns(): Promise<Set<string>> {
+    const result = await AppDataSource.query(
+      `SELECT column_name
+         FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'companies'`,
+    );
+
+    return new Set(
+      result.map((row: { column_name?: string }) => row.column_name || ""),
+    );
+  }
+
+  private async getLegacyCompanyConfig(
+    companyId: string,
+  ): Promise<WithholdingConfig> {
     const result = await AppDataSource.query(
       `SELECT 
-                is_withholding_agent as "isWithholdingAgent",
-                withholding_iibb_rate as "iibbRate",
-                withholding_iibb_jurisdiction as "iibbJurisdiction",
-                withholding_iva_rate as "ivaRate",
-                withholding_ganancias_rate as "gananciasRate",
-                withholding_ganancias_min_amount as "gananciasMinAmount"
-             FROM companies 
-             WHERE id = $1`,
+         is_withholding_agent as "isWithholdingAgent",
+         withholding_iibb_rate as "iibbRate",
+         withholding_iibb_jurisdiction as "iibbJurisdiction",
+         withholding_iva_rate as "ivaRate",
+         withholding_ganancias_rate as "gananciasRate",
+         withholding_ganancias_min_amount as "gananciasMinAmount"
+       FROM companies
+       WHERE id = $1`,
       [companyId],
     );
 
     if (result.length === 0) {
-      return {
-        isWithholdingAgent: false,
-        iibbRate: 0,
-        ivaRate: 0,
-        gananciasRate: 0,
-        gananciasMinAmount: 0,
-      };
+      return WithholdingsService.DEFAULT_CONFIG;
     }
 
     const row = result[0];
     return {
       isWithholdingAgent: row.isWithholdingAgent || false,
-      iibbRate: Number.parseFloat(row.iibbRate) || 0,
-      iibbJurisdiction: row.iibbJurisdiction,
-      ivaRate: Number.parseFloat(row.ivaRate) || 0,
-      gananciasRate: Number.parseFloat(row.gananciasRate) || 0,
-      gananciasMinAmount: Number.parseFloat(row.gananciasMinAmount) || 0,
+      iibbRate: this.toNumber(row.iibbRate),
+      iibbJurisdiction: row.iibbJurisdiction || undefined,
+      ivaRate: this.toNumber(row.ivaRate),
+      gananciasRate: this.toNumber(row.gananciasRate),
+      gananciasMinAmount: this.toNumber(row.gananciasMinAmount),
     };
+  }
+
+  private async getJsonCompanyConfig(
+    companyId: string,
+  ): Promise<WithholdingConfig> {
+    const result = await AppDataSource.query(
+      `SELECT
+         COALESCE(withholding_agent_iibb, false) as "withholdingAgentIibb",
+         COALESCE(withholding_agent_ganancias, false) as "withholdingAgentGanancias",
+         COALESCE(withholding_rates, '{}'::jsonb) as "withholdingRates"
+       FROM companies
+       WHERE id = $1`,
+      [companyId],
+    );
+
+    if (result.length === 0) {
+      return WithholdingsService.DEFAULT_CONFIG;
+    }
+
+    const row = result[0];
+    const rates = (row.withholdingRates || {}) as Record<string, unknown>;
+    const iibbRate = this.firstNumber(rates, ["iibb", "iibbRate"]);
+    const ivaRate = this.firstNumber(rates, ["iva", "ivaRate"]);
+    const gananciasRate = this.firstNumber(rates, [
+      "ganancias",
+      "gananciasRate",
+    ]);
+    const gananciasMinAmount = this.firstNumber(rates, [
+      "gananciasMinAmount",
+      "ganancias_min_amount",
+    ]);
+    const iibbJurisdictionRaw =
+      rates.iibbJurisdiction || rates.iibb_jurisdiction;
+    const iibbJurisdiction =
+      typeof iibbJurisdictionRaw === "string" && iibbJurisdictionRaw.trim()
+        ? iibbJurisdictionRaw
+        : undefined;
+
+    return {
+      isWithholdingAgent:
+        Boolean(row.withholdingAgentIibb) ||
+        Boolean(row.withholdingAgentGanancias),
+      iibbRate,
+      iibbJurisdiction,
+      ivaRate,
+      gananciasRate,
+      gananciasMinAmount,
+    };
+  }
+
+  private firstNumber(source: Record<string, unknown>, keys: string[]): number {
+    for (const key of keys) {
+      const value = source[key];
+      const parsed = this.toNumber(value);
+      if (parsed !== 0 || value === 0 || value === "0") {
+        return parsed;
+      }
+    }
+
+    return 0;
+  }
+
+  private toNumber(value: unknown): number {
+    if (value === null || value === undefined) {
+      return 0;
+    }
+
+    const parsed = Number.parseFloat(String(value));
+    return Number.isFinite(parsed) ? parsed : 0;
   }
 
   /**

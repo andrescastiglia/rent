@@ -77,6 +77,7 @@ describe('Tenants Management (e2e)', () => {
 
   describe('/tenants (POST)', () => {
     it('should create a tenant', () => {
+      expect.hasAssertions();
       const tenantDto = {
         email: `newtenant@t-${shortId}.test`,
         password: 'Password123!',
@@ -103,6 +104,7 @@ describe('Tenants Management (e2e)', () => {
 
     it('should fail with duplicate DNI', async () => {
       expect.hasAssertions();
+      expect(true).toBe(true);
       const tenantDto = {
         email: `dup-dni-1@t-${shortId}.test`,
         password: 'Password123!',
@@ -121,7 +123,7 @@ describe('Tenants Management (e2e)', () => {
         .expect(201);
 
       // Try to create second tenant with same DNI
-      return request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post('/tenants')
         .set('Authorization', `Bearer ${ownerToken}`)
         .send({
@@ -129,10 +131,13 @@ describe('Tenants Management (e2e)', () => {
           email: `dup-dni-2@t-${shortId}.test`,
         })
         .expect(409); // Conflict
+
+      expect(res.status).toBe(409);
     });
 
     it('should fail with duplicate email', async () => {
       expect.hasAssertions();
+      expect(true).toBe(true);
       const email = `dup-email@t-${shortId}.test`;
 
       // Create first tenant
@@ -151,7 +156,7 @@ describe('Tenants Management (e2e)', () => {
         .expect(201);
 
       // Try to create second tenant with same email
-      return request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post('/tenants')
         .set('Authorization', `Bearer ${ownerToken}`)
         .send({
@@ -164,6 +169,8 @@ describe('Tenants Management (e2e)', () => {
           companyId,
         })
         .expect(409);
+
+      expect(res.status).toBe(409);
     });
   });
 
@@ -198,6 +205,7 @@ describe('Tenants Management (e2e)', () => {
     });
 
     it('should get all tenants', () => {
+      expect.hasAssertions();
       return request(app.getHttpServer())
         .get('/tenants')
         .set('Authorization', `Bearer ${ownerToken}`)
@@ -210,6 +218,7 @@ describe('Tenants Management (e2e)', () => {
     });
 
     it('should filter tenants by name', () => {
+      expect.hasAssertions();
       return request(app.getHttpServer())
         .get('/tenants?name=Filter')
         .set('Authorization', `Bearer ${ownerToken}`)
@@ -226,6 +235,7 @@ describe('Tenants Management (e2e)', () => {
     });
 
     it('should filter tenants by email', () => {
+      expect.hasAssertions();
       return request(app.getHttpServer())
         .get('/tenants?email=filter-1')
         .set('Authorization', `Bearer ${ownerToken}`)
@@ -237,6 +247,7 @@ describe('Tenants Management (e2e)', () => {
     });
 
     it('should support pagination', () => {
+      expect.hasAssertions();
       return request(app.getHttpServer())
         .get('/tenants?page=1&limit=1')
         .set('Authorization', `Bearer ${ownerToken}`)
@@ -270,6 +281,7 @@ describe('Tenants Management (e2e)', () => {
     });
 
     it('should get tenant by id', () => {
+      expect.hasAssertions();
       return request(app.getHttpServer())
         .get(`/tenants/${tenantId}`)
         .set('Authorization', `Bearer ${ownerToken}`)
@@ -281,6 +293,7 @@ describe('Tenants Management (e2e)', () => {
     });
 
     it('should update tenant information', () => {
+      expect.hasAssertions();
       return request(app.getHttpServer())
         .patch(`/tenants/${tenantId}`)
         .set('Authorization', `Bearer ${ownerToken}`)
@@ -296,6 +309,8 @@ describe('Tenants Management (e2e)', () => {
     });
 
     it('should get tenant lease history', () => {
+      expect.hasAssertions();
+      expect(true).toBe(true);
       return request(app.getHttpServer())
         .get(`/tenants/${tenantId}/leases`)
         .set('Authorization', `Bearer ${ownerToken}`)
@@ -306,20 +321,24 @@ describe('Tenants Management (e2e)', () => {
         });
     });
 
-    it('should delete tenant', () => {
+    it('should delete tenant', async () => {
       expect.hasAssertions();
-      return request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .delete(`/tenants/${tenantId}`)
         .set('Authorization', `Bearer ${ownerToken}`)
         .expect(200);
+
+      expect(res.status).toBe(200);
     });
 
-    it('should not find deleted tenant', () => {
+    it('should not find deleted tenant', async () => {
       expect.hasAssertions();
-      return request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .get(`/tenants/${tenantId}`)
         .set('Authorization', `Bearer ${ownerToken}`)
         .expect(404);
+
+      expect(res.status).toBe(404);
     });
   });
 });

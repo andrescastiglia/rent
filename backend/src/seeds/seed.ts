@@ -1,4 +1,4 @@
-import { DataSource } from 'typeorm';
+import { DataSource, QueryRunner } from 'typeorm';
 import * as dotenv from 'dotenv';
 import * as bcrypt from 'bcrypt';
 import { User, UserRole } from '../users/entities/user.entity';
@@ -55,244 +55,323 @@ const AppDataSource = new DataSource({
   logging: true,
 });
 
+type SeedUserInput = {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+  phone?: string;
+};
+
+async function ensureCurrency(
+  queryRunner: QueryRunner,
+  currencyData: {
+    code: string;
+    symbol: string;
+    decimalPlaces: number;
+    isActive: boolean;
+  },
+): Promise<void> {
+  const existing = await queryRunner.manager.findOne(Currency, {
+    where: { code: currencyData.code },
+  });
+  if (existing) {
+    console.log(`Currency ${currencyData.code} already exists`);
+    return;
+  }
+
+  const currency = queryRunner.manager.create(Currency, currencyData);
+  await queryRunner.manager.save(currency);
+  console.log(`Currency ${currencyData.code} created`);
+}
+
+async function ensureUser(
+  queryRunner: QueryRunner,
+  input: SeedUserInput,
+): Promise<User> {
+  const existingUser = await findUserByEmail(queryRunner, input.email);
+  if (existingUser) {
+    console.log(`${input.role} user already exists`);
+    return existingUser;
+  }
+
+  const saved = await createSeedUser(queryRunner, input);
+  console.log(`${input.role} user created`);
+  return saved;
+}
+
+async function findUserByEmail(
+  queryRunner: QueryRunner,
+  email: string,
+): Promise<User | null> {
+  return queryRunner.manager.findOne(User, {
+    where: { email },
+  });
+}
+
+async function createSeedUser(
+  queryRunner: QueryRunner,
+  input: SeedUserInput,
+): Promise<User> {
+  const salt = await bcrypt.genSalt();
+  const passwordHash = await bcrypt.hash(input.password, salt);
+
+  const user = queryRunner.manager.create(User, {
+    email: input.email,
+    passwordHash,
+    firstName: input.firstName,
+    lastName: input.lastName,
+    role: input.role,
+    isActive: true,
+    isEmailVerified: true,
+    phone: input.phone,
+  });
+
+  return queryRunner.manager.save(user);
+}
+
+async function ensureCompany(queryRunner: QueryRunner): Promise<Company> {
+  const existingCompany = await queryRunner.manager.findOne(Company, {
+    where: { taxId: '20-12345678-9' },
+  });
+  if (existingCompany) {
+    return existingCompany;
+  }
+
+  const company = queryRunner.manager.create(Company, {
+    name: 'My Rental Company',
+    taxId: '20-12345678-9',
+    plan: PlanType.BASIC,
+    isActive: true,
+  });
+  const saved = await queryRunner.manager.save(company);
+  console.log('Company created');
+  return saved;
+}
+
+async function ensureOwnerRecord(
+  queryRunner: QueryRunner,
+  ownerUser: User,
+  company: Company,
+): Promise<Owner> {
+  const existingOwner = await queryRunner.manager.findOne(Owner, {
+    where: { userId: ownerUser.id },
+  });
+  if (existingOwner) {
+    return existingOwner;
+  }
+
+  const owner = queryRunner.manager.create(Owner, {
+    user: ownerUser,
+    company,
+    taxId: '20-12345678-9',
+    taxIdType: 'CUIT',
+  });
+  const saved = await queryRunner.manager.save(owner);
+  console.log('Owner record created');
+  return saved;
+}
+
+async function ensureProperty(
+  queryRunner: QueryRunner,
+  company: Company,
+  owner: Owner,
+): Promise<Property> {
+  const existingProperty = await queryRunner.manager.findOne(Property, {
+    where: { name: 'Edificio Libertador' },
+  });
+  if (existingProperty) {
+    return existingProperty;
+  }
+
+  const property = queryRunner.manager.create(Property, {
+    company,
+    owner,
+    name: 'Edificio Libertador',
+    propertyType: PropertyType.APARTMENT,
+    status: PropertyStatus.ACTIVE,
+    addressStreet: 'Av. Libertador',
+    addressNumber: '1234',
+    addressCity: 'Buenos Aires',
+    addressState: 'CABA',
+    addressCountry: 'Argentina',
+    addressPostalCode: '1425',
+    description: 'Luxury apartment building',
+    yearBuilt: 2015,
+  });
+  const saved = await queryRunner.manager.save(property);
+  console.log('Property created');
+  return saved;
+}
+
+async function ensureUnit(
+  queryRunner: QueryRunner,
+  company: Company,
+  property: Property,
+): Promise<void> {
+  const existingUnit = await queryRunner.manager.findOne(Unit, {
+    where: { property: { id: property.id }, unitNumber: '101' },
+  });
+  if (existingUnit) {
+    return;
+  }
+
+  const unit = queryRunner.manager.create(Unit, {
+    property,
+    company,
+    unitNumber: '101',
+    floor: '1',
+    bedrooms: 2,
+    bathrooms: 1,
+    area: 65.5,
+    baseRent: 1500,
+    currency: 'USD',
+    status: UnitStatus.AVAILABLE,
+    hasParking: true,
+    parkingSpots: 1,
+  });
+  await queryRunner.manager.save(unit);
+  console.log('Unit created');
+}
+
+async function ensureTenantRecord(
+  queryRunner: QueryRunner,
+  tenantUser: User,
+  company: Company,
+): Promise<Tenant> {
+  const existingTenant = await queryRunner.manager.findOne(Tenant, {
+    where: { userId: tenantUser.id },
+  });
+  if (existingTenant) {
+    return existingTenant;
+  }
+
+  const tenant = queryRunner.manager.create(Tenant, {
+    user: tenantUser,
+    company,
+    dni: '30123456',
+    emergencyContactName: 'Emergency Contact',
+    emergencyContactPhone: '+5491187654321',
+  });
+  const saved = await queryRunner.manager.save(tenant);
+  console.log('Tenant record created');
+  return saved;
+}
+
+async function ensureLease(
+  queryRunner: QueryRunner,
+  company: Company,
+  property: Property,
+  owner: Owner,
+  tenant: Tenant,
+): Promise<void> {
+  const existingLease = await queryRunner.manager.findOne(Lease, {
+    where: { propertyId: property.id, tenantId: tenant.id },
+  });
+  if (existingLease) {
+    console.log('Lease already exists');
+    return;
+  }
+
+  const lease = queryRunner.manager.create(Lease, {
+    company,
+    property,
+    tenant,
+    owner,
+    contractType: ContractType.RENTAL,
+    startDate: new Date('2024-01-01'),
+    endDate: new Date('2024-12-31'),
+    monthlyRent: 1500,
+    currency: 'USD',
+    securityDeposit: 3000,
+    status: LeaseStatus.ACTIVE,
+    paymentFrequency: PaymentFrequency.MONTHLY,
+  });
+  await queryRunner.manager.save(lease);
+  console.log('Lease created');
+
+  property.operationState = PropertyOperationState.RENTED;
+  await queryRunner.manager.save(property);
+}
+
+async function runSeedTransaction(queryRunner: QueryRunner): Promise<void> {
+  console.log('Seeding data...');
+
+  const currencies = [
+    { code: 'ARS', symbol: '$', decimalPlaces: 2, isActive: true },
+    { code: 'BRL', symbol: 'R$', decimalPlaces: 2, isActive: true },
+    { code: 'USD', symbol: 'US$', decimalPlaces: 2, isActive: true },
+  ];
+  for (const currencyData of currencies) {
+    await ensureCurrency(queryRunner, currencyData);
+  }
+
+  await ensureUser(queryRunner, {
+    email: 'admin@example.com',
+    password: 'admin123',
+    firstName: 'Admin',
+    lastName: 'User',
+    role: UserRole.ADMIN,
+  });
+
+  const ownerUser = await ensureUser(queryRunner, {
+    email: 'owner@example.com',
+    password: 'owner123',
+    firstName: 'John',
+    lastName: 'Owner',
+    role: UserRole.OWNER,
+  });
+
+  const company = await ensureCompany(queryRunner);
+  const owner = await ensureOwnerRecord(queryRunner, ownerUser, company);
+  const property = await ensureProperty(queryRunner, company, owner);
+  await ensureUnit(queryRunner, company, property);
+
+  const tenantUser = await ensureUser(queryRunner, {
+    email: 'tenant@example.com',
+    password: 'tenant123',
+    firstName: 'Maria',
+    lastName: 'Tenant',
+    role: UserRole.TENANT,
+    phone: '+5491112345678',
+  });
+
+  const tenant = await ensureTenantRecord(queryRunner, tenantUser, company);
+  await ensureLease(queryRunner, company, property, owner, tenant);
+}
+
 async function seed() {
   try {
-    console.log('Connecting to database...');
-    await AppDataSource.initialize();
-    console.log('Connected!');
-
-    const queryRunner = AppDataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
-      console.log('Seeding data...');
-
-      // 0. Create Currencies
-      const currencies = [
-        { code: 'ARS', symbol: '$', decimalPlaces: 2, isActive: true },
-        { code: 'BRL', symbol: 'R$', decimalPlaces: 2, isActive: true },
-        { code: 'USD', symbol: 'US$', decimalPlaces: 2, isActive: true },
-      ];
-
-      for (const currencyData of currencies) {
-        const existing = await queryRunner.manager.findOne(Currency, {
-          where: { code: currencyData.code },
-        });
-        if (!existing) {
-          const currency = queryRunner.manager.create(Currency, currencyData);
-          await queryRunner.manager.save(currency);
-          console.log(`Currency ${currencyData.code} created`);
-        } else {
-          console.log(`Currency ${currencyData.code} already exists`);
-        }
-      }
-
-      // 1. Create Admin User
-      const adminEmail = 'admin@example.com';
-      let admin = await queryRunner.manager.findOne(User, {
-        where: { email: adminEmail },
-      });
-      if (!admin) {
-        const salt = await bcrypt.genSalt();
-        const passwordHash = await bcrypt.hash('admin123', salt);
-        admin = queryRunner.manager.create(User, {
-          email: adminEmail,
-          passwordHash,
-          firstName: 'Admin',
-          lastName: 'User',
-          role: UserRole.ADMIN,
-          isActive: true,
-          isEmailVerified: true,
-        });
-        await queryRunner.manager.save(admin);
-        console.log('Admin user created');
-      } else {
-        console.log('Admin user already exists');
-      }
-
-      // 2. Create Owner User
-      const ownerEmail = 'owner@example.com';
-      let ownerUser = await queryRunner.manager.findOne(User, {
-        where: { email: ownerEmail },
-      });
-      if (!ownerUser) {
-        const salt = await bcrypt.genSalt();
-        const passwordHash = await bcrypt.hash('owner123', salt);
-        ownerUser = queryRunner.manager.create(User, {
-          email: ownerEmail,
-          passwordHash,
-          firstName: 'John',
-          lastName: 'Owner',
-          role: UserRole.OWNER,
-          isActive: true,
-          isEmailVerified: true,
-        });
-        await queryRunner.manager.save(ownerUser);
-        console.log('Owner user created');
-      } else {
-        console.log('Owner user already exists');
-      }
-
-      // 3. Create Company for Owner
-      let company = await queryRunner.manager.findOne(Company, {
-        where: { taxId: '20-12345678-9' },
-      });
-      if (!company) {
-        company = queryRunner.manager.create(Company, {
-          name: 'My Rental Company',
-          taxId: '20-12345678-9',
-          plan: PlanType.BASIC,
-          isActive: true,
-        });
-        await queryRunner.manager.save(company);
-        console.log('Company created');
-      }
-
-      // 3b. Create Owner Record
-      let owner = await queryRunner.manager.findOne(Owner, {
-        where: { userId: ownerUser.id },
-      });
-      if (!owner) {
-        owner = queryRunner.manager.create(Owner, {
-          user: ownerUser,
-          company: company,
-          taxId: '20-12345678-9',
-          taxIdType: 'CUIT',
-        });
-        await queryRunner.manager.save(owner);
-        console.log('Owner record created');
-      }
-
-      // 4. Create Property
-      let property = await queryRunner.manager.findOne(Property, {
-        where: { name: 'Edificio Libertador' },
-      });
-      if (!property) {
-        property = queryRunner.manager.create(Property, {
-          company: company,
-          owner: owner,
-          name: 'Edificio Libertador',
-          propertyType: PropertyType.APARTMENT,
-          status: PropertyStatus.ACTIVE,
-          addressStreet: 'Av. Libertador',
-          addressNumber: '1234',
-          addressCity: 'Buenos Aires',
-          addressState: 'CABA',
-          addressCountry: 'Argentina',
-          addressPostalCode: '1425',
-          description: 'Luxury apartment building',
-          yearBuilt: 2015,
-        });
-        await queryRunner.manager.save(property);
-        console.log('Property created');
-      }
-
-      // 5. Create Unit
-      let unit = await queryRunner.manager.findOne(Unit, {
-        where: { property: { id: property.id }, unitNumber: '101' },
-      });
-      if (!unit) {
-        unit = queryRunner.manager.create(Unit, {
-          property: property,
-          company: company,
-          unitNumber: '101',
-          floor: '1',
-          bedrooms: 2,
-          bathrooms: 1,
-          area: 65.5,
-          baseRent: 1500,
-          currency: 'USD',
-          status: UnitStatus.AVAILABLE,
-          hasParking: true,
-          parkingSpots: 1,
-        });
-        await queryRunner.manager.save(unit);
-        console.log('Unit created');
-      }
-
-      // 6. Create Tenant User
-      const tenantEmail = 'tenant@example.com';
-      let tenantUser = await queryRunner.manager.findOne(User, {
-        where: { email: tenantEmail },
-      });
-      if (!tenantUser) {
-        const salt = await bcrypt.genSalt();
-        const passwordHash = await bcrypt.hash('tenant123', salt);
-        tenantUser = queryRunner.manager.create(User, {
-          email: tenantEmail,
-          passwordHash,
-          firstName: 'Maria',
-          lastName: 'Tenant',
-          role: UserRole.TENANT,
-          isActive: true,
-          isEmailVerified: true,
-          phone: '+5491112345678',
-        });
-        await queryRunner.manager.save(tenantUser);
-        console.log('Tenant user created');
-      } else {
-        console.log('Tenant user already exists');
-      }
-
-      // 7. Create Tenant Record
-      let tenant = await queryRunner.manager.findOne(Tenant, {
-        where: { userId: tenantUser.id },
-      });
-      if (!tenant) {
-        tenant = queryRunner.manager.create(Tenant, {
-          user: tenantUser,
-          company: company,
-          dni: '30123456',
-          emergencyContactName: 'Emergency Contact',
-          emergencyContactPhone: '+5491187654321',
-        });
-        await queryRunner.manager.save(tenant);
-        console.log('Tenant record created');
-      }
-
-      // 8. Create Lease
-      // Check if lease exists for this property and tenant
-      const existingLease = await queryRunner.manager.findOne(Lease, {
-        where: { propertyId: property.id, tenantId: tenant.id },
-      });
-
-      if (!existingLease) {
-        const lease = queryRunner.manager.create(Lease, {
-          company: company,
-          property: property,
-          tenant: tenant,
-          owner: owner,
-          contractType: ContractType.RENTAL,
-          startDate: new Date('2024-01-01'),
-          endDate: new Date('2024-12-31'),
-          monthlyRent: 1500,
-          currency: 'USD',
-          securityDeposit: 3000,
-          status: LeaseStatus.ACTIVE,
-          paymentFrequency: PaymentFrequency.MONTHLY,
-        });
-        await queryRunner.manager.save(lease);
-        console.log('Lease created');
-
-        property.operationState = PropertyOperationState.RENTED;
-        await queryRunner.manager.save(property);
-      } else {
-        console.log('Lease already exists');
-      }
-
-      await queryRunner.commitTransaction();
-      console.log('Seeding completed successfully');
-    } catch (err) {
-      console.error('Error during seeding:', err);
-      await queryRunner.rollbackTransaction();
-    } finally {
-      await queryRunner.release();
-    }
+    await initializeSeedDataSource();
+    await runSeedInTransaction();
   } catch (error) {
     console.error('Error connecting to database:', error);
   } finally {
     await AppDataSource.destroy();
+  }
+}
+
+async function initializeSeedDataSource(): Promise<void> {
+  console.log('Connecting to database...');
+  await AppDataSource.initialize();
+  console.log('Connected!');
+}
+
+async function runSeedInTransaction(): Promise<void> {
+  const queryRunner = AppDataSource.createQueryRunner();
+  await queryRunner.connect();
+  await queryRunner.startTransaction();
+
+  try {
+    await runSeedTransaction(queryRunner);
+    await queryRunner.commitTransaction();
+    console.log('Seeding completed successfully');
+  } catch (err) {
+    console.error('Error during seeding:', err);
+    await queryRunner.rollbackTransaction();
+  } finally {
+    await queryRunner.release();
   }
 }
 

@@ -173,6 +173,167 @@ const shouldUseMock = (): boolean => {
   return IS_MOCK_MODE || (getToken()?.startsWith("mock-token-") ?? false);
 };
 
+const findMockAccountByLeaseId = (leaseId: string): TenantAccount | undefined =>
+  MOCK_TENANT_ACCOUNTS.find((item) => item.leaseId === leaseId);
+
+const sortPaymentsByRecency = (payments: Payment[]): Payment[] =>
+  payments.toSorted(
+    (a, b) =>
+      new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime() ||
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+
+const addPredicateForPrimitiveFilter = <T>(
+  predicates: Array<(payment: Payment) => boolean>,
+  filterValue: T | undefined,
+  selector: (payment: Payment) => T | undefined,
+) => {
+  if (filterValue === undefined) {
+    return;
+  }
+
+  predicates.push((payment) => selector(payment) === filterValue);
+};
+
+const addPredicateForLeaseFilter = (
+  predicates: Array<(payment: Payment) => boolean>,
+  leaseId?: string,
+) => {
+  if (!leaseId) {
+    return;
+  }
+
+  const account = findMockAccountByLeaseId(leaseId);
+  if (!account) {
+    return;
+  }
+
+  predicates.push((payment) => payment.tenantAccountId === account.id);
+};
+
+const buildMockPaymentPredicates = (
+  filters?: PaymentFilters,
+): Array<(payment: Payment) => boolean> => {
+  if (!filters) {
+    return [];
+  }
+
+  const predicates: Array<(payment: Payment) => boolean> = [];
+
+  addPredicateForPrimitiveFilter(
+    predicates,
+    filters.tenantId,
+    (payment) => payment.tenantId,
+  );
+  addPredicateForPrimitiveFilter(
+    predicates,
+    filters.status,
+    (payment) => payment.status,
+  );
+  addPredicateForPrimitiveFilter(
+    predicates,
+    filters.method,
+    (payment) => payment.method,
+  );
+  addPredicateForLeaseFilter(predicates, filters.leaseId);
+
+  return predicates;
+};
+
+const getMockAccountBalance = (accountId: string): AccountBalance => {
+  const account = MOCK_TENANT_ACCOUNTS.find((item) => item.id === accountId);
+  if (!account) {
+    throw new Error("Account not found");
+  }
+
+  return {
+    balance: account.balance,
+    lateFee: 0,
+    total: account.balance,
+  };
+};
+
+const updateMockPaymentTemplate = (
+  templateId: string,
+  data: Partial<{
+    type: PaymentDocumentTemplateType;
+    name: string;
+    templateBody: string;
+    isActive: boolean;
+    isDefault: boolean;
+  }>,
+): PaymentDocumentTemplate => {
+  const index = MOCK_PAYMENT_DOCUMENT_TEMPLATES.findIndex(
+    (item) => item.id === templateId,
+  );
+  if (index < 0) {
+    throw new Error("Template not found");
+  }
+
+  const updated: PaymentDocumentTemplate = {
+    ...MOCK_PAYMENT_DOCUMENT_TEMPLATES[index],
+    ...data,
+    updatedAt: new Date().toISOString(),
+  } as PaymentDocumentTemplate;
+  MOCK_PAYMENT_DOCUMENT_TEMPLATES[index] = updated;
+
+  if (updated.isDefault) {
+    ensureSingleDefaultTemplate(updated.type, updated.id);
+  }
+
+  return updated;
+};
+
+const applyMockPaymentFilters = (
+  payments: Payment[],
+  filters?: PaymentFilters,
+): Payment[] => {
+  const predicates = buildMockPaymentPredicates(filters);
+  const filtered = predicates.reduce(
+    (current, predicate) => current.filter(predicate),
+    [...payments],
+  );
+  return sortPaymentsByRecency(filtered);
+};
+
+const toTenantReceiptSummary = (payment: Payment): TenantReceiptSummary => {
+  if (!payment.receipt) {
+    throw new Error("Receipt data is required");
+  }
+
+  return {
+    id: payment.receipt.id,
+    paymentId: payment.id,
+    receiptNumber: payment.receipt.receiptNumber,
+    amount: payment.receipt.amount,
+    currencyCode: payment.receipt.currencyCode,
+    issuedAt: payment.receipt.issuedAt,
+    paymentDate: payment.paymentDate,
+    pdfUrl: payment.receipt.pdfUrl,
+  };
+};
+
+const collectMockReceiptsByTenant = (
+  tenantId: string,
+): TenantReceiptSummary[] => {
+  const normalizedTenantId = decodeURIComponent(tenantId).split("?")[0];
+
+  const receipts = MOCK_PAYMENTS.filter(
+    (payment) =>
+      payment.tenantAccountId &&
+      payment.receipt &&
+      (!payment.tenantId || payment.tenantId === normalizedTenantId),
+  ).map(toTenantReceiptSummary);
+
+  if (receipts.length > 0) {
+    return receipts;
+  }
+
+  return MOCK_PAYMENTS.filter(
+    (payment) => payment.tenantAccountId && payment.receipt,
+  ).map(toTenantReceiptSummary);
+};
+
 export const paymentsApi = {
   /**
    * Lista pagos con filtros
@@ -182,36 +343,11 @@ export const paymentsApi = {
   ): Promise<PaginatedResponse<Payment>> => {
     if (shouldUseMock()) {
       await delay(DELAY);
-      let filtered = [...MOCK_PAYMENTS];
-
-      if (filters?.tenantId) {
-        filtered = filtered.filter((p) => p.tenantId === filters.tenantId);
-      }
-      if (filters?.status) {
-        filtered = filtered.filter((p) => p.status === filters.status);
-      }
-      if (filters?.method) {
-        filtered = filtered.filter((p) => p.method === filters.method);
-      }
-      if (filters?.leaseId) {
-        const account = MOCK_TENANT_ACCOUNTS.find(
-          (a) => a.leaseId === filters.leaseId,
-        );
-        if (account) {
-          filtered = filtered.filter((p) => p.tenantAccountId === account.id);
-        }
-      }
-
-      const sortedData = filtered.toSorted(
-        (a, b) =>
-          new Date(b.paymentDate).getTime() -
-            new Date(a.paymentDate).getTime() ||
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      );
+      const sortedData = applyMockPaymentFilters(MOCK_PAYMENTS, filters);
 
       return {
         data: sortedData,
-        total: filtered.length,
+        total: sortedData.length,
         page: filters?.page || 1,
         limit: filters?.limit || 10,
       };
@@ -626,14 +762,7 @@ export const tenantAccountsApi = {
   getBalance: async (accountId: string): Promise<AccountBalance> => {
     if (shouldUseMock()) {
       await delay(DELAY);
-      const account = MOCK_TENANT_ACCOUNTS.find((a) => a.id === accountId);
-      if (!account) throw new Error("Account not found");
-
-      return {
-        balance: account.balance,
-        lateFee: 0, // Calculado en backend
-        total: account.balance,
-      };
+      return getMockAccountBalance(accountId);
     }
 
     const token = getToken();
@@ -649,35 +778,7 @@ export const tenantAccountsApi = {
   getMovements: async (accountId: string): Promise<TenantAccountMovement[]> => {
     if (shouldUseMock()) {
       await delay(DELAY);
-      // Mock movements
-      return [
-        {
-          id: "mov1",
-          tenantAccountId: accountId,
-          movementType: "charge",
-          amount: 1500,
-          balanceAfter: 1500,
-          referenceType: "invoice",
-          referenceId: "inv1",
-          description: "Factura INV-202412-0001",
-          movementDate: new Date().toISOString().split("T")[0],
-          createdBy: null,
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: "mov2",
-          tenantAccountId: accountId,
-          movementType: "payment",
-          amount: -1500,
-          balanceAfter: 0,
-          referenceType: "payment",
-          referenceId: "pay1",
-          description: "Pago recibido",
-          movementDate: "2024-11-15",
-          createdBy: null,
-          createdAt: "2024-11-15T14:30:00Z",
-        },
-      ];
+      return createMockTenantAccountMovements(accountId);
     }
 
     const token = getToken();
@@ -695,43 +796,7 @@ export const tenantAccountsApi = {
   ): Promise<TenantReceiptSummary[]> => {
     if (shouldUseMock()) {
       await delay(DELAY);
-      const normalizedTenantId = decodeURIComponent(tenantId).split("?")[0];
-      const receipts: TenantReceiptSummary[] = [];
-      for (const payment of MOCK_PAYMENTS) {
-        if (
-          payment.tenantAccountId &&
-          payment.receipt &&
-          (!payment.tenantId || payment.tenantId === normalizedTenantId)
-        ) {
-          receipts.push({
-            id: payment.receipt.id,
-            paymentId: payment.id,
-            receiptNumber: payment.receipt.receiptNumber,
-            amount: payment.receipt.amount,
-            currencyCode: payment.receipt.currencyCode,
-            issuedAt: payment.receipt.issuedAt,
-            paymentDate: payment.paymentDate,
-            pdfUrl: payment.receipt.pdfUrl,
-          });
-        }
-      }
-      if (receipts.length === 0) {
-        for (const payment of MOCK_PAYMENTS) {
-          if (payment.tenantAccountId && payment.receipt) {
-            receipts.push({
-              id: payment.receipt.id,
-              paymentId: payment.id,
-              receiptNumber: payment.receipt.receiptNumber,
-              amount: payment.receipt.amount,
-              currencyCode: payment.receipt.currencyCode,
-              issuedAt: payment.receipt.issuedAt,
-              paymentDate: payment.paymentDate,
-              pdfUrl: payment.receipt.pdfUrl,
-            });
-          }
-        }
-      }
-      return receipts;
+      return collectMockReceiptsByTenant(tenantId);
     }
 
     const token = getToken();
@@ -740,6 +805,42 @@ export const tenantAccountsApi = {
       token ?? undefined,
     );
   },
+};
+
+const createMockTenantAccountMovements = (
+  accountId: string,
+): TenantAccountMovement[] => {
+  const nowIso = new Date().toISOString();
+  const today = nowIso.split("T")[0];
+
+  return [
+    {
+      id: "mov1",
+      tenantAccountId: accountId,
+      movementType: "charge",
+      amount: 1500,
+      balanceAfter: 1500,
+      referenceType: "invoice",
+      referenceId: "inv1",
+      description: "Factura INV-202412-0001",
+      movementDate: today,
+      createdBy: null,
+      createdAt: nowIso,
+    },
+    {
+      id: "mov2",
+      tenantAccountId: accountId,
+      movementType: "payment",
+      amount: -1500,
+      balanceAfter: 0,
+      referenceType: "payment",
+      referenceId: "pay1",
+      description: "Pago recibido",
+      movementDate: "2024-11-15",
+      createdBy: null,
+      createdAt: "2024-11-15T14:30:00Z",
+    },
+  ];
 };
 
 export const paymentDocumentTemplatesApi = {
@@ -814,22 +915,7 @@ export const paymentDocumentTemplatesApi = {
   ): Promise<PaymentDocumentTemplate> => {
     if (shouldUseMock()) {
       await delay(DELAY);
-      const index = MOCK_PAYMENT_DOCUMENT_TEMPLATES.findIndex(
-        (item) => item.id === templateId,
-      );
-      if (index < 0) {
-        throw new Error("Template not found");
-      }
-      const updated: PaymentDocumentTemplate = {
-        ...MOCK_PAYMENT_DOCUMENT_TEMPLATES[index],
-        ...data,
-        updatedAt: new Date().toISOString(),
-      } as PaymentDocumentTemplate;
-      MOCK_PAYMENT_DOCUMENT_TEMPLATES[index] = updated;
-      if (updated.isDefault) {
-        ensureSingleDefaultTemplate(updated.type, updated.id);
-      }
-      return updated;
+      return updateMockPaymentTemplate(templateId, data);
     }
 
     const token = getToken();
