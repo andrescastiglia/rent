@@ -24,7 +24,7 @@ import { Currency } from '../currencies/entities/currency.entity';
 import { Owner } from '../owners/entities/owner.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { Staff } from '../staff/entities/staff.entity';
-import { join } from 'path';
+import { join } from 'node:path';
 
 // Load env vars from root .env
 dotenv.config({ path: join(__dirname, '../../../.env') });
@@ -32,7 +32,7 @@ dotenv.config({ path: join(__dirname, '../../../.env') });
 const AppDataSource = new DataSource({
   type: 'postgres',
   host: process.env.POSTGRES_HOST || 'localhost',
-  port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
+  port: Number.parseInt(process.env.POSTGRES_PORT || '5432', 10),
   username: process.env.POSTGRES_USER || 'rent_user',
   password: process.env.POSTGRES_PASSWORD || 'rent_dev_password',
   database: process.env.POSTGRES_DB || 'rent_dev',

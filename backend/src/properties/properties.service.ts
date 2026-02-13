@@ -6,8 +6,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository, SelectQueryBuilder } from 'typeorm';
-import { existsSync, unlinkSync } from 'fs';
-import { join } from 'path';
+import { existsSync, unlinkSync } from 'node:fs';
+import { join } from 'node:path';
 import { Property } from './entities/property.entity';
 import { PropertyImage } from './entities/property-image.entity';
 import { Unit, UnitStatus } from './entities/unit.entity';
@@ -37,13 +37,13 @@ export class PropertiesService {
 
   constructor(
     @InjectRepository(Property)
-    private propertiesRepository: Repository<Property>,
+    private readonly propertiesRepository: Repository<Property>,
     @InjectRepository(PropertyImage)
-    private propertyImagesRepository: Repository<PropertyImage>,
+    private readonly propertyImagesRepository: Repository<PropertyImage>,
     @InjectRepository(Unit)
-    private unitsRepository: Repository<Unit>,
+    private readonly unitsRepository: Repository<Unit>,
     @InjectRepository(Owner)
-    private ownersRepository: Repository<Owner>,
+    private readonly ownersRepository: Repository<Owner>,
   ) {}
 
   async create(

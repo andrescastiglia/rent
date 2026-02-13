@@ -51,6 +51,7 @@ export default function PaymentDetailPage() {
     reference: string;
     notes: string;
     items: {
+      itemId: string;
       description: string;
       amount: number;
       quantity: number;
@@ -109,6 +110,7 @@ export default function PaymentDetailPage() {
       reference: payment.reference || "",
       notes: payment.notes || "",
       items: (payment.items || []).map((item) => ({
+        itemId: item.id,
         description: item.description,
         amount: item.amount,
         quantity: item.quantity ?? 1,
@@ -209,6 +211,14 @@ export default function PaymentDetailPage() {
       setDownloadingCreditNoteId(null);
     }
   };
+
+  const getEditItemKey = (item: {
+    itemId: string;
+    description: string;
+    amount: number;
+    quantity: number;
+    type: PaymentItemType;
+  }): string => item.itemId;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -418,7 +428,7 @@ export default function PaymentDetailPage() {
                     <div className="space-y-2">
                       {editForm.items.map((item, index) => (
                         <div
-                          key={index}
+                          key={getEditItemKey(item)}
                           className="grid grid-cols-1 md:grid-cols-5 gap-2"
                         >
                           <input

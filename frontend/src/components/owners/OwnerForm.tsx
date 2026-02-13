@@ -8,8 +8,8 @@ import { ownersApi } from "@/lib/api/owners";
 import { CreateOwnerInput, Owner } from "@/types/owner";
 
 interface OwnerFormProps {
-  initialData?: Owner;
-  isEditing?: boolean;
+  readonly initialData?: Owner;
+  readonly isEditing?: boolean;
 }
 
 const emptyOwnerForm: CreateOwnerInput = {

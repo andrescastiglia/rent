@@ -10,8 +10,8 @@ import { PermissionsService } from '../../auth/services/permissions.service';
 @Injectable()
 export class PermissionsGuard implements CanActivate {
   constructor(
-    private reflector: Reflector,
-    private permissionsService: PermissionsService,
+    private readonly reflector: Reflector,
+    private readonly permissionsService: PermissionsService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {

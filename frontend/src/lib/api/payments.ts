@@ -202,13 +202,15 @@ export const paymentsApi = {
         }
       }
 
+      const sortedData = filtered.toSorted(
+        (a, b) =>
+          new Date(b.paymentDate).getTime() -
+            new Date(a.paymentDate).getTime() ||
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+
       return {
-        data: filtered.sort(
-          (a, b) =>
-            new Date(b.paymentDate).getTime() -
-              new Date(a.paymentDate).getTime() ||
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        ),
+        data: sortedData,
         total: filtered.length,
         page: filters?.page || 1,
         limit: filters?.limit || 10,

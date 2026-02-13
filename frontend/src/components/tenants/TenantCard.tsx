@@ -7,7 +7,7 @@ import { User, Mail, Phone, MapPin, Wallet, Edit, Plus } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 interface TenantCardProps {
-  tenant: Tenant;
+  readonly tenant: Tenant;
 }
 
 export function TenantCard({ tenant }: TenantCardProps) {

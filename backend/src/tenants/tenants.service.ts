@@ -32,13 +32,13 @@ interface UserContext {
 export class TenantsService {
   constructor(
     @InjectRepository(Tenant)
-    private tenantsRepository: Repository<Tenant>,
+    private readonly tenantsRepository: Repository<Tenant>,
     @InjectRepository(TenantActivity)
-    private tenantActivitiesRepository: Repository<TenantActivity>,
+    private readonly tenantActivitiesRepository: Repository<TenantActivity>,
     @InjectRepository(User)
-    private usersRepository: Repository<User>,
+    private readonly usersRepository: Repository<User>,
     @InjectRepository(Lease)
-    private leasesRepository: Repository<Lease>,
+    private readonly leasesRepository: Repository<Lease>,
   ) {}
 
   async create(createTenantDto: CreateTenantDto): Promise<User> {

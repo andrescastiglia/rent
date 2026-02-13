@@ -6,10 +6,10 @@ import { Upload, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 interface ImageUploadProps {
-  images: string[];
-  onChange: (images: string[]) => void;
-  onUpload: (file: File) => Promise<string>;
-  onRemove?: (url: string) => void | Promise<void>;
+  readonly images: string[];
+  readonly onChange: (images: string[]) => void;
+  readonly onUpload: (file: File) => Promise<string>;
+  readonly onRemove?: (url: string) => void | Promise<void>;
 }
 
 export function ImageUpload({
@@ -30,8 +30,8 @@ export function ImageUpload({
     setIsUploading(true);
     try {
       const newImages = [...images];
-      for (let i = 0; i < files.length; i++) {
-        const url = await onUpload(files[i]);
+      for (const file of Array.from(files)) {
+        const url = await onUpload(file);
         newImages.push(url);
       }
       onChange(newImages);
@@ -62,7 +62,7 @@ export function ImageUpload({
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {images.map((url, index) => (
           <div
-            key={index}
+            key={url}
             className="relative group aspect-video bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600"
           >
             <Image

@@ -121,6 +121,16 @@ export default function PropertiesPage() {
     string | null
   >(null);
 
+  const formatSalePrice = (property: Property): string => {
+    if (property.salePrice === undefined) {
+      return "-";
+    }
+    const saleCurrencySuffix = property.saleCurrency
+      ? ` ${property.saleCurrency}`
+      : "";
+    return `${property.salePrice.toLocaleString(locale)}${saleCurrencySuffix}`;
+  };
+
   useEffect(() => {
     if (authLoading) return;
     loadData().catch((error) => {
@@ -329,6 +339,9 @@ export default function PropertiesPage() {
               {filteredOwners.map((owner) => {
                 const isSelected = selectedOwnerId === owner.id;
                 const ownerProperties = propertiesByOwner[owner.id] ?? [];
+                const ownerRecentPayments =
+                  recentPaymentsByOwner[owner.id] ?? [];
+                const hasOwnerRecentPayments = ownerRecentPayments.length > 0;
 
                 return (
                   <div
@@ -435,6 +448,9 @@ export default function PropertiesPage() {
                                 createContractQuery.set("ownerName", ownerName);
                               }
                               const createContractHref = `/${locale}/leases/new?${createContractQuery.toString()}`;
+                              const propertyTasks =
+                                maintenanceByProperty[property.id] ?? [];
+                              const hasPropertyTasks = propertyTasks.length > 0;
 
                               return (
                                 <div
@@ -481,9 +497,7 @@ export default function PropertiesPage() {
                                       {propertyOperations.includes("sale") ? (
                                         <p className="text-xs text-gray-500 dark:text-gray-400">
                                           {t("fields.salePrice")}:{" "}
-                                          {property.salePrice !== undefined
-                                            ? `${property.salePrice.toLocaleString(locale)}${property.saleCurrency ? ` ${property.saleCurrency}` : ""}`
-                                            : "-"}
+                                          {formatSalePrice(property)}
                                         </p>
                                       ) : null}
                                     </button>
@@ -594,14 +608,8 @@ export default function PropertiesPage() {
                                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                           {tc("loading")}
                                         </div>
-                                      ) : (
-                                          maintenanceByProperty[property.id] ??
-                                          []
-                                        ).length > 0 ? (
-                                        (
-                                          maintenanceByProperty[property.id] ??
-                                          []
-                                        ).map((task) => (
+                                      ) : hasPropertyTasks ? (
+                                        propertyTasks.map((task) => (
                                           <div
                                             key={task.id}
                                             className="rounded-md border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2"
@@ -647,60 +655,57 @@ export default function PropertiesPage() {
                               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                               {tc("loading")}
                             </div>
-                          ) : (recentPaymentsByOwner[owner.id] ?? []).length >
-                            0 ? (
+                          ) : hasOwnerRecentPayments ? (
                             <div className="space-y-2">
-                              {(recentPaymentsByOwner[owner.id] ?? []).map(
-                                (payment) => (
-                                  <div
-                                    key={payment.id}
-                                    className="rounded-md border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 flex items-center justify-between gap-2"
-                                  >
-                                    <div className="min-w-0">
-                                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                        {payment.period} ·{" "}
-                                        {payment.netAmount.toLocaleString(
-                                          locale,
-                                          { minimumFractionDigits: 2 },
-                                        )}
-                                      </p>
-                                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                                        {payment.processedAt
-                                          ? new Date(
-                                              payment.processedAt,
-                                            ).toLocaleDateString(locale)
-                                          : "-"}
-                                      </p>
-                                    </div>
-                                    {payment.receiptPdfUrl ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          ownersApi
-                                            .downloadSettlementReceipt(
-                                              payment.id,
-                                              payment.receiptName ?? undefined,
-                                            )
-                                            .catch((error) => {
-                                              console.error(
-                                                "Failed to download owner settlement receipt",
-                                                error,
-                                              );
-                                            });
-                                        }}
-                                        className="btn btn-secondary btn-sm"
-                                      >
-                                        <Download size={14} />
-                                        {t("downloadOwnerReceipt")}
-                                      </button>
-                                    ) : (
-                                      <span className="text-xs text-gray-400">
-                                        {t("ownerReceiptPending")}
-                                      </span>
-                                    )}
+                              {ownerRecentPayments.map((payment) => (
+                                <div
+                                  key={payment.id}
+                                  className="rounded-md border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 flex items-center justify-between gap-2"
+                                >
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                      {payment.period} ·{" "}
+                                      {payment.netAmount.toLocaleString(
+                                        locale,
+                                        { minimumFractionDigits: 2 },
+                                      )}
+                                    </p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                      {payment.processedAt
+                                        ? new Date(
+                                            payment.processedAt,
+                                          ).toLocaleDateString(locale)
+                                        : "-"}
+                                    </p>
                                   </div>
-                                ),
-                              )}
+                                  {payment.receiptPdfUrl ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        ownersApi
+                                          .downloadSettlementReceipt(
+                                            payment.id,
+                                            payment.receiptName ?? undefined,
+                                          )
+                                          .catch((error) => {
+                                            console.error(
+                                              "Failed to download owner settlement receipt",
+                                              error,
+                                            );
+                                          });
+                                      }}
+                                      className="btn btn-secondary btn-sm"
+                                    >
+                                      <Download size={14} />
+                                      {t("downloadOwnerReceipt")}
+                                    </button>
+                                  ) : (
+                                    <span className="text-xs text-gray-400">
+                                      {t("ownerReceiptPending")}
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
                             </div>
                           ) : (
                             <p className="text-sm text-gray-500 dark:text-gray-400">

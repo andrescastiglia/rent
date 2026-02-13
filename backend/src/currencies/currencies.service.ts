@@ -8,7 +8,7 @@ import { CreateCurrencyDto, UpdateCurrencyDto } from './dto/currency.dto';
 export class CurrenciesService {
   constructor(
     @InjectRepository(Currency)
-    private currencyRepository: Repository<Currency>,
+    private readonly currencyRepository: Repository<Currency>,
   ) {}
 
   async findAll(activeOnly: boolean = true): Promise<Currency[]> {

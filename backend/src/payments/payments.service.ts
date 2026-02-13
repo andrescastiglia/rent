@@ -12,8 +12,7 @@ import { Invoice, InvoiceStatus } from './entities/invoice.entity';
 import { CreditNote, CreditNoteStatus } from './entities/credit-note.entity';
 import { TenantAccountsService } from './tenant-accounts.service';
 import { MovementType } from './entities/tenant-account-movement.entity';
-import { CreatePaymentDto, PaymentFiltersDto } from './dto';
-import { UpdatePaymentDto } from './dto';
+import { CreatePaymentDto, PaymentFiltersDto, UpdatePaymentDto } from './dto';
 import { ReceiptPdfService } from './receipt-pdf.service';
 import { CreditNotePdfService } from './credit-note-pdf.service';
 import { UserRole } from '../users/entities/user.entity';
@@ -33,19 +32,19 @@ type RequestUser = {
 export class PaymentsService {
   constructor(
     @InjectRepository(Payment)
-    private paymentsRepository: Repository<Payment>,
+    private readonly paymentsRepository: Repository<Payment>,
     @InjectRepository(PaymentItem)
-    private paymentItemsRepository: Repository<PaymentItem>,
+    private readonly paymentItemsRepository: Repository<PaymentItem>,
     @InjectRepository(Receipt)
-    private receiptsRepository: Repository<Receipt>,
+    private readonly receiptsRepository: Repository<Receipt>,
     @InjectRepository(Invoice)
-    private invoicesRepository: Repository<Invoice>,
+    private readonly invoicesRepository: Repository<Invoice>,
     @InjectRepository(CreditNote)
-    private creditNotesRepository: Repository<CreditNote>,
-    private tenantAccountsService: TenantAccountsService,
-    private receiptPdfService: ReceiptPdfService,
-    private creditNotePdfService: CreditNotePdfService,
-    private whatsappService: WhatsappService,
+    private readonly creditNotesRepository: Repository<CreditNote>,
+    private readonly tenantAccountsService: TenantAccountsService,
+    private readonly receiptPdfService: ReceiptPdfService,
+    private readonly creditNotePdfService: CreditNotePdfService,
+    private readonly whatsappService: WhatsappService,
   ) {}
 
   /**
@@ -300,7 +299,7 @@ export class PaymentsService {
     let sequence = 1;
     const numberMatch = (lastReceipt?.receiptNumber ?? '').match(/-(\d+)$/);
     if (numberMatch?.[1]) {
-      sequence = parseInt(numberMatch[1], 10) + 1;
+      sequence = Number.parseInt(numberMatch[1], 10) + 1;
     }
 
     return `REC-${year}${month}-${String(sequence).padStart(4, '0')}`;
@@ -626,7 +625,7 @@ export class PaymentsService {
     let sequence = 1;
     const numberMatch = (lastNote?.noteNumber ?? '').match(/-(\d+)$/);
     if (numberMatch?.[1]) {
-      sequence = parseInt(numberMatch[1], 10) + 1;
+      sequence = Number.parseInt(numberMatch[1], 10) + 1;
     }
 
     return `NC-${year}${month}-${String(sequence).padStart(4, '0')}`;

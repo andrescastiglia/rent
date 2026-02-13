@@ -6,12 +6,12 @@ import { Currency } from "@/types/lease";
 import { currenciesApi } from "@/lib/api/currencies";
 
 interface CurrencySelectProps {
-  value: string;
-  onChange: (currency: string) => void;
-  disabled?: boolean;
-  className?: string;
-  id?: string;
-  name?: string;
+  readonly value: string;
+  readonly onChange: (currency: string) => void;
+  readonly disabled?: boolean;
+  readonly className?: string;
+  readonly id?: string;
+  readonly name?: string;
 }
 
 export function CurrencySelect({

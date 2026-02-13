@@ -227,7 +227,7 @@ export default function NewPaymentPage() {
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    amount: parseFloat(e.target.value),
+                    amount: Number.parseFloat(e.target.value),
                   })
                 }
                 disabled={items.length > 0}
@@ -359,7 +359,7 @@ export default function NewPaymentPage() {
             <div className="space-y-3">
               {items.map((item, index) => (
                 <div
-                  key={index}
+                  key={`${item.description}-${item.amount}-${item.quantity}-${item.type}`}
                   className="grid grid-cols-1 md:grid-cols-5 gap-3"
                 >
                   <input

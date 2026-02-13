@@ -8,8 +8,8 @@ import { X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 interface SidebarProps {
-  isOpen?: boolean;
-  onClose?: () => void;
+  readonly isOpen?: boolean;
+  readonly onClose?: () => void;
 }
 
 export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
@@ -22,14 +22,31 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   if (!user) return null;
 
   const navItems = getNavigationForRole(user.role);
+  const sidebarTransformClass = isOpen
+    ? "translate-x-0"
+    : "-translate-x-full lg:translate-x-0";
+
+  const getLinkClassName = (active: boolean, disabled?: boolean): string => {
+    if (active && !disabled) {
+      return "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400";
+    }
+
+    if (disabled) {
+      return "text-gray-400 dark:text-gray-500 cursor-not-allowed";
+    }
+
+    return "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700";
+  };
 
   return (
     <>
       {/* Overlay for mobile */}
       {isOpen && (
-        <div
+        <button
+          type="button"
           className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
           onClick={onClose}
+          aria-label={tCommon("closeMenu")}
         />
       )}
 
@@ -39,7 +56,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           fixed lg:static inset-y-0 left-0 z-40
           w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700
           transform transition-transform duration-200 ease-in-out
-          ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+          ${sidebarTransformClass}
           pt-16 lg:pt-0
         `}
       >
@@ -57,18 +74,13 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             const localizedHref = `/${locale}${item.href}`;
             const isActive = pathname.startsWith(localizedHref);
             const isDisabled = item.disabled;
+            const linkClassName = getLinkClassName(isActive, isDisabled);
 
             const linkContent = (
               <span
                 className={`
                   block px-4 py-2 rounded-md text-sm font-medium transition-colors
-                  ${
-                    isActive && !isDisabled
-                      ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                      : isDisabled
-                        ? "text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  }
+                  ${linkClassName}
                 `}
               >
                 {t(item.labelKey)}

@@ -31,8 +31,8 @@ export class DocumentsService implements OnModuleInit {
 
   constructor(
     @InjectRepository(Document)
-    private documentsRepository: Repository<Document>,
-    private configService: ConfigService,
+    private readonly documentsRepository: Repository<Document>,
+    private readonly configService: ConfigService,
   ) {}
 
   async onModuleInit(): Promise<void> {

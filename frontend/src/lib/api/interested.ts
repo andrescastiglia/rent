@@ -29,6 +29,102 @@ const DELAY = 300;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const MAX_INTERESTED_PAGE_SIZE = 100;
 
+const resolveInterestedStatus = (raw: any): InterestedStatus => {
+  if (
+    raw.status === "interested" ||
+    raw.status === "tenant" ||
+    raw.status === "buyer"
+  ) {
+    return raw.status;
+  }
+  if (raw.convertedToTenantId) return "tenant";
+  if (raw.convertedToSaleAgreementId) return "buyer";
+  return "interested";
+};
+
+const mapRawPropertyType = (
+  propertyType: string | null | undefined,
+): Property["type"] => {
+  switch (propertyType) {
+    case "apartment":
+      return "APARTMENT";
+    case "house":
+      return "HOUSE";
+    case "commercial":
+      return "COMMERCIAL";
+    case "office":
+      return "OFFICE";
+    case "warehouse":
+      return "WAREHOUSE";
+    case "land":
+      return "LAND";
+    case "parking":
+      return "PARKING";
+    default:
+      return "OTHER";
+  }
+};
+
+const mapRawUnitStatus = (
+  status: string | null | undefined,
+): Property["units"][number]["status"] => {
+  switch (status) {
+    case "occupied":
+      return "OCCUPIED";
+    case "maintenance":
+      return "MAINTENANCE";
+    default:
+      return "AVAILABLE";
+  }
+};
+
+const derivePropertyOperations = (raw: any): Array<"rent" | "sale"> => {
+  if (Array.isArray(raw.operations)) {
+    return raw.operations.filter(
+      (item: any): item is "rent" | "sale" =>
+        item === "rent" || item === "sale",
+    );
+  }
+
+  const hasRent = raw.rentPrice !== null && raw.rentPrice !== undefined;
+  const hasSale = raw.salePrice !== null && raw.salePrice !== undefined;
+  if (hasRent && hasSale) return ["rent", "sale"];
+  if (hasRent) return ["rent"];
+  if (hasSale) return ["sale"];
+  return ["rent"];
+};
+
+const deriveInterestedOperations = (raw: any): Array<"rent" | "sale"> => {
+  if (Array.isArray(raw.operations)) {
+    return raw.operations.filter(
+      (item: any): item is "rent" | "sale" =>
+        item === "rent" || item === "sale",
+    );
+  }
+
+  if (raw.operation === "rent" || raw.operation === "sale") {
+    return [raw.operation];
+  }
+
+  return ["rent"];
+};
+
+const toOptionalNumber = (value: any): number | undefined => {
+  if (value === null || value === undefined) return undefined;
+  return Number(value);
+};
+
+const toOptionalIsoString = (value: any): string | undefined => {
+  if (!value) return undefined;
+  return new Date(value).toISOString();
+};
+
+const mapInterestedPropertyStatus = (status: string): Property["status"] => {
+  if (status === "active") return "ACTIVE";
+  if (status === "under_maintenance") return "MAINTENANCE";
+  return "INACTIVE";
+};
+
 const MOCK_INTERESTED: InterestedProfile[] = [
   {
     id: "int-1",
@@ -75,79 +171,52 @@ const MOCK_INTERESTED: InterestedProfile[] = [
   },
 ];
 
-const mapProfile = (raw: any): InterestedProfile => ({
-  // Keep `operation` for backward compatibility while the UI uses `operations`.
-  operation: raw.operation,
-  operations: Array.isArray(raw.operations)
-    ? raw.operations.filter(
-        (item: any): item is "rent" | "sale" =>
-          item === "rent" || item === "sale",
-      )
-    : raw.operation
-      ? [raw.operation]
-      : ["rent"],
-  id: raw.id,
-  firstName: raw.firstName,
-  lastName: raw.lastName,
-  phone: raw.phone,
-  email: raw.email,
-  peopleCount:
-    raw.peopleCount === null || raw.peopleCount === undefined
-      ? undefined
-      : Number(raw.peopleCount),
-  minAmount:
-    raw.minAmount === null || raw.minAmount === undefined
-      ? undefined
-      : Number(raw.minAmount),
-  maxAmount:
-    raw.maxAmount === null || raw.maxAmount === undefined
-      ? undefined
-      : Number(raw.maxAmount),
-  hasPets: raw.hasPets,
-  guaranteeTypes: Array.isArray(raw.guaranteeTypes) ? raw.guaranteeTypes : [],
-  preferredZones: Array.isArray(raw.preferredZones) ? raw.preferredZones : [],
-  preferredCity: raw.preferredCity,
-  desiredFeatures: Array.isArray(raw.desiredFeatures)
-    ? raw.desiredFeatures
-    : [],
-  propertyTypePreference: raw.propertyTypePreference,
-  status:
-    raw.status === "interested" ||
-    raw.status === "tenant" ||
-    raw.status === "buyer"
-      ? raw.status
-      : raw.convertedToTenantId
-        ? "tenant"
-        : raw.convertedToSaleAgreementId
-          ? "buyer"
-          : "interested",
-  qualificationLevel: raw.qualificationLevel,
-  qualificationNotes: raw.qualificationNotes,
-  source: raw.source,
-  assignedToUserId: raw.assignedToUserId,
-  organizationName: raw.organizationName,
-  customFields: raw.customFields,
-  lastContactAt: raw.lastContactAt
-    ? new Date(raw.lastContactAt).toISOString()
-    : undefined,
-  nextContactAt: raw.nextContactAt
-    ? new Date(raw.nextContactAt).toISOString()
-    : undefined,
-  lostReason: raw.lostReason,
-  consentContact: raw.consentContact,
-  consentRecordedAt: raw.consentRecordedAt
-    ? new Date(raw.consentRecordedAt).toISOString()
-    : undefined,
-  convertedToTenantId: raw.convertedToTenantId,
-  convertedToSaleAgreementId: raw.convertedToSaleAgreementId,
-  notes: raw.notes,
-  createdAt: raw.createdAt
-    ? new Date(raw.createdAt).toISOString()
-    : new Date().toISOString(),
-  updatedAt: raw.updatedAt
-    ? new Date(raw.updatedAt).toISOString()
-    : new Date().toISOString(),
-});
+const mapProfile = (raw: any): InterestedProfile => {
+  const operations = deriveInterestedOperations(raw);
+
+  return {
+    // Keep `operation` for backward compatibility while the UI uses `operations`.
+    operation: raw.operation,
+    operations,
+    id: raw.id,
+    firstName: raw.firstName,
+    lastName: raw.lastName,
+    phone: raw.phone,
+    email: raw.email,
+    peopleCount: toOptionalNumber(raw.peopleCount),
+    minAmount: toOptionalNumber(raw.minAmount),
+    maxAmount: toOptionalNumber(raw.maxAmount),
+    hasPets: raw.hasPets,
+    guaranteeTypes: Array.isArray(raw.guaranteeTypes) ? raw.guaranteeTypes : [],
+    preferredZones: Array.isArray(raw.preferredZones) ? raw.preferredZones : [],
+    preferredCity: raw.preferredCity,
+    desiredFeatures: Array.isArray(raw.desiredFeatures)
+      ? raw.desiredFeatures
+      : [],
+    propertyTypePreference: raw.propertyTypePreference,
+    status: resolveInterestedStatus(raw),
+    qualificationLevel: raw.qualificationLevel,
+    qualificationNotes: raw.qualificationNotes,
+    source: raw.source,
+    assignedToUserId: raw.assignedToUserId,
+    organizationName: raw.organizationName,
+    customFields: raw.customFields,
+    lastContactAt: toOptionalIsoString(raw.lastContactAt),
+    nextContactAt: toOptionalIsoString(raw.nextContactAt),
+    lostReason: raw.lostReason,
+    consentContact: raw.consentContact,
+    consentRecordedAt: toOptionalIsoString(raw.consentRecordedAt),
+    convertedToTenantId: raw.convertedToTenantId,
+    convertedToSaleAgreementId: raw.convertedToSaleAgreementId,
+    notes: raw.notes,
+    createdAt: raw.createdAt
+      ? new Date(raw.createdAt).toISOString()
+      : new Date().toISOString(),
+    updatedAt: raw.updatedAt
+      ? new Date(raw.updatedAt).toISOString()
+      : new Date().toISOString(),
+  };
+};
 
 const mapActivity = (raw: any): InterestedActivity => ({
   id: raw.id,
@@ -175,28 +244,8 @@ const mapProperty = (raw: any): Property => ({
   id: raw.id,
   name: raw.name,
   description: raw.description,
-  type:
-    raw.propertyType === "apartment"
-      ? "APARTMENT"
-      : raw.propertyType === "house"
-        ? "HOUSE"
-        : raw.propertyType === "commercial"
-          ? "COMMERCIAL"
-          : raw.propertyType === "office"
-            ? "OFFICE"
-            : raw.propertyType === "warehouse"
-              ? "WAREHOUSE"
-              : raw.propertyType === "land"
-                ? "LAND"
-                : raw.propertyType === "parking"
-                  ? "PARKING"
-                  : "OTHER",
-  status:
-    raw.status === "active"
-      ? "ACTIVE"
-      : raw.status === "under_maintenance"
-        ? "MAINTENANCE"
-        : "INACTIVE",
+  type: mapRawPropertyType(raw.propertyType),
+  status: mapInterestedPropertyStatus(raw.status),
   address: {
     street: raw.addressStreet ?? "",
     number: raw.addressNumber ?? "",
@@ -215,12 +264,7 @@ const mapProperty = (raw: any): Property => ({
         bedrooms: Number(unit.bedrooms ?? 0),
         bathrooms: Number(unit.bathrooms ?? 0),
         area: Number(unit.area ?? 0),
-        status:
-          unit.status === "occupied"
-            ? "OCCUPIED"
-            : unit.status === "maintenance"
-              ? "MAINTENANCE"
-              : "AVAILABLE",
+        status: mapRawUnitStatus(unit.status),
         rentAmount: Number(unit.baseRent ?? 0),
       }))
     : [],
@@ -230,18 +274,7 @@ const mapProperty = (raw: any): Property => ({
     raw.rentPrice === null || raw.rentPrice === undefined
       ? undefined
       : Number(raw.rentPrice),
-  operations: Array.isArray(raw.operations)
-    ? raw.operations.filter(
-        (item: any): item is "rent" | "sale" =>
-          item === "rent" || item === "sale",
-      )
-    : raw.rentPrice !== null && raw.rentPrice !== undefined
-      ? raw.salePrice !== null && raw.salePrice !== undefined
-        ? ["rent", "sale"]
-        : ["rent"]
-      : raw.salePrice !== null && raw.salePrice !== undefined
-        ? ["sale"]
-        : ["rent"],
+  operations: derivePropertyOperations(raw),
   createdAt: raw.createdAt
     ? new Date(raw.createdAt).toISOString()
     : new Date().toISOString(),
@@ -263,10 +296,7 @@ const mapMatch = (raw: any): InterestedMatch => ({
   interestedProfileId: raw.interestedProfileId,
   propertyId: raw.propertyId,
   status: raw.status,
-  score:
-    raw.score === null || raw.score === undefined
-      ? undefined
-      : Number(raw.score),
+  score: toOptionalNumber(raw.score),
   matchReasons: Array.isArray(raw.matchReasons) ? raw.matchReasons : [],
   contactedAt: raw.contactedAt
     ? new Date(raw.contactedAt).toISOString()
@@ -346,10 +376,8 @@ export const interestedApi = {
       );
     }
 
-    const endpoint =
-      queryParams.toString().length > 0
-        ? `/interested?${queryParams.toString()}`
-        : "/interested";
+    const query = queryParams.toString();
+    const endpoint = query.length > 0 ? `/interested?${query}` : "/interested";
     const result = await apiClient.get<PaginatedResponse<any>>(
       endpoint,
       token ?? undefined,

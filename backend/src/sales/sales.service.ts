@@ -22,11 +22,11 @@ interface UserContext {
 export class SalesService {
   constructor(
     @InjectRepository(SaleFolder)
-    private foldersRepository: Repository<SaleFolder>,
+    private readonly foldersRepository: Repository<SaleFolder>,
     @InjectRepository(SaleAgreement)
-    private agreementsRepository: Repository<SaleAgreement>,
+    private readonly agreementsRepository: Repository<SaleAgreement>,
     @InjectRepository(SaleReceipt)
-    private receiptsRepository: Repository<SaleReceipt>,
+    private readonly receiptsRepository: Repository<SaleReceipt>,
     private readonly receiptPdfService: SaleReceiptPdfService,
   ) {}
 
@@ -217,7 +217,7 @@ export class SalesService {
     if (lastReceipt) {
       const parts = lastReceipt.receiptNumber.split('-');
       if (parts.length >= 2) {
-        sequence = parseInt(parts[parts.length - 1], 10) + 1;
+        sequence = Number.parseInt(parts[parts.length - 1], 10) + 1;
       }
     }
 

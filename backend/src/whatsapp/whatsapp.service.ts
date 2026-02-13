@@ -221,7 +221,7 @@ export class WhatsappService {
   }
 
   private normalizePhone(phone: string): string {
-    const digits = phone.replace(/\D+/g, '');
+    const digits = phone.replaceAll(/\D+/g, '');
     if (digits.length < 8 || digits.length > 16) {
       return '';
     }

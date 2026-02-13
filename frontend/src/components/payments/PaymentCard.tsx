@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 
 interface PaymentCardProps {
-  payment: Payment;
+  readonly payment: Payment;
 }
 
 const methodIcons = {

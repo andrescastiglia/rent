@@ -5,7 +5,7 @@ import { LeaseStatus } from "@/types/lease";
 import { useTranslations } from "next-intl";
 
 interface LeaseStatusBadgeProps {
-  status: LeaseStatus;
+  readonly status: LeaseStatus;
 }
 
 export function LeaseStatusBadge({ status }: LeaseStatusBadgeProps) {

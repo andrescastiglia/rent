@@ -14,7 +14,7 @@ import { generateContractPdf } from './templates/contract-template';
 export class PdfService {
   constructor(
     @InjectRepository(Document)
-    private documentsRepository: Repository<Document>,
+    private readonly documentsRepository: Repository<Document>,
     private readonly i18n: I18nService,
   ) {}
 

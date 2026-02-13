@@ -10,16 +10,18 @@ import {
   CommissionInvoice,
   CommissionInvoiceStatus,
 } from './entities/commission-invoice.entity';
-import { Lease } from '../leases/entities/lease.entity';
-import { TenantAccountsService } from './tenant-accounts.service';
-import { MovementType } from './entities/tenant-account-movement.entity';
-import { CreateInvoiceDto, GenerateInvoiceDto } from './dto';
-import { InflationIndex } from './entities/inflation-index.entity';
-import { InflationIndexType as IndexTypeEntity } from './entities/inflation-index.entity';
 import {
   AdjustmentType,
   InflationIndexType,
+  Lease,
 } from '../leases/entities/lease.entity';
+import { TenantAccountsService } from './tenant-accounts.service';
+import { MovementType } from './entities/tenant-account-movement.entity';
+import { CreateInvoiceDto, GenerateInvoiceDto } from './dto';
+import {
+  InflationIndex,
+  InflationIndexType as IndexTypeEntity,
+} from './entities/inflation-index.entity';
 import { UserRole } from '../users/entities/user.entity';
 
 type RequestUser = {
@@ -36,14 +38,14 @@ type RequestUser = {
 export class InvoicesService {
   constructor(
     @InjectRepository(Invoice)
-    private invoicesRepository: Repository<Invoice>,
+    private readonly invoicesRepository: Repository<Invoice>,
     @InjectRepository(CommissionInvoice)
-    private commissionInvoicesRepository: Repository<CommissionInvoice>,
+    private readonly commissionInvoicesRepository: Repository<CommissionInvoice>,
     @InjectRepository(Lease)
-    private leasesRepository: Repository<Lease>,
+    private readonly leasesRepository: Repository<Lease>,
     @InjectRepository(InflationIndex)
-    private inflationIndexRepository: Repository<InflationIndex>,
-    private tenantAccountsService: TenantAccountsService,
+    private readonly inflationIndexRepository: Repository<InflationIndex>,
+    private readonly tenantAccountsService: TenantAccountsService,
   ) {}
 
   /**
@@ -480,7 +482,7 @@ export class InvoicesService {
     if (lastInvoice) {
       const parts = lastInvoice.invoiceNumber.split('-');
       if (parts.length >= 3) {
-        sequence = parseInt(parts[parts.length - 1], 10) + 1;
+        sequence = Number.parseInt(parts[parts.length - 1], 10) + 1;
       }
     }
 
@@ -562,7 +564,7 @@ export class InvoicesService {
     if (lastInvoice) {
       const parts = lastInvoice.invoiceNumber.split('-');
       if (parts.length >= 3) {
-        sequence = parseInt(parts[parts.length - 1], 10) + 1;
+        sequence = Number.parseInt(parts[parts.length - 1], 10) + 1;
       }
     }
 

@@ -75,6 +75,20 @@ export default function EditInterestedPage() {
     [form.operation, form.operations],
   );
 
+  const getNormalizedOperations = (
+    currentForm: CreateInterestedProfileInput,
+  ): InterestedOperation[] => {
+    if (currentForm.operations && currentForm.operations.length > 0) {
+      return Array.from(new Set(currentForm.operations));
+    }
+
+    if (currentForm.operation) {
+      return [currentForm.operation];
+    }
+
+    return ["rent"];
+  };
+
   const loadProfile = useCallback(async (id: string) => {
     setLoading(true);
     try {
@@ -107,15 +121,7 @@ export default function EditInterestedPage() {
 
     setSaving(true);
     try {
-      const normalizedOperations: InterestedOperation[] = Array.from(
-        new Set(
-          form.operations && form.operations.length > 0
-            ? form.operations
-            : form.operation
-              ? [form.operation]
-              : ["rent"],
-        ),
-      );
+      const normalizedOperations = getNormalizedOperations(form);
 
       const payload: CreateInterestedProfileInput = {
         ...form,

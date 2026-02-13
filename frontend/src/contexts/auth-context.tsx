@@ -6,6 +6,7 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useMemo,
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { apiClient } from "@/lib/api";
@@ -38,14 +39,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   // Extraer el locale del pathname actual
-  const getLocaleFromPath = () => {
+  const getLocaleFromPath = useCallback(() => {
     const segments = pathname.split("/");
     const locale = segments[1];
     if (["es", "pt", "en"].includes(locale)) {
       return locale;
     }
     return "es"; // fallback
-  };
+  }, [pathname]);
 
   useEffect(() => {
     // Keep state in sync if auth is updated elsewhere (e.g. login/logout in another tab).
@@ -58,26 +59,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
-  const login = async (credentials: LoginRequest) => {
-    try {
-      const response = await apiClient.post<AuthResponse>(
-        "/auth/login",
-        credentials,
-      );
+  const login = useCallback(
+    async (credentials: LoginRequest) => {
+      try {
+        const response = await apiClient.post<AuthResponse>(
+          "/auth/login",
+          credentials,
+        );
 
-      setToken(response.accessToken);
-      setUser(response.user);
-      setTokenState(response.accessToken);
-      setUserState(response.user);
+        setToken(response.accessToken);
+        setUser(response.user);
+        setTokenState(response.accessToken);
+        setUserState(response.user);
 
-      const locale = getLocaleFromPath();
-      router.push(`/${locale}/dashboard`);
-    } catch (error) {
-      throw error;
-    }
-  };
+        const locale = getLocaleFromPath();
+        router.push(`/${locale}/dashboard`);
+      } catch (error) {
+        throw error;
+      }
+    },
+    [getLocaleFromPath, router],
+  );
 
-  const register = async (data: RegisterRequest) => {
+  const register = useCallback(async (data: RegisterRequest) => {
     try {
       const response = await apiClient.post<RegisterResponse>(
         "/auth/register",
@@ -87,27 +91,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       throw error;
     }
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     clearAuth();
     setTokenState(null);
     setUserState(null);
     const locale = getLocaleFromPath();
     router.push(`/${locale}/login`);
-  };
+  }, [getLocaleFromPath, router]);
 
   const updateUser = useCallback((nextUser: User) => {
     setUser(nextUser);
     setUserState(nextUser);
   }, []);
 
+  const contextValue = useMemo(
+    () => ({ user, token, loading, login, register, logout, updateUser }),
+    [user, token, loading, login, register, logout, updateUser],
+  );
+
   return (
-    <AuthContext.Provider
-      value={{ user, token, loading, login, register, logout, updateUser }}
-    >
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
   );
 }
 

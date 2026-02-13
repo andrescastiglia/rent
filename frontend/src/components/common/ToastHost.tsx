@@ -37,13 +37,12 @@ export function ToastHost() {
       : `${toast.namespace}.${toast.key}`;
 
   return (
-    <div
+    <output
       className="fixed right-4 top-4 z-50 max-w-sm rounded-sm border px-4 py-3"
       style={{ background: "var(--background)", color: "var(--foreground)" }}
-      role="status"
       aria-live="polite"
     >
       <div className="text-sm">{message}</div>
-    </div>
+    </output>
   );
 }

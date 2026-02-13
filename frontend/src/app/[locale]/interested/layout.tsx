@@ -6,7 +6,7 @@ import { RoleGuard } from "@/components/common/RoleGuard";
 export default function InterestedLayout({
   children,
 }: {
-  children: React.ReactNode;
+  readonly children: React.ReactNode;
 }) {
   return (
     <MainLayout>

@@ -21,7 +21,7 @@ import { PaymentDocumentTemplateType } from './entities/payment-document-templat
 export class InvoicePdfService {
   constructor(
     @InjectRepository(Document)
-    private documentsRepository: Repository<Document>,
+    private readonly documentsRepository: Repository<Document>,
     private readonly i18n: I18nService,
     private readonly templatesService: PaymentDocumentTemplatesService,
   ) {}

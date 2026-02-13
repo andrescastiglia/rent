@@ -8,7 +8,7 @@ import { Building, MapPin, Bed, Bath, Ruler } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 interface PropertyCardProps {
-  property: Property;
+  readonly property: Property;
 }
 
 export function PropertyCard({ property }: PropertyCardProps) {
@@ -17,6 +17,19 @@ export function PropertyCard({ property }: PropertyCardProps) {
   const operations = property.operations ?? [];
   const showsRent = operations.includes("rent");
   const showsSale = operations.includes("sale");
+  const saleCurrencySuffix = property.saleCurrency
+    ? ` ${property.saleCurrency}`
+    : "";
+  const salePriceLabel =
+    property.salePrice !== undefined
+      ? `${property.salePrice.toLocaleString(locale)}${saleCurrencySuffix}`
+      : "-";
+  const statusClassName =
+    property.status === "ACTIVE"
+      ? "bg-green-500"
+      : property.status === "MAINTENANCE"
+        ? "bg-yellow-500"
+        : "bg-red-500";
 
   return (
     <Link href={`/${locale}/properties/${property.id}`} className="block group">
@@ -39,13 +52,7 @@ export function PropertyCard({ property }: PropertyCardProps) {
             {t(`types.${property.type}`)}
           </div>
           <div
-            className={`absolute top-2 left-2 px-2 py-1 rounded text-xs font-semibold text-white uppercase tracking-wide ${
-              property.status === "ACTIVE"
-                ? "bg-green-500"
-                : property.status === "MAINTENANCE"
-                  ? "bg-yellow-500"
-                  : "bg-red-500"
-            }`}
+            className={`absolute top-2 left-2 px-2 py-1 rounded text-xs font-semibold text-white uppercase tracking-wide ${statusClassName}`}
           >
             {t(`status.${property.status}`)}
           </div>
@@ -83,9 +90,7 @@ export function PropertyCard({ property }: PropertyCardProps) {
               {showsSale ? (
                 <p className="text-xs text-gray-600">
                   <span className="font-medium">{t("fields.salePrice")}:</span>{" "}
-                  {property.salePrice !== undefined
-                    ? `${property.salePrice.toLocaleString(locale)}${property.saleCurrency ? ` ${property.saleCurrency}` : ""}`
-                    : "-"}
+                  {salePriceLabel}
                 </p>
               ) : null}
             </div>

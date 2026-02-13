@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
 import { Property } from '../properties/entities/property.entity';
 import {
   ContractType,
@@ -38,7 +38,6 @@ import {
   OwnerActivityStatus,
 } from '../owners/entities/owner-activity.entity';
 import { Owner } from '../owners/entities/owner.entity';
-import { DataSource } from 'typeorm';
 
 type RequestUser = {
   id: string;

@@ -84,6 +84,129 @@ export default function PaymentsPage() {
     })
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+  const renderTimelineItem = (item: PaymentTimelineItem) => {
+    if (item.kind === "tenant") {
+      return (
+        <div
+          key={`tenant-${item.payment.id}`}
+          className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4"
+        >
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                {t("tenantPaymentEntry")}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {new Date(item.payment.paymentDate).toLocaleDateString(locale)}
+              </p>
+              {item.payment.reference ? (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {item.payment.reference}
+                </p>
+              ) : null}
+            </div>
+            <p className="text-lg font-bold text-green-700 dark:text-green-400">
+              +{" "}
+              {formatMoneyByCode(
+                item.payment.amount,
+                item.payment.currencyCode,
+                locale,
+              )}
+            </p>
+          </div>
+          <div className="mt-2 flex gap-2">
+            <Link
+              href={`/${locale}/payments/${item.payment.id}`}
+              className="btn btn-secondary btn-sm"
+            >
+              <Eye size={14} />
+              {t("viewPayment")}
+            </Link>
+            {item.payment.receipt ? (
+              <button
+                type="button"
+                onClick={() => {
+                  paymentsApi
+                    .downloadReceiptPdf(
+                      item.payment.id,
+                      item.payment.receipt?.receiptNumber,
+                    )
+                    .catch((error) => {
+                      console.error("Failed to download receipt", error);
+                    });
+                }}
+                className="btn btn-success btn-sm"
+              >
+                <Download size={14} />
+                {t("actions.downloadReceipt")}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        key={`owner-${item.payment.id}`}
+        className="rounded-lg border border-red-200 dark:border-red-900 bg-white dark:bg-gray-800 p-4"
+      >
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+          <div>
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+              {t("ownerPaymentEntry")}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {item.payment.ownerName} · {item.payment.period}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {(item.payment.processedAt ?? item.payment.updatedAt) &&
+                new Date(
+                  item.payment.processedAt ?? item.payment.updatedAt,
+                ).toLocaleDateString(locale)}
+            </p>
+          </div>
+          <p className="text-lg font-bold text-red-700 dark:text-red-400">
+            -{" "}
+            {formatMoneyByCode(
+              item.payment.netAmount,
+              item.payment.currencyCode,
+              locale,
+            )}
+          </p>
+        </div>
+        <div className="mt-2 flex gap-2">
+          {item.payment.receiptPdfUrl ? (
+            <button
+              type="button"
+              onClick={() => {
+                ownersApi
+                  .downloadSettlementReceipt(
+                    item.payment.id,
+                    item.payment.receiptName ?? undefined,
+                  )
+                  .catch((error) => {
+                    console.error(
+                      "Failed to download owner settlement receipt",
+                      error,
+                    );
+                  });
+              }}
+              className="btn btn-secondary btn-sm"
+            >
+              <Download size={14} />
+              {t("downloadOwnerReceipt")}
+            </button>
+          ) : (
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {t("ownerReceiptPending")}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
@@ -135,128 +258,7 @@ export default function PaymentsPage() {
           <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
         </div>
       ) : timeline.length > 0 ? (
-        <div className="space-y-3">
-          {timeline.map((item) =>
-            item.kind === "tenant" ? (
-              <div
-                key={`tenant-${item.payment.id}`}
-                className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4"
-              >
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {t("tenantPaymentEntry")}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {new Date(item.payment.paymentDate).toLocaleDateString(
-                        locale,
-                      )}
-                    </p>
-                    {item.payment.reference ? (
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {item.payment.reference}
-                      </p>
-                    ) : null}
-                  </div>
-                  <p className="text-lg font-bold text-green-700 dark:text-green-400">
-                    +{" "}
-                    {formatMoneyByCode(
-                      item.payment.amount,
-                      item.payment.currencyCode,
-                      locale,
-                    )}
-                  </p>
-                </div>
-                <div className="mt-2 flex gap-2">
-                  <Link
-                    href={`/${locale}/payments/${item.payment.id}`}
-                    className="btn btn-secondary btn-sm"
-                  >
-                    <Eye size={14} />
-                    {t("viewPayment")}
-                  </Link>
-                  {item.payment.receipt ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        paymentsApi
-                          .downloadReceiptPdf(
-                            item.payment.id,
-                            item.payment.receipt?.receiptNumber,
-                          )
-                          .catch((error) => {
-                            console.error("Failed to download receipt", error);
-                          });
-                      }}
-                      className="btn btn-success btn-sm"
-                    >
-                      <Download size={14} />
-                      {t("actions.downloadReceipt")}
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-            ) : (
-              <div
-                key={`owner-${item.payment.id}`}
-                className="rounded-lg border border-red-200 dark:border-red-900 bg-white dark:bg-gray-800 p-4"
-              >
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {t("ownerPaymentEntry")}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {item.payment.ownerName} · {item.payment.period}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {(item.payment.processedAt ?? item.payment.updatedAt) &&
-                        new Date(
-                          item.payment.processedAt ?? item.payment.updatedAt,
-                        ).toLocaleDateString(locale)}
-                    </p>
-                  </div>
-                  <p className="text-lg font-bold text-red-700 dark:text-red-400">
-                    -{" "}
-                    {formatMoneyByCode(
-                      item.payment.netAmount,
-                      item.payment.currencyCode,
-                      locale,
-                    )}
-                  </p>
-                </div>
-                <div className="mt-2 flex gap-2">
-                  {item.payment.receiptPdfUrl ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        ownersApi
-                          .downloadSettlementReceipt(
-                            item.payment.id,
-                            item.payment.receiptName ?? undefined,
-                          )
-                          .catch((error) => {
-                            console.error(
-                              "Failed to download owner settlement receipt",
-                              error,
-                            );
-                          });
-                      }}
-                      className="btn btn-secondary btn-sm"
-                    >
-                      <Download size={14} />
-                      {t("downloadOwnerReceipt")}
-                    </button>
-                  ) : (
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {t("ownerReceiptPending")}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ),
-          )}
-        </div>
+        <div className="space-y-3">{timeline.map(renderTimelineItem)}</div>
       ) : (
         <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">
           <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">

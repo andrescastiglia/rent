@@ -20,8 +20,8 @@ export class SaleReceiptPdfService {
 
   constructor(
     @InjectRepository(Document)
-    private documentsRepository: Repository<Document>,
-    private configService: ConfigService,
+    private readonly documentsRepository: Repository<Document>,
+    private readonly configService: ConfigService,
   ) {
     this.s3Client = getS3Config(configService);
     this.bucketName = S3_BUCKET_NAME;

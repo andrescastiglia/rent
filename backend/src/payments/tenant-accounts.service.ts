@@ -16,11 +16,11 @@ import { InvoiceStatus } from './entities/invoice.entity';
 export class TenantAccountsService {
   constructor(
     @InjectRepository(TenantAccount)
-    private accountsRepository: Repository<TenantAccount>,
+    private readonly accountsRepository: Repository<TenantAccount>,
     @InjectRepository(TenantAccountMovement)
-    private movementsRepository: Repository<TenantAccountMovement>,
+    private readonly movementsRepository: Repository<TenantAccountMovement>,
     @InjectRepository(Lease)
-    private leasesRepository: Repository<Lease>,
+    private readonly leasesRepository: Repository<Lease>,
   ) {}
 
   /**

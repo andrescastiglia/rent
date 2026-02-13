@@ -9,11 +9,11 @@ import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 
-export default function MainLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+interface MainLayoutProps {
+  readonly children: React.ReactNode;
+}
+
+export default function MainLayout({ children }: MainLayoutProps) {
   const { user, loading } = useAuth();
   const router = useLocalizedRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);

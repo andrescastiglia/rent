@@ -1,4 +1,4 @@
-import * as fs from "fs";
+import * as fs from "node:fs";
 import * as soap from "soap";
 import * as QRCode from "qrcode";
 import * as forge from "node-forge";
@@ -430,7 +430,7 @@ export class ArcaService {
         Auth: {
           Token: auth.token,
           Sign: auth.sign,
-          Cuit: config.cuit.replace(/-/g, ""),
+          Cuit: config.cuit.replaceAll(/-/g, ""),
         },
         PtoVta: config.puntoVenta,
         CbteTipo: tipoComprobante,
@@ -461,7 +461,7 @@ export class ArcaService {
       Auth: {
         Token: auth.token,
         Sign: auth.sign,
-        Cuit: config.cuit.replace(/-/g, ""),
+        Cuit: config.cuit.replaceAll(/-/g, ""),
       },
       FeCAEReq: {
         FeCabReq: {
@@ -473,7 +473,7 @@ export class ArcaService {
           FECAEDetRequest: {
             Concepto: invoiceData.conceptoIncluido,
             DocTipo: invoiceData.docTipo,
-            DocNro: invoiceData.docNro.replace(/-/g, ""),
+            DocNro: invoiceData.docNro.replaceAll(/-/g, ""),
             CbteDesde: numeroComprobante,
             CbteHasta: numeroComprobante,
             CbteFch: invoiceData.fechaComprobante,
@@ -553,7 +553,7 @@ export class ArcaService {
     const qrPayload = {
       ver: 1,
       fecha: invoiceData.fechaComprobante,
-      cuit: cuit.replace(/-/g, ""),
+      cuit: cuit.replaceAll(/-/g, ""),
       ptoVta: invoiceData.puntoVenta,
       tipoCmp: invoiceData.tipoComprobante,
       nroCmp: numero,
@@ -561,7 +561,7 @@ export class ArcaService {
       moneda: "PES",
       ctz: 1,
       tipoDocRec: invoiceData.docTipo,
-      nroDocRec: invoiceData.docNro.replace(/-/g, ""),
+      nroDocRec: invoiceData.docNro.replaceAll(/-/g, ""),
       tipoCodAut: "E",
       codAut: cae,
     };

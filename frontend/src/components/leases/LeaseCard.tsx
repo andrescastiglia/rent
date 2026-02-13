@@ -9,7 +9,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { formatMoney } from "@/lib/format-money";
 
 interface LeaseCardProps {
-  lease: Lease;
+  readonly lease: Lease;
 }
 
 export function LeaseCard({ lease }: LeaseCardProps) {

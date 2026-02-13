@@ -18,8 +18,8 @@ import { CurrencySelect } from "@/components/common/CurrencySelect";
 import { useSearchParams } from "next/navigation";
 
 interface LeaseFormProps {
-  initialData?: Lease;
-  isEditing?: boolean;
+  readonly initialData?: Lease;
+  readonly isEditing?: boolean;
 }
 
 interface LeaseTenantOption {

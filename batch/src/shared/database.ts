@@ -1,7 +1,7 @@
 import "reflect-metadata";
 import { DataSource } from "typeorm";
 import type { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
-import * as path from "path";
+import * as path from "node:path";
 import { logger } from "./logger";
 
 /**
@@ -24,7 +24,7 @@ const dataSourceOptions: PostgresConnectionOptions = {
     ? { url: databaseUrl }
     : {
         host: process.env.POSTGRES_HOST || "localhost",
-        port: parseInt(process.env.POSTGRES_PORT || "5432", 10),
+        port: Number.parseInt(process.env.POSTGRES_PORT || "5432", 10),
         username: process.env.POSTGRES_USER || "rent_user",
         password: process.env.POSTGRES_PASSWORD || "rent_dev_password",
         database: process.env.POSTGRES_DB || "rent_dev",

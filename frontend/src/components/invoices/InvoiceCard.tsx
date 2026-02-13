@@ -10,7 +10,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Calendar, FileText, AlertCircle, Download, Eye } from "lucide-react";
 
 interface InvoiceCardProps {
-  invoice: Invoice;
+  readonly invoice: Invoice;
 }
 
 export function InvoiceCard({ invoice }: InvoiceCardProps) {

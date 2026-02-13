@@ -1,6 +1,6 @@
 import winston from "winston";
 import * as fs from "node:fs";
-import * as _path from "path";
+import * as _path from "node:path";
 
 const logLevel = process.env.LOG_LEVEL || "info";
 

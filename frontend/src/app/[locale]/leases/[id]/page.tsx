@@ -38,6 +38,20 @@ export default function LeaseDetailPage() {
   const [savingDraftText, setSavingDraftText] = useState(false);
   const [confirmingDraft, setConfirmingDraft] = useState(false);
 
+  const getBuyerDisplayName = (): string => {
+    if (!lease?.buyerProfile) {
+      return t("unknownTenant");
+    }
+
+    const firstName = lease.buyerProfile.firstName ?? "";
+    const lastName = lease.buyerProfile.lastName ?? "";
+    const fullName = `${firstName} ${lastName}`.trim();
+
+    return fullName || lease.buyerProfile.phone;
+  };
+
+  const getLeaseDocumentKey = (documentUrl: string): string => documentUrl;
+
   useEffect(() => {
     if (authLoading) return;
     if (leaseId) {
@@ -242,10 +256,7 @@ export default function LeaseDetailPage() {
                       ) : (
                         <>
                           <p className="font-medium text-gray-900 dark:text-white">
-                            {lease.buyerProfile
-                              ? `${lease.buyerProfile.firstName ?? ""} ${lease.buyerProfile.lastName ?? ""}`.trim() ||
-                                lease.buyerProfile.phone
-                              : t("unknownTenant")}
+                            {getBuyerDisplayName()}
                           </p>
                           <p className="text-sm text-gray-500 dark:text-gray-400">
                             {lease.buyerProfile?.email}
@@ -426,7 +437,7 @@ export default function LeaseDetailPage() {
                   {lease.documents.length > 0 ? (
                     <ul className="space-y-2">
                       {lease.documents.map((doc, index) => (
-                        <li key={index}>
+                        <li key={getLeaseDocumentKey(doc)}>
                           <a
                             href={doc}
                             className="flex items-center text-blue-600 hover:underline"

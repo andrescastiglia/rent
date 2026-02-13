@@ -9,7 +9,7 @@ import LanguageSelector from "@/components/ui/LanguageSelector";
 import { useLocale, useTranslations } from "next-intl";
 
 interface HeaderProps {
-  onMenuToggle?: () => void;
+  readonly onMenuToggle?: () => void;
 }
 
 export default function Header({ onMenuToggle }: HeaderProps) {

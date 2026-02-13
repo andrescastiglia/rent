@@ -5,7 +5,7 @@ import { PaymentStatus } from "@/types/payment";
 import { useTranslations } from "next-intl";
 
 interface PaymentStatusBadgeProps {
-  status: PaymentStatus;
+  readonly status: PaymentStatus;
 }
 
 const statusStyles: Record<PaymentStatus, string> = {

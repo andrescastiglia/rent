@@ -8,7 +8,7 @@ import { User } from '../../users/entities/user.entity';
 export class PermissionsService {
   constructor(
     @InjectRepository(Admin)
-    private adminsRepository: Repository<Admin>,
+    private readonly adminsRepository: Repository<Admin>,
   ) {}
 
   async getAdminByUserId(userId: string): Promise<Admin | null> {

@@ -815,7 +815,7 @@ export const leasesApi = {
     anchor.download = `contrato-${id}.pdf`;
     document.body.appendChild(anchor);
     anchor.click();
-    document.body.removeChild(anchor);
+    anchor.remove();
     window.URL.revokeObjectURL(url);
   },
 };

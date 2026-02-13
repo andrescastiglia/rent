@@ -22,7 +22,7 @@ import { PaymentDocumentTemplatesService } from './payment-document-templates.se
 export class ReceiptPdfService {
   constructor(
     @InjectRepository(Document)
-    private documentsRepository: Repository<Document>,
+    private readonly documentsRepository: Repository<Document>,
     private readonly i18n: I18nService,
     private readonly templatesService: PaymentDocumentTemplatesService,
   ) {}

@@ -23,7 +23,7 @@ export class DashboardController {
     @Request() req: any,
     @Query('limit') limit?: string,
   ): Promise<RecentActivityDto> {
-    const limitNum = limit ? parseInt(limit, 10) : 10;
+    const limitNum = limit ? Number.parseInt(limit, 10) : 10;
     const companyId = req.user.companyId;
     return this.dashboardService.getRecentActivity(
       companyId,
@@ -40,8 +40,8 @@ export class DashboardController {
     @Query('limit') limit?: string,
   ): Promise<ReportJobsDto> {
     const companyId = req.user.companyId;
-    const pageNum = page ? parseInt(page, 10) : 1;
-    const limitNum = limit ? parseInt(limit, 10) : 25;
+    const pageNum = page ? Number.parseInt(page, 10) : 1;
+    const limitNum = limit ? Number.parseInt(limit, 10) : 25;
     return this.dashboardService.getReportJobs(
       companyId,
       req.user,

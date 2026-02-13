@@ -235,6 +235,13 @@ export default function PropertyDetailPage() {
   const propertyOperations = property.operations ?? [];
   const supportsRent = propertyOperations.includes("rent");
   const supportsSale = propertyOperations.includes("sale");
+  const saleCurrencySuffix = property.saleCurrency
+    ? ` ${property.saleCurrency}`
+    : "";
+  const salePriceLabel =
+    property.salePrice !== undefined
+      ? `${property.salePrice.toLocaleString(locale)}${saleCurrencySuffix}`
+      : "-";
   const canCreateLease = supportsRent || supportsSale;
   const leaseAction = resolveLeaseAction(leasesForProperty);
   const createLeaseQuery = new URLSearchParams({
@@ -509,9 +516,7 @@ export default function PropertyDetailPage() {
                         {t("fields.salePrice")}
                       </dt>
                       <dd className="font-medium text-gray-900 dark:text-white">
-                        {property.salePrice !== undefined
-                          ? `${property.salePrice.toLocaleString(locale)}${property.saleCurrency ? ` ${property.saleCurrency}` : ""}`
-                          : "-"}
+                        {salePriceLabel}
                       </dd>
                     </div>
                   ) : null}

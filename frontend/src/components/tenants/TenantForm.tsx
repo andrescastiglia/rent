@@ -58,8 +58,8 @@ type ExtendedTenantFormData = z.infer<
 >;
 
 interface TenantFormProps {
-  initialData?: Tenant;
-  isEditing?: boolean;
+  readonly initialData?: Tenant;
+  readonly isEditing?: boolean;
 }
 
 export function TenantForm({

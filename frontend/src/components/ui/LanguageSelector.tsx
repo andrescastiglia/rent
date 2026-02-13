@@ -40,15 +40,17 @@ export default function LanguageSelector() {
       const newPath = currentPath.replace(`/${locale}`, `/${newLocale}`);
 
       // Si la ruta no tiene locale, agregar el nuevo
-      const finalPath = currentPath.startsWith(`/${locale}`)
+      const hasLocalePrefix = currentPath.startsWith(`/${locale}`);
+      const finalPath = hasLocalePrefix
         ? newPath
         : `/${newLocale}${currentPath}`;
       // Perform a full navigation so the app is reloaded with the new locale
-      if (typeof window !== "undefined") {
-        window.location.assign(finalPath);
-      } else {
+      if (typeof globalThis.window === "undefined") {
         router.replace(finalPath);
+        return;
       }
+
+      globalThis.window.location.assign(finalPath);
     });
   };
 
@@ -69,9 +71,11 @@ export default function LanguageSelector() {
       {isOpen && (
         <>
           {/* Overlay para cerrar al hacer click fuera */}
-          <div
+          <button
+            type="button"
             className="fixed inset-0 z-10"
             onClick={() => setIsOpen(false)}
+            aria-label={t("closeMenu")}
           />
 
           {/* Dropdown menu */}

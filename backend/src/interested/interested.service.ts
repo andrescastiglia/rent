@@ -1526,7 +1526,7 @@ export class InterestedService {
   }
 
   private buildFallbackEmail(profile: InterestedProfile): string {
-    const phone = profile.phone.replace(/\D+/g, '');
+    const phone = profile.phone.replaceAll(/\D+/g, '');
     return `interesado.${phone || profile.id}@rentflow.local`;
   }
 

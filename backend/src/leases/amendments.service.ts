@@ -16,9 +16,9 @@ import { CreateAmendmentDto } from './dto/create-amendment.dto';
 export class AmendmentsService {
   constructor(
     @InjectRepository(LeaseAmendment)
-    private amendmentsRepository: Repository<LeaseAmendment>,
+    private readonly amendmentsRepository: Repository<LeaseAmendment>,
     @InjectRepository(Lease)
-    private leasesRepository: Repository<Lease>,
+    private readonly leasesRepository: Repository<Lease>,
   ) {}
 
   async create(

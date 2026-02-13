@@ -20,8 +20,9 @@ import { useSearchParams } from "next/navigation";
 import { CurrencySelect } from "@/components/common/CurrencySelect";
 
 interface PropertyFormProps {
-  initialData?: Property;
-  isEditing?: boolean;
+  readonly initialData?: Property;
+  readonly isEditing?: boolean;
+  readonly preselectedOwnerId?: string;
 }
 
 export function PropertyForm({

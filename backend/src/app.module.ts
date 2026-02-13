@@ -27,7 +27,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { ReadonlyRoleGuard } from './common/guards/readonly-role.guard';
 import { I18nModule, AcceptLanguageResolver } from 'nestjs-i18n';
-import * as path from 'path';
+import * as path from 'node:path';
 
 @Module({
   imports: [

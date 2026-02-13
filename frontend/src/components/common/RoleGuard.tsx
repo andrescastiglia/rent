@@ -11,11 +11,11 @@ import { ShieldX, Loader2 } from "lucide-react";
  */
 interface RoleGuardProps {
   /** List of roles that are allowed to access the content */
-  allowedRoles: string[];
+  readonly allowedRoles: string[];
   /** Content to render if access is granted */
-  children: React.ReactNode;
+  readonly children: React.ReactNode;
   /** Optional: redirect to this path if access denied (defaults to showing message) */
-  redirectTo?: string;
+  readonly redirectTo?: string;
 }
 
 /**
