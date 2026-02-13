@@ -75,10 +75,7 @@ export class AiToolExecutorService {
     }
   }
 
-  private parseArguments(
-    definition: AiToolDefinition,
-    args: unknown,
-  ): unknown {
+  private parseArguments(definition: AiToolDefinition, args: unknown): unknown {
     const firstPass = definition.parameters.safeParse(args);
     if (firstPass.success) {
       return firstPass.data;
@@ -104,7 +101,9 @@ export class AiToolExecutorService {
 
     if (value && typeof value === 'object') {
       const output: Record<string, unknown> = {};
-      for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      for (const [key, val] of Object.entries(
+        value as Record<string, unknown>,
+      )) {
         output[key] = this.nullsToUndefined(val);
       }
       return output;

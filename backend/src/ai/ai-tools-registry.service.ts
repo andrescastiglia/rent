@@ -6,6 +6,27 @@ import { AiToolExecutorService } from './ai-tool-executor.service';
 import { AiExecutionContext } from './types/ai-tool.types';
 
 function toOpenAiCompatibleSchema(schema: any): any {
+  if (schema instanceof z.ZodPipe) {
+    const inSchema = toOpenAiCompatibleSchema((schema as any)._def.in);
+    const outSchema = toOpenAiCompatibleSchema((schema as any)._def.out);
+
+    // JSON Schema cannot represent transforms. Prefer a non-transform side.
+    if (!(outSchema instanceof z.ZodTransform)) {
+      return outSchema;
+    }
+    if (!(inSchema instanceof z.ZodTransform)) {
+      return inSchema;
+    }
+
+    // Last resort: accept unknown and let executor re-validate with original DTO.
+    return z.unknown();
+  }
+
+  if (schema instanceof z.ZodTransform) {
+    // Transforms are runtime-only. Use unknown for OpenAI schema generation.
+    return z.unknown();
+  }
+
   if (schema instanceof z.ZodOptional) {
     return toOpenAiCompatibleSchema(schema.unwrap()).nullable();
   }
