@@ -3,9 +3,32 @@ import { zodFunction } from 'openai/helpers/zod';
 import { z } from 'zod';
 import { AiToolCatalogService } from './ai-tool-catalog.service';
 import { AiToolExecutorService } from './ai-tool-executor.service';
-import { AiExecutionContext } from './types/ai-tool.types';
+import { AiExecutionContext, AiToolDefinition } from './types/ai-tool.types';
+
+const OPENAI_FALLBACK_PARAMETERS_SCHEMA = z.object({}).passthrough();
+const OPENAI_LOOSE_UNKNOWN_SCHEMA = z
+  .union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.object({}).passthrough(),
+    z.array(z.object({}).passthrough()),
+    z.array(z.string()),
+    z.array(z.number()),
+    z.array(z.boolean()),
+  ])
+  .nullable();
 
 function toOpenAiCompatibleSchema(schema: any): any {
+  if (schema instanceof z.ZodDate) {
+    // OpenAI tool schemas do not support "date" directly.
+    return z.string().min(1);
+  }
+
+  if (schema instanceof z.ZodUnknown || schema instanceof z.ZodAny) {
+    return OPENAI_LOOSE_UNKNOWN_SCHEMA;
+  }
+
   if (schema instanceof z.ZodPipe) {
     const inSchema = toOpenAiCompatibleSchema((schema as any)._def.in);
     const outSchema = toOpenAiCompatibleSchema((schema as any)._def.out);
@@ -63,6 +86,12 @@ function toOpenAiCompatibleSchema(schema: any): any {
     const options = (schema as any)._def.options.map((option: any) =>
       toOpenAiCompatibleSchema(option),
     );
+    if (options.length === 0) {
+      return z.never();
+    }
+    if (options.length === 1) {
+      return options[0];
+    }
     return z.union(options as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]]);
   }
 
@@ -145,6 +174,8 @@ function toRootObjectSchema(schema: any): z.ZodObject<any> | null {
 @Injectable()
 export class AiToolsRegistryService {
   private readonly logger = new Logger(AiToolsRegistryService.name);
+  private readonly warnedFallbackTools = new Set<string>();
+  private readonly erroredBuildTools = new Set<string>();
 
   constructor(
     private readonly catalog: AiToolCatalogService,
@@ -152,32 +183,87 @@ export class AiToolsRegistryService {
   ) {}
 
   getOpenAiTools(context: AiExecutionContext) {
-    return this.catalog.getDefinitions().map((tool) => {
-      const transformed = toOpenAiCompatibleSchema(tool.parameters);
-      const rootObject = toRootObjectSchema(transformed);
-      const parameters = rootObject ?? z.object({}).passthrough();
+    return this.catalog
+      .getDefinitions()
+      .map((tool) => this.buildToolOrFallback(tool, context));
+  }
 
-      if (!rootObject) {
-        this.logger.warn(
-          `OpenAI tool schema for "${tool.name}" is not an object after transform; using passthrough object fallback`,
-        );
-      }
+  private buildToolOrFallback(
+    tool: AiToolDefinition,
+    context: AiExecutionContext,
+  ) {
+    const parameters = this.resolveParametersSchema(tool);
 
-      try {
-        return zodFunction({
-          name: tool.name,
-          description: tool.description,
-          parameters: parameters as any,
-          function: async (args: unknown) =>
-            this.executor.execute(tool.name, args, context),
-        });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        this.logger.error(
-          `Failed to build OpenAI schema for tool "${tool.name}": ${message}`,
-        );
-        throw error;
-      }
+    try {
+      return this.buildTool(tool, parameters, context);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logBuildErrorOnce(
+        tool.name,
+        `Failed to build OpenAI schema for tool "${tool.name}": ${message}. Falling back to passthrough object schema.`,
+      );
+      return this.buildTool(tool, OPENAI_FALLBACK_PARAMETERS_SCHEMA, context);
+    }
+  }
+
+  private buildTool(
+    tool: AiToolDefinition,
+    parameters: z.ZodObject<any>,
+    context: AiExecutionContext,
+  ) {
+    return zodFunction({
+      name: tool.name,
+      description: tool.description,
+      parameters: parameters as any,
+      function: async (args: unknown) =>
+        this.executor.execute(tool.name, args, context),
     });
+  }
+
+  private resolveParametersSchema(tool: AiToolDefinition): z.ZodObject<any> {
+    let transformed: unknown;
+    try {
+      transformed = toOpenAiCompatibleSchema(tool.parameters);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logBuildErrorOnce(
+        tool.name,
+        `Failed to transform OpenAI schema for tool "${tool.name}": ${message}. Using passthrough object schema.`,
+      );
+      return OPENAI_FALLBACK_PARAMETERS_SCHEMA;
+    }
+
+    const rootObject = toRootObjectSchema(transformed);
+    if (!rootObject) {
+      if (
+        tool.parameters instanceof z.ZodUnknown ||
+        tool.parameters instanceof z.ZodAny
+      ) {
+        return OPENAI_FALLBACK_PARAMETERS_SCHEMA;
+      }
+      this.logWarnOnce(
+        tool.name,
+        `OpenAI tool schema for "${tool.name}" is not an object after transform; using passthrough object fallback`,
+      );
+      return OPENAI_FALLBACK_PARAMETERS_SCHEMA;
+    }
+
+    return rootObject;
+  }
+
+  private logWarnOnce(toolName: string, message: string): void {
+    if (this.warnedFallbackTools.has(toolName)) {
+      return;
+    }
+    this.warnedFallbackTools.add(toolName);
+    this.logger.warn(message);
+  }
+
+  private logBuildErrorOnce(toolName: string, message: string): void {
+    if (this.erroredBuildTools.has(toolName)) {
+      return;
+    }
+    this.erroredBuildTools.add(toolName);
+    this.logger.error(message);
   }
 }
