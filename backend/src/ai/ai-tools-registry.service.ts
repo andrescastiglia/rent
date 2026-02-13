@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { zodFunction } from 'openai/helpers/zod';
 import { z } from 'zod';
 import { AiToolCatalogService } from './ai-tool-catalog.service';
@@ -114,22 +114,70 @@ function toOpenAiCompatibleSchema(schema: any): any {
   return schema;
 }
 
+function toRootObjectSchema(schema: any): z.ZodObject<any> | null {
+  let current = schema;
+
+  while (current) {
+    if (current instanceof z.ZodObject) {
+      return current;
+    }
+
+    if (current instanceof z.ZodOptional || current instanceof z.ZodNullable) {
+      current = current.unwrap();
+      continue;
+    }
+
+    if (
+      current instanceof z.ZodDefault ||
+      current instanceof z.ZodReadonly ||
+      current instanceof z.ZodCatch
+    ) {
+      current = (current as any)._def.innerType;
+      continue;
+    }
+
+    break;
+  }
+
+  return null;
+}
+
 @Injectable()
 export class AiToolsRegistryService {
+  private readonly logger = new Logger(AiToolsRegistryService.name);
+
   constructor(
     private readonly catalog: AiToolCatalogService,
     private readonly executor: AiToolExecutorService,
   ) {}
 
   getOpenAiTools(context: AiExecutionContext) {
-    return this.catalog.getDefinitions().map((tool) =>
-      zodFunction({
-        name: tool.name,
-        description: tool.description,
-        parameters: toOpenAiCompatibleSchema(tool.parameters) as any,
-        function: async (args: unknown) =>
-          this.executor.execute(tool.name, args, context),
-      }),
-    );
+    return this.catalog.getDefinitions().map((tool) => {
+      const transformed = toOpenAiCompatibleSchema(tool.parameters);
+      const rootObject = toRootObjectSchema(transformed);
+      const parameters = rootObject ?? z.object({}).passthrough();
+
+      if (!rootObject) {
+        this.logger.warn(
+          `OpenAI tool schema for "${tool.name}" is not an object after transform; using passthrough object fallback`,
+        );
+      }
+
+      try {
+        return zodFunction({
+          name: tool.name,
+          description: tool.description,
+          parameters: parameters as any,
+          function: async (args: unknown) =>
+            this.executor.execute(tool.name, args, context),
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          `Failed to build OpenAI schema for tool "${tool.name}": ${message}`,
+        );
+        throw error;
+      }
+    });
   }
 }
