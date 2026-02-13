@@ -28,6 +28,13 @@
     "myProfile": "My Profile",
     "settings": "Settings",
     "selectLanguage": "Select language",
+    "send": "Send",
+    "aiAssistant": "AI Assistant",
+    "aiDisabled": "AI Assistant disabled",
+    "aiModeReadonly": "Read-only mode",
+    "aiModeFull": "Full mode",
+    "aiAssistantPlaceholder": "Type a request and the assistant will run backend tools to answer.",
+    "aiPromptPlaceholder": "Type your message...",
     "notImplemented": "Not implemented yet",
     "accessDenied": "Access Denied",
     "accessDeniedMessage": "You don't have permission to access this section. Contact your administrator if you believe this is an error."

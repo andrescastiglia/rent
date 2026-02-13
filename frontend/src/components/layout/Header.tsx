@@ -4,15 +4,23 @@ import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/contexts/auth-context";
 import { useState } from "react";
-import { Menu } from "lucide-react";
+import { Bot, Menu } from "lucide-react";
 import LanguageSelector from "@/components/ui/LanguageSelector";
 import { useLocale, useTranslations } from "next-intl";
 
 interface HeaderProps {
   readonly onMenuToggle?: () => void;
+  readonly onAiToggle?: () => void;
+  readonly aiEnabled?: boolean;
+  readonly aiPanelOpen?: boolean;
 }
 
-export default function Header({ onMenuToggle }: HeaderProps) {
+export default function Header({
+  onMenuToggle,
+  onAiToggle,
+  aiEnabled = false,
+  aiPanelOpen = false,
+}: HeaderProps) {
   const { user, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const t = useTranslations("common");
@@ -49,6 +57,26 @@ export default function Header({ onMenuToggle }: HeaderProps) {
 
           {/* Language Selector and User Menu */}
           <div className="flex items-center gap-2">
+            {user ? (
+              <button
+                type="button"
+                onClick={onAiToggle}
+                disabled={!aiEnabled}
+                title={aiEnabled ? t("aiAssistant") : t("aiDisabled")}
+                className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
+                  aiEnabled
+                    ? aiPanelOpen
+                      ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                      : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                    : "cursor-not-allowed text-gray-400 dark:text-gray-600"
+                }`}
+                aria-label={t("aiAssistant")}
+              >
+                <Bot className="h-5 w-5" />
+                <span className="hidden sm:inline font-medium">AI</span>
+              </button>
+            ) : null}
+
             <LanguageSelector />
 
             {user && (

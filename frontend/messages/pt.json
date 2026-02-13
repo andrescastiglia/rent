@@ -28,6 +28,13 @@
     "myProfile": "Meu Perfil",
     "settings": "Configurações",
     "selectLanguage": "Selecionar idioma",
+    "send": "Enviar",
+    "aiAssistant": "Assistente AI",
+    "aiDisabled": "Assistente AI desabilitado",
+    "aiModeReadonly": "Modo somente leitura",
+    "aiModeFull": "Modo completo",
+    "aiAssistantPlaceholder": "Escreva uma solicitação e o assistente executará ferramentas do backend para responder.",
+    "aiPromptPlaceholder": "Digite sua mensagem...",
     "notImplemented": "Ainda não implementado",
     "accessDenied": "Acesso Negado",
     "accessDeniedMessage": "Você não tem permissão para acessar esta seção. Entre em contato com o administrador se acredita que isso é um erro."
