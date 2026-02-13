@@ -7,8 +7,7 @@ export interface WhatsappSendResult {
 }
 
 export class WhatsappService {
-  private readonly backendUrl =
-    process.env.BATCH_BACKEND_API_URL ?? "http://localhost:3001";
+  private readonly backendUrl = `http://localhost:${process.env.PORT ?? "3001"}`;
   private readonly internalToken =
     process.env.BATCH_WHATSAPP_INTERNAL_TOKEN ?? "";
 

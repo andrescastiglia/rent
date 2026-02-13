@@ -23,9 +23,10 @@ export class WhatsappService {
   private readonly verifyToken = process.env.WHATSAPP_VERIFY_TOKEN ?? '';
   private readonly batchInternalToken =
     process.env.BATCH_WHATSAPP_INTERNAL_TOKEN ?? '';
+  private readonly frontendUrl =
+    (process.env.FRONTEND_URL ?? '').split(',')[0]?.trim() ?? '';
   private readonly documentsBaseUrl =
-    process.env.WHATSAPP_DOCUMENTS_BASE_URL ??
-    process.env.BATCH_BACKEND_API_URL ??
+    (process.env.WHATSAPP_DOCUMENTS_BASE_URL ?? this.frontendUrl) ||
     `http://localhost:${process.env.PORT ?? 3001}`;
   private readonly documentLinkSecret =
     process.env.WHATSAPP_DOCUMENT_LINK_SECRET ?? '';

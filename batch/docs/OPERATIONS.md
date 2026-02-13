@@ -30,7 +30,7 @@ DATOS_AR_API_URL=https://apis.datos.gob.ar/series/api/series
 DATOS_AR_IPC_SERIES_ID=148.3_INIVELNAL_DICI_M_26
 
 # WhatsApp (vía backend)
-BATCH_BACKEND_API_URL=http://localhost:3001
+PORT=3001
 BATCH_WHATSAPP_INTERNAL_TOKEN=replace_with_shared_secret
 
 # Logs

@@ -24,7 +24,9 @@ Variables de entorno requeridas:
 
 Variables recomendadas para links de documentos:
 
-- `WHATSAPP_DOCUMENTS_BASE_URL=http://localhost:3001` (URL pública del backend)
+- `FRONTEND_URL=http://localhost:3000` (URL pública del frontend)
+- `WHATSAPP_DOCUMENTS_BASE_URL=$FRONTEND_URL` (URL base publicada en el link de WhatsApp; opcional)
+- `PORT=3001` (fallback local del backend si no se define `WHATSAPP_DOCUMENTS_BASE_URL` ni `FRONTEND_URL`)
 - `WHATSAPP_DOCUMENT_LINK_TTL_SECONDS=604800` (TTL en segundos para links firmados)
 
 ### Configuración de Endpoint
