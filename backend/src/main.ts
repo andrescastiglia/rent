@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'node:path';
 import { AppModule } from './app.module';
+import { ZodValidationPipe } from './common/pipes/zod-validation.pipe';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -22,6 +23,7 @@ async function bootstrap() {
 
   // Enable global validation pipe
   app.useGlobalPipes(
+    new ZodValidationPipe(),
     new ValidationPipe({
       whitelist: true, // Strip properties that don't have decorators
       forbidNonWhitelisted: true, // Throw error if non-whitelisted properties are present

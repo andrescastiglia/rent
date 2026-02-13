@@ -25,6 +25,9 @@ import { UpdateLeaseContractTemplateDto } from './dto/update-lease-contract-temp
 import { RenderLeaseDraftDto } from './dto/render-lease-draft.dto';
 import { UpdateLeaseDraftTextDto } from './dto/update-lease-draft-text.dto';
 import { ConfirmLeaseDraftDto } from './dto/confirm-lease-draft.dto';
+import { LeaseTemplateFiltersDto } from './dto/lease-template-filters.dto';
+import { LeaseStatusReasonDto } from './dto/lease-status-reason.dto';
+import { RenewLeaseDto } from './dto/renew-lease.dto';
 
 interface AuthenticatedRequest {
   user: {
@@ -58,9 +61,10 @@ export class LeasesController {
   @Get('templates')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   listTemplates(
-    @Query('contractType') contractType: ContractType | undefined,
+    @Query() query: LeaseTemplateFiltersDto,
     @Request() req: AuthenticatedRequest,
   ) {
+    const { contractType } = query;
     if (
       contractType &&
       !Object.values(ContractType).includes(contractType as ContractType)
@@ -140,19 +144,19 @@ export class LeasesController {
 
   @Patch(':id/terminate')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  terminate(@Param('id') id: string, @Body('reason') reason?: string) {
-    return this.leasesService.terminate(id, reason);
+  terminate(@Param('id') id: string, @Body() dto: LeaseStatusReasonDto) {
+    return this.leasesService.terminate(id, dto.reason);
   }
 
   @Patch(':id/finalize')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  finalize(@Param('id') id: string, @Body('reason') reason?: string) {
-    return this.leasesService.terminate(id, reason);
+  finalize(@Param('id') id: string, @Body() dto: LeaseStatusReasonDto) {
+    return this.leasesService.terminate(id, dto.reason);
   }
 
   @Patch(':id/renew')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  renew(@Param('id') id: string, @Body() newTerms: Partial<CreateLeaseDto>) {
+  renew(@Param('id') id: string, @Body() newTerms: RenewLeaseDto) {
     return this.leasesService.renew(id, newTerms);
   }
 

@@ -17,6 +17,7 @@ import { SalesService } from './sales.service';
 import { CreateSaleFolderDto } from './dto/create-sale-folder.dto';
 import { CreateSaleAgreementDto } from './dto/create-sale-agreement.dto';
 import { CreateSaleReceiptDto } from './dto/create-sale-receipt.dto';
+import { SaleAgreementsQueryDto } from './dto/sale-agreements-query.dto';
 import { DocumentsService } from '../documents/documents.service';
 
 interface AuthenticatedRequest {
@@ -60,10 +61,10 @@ export class SalesController {
   @Get('agreements')
   @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
   listAgreements(
-    @Query('folderId') folderId: string | undefined,
+    @Query() query: SaleAgreementsQueryDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.salesService.listAgreements(req.user, folderId);
+    return this.salesService.listAgreements(req.user, query.folderId);
   }
 
   @Get('agreements/:id')

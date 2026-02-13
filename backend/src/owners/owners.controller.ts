@@ -23,6 +23,8 @@ import { UpdateOwnerActivityDto } from './dto/update-owner-activity.dto';
 import { CreateOwnerDto } from './dto/create-owner.dto';
 import { UpdateOwnerDto } from './dto/update-owner.dto';
 import { RegisterOwnerSettlementPaymentDto } from './dto/register-owner-settlement-payment.dto';
+import { ListOwnerSettlementsDto } from './dto/list-owner-settlements.dto';
+import { ListOwnerSettlementPaymentsDto } from './dto/list-owner-settlement-payments.dto';
 
 interface AuthenticatedRequest {
   user: {
@@ -43,13 +45,12 @@ export class OwnersController {
   @Get('settlements/payments')
   async listSettlementPayments(
     @Request() req: AuthenticatedRequest,
-    @Query('limit') limit?: string,
+    @Query() query: ListOwnerSettlementPaymentsDto,
   ) {
-    const parsed = limit ? Number.parseInt(limit, 10) : 100;
     return this.ownersService.listSettlementPayments(
       req.user.companyId,
       req.user,
-      Number.isFinite(parsed) ? parsed : 100,
+      query.limit ?? 100,
     );
   }
 
@@ -113,16 +114,14 @@ export class OwnersController {
   async listSettlements(
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
-    @Query('status') status?: 'all' | 'pending' | 'completed',
-    @Query('limit') limit?: string,
+    @Query() query: ListOwnerSettlementsDto,
   ) {
-    const parsedLimit = limit ? Number.parseInt(limit, 10) : 12;
     return this.ownersService.listSettlements(
       id,
       req.user.companyId,
       req.user,
-      status ?? 'all',
-      Number.isFinite(parsedLimit) ? parsedLimit : 12,
+      query.status ?? 'all',
+      query.limit ?? 12,
     );
   }
 

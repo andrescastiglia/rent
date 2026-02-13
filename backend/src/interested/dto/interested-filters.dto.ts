@@ -6,8 +6,24 @@ import {
   InterestedQualificationLevel,
   InterestedStatus,
 } from '../entities/interested-profile.entity';
+import { z } from 'zod';
+
+const interestedFiltersZodSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    phone: z.string().min(1).optional(),
+    operation: z.nativeEnum(InterestedOperation).optional(),
+    propertyTypePreference: z.nativeEnum(InterestedPropertyType).optional(),
+    status: z.nativeEnum(InterestedStatus).optional(),
+    qualificationLevel: z.nativeEnum(InterestedQualificationLevel).optional(),
+    page: z.coerce.number().int().min(1).optional().default(1),
+    limit: z.coerce.number().int().min(1).max(100).optional().default(10),
+  })
+  .strict();
 
 export class InterestedFiltersDto {
+  static readonly zodSchema = interestedFiltersZodSchema;
+
   @IsString()
   @IsOptional()
   name?: string;

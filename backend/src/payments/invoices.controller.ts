@@ -15,7 +15,7 @@ import { Response } from 'express';
 import { InvoicesService } from './invoices.service';
 import { InvoicePdfService } from './invoice-pdf.service';
 import { CreateInvoiceDto, GenerateInvoiceDto } from './dto';
-import { InvoiceStatus } from './entities/invoice.entity';
+import { InvoiceFiltersDto } from './dto/invoice-filters.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { DocumentsService } from '../documents/documents.service';
@@ -77,21 +77,14 @@ export class InvoicesController {
    * Lista facturas con filtros.
    */
   @Get()
-  findAll(
-    @Query('leaseId') leaseId?: string,
-    @Query('ownerId') ownerId?: string,
-    @Query('status') status?: InvoiceStatus,
-    @Query('page') page?: number,
-    @Query('limit') limit?: number,
-    @Request() req?: any,
-  ) {
+  findAll(@Query() filters: InvoiceFiltersDto, @Request() req?: any) {
     return this.invoicesService.findAll(
       {
-        leaseId,
-        ownerId,
-        status,
-        page: page ? Number(page) : 1,
-        limit: limit ? Number(limit) : 10,
+        leaseId: filters.leaseId,
+        ownerId: filters.ownerId,
+        status: filters.status,
+        page: filters.page ?? 1,
+        limit: filters.limit ?? 10,
       },
       req?.user,
     );

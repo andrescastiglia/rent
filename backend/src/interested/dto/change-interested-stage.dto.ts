@@ -1,7 +1,17 @@
 import { IsEnum, IsOptional, IsString } from 'class-validator';
 import { InterestedStatus } from '../entities/interested-profile.entity';
+import { z } from 'zod';
+
+const changeInterestedStageZodSchema = z
+  .object({
+    toStatus: z.nativeEnum(InterestedStatus),
+    reason: z.string().optional(),
+  })
+  .strict();
 
 export class ChangeInterestedStageDto {
+  static readonly zodSchema = changeInterestedStageZodSchema;
+
   @IsEnum(InterestedStatus)
   toStatus: InterestedStatus;
 

@@ -6,8 +6,25 @@ import {
   IsUUID,
   MinLength,
 } from 'class-validator';
+import { z } from 'zod';
+
+export const createTenantZodSchema = z
+  .object({
+    companyId: z.string().uuid(),
+    email: z.string().email(),
+    password: z.string().min(8),
+    firstName: z.string().min(1),
+    lastName: z.string().min(1),
+    phone: z.string().min(1).optional(),
+    dni: z.string().min(1),
+    emergencyContact: z.string().min(1).optional(),
+    emergencyPhone: z.string().min(1).optional(),
+  })
+  .strict();
 
 export class CreateTenantDto {
+  static readonly zodSchema = createTenantZodSchema;
+
   // Company reference
   @IsUUID()
   @IsNotEmpty()

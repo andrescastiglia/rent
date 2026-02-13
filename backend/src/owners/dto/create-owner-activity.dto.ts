@@ -12,8 +12,24 @@ import {
   OwnerActivityStatus,
   OwnerActivityType,
 } from '../entities/owner-activity.entity';
+import { z } from 'zod';
+
+export const createOwnerActivityZodSchema = z
+  .object({
+    type: z.nativeEnum(OwnerActivityType),
+    subject: z.string().max(200),
+    body: z.string().optional(),
+    dueAt: z.string().date().optional(),
+    completedAt: z.string().date().optional(),
+    status: z.nativeEnum(OwnerActivityStatus).optional(),
+    propertyId: z.string().uuid().optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+  })
+  .strict();
 
 export class CreateOwnerActivityDto {
+  static readonly zodSchema = createOwnerActivityZodSchema;
+
   @IsEnum(OwnerActivityType)
   type: OwnerActivityType;
 

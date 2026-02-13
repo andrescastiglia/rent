@@ -1,7 +1,20 @@
 import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+import { z } from 'zod';
+
+const tenantFiltersZodSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    dni: z.string().min(1).optional(),
+    email: z.string().min(1).optional(),
+    page: z.coerce.number().int().min(1).optional().default(1),
+    limit: z.coerce.number().int().min(1).max(100).optional().default(10),
+  })
+  .strict();
 
 export class TenantFiltersDto {
+  static readonly zodSchema = tenantFiltersZodSchema;
+
   @IsString()
   @IsOptional()
   name?: string;

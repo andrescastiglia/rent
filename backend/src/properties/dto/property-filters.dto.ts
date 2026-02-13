@@ -10,8 +10,29 @@ import {
 } from 'class-validator';
 import { PropertyType, PropertyStatus } from '../entities/property.entity';
 import { Type } from 'class-transformer';
+import { z } from 'zod';
+
+const propertyFiltersZodSchema = z
+  .object({
+    ownerId: z.string().uuid().optional(),
+    addressCity: z.string().min(1).optional(),
+    addressState: z.string().min(1).optional(),
+    propertyType: z.nativeEnum(PropertyType).optional(),
+    status: z.nativeEnum(PropertyStatus).optional(),
+    minRent: z.coerce.number().min(0).optional(),
+    maxRent: z.coerce.number().min(0).optional(),
+    minSalePrice: z.coerce.number().min(0).optional(),
+    maxSalePrice: z.coerce.number().min(0).optional(),
+    bedrooms: z.coerce.number().int().min(0).optional(),
+    bathrooms: z.coerce.number().int().min(0).optional(),
+    page: z.coerce.number().int().min(1).optional().default(1),
+    limit: z.coerce.number().int().min(1).max(100).optional().default(10),
+  })
+  .strict();
 
 export class PropertyFiltersDto {
+  static readonly zodSchema = propertyFiltersZodSchema;
+
   @IsUUID()
   @IsOptional()
   ownerId?: string;

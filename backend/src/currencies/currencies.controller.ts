@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { CurrenciesService } from './currencies.service';
 import { CreateCurrencyDto, UpdateCurrencyDto } from './dto/currency.dto';
+import { CurrencyFiltersDto } from './dto/currency-filters.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
@@ -20,8 +21,8 @@ export class CurrenciesController {
   constructor(private readonly currenciesService: CurrenciesService) {}
 
   @Get()
-  findAll(@Query('activeOnly') activeOnly: string = 'true') {
-    return this.currenciesService.findAll(activeOnly !== 'false');
+  findAll(@Query() query: CurrencyFiltersDto) {
+    return this.currenciesService.findAll(query.activeOnly !== false);
   }
 
   @Get('default/:locale')

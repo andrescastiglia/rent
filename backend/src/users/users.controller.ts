@@ -17,6 +17,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { SetUserActivationDto } from './dto/set-user-activation.dto';
 import { ResetUserPasswordDto } from './dto/reset-user-password.dto';
+import { UserListQueryDto } from './dto/user-list-query.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from './entities/user.entity';
 import { I18n, I18nContext } from 'nestjs-i18n';
@@ -37,8 +38,8 @@ export class UsersController {
 
   @Get()
   @Roles(UserRole.ADMIN)
-  async findAll(@Query('page') page?: number, @Query('limit') limit?: number) {
-    const result = await this.usersService.findAll(page, limit);
+  async findAll(@Query() query: UserListQueryDto) {
+    const result = await this.usersService.findAll(query.page, query.limit);
     return {
       ...result,
       data: result.data.map((user) => {

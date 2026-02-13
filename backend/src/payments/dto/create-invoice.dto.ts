@@ -7,11 +7,28 @@ import {
   IsUUID,
   Min,
 } from 'class-validator';
+import { z } from 'zod';
+
+const createInvoiceZodSchema = z
+  .object({
+    leaseId: z.string().uuid(),
+    periodStart: z.string().date(),
+    periodEnd: z.string().date(),
+    subtotal: z.coerce.number().min(0),
+    lateFee: z.coerce.number().min(0).optional().default(0),
+    adjustments: z.coerce.number().optional().default(0),
+    dueDate: z.string().date(),
+    invoiceNumber: z.string().min(1).optional(),
+    notes: z.string().min(1).optional(),
+  })
+  .strict();
 
 /**
  * DTO para crear una nueva factura.
  */
 export class CreateInvoiceDto {
+  static readonly zodSchema = createInvoiceZodSchema;
+
   @IsUUID()
   @IsNotEmpty()
   leaseId: string;

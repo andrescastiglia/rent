@@ -20,8 +20,44 @@ import {
   InterestedStatus,
 } from '../entities/interested-profile.entity';
 import { Type } from 'class-transformer';
+import { z } from 'zod';
+
+export const createInterestedProfileZodSchema = z
+  .object({
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
+    phone: z.string().min(1),
+    email: z.string().email().optional(),
+    peopleCount: z.coerce.number().int().min(1).optional(),
+    minAmount: z.coerce.number().min(0).optional(),
+    maxAmount: z.coerce.number().min(0).optional(),
+    hasPets: z.coerce.boolean().optional(),
+    guaranteeTypes: z.array(z.string()).optional(),
+    preferredZones: z.array(z.string()).optional(),
+    preferredCity: z.string().optional(),
+    desiredFeatures: z.array(z.string()).optional(),
+    propertyTypePreference: z.nativeEnum(InterestedPropertyType).optional(),
+    operation: z.nativeEnum(InterestedOperation).optional(),
+    operations: z.array(z.nativeEnum(InterestedOperation)).min(1).optional(),
+    status: z.nativeEnum(InterestedStatus).optional(),
+    qualificationLevel: z.nativeEnum(InterestedQualificationLevel).optional(),
+    qualificationNotes: z.string().optional(),
+    source: z.string().optional(),
+    assignedToUserId: z.string().uuid().optional(),
+    organizationName: z.string().optional(),
+    customFields: z.record(z.string(), z.unknown()).optional(),
+    consentContact: z.coerce.boolean().optional(),
+    consentRecordedAt: z.coerce.date().optional(),
+    lastContactAt: z.coerce.date().optional(),
+    nextContactAt: z.coerce.date().optional(),
+    lostReason: z.string().optional(),
+    notes: z.string().optional(),
+  })
+  .strict();
 
 export class CreateInterestedProfileDto {
+  static readonly zodSchema = createInterestedProfileZodSchema;
+
   @IsString()
   @IsOptional()
   firstName?: string;

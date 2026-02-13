@@ -10,8 +10,34 @@ import {
   Min,
 } from 'class-validator';
 import { UnitStatus } from '../entities/unit.entity';
+import { z } from 'zod';
+
+export const createUnitZodSchema = z
+  .object({
+    propertyId: z.string().uuid(),
+    companyId: z.string().uuid().optional(),
+    unitNumber: z.string().min(1),
+    floor: z.string().optional(),
+    bedrooms: z.coerce.number().int().min(0).optional().default(0),
+    bathrooms: z.coerce.number().min(0).optional().default(0),
+    area: z.coerce.number().min(0.01),
+    baseRent: z.coerce.number().min(0).optional(),
+    currency: z.string().optional().default('ARS'),
+    unitType: z.string().optional(),
+    hasParking: z.coerce.boolean().optional().default(false),
+    parkingSpots: z.coerce.number().int().optional().default(0),
+    hasStorage: z.coerce.boolean().optional().default(false),
+    isFurnished: z.coerce.boolean().optional().default(false),
+    expenses: z.coerce.number().optional(),
+    status: z.nativeEnum(UnitStatus).optional().default(UnitStatus.AVAILABLE),
+    description: z.string().optional(),
+    notes: z.string().optional(),
+  })
+  .strict();
 
 export class CreateUnitDto {
+  static readonly zodSchema = createUnitZodSchema;
+
   @IsUUID()
   @IsNotEmpty()
   propertyId: string;

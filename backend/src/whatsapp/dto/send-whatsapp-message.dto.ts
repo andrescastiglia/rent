@@ -5,8 +5,23 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { z } from 'zod';
+
+const sendWhatsappMessageZodSchema = z
+  .object({
+    to: z.string().min(8).max(32),
+    text: z.string().min(1).max(4096),
+    pdfUrl: z
+      .string()
+      .regex(/^db:\/\/document\/[0-9a-fA-F-]+$/)
+      .max(200)
+      .optional(),
+  })
+  .strict();
 
 export class SendWhatsappMessageDto {
+  static readonly zodSchema = sendWhatsappMessageZodSchema;
+
   @IsString()
   @MinLength(8)
   @MaxLength(32)

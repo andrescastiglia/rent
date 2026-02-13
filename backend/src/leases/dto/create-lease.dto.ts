@@ -18,8 +18,55 @@ import {
   IncreaseClauseType,
   InflationIndexType,
 } from '../entities/lease.entity';
+import { z } from 'zod';
+
+export const createLeaseZodSchema = z
+  .object({
+    companyId: z.string().uuid(),
+    propertyId: z.string().uuid(),
+    tenantId: z.string().uuid().optional(),
+    buyerProfileId: z.string().uuid().optional(),
+    ownerId: z.string().uuid().optional(),
+    templateId: z.string().uuid().optional(),
+    contractType: z
+      .nativeEnum(ContractType)
+      .optional()
+      .default(ContractType.RENTAL),
+    leaseNumber: z.string().min(1).optional(),
+    startDate: z.string().date().optional(),
+    endDate: z.string().date().optional(),
+    monthlyRent: z.coerce.number().min(0).optional(),
+    fiscalValue: z.coerce.number().min(0).optional(),
+    currency: z.string().min(1).optional().default('ARS'),
+    securityDeposit: z.coerce.number().min(0).optional(),
+    paymentFrequency: z
+      .nativeEnum(PaymentFrequency)
+      .optional()
+      .default(PaymentFrequency.MONTHLY),
+    paymentDueDay: z.coerce.number().optional().default(10),
+    billingFrequency: z.nativeEnum(BillingFrequency).optional(),
+    billingDay: z.coerce.number().optional(),
+    lateFeeType: z.nativeEnum(LateFeeType).optional(),
+    lateFeeValue: z.coerce.number().optional(),
+    lateFeeGraceDays: z.coerce.number().optional(),
+    lateFeeMax: z.coerce.number().optional(),
+    autoGenerateInvoices: z.coerce.boolean().optional(),
+    adjustmentType: z.nativeEnum(AdjustmentType).optional(),
+    adjustmentValue: z.coerce.number().optional(),
+    adjustmentFrequencyMonths: z.coerce.number().optional(),
+    nextAdjustmentDate: z.string().date().optional(),
+    inflationIndexType: z.nativeEnum(InflationIndexType).optional(),
+    increaseClauseType: z.nativeEnum(IncreaseClauseType).optional(),
+    increaseClauseValue: z.coerce.number().optional(),
+    termsAndConditions: z.string().min(1).optional(),
+    specialClauses: z.string().min(1).optional(),
+    notes: z.string().min(1).optional(),
+  })
+  .strict();
 
 export class CreateLeaseDto {
+  static readonly zodSchema = createLeaseZodSchema;
+
   @IsUUID()
   @IsNotEmpty()
   companyId: string;
