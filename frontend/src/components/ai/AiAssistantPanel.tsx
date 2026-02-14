@@ -14,6 +14,8 @@ import {
   ChevronDown,
   ChevronRight,
   Loader2,
+  Maximize2,
+  Minimize2,
   SendHorizonal,
   User,
   X,
@@ -194,6 +196,7 @@ export default function AiAssistantPanel({
   const [prompt, setPrompt] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [sending, setSending] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -257,7 +260,13 @@ export default function AiAssistantPanel({
   };
 
   return (
-    <section className="fixed right-6 top-24 z-30 w-[min(680px,calc(100vw-3rem))] rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900">
+    <section
+      className={`fixed z-30 rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900 ${
+        isMaximized
+          ? "inset-4 w-auto"
+          : "right-6 top-24 w-[min(680px,calc(100vw-3rem))]"
+      }`}
+    >
       <header className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -270,19 +279,35 @@ export default function AiAssistantPanel({
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-          aria-label={t("close")}
-        >
-          <X className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setIsMaximized((prev) => !prev)}
+            className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+            aria-label={isMaximized ? "Restaurar tamaño" : "Maximizar"}
+          >
+            {isMaximized ? (
+              <Minimize2 className="h-4 w-4" />
+            ) : (
+              <Maximize2 className="h-4 w-4" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+            aria-label={t("close")}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </header>
 
       <div
         ref={containerRef}
-        className="h-[60vh] overflow-y-auto px-4 py-4 space-y-4"
+        className={`overflow-y-auto px-4 py-4 space-y-4 ${
+          isMaximized ? "h-[calc(100vh-12rem)]" : "h-[60vh]"
+        }`}
       >
         {messages.length === 0 ? (
           <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
