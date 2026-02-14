@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CurrencyFiltersDto } from '../currencies/dto/currency-filters.dto';
 import { UserRole } from '../users/entities/user.entity';
 import { AiToolCatalogService } from './ai-tool-catalog.service';
 import { AiToolExecutorService } from './ai-tool-executor.service';
@@ -130,5 +131,43 @@ describe('AiToolsRegistryService', () => {
     expect(
       tools.some((tool) => tool.function.name === 'get_properties'),
     ).toBeTruthy();
+  });
+
+  it('keeps typed anyOf branches for transformed union fields', () => {
+    const catalog = {
+      getDefinitions: jest.fn().mockReturnValue([
+        {
+          name: 'get_currencies',
+          description: 'Equivalent to GET /currencies',
+          mutability: 'readonly',
+          allowedRoles: [UserRole.ADMIN],
+          parameters: CurrencyFiltersDto.zodSchema,
+          execute: jest.fn(),
+        },
+      ]),
+    } as unknown as AiToolCatalogService;
+
+    const executor = {
+      execute: jest.fn(),
+      getMode: jest.fn().mockReturnValue('FULL'),
+    } as unknown as AiToolExecutorService;
+
+    const service = new AiToolsRegistryService(catalog, executor);
+    const tools = service.getOpenAiTools({
+      userId: 'user-1',
+      companyId: 'company-1',
+      role: UserRole.ADMIN,
+    }) as any[];
+
+    const parameters = tools[0].function.parameters as Record<string, any>;
+    const activeOnly = parameters.properties?.activeOnly as
+      | Record<string, any>
+      | undefined;
+
+    expect(activeOnly).toBeDefined();
+    expect(Array.isArray(activeOnly?.anyOf)).toBeTruthy();
+    for (const branch of activeOnly?.anyOf ?? []) {
+      expect(typeof branch.type).toBe('string');
+    }
   });
 });

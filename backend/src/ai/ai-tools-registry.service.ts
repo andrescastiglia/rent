@@ -79,6 +79,27 @@ function loadPromptAliasesFile(): Record<string, string[]> {
   return {};
 }
 
+function withNullable(schema: any): any {
+  if (schema instanceof z.ZodNull) {
+    return schema;
+  }
+
+  if (schema instanceof z.ZodUnion) {
+    const options = (schema as any)._def.options as z.ZodTypeAny[];
+    const hasNull = options.some((option) => option instanceof z.ZodNull);
+    if (hasNull) {
+      return schema;
+    }
+    return z.union([...options, z.null()] as unknown as [
+      z.ZodTypeAny,
+      z.ZodTypeAny,
+      ...z.ZodTypeAny[],
+    ]);
+  }
+
+  return schema.nullable();
+}
+
 function toOpenAiCompatibleSchema(schema: any): any {
   if (schema instanceof z.ZodDate) {
     // OpenAI tool schemas do not support "date" directly.
@@ -90,19 +111,23 @@ function toOpenAiCompatibleSchema(schema: any): any {
   }
 
   if (schema instanceof z.ZodPipe) {
-    const inSchema = toOpenAiCompatibleSchema((schema as any)._def.in);
-    const outSchema = toOpenAiCompatibleSchema((schema as any)._def.out);
+    const rawIn = (schema as any)._def.in;
+    const rawOut = (schema as any)._def.out;
+    const inSchema = toOpenAiCompatibleSchema(rawIn);
+    const outSchema = toOpenAiCompatibleSchema(rawOut);
 
     // JSON Schema cannot represent transforms. Prefer a non-transform side.
-    if (!(outSchema instanceof z.ZodTransform)) {
-      return outSchema;
-    }
-    if (!(inSchema instanceof z.ZodTransform)) {
+    if (rawOut instanceof z.ZodTransform) {
       return inSchema;
     }
+    if (rawIn instanceof z.ZodTransform) {
+      return outSchema;
+    }
 
-    // Last resort: accept unknown and let executor re-validate with original DTO.
-    return z.unknown();
+    if (outSchema instanceof z.ZodUnknown || outSchema instanceof z.ZodAny) {
+      return inSchema;
+    }
+    return outSchema;
   }
 
   if (schema instanceof z.ZodTransform) {
@@ -111,11 +136,11 @@ function toOpenAiCompatibleSchema(schema: any): any {
   }
 
   if (schema instanceof z.ZodOptional) {
-    return toOpenAiCompatibleSchema(schema.unwrap()).nullable();
+    return withNullable(toOpenAiCompatibleSchema(schema.unwrap()));
   }
 
   if (schema instanceof z.ZodNullable) {
-    return toOpenAiCompatibleSchema(schema.unwrap()).nullable();
+    return withNullable(toOpenAiCompatibleSchema(schema.unwrap()));
   }
 
   if (schema instanceof z.ZodDefault) {
@@ -231,6 +256,41 @@ function toRootObjectSchema(schema: any): z.ZodObject<any> | null {
   return null;
 }
 
+function hasInvalidAnyOfSchemaNode(schema: unknown): boolean {
+  if (!schema || typeof schema !== 'object') {
+    return false;
+  }
+
+  if (Array.isArray(schema)) {
+    return schema.some((item) => hasInvalidAnyOfSchemaNode(item));
+  }
+
+  const node = schema as Record<string, unknown>;
+  const anyOf = node.anyOf;
+  if (Array.isArray(anyOf)) {
+    for (const option of anyOf) {
+      if (!option || typeof option !== 'object') {
+        return true;
+      }
+      const optionNode = option as Record<string, unknown>;
+      if (typeof optionNode.type !== 'string') {
+        return true;
+      }
+      if (hasInvalidAnyOfSchemaNode(optionNode)) {
+        return true;
+      }
+    }
+  }
+
+  for (const value of Object.values(node)) {
+    if (hasInvalidAnyOfSchemaNode(value)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 @Injectable()
 export class AiToolsRegistryService {
   private readonly logger = new Logger(AiToolsRegistryService.name);
@@ -261,7 +321,15 @@ export class AiToolsRegistryService {
     const parameters = this.resolveParametersSchema(tool);
 
     try {
-      return this.buildTool(tool, parameters, context);
+      const built = this.buildTool(tool, parameters, context);
+      if (this.hasInvalidAnyOfSchema(built)) {
+        this.logBuildErrorOnce(
+          tool.name,
+          `OpenAI schema validation failed for tool "${tool.name}" (invalid anyOf branch without type). Falling back to passthrough object schema.`,
+        );
+        return this.buildTool(tool, OPENAI_FALLBACK_PARAMETERS_SCHEMA, context);
+      }
+      return built;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logBuildErrorOnce(
@@ -331,6 +399,20 @@ export class AiToolsRegistryService {
     }
     this.erroredBuildTools.add(toolName);
     this.logger.error(message);
+  }
+
+  private hasInvalidAnyOfSchema(toolConfig: unknown): boolean {
+    if (!toolConfig || typeof toolConfig !== 'object') {
+      return true;
+    }
+
+    const candidate = toolConfig as Record<string, unknown>;
+    const fnNode =
+      candidate.function && typeof candidate.function === 'object'
+        ? (candidate.function as Record<string, unknown>)
+        : null;
+    const parameters = fnNode?.parameters;
+    return hasInvalidAnyOfSchemaNode(parameters);
   }
 
   private selectDefinitionsForOpenAi(
