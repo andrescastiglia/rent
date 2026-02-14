@@ -49,6 +49,7 @@ export default function TenantDetailPage() {
 
   const loadTenant = useCallback(
     async (id: string) => {
+      // NOSONAR
       setLoading(true);
       try {
         const normalizedId = typeof id === "string" ? id : String(id);

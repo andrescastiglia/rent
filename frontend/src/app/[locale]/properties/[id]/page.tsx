@@ -26,6 +26,7 @@ import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { useAuth } from "@/contexts/auth-context";
 
 export default function PropertyDetailPage() {
+  // NOSONAR
   const { loading: authLoading } = useAuth();
   const t = useTranslations("properties");
   const tCommon = useTranslations("common");

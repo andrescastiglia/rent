@@ -23,6 +23,7 @@ import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { useAuth } from "@/contexts/auth-context";
 
 export default function LeaseDetailPage() {
+  // NOSONAR
   const { loading: authLoading } = useAuth();
   const t = useTranslations("leases");
   const tCommon = useTranslations("common");

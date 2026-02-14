@@ -694,11 +694,20 @@ const buildPropertiesQueryParams = (
     return queryParams;
   }
 
-  if (filters.ownerId) queryParams.append("ownerId", filters.ownerId);
-  if (filters.addressCity)
-    queryParams.append("addressCity", filters.addressCity);
-  if (filters.addressState)
-    queryParams.append("addressState", filters.addressState);
+  const appendStringParam = (key: string, value?: string) => {
+    if (value) {
+      queryParams.append(key, value);
+    }
+  };
+  const appendNumberParam = (key: string, value?: number) => {
+    if (value !== undefined) {
+      queryParams.append(key, String(value));
+    }
+  };
+
+  appendStringParam("ownerId", filters.ownerId);
+  appendStringParam("addressCity", filters.addressCity);
+  appendStringParam("addressState", filters.addressState);
   if (filters.propertyType) {
     const backendType = mapFrontendPropertyTypeToBackend(filters.propertyType);
     if (backendType) {
@@ -711,20 +720,15 @@ const buildPropertiesQueryParams = (
       queryParams.append("status", backendStatus);
     }
   }
-  if (filters.minRent !== undefined)
-    queryParams.append("minRent", String(filters.minRent));
-  if (filters.maxRent !== undefined)
-    queryParams.append("maxRent", String(filters.maxRent));
-  if (filters.minSalePrice !== undefined)
-    queryParams.append("minSalePrice", String(filters.minSalePrice));
-  if (filters.maxSalePrice !== undefined)
-    queryParams.append("maxSalePrice", String(filters.maxSalePrice));
-  if (filters.bedrooms !== undefined)
-    queryParams.append("bedrooms", String(filters.bedrooms));
-  if (filters.bathrooms !== undefined)
-    queryParams.append("bathrooms", String(filters.bathrooms));
-  if (filters.page) queryParams.append("page", String(filters.page));
-  if (filters.limit) queryParams.append("limit", String(filters.limit));
+
+  appendNumberParam("minRent", filters.minRent);
+  appendNumberParam("maxRent", filters.maxRent);
+  appendNumberParam("minSalePrice", filters.minSalePrice);
+  appendNumberParam("maxSalePrice", filters.maxSalePrice);
+  appendNumberParam("bedrooms", filters.bedrooms);
+  appendNumberParam("bathrooms", filters.bathrooms);
+  appendNumberParam("page", filters.page);
+  appendNumberParam("limit", filters.limit);
 
   return queryParams;
 };

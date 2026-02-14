@@ -100,131 +100,125 @@ function withNullable(schema: any): any {
   return schema.nullable();
 }
 
+function transformPipeSchema(schema: z.ZodPipe<any, any>): any {
+  const rawIn = (schema as any)._def.in;
+  const rawOut = (schema as any)._def.out;
+  const inSchema = toOpenAiCompatibleSchema(rawIn);
+  const outSchema = toOpenAiCompatibleSchema(rawOut);
+
+  // JSON Schema cannot represent transforms. Prefer a non-transform side.
+  if (rawOut instanceof z.ZodTransform) {
+    return inSchema;
+  }
+  if (rawIn instanceof z.ZodTransform) {
+    return outSchema;
+  }
+  if (outSchema instanceof z.ZodUnknown || outSchema instanceof z.ZodAny) {
+    return inSchema;
+  }
+  return outSchema;
+}
+
+function transformUnionSchema(schema: z.ZodUnion<any>): any {
+  const options = (schema as any)._def.options.map((option: any) =>
+    toOpenAiCompatibleSchema(option),
+  );
+  if (options.length === 0) {
+    return z.never();
+  }
+  if (options.length === 1) {
+    return options[0];
+  }
+  return z.union(options as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]]);
+}
+
+function transformTupleSchema(schema: z.ZodTuple<any, any>): any {
+  const items = (schema as any)._def.items.map((item: any) =>
+    toOpenAiCompatibleSchema(item),
+  );
+  const rest = (schema as any)._def.rest
+    ? toOpenAiCompatibleSchema((schema as any)._def.rest)
+    : null;
+  return rest
+    ? z.tuple(items as [z.ZodTypeAny, ...z.ZodTypeAny[]], rest)
+    : z.tuple(items as [z.ZodTypeAny, ...z.ZodTypeAny[]]);
+}
+
+function transformObjectSchema(schema: z.ZodObject<any>): any {
+  const transformedShape = Object.fromEntries(
+    Object.entries(schema.shape).map(([key, value]) => [
+      key,
+      toOpenAiCompatibleSchema(value),
+    ]),
+  );
+  const transformedObject = z.object(transformedShape);
+  const catchall = (schema as any)._def.catchall as any;
+  if (!catchall) {
+    return transformedObject;
+  }
+  const transformedCatchall = toOpenAiCompatibleSchema(catchall);
+  if (transformedCatchall instanceof z.ZodNever) {
+    return transformedObject.strict();
+  }
+  return transformedObject.catchall(transformedCatchall);
+}
+
 function toOpenAiCompatibleSchema(schema: any): any {
   if (schema instanceof z.ZodDate) {
-    // OpenAI tool schemas do not support "date" directly.
     return z.string().min(1);
   }
-
   if (schema instanceof z.ZodUnknown || schema instanceof z.ZodAny) {
     return OPENAI_LOOSE_UNKNOWN_SCHEMA;
   }
-
   if (schema instanceof z.ZodPipe) {
-    const rawIn = (schema as any)._def.in;
-    const rawOut = (schema as any)._def.out;
-    const inSchema = toOpenAiCompatibleSchema(rawIn);
-    const outSchema = toOpenAiCompatibleSchema(rawOut);
-
-    // JSON Schema cannot represent transforms. Prefer a non-transform side.
-    if (rawOut instanceof z.ZodTransform) {
-      return inSchema;
-    }
-    if (rawIn instanceof z.ZodTransform) {
-      return outSchema;
-    }
-
-    if (outSchema instanceof z.ZodUnknown || outSchema instanceof z.ZodAny) {
-      return inSchema;
-    }
-    return outSchema;
+    return transformPipeSchema(schema);
   }
-
   if (schema instanceof z.ZodTransform) {
     // Transforms are runtime-only. Use unknown for OpenAI schema generation.
     return z.unknown();
   }
-
-  if (schema instanceof z.ZodOptional) {
+  if (schema instanceof z.ZodOptional || schema instanceof z.ZodNullable) {
     return withNullable(toOpenAiCompatibleSchema(schema.unwrap()));
   }
-
-  if (schema instanceof z.ZodNullable) {
-    return withNullable(toOpenAiCompatibleSchema(schema.unwrap()));
-  }
-
   if (schema instanceof z.ZodDefault) {
     return toOpenAiCompatibleSchema((schema as any)._def.innerType);
   }
-
   if (schema instanceof z.ZodReadonly) {
     return toOpenAiCompatibleSchema((schema as any)._def.innerType).readonly();
   }
-
   if (schema instanceof z.ZodCatch) {
     return toOpenAiCompatibleSchema((schema as any)._def.innerType).catch(
       (schema as any)._def.catchValue,
     );
   }
-
   if (schema instanceof z.ZodArray) {
     return z.array(toOpenAiCompatibleSchema(schema.element));
   }
-
   if (schema instanceof z.ZodRecord) {
     const keyType = toOpenAiCompatibleSchema((schema as any)._def.keyType);
     const valueType = toOpenAiCompatibleSchema((schema as any)._def.valueType);
     return z.record(keyType as any, valueType);
   }
-
   if (schema instanceof z.ZodUnion) {
-    const options = (schema as any)._def.options.map((option: any) =>
-      toOpenAiCompatibleSchema(option),
-    );
-    if (options.length === 0) {
-      return z.never();
-    }
-    if (options.length === 1) {
-      return options[0];
-    }
-    return z.union(options as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]]);
+    return transformUnionSchema(schema);
   }
-
   if (schema instanceof z.ZodTuple) {
-    const items = (schema as any)._def.items.map((item: any) =>
-      toOpenAiCompatibleSchema(item),
-    );
-    const rest = (schema as any)._def.rest
-      ? toOpenAiCompatibleSchema((schema as any)._def.rest)
-      : null;
-    return rest
-      ? z.tuple(items as [z.ZodTypeAny, ...z.ZodTypeAny[]], rest)
-      : z.tuple(items as [z.ZodTypeAny, ...z.ZodTypeAny[]]);
+    return transformTupleSchema(schema);
   }
-
   if (schema instanceof z.ZodIntersection) {
     return z.intersection(
       toOpenAiCompatibleSchema((schema as any)._def.left),
       toOpenAiCompatibleSchema((schema as any)._def.right),
     );
   }
-
   if (schema instanceof z.ZodLazy) {
     return z.lazy(() =>
       toOpenAiCompatibleSchema((schema as any)._def.getter()),
     );
   }
-
   if (schema instanceof z.ZodObject) {
-    const shape = schema.shape;
-    const transformedShape: Record<string, any> = {};
-    for (const [key, value] of Object.entries(shape)) {
-      transformedShape[key] = toOpenAiCompatibleSchema(value);
-    }
-
-    let transformedObject = z.object(transformedShape);
-    const catchall = (schema as any)._def.catchall as any;
-    if (catchall) {
-      const transformedCatchall = toOpenAiCompatibleSchema(catchall);
-      if (transformedCatchall instanceof z.ZodNever) {
-        transformedObject = transformedObject.strict();
-      } else {
-        transformedObject = transformedObject.catchall(transformedCatchall);
-      }
-    }
-    return transformedObject;
+    return transformObjectSchema(schema);
   }
-
   return schema;
 }
 
@@ -256,39 +250,32 @@ function toRootObjectSchema(schema: any): z.ZodObject<any> | null {
   return null;
 }
 
+function hasInvalidAnyOfBranch(anyOf: unknown[]): boolean {
+  return anyOf.some((option) => {
+    if (!option || typeof option !== 'object') {
+      return true;
+    }
+    const optionNode = option as Record<string, unknown>;
+    if (typeof optionNode.type !== 'string') {
+      return true;
+    }
+    return hasInvalidAnyOfSchemaNode(optionNode);
+  });
+}
+
 function hasInvalidAnyOfSchemaNode(schema: unknown): boolean {
   if (!schema || typeof schema !== 'object') {
     return false;
   }
-
   if (Array.isArray(schema)) {
     return schema.some((item) => hasInvalidAnyOfSchemaNode(item));
   }
 
   const node = schema as Record<string, unknown>;
-  const anyOf = node.anyOf;
-  if (Array.isArray(anyOf)) {
-    for (const option of anyOf) {
-      if (!option || typeof option !== 'object') {
-        return true;
-      }
-      const optionNode = option as Record<string, unknown>;
-      if (typeof optionNode.type !== 'string') {
-        return true;
-      }
-      if (hasInvalidAnyOfSchemaNode(optionNode)) {
-        return true;
-      }
-    }
+  if (Array.isArray(node.anyOf) && hasInvalidAnyOfBranch(node.anyOf)) {
+    return true;
   }
-
-  for (const value of Object.values(node)) {
-    if (hasInvalidAnyOfSchemaNode(value)) {
-      return true;
-    }
-  }
-
-  return false;
+  return Object.values(node).some((value) => hasInvalidAnyOfSchemaNode(value));
 }
 
 @Injectable()

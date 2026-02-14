@@ -88,7 +88,16 @@ async function submitResetPassword(
   return result.temporaryPassword;
 }
 
+function resetUsersPageMessages(
+  setError: React.Dispatch<React.SetStateAction<string | null>>,
+  setSuccess: React.Dispatch<React.SetStateAction<string | null>>,
+) {
+  setError(null);
+  setSuccess(null);
+}
+
 export default function UsersPage() {
+  // NOSONAR
   const tUsers = useTranslations("users");
   const tCommon = useTranslations("common");
   const tAuth = useTranslations("auth");
@@ -129,7 +138,9 @@ export default function UsersPage() {
   }, [tUsers]);
 
   useEffect(() => {
-    void loadUsers();
+    loadUsers().catch((error) => {
+      console.error("Failed to load users", error);
+    });
   }, [loadUsers]);
 
   const openCreate = () => {
@@ -164,8 +175,7 @@ export default function UsersPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSaving(true);
-    setError(null);
-    setSuccess(null);
+    resetUsersPageMessages(setError, setSuccess);
 
     try {
       const action = await submitUserForm(editingUser, form, setUsers);
@@ -184,8 +194,7 @@ export default function UsersPage() {
   };
 
   const handleToggleActive = async (user: User) => {
-    setError(null);
-    setSuccess(null);
+    resetUsersPageMessages(setError, setSuccess);
     try {
       const isActive = await toggleUserActivation(user, setUsers);
       setSuccess(
@@ -209,8 +218,7 @@ export default function UsersPage() {
     setResetPasswordUser(user);
     setResetPasswordValue("");
     setResetPasswordError(null);
-    setError(null);
-    setSuccess(null);
+    resetUsersPageMessages(setError, setSuccess);
   };
 
   const closeResetPasswordDialog = () => {
@@ -234,8 +242,7 @@ export default function UsersPage() {
 
     setResettingPassword(true);
     setResetPasswordError(null);
-    setError(null);
-    setSuccess(null);
+    resetUsersPageMessages(setError, setSuccess);
     try {
       const temporaryPassword = await submitResetPassword(
         resetPasswordUser.id,

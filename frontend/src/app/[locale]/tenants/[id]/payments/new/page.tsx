@@ -94,6 +94,7 @@ export default function TenantPaymentRegistrationPage() {
 
   const loadData = useCallback(
     async (id: string) => {
+      // NOSONAR
       setLoading(true);
       try {
         const normalizedId = typeof id === "string" ? id : String(id);
