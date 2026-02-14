@@ -53,7 +53,7 @@ export class AiOpenAiService {
     const runner = client.chat.completions.runTools({
       model,
       messages: [{ role: 'user', content: prompt }],
-      tools: this.registry.getOpenAiTools(context),
+      tools: this.registry.getOpenAiTools(context, prompt),
     });
 
     try {

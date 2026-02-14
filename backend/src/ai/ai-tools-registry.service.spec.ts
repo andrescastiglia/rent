@@ -34,6 +34,7 @@ describe('AiToolsRegistryService', () => {
 
     const executor = {
       execute: jest.fn(),
+      getMode: jest.fn().mockReturnValue('FULL'),
     } as unknown as AiToolExecutorService;
 
     const service = new AiToolsRegistryService(catalog, executor);
@@ -67,6 +68,7 @@ describe('AiToolsRegistryService', () => {
 
     const executor = {
       execute: jest.fn(),
+      getMode: jest.fn().mockReturnValue('FULL'),
     } as unknown as AiToolExecutorService;
 
     const service = new AiToolsRegistryService(catalog, executor);
@@ -84,5 +86,49 @@ describe('AiToolsRegistryService', () => {
     });
 
     expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('trims tools to OpenAI limit and prioritizes prompt-relevant tools', () => {
+    const fillerTools = Array.from({ length: 147 }, (_, index) => ({
+      name: `a_tool_${index}`,
+      description: `Filler tool ${index}`,
+      mutability: 'readonly' as const,
+      allowedRoles: [UserRole.ADMIN],
+      parameters: z.object({}).strict(),
+      execute: jest.fn(),
+    }));
+
+    const propertyTool = {
+      name: 'get_properties',
+      description: 'Equivalent to GET /properties',
+      mutability: 'readonly' as const,
+      allowedRoles: [UserRole.ADMIN],
+      parameters: z.object({}).strict(),
+      execute: jest.fn(),
+    };
+
+    const catalog = {
+      getDefinitions: jest.fn().mockReturnValue([...fillerTools, propertyTool]),
+    } as unknown as AiToolCatalogService;
+
+    const executor = {
+      execute: jest.fn(),
+      getMode: jest.fn().mockReturnValue('FULL'),
+    } as unknown as AiToolExecutorService;
+
+    const service = new AiToolsRegistryService(catalog, executor);
+    const tools = service.getOpenAiTools(
+      {
+        userId: 'user-1',
+        companyId: 'company-1',
+        role: UserRole.ADMIN,
+      },
+      'ver propiedades',
+    ) as any[];
+
+    expect(tools).toHaveLength(128);
+    expect(
+      tools.some((tool) => tool.function.name === 'get_properties'),
+    ).toBeTruthy();
   });
 });
