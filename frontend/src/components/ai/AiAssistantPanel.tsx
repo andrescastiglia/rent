@@ -263,7 +263,7 @@ export default function AiAssistantPanel({
     <section
       className={`fixed z-30 rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900 ${
         isMaximized
-          ? "inset-4 w-auto"
+          ? "top-20 right-4 bottom-4 left-4 lg:left-[calc(16rem+1rem)]"
           : "right-6 top-24 w-[min(680px,calc(100vw-3rem))]"
       }`}
     >
