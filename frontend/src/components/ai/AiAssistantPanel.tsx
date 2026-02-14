@@ -261,13 +261,13 @@ export default function AiAssistantPanel({
 
   return (
     <section
-      className={`fixed z-30 rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900 ${
+      className={`fixed z-30 flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900 ${
         isMaximized
           ? "top-20 right-4 bottom-4 left-4 lg:left-[calc(16rem+1rem)]"
           : "right-6 top-24 w-[min(680px,calc(100vw-3rem))]"
       }`}
     >
-      <header className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+      <header className="shrink-0 flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-blue-600 dark:text-blue-400" />
           <div>
@@ -306,7 +306,7 @@ export default function AiAssistantPanel({
       <div
         ref={containerRef}
         className={`overflow-y-auto px-4 py-4 space-y-4 ${
-          isMaximized ? "h-[calc(100vh-12rem)]" : "h-[60vh]"
+          isMaximized ? "flex-1 min-h-0" : "h-[60vh]"
         }`}
       >
         {messages.length === 0 ? (
@@ -373,7 +373,7 @@ export default function AiAssistantPanel({
 
       <form
         onSubmit={(event) => void submitPrompt(event)}
-        className="border-t border-gray-200 px-4 py-3 dark:border-gray-700"
+        className="shrink-0 border-t border-gray-200 px-4 py-3 dark:border-gray-700"
       >
         <div className="rounded-lg border border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-950">
           <textarea
