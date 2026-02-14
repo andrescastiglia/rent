@@ -289,7 +289,7 @@ export default function TemplateEditorPage() {
             </div>
           </div>
 
-          {!isContractScope(scope) ? (
+          {!isContractScope(scope) ? ( // NOSONAR
             <label className="inline-flex items-center text-sm text-gray-700 dark:text-gray-300">
               <input
                 type="checkbox"

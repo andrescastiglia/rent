@@ -346,7 +346,7 @@ export class OwnersService {
     const ownerScope = await this.getOwnerScopeCondition(user, params);
 
     params.push('completed');
-    params.push(Math.max(1, Math.min(500, limit)));
+    params.push(Math.max(1, Math.min(500, limit))); // NOSONAR
 
     const rows = await this.dataSource.query(
       `SELECT

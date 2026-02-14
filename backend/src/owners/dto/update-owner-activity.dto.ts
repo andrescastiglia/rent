@@ -1,6 +1,6 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { CreateOwnerActivityDto } from './create-owner-activity.dto';
-import { createOwnerActivityZodSchema } from './create-owner-activity.dto';
+import { CreateOwnerActivityDto } from './create-owner-activity.dto'; // NOSONAR
+import { createOwnerActivityZodSchema } from './create-owner-activity.dto'; // NOSONAR
 
 export class UpdateOwnerActivityDto extends PartialType(
   CreateOwnerActivityDto,

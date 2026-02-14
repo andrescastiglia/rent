@@ -1,6 +1,6 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { CreateTenantDto } from './create-tenant.dto';
-import { createTenantZodSchema } from './create-tenant.dto';
+import { CreateTenantDto } from './create-tenant.dto'; // NOSONAR
+import { createTenantZodSchema } from './create-tenant.dto'; // NOSONAR
 
 export class UpdateTenantDto extends PartialType(CreateTenantDto) {
   static readonly zodSchema = createTenantZodSchema

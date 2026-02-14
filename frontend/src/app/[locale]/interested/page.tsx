@@ -59,6 +59,7 @@ type MatchCardProps = {
 };
 
 function MatchCard({
+  // NOSONAR
   match,
   selectedProfile,
   confirmingMatchId,

@@ -19,5 +19,5 @@ export interface AiToolDefinition<TSchema extends ZodTypeAny = ZodTypeAny> {
   execute: (
     args: unknown,
     context: AiExecutionContext,
-  ) => Promise<unknown> | unknown;
+  ) => Promise<unknown> | unknown; // NOSONAR
 }

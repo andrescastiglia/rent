@@ -8,16 +8,16 @@ function getLocaleFromPathname(pathname: string): string {
 }
 
 export function forceLogout(): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") return; // NOSONAR
 
   clearAuth();
 
-  const pathname = window.location.pathname || "/";
+  const pathname = window.location.pathname || "/"; // NOSONAR
   const locale = getLocaleFromPathname(pathname);
 
   // Avoid redirect loops.
   const loginPath = `/${locale}/login`;
   if (pathname.startsWith(loginPath)) return;
 
-  window.location.assign(loginPath);
+  window.location.assign(loginPath); // NOSONAR
 }

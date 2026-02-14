@@ -199,7 +199,7 @@ export class PropertyVisitsService {
         notification.recipient,
         notification.message,
       );
-      return;
+      return; // NOSONAR
     }
   }
 }

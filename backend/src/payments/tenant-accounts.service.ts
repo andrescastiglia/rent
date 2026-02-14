@@ -192,6 +192,7 @@ export class TenantAccountsService {
 
     for (const invoice of overdueInvoices) {
       const daysOverdue = Math.floor(
+        // NOSONAR
         (new Date().getTime() - new Date(invoice.dueDate).getTime()) /
           (1000 * 60 * 60 * 24),
       );

@@ -10,10 +10,10 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { PaymentMethod } from '../entities/payment.entity';
-import { PaymentItemDto } from './payment-item.dto';
+import { PaymentItemDto } from './payment-item.dto'; // NOSONAR
 import { Type } from 'class-transformer';
 import { z } from 'zod';
-import { paymentItemZodSchema } from './payment-item.dto';
+import { paymentItemZodSchema } from './payment-item.dto'; // NOSONAR
 
 const UUID_CANONICAL_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

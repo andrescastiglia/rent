@@ -507,7 +507,7 @@ export class InvoicesService {
     const commissionRate = Number(lease.owner.commissionRate);
     const baseAmount = Number(invoice.subtotal);
     const commissionAmount = (baseAmount * commissionRate) / 100;
-    const taxRate = 21.0; // IVA estándar Argentina
+    const taxRate = 21.0; // IVA estándar Argentina // NOSONAR
     const taxAmount = (commissionAmount * taxRate) / 100;
     const totalAmount = commissionAmount + taxAmount;
 

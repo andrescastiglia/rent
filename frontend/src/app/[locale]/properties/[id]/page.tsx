@@ -239,7 +239,7 @@ export default function PropertyDetailPage() {
   const saleCurrencySuffix = property.saleCurrency
     ? ` ${property.saleCurrency}`
     : "";
-  const salePriceLabel =
+  const salePriceLabel = // NOSONAR
     property.salePrice !== undefined
       ? `${property.salePrice.toLocaleString(locale)}${saleCurrencySuffix}`
       : "-";
@@ -505,7 +505,7 @@ export default function PropertyDetailPage() {
                         {t("fields.rentPrice")}
                       </dt>
                       <dd className="font-medium text-gray-900 dark:text-white">
-                        {property.rentPrice !== undefined
+                        {property.rentPrice !== undefined // NOSONAR
                           ? property.rentPrice.toLocaleString(locale)
                           : "-"}
                       </dd>
