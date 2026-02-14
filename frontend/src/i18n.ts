@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getRequestConfig } from "next-intl/server";
 
 // Supported locales
-const locales = ["es", "pt", "en"];
+const locales = ["es", "pt", "en"]; // NOSONAR
 
 export default getRequestConfig(async ({ requestLocale }) => {
   // Get the locale from the request

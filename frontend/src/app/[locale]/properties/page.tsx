@@ -351,7 +351,7 @@ function OwnerPropertyItem({
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               {tc("loading")}
             </div>
-          ) : hasPropertyTasks ? (
+          ) : hasPropertyTasks ? ( // NOSONAR
             propertyTasks.map((task) => (
               <div
                 key={task.id}

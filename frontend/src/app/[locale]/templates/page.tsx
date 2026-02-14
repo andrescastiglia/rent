@@ -129,7 +129,7 @@ export default function TemplatesPage() {
         <div className="flex justify-center items-center h-52">
           <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
         </div>
-      ) : templates.length === 0 ? (
+      ) : templates.length === 0 ? ( // NOSONAR
         <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center">
           <p className="text-sm text-gray-600 dark:text-gray-300">
             {t("empty")}

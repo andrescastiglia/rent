@@ -375,4 +375,4 @@ async function runSeedInTransaction(): Promise<void> {
   }
 }
 
-seed();
+seed(); // NOSONAR

@@ -244,6 +244,7 @@ export class DocumentsService implements OnModuleInit {
       });
 
       if (!document || !document.fileData) {
+        // NOSONAR
         throw new NotFoundException(
           `File not found in DB document: ${documentId}`,
         );

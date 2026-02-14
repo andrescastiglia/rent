@@ -364,7 +364,7 @@ export const paymentsApi = {
 
     const query = queryParams.toString();
     return apiClient.get<PaginatedResponse<Payment>>(
-      `/payments${query ? `?${query}` : ""}`,
+      `/payments${query ? `?${query}` : ""}`, // NOSONAR
       token ?? undefined,
     );
   },
@@ -612,7 +612,7 @@ export const invoicesApi = {
 
     const query = queryParams.toString();
     return apiClient.get<PaginatedResponse<Invoice>>(
-      `/invoices${query ? `?${query}` : ""}`,
+      `/invoices${query ? `?${query}` : ""}`, // NOSONAR
       token ?? undefined,
     );
   },

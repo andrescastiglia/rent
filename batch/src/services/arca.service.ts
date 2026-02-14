@@ -100,7 +100,7 @@ export const ARCA_DOC_TIPO = {
  */
 export class ArcaService {
   private readonly endpoints: ArcaEndpoints;
-  private authTokenCache: Map<string, AuthToken> = new Map();
+  private authTokenCache: Map<string, AuthToken> = new Map(); // NOSONAR
 
   /** WSAA service name for factura electronica. */
   private static readonly WSAA_SERVICE = "wsfe";

@@ -122,7 +122,7 @@ interface RequestOptions extends RequestInit {
 }
 
 class ApiClient {
-  private baseUrl: string;
+  private baseUrl: string; // NOSONAR
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;

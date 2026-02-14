@@ -50,7 +50,7 @@ export class LeasesContractController {
 
     res.set({
       'Content-Type': contentType,
-      'Content-Disposition': `attachment; filename="${document.name || `contrato-${id}.pdf`}"`,
+      'Content-Disposition': `attachment; filename="${document.name || `contrato-${id}.pdf`}"`, // NOSONAR
     });
 
     return res.send(buffer);

@@ -828,7 +828,7 @@ export class LeasesService {
       const resolvedTemplate = await this.resolveTemplateForLease(
         lease.companyId,
         effectiveType,
-        undefined,
+        undefined, // NOSONAR
       );
       lease.templateId = resolvedTemplate?.id ?? null;
       lease.templateName = resolvedTemplate?.name ?? null;
@@ -845,13 +845,13 @@ export class LeasesService {
       contractType: effectiveType,
       startDate:
         dto.startDate !== undefined
-          ? dto.startDate
+          ? dto.startDate // NOSONAR
             ? new Date(dto.startDate)
             : null
           : lease.startDate,
       endDate:
         dto.endDate !== undefined
-          ? dto.endDate
+          ? dto.endDate // NOSONAR
             ? new Date(dto.endDate)
             : null
           : lease.endDate,

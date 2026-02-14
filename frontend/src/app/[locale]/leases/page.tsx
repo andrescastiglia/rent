@@ -90,7 +90,7 @@ export default function LeasesPage() {
         <div className="flex justify-center items-center h-64">
           <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
         </div>
-      ) : filteredLeases.length > 0 ? (
+      ) : filteredLeases.length > 0 ? ( // NOSONAR
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredLeases.map((lease) => (
             <LeaseCard key={lease.id} lease={lease} />

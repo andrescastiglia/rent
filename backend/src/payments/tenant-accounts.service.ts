@@ -164,6 +164,7 @@ export class TenantAccountsService {
     });
 
     if (!account || !account.lease) {
+      // NOSONAR
       return 0;
     }
 

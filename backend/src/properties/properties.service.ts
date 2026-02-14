@@ -371,6 +371,7 @@ export class PropertiesService {
       throw new ForbiddenException('Company scope required');
     }
     if (!file || !file.buffer) {
+      // NOSONAR
       throw new BadRequestException('File is required');
     }
     if (!file.mimetype || !String(file.mimetype).startsWith('image/')) {

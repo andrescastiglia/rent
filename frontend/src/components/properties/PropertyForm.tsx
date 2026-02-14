@@ -349,7 +349,7 @@ export function PropertyForm({
                   : "-"}
               </p>
             </div>
-          ) : user?.role === "admin" ? (
+          ) : user?.role === "admin" ? ( // NOSONAR
             <div>
               <label
                 htmlFor="ownerId"

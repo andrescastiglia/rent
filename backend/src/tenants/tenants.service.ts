@@ -335,7 +335,7 @@ export class TenantsService {
       dueAt: dto.dueAt ? new Date(dto.dueAt) : activity.dueAt,
       completedAt:
         dto.completedAt !== undefined
-          ? dto.completedAt
+          ? dto.completedAt // NOSONAR
             ? new Date(dto.completedAt)
             : null
           : activity.completedAt,

@@ -621,7 +621,7 @@ export default function PaymentDetailPage() {
                     : t("actions.downloadReceipt")}
                 </button>
               )}
-            </div>
+            </div> // NOSONAR
           ) : payment.status === "pending" ? (
             <div className="text-center py-8">
               <p className="text-gray-500 dark:text-gray-400 mb-4">

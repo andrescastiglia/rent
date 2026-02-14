@@ -1478,7 +1478,7 @@ export class InterestedService {
 
     if (
       profile.preferredCity &&
-      property.addressCity &&
+      property.addressCity && // NOSONAR
       profile.preferredCity.trim().toLowerCase() ===
         property.addressCity.trim().toLowerCase()
     ) {

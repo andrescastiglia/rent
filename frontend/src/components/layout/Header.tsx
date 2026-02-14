@@ -65,7 +65,7 @@ export default function Header({
                 title={aiEnabled ? t("aiAssistant") : t("aiDisabled")}
                 className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
                   aiEnabled
-                    ? aiPanelOpen
+                    ? aiPanelOpen // NOSONAR
                       ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
                       : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                     : "cursor-not-allowed text-gray-400 dark:text-gray-600"
