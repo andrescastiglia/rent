@@ -19,6 +19,8 @@ import {
   X,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import DOMPurify from "dompurify";
+import { marked } from "marked";
 import { aiApi, AiToolsMode } from "@/lib/api/ai";
 
 type Message = {
@@ -169,6 +171,14 @@ const extractJsonPayload = (text: string): unknown | undefined => {
 const createId = () =>
   `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
+const renderMarkdown = (text: string): string => {
+  const rawHtml = marked.parse(text, {
+    gfm: true,
+    breaks: true,
+  }) as string;
+  return DOMPurify.sanitize(rawHtml);
+};
+
 type AiAssistantPanelProps = {
   readonly isOpen: boolean;
   readonly mode: AiToolsMode;
@@ -285,10 +295,10 @@ export default function AiAssistantPanel({
           return (
             <article
               key={message.id}
-              className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}
+              className={`flex items-start gap-3 ${isUser ? "justify-end" : "justify-start"}`}
             >
               {!isUser ? (
-                <div className="mt-1 rounded-full bg-gray-100 p-2 text-gray-700 dark:bg-gray-800 dark:text-gray-200">
+                <div className="mt-1 shrink-0 rounded-full bg-gray-100 p-2 text-gray-700 dark:bg-gray-800 dark:text-gray-200">
                   <Bot className="h-4 w-4" />
                 </div>
               ) : null}
@@ -300,23 +310,27 @@ export default function AiAssistantPanel({
                     : "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
                 }`}
               >
-                <p className="whitespace-pre-wrap break-words">
-                  {message.text}
-                </p>
+                {isUser ? (
+                  <p className="whitespace-pre-wrap break-words">
+                    {message.text}
+                  </p>
+                ) : (
+                  <div
+                    className="break-words [&_a]:underline [&_code]:rounded [&_code]:bg-gray-200 [&_code]:px-1 [&_code]:py-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-gray-200 [&_pre]:p-2 [&_ul]:list-disc [&_ul]:pl-5 dark:[&_code]:bg-gray-700 dark:[&_pre]:bg-gray-700"
+                    dangerouslySetInnerHTML={{
+                      __html: renderMarkdown(message.text),
+                    }}
+                  />
+                )}
                 {!isUser && message.jsonValue !== undefined ? (
                   <div className="mt-3">
                     <JsonResponseTable value={message.jsonValue} />
                   </div>
                 ) : null}
-                {!isUser && message.model ? (
-                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    {message.model}
-                  </p>
-                ) : null}
               </div>
 
               {isUser ? (
-                <div className="mt-1 rounded-full bg-blue-600 p-2 text-white">
+                <div className="mt-1 shrink-0 rounded-full bg-blue-600 p-2 text-white">
                   <User className="h-4 w-4" />
                 </div>
               ) : null}

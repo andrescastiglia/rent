@@ -5,6 +5,8 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import OpenAI from 'openai';
 import { AiToolsRegistryService } from './ai-tools-registry.service';
 import { AiExecutionContext } from './types/ai-tool.types';
@@ -22,11 +24,56 @@ type OpenAiApiErrorShape = {
   };
 };
 
+const AI_RELATIONSHIP_MD_FILENAME = 'ai-domain-relationships.md';
+const RELATIONSHIP_CONTEXT_FALLBACK = `
+You are an assistant for a property management backend.
+Always reason using entity relationships and IDs.
+Resolve names to IDs first. Do not invent records.
+Group results by relationship path (owner -> properties -> leases -> invoices/payments, tenant -> leases -> properties -> payments/invoices/activities).
+Prefer readonly tools unless the user explicitly asks to mutate data.
+`.trim();
+
+type RelationshipContext = {
+  content: string;
+  source: 'file' | 'fallback';
+};
+
+function loadRelationshipContext(): RelationshipContext {
+  const candidates = [
+    join(__dirname, AI_RELATIONSHIP_MD_FILENAME),
+    join(process.cwd(), 'src', 'ai', AI_RELATIONSHIP_MD_FILENAME),
+  ];
+
+  for (const filePath of candidates) {
+    if (!existsSync(filePath)) {
+      continue;
+    }
+
+    try {
+      const content = readFileSync(filePath, 'utf8').trim();
+      if (content.length > 0) {
+        return { content, source: 'file' };
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return { content: RELATIONSHIP_CONTEXT_FALLBACK, source: 'fallback' };
+}
+
 @Injectable()
 export class AiOpenAiService {
   private readonly logger = new Logger(AiOpenAiService.name);
+  private readonly relationshipContext = loadRelationshipContext();
 
-  constructor(private readonly registry: AiToolsRegistryService) {}
+  constructor(private readonly registry: AiToolsRegistryService) {
+    if (this.relationshipContext.source === 'fallback') {
+      this.logger.warn(
+        `AI relationship context file "${AI_RELATIONSHIP_MD_FILENAME}" not found; using fallback context`,
+      );
+    }
+  }
 
   async respond(prompt: string, context: AiExecutionContext) {
     const apiKey = process.env.OPENAI_API_KEY;
@@ -52,7 +99,15 @@ export class AiOpenAiService {
 
     const runner = client.chat.completions.runTools({
       model,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Use the following DB relationship map as hard context for tool planning.',
+        },
+        { role: 'system', content: this.relationshipContext.content },
+        { role: 'user', content: prompt },
+      ],
       tools: this.registry.getOpenAiTools(context, prompt),
     });
 

@@ -12,6 +12,10 @@
       {
         "include": "ai/*.json",
         "watchAssets": true
+      },
+      {
+        "include": "ai/*.md",
+        "watchAssets": true
       }
     ]
   }
