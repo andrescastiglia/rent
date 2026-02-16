@@ -150,7 +150,7 @@ export class InvoiceService {
         `INSERT INTO invoices (
                     lease_id, owner_id, tenant_account_id,
                     invoice_number, period_start, period_end,
-                    subtotal, total, currency_code, due_date,
+                    subtotal, total_amount, currency_code, due_date,
                     status, issued_at,
                     original_amount, original_currency, exchange_rate_used, exchange_rate_date,
                     withholding_iibb, withholding_iva, withholding_ganancias, withholdings_total,
@@ -302,7 +302,7 @@ export class InvoiceService {
     const result = await AppDataSource.query(
       `UPDATE invoices 
              SET late_fee = late_fee + $2,
-                 total = total + $2,
+                 total_amount = total_amount + $2,
                  updated_at = NOW()
              WHERE id = $1
              RETURNING *`,
@@ -404,7 +404,7 @@ export class InvoiceService {
       adjustments: Number.parseFloat(
         (row.discount_amount ?? row.adjustments ?? 0) as string,
       ),
-      total: Number.parseFloat(row.total as string),
+      total: Number.parseFloat(row.total_amount as string),
       currencyCode: row.currency_code as string,
       amountPaid: Number.parseFloat(row.amount_paid as string),
       dueDate: new Date(row.due_date as string),

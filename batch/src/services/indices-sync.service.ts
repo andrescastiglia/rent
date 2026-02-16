@@ -92,9 +92,11 @@ export class IndicesSyncService {
 
     try {
       // ICL is daily; fetch enough history and persist only the last value for
-      // each month.
+      // each month. Start from the latest stored period (with some overlap) to
+      // avoid requesting the full 6-year history on every run — the BCRA API
+      // rejects requests whose date range is too large.
       const toDate = new Date();
-      const fromDate = new Date(2020, 5, 1); // ICL base period starts in 2020
+      const fromDate = await this.resolveIclStartDate();
 
       const iclData = await this.bcraService.getIcl(fromDate, toDate);
       const monthlyIclData = this.keepLatestPerMonth(iclData);
@@ -207,6 +209,34 @@ export class IndicesSyncService {
       result.error = error instanceof Error ? error.message : String(error);
       logger.error("IPC synchronization failed", { error: result.error });
       throw error;
+    }
+  }
+
+  /**
+   * Determines the start date for the next ICL fetch.
+   * Returns the latest stored period minus one month (for overlap), or the
+   * ICL base period (June 2020) when the table is empty.
+   */
+  private async resolveIclStartDate(): Promise<Date> {
+    const ICL_BASE_DATE = new Date(2020, 5, 1); // June 2020
+
+    try {
+      const rows = await AppDataSource.query(
+        `SELECT MAX(period_date) AS latest
+         FROM inflation_indices
+         WHERE index_type = 'icl'`,
+      );
+
+      const latest = rows[0]?.latest;
+      if (!latest) {
+        return ICL_BASE_DATE;
+      }
+
+      const latestDate = new Date(latest);
+      latestDate.setMonth(latestDate.getMonth() - 1);
+      return latestDate;
+    } catch {
+      return ICL_BASE_DATE;
     }
   }
 

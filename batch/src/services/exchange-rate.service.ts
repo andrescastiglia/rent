@@ -59,7 +59,8 @@ export class ExchangeRateService {
    */
   constructor() {
     this.bcraApiUrl =
-      process.env.BCRA_API_URL || "https://api.bcra.gob.ar/estadisticas/v2.0";
+      process.env.BCRA_EXCHANGE_RATE_API_URL ||
+      "https://api.bcra.gob.ar/estadisticascambiarias/v1.0";
 
     this.bcbApiUrl =
       process.env.BCB_API_URL || "https://api.bcb.gov.br/dados/serie";
