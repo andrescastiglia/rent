@@ -26,7 +26,7 @@ const OPENAI_LOOSE_UNKNOWN_SCHEMA = z
 function normalizeText(value: string): string {
   return value
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .replaceAll(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 }
 

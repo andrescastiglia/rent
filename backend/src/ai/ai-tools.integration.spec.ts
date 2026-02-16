@@ -68,29 +68,29 @@ describe('AI tools integration', () => {
   let executor: AiToolExecutorService;
 
   beforeEach(() => {
-    catalog = new AiToolCatalogService(
-      authService as any,
-      usersService as any,
-      currenciesService as any,
-      documentsService as any,
-      interestedService as any,
-      propertiesService as any,
-      propertyVisitsService as any,
-      unitsService as any,
-      leasesService as any,
-      amendmentsService as any,
-      pdfService as any,
-      ownersService as any,
-      paymentsService as any,
-      invoicesService as any,
-      invoicePdfService as any,
-      tenantAccountsService as any,
-      paymentDocumentTemplatesService as any,
-      dashboardService as any,
-      salesService as any,
-      tenantsService as any,
-      whatsappService as any,
-    );
+    catalog = new AiToolCatalogService({
+      authService,
+      usersService,
+      currenciesService,
+      documentsService,
+      interestedService,
+      propertiesService,
+      propertyVisitsService,
+      unitsService,
+      leasesService,
+      amendmentsService,
+      pdfService,
+      ownersService,
+      paymentsService,
+      invoicesService,
+      invoicePdfService,
+      tenantAccountsService,
+      paymentDocumentTemplatesService,
+      dashboardService,
+      salesService,
+      tenantsService,
+      whatsappService,
+    } as any);
     executor = new AiToolExecutorService(catalog);
     process.env.AI_TOOLS_MODE = 'FULL';
   });

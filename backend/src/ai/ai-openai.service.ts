@@ -143,14 +143,13 @@ export class AiOpenAiService {
       const type = error.error?.type || error.type || null;
       const requestId = error.requestID ?? null;
 
+      const requestIdSuffix = requestId ? ` [${requestId}]` : '';
+      const logMessage = `OpenAI provider error (${status})${requestIdSuffix}: ${message}`;
+
       if (status >= 500) {
-        this.logger.error(
-          `OpenAI provider error (${status})${requestId ? ` [${requestId}]` : ''}: ${message}`,
-        );
+        this.logger.error(logMessage);
       } else {
-        this.logger.warn(
-          `OpenAI provider error (${status})${requestId ? ` [${requestId}]` : ''}: ${message}`,
-        );
+        this.logger.warn(logMessage);
       }
 
       return new HttpException(
