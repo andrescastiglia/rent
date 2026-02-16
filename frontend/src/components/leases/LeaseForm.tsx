@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
-import { useForm, Resolver, UseFormSetValue } from "react-hook-form";
+import {
+  useForm,
+  Resolver,
+  UseFormRegister,
+  UseFormSetValue,
+} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CreateLeaseInput, Lease, LeaseTemplate } from "@/types/lease";
 import { Owner } from "@/types/owner";
@@ -361,6 +366,213 @@ async function fetchAndMergeOwner(
   } catch (error) {
     console.error("Failed to load owner for selected property", error);
   }
+}
+
+function ErrorMessage({ message }: { readonly message?: string }) {
+  if (!message) return null;
+  return <p className="mt-1 text-sm text-red-600">{message}</p>;
+}
+
+function LateFeeFields({
+  register,
+  lateFeeType,
+  labelClass,
+  inputClass,
+  sectionClass,
+  sectionTitleClass,
+  t,
+}: {
+  readonly register: UseFormRegister<LeaseFormData>;
+  readonly lateFeeType: string | undefined;
+  readonly labelClass: string;
+  readonly inputClass: string;
+  readonly sectionClass: string;
+  readonly sectionTitleClass: string;
+  readonly t: (key: string) => string;
+}) {
+  return (
+    <div className={sectionClass}>
+      <h3 className={sectionTitleClass}>{t("lateFees.title")}</h3>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+        {t("lateFees.description")}
+      </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div>
+          <label htmlFor="lateFeeType" className={labelClass}>
+            {t("fields.lateFeeType")}
+          </label>
+          <select
+            id="lateFeeType"
+            {...register("lateFeeType")}
+            className={inputClass}
+          >
+            <option value="none">{t("lateFeeTypes.none")}</option>
+            <option value="fixed">{t("lateFeeTypes.fixed")}</option>
+            <option value="percentage">{t("lateFeeTypes.percentage")}</option>
+            <option value="daily_fixed">{t("lateFeeTypes.daily_fixed")}</option>
+            <option value="daily_percentage">
+              {t("lateFeeTypes.daily_percentage")}
+            </option>
+          </select>
+        </div>
+
+        {lateFeeType && lateFeeType !== "none" && (
+          <>
+            <div>
+              <label htmlFor="lateFeeValue" className={labelClass}>
+                {t("fields.lateFeeValue")}
+              </label>
+              <input
+                id="lateFeeValue"
+                type="number"
+                step="0.01"
+                {...register("lateFeeValue")}
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="lateFeeGraceDays" className={labelClass}>
+                {t("fields.lateFeeGraceDays")}
+              </label>
+              <input
+                id="lateFeeGraceDays"
+                type="number"
+                min="0"
+                {...register("lateFeeGraceDays")}
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="lateFeeMax" className={labelClass}>
+                {t("fields.lateFeeMax")}
+              </label>
+              <input
+                id="lateFeeMax"
+                type="number"
+                step="0.01"
+                {...register("lateFeeMax")}
+                className={inputClass}
+              />
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AdjustmentFields({
+  register,
+  adjustmentType,
+  labelClass,
+  inputClass,
+  sectionClass,
+  sectionTitleClass,
+  t,
+}: {
+  readonly register: UseFormRegister<LeaseFormData>;
+  readonly adjustmentType: string | undefined;
+  readonly labelClass: string;
+  readonly inputClass: string;
+  readonly sectionClass: string;
+  readonly sectionTitleClass: string;
+  readonly t: (key: string) => string;
+}) {
+  return (
+    <div className={sectionClass}>
+      <h3 className={sectionTitleClass}>{t("adjustments.title")}</h3>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+        {t("adjustments.description")}
+      </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div>
+          <label htmlFor="adjustmentType" className={labelClass}>
+            {t("fields.adjustmentType")}
+          </label>
+          <select
+            id="adjustmentType"
+            {...register("adjustmentType")}
+            className={inputClass}
+          >
+            <option value="fixed">{t("adjustmentTypes.fixed")}</option>
+            <option value="percentage">
+              {t("adjustmentTypes.percentage")}
+            </option>
+            <option value="inflation_index">
+              {t("adjustmentTypes.inflation_index")}
+            </option>
+          </select>
+        </div>
+
+        {adjustmentType && adjustmentType !== "fixed" && (
+          <>
+            {adjustmentType === "percentage" && (
+              <div>
+                <label htmlFor="adjustmentValue" className={labelClass}>
+                  {t("fields.adjustmentValue")} (%)
+                </label>
+                <input
+                  id="adjustmentValue"
+                  type="number"
+                  step="0.01"
+                  {...register("adjustmentValue")}
+                  className={inputClass}
+                />
+              </div>
+            )}
+
+            {adjustmentType === "inflation_index" && (
+              <div>
+                <label htmlFor="inflationIndexType" className={labelClass}>
+                  {t("fields.inflationIndexType")}
+                </label>
+                <select
+                  id="inflationIndexType"
+                  {...register("inflationIndexType")}
+                  className={inputClass}
+                >
+                  <option value="icl">{t("inflationIndexTypes.icl")}</option>
+                  <option value="ipc">{t("inflationIndexTypes.ipc")}</option>
+                  <option value="igp_m" disabled>
+                    {t("inflationIndexTypes.igp_m_disabled")}
+                  </option>
+                </select>
+              </div>
+            )}
+
+            <div>
+              <label htmlFor="adjustmentFrequencyMonths" className={labelClass}>
+                {t("fields.adjustmentFrequencyMonths")}
+              </label>
+              <input
+                id="adjustmentFrequencyMonths"
+                type="number"
+                min="1"
+                {...register("adjustmentFrequencyMonths")}
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="nextAdjustmentDate" className={labelClass}>
+                {t("fields.nextAdjustmentDate")}
+              </label>
+              <input
+                id="nextAdjustmentDate"
+                type="date"
+                {...register("nextAdjustmentDate")}
+                className={inputClass}
+              />
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
@@ -829,11 +1041,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
                   </option>
                 ))}
               </select>
-              {errors.propertyId && (
-                <p className="mt-1 text-sm text-red-600">
-                  {errors.propertyId.message}
-                </p>
-              )}
+              <ErrorMessage message={errors.propertyId?.message} />
             </div>
           )}
 
@@ -863,11 +1071,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
                 </p>
               </>
             )}
-            {errors.contractType && (
-              <p className="mt-1 text-sm text-red-600">
-                {errors.contractType.message}
-              </p>
-            )}
+            <ErrorMessage message={errors.contractType?.message} />
           </div>
 
           <div>
@@ -913,11 +1117,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {t("ownerFromPropertyHint")}
             </p>
-            {errors.ownerId && (
-              <p className="mt-1 text-sm text-red-600">
-                {errors.ownerId.message}
-              </p>
-            )}
+            <ErrorMessage message={errors.ownerId?.message} />
           </div>
 
           <div>
@@ -961,11 +1161,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
                   </option>
                 ))}
               </select>
-              {errors.tenantId && (
-                <p className="mt-1 text-sm text-red-600">
-                  {errors.tenantId.message}
-                </p>
-              )}
+              <ErrorMessage message={errors.tenantId?.message} />
             </div>
           ))}
 
@@ -981,11 +1177,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
                 {...register("startDate")}
                 className={inputClass}
               />
-              {errors.startDate && (
-                <p className="mt-1 text-sm text-red-600">
-                  {errors.startDate.message}
-                </p>
-              )}
+              <ErrorMessage message={errors.startDate?.message} />
             </div>
 
             <div>
@@ -998,11 +1190,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
                 {...register("endDate")}
                 className={inputClass}
               />
-              {errors.endDate && (
-                <p className="mt-1 text-sm text-red-600">
-                  {errors.endDate.message}
-                </p>
-              )}
+              <ErrorMessage message={errors.endDate?.message} />
             </div>
           </div>
         ) : (
@@ -1035,11 +1223,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
                     </option>
                   ))}
                 </select>
-                {errors.buyerProfileId && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {errors.buyerProfileId.message}
-                  </p>
-                )}
+                <ErrorMessage message={errors.buyerProfileId?.message} />
               </div>
             )}
             <div>
@@ -1052,11 +1236,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
                 {...register("fiscalValue")}
                 className={inputClass}
               />
-              {errors.fiscalValue && (
-                <p className="mt-1 text-sm text-red-600">
-                  {errors.fiscalValue.message}
-                </p>
-              )}
+              <ErrorMessage message={errors.fiscalValue?.message} />
             </div>
           </div>
         )}
@@ -1073,11 +1253,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
                 {...register("rentAmount")}
                 className={inputClass}
               />
-              {errors.rentAmount && (
-                <p className="mt-1 text-sm text-red-600">
-                  {errors.rentAmount.message}
-                </p>
-              )}
+              <ErrorMessage message={errors.rentAmount?.message} />
             </div>
           )}
 
@@ -1091,11 +1267,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
               {...register("depositAmount")}
               className={inputClass}
             />
-            {errors.depositAmount && (
-              <p className="mt-1 text-sm text-red-600">
-                {errors.depositAmount.message}
-              </p>
-            )}
+            <ErrorMessage message={errors.depositAmount?.message} />
           </div>
 
           <div>
@@ -1106,11 +1278,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
               value={formValues.currency || "ARS"}
               onChange={(value) => setValue("currency", value)}
             />
-            {errors.currency && (
-              <p className="mt-1 text-sm text-red-600">
-                {errors.currency.message}
-              </p>
-            )}
+            <ErrorMessage message={errors.currency?.message} />
           </div>
         </div>
       </div>
@@ -1219,181 +1387,28 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
 
       {/* Late Fee Configuration */}
       {contractType === "rental" && (
-        <div className={sectionClass}>
-          <h3 className={sectionTitleClass}>{t("lateFees.title")}</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            {t("lateFees.description")}
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label htmlFor="lateFeeType" className={labelClass}>
-                {t("fields.lateFeeType")}
-              </label>
-              <select
-                id="lateFeeType"
-                {...register("lateFeeType")}
-                className={inputClass}
-              >
-                <option value="none">{t("lateFeeTypes.none")}</option>
-                <option value="fixed">{t("lateFeeTypes.fixed")}</option>
-                <option value="percentage">
-                  {t("lateFeeTypes.percentage")}
-                </option>
-                <option value="daily_fixed">
-                  {t("lateFeeTypes.daily_fixed")}
-                </option>
-                <option value="daily_percentage">
-                  {t("lateFeeTypes.daily_percentage")}
-                </option>
-              </select>
-            </div>
-
-            {lateFeeType && lateFeeType !== "none" && (
-              <>
-                <div>
-                  <label htmlFor="lateFeeValue" className={labelClass}>
-                    {t("fields.lateFeeValue")}
-                  </label>
-                  <input
-                    id="lateFeeValue"
-                    type="number"
-                    step="0.01"
-                    {...register("lateFeeValue")}
-                    className={inputClass}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="lateFeeGraceDays" className={labelClass}>
-                    {t("fields.lateFeeGraceDays")}
-                  </label>
-                  <input
-                    id="lateFeeGraceDays"
-                    type="number"
-                    min="0"
-                    {...register("lateFeeGraceDays")}
-                    className={inputClass}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="lateFeeMax" className={labelClass}>
-                    {t("fields.lateFeeMax")}
-                  </label>
-                  <input
-                    id="lateFeeMax"
-                    type="number"
-                    step="0.01"
-                    {...register("lateFeeMax")}
-                    className={inputClass}
-                  />
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+        <LateFeeFields
+          register={register}
+          lateFeeType={lateFeeType}
+          labelClass={labelClass}
+          inputClass={inputClass}
+          sectionClass={sectionClass}
+          sectionTitleClass={sectionTitleClass}
+          t={t as (key: string) => string}
+        />
       )}
 
       {/* Adjustment Configuration */}
       {contractType === "rental" && (
-        <div className={sectionClass}>
-          <h3 className={sectionTitleClass}>{t("adjustments.title")}</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            {t("adjustments.description")}
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label htmlFor="adjustmentType" className={labelClass}>
-                {t("fields.adjustmentType")}
-              </label>
-              <select
-                id="adjustmentType"
-                {...register("adjustmentType")}
-                className={inputClass}
-              >
-                <option value="fixed">{t("adjustmentTypes.fixed")}</option>
-                <option value="percentage">
-                  {t("adjustmentTypes.percentage")}
-                </option>
-                <option value="inflation_index">
-                  {t("adjustmentTypes.inflation_index")}
-                </option>
-              </select>
-            </div>
-
-            {adjustmentType && adjustmentType !== "fixed" && (
-              <>
-                {adjustmentType === "percentage" && (
-                  <div>
-                    <label htmlFor="adjustmentValue" className={labelClass}>
-                      {t("fields.adjustmentValue")} (%)
-                    </label>
-                    <input
-                      id="adjustmentValue"
-                      type="number"
-                      step="0.01"
-                      {...register("adjustmentValue")}
-                      className={inputClass}
-                    />
-                  </div>
-                )}
-
-                {adjustmentType === "inflation_index" && (
-                  <div>
-                    <label htmlFor="inflationIndexType" className={labelClass}>
-                      {t("fields.inflationIndexType")}
-                    </label>
-                    <select
-                      id="inflationIndexType"
-                      {...register("inflationIndexType")}
-                      className={inputClass}
-                    >
-                      <option value="icl">
-                        {t("inflationIndexTypes.icl")}
-                      </option>
-                      <option value="ipc">
-                        {t("inflationIndexTypes.ipc")}
-                      </option>
-                      <option value="igp_m" disabled>
-                        {t("inflationIndexTypes.igp_m_disabled")}
-                      </option>
-                    </select>
-                  </div>
-                )}
-
-                <div>
-                  <label
-                    htmlFor="adjustmentFrequencyMonths"
-                    className={labelClass}
-                  >
-                    {t("fields.adjustmentFrequencyMonths")}
-                  </label>
-                  <input
-                    id="adjustmentFrequencyMonths"
-                    type="number"
-                    min="1"
-                    {...register("adjustmentFrequencyMonths")}
-                    className={inputClass}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="nextAdjustmentDate" className={labelClass}>
-                    {t("fields.nextAdjustmentDate")}
-                  </label>
-                  <input
-                    id="nextAdjustmentDate"
-                    type="date"
-                    {...register("nextAdjustmentDate")}
-                    className={inputClass}
-                  />
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+        <AdjustmentFields
+          register={register}
+          adjustmentType={adjustmentType}
+          labelClass={labelClass}
+          inputClass={inputClass}
+          sectionClass={sectionClass}
+          sectionTitleClass={sectionTitleClass}
+          t={t as (key: string) => string}
+        />
       )}
 
       {/* Terms and Conditions */}
