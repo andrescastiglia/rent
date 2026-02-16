@@ -181,6 +181,16 @@ async function ensureOwnerLoaded(
   return owner ? [owner, ...existing] : existing;
 }
 
+function setContractTypeIfNeeded(
+  contractType: string,
+  target: "rental" | "sale",
+  setValue: UseFormSetValue<LeaseFormData>,
+): void {
+  if (contractType !== target) {
+    setValue("contractType", target, { shouldValidate: true });
+  }
+}
+
 function syncContractType(
   selectedProperty: Property | undefined,
   shouldLock: boolean,
@@ -194,27 +204,23 @@ function syncContractType(
   if (!selectedProperty) return;
 
   if (shouldLock) {
-    if (hasPreselectedTenant && contractType !== "rental") {
-      setValue("contractType", "rental", { shouldValidate: true });
+    if (hasPreselectedTenant) {
+      setContractTypeIfNeeded(contractType, "rental", setValue);
     }
-    if (hasPreselectedBuyer && contractType !== "sale") {
-      setValue("contractType", "sale", { shouldValidate: true });
+    if (hasPreselectedBuyer) {
+      setContractTypeIfNeeded(contractType, "sale", setValue);
     }
     return;
   }
 
   if (supportsRent && !supportsSale) {
-    if (contractType !== "rental") {
-      setValue("contractType", "rental", { shouldValidate: true });
-    }
+    setContractTypeIfNeeded(contractType, "rental", setValue);
     setValue("buyerProfileId", undefined, { shouldValidate: true });
     return;
   }
 
   if (!supportsRent && supportsSale) {
-    if (contractType !== "sale") {
-      setValue("contractType", "sale", { shouldValidate: true });
-    }
+    setContractTypeIfNeeded(contractType, "sale", setValue);
     setValue("tenantId", undefined, { shouldValidate: true });
     return;
   }
@@ -237,6 +243,60 @@ function resolveContractType(
   if (supportsRent && !supportsSale) return "rental";
   if (!supportsRent && supportsSale) return "sale";
   return formContractType === "sale" ? "sale" : "rental";
+}
+
+function mergeOwnerIfMissing(currentOwners: Owner[], newOwner: Owner): Owner[] {
+  if (currentOwners.some((owner) => owner.id === newOwner.id)) {
+    return currentOwners;
+  }
+  return [newOwner, ...currentOwners];
+}
+
+function propertyMatchesOperation(
+  property: Property,
+  shouldLock: boolean,
+  hasPreselectedBuyer: boolean,
+): boolean {
+  if (!shouldLock) return true;
+  const requiredOperation = hasPreselectedBuyer ? "sale" : "rent";
+  const ops = property.operations ?? [];
+  return ops.length === 0 || ops.includes(requiredOperation);
+}
+
+function resolveTemplateId(
+  isEditing: boolean,
+  singleTemplate: LeaseTemplate | null,
+  currentTemplateId: string | undefined,
+  templatesForType: LeaseTemplate[],
+): string | undefined {
+  if (singleTemplate) {
+    return currentTemplateId !== singleTemplate.id
+      ? singleTemplate.id
+      : undefined;
+  }
+  if (isEditing) return undefined;
+
+  const normalizedCurrent = currentTemplateId ?? "";
+  const hasCurrentTemplate = templatesForType.some(
+    (item) => item.id === normalizedCurrent,
+  );
+  if (hasCurrentTemplate) return undefined;
+
+  const nextTemplateId = templatesForType[0]?.id ?? "";
+  return normalizedCurrent !== nextTemplateId ? nextTemplateId : undefined;
+}
+
+async function saveLease(
+  isEditing: boolean,
+  initialData: Lease | undefined,
+  payload: LeaseFormData,
+): Promise<string> {
+  if (isEditing && initialData) {
+    const updated = await leasesApi.update(initialData.id, payload);
+    return updated.id;
+  }
+  const newLease = await leasesApi.create(payload as CreateLeaseInput);
+  return newLease.id;
 }
 
 export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
@@ -401,12 +461,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
       try {
         const missingOwner = await ownersApi.getById(selectedProperty.ownerId);
         if (!missingOwner || !active) return;
-        setOwners((currentOwners) => {
-          if (currentOwners.some((owner) => owner.id === missingOwner.id)) {
-            return currentOwners;
-          }
-          return [missingOwner, ...currentOwners];
-        });
+        setOwners((current) => mergeOwnerIfMissing(current, missingOwner));
       } catch (error) {
         console.error("Failed to load owner for selected property", error);
       }
@@ -470,15 +525,13 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   ]);
 
   const filteredProperties = useMemo(() => {
-    const filtered = properties.filter((property) => {
-      if (!shouldLockContractTypeByInterested) {
-        return true;
-      }
-      const requiredOperation = hasPreselectedBuyer ? "sale" : "rent";
-      const ops = property.operations ?? [];
-      if (ops.length === 0) return true;
-      return ops.includes(requiredOperation);
-    });
+    const filtered = properties.filter((property) =>
+      propertyMatchesOperation(
+        property,
+        shouldLockContractTypeByInterested,
+        hasPreselectedBuyer,
+      ),
+    );
 
     if (
       selectedProperty &&
@@ -503,26 +556,14 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     templatesForType.length === 1 ? templatesForType[0] : null;
 
   useEffect(() => {
-    if (singleTemplateForType) {
-      if (selectedTemplateId !== singleTemplateForType.id) {
-        setValue("templateId", singleTemplateForType.id, {
-          shouldValidate: true,
-        });
-      }
-      return;
-    }
-
-    if (isEditing) return;
-    const currentTemplateId = selectedTemplateId ?? "";
-    const hasCurrentTemplate = templatesForType.some(
-      (item) => item.id === currentTemplateId,
+    const nextId = resolveTemplateId(
+      isEditing,
+      singleTemplateForType,
+      selectedTemplateId,
+      templatesForType,
     );
-
-    if (!hasCurrentTemplate) {
-      const nextTemplateId = templatesForType[0]?.id ?? "";
-      if (currentTemplateId !== nextTemplateId) {
-        setValue("templateId", nextTemplateId, { shouldValidate: true });
-      }
+    if (nextId !== undefined) {
+      setValue("templateId", nextId, { shouldValidate: true });
     }
   }, [
     isEditing,
@@ -679,13 +720,8 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
         terms: selectedTemplate ? renderedTemplateTerms : data.terms,
       };
 
-      if (isEditing && initialData) {
-        const updated = await leasesApi.update(initialData.id, payload);
-        router.push(`/leases/${updated.id}`);
-      } else {
-        const newLease = await leasesApi.create(payload as CreateLeaseInput);
-        router.push(`/leases/${newLease.id}`);
-      }
+      const leaseId = await saveLease(isEditing, initialData, payload);
+      router.push(`/leases/${leaseId}`);
       router.refresh();
     } catch (error) {
       console.error("Error saving lease:", error);
