@@ -299,6 +299,70 @@ async function saveLease(
   return newLease.id;
 }
 
+function applyPreselectedValues(
+  isEditing: boolean,
+  preselectedPropertyId: string | null,
+  preselectedTenantId: string | null,
+  preselectedBuyerProfileId: string | null,
+  setValue: UseFormSetValue<LeaseFormData>,
+): void {
+  if (isEditing) return;
+  if (preselectedPropertyId) {
+    setValue("propertyId", preselectedPropertyId);
+  }
+  if (preselectedTenantId) {
+    setValue("tenantId", preselectedTenantId);
+    setValue("contractType", "rental");
+  }
+  if (preselectedBuyerProfileId) {
+    setValue("buyerProfileId", preselectedBuyerProfileId);
+    setValue("contractType", "sale");
+  }
+}
+
+function syncOwnerFromProperty(
+  selectedProperty: Property | undefined,
+  selectedOwnerId: string | undefined,
+  setValue: UseFormSetValue<LeaseFormData>,
+): void {
+  if (!selectedProperty?.ownerId) return;
+  if (selectedOwnerId === selectedProperty.ownerId) return;
+  setValue("ownerId", selectedProperty.ownerId, { shouldValidate: true });
+}
+
+function shouldTermsUpdate(
+  selectedTemplate: LeaseTemplate | undefined,
+  currentTerms: string | undefined,
+  renderedTerms: string,
+): boolean {
+  if (!selectedTemplate) return false;
+  return (currentTerms ?? "").trim() !== renderedTerms;
+}
+
+function findOwnerIdToFetch(
+  selectedProperty: Property | undefined,
+  owners: Owner[],
+): string | null {
+  if (!selectedProperty?.ownerId) return null;
+  if (owners.some((owner) => owner.id === selectedProperty.ownerId))
+    return null;
+  return selectedProperty.ownerId;
+}
+
+async function fetchAndMergeOwner(
+  ownerId: string,
+  active: { current: boolean },
+  setOwners: (updater: (prev: Owner[]) => Owner[]) => void,
+): Promise<void> {
+  try {
+    const owner = await ownersApi.getById(ownerId);
+    if (!owner || !active.current) return;
+    setOwners((current) => mergeOwnerIfMissing(current, owner));
+  } catch (error) {
+    console.error("Failed to load owner for selected property", error);
+  }
+}
+
 export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const router = useLocalizedRouter();
   const searchParams = useSearchParams();
@@ -453,41 +517,24 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   }, [preselectedPropertyId]);
 
   useEffect(() => {
-    if (!selectedProperty?.ownerId) return;
-    if (owners.some((owner) => owner.id === selectedProperty.ownerId)) return;
+    const ownerIdToFetch = findOwnerIdToFetch(selectedProperty, owners);
+    if (!ownerIdToFetch) return;
 
-    let active = true;
-    const loadMissingOwner = async () => {
-      try {
-        const missingOwner = await ownersApi.getById(selectedProperty.ownerId);
-        if (!missingOwner || !active) return;
-        setOwners((current) => mergeOwnerIfMissing(current, missingOwner));
-      } catch (error) {
-        console.error("Failed to load owner for selected property", error);
-      }
-    };
-
-    void loadMissingOwner();
+    const active = { current: true };
+    void fetchAndMergeOwner(ownerIdToFetch, active, setOwners);
     return () => {
-      active = false;
+      active.current = false;
     };
-  }, [owners, selectedProperty?.ownerId]);
+  }, [owners, selectedProperty]);
 
   useEffect(() => {
-    if (isEditing) {
-      return;
-    }
-    if (preselectedPropertyId) {
-      setValue("propertyId", preselectedPropertyId);
-    }
-    if (preselectedTenantId) {
-      setValue("tenantId", preselectedTenantId);
-      setValue("contractType", "rental");
-    }
-    if (preselectedBuyerProfileId) {
-      setValue("buyerProfileId", preselectedBuyerProfileId);
-      setValue("contractType", "sale");
-    }
+    applyPreselectedValues(
+      isEditing,
+      preselectedPropertyId,
+      preselectedTenantId,
+      preselectedBuyerProfileId,
+      setValue,
+    );
   }, [
     isEditing,
     preselectedPropertyId,
@@ -497,9 +544,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   ]);
 
   useEffect(() => {
-    if (!selectedProperty?.ownerId) return;
-    if (selectedOwnerId === selectedProperty.ownerId) return;
-    setValue("ownerId", selectedProperty.ownerId, { shouldValidate: true });
+    syncOwnerFromProperty(selectedProperty, selectedOwnerId, setValue);
   }, [selectedOwnerId, selectedProperty, setValue]);
 
   useEffect(() => {
@@ -688,12 +733,18 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   }, [selectedTemplate, templateContext]);
 
   useEffect(() => {
-    if (!selectedTemplate) return;
-    if ((formValues.terms ?? "").trim() === renderedTemplateTerms) return;
-    setValue("terms", renderedTemplateTerms, {
-      shouldValidate: true,
-      shouldDirty: true,
-    });
+    if (
+      shouldTermsUpdate(
+        selectedTemplate,
+        formValues.terms,
+        renderedTemplateTerms,
+      )
+    ) {
+      setValue("terms", renderedTemplateTerms, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    }
   }, [formValues.terms, renderedTemplateTerms, selectedTemplate, setValue]);
 
   const onSubmit = async (data: LeaseFormData) => {
