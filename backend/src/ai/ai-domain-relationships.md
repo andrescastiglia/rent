@@ -10,6 +10,7 @@ This document defines how to traverse data relationships using backend tools.
 - `tenants.id`: business tenant record. Links to user with `tenants.user_id -> users.id`.
 
 Important:
+
 - `owner.id` is NOT `owner.user_id`.
 - `tenant.id` is NOT `tenant.user_id`.
 - Some tools use tenant user id (`get_tenant_*`), others can use tenant id (`get_payments(tenantId)`).
@@ -24,6 +25,7 @@ Important:
   -> `invoices.owner_id`
 
 Supporting links:
+
 - `properties.id` -> `leases.property_id`
 - `leases.id` -> `invoices.lease_id`
 - `leases.id` -> `tenant_accounts.lease_id`
@@ -37,6 +39,7 @@ Supporting links:
   -> `payments.tenant_id`
 
 Supporting links:
+
 - `leases.property_id` -> `properties.id`
 - `leases.id` -> `invoices.lease_id`
 - `tenant_accounts.id` -> `invoices.tenant_account_id`
@@ -66,10 +69,12 @@ Supporting links:
 ### Owner -> financial view
 
 From owner id:
+
 - `get_owner_settlements({ id, status, limit })`
 - `get_invoices({ ownerId, page, limit })`
 
 Optional drill-down:
+
 - `get_properties({ ownerId })`
 - then per property: `get_leases({ propertyId })`
 - then per lease: `get_invoices({ leaseId })`, `get_payments({ leaseId })`
