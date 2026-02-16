@@ -219,18 +219,11 @@ export class ReportService {
         doc.font("Helvetica");
       };
 
-      const ensureSpace = () => {
-        if (doc.y + rowHeight * 2 > doc.page.height - doc.page.margins.bottom) {
-          doc.addPage();
-          drawHeader();
-        }
-      };
-
       doc.y = tableTop;
       drawHeader();
 
       for (const inv of data.invoices) {
-        ensureSpace();
+        ReportService.ensureSpace(doc, rowHeight, drawHeader);
         const y = doc.y;
         doc.fontSize(9);
         doc.text(
@@ -353,16 +346,9 @@ export class ReportService {
         doc.font("Helvetica");
       };
 
-      const ensureSpace = () => {
-        if (doc.y + rowHeight * 2 > doc.page.height - doc.page.margins.bottom) {
-          doc.addPage();
-          drawHeader();
-        }
-      };
-
       drawHeader();
       for (const inv of data.invoices) {
-        ensureSpace();
+        ReportService.ensureSpace(doc, rowHeight, drawHeader);
         const y = doc.y;
         doc.fontSize(9);
         doc.text(
@@ -539,6 +525,17 @@ export class ReportService {
     }
 
     return companyId;
+  }
+
+  private static ensureSpace(
+    doc: InstanceType<typeof PDFDocument>,
+    rowHeight: number,
+    drawHeader: () => void,
+  ): void {
+    if (doc.y + rowHeight * 2 > doc.page.height - doc.page.margins.bottom) {
+      doc.addPage();
+      drawHeader();
+    }
   }
 
   private static truncate(value: string, max: number): string {
