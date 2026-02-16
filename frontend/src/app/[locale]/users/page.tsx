@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
   usersApi,
   type CreateManagedUserInput,
@@ -96,10 +96,348 @@ function resetUsersPageMessages(
   setSuccess(null);
 }
 
+const ROLE_OPTIONS = ["admin", "staff", "owner", "tenant"] as const;
+
+function UserFormPanel({
+  form,
+  setForm,
+  editingUser,
+  saving,
+  onSubmit,
+  onClose,
+}: {
+  form: FormState;
+  setForm: React.Dispatch<React.SetStateAction<FormState>>;
+  editingUser: User | null;
+  saving: boolean;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onClose: () => void;
+}) {
+  const tAuth = useTranslations("auth");
+  const tCommon = useTranslations("common");
+
+  const submitLabel = saving
+    ? tCommon("saving")
+    : editingUser
+      ? tCommon("save")
+      : tCommon("create");
+
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-white p-4 md:grid-cols-2"
+    >
+      <label className="text-sm text-gray-700">
+        {tAuth("email")}
+        <input
+          required
+          type="email"
+          value={form.email}
+          onChange={(event) =>
+            setForm((prev) => ({ ...prev, email: event.target.value }))
+          }
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+        />
+      </label>
+
+      <label className="text-sm text-gray-700">
+        {tAuth("role")}
+        <select
+          value={form.role}
+          onChange={(event) =>
+            setForm((prev) => ({
+              ...prev,
+              role: event.target.value as User["role"],
+            }))
+          }
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+        >
+          {ROLE_OPTIONS.map((role) => (
+            <option key={role} value={role}>
+              {role}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="text-sm text-gray-700">
+        {tAuth("firstName")}
+        <input
+          required
+          type="text"
+          value={form.firstName}
+          onChange={(event) =>
+            setForm((prev) => ({ ...prev, firstName: event.target.value }))
+          }
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+        />
+      </label>
+
+      <label className="text-sm text-gray-700">
+        {tAuth("lastName")}
+        <input
+          required
+          type="text"
+          value={form.lastName}
+          onChange={(event) =>
+            setForm((prev) => ({ ...prev, lastName: event.target.value }))
+          }
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+        />
+      </label>
+
+      <label className="text-sm text-gray-700">
+        {tAuth("phone")}
+        <input
+          type="text"
+          value={form.phone}
+          onChange={(event) =>
+            setForm((prev) => ({ ...prev, phone: event.target.value }))
+          }
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+        />
+      </label>
+
+      {editingUser ? (
+        <div className="hidden md:block" />
+      ) : (
+        <label className="text-sm text-gray-700">
+          {tAuth("password")}
+          <input
+            required
+            minLength={8}
+            type="password"
+            value={form.password}
+            onChange={(event) =>
+              setForm((prev) => ({ ...prev, password: event.target.value }))
+            }
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+          />
+        </label>
+      )}
+
+      <div className="md:col-span-2 flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+        >
+          {tCommon("cancel")}
+        </button>
+        <button
+          type="submit"
+          disabled={saving}
+          className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+        >
+          {submitLabel}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function UserList({
+  users,
+  renderUserActions,
+}: {
+  users: User[];
+  renderUserActions: (user: User) => React.ReactNode;
+}) {
+  const tAuth = useTranslations("auth");
+  const tUsers = useTranslations("users");
+  const tCommon = useTranslations("common");
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+      <div className="divide-y divide-gray-100 md:hidden">
+        {users.length === 0 ? (
+          <p className="px-4 py-6 text-center text-sm text-gray-500">
+            {tUsers("noUsers")}
+          </p>
+        ) : (
+          users.map((user) => (
+            <article key={user.id} className="space-y-3 p-4">
+              <div>
+                <p className="text-sm font-medium text-gray-900 break-all">
+                  {user.email}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {user.firstName} {user.lastName}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <p className="font-medium text-gray-500">{tAuth("role")}</p>
+                  <p className="text-gray-700">{user.role}</p>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-500">
+                    {tUsers("status")}
+                  </p>
+                  <p className="text-gray-700">
+                    {user.isActive ? tUsers("active") : tUsers("inactive")}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {renderUserActions(user)}
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+
+      <div className="hidden overflow-x-auto md:block">
+        <table className="min-w-[760px] w-full divide-y divide-gray-200 text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-2 text-left font-medium text-gray-600">
+                {tAuth("email")}
+              </th>
+              <th className="px-4 py-2 text-left font-medium text-gray-600">
+                {tAuth("firstName")}
+              </th>
+              <th className="px-4 py-2 text-left font-medium text-gray-600">
+                {tAuth("lastName")}
+              </th>
+              <th className="px-4 py-2 text-left font-medium text-gray-600">
+                {tAuth("role")}
+              </th>
+              <th className="px-4 py-2 text-left font-medium text-gray-600">
+                {tUsers("status")}
+              </th>
+              <th className="px-4 py-2 text-right font-medium text-gray-600">
+                {tCommon("actions")}
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {users.map((user) => (
+              <tr key={user.id}>
+                <td className="px-4 py-2 text-gray-700">{user.email}</td>
+                <td className="px-4 py-2 text-gray-700">{user.firstName}</td>
+                <td className="px-4 py-2 text-gray-700">{user.lastName}</td>
+                <td className="px-4 py-2 text-gray-700">{user.role}</td>
+                <td className="px-4 py-2 text-gray-700">
+                  {user.isActive ? tUsers("active") : tUsers("inactive")}
+                </td>
+                <td className="px-4 py-2">
+                  <div className="flex items-center justify-end gap-2">
+                    {renderUserActions(user)}
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {users.length === 0 ? (
+              <tr>
+                <td className="px-4 py-6 text-center text-gray-500" colSpan={6}>
+                  {tUsers("noUsers")}
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function ResetPasswordDialog({
+  user,
+  onClose,
+  onSubmit,
+  value,
+  setValue,
+  error,
+  setError,
+  submitting,
+}: {
+  user: User;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  value: string;
+  setValue: (value: string) => void;
+  error: string | null;
+  setError: (error: string | null) => void;
+  submitting: boolean;
+}) {
+  const tAuth = useTranslations("auth");
+  const tUsers = useTranslations("users");
+  const tCommon = useTranslations("common");
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/40"
+        onClick={onClose}
+        aria-label={tCommon("close")}
+      />
+      <form
+        onSubmit={onSubmit}
+        className="relative z-10 w-full max-w-md rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800"
+      >
+        <div className="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+            {tUsers("resetPasswordDialog.title")}
+          </h3>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {tUsers("resetPasswordDialog.subtitle", {
+              name: `${user.firstName} ${user.lastName}`.trim(),
+            })}
+          </p>
+        </div>
+
+        <div className="space-y-2 p-4">
+          <label className="block text-sm text-gray-700 dark:text-gray-200">
+            {tAuth("password")}
+          </label>
+          <input
+            required
+            minLength={8}
+            autoFocus
+            type="password"
+            value={value}
+            onChange={(event) => {
+              setValue(event.target.value);
+              if (error) {
+                setError(null);
+              }
+            }}
+            className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {tUsers("resetPasswordDialog.hint")}
+          </p>
+          {error ? <p className="text-xs text-red-600">{error}</p> : null}
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 disabled:opacity-60 dark:border-gray-600 dark:text-gray-200"
+          >
+            {tCommon("cancel")}
+          </button>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+          >
+            {submitting ? tCommon("saving") : tCommon("confirm")}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export default function UsersPage() {
   const tUsers = useTranslations("users");
   const tCommon = useTranslations("common");
-  const tAuth = useTranslations("auth");
+  //const tAuth = useTranslations("auth");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -116,11 +454,6 @@ export default function UsersPage() {
     null,
   );
   const [resettingPassword, setResettingPassword] = useState(false);
-
-  const roleOptions = useMemo(
-    () => ["admin", "staff", "owner", "tenant"] as const,
-    [],
-  );
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -334,291 +667,31 @@ export default function UsersPage() {
       ) : null}
 
       {showForm ? (
-        <form
+        <UserFormPanel
+          form={form}
+          setForm={setForm}
+          editingUser={editingUser}
+          saving={saving}
           onSubmit={handleSubmit}
-          className="grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-white p-4 md:grid-cols-2"
-        >
-          <label className="text-sm text-gray-700">
-            {tAuth("email")}
-            <input
-              required
-              type="email"
-              value={form.email}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, email: event.target.value }))
-              }
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-            />
-          </label>
-
-          <label className="text-sm text-gray-700">
-            {tAuth("role")}
-            <select
-              value={form.role}
-              onChange={(event) =>
-                setForm((prev) => ({
-                  ...prev,
-                  role: event.target.value as User["role"],
-                }))
-              }
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-            >
-              {roleOptions.map((role) => (
-                <option key={role} value={role}>
-                  {role}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="text-sm text-gray-700">
-            {tAuth("firstName")}
-            <input
-              required
-              type="text"
-              value={form.firstName}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, firstName: event.target.value }))
-              }
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-            />
-          </label>
-
-          <label className="text-sm text-gray-700">
-            {tAuth("lastName")}
-            <input
-              required
-              type="text"
-              value={form.lastName}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, lastName: event.target.value }))
-              }
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-            />
-          </label>
-
-          <label className="text-sm text-gray-700">
-            {tAuth("phone")}
-            <input
-              type="text"
-              value={form.phone}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, phone: event.target.value }))
-              }
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-            />
-          </label>
-
-          {editingUser ? (
-            <div className="hidden md:block" />
-          ) : (
-            <label className="text-sm text-gray-700">
-              {tAuth("password")}
-              <input
-                required
-                minLength={8}
-                type="password"
-                value={form.password}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, password: event.target.value }))
-                }
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-              />
-            </label>
-          )}
-
-          <div className="md:col-span-2 flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={closeForm}
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-            >
-              {tCommon("cancel")}
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-            >
-              {saving
-                ? tCommon("saving")
-                : editingUser
-                  ? tCommon("save")
-                  : tCommon("create")}
-            </button>
-          </div>
-        </form>
+          onClose={closeForm}
+        />
       ) : null}
 
       {isEditing ? null : (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-          <div className="divide-y divide-gray-100 md:hidden">
-            {users.length === 0 ? (
-              <p className="px-4 py-6 text-center text-sm text-gray-500">
-                {tUsers("noUsers")}
-              </p>
-            ) : (
-              users.map((user) => (
-                <article key={user.id} className="space-y-3 p-4">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 break-all">
-                      {user.email}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {user.firstName} {user.lastName}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <p className="font-medium text-gray-500">
-                        {tAuth("role")}
-                      </p>
-                      <p className="text-gray-700">{user.role}</p>
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-500">
-                        {tUsers("status")}
-                      </p>
-                      <p className="text-gray-700">
-                        {user.isActive ? tUsers("active") : tUsers("inactive")}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {renderUserActions(user)}
-                  </div>
-                </article>
-              ))
-            )}
-          </div>
-
-          <div className="hidden overflow-x-auto md:block">
-            <table className="min-w-[760px] w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-2 text-left font-medium text-gray-600">
-                    {tAuth("email")}
-                  </th>
-                  <th className="px-4 py-2 text-left font-medium text-gray-600">
-                    {tAuth("firstName")}
-                  </th>
-                  <th className="px-4 py-2 text-left font-medium text-gray-600">
-                    {tAuth("lastName")}
-                  </th>
-                  <th className="px-4 py-2 text-left font-medium text-gray-600">
-                    {tAuth("role")}
-                  </th>
-                  <th className="px-4 py-2 text-left font-medium text-gray-600">
-                    {tUsers("status")}
-                  </th>
-                  <th className="px-4 py-2 text-right font-medium text-gray-600">
-                    {tCommon("actions")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {users.map((user) => (
-                  <tr key={user.id}>
-                    <td className="px-4 py-2 text-gray-700">{user.email}</td>
-                    <td className="px-4 py-2 text-gray-700">
-                      {user.firstName}
-                    </td>
-                    <td className="px-4 py-2 text-gray-700">{user.lastName}</td>
-                    <td className="px-4 py-2 text-gray-700">{user.role}</td>
-                    <td className="px-4 py-2 text-gray-700">
-                      {user.isActive ? tUsers("active") : tUsers("inactive")}
-                    </td>
-                    <td className="px-4 py-2">
-                      <div className="flex items-center justify-end gap-2">
-                        {renderUserActions(user)}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {users.length === 0 ? (
-                  <tr>
-                    <td
-                      className="px-4 py-6 text-center text-gray-500"
-                      colSpan={6}
-                    >
-                      {tUsers("noUsers")}
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <UserList users={users} renderUserActions={renderUserActions} />
       )}
 
       {resetPasswordUser ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/40"
-            onClick={closeResetPasswordDialog}
-            aria-label={tCommon("close")}
-          />
-          <form
-            onSubmit={handleResetPasswordSubmit}
-            className="relative z-10 w-full max-w-md rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800"
-          >
-            <div className="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-                {tUsers("resetPasswordDialog.title")}
-              </h3>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {tUsers("resetPasswordDialog.subtitle", {
-                  name: `${resetPasswordUser.firstName} ${resetPasswordUser.lastName}`.trim(),
-                })}
-              </p>
-            </div>
-
-            <div className="space-y-2 p-4">
-              <label className="block text-sm text-gray-700 dark:text-gray-200">
-                {tAuth("password")}
-              </label>
-              <input
-                required
-                minLength={8}
-                autoFocus
-                type="password"
-                value={resetPasswordValue}
-                onChange={(event) => {
-                  setResetPasswordValue(event.target.value);
-                  if (resetPasswordError) {
-                    setResetPasswordError(null);
-                  }
-                }}
-                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {tUsers("resetPasswordDialog.hint")}
-              </p>
-              {resetPasswordError ? (
-                <p className="text-xs text-red-600">{resetPasswordError}</p>
-              ) : null}
-            </div>
-
-            <div className="flex justify-end gap-2 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
-              <button
-                type="button"
-                onClick={closeResetPasswordDialog}
-                disabled={resettingPassword}
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 disabled:opacity-60 dark:border-gray-600 dark:text-gray-200"
-              >
-                {tCommon("cancel")}
-              </button>
-              <button
-                type="submit"
-                disabled={resettingPassword}
-                className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
-              >
-                {resettingPassword ? tCommon("saving") : tCommon("confirm")}
-              </button>
-            </div>
-          </form>
-        </div>
+        <ResetPasswordDialog
+          user={resetPasswordUser}
+          onClose={closeResetPasswordDialog}
+          onSubmit={handleResetPasswordSubmit}
+          value={resetPasswordValue}
+          setValue={setResetPasswordValue}
+          error={resetPasswordError}
+          setError={setResetPasswordError}
+          submitting={resettingPassword}
+        />
       ) : null}
     </section>
   );

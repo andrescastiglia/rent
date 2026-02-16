@@ -22,6 +22,81 @@ import { useTranslations, useLocale } from "next-intl";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { useAuth } from "@/contexts/auth-context";
 
+function PersonInfo({ lease }: { lease: Lease }) {
+  const t = useTranslations("leases");
+
+  if (lease.contractType === "rental") {
+    return (
+      <>
+        <p className="font-medium text-gray-900 dark:text-white">
+          {lease.tenant
+            ? `${lease.tenant.firstName} ${lease.tenant.lastName}`
+            : t("unknownTenant")}
+        </p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          {lease.tenant?.email}
+        </p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          {lease.tenant?.phone}
+        </p>
+      </>
+    );
+  }
+
+  const buyer = lease.buyerProfile;
+  const firstName = buyer?.firstName ?? "";
+  const lastName = buyer?.lastName ?? "";
+  const fullName = `${firstName} ${lastName}`.trim();
+  const displayName = fullName || buyer?.phone || t("unknownTenant");
+
+  return (
+    <>
+      <p className="font-medium text-gray-900 dark:text-white">{displayName}</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400">{buyer?.email}</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400">{buyer?.phone}</p>
+    </>
+  );
+}
+
+function FinancialInfo({ lease }: { lease: Lease }) {
+  const t = useTranslations("leases");
+  const locale = useLocale();
+
+  if (lease.contractType === "rental") {
+    return (
+      <>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-600 dark:text-gray-300 flex items-center">
+            <DollarSign size={16} className="mr-2" /> {t("rentAmount")}
+          </span>
+          <span className="font-bold text-gray-900 dark:text-white text-lg">
+            ${Number(lease.rentAmount ?? 0).toLocaleString(locale)}
+          </span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-600 dark:text-gray-300 flex items-center">
+            <DollarSign size={16} className="mr-2" /> {t("securityDeposit")}
+          </span>
+          <span className="font-medium text-gray-900 dark:text-white">
+            ${lease.depositAmount.toLocaleString(locale)}
+          </span>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <div className="flex justify-between items-center">
+      <span className="text-gray-600 dark:text-gray-300 flex items-center">
+        <DollarSign size={16} className="mr-2" /> {t("fields.fiscalValue")}
+      </span>
+      <span className="font-bold text-gray-900 dark:text-white text-lg">
+        ${Number(lease.fiscalValue ?? 0).toLocaleString(locale)}
+      </span>
+    </div>
+  );
+}
+
 export default function LeaseDetailPage() {
   const { loading: authLoading } = useAuth();
   const t = useTranslations("leases");
@@ -37,18 +112,6 @@ export default function LeaseDetailPage() {
   const [renderingDraft, setRenderingDraft] = useState(false);
   const [savingDraftText, setSavingDraftText] = useState(false);
   const [confirmingDraft, setConfirmingDraft] = useState(false);
-
-  const getBuyerDisplayName = (): string => {
-    if (!lease?.buyerProfile) {
-      return t("unknownTenant");
-    }
-
-    const firstName = lease.buyerProfile.firstName ?? "";
-    const lastName = lease.buyerProfile.lastName ?? "";
-    const fullName = `${firstName} ${lastName}`.trim();
-
-    return fullName || lease.buyerProfile.phone;
-  };
 
   const getLeaseDocumentKey = (documentUrl: string): string => documentUrl;
 
@@ -239,33 +302,7 @@ export default function LeaseDetailPage() {
                   <div className="flex items-start border-t border-gray-200 dark:border-gray-600 pt-4">
                     <User size={18} className="text-gray-400 mr-3 mt-1" />
                     <div>
-                      {lease.contractType === "rental" ? (
-                        <>
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            {lease.tenant
-                              ? `${lease.tenant.firstName} ${lease.tenant.lastName}`
-                              : t("unknownTenant")}
-                          </p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {lease.tenant?.email}
-                          </p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {lease.tenant?.phone}
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            {getBuyerDisplayName()}
-                          </p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {lease.buyerProfile?.email}
-                          </p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {lease.buyerProfile?.phone}
-                          </p>
-                        </>
-                      )}
+                      <PersonInfo lease={lease} />
                     </div>
                   </div>
                 </div>
@@ -363,39 +400,7 @@ export default function LeaseDetailPage() {
                   {t("financialDetails")}
                 </h2>
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-3">
-                  {lease.contractType === "rental" ? (
-                    <>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600 dark:text-gray-300 flex items-center">
-                          <DollarSign size={16} className="mr-2" />{" "}
-                          {t("rentAmount")}
-                        </span>
-                        <span className="font-bold text-gray-900 dark:text-white text-lg">
-                          $
-                          {Number(lease.rentAmount ?? 0).toLocaleString(locale)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600 dark:text-gray-300 flex items-center">
-                          <DollarSign size={16} className="mr-2" />{" "}
-                          {t("securityDeposit")}
-                        </span>
-                        <span className="font-medium text-gray-900 dark:text-white">
-                          ${lease.depositAmount.toLocaleString(locale)}
-                        </span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600 dark:text-gray-300 flex items-center">
-                        <DollarSign size={16} className="mr-2" />{" "}
-                        {t("fields.fiscalValue")}
-                      </span>
-                      <span className="font-bold text-gray-900 dark:text-white text-lg">
-                        ${Number(lease.fiscalValue ?? 0).toLocaleString(locale)}
-                      </span>
-                    </div>
-                  )}
+                  <FinancialInfo lease={lease} />
                 </div>
               </section>
 

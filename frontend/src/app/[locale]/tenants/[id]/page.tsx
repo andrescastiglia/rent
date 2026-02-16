@@ -112,13 +112,7 @@ export default function TenantDetailPage() {
           ),
         );
 
-        const nextInvoicesById: Record<string, Invoice> = {};
-        for (const result of invoicesByLease) {
-          if (result.status !== "fulfilled") continue;
-          for (const invoice of result.value.data) {
-            nextInvoicesById[invoice.id] = invoice;
-          }
-        }
+        const nextInvoicesById = buildInvoicesById(invoicesByLease);
 
         setTenant(data);
         setLeases(leaseHistory);
@@ -597,4 +591,17 @@ function activitiesByDateDesc(items: TenantActivity[]): TenantActivity[] {
       new Date(b.dueAt ?? b.createdAt).getTime() -
       new Date(a.dueAt ?? a.createdAt).getTime(),
   );
+}
+
+function buildInvoicesById(
+  results: PromiseSettledResult<{ data: Invoice[] }>[],
+): Record<string, Invoice> {
+  const map: Record<string, Invoice> = {};
+  for (const result of results) {
+    if (result.status !== "fulfilled") continue;
+    for (const invoice of result.value.data) {
+      map[invoice.id] = invoice;
+    }
+  }
+  return map;
 }

@@ -26,6 +26,131 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
+function ReceiptSection({
+  payment,
+  linkedInvoice,
+  creditNotes,
+  downloadingReceipt,
+  downloadingInvoice,
+  downloadingCreditNoteId,
+  confirming,
+  onDownloadReceipt,
+  onDownloadInvoice,
+  onDownloadCreditNote,
+  onConfirm,
+}: {
+  payment: Payment;
+  linkedInvoice: Invoice | null;
+  creditNotes: CreditNote[];
+  downloadingReceipt: boolean;
+  downloadingInvoice: boolean;
+  downloadingCreditNoteId: string | null;
+  confirming: boolean;
+  onDownloadReceipt: () => void;
+  onDownloadInvoice: () => void;
+  onDownloadCreditNote: (note: CreditNote) => void;
+  onConfirm: () => void;
+}) {
+  const t = useTranslations("payments");
+  const tCommon = useTranslations("common");
+  const locale = useLocale();
+
+  if (!payment.receipt) {
+    if (payment.status === "pending") {
+      return (
+        <div className="text-center py-8">
+          <p className="text-gray-500 dark:text-gray-400 mb-4">
+            {t("receiptPendingDescription")}
+          </p>
+          <button
+            onClick={onConfirm}
+            disabled={confirming}
+            className="btn btn-primary"
+          >
+            {confirming ? (
+              <Loader2 className="animate-spin h-5 w-5 mr-2" />
+            ) : (
+              <CheckCircle size={18} className="mr-2" />
+            )}
+            {t("confirmPayment")}
+          </button>
+        </div>
+      );
+    }
+    return <p className="text-gray-500 dark:text-gray-400">{t("noReceipt")}</p>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        {payment.invoiceId ? (
+          <Link
+            href={`/${locale}/invoices/${payment.invoiceId}`}
+            className="btn btn-secondary btn-sm"
+          >
+            <FileText size={14} />
+            {t("actions.viewInvoice")}
+          </Link>
+        ) : null}
+        {linkedInvoice ? (
+          <button
+            type="button"
+            onClick={onDownloadInvoice}
+            disabled={downloadingInvoice}
+            className="btn btn-primary btn-sm"
+          >
+            <Download size={14} />
+            {downloadingInvoice
+              ? tCommon("loading")
+              : t("actions.downloadInvoice")}
+          </button>
+        ) : null}
+        {creditNotes.map((note) => (
+          <button
+            key={note.id}
+            type="button"
+            onClick={() => onDownloadCreditNote(note)}
+            disabled={downloadingCreditNoteId === note.id}
+            className="btn btn-secondary btn-sm"
+          >
+            <ReceiptText size={14} />
+            {downloadingCreditNoteId === note.id
+              ? tCommon("loading")
+              : t("actions.downloadCreditNote")}
+          </button>
+        ))}
+      </div>
+      <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
+        <span className="text-gray-600 dark:text-gray-400">
+          {t("receiptNumber")}
+        </span>
+        <span className="text-gray-900 dark:text-white font-mono">
+          {payment.receipt.receiptNumber}
+        </span>
+      </div>
+
+      <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
+        <span className="text-gray-600 dark:text-gray-400">
+          {t("issuedAt")}
+        </span>
+        <span className="text-gray-900 dark:text-white">
+          {new Date(payment.receipt.issuedAt).toLocaleString(locale)}
+        </span>
+      </div>
+
+      <button
+        type="button"
+        onClick={onDownloadReceipt}
+        disabled={downloadingReceipt}
+        className="btn btn-success w-full"
+      >
+        <Download size={18} className="mr-2" />
+        {downloadingReceipt ? tCommon("loading") : t("actions.downloadReceipt")}
+      </button>
+    </div>
+  );
+}
+
 export default function PaymentDetailPage() {
   const { loading: authLoading } = useAuth();
   const params = useParams();
@@ -535,113 +660,33 @@ export default function PaymentDetailPage() {
             {t("receipt")}
           </h2>
 
-          {payment.receipt ? (
-            <div className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                {payment.invoiceId ? (
-                  <Link
-                    href={`/${locale}/invoices/${payment.invoiceId}`}
-                    className="btn btn-secondary btn-sm"
-                  >
-                    <FileText size={14} />
-                    {t("actions.viewInvoice")}
-                  </Link>
-                ) : null}
-                {linkedInvoice ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleDownloadInvoice().catch((error) => {
-                        console.error(
-                          "Failed to download invoice from payment detail",
-                          error,
-                        );
-                      });
-                    }}
-                    disabled={downloadingInvoice}
-                    className="btn btn-primary btn-sm"
-                  >
-                    <Download size={14} />
-                    {downloadingInvoice
-                      ? tCommon("loading")
-                      : t("actions.downloadInvoice")}
-                  </button>
-                ) : null}
-                {creditNotes.map((note) => (
-                  <button
-                    key={note.id}
-                    type="button"
-                    onClick={() => {
-                      handleDownloadCreditNote(note).catch((error) => {
-                        console.error(
-                          "Failed to download credit note from payment detail",
-                          error,
-                        );
-                      });
-                    }}
-                    disabled={downloadingCreditNoteId === note.id}
-                    className="btn btn-secondary btn-sm"
-                  >
-                    <ReceiptText size={14} />
-                    {downloadingCreditNoteId === note.id
-                      ? tCommon("loading")
-                      : t("actions.downloadCreditNote")}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
-                <span className="text-gray-600 dark:text-gray-400">
-                  {t("receiptNumber")}
-                </span>
-                <span className="text-gray-900 dark:text-white font-mono">
-                  {payment.receipt.receiptNumber}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
-                <span className="text-gray-600 dark:text-gray-400">
-                  {t("issuedAt")}
-                </span>
-                <span className="text-gray-900 dark:text-white">
-                  {new Date(payment.receipt.issuedAt).toLocaleString(locale)}
-                </span>
-              </div>
-
-              {payment.receipt && (
-                <button
-                  type="button"
-                  onClick={handleDownloadReceipt}
-                  disabled={downloadingReceipt}
-                  className="btn btn-success w-full"
-                >
-                  <Download size={18} className="mr-2" />
-                  {downloadingReceipt
-                    ? tCommon("loading")
-                    : t("actions.downloadReceipt")}
-                </button>
-              )}
-            </div>
-          ) : payment.status === "pending" ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500 dark:text-gray-400 mb-4">
-                {t("receiptPendingDescription")}
-              </p>
-              <button
-                onClick={handleConfirm}
-                disabled={confirming}
-                className="btn btn-primary"
-              >
-                {confirming ? (
-                  <Loader2 className="animate-spin h-5 w-5 mr-2" />
-                ) : (
-                  <CheckCircle size={18} className="mr-2" />
-                )}
-                {t("confirmPayment")}
-              </button>
-            </div>
-          ) : (
-            <p className="text-gray-500 dark:text-gray-400">{t("noReceipt")}</p>
-          )}
+          <ReceiptSection
+            payment={payment}
+            linkedInvoice={linkedInvoice}
+            creditNotes={creditNotes}
+            downloadingReceipt={downloadingReceipt}
+            downloadingInvoice={downloadingInvoice}
+            downloadingCreditNoteId={downloadingCreditNoteId}
+            confirming={confirming}
+            onDownloadReceipt={handleDownloadReceipt}
+            onDownloadInvoice={() => {
+              handleDownloadInvoice().catch((error) => {
+                console.error(
+                  "Failed to download invoice from payment detail",
+                  error,
+                );
+              });
+            }}
+            onDownloadCreditNote={(note) => {
+              handleDownloadCreditNote(note).catch((error) => {
+                console.error(
+                  "Failed to download credit note from payment detail",
+                  error,
+                );
+              });
+            }}
+            onConfirm={handleConfirm}
+          />
         </div>
       </div>
     </div>

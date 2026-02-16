@@ -25,6 +25,135 @@ import { useLocale, useTranslations } from "next-intl";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { useAuth } from "@/contexts/auth-context";
 
+const STATUS_COLORS: Record<string, string> = {
+  ACTIVE: "bg-green-500",
+  MAINTENANCE: "bg-yellow-500",
+};
+
+function PropertyImageGallery({
+  images,
+  name,
+  currentIndex,
+  onChangeIndex,
+}: {
+  images: string[];
+  name: string;
+  currentIndex: number;
+  onChangeIndex: (index: number) => void;
+}) {
+  const t = useTranslations("properties");
+  const currentImage = images[currentIndex] ?? images[0];
+  const hasMultiple = images.length > 1;
+
+  return (
+    <>
+      {currentImage ? (
+        <Image
+          src={currentImage}
+          alt={name}
+          fill
+          unoptimized
+          className="object-cover"
+        />
+      ) : (
+        <div className="flex items-center justify-center h-full text-gray-400">
+          <Building size={64} />
+        </div>
+      )}
+      {hasMultiple && (
+        <>
+          <button
+            type="button"
+            onClick={() =>
+              onChangeIndex((currentIndex - 1 + images.length) % images.length)
+            }
+            className="absolute left-3 top-1/2 -translate-y-1/2 p-2 bg-black/45 text-white rounded-full hover:bg-black/65 transition-colors"
+            aria-label={t("previousImage")}
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={() => onChangeIndex((currentIndex + 1) % images.length)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-black/45 text-white rounded-full hover:bg-black/65 transition-colors"
+            aria-label={t("nextImage")}
+          >
+            <ChevronRight size={18} />
+          </button>
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/45 text-white text-xs px-2 py-1 rounded-sm">
+            {currentIndex + 1} / {images.length}
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+function LeaseActionButton({
+  leaseAction,
+  canCreateLease,
+  createLeaseHref,
+  renewingLeaseId,
+  onRenew,
+}: {
+  leaseAction:
+    | { type: "view"; lease: Lease }
+    | { type: "renew"; lease: Lease }
+    | { type: "none" };
+  canCreateLease: boolean;
+  createLeaseHref: string;
+  renewingLeaseId: string | null;
+  onRenew: (lease: Lease) => void;
+}) {
+  const t = useTranslations("properties");
+  const locale = useLocale();
+
+  if (leaseAction.type === "view") {
+    return (
+      <Link
+        href={`/${locale}/leases/${leaseAction.lease.id}`}
+        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
+      >
+        <FileText size={16} />
+        {t("viewLease")}
+      </Link>
+    );
+  }
+
+  if (leaseAction.type === "renew") {
+    const isRenewing = renewingLeaseId === leaseAction.lease.id;
+    return (
+      <button
+        type="button"
+        onClick={() => onRenew(leaseAction.lease)}
+        disabled={isRenewing}
+        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-70"
+      >
+        {isRenewing ? (
+          <Loader2 size={16} className="animate-spin" />
+        ) : (
+          <RefreshCw size={16} />
+        )}
+        {t("renewLease")}
+      </button>
+    );
+  }
+
+  if (canCreateLease) {
+    return (
+      <Link
+        href={createLeaseHref}
+        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
+      >
+        <FilePlus size={16} />
+        {t("createLease")}
+      </Link>
+    );
+  }
+
+  return null;
+}
+
 export default function PropertyDetailPage() {
   const { loading: authLoading } = useAuth();
   const t = useTranslations("properties");
@@ -252,9 +381,6 @@ export default function PropertyDetailPage() {
     createLeaseQuery.set("propertyOperations", propertyOperations.join(","));
   }
   const createLeaseHref = `/${locale}/leases/new?${createLeaseQuery.toString()}`;
-  const hasMultipleImages = property.images.length > 1;
-  const currentImage = property.images[currentImageIndex] ?? property.images[0];
-
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
@@ -269,52 +395,12 @@ export default function PropertyDetailPage() {
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xs border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="relative h-64 md:h-96 bg-gray-200 dark:bg-gray-700">
-          {currentImage ? (
-            <Image
-              src={currentImage}
-              alt={property.name}
-              fill
-              unoptimized
-              className="object-cover"
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-400">
-              <Building size={64} />
-            </div>
-          )}
-          {hasMultipleImages && (
-            <>
-              <button
-                type="button"
-                onClick={() =>
-                  setCurrentImageIndex(
-                    (prev) =>
-                      (prev - 1 + property.images.length) %
-                      property.images.length,
-                  )
-                }
-                className="absolute left-3 top-1/2 -translate-y-1/2 p-2 bg-black/45 text-white rounded-full hover:bg-black/65 transition-colors"
-                aria-label={t("previousImage")}
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setCurrentImageIndex(
-                    (prev) => (prev + 1) % property.images.length,
-                  )
-                }
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-black/45 text-white rounded-full hover:bg-black/65 transition-colors"
-                aria-label={t("nextImage")}
-              >
-                <ChevronRight size={18} />
-              </button>
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/45 text-white text-xs px-2 py-1 rounded-sm">
-                {currentImageIndex + 1} / {property.images.length}
-              </div>
-            </>
-          )}
+          <PropertyImageGallery
+            images={property.images}
+            name={property.name}
+            currentIndex={currentImageIndex}
+            onChangeIndex={setCurrentImageIndex}
+          />
           <div className="absolute top-4 right-4 flex space-x-2">
             <Link
               href={`/${locale}/properties/${property.id}/edit`}
@@ -337,13 +423,7 @@ export default function PropertyDetailPage() {
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <span
-                  className={`px-2 py-1 rounded text-xs font-semibold text-white uppercase tracking-wide ${
-                    property.status === "ACTIVE"
-                      ? "bg-green-500"
-                      : property.status === "MAINTENANCE"
-                        ? "bg-yellow-500"
-                        : "bg-red-500"
-                  }`}
+                  className={`px-2 py-1 rounded text-xs font-semibold text-white uppercase tracking-wide ${STATUS_COLORS[property.status] ?? "bg-red-500"}`}
                 >
                   {getStatusLabel(property.status)}
                 </span>
@@ -366,44 +446,20 @@ export default function PropertyDetailPage() {
               </div>
             </div>
             <div className="text-right">
-              {leaseAction.type === "view" ? (
-                <Link
-                  href={`/${locale}/leases/${leaseAction.lease.id}`}
-                  className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
-                >
-                  <FileText size={16} />
-                  {t("viewLease")}
-                </Link>
-              ) : leaseAction.type === "renew" ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleRenewLease(leaseAction.lease).catch((error) => {
-                      console.error(
-                        "Failed to renew lease from property detail",
-                        error,
-                      );
-                    });
-                  }}
-                  disabled={renewingLeaseId === leaseAction.lease.id}
-                  className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-70"
-                >
-                  {renewingLeaseId === leaseAction.lease.id ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <RefreshCw size={16} />
-                  )}
-                  {t("renewLease")}
-                </button>
-              ) : canCreateLease ? (
-                <Link
-                  href={createLeaseHref}
-                  className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
-                >
-                  <FilePlus size={16} />
-                  {t("createLease")}
-                </Link>
-              ) : null}
+              <LeaseActionButton
+                leaseAction={leaseAction}
+                canCreateLease={canCreateLease}
+                createLeaseHref={createLeaseHref}
+                renewingLeaseId={renewingLeaseId}
+                onRenew={(lease) => {
+                  handleRenewLease(lease).catch((error) => {
+                    console.error(
+                      "Failed to renew lease from property detail",
+                      error,
+                    );
+                  });
+                }}
+              />
             </div>
           </div>
 

@@ -38,6 +38,39 @@ const getInvoicePendingAmount = (invoice: Invoice): number => {
   return Math.max(0, total - amountPaid);
 };
 
+async function loadLeaseFinancialData(leaseId: string) {
+  const account = await tenantAccountsApi.getByLease(leaseId);
+
+  const invoicesResult = await invoicesApi
+    .getAll({ leaseId, limit: 100 })
+    .catch(() => ({ data: [] as Invoice[] }));
+
+  const openInvoices = invoicesResult.data
+    .filter(
+      (invoice) =>
+        OPEN_INVOICE_STATUSES.has(invoice.status) &&
+        getInvoicePendingAmount(invoice) > 0,
+    )
+    .sort(
+      (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
+    );
+
+  let balance: AccountBalance | null = null;
+  let movements: TenantAccountMovement[] = [];
+
+  if (account) {
+    const [balanceResult, movementsResult] = await Promise.allSettled([
+      tenantAccountsApi.getBalance(account.id),
+      tenantAccountsApi.getMovements(account.id),
+    ]);
+    balance = balanceResult.status === "fulfilled" ? balanceResult.value : null;
+    movements =
+      movementsResult.status === "fulfilled" ? movementsResult.value : [];
+  }
+
+  return { account, balance, movements, openInvoices };
+}
+
 export default function TenantPaymentRegistrationPage() {
   const { loading: authLoading, token } = useAuth();
   const t = useTranslations("tenants");
@@ -151,49 +184,16 @@ export default function TenantPaymentRegistrationPage() {
           leaseHistory[0] ??
           null;
 
-        let account: TenantAccount | null = null;
-        let nextBalance: AccountBalance | null = null;
-        let nextMovements: TenantAccountMovement[] = [];
-        let nextOpenInvoices: Invoice[] = [];
-
-        if (currentLease) {
-          account = await tenantAccountsApi.getByLease(currentLease.id);
-
-          const invoicesResult = await invoicesApi
-            .getAll({ leaseId: currentLease.id, limit: 100 })
-            .catch(() => ({ data: [] as Invoice[] }));
-
-          nextOpenInvoices = invoicesResult.data
-            .filter(
-              (invoice) =>
-                OPEN_INVOICE_STATUSES.has(invoice.status) &&
-                getInvoicePendingAmount(invoice) > 0,
-            )
-            .sort(
-              (a, b) =>
-                new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
-            );
-
-          if (account) {
-            const [balanceResult, movementsResult] = await Promise.allSettled([
-              tenantAccountsApi.getBalance(account.id),
-              tenantAccountsApi.getMovements(account.id),
-            ]);
-            nextBalance =
-              balanceResult.status === "fulfilled" ? balanceResult.value : null;
-            nextMovements =
-              movementsResult.status === "fulfilled"
-                ? movementsResult.value
-                : [];
-          }
-        }
+        const financial = currentLease
+          ? await loadLeaseFinancialData(currentLease.id)
+          : { account: null, balance: null, movements: [], openInvoices: [] };
 
         setTenant(data);
         setLeases(leaseHistory);
-        setTenantAccount(account);
-        setAccountBalance(nextBalance);
-        setMovements(nextMovements);
-        setOpenInvoices(nextOpenInvoices);
+        setTenantAccount(financial.account);
+        setAccountBalance(financial.balance);
+        setMovements(financial.movements);
+        setOpenInvoices(financial.openInvoices);
       } catch (error) {
         console.error("Failed to load tenant payment registration data", error);
         setTenant(null);

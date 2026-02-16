@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
-import { useForm, Resolver } from "react-hook-form";
+import { useForm, Resolver, UseFormSetValue } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CreateLeaseInput, Lease, LeaseTemplate } from "@/types/lease";
 import { Owner } from "@/types/owner";
@@ -9,6 +9,7 @@ import { leasesApi } from "@/lib/api/leases";
 import { propertiesApi } from "@/lib/api/properties";
 import { ownersApi } from "@/lib/api/owners";
 import { interestedApi } from "@/lib/api/interested";
+import { InterestedProfile } from "@/types/interested";
 import { Property } from "@/types/property";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { Loader2 } from "lucide-react";
@@ -110,6 +111,133 @@ const getLeaseNumber = (lease?: Lease): string | undefined => {
   }
   return undefined;
 };
+
+function getProfileOperations(profile: InterestedProfile): string[] {
+  return profile.operations ?? (profile.operation ? [profile.operation] : []);
+}
+
+function formatProfileLabel(profile: InterestedProfile): string {
+  return (
+    `${profile.firstName ?? ""} ${profile.lastName ?? ""}`.trim() ||
+    profile.phone
+  );
+}
+
+function buildTenantOptions(
+  profiles: InterestedProfile[],
+): LeaseTenantOption[] {
+  const tenantProfiles = profiles.filter((profile) => {
+    const ops = getProfileOperations(profile);
+    return !!profile.convertedToTenantId && ops.includes("rent");
+  });
+
+  const mapped = tenantProfiles.map((profile) => ({
+    id: profile.convertedToTenantId as string,
+    label: formatProfileLabel(profile),
+    firstName: profile.firstName,
+    lastName: profile.lastName,
+    email: profile.email,
+    phone: profile.phone,
+  }));
+
+  return mapped.filter(
+    (option, index, all) =>
+      all.findIndex((item) => item.id === option.id) === index,
+  );
+}
+
+function buildBuyerOptions(profiles: InterestedProfile[]): LeaseBuyerOption[] {
+  return profiles
+    .filter((profile) => getProfileOperations(profile).includes("sale"))
+    .map((profile) => ({
+      id: profile.id,
+      label: formatProfileLabel(profile),
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      email: profile.email,
+      phone: profile.phone,
+    }));
+}
+
+async function ensurePropertyLoaded(
+  propertyId: string | null,
+  existing: Property[],
+): Promise<Property[]> {
+  if (!propertyId) return existing;
+  if (existing.some((p) => p.id === propertyId)) return existing;
+
+  const property = await propertiesApi.getById(propertyId);
+  return property ? [property, ...existing] : existing;
+}
+
+async function ensureOwnerLoaded(
+  ownerId: string | undefined,
+  existing: Owner[],
+): Promise<Owner[]> {
+  if (!ownerId) return existing;
+  if (existing.some((o) => o.id === ownerId)) return existing;
+
+  const owner = await ownersApi.getById(ownerId);
+  return owner ? [owner, ...existing] : existing;
+}
+
+function syncContractType(
+  selectedProperty: Property | undefined,
+  shouldLock: boolean,
+  hasPreselectedTenant: boolean,
+  hasPreselectedBuyer: boolean,
+  contractType: string,
+  supportsRent: boolean,
+  supportsSale: boolean,
+  setValue: UseFormSetValue<LeaseFormData>,
+) {
+  if (!selectedProperty) return;
+
+  if (shouldLock) {
+    if (hasPreselectedTenant && contractType !== "rental") {
+      setValue("contractType", "rental", { shouldValidate: true });
+    }
+    if (hasPreselectedBuyer && contractType !== "sale") {
+      setValue("contractType", "sale", { shouldValidate: true });
+    }
+    return;
+  }
+
+  if (supportsRent && !supportsSale) {
+    if (contractType !== "rental") {
+      setValue("contractType", "rental", { shouldValidate: true });
+    }
+    setValue("buyerProfileId", undefined, { shouldValidate: true });
+    return;
+  }
+
+  if (!supportsRent && supportsSale) {
+    if (contractType !== "sale") {
+      setValue("contractType", "sale", { shouldValidate: true });
+    }
+    setValue("tenantId", undefined, { shouldValidate: true });
+    return;
+  }
+
+  if (contractType !== "rental" && contractType !== "sale") {
+    setValue("contractType", "rental", { shouldValidate: true });
+  }
+}
+
+function resolveContractType(
+  shouldLock: boolean,
+  hasPreselectedBuyer: boolean,
+  supportsRent: boolean,
+  supportsSale: boolean,
+  formContractType: string,
+): "rental" | "sale" {
+  if (shouldLock) {
+    return hasPreselectedBuyer ? "sale" : "rental";
+  }
+  if (supportsRent && !supportsSale) return "rental";
+  if (!supportsRent && supportsSale) return "sale";
+  return formContractType === "sale" ? "sale" : "rental";
+}
 
 export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const router = useLocalizedRouter();
@@ -236,86 +364,25 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
             ownersApi.getAll(),
             leasesApi.getTemplates(),
           ]);
-        let resolvedProperties = props;
-        let resolvedOwners = owns;
 
-        if (
-          preselectedPropertyId &&
-          !resolvedProperties.some(
-            (property) => property.id === preselectedPropertyId,
-          )
-        ) {
-          const preselectedProperty = await propertiesApi.getById(
-            preselectedPropertyId,
-          );
-          if (preselectedProperty) {
-            resolvedProperties = [preselectedProperty, ...resolvedProperties];
-          }
-        }
+        const resolvedProperties = await ensurePropertyLoaded(
+          preselectedPropertyId,
+          props,
+        );
 
         const ownerIdFromPreselectedProperty = resolvedProperties.find(
           (property) => property.id === preselectedPropertyId,
         )?.ownerId;
-        if (
-          ownerIdFromPreselectedProperty &&
-          !resolvedOwners.some(
-            (owner) => owner.id === ownerIdFromPreselectedProperty,
-          )
-        ) {
-          const ownerFromPreselectedProperty = await ownersApi.getById(
-            ownerIdFromPreselectedProperty,
-          );
-          if (ownerFromPreselectedProperty) {
-            resolvedOwners = [ownerFromPreselectedProperty, ...resolvedOwners];
-          }
-        }
+        const resolvedOwners = await ensureOwnerLoaded(
+          ownerIdFromPreselectedProperty,
+          owns,
+        );
 
-        const options = interestedResponse.data
-          .filter((profile) => {
-            const profileOperations =
-              profile.operations ??
-              (profile.operation ? [profile.operation] : []);
-            return (
-              !!profile.convertedToTenantId &&
-              profileOperations.includes("rent")
-            );
-          })
-          .map((profile) => ({
-            id: profile.convertedToTenantId as string,
-            label:
-              `${profile.firstName ?? ""} ${profile.lastName ?? ""}`.trim() ||
-              profile.phone,
-            firstName: profile.firstName,
-            lastName: profile.lastName,
-            email: profile.email,
-            phone: profile.phone,
-          }))
-          .filter(
-            (option, index, all) =>
-              all.findIndex((item) => item.id === option.id) === index,
-          );
-
-        const saleProfiles = interestedResponse.data
-          .filter((profile) => {
-            const profileOperations =
-              profile.operations ??
-              (profile.operation ? [profile.operation] : []);
-            return profileOperations.includes("sale");
-          })
-          .map((profile) => ({
-            id: profile.id,
-            label:
-              `${profile.firstName ?? ""} ${profile.lastName ?? ""}`.trim() ||
-              profile.phone,
-            firstName: profile.firstName,
-            lastName: profile.lastName,
-            email: profile.email,
-            phone: profile.phone,
-          }));
+        const profiles = interestedResponse.data;
 
         setProperties(resolvedProperties);
-        setTenantOptions(options);
-        setBuyerOptions(saleProfiles);
+        setTenantOptions(buildTenantOptions(profiles));
+        setBuyerOptions(buildBuyerOptions(profiles));
         setOwners(resolvedOwners);
         setTemplates(leaseTemplates);
       } catch (error) {
@@ -381,37 +448,16 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   }, [selectedOwnerId, selectedProperty, setValue]);
 
   useEffect(() => {
-    if (!selectedProperty) return;
-
-    if (shouldLockContractTypeByInterested) {
-      if (hasPreselectedTenant && contractType !== "rental") {
-        setValue("contractType", "rental", { shouldValidate: true });
-      }
-      if (hasPreselectedBuyer && contractType !== "sale") {
-        setValue("contractType", "sale", { shouldValidate: true });
-      }
-      return;
-    }
-
-    if (selectedPropertySupportsRent && !selectedPropertySupportsSale) {
-      if (contractType !== "rental") {
-        setValue("contractType", "rental", { shouldValidate: true });
-      }
-      setValue("buyerProfileId", undefined, { shouldValidate: true });
-      return;
-    }
-
-    if (!selectedPropertySupportsRent && selectedPropertySupportsSale) {
-      if (contractType !== "sale") {
-        setValue("contractType", "sale", { shouldValidate: true });
-      }
-      setValue("tenantId", undefined, { shouldValidate: true });
-      return;
-    }
-
-    if (contractType !== "rental" && contractType !== "sale") {
-      setValue("contractType", "rental", { shouldValidate: true });
-    }
+    syncContractType(
+      selectedProperty,
+      shouldLockContractTypeByInterested,
+      hasPreselectedTenant,
+      hasPreselectedBuyer,
+      contractType,
+      selectedPropertySupportsRent,
+      selectedPropertySupportsSale,
+      setValue,
+    );
   }, [
     contractType,
     hasPreselectedBuyer,
@@ -618,15 +664,13 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     setIsSubmitting(true);
     try {
       const resolvedOwnerId = selectedProperty?.ownerId ?? data.ownerId;
-      const resolvedContractType = shouldLockContractTypeByInterested
-        ? hasPreselectedBuyer
-          ? "sale"
-          : "rental"
-        : selectedPropertySupportsRent && !selectedPropertySupportsSale
-          ? "rental"
-          : !selectedPropertySupportsRent && selectedPropertySupportsSale
-            ? "sale"
-            : data.contractType;
+      const resolvedContractType = resolveContractType(
+        shouldLockContractTypeByInterested,
+        hasPreselectedBuyer,
+        selectedPropertySupportsRent,
+        selectedPropertySupportsSale,
+        data.contractType,
+      );
 
       const payload: LeaseFormData = {
         ...data,
