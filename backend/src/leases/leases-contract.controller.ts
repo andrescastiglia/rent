@@ -48,9 +48,10 @@ export class LeasesContractController {
       document.fileUrl,
     );
 
+    const filename = document.name || `contrato-${id}.pdf`;
     res.set({
       'Content-Type': contentType,
-      'Content-Disposition': `attachment; filename="${document.name || `contrato-${id}.pdf`}"`,
+      'Content-Disposition': `attachment; filename="${filename}"`,
     });
 
     return res.send(buffer);

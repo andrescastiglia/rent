@@ -9,6 +9,35 @@ import { Search, Loader2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
 
+function LeasesList({
+  leases,
+  t,
+}: {
+  leases: Lease[];
+  t: (key: string) => string;
+}) {
+  if (leases.length === 0) {
+    return (
+      <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">
+        <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+          {t("noLeases")}
+        </h3>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          {t("noLeasesDescription")}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {leases.map((lease) => (
+        <LeaseCard key={lease.id} lease={lease} />
+      ))}
+    </div>
+  );
+}
+
 export default function LeasesPage() {
   const { loading: authLoading } = useAuth();
   const t = useTranslations("leases");
@@ -90,21 +119,8 @@ export default function LeasesPage() {
         <div className="flex justify-center items-center h-64">
           <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
         </div>
-      ) : filteredLeases.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredLeases.map((lease) => (
-            <LeaseCard key={lease.id} lease={lease} />
-          ))}
-        </div>
       ) : (
-        <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">
-          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
-            {t("noLeases")}
-          </h3>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {t("noLeasesDescription")}
-          </p>
-        </div>
+        <LeasesList leases={filteredLeases} t={t} />
       )}
     </div>
   );

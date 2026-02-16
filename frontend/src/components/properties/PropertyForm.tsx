@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef } from "react";
-import { useForm, useFieldArray, Resolver } from "react-hook-form";
+import {
+  useForm,
+  useFieldArray,
+  Resolver,
+  UseFormRegister,
+} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CreatePropertyInput, Property } from "@/types/property";
 import { ImageUpload } from "./ImageUpload";
@@ -23,6 +28,62 @@ interface PropertyFormProps {
   readonly initialData?: Property;
   readonly isEditing?: boolean;
   readonly preselectedOwnerId?: string;
+}
+
+function OwnerField({
+  isOwnerLocked,
+  isAdmin,
+  activeOwner,
+  owners,
+  register,
+  t,
+}: {
+  isOwnerLocked: boolean;
+  isAdmin: boolean;
+  activeOwner: Owner | undefined;
+  owners: Owner[];
+  register: UseFormRegister<PropertyFormData>;
+  t: (key: string) => string;
+}) {
+  if (isOwnerLocked) {
+    return (
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          {t("fields.owner")}
+        </label>
+        <p className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-xs sm:text-sm border p-2 bg-gray-100 dark:bg-gray-900/40 dark:text-white">
+          {activeOwner
+            ? `${activeOwner.firstName} ${activeOwner.lastName}`.trim()
+            : "-"}
+        </p>
+      </div>
+    );
+  }
+
+  if (!isAdmin) return null;
+
+  return (
+    <div>
+      <label
+        htmlFor="ownerId"
+        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+      >
+        {t("fields.owner")}
+      </label>
+      <select
+        id="ownerId"
+        {...register("ownerId")}
+        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
+      >
+        <option value="">{t("selectOwner")}</option>
+        {owners.map((owner) => (
+          <option key={owner.id} value={owner.id}>
+            {owner.firstName} {owner.lastName}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 }
 
 export function PropertyForm({
@@ -338,39 +399,14 @@ export function PropertyForm({
             )}
           </div>
 
-          {isOwnerLocked ? (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                {t("fields.owner")}
-              </label>
-              <p className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-xs sm:text-sm border p-2 bg-gray-100 dark:bg-gray-900/40 dark:text-white">
-                {activeOwner
-                  ? `${activeOwner.firstName} ${activeOwner.lastName}`.trim()
-                  : "-"}
-              </p>
-            </div>
-          ) : user?.role === "admin" ? (
-            <div>
-              <label
-                htmlFor="ownerId"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                {t("fields.owner")}
-              </label>
-              <select
-                id="ownerId"
-                {...register("ownerId")}
-                className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
-              >
-                <option value="">{t("selectOwner")}</option>
-                {owners.map((owner) => (
-                  <option key={owner.id} value={owner.id}>
-                    {owner.firstName} {owner.lastName}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
+          <OwnerField
+            isOwnerLocked={isOwnerLocked}
+            isAdmin={user?.role === "admin"}
+            activeOwner={activeOwner}
+            owners={owners}
+            register={register}
+            t={t as (key: string) => string}
+          />
 
           <div>
             <label

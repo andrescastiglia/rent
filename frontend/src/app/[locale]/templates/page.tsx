@@ -16,6 +16,69 @@ import {
   TemplateScope,
 } from "@/components/templates/template-scopes";
 
+function TemplatesList({
+  templates,
+  isPaymentScope,
+  scope,
+  locale,
+  t,
+  tc,
+}: {
+  templates: EditableTemplate[];
+  isPaymentScope: boolean;
+  scope: TemplateScope;
+  locale: string;
+  t: (key: string) => string;
+  tc: (key: string) => string;
+}) {
+  if (templates.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center">
+        <p className="text-sm text-gray-600 dark:text-gray-300">{t("empty")}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {templates.map((template) => (
+        <div
+          key={template.id}
+          className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                {template.name}
+              </p>
+              <div className="mt-1 flex items-center gap-2 text-xs">
+                <span className="text-gray-500 dark:text-gray-400">
+                  {template.isActive ? t("active") : t("inactive")}
+                </span>
+                {isPaymentScope && template.isDefault ? (
+                  <span className="rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-0.5">
+                    {t("defaultLabel")}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            <Link
+              href={`/${locale}/templates/editor?scope=${scope}&templateId=${template.id}`}
+              className="inline-flex items-center gap-1 text-xs text-blue-700 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
+            >
+              <Pencil size={14} />
+              {tc("edit")}
+            </Link>
+          </div>
+          <p className="mt-3 text-xs text-gray-600 dark:text-gray-300 whitespace-pre-line">
+            {template.templateBody}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function TemplatesPage() {
   const t = useTranslations("templatesHub");
   const tc = useTranslations("common");
@@ -129,49 +192,15 @@ export default function TemplatesPage() {
         <div className="flex justify-center items-center h-52">
           <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
         </div>
-      ) : templates.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center">
-          <p className="text-sm text-gray-600 dark:text-gray-300">
-            {t("empty")}
-          </p>
-        </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {templates.map((template) => (
-            <div
-              key={template.id}
-              className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                    {template.name}
-                  </p>
-                  <div className="mt-1 flex items-center gap-2 text-xs">
-                    <span className="text-gray-500 dark:text-gray-400">
-                      {template.isActive ? t("active") : t("inactive")}
-                    </span>
-                    {isPaymentScope && template.isDefault ? (
-                      <span className="rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-0.5">
-                        {t("defaultLabel")}
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-                <Link
-                  href={`/${locale}/templates/editor?scope=${scope}&templateId=${template.id}`}
-                  className="inline-flex items-center gap-1 text-xs text-blue-700 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
-                >
-                  <Pencil size={14} />
-                  {tc("edit")}
-                </Link>
-              </div>
-              <p className="mt-3 text-xs text-gray-600 dark:text-gray-300 whitespace-pre-line">
-                {template.templateBody}
-              </p>
-            </div>
-          ))}
-        </div>
+        <TemplatesList
+          templates={templates}
+          isPaymentScope={isPaymentScope}
+          scope={scope}
+          locale={locale}
+          t={t}
+          tc={tc}
+        />
       )}
     </div>
   );

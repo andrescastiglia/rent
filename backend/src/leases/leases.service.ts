@@ -828,7 +828,6 @@ export class LeasesService {
       const resolvedTemplate = await this.resolveTemplateForLease(
         lease.companyId,
         effectiveType,
-        undefined,
       );
       lease.templateId = resolvedTemplate?.id ?? null;
       lease.templateName = resolvedTemplate?.name ?? null;
@@ -840,6 +839,13 @@ export class LeasesService {
     dto: UpdateLeaseDto,
     effectiveType: ContractType,
   ): void {
+    const resolvedEndDate =
+      dto.endDate !== undefined
+        ? dto.endDate
+          ? new Date(dto.endDate)
+          : null
+        : lease.endDate;
+
     Object.assign(lease, {
       ...dto,
       contractType: effectiveType,
@@ -849,12 +855,7 @@ export class LeasesService {
             ? new Date(dto.startDate)
             : null
           : lease.startDate,
-      endDate:
-        dto.endDate !== undefined
-          ? dto.endDate
-            ? new Date(dto.endDate)
-            : null
-          : lease.endDate,
+      endDate: resolvedEndDate,
     });
   }
 

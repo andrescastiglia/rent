@@ -20,6 +20,16 @@ export function TenantCard({ tenant }: TenantCardProps) {
     return t(`status.${statusKey}`);
   };
 
+  let statusColorClass =
+    "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
+  if (tenant.status === "ACTIVE") {
+    statusColorClass =
+      "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
+  } else if (tenant.status === "INACTIVE") {
+    statusColorClass =
+      "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
+  }
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-transform duration-300 hover:-translate-y-1 hover:shadow-lg border border-gray-100 dark:border-gray-700 p-6">
       <div className="flex items-start justify-between mb-4">
@@ -36,13 +46,7 @@ export function TenantCard({ tenant }: TenantCardProps) {
               {tenant.firstName} {tenant.lastName}
             </Link>
             <span
-              className={`inline-block px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide ${
-                tenant.status === "ACTIVE"
-                  ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                  : tenant.status === "INACTIVE"
-                    ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-                    : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-              }`}
+              className={`inline-block px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide ${statusColorClass}`}
             >
               {getStatusLabel(tenant.status)}
             </span>

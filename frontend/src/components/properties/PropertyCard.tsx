@@ -24,12 +24,12 @@ export function PropertyCard({ property }: PropertyCardProps) {
     property.salePrice !== undefined
       ? `${property.salePrice.toLocaleString(locale)}${saleCurrencySuffix}`
       : "-";
-  const statusClassName =
-    property.status === "ACTIVE"
-      ? "bg-green-500"
-      : property.status === "MAINTENANCE"
-        ? "bg-yellow-500"
-        : "bg-red-500";
+  let statusClassName = "bg-red-500";
+  if (property.status === "ACTIVE") {
+    statusClassName = "bg-green-500";
+  } else if (property.status === "MAINTENANCE") {
+    statusClassName = "bg-yellow-500";
+  }
 
   return (
     <Link href={`/${locale}/properties/${property.id}`} className="block group">

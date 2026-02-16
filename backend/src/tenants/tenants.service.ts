@@ -330,15 +330,17 @@ export class TenantsService {
       );
     }
 
+    const resolvedCompletedAt =
+      dto.completedAt !== undefined
+        ? dto.completedAt
+          ? new Date(dto.completedAt)
+          : null
+        : activity.completedAt;
+
     Object.assign(activity, {
       ...dto,
       dueAt: dto.dueAt ? new Date(dto.dueAt) : activity.dueAt,
-      completedAt:
-        dto.completedAt !== undefined
-          ? dto.completedAt
-            ? new Date(dto.completedAt)
-            : null
-          : activity.completedAt,
+      completedAt: resolvedCompletedAt,
     });
 
     if (

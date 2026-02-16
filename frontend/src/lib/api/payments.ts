@@ -363,10 +363,8 @@ export const paymentsApi = {
     if (filters?.limit) queryParams.append("limit", String(filters.limit));
 
     const query = queryParams.toString();
-    return apiClient.get<PaginatedResponse<Payment>>(
-      `/payments${query ? `?${query}` : ""}`,
-      token ?? undefined,
-    );
+    const path = query ? `/payments?${query}` : "/payments";
+    return apiClient.get<PaginatedResponse<Payment>>(path, token ?? undefined);
   },
 
   /**
@@ -611,10 +609,8 @@ export const invoicesApi = {
     if (filters?.limit) queryParams.append("limit", String(filters.limit));
 
     const query = queryParams.toString();
-    return apiClient.get<PaginatedResponse<Invoice>>(
-      `/invoices${query ? `?${query}` : ""}`,
-      token ?? undefined,
-    );
+    const path = query ? `/invoices?${query}` : "/invoices";
+    return apiClient.get<PaginatedResponse<Invoice>>(path, token ?? undefined);
   },
 
   /**

@@ -116,11 +116,12 @@ function UserFormPanel({
   const tAuth = useTranslations("auth");
   const tCommon = useTranslations("common");
 
-  const submitLabel = saving
-    ? tCommon("saving")
-    : editingUser
-      ? tCommon("save")
-      : tCommon("create");
+  let submitLabel = tCommon("create");
+  if (saving) {
+    submitLabel = tCommon("saving");
+  } else if (editingUser) {
+    submitLabel = tCommon("save");
+  }
 
   return (
     <form
@@ -437,7 +438,6 @@ function ResetPasswordDialog({
 export default function UsersPage() {
   const tUsers = useTranslations("users");
   const tCommon = useTranslations("common");
-  //const tAuth = useTranslations("auth");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

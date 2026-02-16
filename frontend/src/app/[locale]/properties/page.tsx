@@ -165,6 +165,47 @@ async function fetchLeasesByProperty(): Promise<Record<string, Lease[]>> {
   return groupLeasesByPropertyId(leases);
 }
 
+function MaintenanceTasksList({
+  tasks,
+  locale,
+  t,
+}: {
+  tasks: PropertyMaintenanceTask[];
+  locale: string;
+  t: (key: string) => string;
+}) {
+  if (tasks.length === 0) {
+    return (
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        {t("noMaintenanceTasks")}
+      </p>
+    );
+  }
+
+  return (
+    <>
+      {tasks.map((task) => (
+        <div
+          key={task.id}
+          className="rounded-md border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2"
+        >
+          <p className="text-sm font-medium text-gray-900 dark:text-white">
+            {task.title}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {new Date(task.scheduledAt).toLocaleString(locale)}
+          </p>
+          {task.notes ? (
+            <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+              {task.notes}
+            </p>
+          ) : null}
+        </div>
+      ))}
+    </>
+  );
+}
+
 type OwnerPropertyItemProps = {
   owner: Owner;
   property: Property;
@@ -219,7 +260,6 @@ function OwnerPropertyItem({
 
   const createContractHref = `/${locale}/leases/new?${createContractQuery.toString()}`;
   const propertyTasks = maintenanceByProperty[property.id] ?? [];
-  const hasPropertyTasks = propertyTasks.length > 0;
   const isExpanded = expandedPropertyId === property.id;
 
   const renderLeaseAction = () => {
@@ -351,29 +391,8 @@ function OwnerPropertyItem({
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               {tc("loading")}
             </div>
-          ) : hasPropertyTasks ? (
-            propertyTasks.map((task) => (
-              <div
-                key={task.id}
-                className="rounded-md border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2"
-              >
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  {task.title}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {new Date(task.scheduledAt).toLocaleString(locale)}
-                </p>
-                {task.notes ? (
-                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
-                    {task.notes}
-                  </p>
-                ) : null}
-              </div>
-            ))
           ) : (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {t("noMaintenanceTasks")}
-            </p>
+            <MaintenanceTasksList tasks={propertyTasks} locale={locale} t={t} />
           )}
         </div>
       ) : null}

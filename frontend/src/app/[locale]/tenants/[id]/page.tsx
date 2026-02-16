@@ -261,6 +261,16 @@ export default function TenantDetailPage() {
     );
   }
 
+  let statusColorClass =
+    "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
+  if (tenantToRender.status === "ACTIVE") {
+    statusColorClass =
+      "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
+  } else if (tenantToRender.status === "INACTIVE") {
+    statusColorClass =
+      "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
@@ -286,13 +296,7 @@ export default function TenantDetailPage() {
                     {tenantToRender.firstName} {tenantToRender.lastName}
                   </h1>
                   <span
-                    className={`px-2 py-1 rounded text-xs font-semibold uppercase tracking-wide ${
-                      tenantToRender.status === "ACTIVE"
-                        ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                        : tenantToRender.status === "INACTIVE"
-                          ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-                          : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-                    }`}
+                    className={`px-2 py-1 rounded text-xs font-semibold uppercase tracking-wide ${statusColorClass}`}
                   >
                     {getStatusLabel(tenantToRender.status)}
                   </span>
@@ -466,6 +470,9 @@ export default function TenantDetailPage() {
                       linkedInvoice?.arcaTipoComprobante?.startsWith(
                         "nota_debito_",
                       ) ?? false;
+                    const invoiceDownloadLabel = isDebitNote
+                      ? t("documents.downloadDebitNote")
+                      : t("documents.downloadInvoice");
 
                     return (
                       <div
@@ -526,9 +533,7 @@ export default function TenantDetailPage() {
                                 <Download size={12} className="mr-1" />
                                 {downloadingInvoiceId === linkedInvoice.id
                                   ? tCommon("loading")
-                                  : isDebitNote
-                                    ? t("documents.downloadDebitNote")
-                                    : t("documents.downloadInvoice")}
+                                  : invoiceDownloadLabel}
                               </button>
                             ) : null}
 

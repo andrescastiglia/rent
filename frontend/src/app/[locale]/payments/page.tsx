@@ -11,6 +11,31 @@ import { useAuth } from "@/contexts/auth-context";
 import Link from "next/link";
 import { formatMoneyByCode } from "@/lib/format-money";
 
+function PaymentTimeline({
+  timeline,
+  renderItem,
+  t,
+}: {
+  timeline: PaymentTimelineItem[];
+  renderItem: (item: PaymentTimelineItem) => React.ReactNode;
+  t: (key: string) => string;
+}) {
+  if (timeline.length === 0) {
+    return (
+      <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">
+        <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+          {t("noPayments")}
+        </h3>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          {t("noPaymentsDescription")}
+        </p>
+      </div>
+    );
+  }
+
+  return <div className="space-y-3">{timeline.map(renderItem)}</div>;
+}
+
 type PaymentTimelineItem =
   | { kind: "tenant"; date: string; payment: Payment }
   | { kind: "owner"; date: string; payment: OwnerSettlementSummary };
@@ -257,17 +282,12 @@ export default function PaymentsPage() {
         <div className="flex justify-center items-center h-64">
           <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
         </div>
-      ) : timeline.length > 0 ? (
-        <div className="space-y-3">{timeline.map(renderTimelineItem)}</div>
       ) : (
-        <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">
-          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
-            {t("noPayments")}
-          </h3>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {t("noPaymentsDescription")}
-          </p>
-        </div>
+        <PaymentTimeline
+          timeline={timeline}
+          renderItem={renderTimelineItem}
+          t={t}
+        />
       )}
     </div>
   );

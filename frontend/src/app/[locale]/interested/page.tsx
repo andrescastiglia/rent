@@ -139,6 +139,129 @@ function getProfileOperations(
   );
 }
 
+type ProfileExpandedDetailProps = {
+  isLoading: boolean;
+  summary: InterestedSummary | null;
+  selectedProfile: InterestedProfile | null;
+  confirmingMatchId: string | null;
+  sortedActivities: InterestedActivity[];
+  locale: string;
+  t: (key: string) => string;
+  formatMatchReason: (reason: string) => string;
+  formatActivityText: (
+    value?: string,
+    metadata?: Record<string, unknown>,
+  ) => string | undefined;
+  resolveMatchConfirmationAction: (
+    profile: InterestedProfile,
+    match: InterestedMatch,
+  ) => "rent" | "sale" | null;
+  resolveMatchContractLinks: (
+    profile: InterestedProfile,
+    match: InterestedMatch,
+  ) => ContractLink[];
+  onConfirm: (match: InterestedMatch) => void;
+  getConfirmMatchLabel: (
+    action: "rent" | "sale" | null | undefined,
+    isConfirming: boolean,
+  ) => string;
+};
+
+function ProfileExpandedDetail({
+  isLoading,
+  summary,
+  selectedProfile,
+  confirmingMatchId,
+  sortedActivities,
+  locale,
+  t,
+  formatMatchReason,
+  formatActivityText,
+  resolveMatchConfirmationAction,
+  resolveMatchContractLinks,
+  onConfirm,
+  getConfirmMatchLabel,
+}: ProfileExpandedDetailProps) {
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-6">
+        <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 border-t border-blue-200/70 dark:border-blue-900 pt-3">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+          {t("matchesTitle")}
+        </h3>
+      </div>
+
+      {summary?.matches?.length ? (
+        <div className="space-y-2">
+          {summary.matches.map((match) => (
+            <MatchCard
+              key={match.id}
+              match={match}
+              selectedProfile={selectedProfile}
+              confirmingMatchId={confirmingMatchId}
+              t={t}
+              formatMatchReason={formatMatchReason}
+              resolveMatchConfirmationAction={resolveMatchConfirmationAction}
+              resolveMatchContractLinks={resolveMatchContractLinks}
+              onConfirm={onConfirm}
+              getConfirmMatchLabel={getConfirmMatchLabel}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          {t("noMatches")}
+        </p>
+      )}
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+          {t("activities.title")}
+        </h3>
+        {sortedActivities.length > 0 ? (
+          <div className="space-y-2">
+            {sortedActivities.map((activity: InterestedActivity) => (
+              <div
+                key={activity.id}
+                className="border border-gray-200 dark:border-gray-700 rounded-md p-3 bg-white/70 dark:bg-gray-900/20"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {formatActivityText(activity.subject, activity.metadata)}
+                  </p>
+                  <span className="text-xs px-2 py-1 rounded-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                    {t(`activityStatus.${activity.status}`)}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {t(`activityTypes.${activity.type}`)} ·{" "}
+                  {new Date(activity.createdAt).toLocaleString(locale)}
+                </p>
+                {activity.body ? (
+                  <p className="text-xs text-gray-700 dark:text-gray-300 mt-2 whitespace-pre-wrap">
+                    {formatActivityText(activity.body, activity.metadata)}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {t("activities.empty")}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function InterestedPage() {
   const { loading: authLoading } = useAuth();
   const t = useTranslations("interested");
@@ -609,96 +732,25 @@ export default function InterestedPage() {
                     </Link>
                   </div>
 
-                  {isSelected ? (
-                    loadingDetail && !hasLoadedSummary ? (
-                      <div className="flex justify-center py-6">
-                        <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-                      </div>
-                    ) : (
-                      <div className="space-y-3 border-t border-blue-200/70 dark:border-blue-900 pt-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                            {t("matchesTitle")}
-                          </h3>
-                        </div>
-
-                        {summary?.matches?.length ? (
-                          <div className="space-y-2">
-                            {summary.matches.map((match) => (
-                              <MatchCard
-                                key={match.id}
-                                match={match}
-                                selectedProfile={selectedProfile}
-                                confirmingMatchId={confirmingMatchId}
-                                t={t}
-                                formatMatchReason={formatMatchReason}
-                                resolveMatchConfirmationAction={
-                                  resolveMatchConfirmationAction
-                                }
-                                resolveMatchContractLinks={
-                                  resolveMatchContractLinks
-                                }
-                                onConfirm={handleConfirmMatchClick}
-                                getConfirmMatchLabel={getConfirmMatchLabel}
-                              />
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {t("noMatches")}
-                          </p>
-                        )}
-
-                        <div className="space-y-2">
-                          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                            {t("activities.title")}
-                          </h3>
-                          {sortedActivities.length > 0 ? (
-                            <div className="space-y-2">
-                              {sortedActivities.map(
-                                (activity: InterestedActivity) => (
-                                  <div
-                                    key={activity.id}
-                                    className="border border-gray-200 dark:border-gray-700 rounded-md p-3 bg-white/70 dark:bg-gray-900/20"
-                                  >
-                                    <div className="flex flex-wrap items-center justify-between gap-2">
-                                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                        {formatActivityText(
-                                          activity.subject,
-                                          activity.metadata,
-                                        )}
-                                      </p>
-                                      <span className="text-xs px-2 py-1 rounded-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-                                        {t(`activityStatus.${activity.status}`)}
-                                      </span>
-                                    </div>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                      {t(`activityTypes.${activity.type}`)} ·{" "}
-                                      {new Date(
-                                        activity.createdAt,
-                                      ).toLocaleString(locale)}
-                                    </p>
-                                    {activity.body ? (
-                                      <p className="text-xs text-gray-700 dark:text-gray-300 mt-2 whitespace-pre-wrap">
-                                        {formatActivityText(
-                                          activity.body,
-                                          activity.metadata,
-                                        )}
-                                      </p>
-                                    ) : null}
-                                  </div>
-                                ),
-                              )}
-                            </div>
-                          ) : (
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              {t("activities.empty")}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  ) : null}
+                  {isSelected && (
+                    <ProfileExpandedDetail
+                      isLoading={loadingDetail && !hasLoadedSummary}
+                      summary={summary}
+                      selectedProfile={selectedProfile}
+                      confirmingMatchId={confirmingMatchId}
+                      sortedActivities={sortedActivities}
+                      locale={locale}
+                      t={t}
+                      formatMatchReason={formatMatchReason}
+                      formatActivityText={formatActivityText}
+                      resolveMatchConfirmationAction={
+                        resolveMatchConfirmationAction
+                      }
+                      resolveMatchContractLinks={resolveMatchContractLinks}
+                      onConfirm={handleConfirmMatchClick}
+                      getConfirmMatchLabel={getConfirmMatchLabel}
+                    />
+                  )}
                 </div>
               );
             })}

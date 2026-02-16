@@ -8,6 +8,103 @@ import { Search, Loader2, Edit, Wallet, Plus } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
 
+function TenantsList({
+  tenants,
+  locale,
+  t,
+  tc,
+  getStatusLabel,
+}: {
+  tenants: Tenant[];
+  locale: string;
+  t: (key: string) => string;
+  tc: (key: string) => string;
+  getStatusLabel: (status: string) => string;
+}) {
+  if (tenants.length === 0) {
+    return (
+      <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">
+        <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+          {t("noTenants")}
+        </h3>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          {t("noTenantsDescription")}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
+      {tenants.map((tenant) => {
+        let statusColorClass =
+          "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
+        if (tenant.status === "ACTIVE") {
+          statusColorClass =
+            "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
+        } else if (tenant.status === "INACTIVE") {
+          statusColorClass =
+            "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
+        }
+
+        return (
+          <div
+            key={tenant.id}
+            className="rounded-lg border border-gray-200 dark:border-gray-700 p-3"
+          >
+            <div className="flex flex-col md:flex-row md:items-center gap-3">
+              <div className="min-w-0">
+                <Link
+                  href={`/${locale}/tenants/${tenant.id}`}
+                  data-testid="tenant-detail-link"
+                  className="font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-300"
+                >
+                  {tenant.firstName} {tenant.lastName}
+                </Link>
+                <p className="text-xs text-gray-500 dark:text-gray-400 break-all">
+                  {tenant.email}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {tenant.phone || "-"}
+                </p>
+              </div>
+
+              <div className="md:ml-auto flex flex-wrap items-center gap-2">
+                <span
+                  className={`inline-block px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide ${statusColorClass}`}
+                >
+                  {getStatusLabel(tenant.status)}
+                </span>
+                <Link
+                  href={`/${locale}/tenants/${tenant.id}/edit`}
+                  className="action-link action-link-primary"
+                >
+                  <Edit size={14} />
+                  {tc("edit")}
+                </Link>
+                <Link
+                  href={`/${locale}/tenants/${tenant.id}/payments/new`}
+                  className="action-link action-link-success"
+                >
+                  <Wallet size={14} />
+                  {t("paymentRegistration.submit")}
+                </Link>
+                <Link
+                  href={`/${locale}/tenants/${tenant.id}/activities/new`}
+                  className="action-link action-link-primary"
+                >
+                  <Plus size={14} />
+                  {t("activities.add")}
+                </Link>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function TenantsPage() {
   const { loading: authLoading } = useAuth();
   const t = useTranslations("tenants");
@@ -79,77 +176,14 @@ export default function TenantsPage() {
         <div className="flex justify-center items-center h-64">
           <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
         </div>
-      ) : filteredTenants.length > 0 ? (
-        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
-          {filteredTenants.map((tenant) => (
-            <div
-              key={tenant.id}
-              className="rounded-lg border border-gray-200 dark:border-gray-700 p-3"
-            >
-              <div className="flex flex-col md:flex-row md:items-center gap-3">
-                <div className="min-w-0">
-                  <Link
-                    href={`/${locale}/tenants/${tenant.id}`}
-                    data-testid="tenant-detail-link"
-                    className="font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-300"
-                  >
-                    {tenant.firstName} {tenant.lastName}
-                  </Link>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 break-all">
-                    {tenant.email}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {tenant.phone || "-"}
-                  </p>
-                </div>
-
-                <div className="md:ml-auto flex flex-wrap items-center gap-2">
-                  <span
-                    className={`inline-block px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide ${
-                      tenant.status === "ACTIVE"
-                        ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                        : tenant.status === "INACTIVE"
-                          ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-                          : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-                    }`}
-                  >
-                    {getStatusLabel(tenant.status)}
-                  </span>
-                  <Link
-                    href={`/${locale}/tenants/${tenant.id}/edit`}
-                    className="action-link action-link-primary"
-                  >
-                    <Edit size={14} />
-                    {tc("edit")}
-                  </Link>
-                  <Link
-                    href={`/${locale}/tenants/${tenant.id}/payments/new`}
-                    className="action-link action-link-success"
-                  >
-                    <Wallet size={14} />
-                    {t("paymentRegistration.submit")}
-                  </Link>
-                  <Link
-                    href={`/${locale}/tenants/${tenant.id}/activities/new`}
-                    className="action-link action-link-primary"
-                  >
-                    <Plus size={14} />
-                    {t("activities.add")}
-                  </Link>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
       ) : (
-        <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">
-          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
-            {t("noTenants")}
-          </h3>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {t("noTenantsDescription")}
-          </p>
-        </div>
+        <TenantsList
+          tenants={filteredTenants}
+          locale={locale}
+          t={t}
+          tc={tc}
+          getStatusLabel={getStatusLabel}
+        />
       )}
     </div>
   );

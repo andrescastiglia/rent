@@ -6,6 +6,7 @@ import {
   Resolver,
   UseFormRegister,
   UseFormSetValue,
+  FieldErrors,
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CreateLeaseInput, Lease, LeaseTemplate } from "@/types/lease";
@@ -198,15 +199,26 @@ function setContractTypeIfNeeded(
 
 function syncContractType(
   selectedProperty: Property | undefined,
-  shouldLock: boolean,
-  hasPreselectedTenant: boolean,
-  hasPreselectedBuyer: boolean,
-  contractType: string,
-  supportsRent: boolean,
-  supportsSale: boolean,
+  options: {
+    shouldLock: boolean;
+    hasPreselectedTenant: boolean;
+    hasPreselectedBuyer: boolean;
+    contractType: string;
+    supportsRent: boolean;
+    supportsSale: boolean;
+  },
   setValue: UseFormSetValue<LeaseFormData>,
 ) {
   if (!selectedProperty) return;
+
+  const {
+    shouldLock,
+    hasPreselectedTenant,
+    hasPreselectedBuyer,
+    contractType,
+    supportsRent,
+    supportsSale,
+  } = options;
 
   if (shouldLock) {
     if (hasPreselectedTenant) {
@@ -575,6 +587,220 @@ function AdjustmentFields({
   );
 }
 
+function resolveOwnerDisplayName(
+  selectedOwner: Owner | undefined,
+  preselectedOwnerName: string | null,
+): string {
+  if (!selectedOwner) return preselectedOwnerName ?? "-";
+  const fullName =
+    `${selectedOwner.firstName} ${selectedOwner.lastName}`.trim();
+  return fullName || preselectedOwnerName || "-";
+}
+
+function resolveContractTypeHelperText(
+  shouldLock: boolean,
+  hasResolvable: boolean,
+  t: (key: string) => string,
+): string {
+  if (shouldLock) return t("contractTypeFixedByInterested");
+  if (hasResolvable) return t("contractTypeFixedByProperty");
+  return t("selectProperty");
+}
+
+interface ContractPartyFieldsProps {
+  readonly contractType: string;
+  readonly hasPreselectedTenant: boolean;
+  readonly hasPreselectedBuyer: boolean;
+  readonly register: UseFormRegister<LeaseFormData>;
+  readonly selectedTenantOption: LeaseTenantOption | undefined;
+  readonly preselectedTenantId: string | null;
+  readonly preselectedBuyerProfileId: string | null;
+  readonly selectedBuyerOption: LeaseBuyerOption | undefined;
+  readonly tenantOptions: readonly LeaseTenantOption[];
+  readonly buyerOptions: readonly LeaseBuyerOption[];
+  readonly inputClass: string;
+  readonly readOnlyInputClass: string;
+  readonly labelClass: string;
+  readonly errors: FieldErrors<LeaseFormData>;
+  readonly t: (key: string) => string;
+}
+
+function ContractPartyFields({
+  contractType,
+  hasPreselectedTenant,
+  hasPreselectedBuyer,
+  register,
+  selectedTenantOption,
+  preselectedTenantId,
+  preselectedBuyerProfileId,
+  selectedBuyerOption,
+  tenantOptions,
+  buyerOptions,
+  inputClass,
+  readOnlyInputClass,
+  labelClass,
+  errors,
+  t,
+}: ContractPartyFieldsProps) {
+  if (contractType === "rental") {
+    return (
+      <>
+        {hasPreselectedTenant ? (
+          <div>
+            <input type="hidden" {...register("tenantId")} />
+            <label className={labelClass}>{t("fields.tenant")}</label>
+            <p className={readOnlyInputClass}>
+              {selectedTenantOption?.label ?? preselectedTenantId}
+            </p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {t("prefilledFieldHint")}
+            </p>
+          </div>
+        ) : (
+          <div>
+            <label htmlFor="tenantId" className={labelClass}>
+              {t("fields.tenant")}
+            </label>
+            <select
+              id="tenantId"
+              {...register("tenantId")}
+              className={inputClass}
+            >
+              <option value="">{t("selectTenant")}</option>
+              {tenantOptions.map((tenant) => (
+                <option key={tenant.id} value={tenant.id}>
+                  {tenant.label}
+                </option>
+              ))}
+            </select>
+            <ErrorMessage message={errors.tenantId?.message} />
+          </div>
+        )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="startDate" className={labelClass}>
+              {t("fields.startDate")}
+            </label>
+            <input
+              id="startDate"
+              type="date"
+              {...register("startDate")}
+              className={inputClass}
+            />
+            <ErrorMessage message={errors.startDate?.message} />
+          </div>
+          <div>
+            <label htmlFor="endDate" className={labelClass}>
+              {t("fields.endDate")}
+            </label>
+            <input
+              id="endDate"
+              type="date"
+              {...register("endDate")}
+              className={inputClass}
+            />
+            <ErrorMessage message={errors.endDate?.message} />
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {hasPreselectedBuyer ? (
+        <div>
+          <input type="hidden" {...register("buyerProfileId")} />
+          <label className={labelClass}>{t("fields.buyer")}</label>
+          <p className={readOnlyInputClass}>
+            {selectedBuyerOption?.label ?? preselectedBuyerProfileId}
+          </p>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {t("prefilledFieldHint")}
+          </p>
+        </div>
+      ) : (
+        <div>
+          <label htmlFor="buyerProfileId" className={labelClass}>
+            {t("fields.buyer")}
+          </label>
+          <select
+            id="buyerProfileId"
+            {...register("buyerProfileId")}
+            className={inputClass}
+          >
+            <option value="">{t("selectBuyer")}</option>
+            {buyerOptions.map((buyer) => (
+              <option key={buyer.id} value={buyer.id}>
+                {buyer.label}
+              </option>
+            ))}
+          </select>
+          <ErrorMessage message={errors.buyerProfileId?.message} />
+        </div>
+      )}
+      <div>
+        <label htmlFor="fiscalValue" className={labelClass}>
+          {t("fields.fiscalValue")}
+        </label>
+        <input
+          id="fiscalValue"
+          type="number"
+          {...register("fiscalValue")}
+          className={inputClass}
+        />
+        <ErrorMessage message={errors.fiscalValue?.message} />
+      </div>
+    </div>
+  );
+}
+
+interface TermsSectionProps {
+  readonly register: UseFormRegister<LeaseFormData>;
+  readonly selectedTemplate: LeaseTemplate | undefined;
+  readonly inputClass: string;
+  readonly readOnlyInputClass: string;
+  readonly labelClass: string;
+  readonly sectionClass: string;
+  readonly t: (key: string) => string;
+}
+
+function TermsSection({
+  register,
+  selectedTemplate,
+  inputClass,
+  readOnlyInputClass,
+  labelClass,
+  sectionClass,
+  t,
+}: TermsSectionProps) {
+  const rows = selectedTemplate ? 12 : 6;
+  const className = selectedTemplate ? readOnlyInputClass : inputClass;
+
+  return (
+    <div className={sectionClass}>
+      <div>
+        <label htmlFor="terms" className={labelClass}>
+          {t("termsAndConditions")}
+        </label>
+        <textarea
+          id="terms"
+          {...register("terms")}
+          rows={rows}
+          readOnly={Boolean(selectedTemplate)}
+          className={className}
+          placeholder={t("leaseTermsPlaceholder")}
+        />
+        {selectedTemplate ? (
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {t("templateAutofillHint")}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const router = useLocalizedRouter();
   const searchParams = useSearchParams();
@@ -679,16 +905,15 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     selectedPropertySupportsRent || selectedPropertySupportsSale;
   const selectedPropertyDisplayName =
     selectedProperty?.name ?? preselectedPropertyName ?? t("unknownProperty");
-  const selectedOwnerDisplayName =
-    selectedOwner &&
-    `${selectedOwner.firstName} ${selectedOwner.lastName}`.trim()
-      ? `${selectedOwner.firstName} ${selectedOwner.lastName}`.trim()
-      : (preselectedOwnerName ?? "-");
-  const contractTypeHelperText = shouldLockContractTypeByInterested
-    ? t("contractTypeFixedByInterested")
-    : hasResolvableContractTypeFromProperty
-      ? t("contractTypeFixedByProperty")
-      : t("selectProperty");
+  const selectedOwnerDisplayName = resolveOwnerDisplayName(
+    selectedOwner,
+    preselectedOwnerName,
+  );
+  const contractTypeHelperText = resolveContractTypeHelperText(
+    shouldLockContractTypeByInterested,
+    hasResolvableContractTypeFromProperty,
+    t as (key: string) => string,
+  );
 
   useEffect(() => {
     const loadData = async () => {
@@ -762,12 +987,14 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   useEffect(() => {
     syncContractType(
       selectedProperty,
-      shouldLockContractTypeByInterested,
-      hasPreselectedTenant,
-      hasPreselectedBuyer,
-      contractType,
-      selectedPropertySupportsRent,
-      selectedPropertySupportsSale,
+      {
+        shouldLock: shouldLockContractTypeByInterested,
+        hasPreselectedTenant,
+        hasPreselectedBuyer,
+        contractType,
+        supportsRent: selectedPropertySupportsRent,
+        supportsSale: selectedPropertySupportsSale,
+      },
       setValue,
     );
   }, [
@@ -1132,114 +1359,23 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           </div>
         </div>
 
-        {contractType === "rental" &&
-          (hasPreselectedTenant ? (
-            <div>
-              <input type="hidden" {...register("tenantId")} />
-              <label className={labelClass}>{t("fields.tenant")}</label>
-              <p className={readOnlyInputClass}>
-                {selectedTenantOption?.label ?? preselectedTenantId}
-              </p>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {t("prefilledFieldHint")}
-              </p>
-            </div>
-          ) : (
-            <div>
-              <label htmlFor="tenantId" className={labelClass}>
-                {t("fields.tenant")}
-              </label>
-              <select
-                id="tenantId"
-                {...register("tenantId")}
-                className={inputClass}
-              >
-                <option value="">{t("selectTenant")}</option>
-                {tenantOptions.map((tenant) => (
-                  <option key={tenant.id} value={tenant.id}>
-                    {tenant.label}
-                  </option>
-                ))}
-              </select>
-              <ErrorMessage message={errors.tenantId?.message} />
-            </div>
-          ))}
-
-        {contractType === "rental" ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="startDate" className={labelClass}>
-                {t("fields.startDate")}
-              </label>
-              <input
-                id="startDate"
-                type="date"
-                {...register("startDate")}
-                className={inputClass}
-              />
-              <ErrorMessage message={errors.startDate?.message} />
-            </div>
-
-            <div>
-              <label htmlFor="endDate" className={labelClass}>
-                {t("fields.endDate")}
-              </label>
-              <input
-                id="endDate"
-                type="date"
-                {...register("endDate")}
-                className={inputClass}
-              />
-              <ErrorMessage message={errors.endDate?.message} />
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {hasPreselectedBuyer ? (
-              <div>
-                <input type="hidden" {...register("buyerProfileId")} />
-                <label className={labelClass}>{t("fields.buyer")}</label>
-                <p className={readOnlyInputClass}>
-                  {selectedBuyerOption?.label ?? preselectedBuyerProfileId}
-                </p>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {t("prefilledFieldHint")}
-                </p>
-              </div>
-            ) : (
-              <div>
-                <label htmlFor="buyerProfileId" className={labelClass}>
-                  {t("fields.buyer")}
-                </label>
-                <select
-                  id="buyerProfileId"
-                  {...register("buyerProfileId")}
-                  className={inputClass}
-                >
-                  <option value="">{t("selectBuyer")}</option>
-                  {buyerOptions.map((buyer) => (
-                    <option key={buyer.id} value={buyer.id}>
-                      {buyer.label}
-                    </option>
-                  ))}
-                </select>
-                <ErrorMessage message={errors.buyerProfileId?.message} />
-              </div>
-            )}
-            <div>
-              <label htmlFor="fiscalValue" className={labelClass}>
-                {t("fields.fiscalValue")}
-              </label>
-              <input
-                id="fiscalValue"
-                type="number"
-                {...register("fiscalValue")}
-                className={inputClass}
-              />
-              <ErrorMessage message={errors.fiscalValue?.message} />
-            </div>
-          </div>
-        )}
+        <ContractPartyFields
+          contractType={contractType}
+          hasPreselectedTenant={hasPreselectedTenant}
+          hasPreselectedBuyer={hasPreselectedBuyer}
+          register={register}
+          selectedTenantOption={selectedTenantOption}
+          preselectedTenantId={preselectedTenantId}
+          preselectedBuyerProfileId={preselectedBuyerProfileId}
+          selectedBuyerOption={selectedBuyerOption}
+          tenantOptions={tenantOptions}
+          buyerOptions={buyerOptions}
+          inputClass={inputClass}
+          readOnlyInputClass={readOnlyInputClass}
+          labelClass={labelClass}
+          errors={errors}
+          t={t as (key: string) => string}
+        />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {contractType === "rental" && (
@@ -1283,155 +1419,144 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
         </div>
       </div>
 
-      {/* Billing Configuration */}
+      {/* Billing, Late Fee, and Adjustment Configuration */}
       {contractType === "rental" && (
-        <div className={sectionClass}>
-          <h3 className={sectionTitleClass}>{t("billing.title")}</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            {t("billing.description")}
-          </p>
+        <>
+          <div className={sectionClass}>
+            <h3 className={sectionTitleClass}>{t("billing.title")}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              {t("billing.description")}
+            </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label htmlFor="paymentFrequency" className={labelClass}>
-                {t("fields.paymentFrequency")}
-              </label>
-              <select
-                id="paymentFrequency"
-                {...register("paymentFrequency")}
-                className={inputClass}
-              >
-                <option value="monthly">
-                  {t("paymentFrequencies.monthly")}
-                </option>
-                <option value="bimonthly">
-                  {t("paymentFrequencies.bimonthly")}
-                </option>
-                <option value="quarterly">
-                  {t("paymentFrequencies.quarterly")}
-                </option>
-                <option value="semiannual">
-                  {t("paymentFrequencies.semiannual")}
-                </option>
-                <option value="annual">{t("paymentFrequencies.annual")}</option>
-              </select>
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label htmlFor="paymentFrequency" className={labelClass}>
+                  {t("fields.paymentFrequency")}
+                </label>
+                <select
+                  id="paymentFrequency"
+                  {...register("paymentFrequency")}
+                  className={inputClass}
+                >
+                  <option value="monthly">
+                    {t("paymentFrequencies.monthly")}
+                  </option>
+                  <option value="bimonthly">
+                    {t("paymentFrequencies.bimonthly")}
+                  </option>
+                  <option value="quarterly">
+                    {t("paymentFrequencies.quarterly")}
+                  </option>
+                  <option value="semiannual">
+                    {t("paymentFrequencies.semiannual")}
+                  </option>
+                  <option value="annual">
+                    {t("paymentFrequencies.annual")}
+                  </option>
+                </select>
+              </div>
 
-            <div>
-              <label htmlFor="billingFrequency" className={labelClass}>
-                {t("fields.billingFrequency")}
-              </label>
-              <select
-                id="billingFrequency"
-                {...register("billingFrequency")}
-                className={inputClass}
-              >
-                <option value="first_of_month">
-                  {t("billingFrequencies.first_of_month")}
-                </option>
-                <option value="last_of_month">
-                  {t("billingFrequencies.last_of_month")}
-                </option>
-                <option value="contract_date">
-                  {t("billingFrequencies.contract_date")}
-                </option>
-                <option value="custom">{t("billingFrequencies.custom")}</option>
-              </select>
-            </div>
+              <div>
+                <label htmlFor="billingFrequency" className={labelClass}>
+                  {t("fields.billingFrequency")}
+                </label>
+                <select
+                  id="billingFrequency"
+                  {...register("billingFrequency")}
+                  className={inputClass}
+                >
+                  <option value="first_of_month">
+                    {t("billingFrequencies.first_of_month")}
+                  </option>
+                  <option value="last_of_month">
+                    {t("billingFrequencies.last_of_month")}
+                  </option>
+                  <option value="contract_date">
+                    {t("billingFrequencies.contract_date")}
+                  </option>
+                  <option value="custom">
+                    {t("billingFrequencies.custom")}
+                  </option>
+                </select>
+              </div>
 
-            <div>
-              <label htmlFor="billingDay" className={labelClass}>
-                {t("fields.billingDay")}
-              </label>
-              <input
-                id="billingDay"
-                type="number"
-                min="1"
-                max="28"
-                {...register("billingDay")}
-                className={inputClass}
-              />
-            </div>
+              <div>
+                <label htmlFor="billingDay" className={labelClass}>
+                  {t("fields.billingDay")}
+                </label>
+                <input
+                  id="billingDay"
+                  type="number"
+                  min="1"
+                  max="28"
+                  {...register("billingDay")}
+                  className={inputClass}
+                />
+              </div>
 
-            <div>
-              <label htmlFor="paymentDueDay" className={labelClass}>
-                {t("fields.paymentDueDay")}
-              </label>
-              <input
-                id="paymentDueDay"
-                type="number"
-                min="1"
-                max="28"
-                {...register("paymentDueDay")}
-                className={inputClass}
-              />
-            </div>
+              <div>
+                <label htmlFor="paymentDueDay" className={labelClass}>
+                  {t("fields.paymentDueDay")}
+                </label>
+                <input
+                  id="paymentDueDay"
+                  type="number"
+                  min="1"
+                  max="28"
+                  {...register("paymentDueDay")}
+                  className={inputClass}
+                />
+              </div>
 
-            <div className="flex items-center pt-6">
-              <input
-                id="autoGenerateInvoices"
-                type="checkbox"
-                {...register("autoGenerateInvoices")}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded-sm"
-              />
-              <label
-                htmlFor="autoGenerateInvoices"
-                className="ml-2 text-sm text-gray-700 dark:text-gray-300"
-              >
-                {t("fields.autoGenerateInvoices")}
-              </label>
+              <div className="flex items-center pt-6">
+                <input
+                  id="autoGenerateInvoices"
+                  type="checkbox"
+                  {...register("autoGenerateInvoices")}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded-sm"
+                />
+                <label
+                  htmlFor="autoGenerateInvoices"
+                  className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                >
+                  {t("fields.autoGenerateInvoices")}
+                </label>
+              </div>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Late Fee Configuration */}
-      {contractType === "rental" && (
-        <LateFeeFields
-          register={register}
-          lateFeeType={lateFeeType}
-          labelClass={labelClass}
-          inputClass={inputClass}
-          sectionClass={sectionClass}
-          sectionTitleClass={sectionTitleClass}
-          t={t as (key: string) => string}
-        />
-      )}
+          <LateFeeFields
+            register={register}
+            lateFeeType={lateFeeType}
+            labelClass={labelClass}
+            inputClass={inputClass}
+            sectionClass={sectionClass}
+            sectionTitleClass={sectionTitleClass}
+            t={t as (key: string) => string}
+          />
 
-      {/* Adjustment Configuration */}
-      {contractType === "rental" && (
-        <AdjustmentFields
-          register={register}
-          adjustmentType={adjustmentType}
-          labelClass={labelClass}
-          inputClass={inputClass}
-          sectionClass={sectionClass}
-          sectionTitleClass={sectionTitleClass}
-          t={t as (key: string) => string}
-        />
+          <AdjustmentFields
+            register={register}
+            adjustmentType={adjustmentType}
+            labelClass={labelClass}
+            inputClass={inputClass}
+            sectionClass={sectionClass}
+            sectionTitleClass={sectionTitleClass}
+            t={t as (key: string) => string}
+          />
+        </>
       )}
 
       {/* Terms and Conditions */}
-      <div className={sectionClass}>
-        <div>
-          <label htmlFor="terms" className={labelClass}>
-            {t("termsAndConditions")}
-          </label>
-          <textarea
-            id="terms"
-            {...register("terms")}
-            rows={selectedTemplate ? 12 : 6}
-            readOnly={Boolean(selectedTemplate)}
-            className={selectedTemplate ? readOnlyInputClass : inputClass}
-            placeholder={t("leaseTermsPlaceholder")}
-          />
-          {selectedTemplate ? (
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {t("templateAutofillHint")}
-            </p>
-          ) : null}
-        </div>
-      </div>
+      <TermsSection
+        register={register}
+        selectedTemplate={selectedTemplate}
+        inputClass={inputClass}
+        readOnlyInputClass={readOnlyInputClass}
+        labelClass={labelClass}
+        sectionClass={sectionClass}
+        t={t as (key: string) => string}
+      />
 
       {/* Form Actions */}
       <div className="flex justify-end pt-4 border-t dark:border-gray-700">

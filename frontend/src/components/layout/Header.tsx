@@ -27,6 +27,13 @@ export default function Header({
   const tAuth = useTranslations("auth");
   const locale = useLocale();
 
+  let aiButtonClass = "cursor-not-allowed text-gray-400 dark:text-gray-600";
+  if (aiEnabled) {
+    aiButtonClass = aiPanelOpen
+      ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+      : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700";
+  }
+
   return (
     <header className="bg-white dark:bg-gray-800 shadow-xs border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
       <div className="w-full px-4 sm:px-6 lg:px-8">
@@ -63,13 +70,7 @@ export default function Header({
                 onClick={onAiToggle}
                 disabled={!aiEnabled}
                 title={aiEnabled ? t("aiAssistant") : t("aiDisabled")}
-                className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
-                  aiEnabled
-                    ? aiPanelOpen
-                      ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                      : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                    : "cursor-not-allowed text-gray-400 dark:text-gray-600"
-                }`}
+                className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${aiButtonClass}`}
                 aria-label={t("aiAssistant")}
               >
                 <Bot className="h-5 w-5" />

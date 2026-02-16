@@ -24,6 +24,150 @@ type TemplateForm = {
   isDefault: boolean;
 };
 
+type TemplateEditorContentProps = {
+  notFound: boolean;
+  form: TemplateForm;
+  scope: TemplateScope;
+  variableGroups: Record<string, string[]>;
+  saving: boolean;
+  t: (key: string) => string;
+  tc: (key: string) => string;
+  onFormChange: React.Dispatch<React.SetStateAction<TemplateForm>>;
+  onInsertVariable: (variableKey: string) => void;
+  onSave: () => void;
+};
+
+function TemplateEditorContent({
+  notFound,
+  form,
+  scope,
+  variableGroups,
+  saving,
+  t,
+  tc,
+  onFormChange,
+  onInsertVariable,
+  onSave,
+}: TemplateEditorContentProps) {
+  if (notFound) {
+    return (
+      <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center">
+        <p className="text-sm text-gray-600 dark:text-gray-300">
+          {t("templateNotFound")}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-4">
+      <input
+        type="text"
+        value={form.name}
+        onChange={(e) =>
+          onFormChange((prev) => ({ ...prev, name: e.target.value }))
+        }
+        placeholder={t("namePlaceholder")}
+        className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+      />
+
+      <textarea
+        rows={16}
+        value={form.templateBody}
+        onChange={(e) =>
+          onFormChange((prev) => ({ ...prev, templateBody: e.target.value }))
+        }
+        placeholder={t("bodyPlaceholder")}
+        className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm font-mono"
+      />
+
+      <div className="rounded-md border border-blue-200 bg-blue-50/80 dark:border-blue-900 dark:bg-blue-900/20 p-3">
+        <div className="flex items-start gap-2 mb-2">
+          <Info size={16} className="mt-0.5 text-blue-700 dark:text-blue-300" />
+          <div>
+            <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+              {t("variablesTitle")}
+            </p>
+            <p className="text-xs text-blue-800 dark:text-blue-300">
+              {t("variablesDescription")}
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {Object.entries(variableGroups).map(([group, variables]) => (
+            <div key={group}>
+              <p className="text-xs font-semibold uppercase text-blue-900 dark:text-blue-200 mb-1">
+                {t(`variableGroups.${group}`)}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {variables.map((variable) => (
+                  <button
+                    key={variable}
+                    type="button"
+                    onClick={() => onInsertVariable(variable)}
+                    className="text-xs font-mono px-2 py-1 rounded border border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-200 hover:bg-blue-100 dark:hover:bg-blue-900/40"
+                  >
+                    {`{{${variable}}}`}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {!isContractScope(scope) ? (
+        <label className="inline-flex items-center text-sm text-gray-700 dark:text-gray-300">
+          <input
+            type="checkbox"
+            className="mr-2"
+            checked={form.isDefault}
+            onChange={(e) =>
+              onFormChange((prev) => ({
+                ...prev,
+                isDefault: e.target.checked,
+                isActive: e.target.checked ? true : prev.isActive,
+              }))
+            }
+          />
+          {t("defaultLabel")}
+        </label>
+      ) : null}
+
+      <label className="inline-flex items-center text-sm text-gray-700 dark:text-gray-300">
+        <input
+          type="checkbox"
+          className="mr-2"
+          checked={form.isActive}
+          onChange={(e) =>
+            onFormChange((prev) => ({
+              ...prev,
+              isActive: e.target.checked,
+              isDefault:
+                !isContractScope(scope) && !e.target.checked
+                  ? false
+                  : prev.isDefault,
+            }))
+          }
+        />
+        {t("activeLabel")}
+      </label>
+
+      <div className="flex justify-end">
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={onSave}
+          disabled={saving}
+        >
+          {saving ? tc("saving") : tc("save")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function TemplateEditorPage() {
   const t = useTranslations("templatesHub");
   const tc = useTranslations("common");
@@ -222,121 +366,19 @@ export default function TemplateEditorPage() {
         <div className="flex justify-center items-center h-52">
           <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
         </div>
-      ) : notFound ? (
-        <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center">
-          <p className="text-sm text-gray-600 dark:text-gray-300">
-            {t("templateNotFound")}
-          </p>
-        </div>
       ) : (
-        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-4">
-          <input
-            type="text"
-            value={form.name}
-            onChange={(e) =>
-              setForm((prev) => ({ ...prev, name: e.target.value }))
-            }
-            placeholder={t("namePlaceholder")}
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-          />
-
-          <textarea
-            rows={16}
-            value={form.templateBody}
-            onChange={(e) =>
-              setForm((prev) => ({ ...prev, templateBody: e.target.value }))
-            }
-            placeholder={t("bodyPlaceholder")}
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm font-mono"
-          />
-
-          <div className="rounded-md border border-blue-200 bg-blue-50/80 dark:border-blue-900 dark:bg-blue-900/20 p-3">
-            <div className="flex items-start gap-2 mb-2">
-              <Info
-                size={16}
-                className="mt-0.5 text-blue-700 dark:text-blue-300"
-              />
-              <div>
-                <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
-                  {t("variablesTitle")}
-                </p>
-                <p className="text-xs text-blue-800 dark:text-blue-300">
-                  {t("variablesDescription")}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {Object.entries(variableGroups).map(([group, variables]) => (
-                <div key={group}>
-                  <p className="text-xs font-semibold uppercase text-blue-900 dark:text-blue-200 mb-1">
-                    {t(`variableGroups.${group}`)}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {variables.map((variable) => (
-                      <button
-                        key={variable}
-                        type="button"
-                        onClick={() => handleInsertVariable(variable)}
-                        className="text-xs font-mono px-2 py-1 rounded border border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-200 hover:bg-blue-100 dark:hover:bg-blue-900/40"
-                      >
-                        {`{{${variable}}}`}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {!isContractScope(scope) ? (
-            <label className="inline-flex items-center text-sm text-gray-700 dark:text-gray-300">
-              <input
-                type="checkbox"
-                className="mr-2"
-                checked={form.isDefault}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    isDefault: e.target.checked,
-                    isActive: e.target.checked ? true : prev.isActive,
-                  }))
-                }
-              />
-              {t("defaultLabel")}
-            </label>
-          ) : null}
-
-          <label className="inline-flex items-center text-sm text-gray-700 dark:text-gray-300">
-            <input
-              type="checkbox"
-              className="mr-2"
-              checked={form.isActive}
-              onChange={(e) =>
-                setForm((prev) => ({
-                  ...prev,
-                  isActive: e.target.checked,
-                  isDefault:
-                    !isContractScope(scope) && !e.target.checked
-                      ? false
-                      : prev.isDefault,
-                }))
-              }
-            />
-            {t("activeLabel")}
-          </label>
-
-          <div className="flex justify-end">
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleSave}
-              disabled={saving}
-            >
-              {saving ? tc("saving") : tc("save")}
-            </button>
-          </div>
-        </div>
+        <TemplateEditorContent
+          notFound={notFound}
+          form={form}
+          scope={scope}
+          variableGroups={variableGroups}
+          saving={saving}
+          t={t}
+          tc={tc}
+          onFormChange={setForm}
+          onInsertVariable={handleInsertVariable}
+          onSave={handleSave}
+        />
       )}
     </div>
   );

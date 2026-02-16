@@ -1477,10 +1477,10 @@ export class InterestedService {
     }
 
     if (
+      profile.preferredCity?.trim().toLowerCase() ===
+        property.addressCity?.trim().toLowerCase() &&
       profile.preferredCity &&
-      property.addressCity &&
-      profile.preferredCity.trim().toLowerCase() ===
-        property.addressCity.trim().toLowerCase()
+      property.addressCity
     ) {
       reasons.push(this.t('interested.matchReasons.cityMatches'));
     }
