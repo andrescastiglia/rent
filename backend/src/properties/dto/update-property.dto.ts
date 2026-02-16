@@ -1,8 +1,10 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { CreatePropertyDto } from './create-property.dto';
+import {
+  CreatePropertyDto,
+  createPropertyZodSchema,
+} from './create-property.dto';
 import { IsEnum, IsOptional } from 'class-validator';
 import { PropertyStatus } from '../entities/property.entity';
-import { createPropertyZodSchema } from './create-property.dto';
 import { z } from 'zod';
 
 export class UpdatePropertyDto extends PartialType(CreatePropertyDto) {

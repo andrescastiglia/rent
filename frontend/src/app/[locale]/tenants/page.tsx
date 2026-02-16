@@ -14,13 +14,13 @@ function TenantsList({
   t,
   tc,
   getStatusLabel,
-}: {
+}: Readonly<{
   tenants: Tenant[];
   locale: string;
   t: (key: string) => string;
   tc: (key: string) => string;
   getStatusLabel: (status: string) => string;
-}) {
+}>) {
   if (tenants.length === 0) {
     return (
       <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">

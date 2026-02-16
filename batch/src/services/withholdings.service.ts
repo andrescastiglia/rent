@@ -58,7 +58,7 @@ export class WithholdingsService {
   private static readonly DEFAULT_RATES = {
     iibb: 3.5,
     iva: 0,
-    ganancias: 6.0,
+    ganancias: 6,
   };
 
   /**
@@ -339,6 +339,9 @@ export class WithholdingsService {
 
   private toNumber(value: unknown): number {
     if (value === null || value === undefined) {
+      return 0;
+    }
+    if (typeof value === "object") {
       return 0;
     }
 

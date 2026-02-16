@@ -32,7 +32,7 @@ const toProfileForm = (user: User): ProfileFormState => ({
   firstName: user.firstName ?? "",
   lastName: user.lastName ?? "",
   phone: user.phone ?? "",
-  language: (user.language ?? "es") as Locale,
+  language: user.language ?? "es",
   avatarUrl: user.avatarUrl ?? "",
 });
 
@@ -142,7 +142,7 @@ export default function SettingsPage() {
       setProfileSuccess(t("messages.profileSaved"));
 
       if (profileForm.language !== locale) {
-        window.location.assign(getPathForLocale(profileForm.language));
+        globalThis.location.assign(getPathForLocale(profileForm.language));
         return;
       }
     } catch (error) {

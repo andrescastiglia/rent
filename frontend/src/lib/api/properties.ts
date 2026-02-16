@@ -134,7 +134,8 @@ const isApiRelativeImagePath = (value: string): boolean =>
   value.startsWith("properties/images/");
 
 const shouldForceHttps = (): boolean =>
-  typeof window !== "undefined" && window.location.protocol === "https:";
+  typeof globalThis !== "undefined" &&
+  globalThis.location.protocol === "https:";
 
 const forceHttpsWhenNeeded = (url: URL): string => {
   if (shouldForceHttps()) {
@@ -749,7 +750,7 @@ export const propertiesApi = {
         ? `/properties?${queryParams.toString()}`
         : "/properties";
     const result = await apiClient.get<
-      PaginatedResponse<BackendProperty> | BackendProperty[] | any
+      PaginatedResponse<BackendProperty> | BackendProperty[]
     >(endpoint, token ?? undefined);
 
     if (Array.isArray(result)) {
@@ -792,7 +793,7 @@ export const propertiesApi = {
         type: data.type,
         address: data.address,
         images: data.images || [],
-        id: Math.random().toString(36).substr(2, 9),
+        id: Math.random().toString(36).substring(2, 11),
         status: "ACTIVE",
         ownerId: data.ownerId ?? currentUserId ?? "owner-1",
         features: (data.features || []).map((f): PropertyFeature => {

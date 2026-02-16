@@ -12,10 +12,10 @@ import { useAuth } from "@/contexts/auth-context";
 function LeasesList({
   leases,
   t,
-}: {
+}: Readonly<{
   leases: Lease[];
   t: (key: string) => string;
-}) {
+}>) {
   if (leases.length === 0) {
     return (
       <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">

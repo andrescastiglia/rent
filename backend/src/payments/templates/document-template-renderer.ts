@@ -6,7 +6,7 @@ export function renderDocumentTemplate(
   templateBody: string,
   context: TemplateContext,
 ): string {
-  return templateBody.replace(
+  return templateBody.replaceAll(
     TEMPLATE_PLACEHOLDER_REGEX,
     (_token: string, key: string): string => {
       const value = resolveTemplateValue(context, key);
@@ -15,6 +15,9 @@ export function renderDocumentTemplate(
       }
       if (typeof value === 'string') {
         return value;
+      }
+      if (typeof value === 'object') {
+        return JSON.stringify(value);
       }
       return String(value);
     },

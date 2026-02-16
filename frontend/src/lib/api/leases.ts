@@ -555,7 +555,7 @@ export const leasesApi = {
     if (filters?.contractType)
       queryParams.append("contractType", filters.contractType);
     const result = await apiClient.get<
-      PaginatedResponse<BackendLease> | BackendLease[] | any
+      PaginatedResponse<BackendLease> | BackendLease[]
     >(
       queryParams.toString().length > 0
         ? `/leases?${queryParams.toString()}`
@@ -609,7 +609,7 @@ export const leasesApi = {
       const newLease: Lease = {
         ...data,
         ownerId: data.ownerId ?? "owner-mock",
-        id: Math.random().toString(36).substr(2, 9),
+        id: Math.random().toString(36).substring(2, 11),
         documents: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -884,13 +884,13 @@ export const leasesApi = {
     }
 
     const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
+    const url = globalThis.URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = `contrato-${id}.pdf`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
-    window.URL.revokeObjectURL(url);
+    globalThis.URL.revokeObjectURL(url);
   },
 };

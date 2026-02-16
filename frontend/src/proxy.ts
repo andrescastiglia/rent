@@ -27,5 +27,5 @@ export default function proxy(request: NextRequest) {
 
 export const config = {
   // Matcher that ignores internal Next.js routes and static files (we handle /health in code)
-  matcher: ["/((?!api|_next|_vercel|.*\\..*).*)"],
+  matcher: [String.raw`/((?!api|_next|_vercel|.*\..*).*)`],
 };

@@ -65,10 +65,7 @@ export class LeasesController {
     @Request() req: AuthenticatedRequest,
   ) {
     const { contractType } = query;
-    if (
-      contractType &&
-      !Object.values(ContractType).includes(contractType as ContractType)
-    ) {
+    if (contractType && !Object.values(ContractType).includes(contractType)) {
       throw new BadRequestException('Invalid contract type');
     }
     return this.leasesService.listTemplates(req.user.companyId, contractType);

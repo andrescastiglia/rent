@@ -56,10 +56,10 @@ const isPaginatedResponse = <T>(value: any): value is PaginatedResponse<T> => {
 
 const mapBackendTenantToTenant = (raw: BackendTenantLike): Tenant => {
   const user = raw.user ?? null;
-  const firstName = (raw.firstName ?? user?.firstName ?? "") as string;
-  const lastName = (raw.lastName ?? user?.lastName ?? "") as string;
-  const email = (raw.email ?? user?.email ?? "") as string;
-  const phone = (raw.phone ?? user?.phone ?? "") as string;
+  const firstName = raw.firstName ?? user?.firstName ?? "";
+  const lastName = raw.lastName ?? user?.lastName ?? "";
+  const email = raw.email ?? user?.email ?? "";
+  const phone = raw.phone ?? user?.phone ?? "";
   const isActive = raw.isActive ?? user?.isActive ?? true;
 
   return {
@@ -68,7 +68,7 @@ const mapBackendTenantToTenant = (raw: BackendTenantLike): Tenant => {
     lastName,
     email,
     phone,
-    dni: (raw.dni ?? raw.id) as string,
+    dni: raw.dni ?? raw.id,
     status: isActive ? "ACTIVE" : "INACTIVE",
     createdAt: raw.createdAt
       ? new Date(raw.createdAt).toISOString()
@@ -292,7 +292,7 @@ export const tenantsApi = {
         ? `/tenants?${queryParams.toString()}`
         : "/tenants";
     const result = await apiClient.get<
-      PaginatedResponse<BackendTenantLike> | BackendTenantLike[] | any
+      PaginatedResponse<BackendTenantLike> | BackendTenantLike[]
     >(endpoint, token ?? undefined);
 
     if (Array.isArray(result)) {
@@ -334,7 +334,7 @@ export const tenantsApi = {
       await delay(DELAY);
       const newTenant: Tenant = {
         ...data,
-        id: Math.random().toString(36).substr(2, 9),
+        id: Math.random().toString(36).substring(2, 11),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };

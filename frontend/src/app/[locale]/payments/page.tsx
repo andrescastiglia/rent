@@ -15,11 +15,11 @@ function PaymentTimeline({
   timeline,
   renderItem,
   t,
-}: {
+}: Readonly<{
   timeline: PaymentTimelineItem[];
   renderItem: (item: PaymentTimelineItem) => React.ReactNode;
   t: (key: string) => string;
-}) {
+}>) {
   if (timeline.length === 0) {
     return (
       <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">

@@ -11,10 +11,10 @@ import { useAuth } from "@/contexts/auth-context";
 function InvoicesList({
   invoices,
   t,
-}: {
+}: Readonly<{
   invoices: Invoice[];
   t: (key: string) => string;
-}) {
+}>) {
   if (invoices.length === 0) {
     return (
       <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">

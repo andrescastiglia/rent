@@ -38,7 +38,7 @@ function ReceiptSection({
   onDownloadInvoice,
   onDownloadCreditNote,
   onConfirm,
-}: {
+}: Readonly<{
   payment: Payment;
   linkedInvoice: Invoice | null;
   creditNotes: CreditNote[];
@@ -50,7 +50,7 @@ function ReceiptSection({
   onDownloadInvoice: () => void;
   onDownloadCreditNote: (note: CreditNote) => void;
   onConfirm: () => void;
-}) {
+}>) {
   const t = useTranslations("payments");
   const tCommon = useTranslations("common");
   const locale = useLocale();

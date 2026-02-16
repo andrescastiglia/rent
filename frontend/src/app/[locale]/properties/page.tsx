@@ -169,11 +169,11 @@ function MaintenanceTasksList({
   tasks,
   locale,
   t,
-}: {
+}: Readonly<{
   tasks: PropertyMaintenanceTask[];
   locale: string;
   t: (key: string) => string;
-}) {
+}>) {
   if (tasks.length === 0) {
     return (
       <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -236,7 +236,7 @@ function OwnerPropertyItem({
   formatSalePrice,
   onToggleMaintenance,
   onRenewLease,
-}: OwnerPropertyItemProps) {
+}: Readonly<OwnerPropertyItemProps>) {
   const propertyOperations = property.operations ?? [];
   const canCreateContract =
     propertyOperations.includes("rent") || propertyOperations.includes("sale");
@@ -331,9 +331,9 @@ function OwnerPropertyItem({
           {propertyOperations.includes("rent") ? (
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {t("fields.rentPrice")}:{" "}
-              {property.rentPrice !== undefined
-                ? property.rentPrice.toLocaleString(locale)
-                : "-"}
+              {property.rentPrice === undefined
+                ? "-"
+                : property.rentPrice.toLocaleString(locale)}
             </p>
           ) : null}
           {propertyOperations.includes("sale") ? (
@@ -412,7 +412,7 @@ function OwnerPaymentItem({
   locale,
   t,
   onDownload,
-}: OwnerPaymentItemProps) {
+}: Readonly<OwnerPaymentItemProps>) {
   return (
     <div
       key={payment.id}
@@ -501,7 +501,7 @@ function OwnerPropertiesSection({
   formatSalePrice,
   onToggleMaintenance,
   onRenewLease,
-}: OwnerPropertiesSectionProps) {
+}: Readonly<OwnerPropertiesSectionProps>) {
   if (ownerProperties.length === 0) {
     return (
       <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -552,7 +552,7 @@ function OwnerRecentPaymentsSection({
   t,
   tc,
   onDownloadSettlementReceipt,
-}: OwnerRecentPaymentsSectionProps) {
+}: Readonly<OwnerRecentPaymentsSectionProps>) {
   if (loadingPaymentsOwnerId === ownerId) {
     return (
       <div className="flex items-center py-2 text-sm text-gray-500 dark:text-gray-400">
@@ -604,7 +604,7 @@ function OwnerListItem({
   onToggleMaintenance,
   onRenewLease,
   onDownloadSettlementReceipt,
-}: OwnerListItemProps) {
+}: Readonly<OwnerListItemProps>) {
   return (
     <div
       className={`rounded-lg border transition ${
@@ -748,7 +748,7 @@ function OwnersResults({
   onToggleMaintenance,
   onRenewLease,
   onDownloadSettlementReceipt,
-}: OwnersResultsProps) {
+}: Readonly<OwnersResultsProps>) {
   if (filteredOwners.length === 0) {
     return (
       <div className="text-sm text-gray-500 dark:text-gray-400">

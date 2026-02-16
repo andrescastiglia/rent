@@ -294,9 +294,9 @@ export class BillingService {
       withholdingGanancias,
       adjustmentApplied: adjustment.adjustedAmount - adjustment.originalAmount,
       adjustmentIndexType:
-        adjustment.adjustmentType !== "none"
-          ? adjustment.adjustmentType
-          : undefined,
+        adjustment.adjustmentType === "none"
+          ? undefined
+          : adjustment.adjustmentType,
       adjustmentIndexValue: adjustment.currentIndexValue,
     };
 

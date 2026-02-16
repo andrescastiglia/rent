@@ -16,8 +16,5 @@ export interface AiToolDefinition<TSchema extends ZodTypeAny = ZodTypeAny> {
   mutability: AiToolMutability;
   allowedRoles: UserRole[];
   parameters: TSchema;
-  execute: (
-    args: unknown,
-    context: AiExecutionContext,
-  ) => Promise<unknown> | unknown;
+  execute: (args: unknown, context: AiExecutionContext) => Promise<unknown>;
 }

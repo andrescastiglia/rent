@@ -86,7 +86,7 @@ const renderTemplate = (
 
   for (const paragraph of paragraphs) {
     let hasMissingValue = false;
-    const rendered = paragraph.replace(
+    const rendered = paragraph.replaceAll(
       TEMPLATE_PLACEHOLDER_REGEX,
       (_full, keyWithDoubleBraces?: string, keyWithSingleBraces?: string) => {
         const key = keyWithDoubleBraces ?? keyWithSingleBraces;
@@ -96,6 +96,9 @@ const renderTemplate = (
         if (value === null || value === undefined || value === "") {
           hasMissingValue = true;
           return "";
+        }
+        if (typeof value === "object") {
+          return JSON.stringify(value);
         }
         return String(value);
       },
@@ -287,9 +290,9 @@ function resolveTemplateId(
   templatesForType: LeaseTemplate[],
 ): string | undefined {
   if (singleTemplate) {
-    return currentTemplateId !== singleTemplate.id
-      ? singleTemplate.id
-      : undefined;
+    return currentTemplateId === singleTemplate.id
+      ? undefined
+      : singleTemplate.id;
   }
   if (isEditing) return undefined;
 
@@ -300,7 +303,7 @@ function resolveTemplateId(
   if (hasCurrentTemplate) return undefined;
 
   const nextTemplateId = templatesForType[0]?.id ?? "";
-  return normalizedCurrent !== nextTemplateId ? nextTemplateId : undefined;
+  return normalizedCurrent === nextTemplateId ? undefined : nextTemplateId;
 }
 
 async function saveLease(

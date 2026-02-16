@@ -68,7 +68,7 @@ function MatchCard({
   resolveMatchContractLinks,
   onConfirm,
   getConfirmMatchLabel,
-}: MatchCardProps) {
+}: Readonly<MatchCardProps>) {
   const confirmationAction =
     selectedProfile && resolveMatchConfirmationAction(selectedProfile, match);
   const contractLinks = selectedProfile
@@ -181,7 +181,7 @@ function ProfileExpandedDetail({
   resolveMatchContractLinks,
   onConfirm,
   getConfirmMatchLabel,
-}: ProfileExpandedDetailProps) {
+}: Readonly<ProfileExpandedDetailProps>) {
   if (isLoading) {
     return (
       <div className="flex justify-center py-6">
@@ -314,7 +314,7 @@ function ProfilesList({
   onSelectProfile,
   onConfirm,
   getConfirmMatchLabel,
-}: ProfilesListProps) {
+}: Readonly<ProfilesListProps>) {
   if (filteredProfiles.length === 0) {
     return (
       <p className="text-sm text-gray-500 dark:text-gray-400">

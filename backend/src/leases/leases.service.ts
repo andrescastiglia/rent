@@ -216,13 +216,13 @@ export class LeasesService {
 
     if (status) {
       query.andWhere('lease.status = :status', { status });
-    } else if (!includeFinalized) {
-      query.andWhere('lease.status = :activeStatus', {
-        activeStatus: LeaseStatus.ACTIVE,
-      });
-    } else {
+    } else if (includeFinalized) {
       query.andWhere('lease.status IN (:...statuses)', {
         statuses: [LeaseStatus.ACTIVE, LeaseStatus.FINALIZED],
+      });
+    } else {
+      query.andWhere('lease.status = :activeStatus', {
+        activeStatus: LeaseStatus.ACTIVE,
       });
     }
 
@@ -1020,7 +1020,7 @@ export class LeasesService {
 
     for (const paragraph of paragraphs) {
       let hasMissingValue = false;
-      const rendered = paragraph.replace(
+      const rendered = paragraph.replaceAll(
         /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}|\{([a-zA-Z0-9_.]+)\}/g,
         (_full, keyWithDoubleBraces?: string, keyWithSingleBraces?: string) => {
           const key = keyWithDoubleBraces ?? keyWithSingleBraces;
@@ -1031,6 +1031,9 @@ export class LeasesService {
           if (value === null || value === undefined || value === '') {
             hasMissingValue = true;
             return '';
+          }
+          if (typeof value === 'object') {
+            return JSON.stringify(value);
           }
           return String(value);
         },

@@ -37,7 +37,7 @@ function PaymentItemRow({
   onQuantityChange,
   onTypeChange,
   onRemove,
-}: PaymentItemRowProps) {
+}: Readonly<PaymentItemRowProps>) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
       <input
@@ -103,7 +103,7 @@ function LeaseSelectionCard({
   onSelectLease,
   account,
   balanceInfo,
-}: LeaseSelectionCardProps) {
+}: Readonly<LeaseSelectionCardProps>) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
       <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
@@ -188,7 +188,7 @@ function PaymentDetailsCard({
   onCurrencyChange,
   onReferenceChange,
   onNotesChange,
-}: PaymentDetailsCardProps) {
+}: Readonly<PaymentDetailsCardProps>) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
       <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">

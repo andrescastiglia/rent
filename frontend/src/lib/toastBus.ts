@@ -12,7 +12,7 @@ const DEDUPE_WINDOW_MS = 8000;
 const lastToastAtById: Record<string, number> = {};
 
 const target: EventTarget | null =
-  typeof window !== "undefined" ? new EventTarget() : null;
+  typeof globalThis === "undefined" ? null : new EventTarget();
 
 export function emitToast(toast: ToastMessage): void {
   if (!target) return;

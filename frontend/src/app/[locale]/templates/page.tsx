@@ -23,14 +23,14 @@ function TemplatesList({
   locale,
   t,
   tc,
-}: {
+}: Readonly<{
   templates: EditableTemplate[];
   isPaymentScope: boolean;
   scope: TemplateScope;
   locale: string;
   t: (key: string) => string;
   tc: (key: string) => string;
-}) {
+}>) {
   if (templates.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center">

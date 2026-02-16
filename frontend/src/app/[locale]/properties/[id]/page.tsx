@@ -35,12 +35,12 @@ function PropertyImageGallery({
   name,
   currentIndex,
   onChangeIndex,
-}: {
+}: Readonly<{
   images: string[];
   name: string;
   currentIndex: number;
   onChangeIndex: (index: number) => void;
-}) {
+}>) {
   const t = useTranslations("properties");
   const currentImage = images[currentIndex] ?? images[0];
   const hasMultiple = images.length > 1;
@@ -95,7 +95,7 @@ function LeaseActionButton({
   createLeaseHref,
   renewingLeaseId,
   onRenew,
-}: {
+}: Readonly<{
   leaseAction:
     | { type: "view"; lease: Lease }
     | { type: "renew"; lease: Lease }
@@ -104,7 +104,7 @@ function LeaseActionButton({
   createLeaseHref: string;
   renewingLeaseId: string | null;
   onRenew: (lease: Lease) => void;
-}) {
+}>) {
   const t = useTranslations("properties");
   const locale = useLocale();
 
@@ -368,9 +368,9 @@ export default function PropertyDetailPage() {
     ? ` ${property.saleCurrency}`
     : "";
   const salePriceLabel =
-    property.salePrice !== undefined
-      ? `${property.salePrice.toLocaleString(locale)}${saleCurrencySuffix}`
-      : "-";
+    property.salePrice === undefined
+      ? "-"
+      : `${property.salePrice.toLocaleString(locale)}${saleCurrencySuffix}`;
   const canCreateLease = supportsRent || supportsSale;
   const leaseAction = resolveLeaseAction(leasesForProperty);
   const createLeaseQuery = new URLSearchParams({
@@ -560,9 +560,9 @@ export default function PropertyDetailPage() {
                         {t("fields.rentPrice")}
                       </dt>
                       <dd className="font-medium text-gray-900 dark:text-white">
-                        {property.rentPrice !== undefined
-                          ? property.rentPrice.toLocaleString(locale)
-                          : "-"}
+                        {property.rentPrice === undefined
+                          ? "-"
+                          : property.rentPrice.toLocaleString(locale)}
                       </dd>
                     </div>
                   ) : null}

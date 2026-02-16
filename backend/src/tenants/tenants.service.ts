@@ -333,10 +333,10 @@ export class TenantsService {
     let resolvedCompletedAt: Date | null;
     if (dto.completedAt) {
       resolvedCompletedAt = new Date(dto.completedAt);
-    } else if (dto.completedAt !== undefined) {
-      resolvedCompletedAt = null;
-    } else {
+    } else if (dto.completedAt === undefined) {
       resolvedCompletedAt = activity.completedAt;
+    } else {
+      resolvedCompletedAt = null;
     }
 
     Object.assign(activity, {

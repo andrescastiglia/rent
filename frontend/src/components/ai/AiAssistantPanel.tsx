@@ -66,6 +66,7 @@ const getPreview = (value: unknown): string => {
     return String(value);
   if (Array.isArray(value)) return `[${value.length}]`;
   if (isNestedValue(value)) return `{${Object.keys(value).length}}`;
+  if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 };
 
@@ -160,7 +161,7 @@ const extractJsonPayload = (text: string): unknown => {
   const trimmed = text.trim();
   if (!trimmed) return undefined;
 
-  const fencedMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  const fencedMatch = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(trimmed);
   const candidate = fencedMatch ? fencedMatch[1].trim() : trimmed;
 
   try {
@@ -322,11 +323,11 @@ export default function AiAssistantPanel({
               key={message.id}
               className={`flex items-start gap-3 ${isUser ? "justify-end" : "justify-start"}`}
             >
-              {!isUser ? (
+              {isUser ? null : (
                 <div className="mt-1 shrink-0 rounded-full bg-gray-100 p-2 text-gray-700 dark:bg-gray-800 dark:text-gray-200">
                   <Bot className="h-4 w-4" />
                 </div>
-              ) : null}
+              )}
 
               <div
                 className={`max-w-[88%] rounded-xl px-4 py-3 text-sm ${

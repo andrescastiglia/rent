@@ -345,8 +345,7 @@ export class OwnersService {
     const params: Array<string | number> = [companyId];
     const ownerScope = await this.getOwnerScopeCondition(user, params);
 
-    params.push('completed');
-    params.push(Math.max(1, Math.min(500, limit)));
+    params.push('completed', Math.max(1, Math.min(500, limit)));
 
     const rows = await this.dataSource.query(
       `SELECT

@@ -85,7 +85,7 @@ function withNullable(schema: any): any {
   }
 
   if (schema instanceof z.ZodUnion) {
-    const options = (schema as any)._def.options;
+    const options = schema._def.options;
     const hasNull = options.some((option: any) => option instanceof z.ZodNull);
     if (hasNull) {
       return schema;
@@ -174,23 +174,23 @@ function toOpenAiCompatibleSchema(schema: any): any {
     return withNullable(toOpenAiCompatibleSchema(schema.unwrap()));
   }
   if (schema instanceof z.ZodDefault) {
-    return toOpenAiCompatibleSchema((schema as any)._def.innerType);
+    return toOpenAiCompatibleSchema(schema._def.innerType);
   }
   if (schema instanceof z.ZodReadonly) {
-    return toOpenAiCompatibleSchema((schema as any)._def.innerType).readonly();
+    return toOpenAiCompatibleSchema(schema._def.innerType).readonly();
   }
   if (schema instanceof z.ZodCatch) {
-    return toOpenAiCompatibleSchema((schema as any)._def.innerType).catch(
-      (schema as any)._def.catchValue,
+    return toOpenAiCompatibleSchema(schema._def.innerType).catch(
+      schema._def.catchValue,
     );
   }
   if (schema instanceof z.ZodArray) {
     return z.array(toOpenAiCompatibleSchema(schema.element));
   }
   if (schema instanceof z.ZodRecord) {
-    const keyType = toOpenAiCompatibleSchema((schema as any)._def.keyType);
-    const valueType = toOpenAiCompatibleSchema((schema as any)._def.valueType);
-    return z.record(keyType as any, valueType);
+    const keyType = toOpenAiCompatibleSchema(schema._def.keyType);
+    const valueType = toOpenAiCompatibleSchema(schema._def.valueType);
+    return z.record(keyType, valueType);
   }
   if (schema instanceof z.ZodUnion) {
     return transformUnionSchema(schema);
@@ -200,14 +200,12 @@ function toOpenAiCompatibleSchema(schema: any): any {
   }
   if (schema instanceof z.ZodIntersection) {
     return z.intersection(
-      toOpenAiCompatibleSchema((schema as any)._def.left),
-      toOpenAiCompatibleSchema((schema as any)._def.right),
+      toOpenAiCompatibleSchema(schema._def.left),
+      toOpenAiCompatibleSchema(schema._def.right),
     );
   }
   if (schema instanceof z.ZodLazy) {
-    return z.lazy(() =>
-      toOpenAiCompatibleSchema((schema as any)._def.getter()),
-    );
+    return z.lazy(() => toOpenAiCompatibleSchema(schema._def.getter()));
   }
   if (schema instanceof z.ZodObject) {
     return transformObjectSchema(schema);
@@ -233,7 +231,7 @@ function toRootObjectSchema(schema: any): z.ZodObject<any> | null {
       current instanceof z.ZodReadonly ||
       current instanceof z.ZodCatch
     ) {
-      current = (current as any)._def.innerType;
+      current = current._def.innerType;
       continue;
     }
 

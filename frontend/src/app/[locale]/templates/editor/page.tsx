@@ -48,7 +48,7 @@ function TemplateEditorContent({
   onFormChange,
   onInsertVariable,
   onSave,
-}: TemplateEditorContentProps) {
+}: Readonly<TemplateEditorContentProps>) {
   if (notFound) {
     return (
       <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center">
@@ -117,7 +117,7 @@ function TemplateEditorContent({
         </div>
       </div>
 
-      {!isContractScope(scope) ? (
+      {isContractScope(scope) ? null : (
         <label className="inline-flex items-center text-sm text-gray-700 dark:text-gray-300">
           <input
             type="checkbox"
@@ -133,7 +133,7 @@ function TemplateEditorContent({
           />
           {t("defaultLabel")}
         </label>
-      ) : null}
+      )}
 
       <label className="inline-flex items-center text-sm text-gray-700 dark:text-gray-300">
         <input

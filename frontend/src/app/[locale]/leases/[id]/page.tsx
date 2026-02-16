@@ -22,7 +22,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { useAuth } from "@/contexts/auth-context";
 
-function PersonInfo({ lease }: { lease: Lease }) {
+function PersonInfo({ lease }: Readonly<{ lease: Lease }>) {
   const t = useTranslations("leases");
 
   if (lease.contractType === "rental") {
@@ -58,7 +58,7 @@ function PersonInfo({ lease }: { lease: Lease }) {
   );
 }
 
-function FinancialInfo({ lease }: { lease: Lease }) {
+function FinancialInfo({ lease }: Readonly<{ lease: Lease }>) {
   const t = useTranslations("leases");
   const locale = useLocale();
 

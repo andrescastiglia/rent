@@ -105,14 +105,14 @@ function UserFormPanel({
   saving,
   onSubmit,
   onClose,
-}: {
+}: Readonly<{
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
   editingUser: User | null;
   saving: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onClose: () => void;
-}) {
+}>) {
   const tAuth = useTranslations("auth");
   const tCommon = useTranslations("common");
 
@@ -240,10 +240,10 @@ function UserFormPanel({
 function UserList({
   users,
   renderUserActions,
-}: {
+}: Readonly<{
   users: User[];
   renderUserActions: (user: User) => React.ReactNode;
-}) {
+}>) {
   const tAuth = useTranslations("auth");
   const tUsers = useTranslations("users");
   const tCommon = useTranslations("common");
@@ -352,7 +352,7 @@ function ResetPasswordDialog({
   error,
   setError,
   submitting,
-}: {
+}: Readonly<{
   user: User;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -361,7 +361,7 @@ function ResetPasswordDialog({
   error: string | null;
   setError: (error: string | null) => void;
   submitting: boolean;
-}) {
+}>) {
   const tAuth = useTranslations("auth");
   const tUsers = useTranslations("users");
   const tCommon = useTranslations("common");

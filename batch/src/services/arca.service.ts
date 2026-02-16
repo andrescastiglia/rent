@@ -430,7 +430,7 @@ export class ArcaService {
         Auth: {
           Token: auth.token,
           Sign: auth.sign,
-          Cuit: config.cuit.replaceAll(/-/g, ""),
+          Cuit: config.cuit.replaceAll("-", ""),
         },
         PtoVta: config.puntoVenta,
         CbteTipo: tipoComprobante,
@@ -461,7 +461,7 @@ export class ArcaService {
       Auth: {
         Token: auth.token,
         Sign: auth.sign,
-        Cuit: config.cuit.replaceAll(/-/g, ""),
+        Cuit: config.cuit.replaceAll("-", ""),
       },
       FeCAEReq: {
         FeCabReq: {
@@ -473,7 +473,7 @@ export class ArcaService {
           FECAEDetRequest: {
             Concepto: invoiceData.conceptoIncluido,
             DocTipo: invoiceData.docTipo,
-            DocNro: invoiceData.docNro.replaceAll(/-/g, ""),
+            DocNro: invoiceData.docNro.replaceAll("-", ""),
             CbteDesde: numeroComprobante,
             CbteHasta: numeroComprobante,
             CbteFch: invoiceData.fechaComprobante,
@@ -553,7 +553,7 @@ export class ArcaService {
     const qrPayload = {
       ver: 1,
       fecha: invoiceData.fechaComprobante,
-      cuit: cuit.replaceAll(/-/g, ""),
+      cuit: cuit.replaceAll("-", ""),
       ptoVta: invoiceData.puntoVenta,
       tipoCmp: invoiceData.tipoComprobante,
       nroCmp: numero,
@@ -561,7 +561,7 @@ export class ArcaService {
       moneda: "PES",
       ctz: 1,
       tipoDocRec: invoiceData.docTipo,
-      nroDocRec: invoiceData.docNro.replaceAll(/-/g, ""),
+      nroDocRec: invoiceData.docNro.replaceAll("-", ""),
       tipoCodAut: "E",
       codAut: cae,
     };

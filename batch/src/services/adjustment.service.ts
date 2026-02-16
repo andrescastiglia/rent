@@ -15,6 +15,11 @@ export type AdjustmentType =
   | "igpm";
 
 /**
+ * Index-based adjustment types (subset of AdjustmentType).
+ */
+export type IndexType = "icl" | "igp_m" | "ipc" | "igpm";
+
+/**
  * Result of an adjustment calculation.
  */
 export interface AdjustmentResult {
@@ -169,7 +174,7 @@ export class AdjustmentService {
    * @returns Latest index data or null if not found.
    */
   async getLatestIndex(
-    indexType: "icl" | "igp_m" | "ipc" | "igpm",
+    indexType: IndexType,
   ): Promise<{ value: number; period: Date } | null> {
     const normalizedIndexType = this.normalizeIndexType(indexType);
     const result = await AppDataSource.query(
@@ -196,7 +201,7 @@ export class AdjustmentService {
    * the latest prior month. If no prior value exists, returns null.
    */
   private async getIndexForPeriod(
-    indexType: "icl" | "igp_m" | "ipc" | "igpm",
+    indexType: IndexType,
     targetDate: Date,
   ): Promise<{ value: number; period: Date } | null> {
     const normalizedIndexType = this.normalizeIndexType(indexType);
@@ -230,7 +235,7 @@ export class AdjustmentService {
    * @returns Base index data or null if not found.
    */
   private async getBaseIndex(
-    indexType: "icl" | "igp_m" | "ipc" | "igpm",
+    indexType: IndexType,
     lease: LeaseAdjustmentData,
     billingDate: Date,
   ): Promise<{ value: number; period: Date } | null> {

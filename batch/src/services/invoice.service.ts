@@ -737,7 +737,7 @@ export class InvoiceService {
     templateBody: string,
     context: Record<string, unknown>,
   ): string {
-    return templateBody.replace(
+    return templateBody.replaceAll(
       TEMPLATE_PLACEHOLDER_REGEX,
       (_token, key: string) => {
         const value = key.split(".").reduce<unknown>((current, part) => {
@@ -755,6 +755,9 @@ export class InvoiceService {
         }
         if (typeof value === "string") {
           return value;
+        }
+        if (typeof value === "object") {
+          return JSON.stringify(value);
         }
         return String(value);
       },

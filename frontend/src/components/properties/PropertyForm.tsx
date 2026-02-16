@@ -37,14 +37,14 @@ function OwnerField({
   owners,
   register,
   t,
-}: {
+}: Readonly<{
   isOwnerLocked: boolean;
   isAdmin: boolean;
   activeOwner: Owner | undefined;
   owners: Owner[];
   register: UseFormRegister<PropertyFormData>;
   t: (key: string) => string;
-}) {
+}>) {
   if (isOwnerLocked) {
     return (
       <div>
