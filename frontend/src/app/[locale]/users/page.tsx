@@ -97,7 +97,6 @@ function resetUsersPageMessages(
 }
 
 export default function UsersPage() {
-  // NOSONAR
   const tUsers = useTranslations("users");
   const tCommon = useTranslations("common");
   const tAuth = useTranslations("auth");
@@ -436,7 +435,7 @@ export default function UsersPage() {
             >
               {tCommon("cancel")}
             </button>
-            <button // NOSONAR
+            <button
               type="submit"
               disabled={saving}
               className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"

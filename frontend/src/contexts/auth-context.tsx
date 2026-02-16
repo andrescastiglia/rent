@@ -32,9 +32,10 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // NOSONAR
-  const [user, setUserState] = useState<User | null>(() => getUser()); // NOSONAR
-  const [token, setTokenState] = useState<string | null>(() => getToken()); // NOSONAR
+  const [user, setUserState] = useState<User | null>(
+    () => getUser() as User | null,
+  );
+  const [token, setTokenState] = useState<string | null>(() => getToken());
   const [loading] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
@@ -53,11 +54,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Keep state in sync if auth is updated elsewhere (e.g. login/logout in another tab).
     const handleStorage = () => {
       setTokenState(getToken());
-      setUserState(getUser());
+      setUserState(getUser() as User | null);
     };
 
-    window.addEventListener("storage", handleStorage); // NOSONAR
-    return () => window.removeEventListener("storage", handleStorage); // NOSONAR
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
   const login = useCallback(
@@ -69,15 +70,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
 
         setToken(response.accessToken);
-        setUser(response.user);
+        setUser(response.user as unknown as Record<string, unknown>);
         setTokenState(response.accessToken);
         setUserState(response.user);
 
         const locale = getLocaleFromPath();
         router.push(`/${locale}/dashboard`);
-      } catch (error) {
-        // NOSONAR
-        throw error;
+      } catch (thrownError) {
+        throw thrownError;
       }
     },
     [getLocaleFromPath, router],
@@ -90,9 +90,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         data,
       );
       return response;
-    } catch (error) {
-      // NOSONAR
-      throw error;
+    } catch (thrownError) {
+      throw thrownError;
     }
   }, []);
 
@@ -105,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [getLocaleFromPath, router]);
 
   const updateUser = useCallback((nextUser: User) => {
-    setUser(nextUser);
+    setUser(nextUser as unknown as Record<string, unknown>);
     setUserState(nextUser);
   }, []);
 

@@ -59,7 +59,6 @@ type MatchCardProps = {
 };
 
 function MatchCard({
-  // NOSONAR
   match,
   selectedProfile,
   confirmingMatchId,
@@ -551,7 +550,7 @@ export default function InterestedPage() {
           <div className="flex justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
           </div>
-        ) : filteredProfiles.length > 0 ? ( // NOSONAR
+        ) : filteredProfiles.length > 0 ? (
           <div className="space-y-3">
             {filteredProfiles.map((profile) => {
               const operations = getProfileOperations(profile);
@@ -611,7 +610,7 @@ export default function InterestedPage() {
                   </div>
 
                   {isSelected ? (
-                    loadingDetail && !hasLoadedSummary ? ( // NOSONAR
+                    loadingDetail && !hasLoadedSummary ? (
                       <div className="flex justify-center py-6">
                         <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
                       </div>

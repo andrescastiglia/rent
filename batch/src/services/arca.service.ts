@@ -100,7 +100,7 @@ export const ARCA_DOC_TIPO = {
  */
 export class ArcaService {
   private readonly endpoints: ArcaEndpoints;
-  private authTokenCache: Map<string, AuthToken> = new Map(); // NOSONAR
+  private authTokenCache: Map<string, AuthToken> = new Map();
 
   /** WSAA service name for factura electronica. */
   private static readonly WSAA_SERVICE = "wsfe";
@@ -430,7 +430,7 @@ export class ArcaService {
         Auth: {
           Token: auth.token,
           Sign: auth.sign,
-          Cuit: config.cuit.replaceAll(/-/g, ""), // NOSONAR
+          Cuit: config.cuit.replaceAll(/-/g, ""),
         },
         PtoVta: config.puntoVenta,
         CbteTipo: tipoComprobante,
@@ -461,7 +461,7 @@ export class ArcaService {
       Auth: {
         Token: auth.token,
         Sign: auth.sign,
-        Cuit: config.cuit.replaceAll(/-/g, ""), // NOSONAR
+        Cuit: config.cuit.replaceAll(/-/g, ""),
       },
       FeCAEReq: {
         FeCabReq: {
@@ -473,7 +473,7 @@ export class ArcaService {
           FECAEDetRequest: {
             Concepto: invoiceData.conceptoIncluido,
             DocTipo: invoiceData.docTipo,
-            DocNro: invoiceData.docNro.replaceAll(/-/g, ""), // NOSONAR
+            DocNro: invoiceData.docNro.replaceAll(/-/g, ""),
             CbteDesde: numeroComprobante,
             CbteHasta: numeroComprobante,
             CbteFch: invoiceData.fechaComprobante,
@@ -553,7 +553,7 @@ export class ArcaService {
     const qrPayload = {
       ver: 1,
       fecha: invoiceData.fechaComprobante,
-      cuit: cuit.replaceAll(/-/g, ""), // NOSONAR
+      cuit: cuit.replaceAll(/-/g, ""),
       ptoVta: invoiceData.puntoVenta,
       tipoCmp: invoiceData.tipoComprobante,
       nroCmp: numero,
@@ -561,7 +561,7 @@ export class ArcaService {
       moneda: "PES",
       ctz: 1,
       tipoDocRec: invoiceData.docTipo,
-      nroDocRec: invoiceData.docNro.replaceAll(/-/g, ""), // NOSONAR
+      nroDocRec: invoiceData.docNro.replaceAll(/-/g, ""),
       tipoCodAut: "E",
       codAut: cae,
     };

@@ -123,7 +123,7 @@ export default function SalesPage() {
 
   const handleCreateReceipt = async (agreementId: string) => {
     const form = receiptForm[agreementId];
-    if (!form || !form.amount || !form.paymentDate) return; // NOSONAR
+    if (!form || !form.amount || !form.paymentDate) return;
 
     try {
       const created = await salesApi.createReceipt(agreementId, form);

@@ -73,14 +73,7 @@ export class UsersService {
   }
 
   async updateProfile(id: string, updateUserDto: UpdateUserDto): Promise<User> {
-    // NOSONAR
-    const user = await this.findOneById(id);
-    if (!user) {
-      throw new NotFoundException('user.notFound');
-    }
-
-    await this.applyUserUpdates(user, updateUserDto);
-    return this.usersRepository.save(user);
+    return this.update(id, updateUserDto);
   }
 
   async remove(id: string): Promise<void> {

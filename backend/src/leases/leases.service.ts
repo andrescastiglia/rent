@@ -217,7 +217,6 @@ export class LeasesService {
     if (status) {
       query.andWhere('lease.status = :status', { status });
     } else if (!includeFinalized) {
-      // NOSONAR
       query.andWhere('lease.status = :activeStatus', {
         activeStatus: LeaseStatus.ACTIVE,
       });
@@ -829,7 +828,7 @@ export class LeasesService {
       const resolvedTemplate = await this.resolveTemplateForLease(
         lease.companyId,
         effectiveType,
-        undefined, // NOSONAR
+        undefined,
       );
       lease.templateId = resolvedTemplate?.id ?? null;
       lease.templateName = resolvedTemplate?.name ?? null;
@@ -845,14 +844,14 @@ export class LeasesService {
       ...dto,
       contractType: effectiveType,
       startDate:
-        dto.startDate !== undefined // NOSONAR
-          ? dto.startDate // NOSONAR
+        dto.startDate !== undefined
+          ? dto.startDate
             ? new Date(dto.startDate)
             : null
           : lease.startDate,
       endDate:
-        dto.endDate !== undefined // NOSONAR
-          ? dto.endDate // NOSONAR
+        dto.endDate !== undefined
+          ? dto.endDate
             ? new Date(dto.endDate)
             : null
           : lease.endDate,
@@ -1023,7 +1022,6 @@ export class LeasesService {
     for (const paragraph of paragraphs) {
       let hasMissingValue = false;
       const rendered = paragraph.replace(
-        // NOSONAR
         /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}|\{([a-zA-Z0-9_.]+)\}/g,
         (_full, keyWithDoubleBraces?: string, keyWithSingleBraces?: string) => {
           const key = keyWithDoubleBraces ?? keyWithSingleBraces;
@@ -1035,7 +1033,7 @@ export class LeasesService {
             hasMissingValue = true;
             return '';
           }
-          return String(value); // NOSONAR
+          return String(value);
         },
       );
 

@@ -27,7 +27,6 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 
 export default function PaymentDetailPage() {
-  // NOSONAR
   const { loading: authLoading } = useAuth();
   const params = useParams();
   const paymentId = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -621,7 +620,7 @@ export default function PaymentDetailPage() {
                     : t("actions.downloadReceipt")}
                 </button>
               )}
-            </div> // NOSONAR
+            </div>
           ) : payment.status === "pending" ? (
             <div className="text-center py-8">
               <p className="text-gray-500 dark:text-gray-400 mb-4">

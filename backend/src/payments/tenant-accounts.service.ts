@@ -163,8 +163,7 @@ export class TenantAccountsService {
       relations: ['lease', 'invoices'],
     });
 
-    if (!account || !account.lease) {
-      // NOSONAR
+    if (!account?.lease) {
       return 0;
     }
 
@@ -192,7 +191,6 @@ export class TenantAccountsService {
 
     for (const invoice of overdueInvoices) {
       const daysOverdue = Math.floor(
-        // NOSONAR
         (new Date().getTime() - new Date(invoice.dueDate).getTime()) /
           (1000 * 60 * 60 * 24),
       );

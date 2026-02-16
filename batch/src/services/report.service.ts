@@ -342,7 +342,6 @@ export class ReportService {
       };
 
       const ensureSpace = () => {
-        // NOSONAR
         if (doc.y + rowHeight * 2 > doc.page.height - doc.page.margins.bottom) {
           doc.addPage();
           drawHeader();

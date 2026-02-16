@@ -80,7 +80,6 @@ const renderTemplate = (
   for (const paragraph of paragraphs) {
     let hasMissingValue = false;
     const rendered = paragraph.replace(
-      // NOSONAR
       TEMPLATE_PLACEHOLDER_REGEX,
       (_full, keyWithDoubleBraces?: string, keyWithSingleBraces?: string) => {
         const key = keyWithDoubleBraces ?? keyWithSingleBraces;
@@ -91,7 +90,7 @@ const renderTemplate = (
           hasMissingValue = true;
           return "";
         }
-        return String(value); // NOSONAR
+        return String(value);
       },
     );
 
@@ -113,7 +112,6 @@ const getLeaseNumber = (lease?: Lease): string | undefined => {
 };
 
 export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
-  // NOSONAR
   const router = useLocalizedRouter();
   const searchParams = useSearchParams();
   const t = useTranslations("leases");
@@ -223,7 +221,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
       ? `${selectedOwner.firstName} ${selectedOwner.lastName}`.trim()
       : (preselectedOwnerName ?? "-");
   const contractTypeHelperText = shouldLockContractTypeByInterested
-    ? t("contractTypeFixedByInterested") // NOSONAR
+    ? t("contractTypeFixedByInterested")
     : hasResolvableContractTypeFromProperty
       ? t("contractTypeFixedByProperty")
       : t("selectProperty");
@@ -293,7 +291,6 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
             phone: profile.phone,
           }))
           .filter(
-            // NOSONAR
             (option, index, all) =>
               all.findIndex((item) => item.id === option.id) === index,
           );
@@ -338,7 +335,6 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
         const missingOwner = await ownersApi.getById(selectedProperty.ownerId);
         if (!missingOwner || !active) return;
         setOwners((currentOwners) => {
-          // NOSONAR
           if (currentOwners.some((owner) => owner.id === missingOwner.id)) {
             return currentOwners;
           }
@@ -356,7 +352,6 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   }, [owners, selectedProperty?.ownerId]);
 
   useEffect(() => {
-    // NOSONAR
     if (isEditing) {
       return;
     }
@@ -615,17 +610,16 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   }, [formValues.terms, renderedTemplateTerms, selectedTemplate, setValue]);
 
   const onSubmit = async (data: LeaseFormData) => {
-    // NOSONAR
     if (hasPreselectedProperty && !selectedProperty) {
       alert(t("unknownProperty"));
       return;
     }
-    // NOSONAR
+
     setIsSubmitting(true);
     try {
-      const resolvedOwnerId = selectedProperty?.ownerId ?? data.ownerId; // NOSONAR
+      const resolvedOwnerId = selectedProperty?.ownerId ?? data.ownerId;
       const resolvedContractType = shouldLockContractTypeByInterested
-        ? hasPreselectedBuyer // NOSONAR
+        ? hasPreselectedBuyer
           ? "sale"
           : "rental"
         : selectedPropertySupportsRent && !selectedPropertySupportsSale

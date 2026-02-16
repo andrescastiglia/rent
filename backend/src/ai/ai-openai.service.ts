@@ -145,11 +145,11 @@ export class AiOpenAiService {
 
       if (status >= 500) {
         this.logger.error(
-          `OpenAI provider error (${status})${requestId ? ` [${requestId}]` : ''}: ${message}`, // NOSONAR
+          `OpenAI provider error (${status})${requestId ? ` [${requestId}]` : ''}: ${message}`,
         );
       } else {
         this.logger.warn(
-          `OpenAI provider error (${status})${requestId ? ` [${requestId}]` : ''}: ${message}`, // NOSONAR
+          `OpenAI provider error (${status})${requestId ? ` [${requestId}]` : ''}: ${message}`,
         );
       }
 

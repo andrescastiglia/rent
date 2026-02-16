@@ -80,7 +80,7 @@ export default function Breadcrumbs() {
 
     // Fallback: capitalize and format the segment
     return (
-      segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ") // NOSONAR
+      segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ")
     );
   };
 

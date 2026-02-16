@@ -29,7 +29,6 @@ type PaymentItemRowProps = {
 };
 
 function PaymentItemRow({
-  // NOSONAR
   index,
   item,
   t,
@@ -97,7 +96,6 @@ type LeaseSelectionCardProps = {
 };
 
 function LeaseSelectionCard({
-  // NOSONAR
   t,
   loadingLeases,
   leases,
@@ -174,7 +172,6 @@ type PaymentDetailsCardProps = {
 };
 
 function PaymentDetailsCard({
-  // NOSONAR
   t,
   tCurrencies,
   paymentMethods,

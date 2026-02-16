@@ -294,7 +294,7 @@ export class BillingService {
       withholdingGanancias,
       adjustmentApplied: adjustment.adjustedAmount - adjustment.originalAmount,
       adjustmentIndexType:
-        adjustment.adjustmentType !== "none" // NOSONAR
+        adjustment.adjustmentType !== "none"
           ? adjustment.adjustmentType
           : undefined,
       adjustmentIndexValue: adjustment.currentIndexValue,

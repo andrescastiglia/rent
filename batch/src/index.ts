@@ -279,7 +279,7 @@ async function processSingleOwnerSettlement(
   period: string,
   dryRun: boolean,
 ) {
-  return dryRun // NOSONAR
+  return dryRun
     ? processSingleOwnerSettlementDryRun(settlementService, ownerId, period)
     : processSingleOwnerSettlementLive(settlementService, ownerId, period);
 }
@@ -910,7 +910,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  // NOSONAR
   // If logger isn't available, fallback to console
   if (logger && typeof logger.error === "function") {
     logger.error("Fatal error starting batch", { error: err });

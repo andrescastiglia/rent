@@ -49,7 +49,6 @@ export default function TenantDetailPage() {
 
   const loadTenant = useCallback(
     async (id: string) => {
-      // NOSONAR
       setLoading(true);
       try {
         const normalizedId = typeof id === "string" ? id : String(id);
@@ -295,7 +294,7 @@ export default function TenantDetailPage() {
                   <span
                     className={`px-2 py-1 rounded text-xs font-semibold uppercase tracking-wide ${
                       tenantToRender.status === "ACTIVE"
-                        ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" // NOSONAR
+                        ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
                         : tenantToRender.status === "INACTIVE"
                           ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
                           : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
@@ -532,7 +531,7 @@ export default function TenantDetailPage() {
                               >
                                 <Download size={12} className="mr-1" />
                                 {downloadingInvoiceId === linkedInvoice.id
-                                  ? tCommon("loading") // NOSONAR
+                                  ? tCommon("loading")
                                   : isDebitNote
                                     ? t("documents.downloadDebitNote")
                                     : t("documents.downloadInvoice")}

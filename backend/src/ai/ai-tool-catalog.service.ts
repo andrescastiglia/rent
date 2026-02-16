@@ -28,7 +28,6 @@ export class AiToolCatalogService {
   private readonly definitions: AiToolDefinition[];
 
   constructor(
-    // NOSONAR
     authService: AuthService,
     usersService: UsersService,
     currenciesService: CurrenciesService,

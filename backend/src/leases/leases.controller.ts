@@ -67,7 +67,7 @@ export class LeasesController {
     const { contractType } = query;
     if (
       contractType &&
-      !Object.values(ContractType).includes(contractType as ContractType) // NOSONAR
+      !Object.values(ContractType).includes(contractType as ContractType)
     ) {
       throw new BadRequestException('Invalid contract type');
     }

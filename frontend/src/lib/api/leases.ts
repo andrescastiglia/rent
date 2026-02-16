@@ -157,7 +157,7 @@ const toOptionalString = (value: unknown): string | undefined =>
 
 const getCurrentCompanyId = (): string | undefined => {
   const user = getUser();
-  return user?.companyId;
+  return user?.companyId as string | undefined;
 };
 
 const assignDefinedLeaseField = <K extends keyof BackendLeasePayload>(
@@ -555,7 +555,7 @@ export const leasesApi = {
     if (filters?.contractType)
       queryParams.append("contractType", filters.contractType);
     const result = await apiClient.get<
-      PaginatedResponse<BackendLease> | BackendLease[] | any // NOSONAR
+      PaginatedResponse<BackendLease> | BackendLease[] | any
     >(
       queryParams.toString().length > 0
         ? `/leases?${queryParams.toString()}`
@@ -609,7 +609,7 @@ export const leasesApi = {
       const newLease: Lease = {
         ...data,
         ownerId: data.ownerId ?? "owner-mock",
-        id: Math.random().toString(36).substr(2, 9), // NOSONAR
+        id: Math.random().toString(36).substr(2, 9),
         documents: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -884,13 +884,13 @@ export const leasesApi = {
     }
 
     const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob); // NOSONAR
+    const url = window.URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = `contrato-${id}.pdf`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
-    window.URL.revokeObjectURL(url); // NOSONAR
+    window.URL.revokeObjectURL(url);
   },
 };

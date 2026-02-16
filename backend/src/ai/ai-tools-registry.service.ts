@@ -26,7 +26,7 @@ const OPENAI_LOOSE_UNKNOWN_SCHEMA = z
 function normalizeText(value: string): string {
   return value
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // NOSONAR
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 }
 
@@ -85,16 +85,12 @@ function withNullable(schema: any): any {
   }
 
   if (schema instanceof z.ZodUnion) {
-    const options = (schema as any)._def.options as z.ZodTypeAny[]; // NOSONAR
-    const hasNull = options.some((option) => option instanceof z.ZodNull);
+    const options = (schema as any)._def.options;
+    const hasNull = options.some((option: any) => option instanceof z.ZodNull);
     if (hasNull) {
       return schema;
     }
-    return z.union([...options, z.null()] as unknown as [
-      z.ZodTypeAny,
-      z.ZodTypeAny,
-      ...z.ZodTypeAny[],
-    ]);
+    return z.union([...options, z.null()]);
   }
 
   return schema.nullable();
@@ -111,8 +107,8 @@ function transformPipeSchema(schema: z.ZodPipe<any, any>): any {
     return inSchema;
   }
   if (rawIn instanceof z.ZodTransform) {
-    return outSchema; // NOSONAR
-  } // NOSONAR
+    return outSchema;
+  }
   if (outSchema instanceof z.ZodUnknown || outSchema instanceof z.ZodAny) {
     return inSchema;
   }
@@ -129,7 +125,7 @@ function transformUnionSchema(schema: z.ZodUnion<any>): any {
   if (options.length === 1) {
     return options[0];
   }
-  return z.union(options as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]]);
+  return z.union(options);
 }
 
 function transformTupleSchema(schema: z.ZodTuple<any, any>): any {
@@ -139,23 +135,19 @@ function transformTupleSchema(schema: z.ZodTuple<any, any>): any {
   const rest = (schema as any)._def.rest
     ? toOpenAiCompatibleSchema((schema as any)._def.rest)
     : null;
-  return rest
-    ? z.tuple(items as [z.ZodTypeAny, ...z.ZodTypeAny[]], rest)
-    : z.tuple(items as [z.ZodTypeAny, ...z.ZodTypeAny[]]);
+  return rest ? z.tuple(items, rest) : z.tuple(items);
 }
 
 function transformObjectSchema(schema: z.ZodObject<any>): any {
-  // NOSONAR
   const transformedShape = Object.fromEntries(
     Object.entries(schema.shape).map(([key, value]) => [
       key,
-      toOpenAiCompatibleSchema(value), // NOSONAR
+      toOpenAiCompatibleSchema(value),
     ]),
   );
   const transformedObject = z.object(transformedShape);
-  const catchall = (schema as any)._def.catchall as any; // NOSONAR
+  const catchall = (schema as any)._def.catchall;
   if (!catchall) {
-    // NOSONAR
     return transformedObject;
   }
   const transformedCatchall = toOpenAiCompatibleSchema(catchall);
@@ -164,32 +156,29 @@ function transformObjectSchema(schema: z.ZodObject<any>): any {
   }
   return transformedObject.catchall(transformedCatchall);
 }
-// NOSONAR
+
 function toOpenAiCompatibleSchema(schema: any): any {
-  // NOSONAR
   if (schema instanceof z.ZodDate) {
-    // NOSONAR
     return z.string().min(1);
   }
   if (schema instanceof z.ZodUnknown || schema instanceof z.ZodAny) {
-    return OPENAI_LOOSE_UNKNOWN_SCHEMA; // NOSONAR
+    return OPENAI_LOOSE_UNKNOWN_SCHEMA;
   }
   if (schema instanceof z.ZodPipe) {
     return transformPipeSchema(schema);
   }
   if (schema instanceof z.ZodTransform) {
-    // Transforms are runtime-only. Use unknown for OpenAI schema generation.
     return z.unknown();
   }
   if (schema instanceof z.ZodOptional || schema instanceof z.ZodNullable) {
     return withNullable(toOpenAiCompatibleSchema(schema.unwrap()));
   }
   if (schema instanceof z.ZodDefault) {
-    return toOpenAiCompatibleSchema((schema as any)._def.innerType); // NOSONAR
+    return toOpenAiCompatibleSchema((schema as any)._def.innerType);
   }
   if (schema instanceof z.ZodReadonly) {
-    return toOpenAiCompatibleSchema((schema as any)._def.innerType).readonly(); // NOSONAR
-  } // NOSONAR
+    return toOpenAiCompatibleSchema((schema as any)._def.innerType).readonly();
+  }
   if (schema instanceof z.ZodCatch) {
     return toOpenAiCompatibleSchema((schema as any)._def.innerType).catch(
       (schema as any)._def.catchValue,
@@ -199,14 +188,13 @@ function toOpenAiCompatibleSchema(schema: any): any {
     return z.array(toOpenAiCompatibleSchema(schema.element));
   }
   if (schema instanceof z.ZodRecord) {
-    // NOSONAR
-    const keyType = toOpenAiCompatibleSchema((schema as any)._def.keyType); // NOSONAR
+    const keyType = toOpenAiCompatibleSchema((schema as any)._def.keyType);
     const valueType = toOpenAiCompatibleSchema((schema as any)._def.valueType);
     return z.record(keyType as any, valueType);
   }
   if (schema instanceof z.ZodUnion) {
     return transformUnionSchema(schema);
-  } // NOSONAR
+  }
   if (schema instanceof z.ZodTuple) {
     return transformTupleSchema(schema);
   }
@@ -217,8 +205,8 @@ function toOpenAiCompatibleSchema(schema: any): any {
     );
   }
   if (schema instanceof z.ZodLazy) {
-    return z.lazy(
-      () => toOpenAiCompatibleSchema((schema as any)._def.getter()), // NOSONAR
+    return z.lazy(() =>
+      toOpenAiCompatibleSchema((schema as any)._def.getter()),
     );
   }
   if (schema instanceof z.ZodObject) {
@@ -251,7 +239,7 @@ function toRootObjectSchema(schema: any): z.ZodObject<any> | null {
 
     break;
   }
-  // NOSONAR
+
   return null;
 }
 

@@ -563,7 +563,7 @@ export class InterestedService {
       activity.templateName = dto.templateName;
     }
     activity.metadata = {
-      ...(dto.metadata ?? {}), // NOSONAR
+      ...(dto.metadata ?? {}),
       ...(dto.propertyId ? { propertyId: dto.propertyId } : {}),
     };
     activity.createdByUserId = user.id;
@@ -1404,7 +1404,7 @@ export class InterestedService {
       .toLowerCase();
     addCriterion(
       preferredZones.length > 0,
-      preferredZones.length > 0 && // NOSONAR
+      preferredZones.length > 0 &&
         preferredZones.some((zone) => propertyLocation.includes(zone)),
       10,
     );
@@ -1478,7 +1478,7 @@ export class InterestedService {
 
     if (
       profile.preferredCity &&
-      property.addressCity && // NOSONAR
+      property.addressCity &&
       profile.preferredCity.trim().toLowerCase() ===
         property.addressCity.trim().toLowerCase()
     ) {

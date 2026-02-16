@@ -169,7 +169,7 @@ export class AdjustmentService {
    * @returns Latest index data or null if not found.
    */
   async getLatestIndex(
-    indexType: "icl" | "igp_m" | "ipc" | "igpm", // NOSONAR
+    indexType: "icl" | "igp_m" | "ipc" | "igpm",
   ): Promise<{ value: number; period: Date } | null> {
     const normalizedIndexType = this.normalizeIndexType(indexType);
     const result = await AppDataSource.query(

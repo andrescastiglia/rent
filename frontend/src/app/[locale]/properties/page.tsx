@@ -182,7 +182,6 @@ type OwnerPropertyItemProps = {
 };
 
 function OwnerPropertyItem({
-  // NOSONAR
   owner,
   property,
   locale,
@@ -292,7 +291,7 @@ function OwnerPropertyItem({
           {propertyOperations.includes("rent") ? (
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {t("fields.rentPrice")}:{" "}
-              {property.rentPrice !== undefined // NOSONAR
+              {property.rentPrice !== undefined
                 ? property.rentPrice.toLocaleString(locale)
                 : "-"}
             </p>
@@ -352,7 +351,7 @@ function OwnerPropertyItem({
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               {tc("loading")}
             </div>
-          ) : hasPropertyTasks ? ( // NOSONAR
+          ) : hasPropertyTasks ? (
             propertyTasks.map((task) => (
               <div
                 key={task.id}
@@ -390,7 +389,6 @@ type OwnerPaymentItemProps = {
 };
 
 function OwnerPaymentItem({
-  // NOSONAR
   payment,
   locale,
   t,
@@ -471,7 +469,6 @@ type OwnerPropertiesSectionProps = {
 };
 
 function OwnerPropertiesSection({
-  // NOSONAR
   owner,
   ownerProperties,
   locale,
@@ -529,7 +526,6 @@ type OwnerRecentPaymentsSectionProps = {
 };
 
 function OwnerRecentPaymentsSection({
-  // NOSONAR
   ownerId,
   ownerRecentPayments,
   loadingPaymentsOwnerId,
@@ -571,7 +567,6 @@ function OwnerRecentPaymentsSection({
 }
 
 function OwnerListItem({
-  // NOSONAR
   owner,
   isSelected,
   ownerProperties,
@@ -716,7 +711,6 @@ type OwnersResultsProps = {
 };
 
 function OwnersResults({
-  // NOSONAR
   filteredOwners,
   selectedOwnerId,
   propertiesByOwner,

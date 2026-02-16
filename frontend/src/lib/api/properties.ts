@@ -1,5 +1,6 @@
 import {
   Property,
+  PropertyFeature,
   CreatePropertyInput,
   UpdatePropertyInput,
   PropertyMaintenanceTask,
@@ -133,7 +134,7 @@ const isApiRelativeImagePath = (value: string): boolean =>
   value.startsWith("properties/images/");
 
 const shouldForceHttps = (): boolean =>
-  typeof window !== "undefined" && window.location.protocol === "https:"; // NOSONAR
+  typeof window !== "undefined" && window.location.protocol === "https:";
 
 const forceHttpsWhenNeeded = (url: URL): string => {
   if (shouldForceHttps()) {
@@ -744,7 +745,7 @@ export const propertiesApi = {
     const queryParams = buildPropertiesQueryParams(filters);
 
     const endpoint =
-      queryParams.toString().length > 0 // NOSONAR
+      queryParams.toString().length > 0
         ? `/properties?${queryParams.toString()}`
         : "/properties";
     const result = await apiClient.get<
@@ -784,17 +785,24 @@ export const propertiesApi = {
   create: async (data: CreatePropertyInput): Promise<Property> => {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
-      const currentUserId = getUser()?.id; // NOSONAR
+      const currentUserId = (getUser()?.id as string | undefined) ?? undefined;
       const newProperty: Property = {
-        ...data,
+        name: data.name,
+        description: data.description,
+        type: data.type,
+        address: data.address,
         images: data.images || [],
         id: Math.random().toString(36).substr(2, 9),
-        status: "ACTIVE", // NOSONAR
+        status: "ACTIVE",
         ownerId: data.ownerId ?? currentUserId ?? "owner-1",
-        features: (data.features || []).map((f) => ({
-          ...f,
-          id: Math.random().toString(36).substr(2, 9),
-        })),
+        features: (data.features || []).map((f): PropertyFeature => {
+          const feature: PropertyFeature = {
+            name: f.name,
+            value: f.value,
+            id: Math.random().toString(36).substring(2, 11),
+          };
+          return feature;
+        }),
         units: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -818,12 +826,16 @@ export const propertiesApi = {
       await delay(DELAY);
       const index = MOCK_PROPERTIES.findIndex((p) => p.id === id);
       if (index === -1) throw new Error("Property not found");
-      // NOSONAR
+
       const updatedFeatures = data.features
-        ? data.features.map((f) => ({
-            ...f,
-            id: Math.random().toString(36).substr(2, 9),
-          }))
+        ? data.features.map((f): PropertyFeature => {
+            const feature: PropertyFeature = {
+              name: f.name,
+              value: f.value,
+              id: Math.random().toString(36).substring(2, 11),
+            };
+            return feature;
+          })
         : MOCK_PROPERTIES[index].features;
 
       const updatedProperty: Property = {

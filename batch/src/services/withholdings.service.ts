@@ -58,7 +58,7 @@ export class WithholdingsService {
   private static readonly DEFAULT_RATES = {
     iibb: 3.5,
     iva: 0,
-    ganancias: 6.0, // NOSONAR
+    ganancias: 6.0,
   };
 
   /**
@@ -342,7 +342,7 @@ export class WithholdingsService {
       return 0;
     }
 
-    const parsed = Number.parseFloat(String(value)); // NOSONAR
+    const parsed = Number.parseFloat(String(value));
     return Number.isFinite(parsed) ? parsed : 0;
   }
 

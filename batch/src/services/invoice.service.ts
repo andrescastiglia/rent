@@ -738,7 +738,6 @@ export class InvoiceService {
     context: Record<string, unknown>,
   ): string {
     return templateBody.replace(
-      // NOSONAR
       TEMPLATE_PLACEHOLDER_REGEX,
       (_token, key: string) => {
         const value = key.split(".").reduce<unknown>((current, part) => {
@@ -757,7 +756,7 @@ export class InvoiceService {
         if (typeof value === "string") {
           return value;
         }
-        return String(value); // NOSONAR
+        return String(value);
       },
     );
   }

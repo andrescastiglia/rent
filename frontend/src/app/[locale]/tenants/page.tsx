@@ -79,7 +79,7 @@ export default function TenantsPage() {
         <div className="flex justify-center items-center h-64">
           <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
         </div>
-      ) : filteredTenants.length > 0 ? ( // NOSONAR
+      ) : filteredTenants.length > 0 ? (
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
           {filteredTenants.map((tenant) => (
             <div
@@ -108,7 +108,7 @@ export default function TenantsPage() {
                     className={`inline-block px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide ${
                       tenant.status === "ACTIVE"
                         ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                        : tenant.status === "INACTIVE" // NOSONAR
+                        : tenant.status === "INACTIVE"
                           ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
                           : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
                     }`}

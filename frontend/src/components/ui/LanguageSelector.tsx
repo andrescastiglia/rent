@@ -45,8 +45,7 @@ export default function LanguageSelector() {
         ? newPath
         : `/${newLocale}${currentPath}`;
       // Perform a full navigation so the app is reloaded with the new locale
-      if (typeof globalThis.window === "undefined") {
-        // NOSONAR
+      if (globalThis.window === undefined) {
         router.replace(finalPath);
         return;
       }

@@ -222,7 +222,7 @@ export default function TemplateEditorPage() {
         <div className="flex justify-center items-center h-52">
           <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
         </div>
-      ) : notFound ? ( // NOSONAR
+      ) : notFound ? (
         <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center">
           <p className="text-sm text-gray-600 dark:text-gray-300">
             {t("templateNotFound")}
@@ -289,7 +289,7 @@ export default function TemplateEditorPage() {
             </div>
           </div>
 
-          {!isContractScope(scope) ? ( // NOSONAR
+          {!isContractScope(scope) ? (
             <label className="inline-flex items-center text-sm text-gray-700 dark:text-gray-300">
               <input
                 type="checkbox"

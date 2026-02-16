@@ -7,7 +7,6 @@ export function renderDocumentTemplate(
   context: TemplateContext,
 ): string {
   return templateBody.replace(
-    // NOSONAR
     TEMPLATE_PLACEHOLDER_REGEX,
     (_token: string, key: string): string => {
       const value = resolveTemplateValue(context, key);
@@ -17,7 +16,7 @@ export function renderDocumentTemplate(
       if (typeof value === 'string') {
         return value;
       }
-      return String(value); // NOSONAR
+      return String(value);
     },
   );
 }

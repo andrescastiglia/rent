@@ -156,7 +156,7 @@ export const usersApi = {
             : payload.avatarUrl,
         language: payload.language ?? current.language ?? "es",
       };
-      setUser(merged);
+      setUser(merged as unknown as Record<string, unknown>);
       return merged;
     }
 

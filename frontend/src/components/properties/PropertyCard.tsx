@@ -21,13 +21,13 @@ export function PropertyCard({ property }: PropertyCardProps) {
     ? ` ${property.saleCurrency}`
     : "";
   const salePriceLabel =
-    property.salePrice !== undefined // NOSONAR
+    property.salePrice !== undefined
       ? `${property.salePrice.toLocaleString(locale)}${saleCurrencySuffix}`
       : "-";
   const statusClassName =
     property.status === "ACTIVE"
       ? "bg-green-500"
-      : property.status === "MAINTENANCE" // NOSONAR
+      : property.status === "MAINTENANCE"
         ? "bg-yellow-500"
         : "bg-red-500";
 
@@ -82,7 +82,7 @@ export function PropertyCard({ property }: PropertyCardProps) {
               {showsRent ? (
                 <p className="text-xs text-gray-600">
                   <span className="font-medium">{t("fields.rentPrice")}:</span>{" "}
-                  {property.rentPrice !== undefined // NOSONAR
+                  {property.rentPrice !== undefined
                     ? property.rentPrice.toLocaleString(locale)
                     : "-"}
                 </p>

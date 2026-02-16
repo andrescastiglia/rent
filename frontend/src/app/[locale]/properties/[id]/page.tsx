@@ -26,7 +26,6 @@ import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { useAuth } from "@/contexts/auth-context";
 
 export default function PropertyDetailPage() {
-  // NOSONAR
   const { loading: authLoading } = useAuth();
   const t = useTranslations("properties");
   const tCommon = useTranslations("common");
@@ -239,7 +238,7 @@ export default function PropertyDetailPage() {
   const saleCurrencySuffix = property.saleCurrency
     ? ` ${property.saleCurrency}`
     : "";
-  const salePriceLabel = // NOSONAR
+  const salePriceLabel =
     property.salePrice !== undefined
       ? `${property.salePrice.toLocaleString(locale)}${saleCurrencySuffix}`
       : "-";
@@ -340,7 +339,7 @@ export default function PropertyDetailPage() {
                 <span
                   className={`px-2 py-1 rounded text-xs font-semibold text-white uppercase tracking-wide ${
                     property.status === "ACTIVE"
-                      ? "bg-green-500" // NOSONAR
+                      ? "bg-green-500"
                       : property.status === "MAINTENANCE"
                         ? "bg-yellow-500"
                         : "bg-red-500"
@@ -374,7 +373,7 @@ export default function PropertyDetailPage() {
                 >
                   <FileText size={16} />
                   {t("viewLease")}
-                </Link> // NOSONAR
+                </Link>
               ) : leaseAction.type === "renew" ? (
                 <button
                   type="button"
@@ -395,7 +394,7 @@ export default function PropertyDetailPage() {
                     <RefreshCw size={16} />
                   )}
                   {t("renewLease")}
-                </button> // NOSONAR
+                </button>
               ) : canCreateLease ? (
                 <Link
                   href={createLeaseHref}
@@ -505,7 +504,7 @@ export default function PropertyDetailPage() {
                         {t("fields.rentPrice")}
                       </dt>
                       <dd className="font-medium text-gray-900 dark:text-white">
-                        {property.rentPrice !== undefined // NOSONAR
+                        {property.rentPrice !== undefined
                           ? property.rentPrice.toLocaleString(locale)
                           : "-"}
                       </dd>

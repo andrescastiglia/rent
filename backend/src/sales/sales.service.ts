@@ -261,6 +261,6 @@ export class SalesService {
         return new Date(year, month - 1, day);
       }
     }
-    return new Date(value as string); // NOSONAR
+    return new Date(value as string);
   }
 }
