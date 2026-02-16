@@ -40,4 +40,4 @@ async function bootstrap() {
   await app.listen(port, host);
   console.log(`Backend running on http://${host}:${port}`);
 }
-bootstrap();
+void bootstrap();

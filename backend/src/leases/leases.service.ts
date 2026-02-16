@@ -839,22 +839,20 @@ export class LeasesService {
     dto: UpdateLeaseDto,
     effectiveType: ContractType,
   ): void {
-    const resolvedEndDate =
-      dto.endDate !== undefined
-        ? dto.endDate
-          ? new Date(dto.endDate)
-          : null
-        : lease.endDate;
+    let resolvedEndDate: Date | null | undefined = lease.endDate;
+    if (dto.endDate !== undefined) {
+      resolvedEndDate = dto.endDate ? new Date(dto.endDate) : null;
+    }
+
+    let resolvedStartDate: Date | null | undefined = lease.startDate;
+    if (dto.startDate !== undefined) {
+      resolvedStartDate = dto.startDate ? new Date(dto.startDate) : null;
+    }
 
     Object.assign(lease, {
       ...dto,
       contractType: effectiveType,
-      startDate:
-        dto.startDate !== undefined
-          ? dto.startDate
-            ? new Date(dto.startDate)
-            : null
-          : lease.startDate,
+      startDate: resolvedStartDate,
       endDate: resolvedEndDate,
     });
   }

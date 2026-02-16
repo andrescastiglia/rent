@@ -262,6 +262,150 @@ function ProfileExpandedDetail({
   );
 }
 
+type ProfilesListProps = {
+  profiles: InterestedProfile[];
+  filteredProfiles: InterestedProfile[];
+  selectedProfileId: string | null;
+  summary: InterestedSummary | null;
+  selectedProfile: InterestedProfile | null;
+  loadingDetail: boolean;
+  confirmingMatchId: string | null;
+  sortedActivities: InterestedActivity[];
+  locale: string;
+  t: (key: string, values?: Record<string, string>) => string;
+  statusLabel: (status?: string) => string;
+  formatMatchReason: (reason: string) => string;
+  formatActivityText: (
+    value?: string,
+    metadata?: Record<string, unknown>,
+  ) => string | undefined;
+  resolveMatchConfirmationAction: (
+    profile: InterestedProfile,
+    match: InterestedMatch,
+  ) => "rent" | "sale" | null;
+  resolveMatchContractLinks: (
+    profile: InterestedProfile,
+    match: InterestedMatch,
+  ) => ContractLink[];
+  onSelectProfile: (profile: InterestedProfile) => void;
+  onConfirm: (match: InterestedMatch) => void;
+  getConfirmMatchLabel: (
+    action: "rent" | "sale" | null | undefined,
+    isConfirming: boolean,
+  ) => string;
+};
+
+function ProfilesList({
+  profiles,
+  filteredProfiles,
+  selectedProfileId,
+  summary,
+  selectedProfile,
+  loadingDetail,
+  confirmingMatchId,
+  sortedActivities,
+  locale,
+  t,
+  statusLabel,
+  formatMatchReason,
+  formatActivityText,
+  resolveMatchConfirmationAction,
+  resolveMatchContractLinks,
+  onSelectProfile,
+  onConfirm,
+  getConfirmMatchLabel,
+}: ProfilesListProps) {
+  if (filteredProfiles.length === 0) {
+    return (
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        {profiles.length > 0 ? t("noResults") : t("empty")}
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {filteredProfiles.map((profile) => {
+        const operations = getProfileOperations(profile);
+        const isSelected = selectedProfileId === profile.id;
+        const hasLoadedSummary =
+          isSelected && summary?.profile.id === profile.id;
+
+        return (
+          <div
+            key={profile.id}
+            className={`rounded-lg border p-3 space-y-3 transition ${
+              isSelected
+                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30"
+                : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={() => onSelectProfile(profile)}
+              className="w-full text-left"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-semibold text-gray-900 dark:text-white">
+                  {profile.firstName || profile.lastName
+                    ? `${profile.firstName ?? ""} ${profile.lastName ?? ""}`.trim()
+                    : profile.phone}
+                </p>
+                <span className="text-xs px-2 py-1 rounded-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                  {statusLabel(profile.status)}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {profile.phone}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {t("operationsLabel", {
+                  op: operations
+                    .map((operation) => t(`operations.${operation}`))
+                    .join(", "),
+                })}
+              </p>
+            </button>
+
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={`/${locale}/interested/${profile.id}/edit`}
+                className="px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-xs"
+              >
+                {t("actions.edit")}
+              </Link>
+              <Link
+                href={`/${locale}/interested/${profile.id}/activities/new`}
+                className="px-3 py-1.5 rounded-md border border-green-300 dark:border-green-700 text-xs text-green-700 dark:text-green-300"
+              >
+                {t("activities.add")}
+              </Link>
+            </div>
+
+            {isSelected && (
+              <ProfileExpandedDetail
+                isLoading={loadingDetail && !hasLoadedSummary}
+                summary={summary}
+                selectedProfile={selectedProfile}
+                confirmingMatchId={confirmingMatchId}
+                sortedActivities={sortedActivities}
+                locale={locale}
+                t={t}
+                formatMatchReason={formatMatchReason}
+                formatActivityText={formatActivityText}
+                resolveMatchConfirmationAction={resolveMatchConfirmationAction}
+                resolveMatchContractLinks={resolveMatchContractLinks}
+                onConfirm={onConfirm}
+                getConfirmMatchLabel={getConfirmMatchLabel}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function InterestedPage() {
   const { loading: authLoading } = useAuth();
   const t = useTranslations("interested");
@@ -673,92 +817,27 @@ export default function InterestedPage() {
           <div className="flex justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
           </div>
-        ) : filteredProfiles.length > 0 ? (
-          <div className="space-y-3">
-            {filteredProfiles.map((profile) => {
-              const operations = getProfileOperations(profile);
-              const isSelected = selectedProfileId === profile.id;
-              const hasLoadedSummary =
-                isSelected && summary?.profile.id === profile.id;
-
-              return (
-                <div
-                  key={profile.id}
-                  className={`rounded-lg border p-3 space-y-3 transition ${
-                    isSelected
-                      ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30"
-                      : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => handleSelectProfileClick(profile)}
-                    className="w-full text-left"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold text-gray-900 dark:text-white">
-                        {profile.firstName || profile.lastName
-                          ? `${profile.firstName ?? ""} ${profile.lastName ?? ""}`.trim()
-                          : profile.phone}
-                      </p>
-                      <span className="text-xs px-2 py-1 rounded-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-                        {statusLabel(profile.status)}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {profile.phone}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {t("operationsLabel", {
-                        op: operations
-                          .map((operation) => t(`operations.${operation}`))
-                          .join(", "),
-                      })}
-                    </p>
-                  </button>
-
-                  <div className="flex flex-wrap gap-2">
-                    <Link
-                      href={`/${locale}/interested/${profile.id}/edit`}
-                      className="px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-xs"
-                    >
-                      {t("actions.edit")}
-                    </Link>
-                    <Link
-                      href={`/${locale}/interested/${profile.id}/activities/new`}
-                      className="px-3 py-1.5 rounded-md border border-green-300 dark:border-green-700 text-xs text-green-700 dark:text-green-300"
-                    >
-                      {t("activities.add")}
-                    </Link>
-                  </div>
-
-                  {isSelected && (
-                    <ProfileExpandedDetail
-                      isLoading={loadingDetail && !hasLoadedSummary}
-                      summary={summary}
-                      selectedProfile={selectedProfile}
-                      confirmingMatchId={confirmingMatchId}
-                      sortedActivities={sortedActivities}
-                      locale={locale}
-                      t={t}
-                      formatMatchReason={formatMatchReason}
-                      formatActivityText={formatActivityText}
-                      resolveMatchConfirmationAction={
-                        resolveMatchConfirmationAction
-                      }
-                      resolveMatchContractLinks={resolveMatchContractLinks}
-                      onConfirm={handleConfirmMatchClick}
-                      getConfirmMatchLabel={getConfirmMatchLabel}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
         ) : (
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {profiles.length > 0 ? t("noResults") : t("empty")}
-          </p>
+          <ProfilesList
+            profiles={profiles}
+            filteredProfiles={filteredProfiles}
+            selectedProfileId={selectedProfileId}
+            summary={summary}
+            selectedProfile={selectedProfile}
+            loadingDetail={loadingDetail}
+            confirmingMatchId={confirmingMatchId}
+            sortedActivities={sortedActivities}
+            locale={locale}
+            t={t}
+            statusLabel={statusLabel}
+            formatMatchReason={formatMatchReason}
+            formatActivityText={formatActivityText}
+            resolveMatchConfirmationAction={resolveMatchConfirmationAction}
+            resolveMatchContractLinks={resolveMatchContractLinks}
+            onSelectProfile={handleSelectProfileClick}
+            onConfirm={handleConfirmMatchClick}
+            getConfirmMatchLabel={getConfirmMatchLabel}
+          />
         )}
       </div>
     </div>

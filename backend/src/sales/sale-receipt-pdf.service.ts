@@ -15,8 +15,8 @@ import { getS3Config, S3_BUCKET_NAME } from '../config/s3.config';
 
 @Injectable()
 export class SaleReceiptPdfService {
-  private s3Client: S3Client;
-  private bucketName: string;
+  private readonly s3Client: S3Client;
+  private readonly bucketName: string;
 
   constructor(
     @InjectRepository(Document)

@@ -341,23 +341,6 @@ async function runSeedTransaction(queryRunner: QueryRunner): Promise<void> {
   await ensureLease(queryRunner, company, property, owner, tenant);
 }
 
-async function seed() {
-  try {
-    await initializeSeedDataSource();
-    await runSeedInTransaction();
-  } catch (error) {
-    console.error('Error connecting to database:', error);
-  } finally {
-    await AppDataSource.destroy();
-  }
-}
-
-async function initializeSeedDataSource(): Promise<void> {
-  console.log('Connecting to database...');
-  await AppDataSource.initialize();
-  console.log('Connected!');
-}
-
 async function runSeedInTransaction(): Promise<void> {
   const queryRunner = AppDataSource.createQueryRunner();
   await queryRunner.connect();
@@ -375,4 +358,17 @@ async function runSeedInTransaction(): Promise<void> {
   }
 }
 
-seed();
+async function seed() {
+  try {
+    console.log('Connecting to database...');
+    await AppDataSource.initialize();
+    console.log('Connected!');
+    await runSeedInTransaction();
+  } catch (error) {
+    console.error('Error connecting to database:', error);
+  } finally {
+    await AppDataSource.destroy();
+  }
+}
+
+void seed();

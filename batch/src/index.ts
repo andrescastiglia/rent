@@ -273,17 +273,6 @@ async function processAndAccumulateSettlement(
   return { success: true, netAmount: calc.netAmount };
 }
 
-async function processSingleOwnerSettlement(
-  settlementService: any,
-  ownerId: string,
-  period: string,
-  dryRun: boolean,
-) {
-  return dryRun
-    ? processSingleOwnerSettlementDryRun(settlementService, ownerId, period)
-    : processSingleOwnerSettlementLive(settlementService, ownerId, period);
-}
-
 async function processSingleOwnerSettlementDryRun(
   settlementService: any,
   ownerId: string,
@@ -878,43 +867,50 @@ async function resolveSettlementsSummary(
   }
 
   if (options.ownerId) {
-    return processSingleOwnerSettlement(
-      settlementService,
-      options.ownerId,
-      period,
-      options.dryRun,
-    );
+    return options.dryRun
+      ? processSingleOwnerSettlementDryRun(
+          settlementService,
+          options.ownerId,
+          period,
+        )
+      : processSingleOwnerSettlementLive(
+          settlementService,
+          options.ownerId,
+          period,
+        );
   }
 
   return processAllOwnersSettlements(settlementService, period, options.dryRun);
 }
 
 async function main() {
-  const mod = await import("./shared/logger");
-  logger = mod.logger;
+  try {
+    const mod = await import("./shared/logger");
+    logger = mod.logger;
 
-  const db = await import("./shared/database");
-  initializeDatabase = db.initializeDatabase;
-  closeDatabase = db.closeDatabase;
+    const db = await import("./shared/database");
+    initializeDatabase = db.initializeDatabase;
+    closeDatabase = db.closeDatabase;
 
-  const job = await import("./services/billing-job.service");
-  BillingJobServiceCtor = job.BillingJobService;
+    const job = await import("./services/billing-job.service");
+    BillingJobServiceCtor = job.BillingJobService;
 
-  // Parse command line arguments
-  program.parse(process.argv);
+    // Parse command line arguments
+    program.parse(process.argv);
 
-  // Show help if no command provided
-  if (!process.argv.slice(2).length) {
-    program.outputHelp();
+    // Show help if no command provided
+    if (!process.argv.slice(2).length) {
+      program.outputHelp();
+    }
+  } catch (err) {
+    // If logger isn't available, fallback to console
+    if (logger && typeof logger.error === "function") {
+      logger.error("Fatal error starting batch", { error: err });
+    } else {
+      console.error("Fatal error starting batch", err);
+    }
+    process.exit(1);
   }
 }
 
-main().catch((err) => {
-  // If logger isn't available, fallback to console
-  if (logger && typeof logger.error === "function") {
-    logger.error("Fatal error starting batch", { error: err });
-  } else {
-    console.error("Fatal error starting batch", err);
-  }
-  process.exit(1);
-});
+void main();

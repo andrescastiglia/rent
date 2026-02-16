@@ -226,9 +226,6 @@ export class ReportService {
         }
       };
 
-      const truncate = (value: string, max: number) =>
-        value.length > max ? `${value.slice(0, Math.max(0, max - 1))}…` : value;
-
       doc.y = tableTop;
       drawHeader();
 
@@ -236,15 +233,30 @@ export class ReportService {
         ensureSpace();
         const y = doc.y;
         doc.fontSize(9);
-        doc.text(truncate(inv.invoiceNumber, 14), columns.invoice, y, {
-          width: 70,
-        });
-        doc.text(truncate(inv.tenantName, 22), columns.tenant, y, {
-          width: 120,
-        });
-        doc.text(truncate(inv.propertyAddress, 34), columns.property, y, {
-          width: 180,
-        });
+        doc.text(
+          ReportService.truncate(inv.invoiceNumber, 14),
+          columns.invoice,
+          y,
+          {
+            width: 70,
+          },
+        );
+        doc.text(
+          ReportService.truncate(inv.tenantName, 22),
+          columns.tenant,
+          y,
+          {
+            width: 120,
+          },
+        );
+        doc.text(
+          ReportService.truncate(inv.propertyAddress, 34),
+          columns.property,
+          y,
+          {
+            width: 180,
+          },
+        );
         doc.text(this.formatCurrency(inv.subtotal), columns.subtotal, y, {
           width: 60,
           align: "right",
@@ -262,7 +274,7 @@ export class ReportService {
           width: 60,
           align: "right",
         });
-        doc.text(truncate(inv.status, 8), columns.status, y, {
+        doc.text(ReportService.truncate(inv.status, 8), columns.status, y, {
           width: 40,
           align: "right",
         });
@@ -348,21 +360,30 @@ export class ReportService {
         }
       };
 
-      const truncate = (value: string, max: number) =>
-        value.length > max ? `${value.slice(0, Math.max(0, max - 1))}…` : value;
-
       drawHeader();
       for (const inv of data.invoices) {
         ensureSpace();
         const y = doc.y;
         doc.fontSize(9);
-        doc.text(truncate(inv.invoiceNumber, 16), columns.invoice, y, {
-          width: 80,
+        doc.text(
+          ReportService.truncate(inv.invoiceNumber, 16),
+          columns.invoice,
+          y,
+          {
+            width: 80,
+          },
+        );
+        doc.text(ReportService.truncate(inv.tenant, 24), columns.tenant, y, {
+          width: 130,
         });
-        doc.text(truncate(inv.tenant, 24), columns.tenant, y, { width: 130 });
-        doc.text(truncate(inv.property, 40), columns.property, y, {
-          width: 220,
-        });
+        doc.text(
+          ReportService.truncate(inv.property, 40),
+          columns.property,
+          y,
+          {
+            width: 220,
+          },
+        );
         doc.text(this.formatCurrency(inv.amount), columns.amount, y, {
           width: 80,
           align: "right",
@@ -518,6 +539,12 @@ export class ReportService {
     }
 
     return companyId;
+  }
+
+  private static truncate(value: string, max: number): string {
+    return value.length > max
+      ? `${value.slice(0, Math.max(0, max - 1))}…`
+      : value;
   }
 
   private formatCurrency(value: number): string {
