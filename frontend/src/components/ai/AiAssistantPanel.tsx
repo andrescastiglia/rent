@@ -66,7 +66,10 @@ const getPreview = (value: unknown): string => {
     return String(value);
   if (Array.isArray(value)) return `[${value.length}]`;
   if (isNestedValue(value)) return `{${Object.keys(value).length}}`;
-  if (typeof value === "object") return JSON.stringify(value);
+  // Prevent '[object Object]' for objects; show type instead
+  if (typeof value === "object") return "{object}";
+  if (typeof value === "function") return "[function]";
+  if (typeof value === "symbol") return "[symbol]";
   return String(value);
 };
 

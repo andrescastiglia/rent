@@ -750,14 +750,16 @@ export class InvoiceService {
           return (current as Record<string, unknown>)[part];
         }, context);
 
-        if (value === null || value === undefined) {
+        if (
+          value === null ||
+          value === undefined ||
+          typeof value === "function" ||
+          typeof value === "symbol"
+        ) {
           return "";
         }
-        if (typeof value === "string") {
-          return value;
-        }
         if (typeof value === "object") {
-          return JSON.stringify(value);
+          return "";
         }
         return String(value);
       },

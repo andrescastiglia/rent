@@ -2,22 +2,22 @@ const TOKEN_KEY = "auth_token";
 const USER_KEY = "auth_user";
 
 export function getToken(): string | null {
-  if (typeof globalThis.localStorage === "undefined") return null;
+  if (globalThis.localStorage == null) return null;
   return globalThis.localStorage.getItem(TOKEN_KEY);
 }
 
 export function setToken(token: string): void {
-  if (typeof globalThis.localStorage === "undefined") return;
+  if (globalThis.localStorage == null) return;
   globalThis.localStorage.setItem(TOKEN_KEY, token);
 }
 
 export function removeToken(): void {
-  if (typeof globalThis.localStorage === "undefined") return;
+  if (globalThis.localStorage == null) return;
   globalThis.localStorage.removeItem(TOKEN_KEY);
 }
 
 export function getUser(): Record<string, unknown> | null {
-  if (typeof globalThis.localStorage === "undefined") return null;
+  if (globalThis.localStorage == null) return null;
   const userStr = globalThis.localStorage.getItem(USER_KEY);
   if (!userStr) return null;
 
@@ -31,12 +31,12 @@ export function getUser(): Record<string, unknown> | null {
 }
 
 export function setUser(user: Record<string, unknown>): void {
-  if (typeof globalThis.localStorage === "undefined") return;
+  if (globalThis.localStorage == null) return;
   globalThis.localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
 export function removeUser(): void {
-  if (typeof globalThis.localStorage === "undefined") return;
+  if (globalThis.localStorage == null) return;
   globalThis.localStorage.removeItem(USER_KEY);
 }
 

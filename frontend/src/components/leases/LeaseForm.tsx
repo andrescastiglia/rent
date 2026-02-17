@@ -97,8 +97,14 @@ const renderTemplate = (
           hasMissingValue = true;
           return "";
         }
-        if (typeof value === "object") {
-          return JSON.stringify(value);
+        // Only allow primitives (string, number, boolean); objects/arrays output empty string
+        if (
+          typeof value === "object" ||
+          typeof value === "function" ||
+          typeof value === "symbol"
+        ) {
+          hasMissingValue = true;
+          return "";
         }
         return String(value);
       },

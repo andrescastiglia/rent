@@ -8,7 +8,7 @@ function getLocaleFromPathname(pathname: string): string {
 }
 
 export function forceLogout(): void {
-  if (typeof globalThis.location === "undefined") return;
+  if (globalThis.location == null) return;
 
   clearAuth();
 

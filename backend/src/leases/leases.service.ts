@@ -1028,12 +1028,19 @@ export class LeasesService {
             return '';
           }
           const value = this.resolveTemplateValue(context, key);
-          if (value === null || value === undefined || value === '') {
+          if (
+            value === null ||
+            value === undefined ||
+            value === '' ||
+            typeof value === 'function' ||
+            typeof value === 'symbol'
+          ) {
             hasMissingValue = true;
             return '';
           }
           if (typeof value === 'object') {
-            return JSON.stringify(value);
+            hasMissingValue = true;
+            return '';
           }
           return String(value);
         },

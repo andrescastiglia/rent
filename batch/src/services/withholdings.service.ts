@@ -341,10 +341,17 @@ export class WithholdingsService {
     if (value === null || value === undefined) {
       return 0;
     }
+    // Only allow primitives (string, number, boolean); objects/arrays return 0
     if (typeof value === "object") {
       return 0;
     }
-
+    if (typeof value === "symbol" || typeof value === "function") {
+      return 0;
+    }
+    // For booleans, treat true as 1, false as 0
+    if (typeof value === "boolean") {
+      return value ? 1 : 0;
+    }
     const parsed = Number.parseFloat(String(value));
     return Number.isFinite(parsed) ? parsed : 0;
   }
