@@ -131,14 +131,6 @@
     # ─────────────────────────────────────────────────────────────
     # FRONTEND BUILD
     # ─────────────────────────────────────────────────────────────
-    - name: Create frontend .env
-      ansible.builtin.copy:
-        content: |
-          NODE_ENV=production
-          NEXT_PUBLIC_API_URL=https://{{ app_domain }}/api
-        dest: "{{ current_path }}/frontend/.env"
-        mode: "0644"
-
     - name: Clean frontend node_modules and .next
       ansible.builtin.file:
         path: "{{ item }}"
@@ -192,12 +184,12 @@
         state: link
         force: true
 
-    - name: Create frontend symlink env
+    - name: Link shared .env to frontend root
       ansible.builtin.file:
-        src: "{{ current_path }}/frontend/.env"
-        dest: "{{ deploy_path }}/frontend/.env"
+        src: "{{ deploy_path }}/shared/.env"
+        dest: "{{ current_path }}/frontend/.env"
         state: link
-        force: true
+        force: true            
 
     # ─────────────────────────────────────────────────────────────
     # PM2 PROCESS MANAGEMENT
