@@ -234,7 +234,6 @@
           --cwd {{ deploy_path }}/frontend
           --log /var/log/rent/frontend.log
           --time
-          --node-args="-r dotenv/config" 
           -- start --dotenv_config_path={{ deploy_path }}/frontend/.env
 
     - name: Save PM2 process list
