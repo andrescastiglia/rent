@@ -1,4 +1,4 @@
-import axios, { AxiosError, AxiosInstance } from "axios";
+import axios, { AxiosInstance } from "axios";
 import https from "node:https";
 import { AppDataSource } from "../shared/database";
 import { logger } from "../shared/logger";
@@ -278,14 +278,17 @@ export class ExchangeRateService {
       }
 
       const fallbackEndpoint = `/monetarias/${variableId}`;
-      logger.warn("BCRA primary exchange rate endpoint unavailable, using fallback", {
-        fromCurrency,
-        toCurrency,
-        primaryEndpoint,
-        fallbackEndpoint,
-        status: this.extractStatus(error),
-        responseData: this.extractResponseData(error),
-      });
+      logger.warn(
+        "BCRA primary exchange rate endpoint unavailable, using fallback",
+        {
+          fromCurrency,
+          toCurrency,
+          primaryEndpoint,
+          fallbackEndpoint,
+          status: this.extractStatus(error),
+          responseData: this.extractResponseData(error),
+        },
+      );
 
       const response = await this.bcraClient.get(fallbackEndpoint, {
         params: {
