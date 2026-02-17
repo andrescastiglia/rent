@@ -86,8 +86,8 @@
 
     - name: Link shared .env to backend root
       ansible.builtin.file:
-        src: "{{ current_path }}/shared/.env"
-        dest: "{{ current_path }}/backend/.env"
+        src: "{{ deploy_path }}/shared/.env"
+        dest: "{{ current_path }}/backend/dist/.env"
         state: link
         force: true
 
@@ -123,8 +123,8 @@
 
     - name: Link shared .env to batch root
       ansible.builtin.file:
-        src: "{{ current_path }}/shared/.env"
-        dest: "{{ current_path }}/batch/.env"
+        src: "{{ deploy_path }}/shared/.env"
+        dest: "{{ current_path }}/batch/dist/.env"
         state: link
         force: true        
 
@@ -186,7 +186,7 @@
 
     - name: Link shared .env to frontend root
       ansible.builtin.file:
-        src: "{{ current_path }}/shared/.env"
+        src: "{{ deploy_path }}/shared/.env"
         dest: "{{ current_path }}/frontend/.env"
         state: link
         force: true            
