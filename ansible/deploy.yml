@@ -223,10 +223,6 @@
           --log /var/log/rent/backend.log
           --time
           --env production
-      environment:
-        NODE_ENV: production
-        PORT: "{{ backend_port }}"
-        HOST: "0.0.0.0"
 
     - name: Start rent-frontend
       ansible.builtin.command:
@@ -237,9 +233,6 @@
           --log /var/log/rent/frontend.log
           --time
           -- start
-      environment:
-        NODE_ENV: production
-        PORT: "{{ frontend_port }}"
 
     - name: Save PM2 process list
       ansible.builtin.command:
