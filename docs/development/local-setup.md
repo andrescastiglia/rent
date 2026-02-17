@@ -7,6 +7,7 @@
 - [Servicios Disponibles](#servicios-disponibles)
 - [Comandos Útiles](#comandos-útiles)
 - [Conexión a Servicios](#conexión-a-servicios)
+- [CAPTCHA (Turnstile)](#captcha-turnstile)
 - [Estructura de Archivos](#estructura-de-archivos)
 - [Troubleshooting](#troubleshooting)
 - [FAQs](#faqs)
@@ -311,6 +312,59 @@ redis-cli -h localhost -p 6379 -a rent_redis_password
 **RabbitMQ Management UI**
 1. Abrir http://localhost:15672
 2. Login: `rent_user` / `rent_rabbitmq_password`
+
+---
+
+## CAPTCHA (Turnstile)
+
+Para habilitar CAPTCHA en autenticación:
+- `register`: siempre requiere CAPTCHA.
+- `login`: requiere CAPTCHA desde el segundo intento fallido.
+
+### 1. Crear credenciales en Cloudflare
+
+1. Entrar a Cloudflare Dashboard.
+2. Ir a `Turnstile` -> `Add site`.
+3. Configurar el dominio:
+   - Desarrollo local: `localhost`
+   - Staging/Producción: agregar tus dominios reales.
+4. Guardar y copiar:
+   - `Site Key`
+   - `Secret Key`
+
+### 2. Configurar variables en `.env`
+
+Editar `rent/.env`:
+
+```bash
+# Backend (validación server-side)
+TURNSTILE_SECRET_KEY=tu_secret_key_de_turnstile
+
+# Frontend (render del widget en el navegador)
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=tu_site_key_de_turnstile
+```
+
+Notas:
+- `TURNSTILE_SECRET_KEY` nunca debe exponerse en frontend.
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY` es pública por diseño (prefijo `NEXT_PUBLIC_`).
+
+### 3. Reiniciar servicios/aplicaciones
+
+Si cambiaste variables de entorno:
+
+```bash
+# Si corrés con Docker/Make
+make down
+make up
+
+# Si corrés frontend/backend por separado, reiniciá ambos procesos
+```
+
+### 4. Verificación rápida
+
+1. Ir a `/{locale}/register` y confirmar que aparece CAPTCHA.
+2. En `/{locale}/login`, fallar una vez las credenciales.
+3. Reintentar login y verificar que ahora exige CAPTCHA.
 
 ---
 

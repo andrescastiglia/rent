@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { UsersModule } from '../users/users.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { PermissionsService } from './services/permissions.service';
+import { CaptchaService } from './services/captcha.service';
 
 @Module({
   imports: [
@@ -24,7 +25,7 @@ import { PermissionsService } from './services/permissions.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, PermissionsService],
+  providers: [AuthService, JwtStrategy, PermissionsService, CaptchaService],
   exports: [AuthService, PermissionsService],
 })
 export class AuthModule {}

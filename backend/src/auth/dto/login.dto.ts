@@ -1,10 +1,11 @@
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { z } from 'zod';
 
 const loginZodSchema = z
   .object({
     email: z.string().email(),
     password: z.string().min(1),
+    captchaToken: z.string().min(1).optional(),
   })
   .strict();
 
@@ -18,4 +19,9 @@ export class LoginDto {
   @IsString()
   @IsNotEmpty()
   password: string;
+
+  @IsString()
+  @IsOptional()
+  @IsNotEmpty()
+  captchaToken?: string;
 }

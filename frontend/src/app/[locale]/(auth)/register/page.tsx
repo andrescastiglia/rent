@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
 import { useLocale, useTranslations } from "next-intl";
+import { TurnstileCaptcha } from "@/components/common/TurnstileCaptcha";
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -18,6 +19,7 @@ export default function RegisterPage() {
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const t = useTranslations("auth");
   const locale = useLocale();
@@ -25,6 +27,15 @@ export default function RegisterPage() {
     if (!(error instanceof Error)) return t("errors.registerError");
     if (error.message === "Email already exists") {
       return t("errors.emailAlreadyRegistered");
+    }
+    if (error.message === "CAPTCHA_REQUIRED") {
+      return t("errors.captchaRequired");
+    }
+    if (error.message === "CAPTCHA_INVALID") {
+      return t("errors.captchaInvalid");
+    }
+    if (error.message === "CAPTCHA_NOT_CONFIGURED") {
+      return t("errors.captchaUnavailable");
     }
     return error.message;
   };
@@ -53,6 +64,11 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!captchaToken) {
+      setError(t("errors.captchaRequired"));
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -63,6 +79,7 @@ export default function RegisterPage() {
         lastName: formData.lastName,
         phone: formData.phone || undefined,
         role: formData.role,
+        captchaToken,
       });
       if (response.pendingApproval) {
         setSuccess(t("messages.pendingApproval"));
@@ -223,6 +240,13 @@ export default function RegisterPage() {
             onChange={handleChange}
             className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-xs focus:outline-hidden focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
           />
+        </div>
+
+        <div>
+          <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+            {t("captcha")}
+          </p>
+          <TurnstileCaptcha onTokenChange={setCaptchaToken} />
         </div>
 
         <button

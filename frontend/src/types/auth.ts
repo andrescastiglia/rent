@@ -14,6 +14,7 @@ export interface User {
 export interface LoginRequest {
   email: string;
   password: string;
+  captchaToken?: string;
 }
 
 export interface RegisterRequest {
@@ -23,6 +24,7 @@ export interface RegisterRequest {
   lastName: string;
   phone?: string;
   role?: "owner" | "tenant";
+  captchaToken?: string;
 }
 
 export interface RegisterResponse {

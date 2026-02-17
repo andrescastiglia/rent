@@ -68,6 +68,10 @@ make info          # Ver información de conexión
 
 📖 **Documentación completa**: [Guía de Configuración Local](docs/development/local-setup.md)
 
+Si vas a usar autenticación con CAPTCHA, revisá la sección **CAPTCHA (Turnstile)** en la guía para configurar:
+- `TURNSTILE_SECRET_KEY`
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY`
+
 ## 📚 Documentación
 
 ### Documentación Funcional

@@ -70,6 +70,7 @@
     "firstName": "First Name",
     "lastName": "Last Name",
     "phone": "Phone",
+    "captcha": "Security verification",
     "role": "Role",
     "roles": {
       "owner": "Owner",
@@ -89,7 +90,10 @@
       "passwordMismatch": "Passwords do not match",
       "passwordTooShort": "Password must be at least 8 characters",
       "blocked": "Your account is pending approval.",
-      "unauthorized": "Unauthorized. Please sign in to continue."
+      "unauthorized": "Unauthorized. Please sign in to continue.",
+      "captchaRequired": "Complete the CAPTCHA to continue.",
+      "captchaInvalid": "The CAPTCHA is invalid or expired. Please try again.",
+      "captchaUnavailable": "CAPTCHA service is currently unavailable."
     },
     "placeholders": {
       "email": "your@email.com",

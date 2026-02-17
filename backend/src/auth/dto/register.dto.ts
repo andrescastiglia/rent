@@ -21,6 +21,7 @@ const registerZodSchema = z
       .optional()
       .default(UserRole.TENANT),
     phone: z.string().min(1).optional(),
+    captchaToken: z.string().min(1).optional(),
   })
   .strict();
 
@@ -51,4 +52,9 @@ export class RegisterDto {
   @IsString()
   @IsOptional()
   phone?: string;
+
+  @IsString()
+  @IsOptional()
+  @IsNotEmpty()
+  captchaToken?: string;
 }

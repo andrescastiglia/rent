@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { CaptchaService } from './services/captcha.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -9,6 +10,13 @@ describe('AuthController', () => {
     validateUser: jest.fn(),
     login: jest.fn(),
     register: jest.fn(),
+    requiresCaptchaForLogin: jest.fn(),
+    registerFailedLogin: jest.fn(),
+    clearLoginFailures: jest.fn(),
+  };
+
+  const mockCaptchaService = {
+    assertValidToken: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -18,6 +26,10 @@ describe('AuthController', () => {
         {
           provide: AuthService,
           useValue: mockAuthService,
+        },
+        {
+          provide: CaptchaService,
+          useValue: mockCaptchaService,
         },
       ],
     }).compile();

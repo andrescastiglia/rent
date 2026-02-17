@@ -70,6 +70,7 @@
     "firstName": "Nombre",
     "lastName": "Apellido",
     "phone": "Teléfono",
+    "captcha": "Verificación de seguridad",
     "role": "Rol",
     "roles": {
       "owner": "Propietario",
@@ -89,7 +90,10 @@
       "passwordMismatch": "Las contraseñas no coinciden",
       "passwordTooShort": "La contraseña debe tener al menos 8 caracteres",
       "blocked": "Tu cuenta está pendiente de aprobación.",
-      "unauthorized": "No autorizado. Iniciá sesión para continuar."
+      "unauthorized": "No autorizado. Iniciá sesión para continuar.",
+      "captchaRequired": "Completá el CAPTCHA para continuar.",
+      "captchaInvalid": "El CAPTCHA no es válido o expiró. Intentá nuevamente.",
+      "captchaUnavailable": "El servicio CAPTCHA no está disponible en este momento."
     },
     "placeholders": {
       "email": "tu@email.com",
