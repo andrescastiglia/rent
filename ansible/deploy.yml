@@ -216,13 +216,15 @@
 
     - name: Start rent-backend
       ansible.builtin.command:
-        cmd: >
-          pm2 start {{ current_path }}/backend/dist/main.js
+        cmd: 
+          pm2 start {{ deploy_path }}/backend/main.js
           --name rent-backend
-          --cwd {{ current_path }}/backend
+          --cwd {{ deploy_path }}/backend
           --log /var/log/rent/backend.log
           --time
           --env production
+          --node-args="-r dotenv/config" 
+          -- --dotenv_config_path={{ deploy_path }}/backend/.env
 
     - name: Start rent-frontend
       ansible.builtin.command:
@@ -232,7 +234,8 @@
           --cwd {{ deploy_path }}/frontend
           --log /var/log/rent/frontend.log
           --time
-          -- start
+          --node-args="-r dotenv/config" 
+          -- start --dotenv_config_path={{ deploy_path }}/frontend/.env
 
     - name: Save PM2 process list
       ansible.builtin.command:
