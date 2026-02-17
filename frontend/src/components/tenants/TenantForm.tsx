@@ -33,22 +33,35 @@ const createExtendedTenantSchema = (
     // Employment fields
     occupation: z.string().optional(),
     employer: z.string().optional(),
-    monthlyIncome: z.coerce.number().min(0).optional(),
-    employmentStatus: z
-      .enum([
-        "employed",
-        "self_employed",
-        "unemployed",
-        "retired",
-        "student",
-      ] as const)
-      .optional(),
+    monthlyIncome: z.preprocess((value) => {
+      if (value === "" || value === null || value === undefined) {
+        return undefined;
+      }
+      return Number(value);
+    }, z.number().min(0).optional()),
+    employmentStatus: z.preprocess(
+      (value) => (value === "" ? undefined : value),
+      z
+        .enum([
+          "employed",
+          "self_employed",
+          "unemployed",
+          "retired",
+          "student",
+        ] as const)
+        .optional(),
+    ),
     // Emergency contact
     emergencyContactName: z.string().optional(),
     emergencyContactPhone: z.string().optional(),
     emergencyContactRelationship: z.string().optional(),
     // Credit
-    creditScore: z.coerce.number().min(0).max(1000).optional(),
+    creditScore: z.preprocess((value) => {
+      if (value === "" || value === null || value === undefined) {
+        return undefined;
+      }
+      return Number(value);
+    }, z.number().min(0).max(1000).optional()),
     notes: z.string().optional(),
   });
 };
@@ -159,7 +172,12 @@ export function TenantForm({
 
           <div>
             <label className={labelClass}>{t("fields.email")}</label>
-            <input {...register("email")} type="email" className={inputClass} />
+            <input
+              {...register("email")}
+              type="email"
+              className={inputClass}
+              disabled={isEditing}
+            />
             {errors.email && (
               <p className="mt-1 text-sm text-red-600">
                 {errors.email.message}
@@ -226,7 +244,7 @@ export function TenantForm({
           <div>
             <label className={labelClass}>{t("fields.employmentStatus")}</label>
             <select {...register("employmentStatus")} className={inputClass}>
-              <option value="">{tCommon("optional")}</option>
+              <option value="">-</option>
               <option value="employed">
                 {t("employmentStatuses.employed")}
               </option>

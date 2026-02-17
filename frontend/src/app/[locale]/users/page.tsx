@@ -46,7 +46,6 @@ async function submitUserForm(
       firstName: form.firstName,
       lastName: form.lastName,
       phone: form.phone,
-      role: form.role,
     };
     const updated = await usersApi.update(editingUser.id, payload);
     setUsers((prev) =>
@@ -145,6 +144,7 @@ function UserFormPanel({
         {tAuth("role")}
         <select
           value={form.role}
+          disabled={Boolean(editingUser)}
           onChange={(event) =>
             setForm((prev) => ({
               ...prev,

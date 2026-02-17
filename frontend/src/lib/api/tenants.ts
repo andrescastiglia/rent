@@ -266,6 +266,60 @@ const mapBackendTenantActivity = (
   };
 };
 
+type BackendUpdateTenantPayload = Partial<{
+  firstName: string;
+  lastName: string;
+  phone: string;
+  dni: string;
+  emergencyContact: string;
+  emergencyPhone: string;
+}>;
+
+const normalizeOptionalString = (
+  value: string | null | undefined,
+): string | undefined => {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const serializeUpdateTenantPayload = (
+  data: UpdateTenantInput,
+): BackendUpdateTenantPayload => {
+  const payload: BackendUpdateTenantPayload = {};
+
+  const firstName = normalizeOptionalString(data.firstName);
+  if (firstName !== undefined) payload.firstName = firstName;
+
+  const lastName = normalizeOptionalString(data.lastName);
+  if (lastName !== undefined) payload.lastName = lastName;
+
+  const phone = normalizeOptionalString(data.phone);
+  if (phone !== undefined) payload.phone = phone;
+
+  const dni = normalizeOptionalString(data.dni);
+  if (dni !== undefined) payload.dni = dni;
+
+  const emergencyContact =
+    normalizeOptionalString(
+      (data as UpdateTenantInput & { emergencyContact?: string })
+        .emergencyContact,
+    ) ?? normalizeOptionalString(data.emergencyContactName);
+  if (emergencyContact !== undefined) {
+    payload.emergencyContact = emergencyContact;
+  }
+
+  const emergencyPhone =
+    normalizeOptionalString(
+      (data as UpdateTenantInput & { emergencyPhone?: string }).emergencyPhone,
+    ) ?? normalizeOptionalString(data.emergencyContactPhone);
+  if (emergencyPhone !== undefined) {
+    payload.emergencyPhone = emergencyPhone;
+  }
+
+  return payload;
+};
+
 export const tenantsApi = {
   getAll: async (filters?: TenantFilters): Promise<Tenant[]> => {
     if (shouldUseMock()) {
@@ -362,7 +416,12 @@ export const tenantsApi = {
     }
 
     const token = getToken();
-    return apiClient.patch<Tenant>(`/tenants/${id}`, data, token ?? undefined);
+    const payload = serializeUpdateTenantPayload(data);
+    return apiClient.patch<Tenant>(
+      `/tenants/${id}`,
+      payload,
+      token ?? undefined,
+    );
   },
 
   delete: async (id: string): Promise<void> => {

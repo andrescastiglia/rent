@@ -98,7 +98,6 @@ type BackendCreatePropertyPayload = {
 type BackendUpdatePropertyPayload = Partial<
   Omit<BackendCreatePropertyPayload, "companyId" | "ownerId">
 > & {
-  ownerId?: string;
   status?: "active" | "inactive" | "under_maintenance";
 };
 
@@ -386,9 +385,6 @@ const serializeUpdatePayload = (
 
   if (data.images !== undefined) {
     payload.images = data.images.map(normalizePropertyImageUrl);
-  }
-  if (isUuid(data.ownerId)) {
-    payload.ownerId = data.ownerId;
   }
   return payload;
 };

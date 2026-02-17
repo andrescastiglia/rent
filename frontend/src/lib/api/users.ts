@@ -59,7 +59,6 @@ export type UpdateManagedUserInput = {
   email?: string;
   firstName?: string;
   lastName?: string;
-  role?: User["role"];
   phone?: string;
 };
 
