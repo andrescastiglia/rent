@@ -7,7 +7,10 @@ const toBoolean = z
 
 const currencyFiltersZodSchema = z
   .object({
-    activeOnly: toBoolean.optional().default(true),
+    activeOnly: toBoolean
+      .optional()
+      .default(true)
+      .describe('Filter to only active currencies (default: true)'),
   })
   .strict();
 

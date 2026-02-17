@@ -18,13 +18,31 @@ const toBoolean = z
 
 const leaseFiltersZodSchema = z
   .object({
-    propertyId: z.string().uuid().optional(),
-    tenantId: z.string().uuid().optional(),
-    buyerProfileId: z.string().uuid().optional(),
-    status: z.nativeEnum(LeaseStatus).optional(),
-    contractType: z.nativeEnum(ContractType).optional(),
-    propertyAddress: z.string().min(1).optional(),
-    includeFinalized: toBoolean.optional().default(false),
+    propertyId: z
+      .string()
+      .uuid()
+      .optional()
+      .describe('Filter by property UUID'),
+    tenantId: z.string().uuid().optional().describe('Filter by tenant UUID'),
+    buyerProfileId: z
+      .string()
+      .uuid()
+      .optional()
+      .describe('Filter by buyer profile UUID'),
+    status: z
+      .nativeEnum(LeaseStatus)
+      .optional()
+      .describe('draft|active|finalized'),
+    contractType: z.nativeEnum(ContractType).optional().describe('rental|sale'),
+    propertyAddress: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Text search by property address'),
+    includeFinalized: toBoolean
+      .optional()
+      .default(false)
+      .describe('Include finalized leases (default: false)'),
     page: z.coerce.number().int().min(1).optional().default(1),
     limit: z.coerce.number().int().min(1).max(100).optional().default(10),
   })

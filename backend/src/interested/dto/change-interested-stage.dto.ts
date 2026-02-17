@@ -4,7 +4,9 @@ import { z } from 'zod';
 
 const changeInterestedStageZodSchema = z
   .object({
-    toStatus: z.nativeEnum(InterestedStatus),
+    toStatus: z
+      .nativeEnum(InterestedStatus)
+      .describe('interested|tenant|buyer — target pipeline status'),
     reason: z.string().optional(),
   })
   .strict();

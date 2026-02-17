@@ -73,11 +73,15 @@ export class AiController {
     @Body() dto: AiChatRequestDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    const response = await this.openAiService.respond(dto.prompt, {
-      userId: req.user.id,
-      companyId: req.user.companyId,
-      role: req.user.role,
-    });
+    const response = await this.openAiService.respond(
+      dto.prompt,
+      {
+        userId: req.user.id,
+        companyId: req.user.companyId,
+        role: req.user.role,
+      },
+      dto.messages,
+    );
 
     return {
       mode: this.executor.getMode(),

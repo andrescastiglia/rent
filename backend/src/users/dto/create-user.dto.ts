@@ -15,7 +15,7 @@ const createUserZodSchema = z
     password: z.string().min(8),
     firstName: z.string().min(1),
     lastName: z.string().min(1),
-    role: z.nativeEnum(UserRole),
+    role: z.nativeEnum(UserRole).describe('admin|owner|tenant|staff'),
     phone: z.string().min(1).optional(),
   })
   .strict();

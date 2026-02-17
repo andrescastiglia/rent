@@ -105,8 +105,8 @@ Legend:
 - [x] `PATCH /leases/:id/renew` - Body DTO: `RenewLeaseDto` - Query DTO: `N/A` - AI READONLY: [ ] - AI FULL: [x]
 - [x] `DELETE /leases/:id` - Body DTO: `N/A` - Query DTO: `N/A` - AI READONLY: [ ] - AI FULL: [x]
 
-## leases-contract.controller (`/leases-contract`)
-- [x] `GET /leases-contract/:id/contract` - Body DTO: `N/A` - Query DTO: `N/A` - AI READONLY: [x] - AI FULL: [ ]
+## leases-contract.controller (`/leases`)
+- [x] `GET /leases/:id/contract` - Body DTO: `N/A` - Query DTO: `N/A` - AI READONLY: [x] - AI FULL: [ ]
 
 ## amendments.controller (`/amendments`)
 - [x] `POST /amendments` - Body DTO: `CreateAmendmentDto` - Query DTO: `N/A` - AI READONLY: [ ] - AI FULL: [x]
@@ -202,8 +202,71 @@ Legend:
 - [x] `POST /sales/agreements/:id/receipts` - Body DTO: `CreateSaleReceiptDto` - Query DTO: `N/A` - AI READONLY: [ ] - AI FULL: [x]
 - [x] `GET /sales/receipts/:receiptId/pdf` - Body DTO: `N/A` - Query DTO: `N/A` - AI READONLY: [x] - AI FULL: [ ]
 
+## ai.controller (`/ai/tools`)
+- [x] `GET /ai/tools` - Body DTO: `N/A` - Query DTO: `N/A` - AI READONLY: [x] - AI FULL: [ ]
+- [x] `GET /ai/tools/openai` - Body DTO: `N/A` - Query DTO: `N/A` - AI READONLY: [x] - AI FULL: [ ]
+- [x] `POST /ai/tools/execute` - Body DTO: `ExecuteAiToolDto` - Query DTO: `N/A` - AI READONLY: [ ] - AI FULL: [x]
+- [x] `POST /ai/tools/respond` - Body DTO: `AiChatRequestDto` - Query DTO: `N/A` - AI READONLY: [ ] - AI FULL: [x]
+
 ## Coverage Summary
 - [x] All request `@Body()` and `@Query()` inputs in controllers are now typed with DTO classes exposing `static zodSchema`.
 - [x] Endpoints with no body/query payload are marked as `N/A`.
 - [x] `ZodValidationPipe` remains globally enabled before `ValidationPipe`.
 - [x] AI implementation tracking is embedded endpoint-by-endpoint with separate checks for `READONLY` and `FULL`.
+- [x] 148 AI tool definitions registered in `openai-tools.registry.ts` — all endpoints covered.
+- [x] Tool parameter schemas reuse DTO `zodSchema` + inline `z.object()` for path params — no `z.any()`.
+
+## AI Context Gaps (Zod / tool metadata pending work)
+
+The following items are **not yet implemented** but would significantly improve the AI's ability to reason about the domain.
+
+### P0 — Tool descriptions lack business context
+- [ ] All 148 tools use generic `"Equivalent to GET /path"` descriptions. Rewrite with **business intent**, **response shape summary**, and **when to use**.
+  - File: `src/ai/openai-tools.registry.ts`
+  - Example improvement: `get_properties` → `"Search rental/sale properties by filters (city, type, price range, owner). Returns paginated {data: [{id, name, propertyType, addressCity, status, rentPrice, ownerId}], total, page, limit}."`
+
+### P0 — No `.describe()` on Zod DTO fields
+- [ ] Zero DTO files use `.describe()` on schema fields. The AI sees bare field names (`adjustmentFrequencyMonths`, `fiscalValue`, `paymentDueDay`) with no explanation.
+  - Priority DTOs to annotate:
+    - `CreatePropertyDto` (26 fields)
+    - `CreateLeaseDto` (28 fields)
+    - `PropertyFiltersDto` (11 fields)
+    - `LeaseFiltersDto` (9 fields)
+    - `PaymentFiltersDto` (9 fields)
+    - `InterestedFiltersDto` (8 fields)
+    - `TenantFiltersDto` (5 fields)
+    - `CreatePaymentDto`, `CreateTenantDto`, `CreateInterestedProfileDto`
+
+### P1 — No response schemas / descriptions
+- [ ] `AiToolDefinition` has no `responseDescription` field. The AI cannot plan multi-step operations (e.g., "get property ID from lease, then fetch payments") because it doesn't know response shapes.
+  - Option A: Add `responseDescription?: string` to `AiToolDefinition` interface in `src/ai/types/ai-tool.types.ts`.
+  - Option B: Embed response shape directly in tool `description` string (simpler, no interface change).
+
+### P1 — Enums lack semantic descriptions
+- [ ] `z.nativeEnum(X)` is used throughout without `.describe()`. Key enums needing context:
+  - `LeaseStatus` — lifecycle: `draft → active → terminated/finalized`
+  - `PropertyOperationState` — `available`, `rented`, `reserved`, `sold`
+  - `PaymentStatus` — valid transitions
+  - `LateFeeType` — calculation method per type
+  - `AdjustmentType` / `IncreaseClauseType` — business meaning
+  - `InterestedQualificationLevel` — `mql` (Marketing Qualified Lead), `sql` (Sales Qualified Lead)
+  - `BillingFrequency` — when each type generates invoices
+
+### P2 — No entity-relationship context for AI
+- [ ] The AI has no system-level understanding of the data model. Consider adding a system prompt or preamble describing:
+  ```
+  Company ──1:N──> Property ──1:N──> Lease ──1:N──> Payment
+                      │                  │
+                      │                  ├──> TenantAccount ──> Movements
+                      │                  ├──> Invoice
+                      │                  ├──> Amendment
+                      │                  └──> Tenant
+                      ├──> Unit
+                      ├──> Visit / MaintenanceTask
+                      └──> Owner
+  InterestedProfile ──converts──> Tenant | Buyer
+  InterestedProfile ──matches──> Property (auto-scored)
+  ```
+
+### P2 — Inline parameter schemas lack field descriptions
+- [ ] ~57 tools use `z.object({ id: uuidSchema }).strict()` where `id` has no `.describe()` indicating *what entity* the ID refers to (property? lease? tenant?).

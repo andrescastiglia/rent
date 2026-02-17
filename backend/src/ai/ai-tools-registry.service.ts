@@ -323,9 +323,13 @@ export class AiToolsRegistryService {
     parameters: z.ZodObject<any>,
     context: AiExecutionContext,
   ) {
+    const description = tool.responseDescription
+      ? `${tool.description} Returns: ${tool.responseDescription}`
+      : tool.description;
+
     return zodFunction({
       name: tool.name,
-      description: tool.description,
+      description,
       parameters: parameters as any,
       function: async (args: unknown) =>
         this.executor.execute(tool.name, args, context),

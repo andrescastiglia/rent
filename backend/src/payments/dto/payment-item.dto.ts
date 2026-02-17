@@ -14,8 +14,14 @@ import { z } from 'zod';
 export const paymentItemZodSchema = z
   .object({
     description: z.string().min(1),
-    amount: z.coerce.number().min(0),
-    quantity: z.coerce.number().int().min(1).optional().default(1),
+    amount: z.coerce.number().min(0).describe('Unit price of the item'),
+    quantity: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .default(1)
+      .describe('Quantity (default: 1)'),
     type: z
       .nativeEnum(PaymentItemType)
       .optional()

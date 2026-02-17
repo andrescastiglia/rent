@@ -9,8 +9,12 @@ import { z } from 'zod';
 
 const sendWhatsappMessageZodSchema = z
   .object({
-    to: z.string().min(8).max(32),
-    text: z.string().min(1).max(4096),
+    to: z
+      .string()
+      .min(8)
+      .max(32)
+      .describe('Recipient WhatsApp phone number (international format)'),
+    text: z.string().min(1).max(4096).describe('Message text (max 4096 chars)'),
     pdfUrl: z
       .string()
       .regex(/^db:\/\/document\/[0-9a-fA-F-]+$/)

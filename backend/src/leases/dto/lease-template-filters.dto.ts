@@ -4,7 +4,7 @@ import { ContractType } from '../entities/lease.entity';
 
 const leaseTemplateFiltersZodSchema = z
   .object({
-    contractType: z.nativeEnum(ContractType).optional(),
+    contractType: z.nativeEnum(ContractType).optional().describe('rental|sale'),
   })
   .strict();
 

@@ -3,12 +3,33 @@ import { z } from 'zod';
 
 const generateInvoiceZodSchema = z
   .object({
-    issue: z.coerce.boolean().optional(),
-    applyLateFee: z.coerce.boolean().optional(),
-    applyAdjustment: z.coerce.boolean().optional(),
-    periodStart: z.string().date().optional(),
-    periodEnd: z.string().date().optional(),
-    dueDate: z.string().date().optional(),
+    issue: z.coerce
+      .boolean()
+      .optional()
+      .describe('Auto-issue the invoice after generation'),
+    applyLateFee: z.coerce
+      .boolean()
+      .optional()
+      .describe('Calculate and apply late fees'),
+    applyAdjustment: z.coerce
+      .boolean()
+      .optional()
+      .describe('Calculate and apply rent adjustment'),
+    periodStart: z
+      .string()
+      .date()
+      .optional()
+      .describe('Custom period start (YYYY-MM-DD)'),
+    periodEnd: z
+      .string()
+      .date()
+      .optional()
+      .describe('Custom period end (YYYY-MM-DD)'),
+    dueDate: z
+      .string()
+      .date()
+      .optional()
+      .describe('Custom due date (YYYY-MM-DD)'),
   })
   .strict();
 

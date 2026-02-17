@@ -8,7 +8,10 @@ const updateUserZodSchema = z
     lastName: z.string().min(1).optional(),
     phone: z.string().min(1).optional(),
     avatarUrl: z.string().min(1).nullable().optional(),
-    language: z.enum(['es', 'en', 'pt']).optional(),
+    language: z
+      .enum(['es', 'en', 'pt'])
+      .optional()
+      .describe('User interface language: es|en|pt'),
   })
   .strict();
 

@@ -4,9 +4,9 @@ import { z } from 'zod';
 
 const tenantFiltersZodSchema = z
   .object({
-    name: z.string().min(1).optional(),
-    dni: z.string().min(1).optional(),
-    email: z.string().min(1).optional(),
+    name: z.string().min(1).optional().describe('Text search by tenant name'),
+    dni: z.string().min(1).optional().describe('National ID number filter'),
+    email: z.string().min(1).optional().describe('Email filter'),
     page: z.coerce.number().int().min(1).optional().default(1),
     limit: z.coerce.number().int().min(1).max(100).optional().default(10),
   })

@@ -11,9 +11,14 @@ import { z } from 'zod';
 
 export const createPaymentDocumentTemplateZodSchema = z
   .object({
-    type: z.nativeEnum(PaymentDocumentTemplateType),
+    type: z
+      .nativeEnum(PaymentDocumentTemplateType)
+      .describe('receipt|invoice|credit_note'),
     name: z.string().min(1).max(120),
-    templateBody: z.string().min(1),
+    templateBody: z
+      .string()
+      .min(1)
+      .describe('HTML template body with {{placeholders}}'),
     isActive: z.coerce.boolean().optional(),
     isDefault: z.coerce.boolean().optional(),
   })

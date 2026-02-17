@@ -10,6 +10,8 @@ import { join } from 'node:path';
 import OpenAI from 'openai';
 import { AiToolsRegistryService } from './ai-tools-registry.service';
 import { AiExecutionContext } from './types/ai-tool.types';
+import { AiChatMessage } from './dto/ai-chat-request.dto';
+import { UserRole } from '../users/entities/user.entity';
 
 type OpenAiApiErrorShape = {
   status?: number;
@@ -75,7 +77,11 @@ export class AiOpenAiService {
     }
   }
 
-  async respond(prompt: string, context: AiExecutionContext) {
+  async respond(
+    prompt: string,
+    context: AiExecutionContext,
+    history?: AiChatMessage[],
+  ) {
     const apiKey = process.env.OPENAI_API_KEY;
     const model = process.env.OPENAI_MODEL;
     const baseURL = process.env.OPENAI_BASE_URL;
@@ -97,6 +103,14 @@ export class AiOpenAiService {
       ...(baseURL ? { baseURL } : {}),
     });
 
+    const conversationHistory: OpenAI.Chat.Completions.ChatCompletionMessageParam[] =
+      (history ?? []).map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      }));
+
+    const rolePreamble = this.buildRolePreamble(context.role);
+
     const runner = client.chat.completions.runTools({
       model,
       messages: [
@@ -106,6 +120,8 @@ export class AiOpenAiService {
             'Use the following DB relationship map as hard context for tool planning.',
         },
         { role: 'system', content: this.relationshipContext.content },
+        { role: 'system', content: rolePreamble },
+        ...conversationHistory,
         { role: 'user', content: prompt },
       ],
       tools: this.registry.getOpenAiTools(context, prompt),
@@ -202,5 +218,45 @@ export class AiOpenAiService {
       'code' in candidate ||
       'type' in candidate
     );
+  }
+
+  private buildRolePreamble(role: UserRole): string {
+    switch (role) {
+      case UserRole.ADMIN:
+        return [
+          'The user is an ADMIN with full access to all entities and operations.',
+          'They manage properties, owners, tenants, leases, payments, invoices, settlements, interested prospects, sales, and staff.',
+          'They can create, update, and delete any record. Proactively provide detailed data and actionable summaries.',
+        ].join(' ');
+
+      case UserRole.STAFF:
+        return [
+          'The user is a STAFF member with broad operational access.',
+          'They handle day-to-day property management: leases, payments, invoices, interested prospects, visits, and activities.',
+          'They can create and modify most records but cannot manage users or company settings.',
+          'Focus on operational efficiency and clear status updates.',
+        ].join(' ');
+
+      case UserRole.OWNER:
+        return [
+          'The user is a property OWNER.',
+          'They can view their own properties, leases, tenants, invoices, payments, and settlements.',
+          "They CANNOT see other owners' data or manage the interested pipeline.",
+          'Focus responses on their portfolio: rental income, pending payments, settlement status, and property occupancy.',
+          'All queries are automatically scoped to their properties.',
+        ].join(' ');
+
+      case UserRole.TENANT:
+        return [
+          'The user is a TENANT.',
+          'They can view their own leases, invoices, payments, balance (cuenta corriente), and receipts.',
+          "They CANNOT see other tenants' data, property listings, or owner information.",
+          'Focus responses on their obligations: upcoming payments, current balance, lease details, and payment history.',
+          'All queries are automatically scoped to their tenant account.',
+        ].join(' ');
+
+      default:
+        return 'The user has limited access. Only show data they are authorized to view.';
+    }
   }
 }

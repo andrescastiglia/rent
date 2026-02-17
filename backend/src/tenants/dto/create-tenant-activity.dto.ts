@@ -15,12 +15,21 @@ import { z } from 'zod';
 
 export const createTenantActivityZodSchema = z
   .object({
-    type: z.nativeEnum(TenantActivityType),
+    type: z
+      .nativeEnum(TenantActivityType)
+      .describe('call|task|note|email|whatsapp|visit'),
     subject: z.string().max(200),
     body: z.string().optional(),
-    dueAt: z.string().date().optional(),
-    completedAt: z.string().date().optional(),
-    status: z.nativeEnum(TenantActivityStatus).optional(),
+    dueAt: z.string().date().optional().describe('Scheduled date (YYYY-MM-DD)'),
+    completedAt: z
+      .string()
+      .date()
+      .optional()
+      .describe('Completion date (YYYY-MM-DD)'),
+    status: z
+      .nativeEnum(TenantActivityStatus)
+      .optional()
+      .describe('pending|completed|cancelled'),
     metadata: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();

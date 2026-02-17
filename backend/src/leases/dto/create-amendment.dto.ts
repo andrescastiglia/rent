@@ -11,13 +11,26 @@ import { z } from 'zod';
 
 const createAmendmentZodSchema = z
   .object({
-    leaseId: z.string().uuid(),
-    companyId: z.string().uuid(),
-    effectiveDate: z.string().date(),
-    changeType: z.nativeEnum(AmendmentChangeType),
+    leaseId: z.string().uuid().describe('UUID of the lease to amend'),
+    companyId: z.string().uuid().describe('UUID of the company'),
+    effectiveDate: z
+      .string()
+      .date()
+      .describe('Date when amendment takes effect (YYYY-MM-DD)'),
+    changeType: z
+      .nativeEnum(AmendmentChangeType)
+      .describe(
+        'rent_increase|rent_decrease|extension|early_termination|clause_modification|guarantor_change|other',
+      ),
     description: z.string().min(1),
-    previousValues: z.record(z.string(), z.unknown()).optional(),
-    newValues: z.record(z.string(), z.unknown()).optional(),
+    previousValues: z
+      .record(z.string(), z.unknown())
+      .optional()
+      .describe('JSON object with previous field values'),
+    newValues: z
+      .record(z.string(), z.unknown())
+      .optional()
+      .describe('JSON object with new field values'),
   })
   .strict();
 

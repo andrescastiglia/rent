@@ -22,42 +22,126 @@ import { z } from 'zod';
 
 export const createLeaseZodSchema = z
   .object({
-    companyId: z.string().uuid(),
-    propertyId: z.string().uuid(),
-    tenantId: z.string().uuid().optional(),
-    buyerProfileId: z.string().uuid().optional(),
-    ownerId: z.string().uuid().optional(),
-    templateId: z.string().uuid().optional(),
+    companyId: z.string().uuid().describe('UUID of the company'),
+    propertyId: z.string().uuid().describe('UUID of the property being leased'),
+    tenantId: z
+      .string()
+      .uuid()
+      .optional()
+      .describe('UUID of the tenant (for rental contracts)'),
+    buyerProfileId: z
+      .string()
+      .uuid()
+      .optional()
+      .describe('UUID of the buyer profile (for sale contracts)'),
+    ownerId: z
+      .string()
+      .uuid()
+      .optional()
+      .describe('UUID of the property owner'),
+    templateId: z
+      .string()
+      .uuid()
+      .optional()
+      .describe('UUID of the contract template to use'),
     contractType: z
       .nativeEnum(ContractType)
       .optional()
       .default(ContractType.RENTAL),
     leaseNumber: z.string().min(1).optional(),
-    startDate: z.string().date().optional(),
-    endDate: z.string().date().optional(),
-    monthlyRent: z.coerce.number().min(0).optional(),
-    fiscalValue: z.coerce.number().min(0).optional(),
-    currency: z.string().min(1).optional().default('ARS'),
-    securityDeposit: z.coerce.number().min(0).optional(),
+    startDate: z
+      .string()
+      .date()
+      .optional()
+      .describe('Lease start date (YYYY-MM-DD)'),
+    endDate: z
+      .string()
+      .date()
+      .optional()
+      .describe('Lease end date (YYYY-MM-DD)'),
+    monthlyRent: z.coerce
+      .number()
+      .min(0)
+      .optional()
+      .describe('Monthly rent amount'),
+    fiscalValue: z.coerce
+      .number()
+      .min(0)
+      .optional()
+      .describe('Fiscal/stamp-tax value of the contract'),
+    currency: z
+      .string()
+      .min(1)
+      .optional()
+      .default('ARS')
+      .describe('Currency code (default: ARS)'),
+    securityDeposit: z.coerce
+      .number()
+      .min(0)
+      .optional()
+      .describe('Security deposit amount'),
     paymentFrequency: z
       .nativeEnum(PaymentFrequency)
       .optional()
       .default(PaymentFrequency.MONTHLY),
-    paymentDueDay: z.coerce.number().optional().default(10),
-    billingFrequency: z.nativeEnum(BillingFrequency).optional(),
-    billingDay: z.coerce.number().optional(),
-    lateFeeType: z.nativeEnum(LateFeeType).optional(),
-    lateFeeValue: z.coerce.number().optional(),
-    lateFeeGraceDays: z.coerce.number().optional(),
-    lateFeeMax: z.coerce.number().optional(),
+    paymentDueDay: z.coerce
+      .number()
+      .optional()
+      .default(10)
+      .describe('Day of month rent is due (1-28)'),
+    billingFrequency: z
+      .nativeEnum(BillingFrequency)
+      .optional()
+      .describe('first_of_month|last_of_month|contract_date|custom'),
+    billingDay: z.coerce
+      .number()
+      .optional()
+      .describe('Day of month for billing'),
+    lateFeeType: z
+      .nativeEnum(LateFeeType)
+      .optional()
+      .describe('none|fixed|percentage|daily_fixed|daily_percentage'),
+    lateFeeValue: z.coerce
+      .number()
+      .optional()
+      .describe('Late fee amount or percentage value'),
+    lateFeeGraceDays: z.coerce
+      .number()
+      .optional()
+      .describe('Grace days before late fee applies'),
+    lateFeeMax: z.coerce.number().optional().describe('Maximum late fee cap'),
     autoGenerateInvoices: z.coerce.boolean().optional(),
-    adjustmentType: z.nativeEnum(AdjustmentType).optional(),
-    adjustmentValue: z.coerce.number().optional(),
-    adjustmentFrequencyMonths: z.coerce.number().optional(),
-    nextAdjustmentDate: z.string().date().optional(),
-    inflationIndexType: z.nativeEnum(InflationIndexType).optional(),
-    increaseClauseType: z.nativeEnum(IncreaseClauseType).optional(),
-    increaseClauseValue: z.coerce.number().optional(),
+    adjustmentType: z
+      .nativeEnum(AdjustmentType)
+      .optional()
+      .describe('fixed|percentage|inflation_index'),
+    adjustmentValue: z.coerce
+      .number()
+      .optional()
+      .describe('Adjustment amount or percentage'),
+    adjustmentFrequencyMonths: z.coerce
+      .number()
+      .optional()
+      .describe('Months between rent adjustments'),
+    nextAdjustmentDate: z
+      .string()
+      .date()
+      .optional()
+      .describe('Next scheduled adjustment date (YYYY-MM-DD)'),
+    inflationIndexType: z
+      .nativeEnum(InflationIndexType)
+      .optional()
+      .describe('icl|ipc|igp_m'),
+    increaseClauseType: z
+      .nativeEnum(IncreaseClauseType)
+      .optional()
+      .describe(
+        'none|annual_fixed|annual_percentage|inflation_linked|custom_schedule',
+      ),
+    increaseClauseValue: z.coerce
+      .number()
+      .optional()
+      .describe('Increase clause value or percentage'),
     termsAndConditions: z.string().min(1).optional(),
     specialClauses: z.string().min(1).optional(),
     notes: z.string().min(1).optional(),

@@ -1,11 +1,19 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsArray, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { z } from 'zod';
+
+const aiChatMessageZodSchema = z.object({
+  role: z.enum(['user', 'assistant']),
+  content: z.string().min(1),
+});
 
 const aiChatRequestZodSchema = z
   .object({
     prompt: z.string().min(1),
+    messages: z.array(aiChatMessageZodSchema).optional(),
   })
   .strict();
+
+export type AiChatMessage = z.infer<typeof aiChatMessageZodSchema>;
 
 export class AiChatRequestDto {
   static readonly zodSchema = aiChatRequestZodSchema;
@@ -13,4 +21,8 @@ export class AiChatRequestDto {
   @IsString()
   @IsNotEmpty()
   prompt: string;
+
+  @IsArray()
+  @IsOptional()
+  messages?: AiChatMessage[];
 }

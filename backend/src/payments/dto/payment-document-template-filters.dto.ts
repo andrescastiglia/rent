@@ -4,7 +4,10 @@ import { z } from 'zod';
 
 const paymentDocumentTemplateFiltersZodSchema = z
   .object({
-    type: z.nativeEnum(PaymentDocumentTemplateType).optional(),
+    type: z
+      .nativeEnum(PaymentDocumentTemplateType)
+      .optional()
+      .describe('receipt|invoice|credit_note'),
   })
   .strict();
 

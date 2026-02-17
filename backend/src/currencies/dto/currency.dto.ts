@@ -11,9 +11,18 @@ import { z } from 'zod';
 
 const createCurrencyZodSchema = z
   .object({
-    code: z.string().length(3),
+    code: z
+      .string()
+      .length(3)
+      .describe('3-letter ISO currency code (e.g. ARS, USD, BRL)'),
     symbol: z.string().min(1).max(5),
-    decimalPlaces: z.coerce.number().min(0).max(4).optional().default(2),
+    decimalPlaces: z.coerce
+      .number()
+      .min(0)
+      .max(4)
+      .optional()
+      .default(2)
+      .describe('Number of decimal places (0-4, default: 2)'),
     isActive: z.coerce.boolean().optional().default(true),
   })
   .strict();
@@ -21,7 +30,12 @@ const createCurrencyZodSchema = z
 const updateCurrencyZodSchema = z
   .object({
     symbol: z.string().min(1).max(5).optional(),
-    decimalPlaces: z.coerce.number().min(0).max(4).optional(),
+    decimalPlaces: z.coerce
+      .number()
+      .min(0)
+      .max(4)
+      .optional()
+      .describe('Number of decimal places (0-4, default: 2)'),
     isActive: z.coerce.boolean().optional(),
   })
   .strict();

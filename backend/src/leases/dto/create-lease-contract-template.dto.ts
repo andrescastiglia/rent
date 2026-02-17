@@ -12,8 +12,11 @@ import { z } from 'zod';
 export const createLeaseContractTemplateZodSchema = z
   .object({
     name: z.string().min(1).max(120),
-    contractType: z.nativeEnum(ContractType),
-    templateBody: z.string().min(1),
+    contractType: z.nativeEnum(ContractType).describe('rental|sale'),
+    templateBody: z
+      .string()
+      .min(1)
+      .describe('HTML/text template body with {{placeholders}}'),
     isActive: z.coerce.boolean().optional(),
   })
   .strict();

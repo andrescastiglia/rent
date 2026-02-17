@@ -11,13 +11,20 @@ import { z } from 'zod';
 
 const createPropertyVisitZodSchema = z
   .object({
-    visitedAt: z.string().date().optional(),
+    visitedAt: z.string().date().optional().describe('Visit date (YYYY-MM-DD)'),
     interestedName: z.string().min(1).optional(),
-    interestedProfileId: z.string().uuid().optional(),
+    interestedProfileId: z
+      .string()
+      .uuid()
+      .optional()
+      .describe('UUID of the interested profile who visited'),
     comments: z.string().optional(),
     hasOffer: z.coerce.boolean().optional(),
-    offerAmount: z.coerce.number().optional(),
-    offerCurrency: z.string().optional(),
+    offerAmount: z.coerce
+      .number()
+      .optional()
+      .describe('Offer amount if applicable'),
+    offerCurrency: z.string().optional().describe('Currency code of the offer'),
   })
   .strict();
 

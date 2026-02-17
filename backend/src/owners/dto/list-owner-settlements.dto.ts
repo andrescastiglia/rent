@@ -3,7 +3,11 @@ import { z } from 'zod';
 
 const listOwnerSettlementsZodSchema = z
   .object({
-    status: z.enum(['all', 'pending', 'completed']).optional().default('all'),
+    status: z
+      .enum(['all', 'pending', 'completed'])
+      .optional()
+      .default('all')
+      .describe('all|pending|completed — settlement status filter'),
     limit: z.coerce.number().int().min(1).max(100).optional().default(12),
   })
   .strict();

@@ -5,7 +5,10 @@ const convertInterestedToTenantZodSchema = z
   .object({
     email: z.string().email().optional(),
     password: z.string().min(8).optional(),
-    dni: z.string().optional(),
+    dni: z
+      .string()
+      .optional()
+      .describe('National ID number for the new tenant record'),
     emergencyContactName: z.string().optional(),
     emergencyContactPhone: z.string().optional(),
   })

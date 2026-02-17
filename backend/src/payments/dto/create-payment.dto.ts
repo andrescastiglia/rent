@@ -22,13 +22,29 @@ export const createPaymentZodSchema = z
     tenantAccountId: z
       .string()
       .regex(UUID_CANONICAL_REGEX, 'tenantAccountId must be a UUID'),
-    amount: z.coerce.number().min(0.01).optional(),
-    currencyCode: z.string().min(1).optional().default('ARS'),
-    paymentDate: z.string().date(),
-    method: z.nativeEnum(PaymentMethod),
+    amount: z.coerce
+      .number()
+      .min(0.01)
+      .optional()
+      .describe('Payment amount (required or auto-calculated from items)'),
+    currencyCode: z
+      .string()
+      .min(1)
+      .optional()
+      .default('ARS')
+      .describe('Currency code (default: ARS)'),
+    paymentDate: z.string().date().describe('Date of payment (YYYY-MM-DD)'),
+    method: z
+      .nativeEnum(PaymentMethod)
+      .describe(
+        'cash|bank_transfer|credit_card|debit_card|check|digital_wallet|crypto|other',
+      ),
     reference: z.string().min(1).optional(),
     notes: z.string().min(1).optional(),
-    items: z.array(paymentItemZodSchema).optional(),
+    items: z
+      .array(paymentItemZodSchema)
+      .optional()
+      .describe('Array of payment line items'),
   })
   .strict();
 

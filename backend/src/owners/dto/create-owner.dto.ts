@@ -16,8 +16,11 @@ export const createOwnerZodSchema = z
     lastName: z.string().min(1).max(100),
     email: z.string().email(),
     phone: z.string().optional(),
-    taxId: z.string().optional(),
-    taxIdType: z.string().optional(),
+    taxId: z
+      .string()
+      .optional()
+      .describe('Tax identification number (CUIT/CUIL/RUT/CPF)'),
+    taxIdType: z.string().optional().describe('Type of tax ID document'),
     address: z.string().optional(),
     city: z.string().optional(),
     state: z.string().optional(),
@@ -26,10 +29,18 @@ export const createOwnerZodSchema = z
     bankName: z.string().optional(),
     bankAccountType: z.string().optional(),
     bankAccountNumber: z.string().optional(),
-    bankCbu: z.string().optional(),
+    bankCbu: z.string().optional().describe('Bank CBU/CBU Alias for transfers'),
     bankAlias: z.string().optional(),
-    paymentMethod: z.nativeEnum(PaymentMethod).optional(),
-    commissionRate: z.coerce.number().optional(),
+    paymentMethod: z
+      .nativeEnum(PaymentMethod)
+      .optional()
+      .describe(
+        'cash|bank_transfer|credit_card|debit_card|check|digital_wallet|crypto|other',
+      ),
+    commissionRate: z.coerce
+      .number()
+      .optional()
+      .describe('Management commission rate (0-100 percentage)'),
     notes: z.string().optional(),
     password: z.string().min(8).optional(),
   })

@@ -13,6 +13,7 @@ export interface AiExecutionContext {
 export interface AiToolDefinition<TSchema extends ZodTypeAny = ZodTypeAny> {
   name: string;
   description: string;
+  responseDescription?: string;
   mutability: AiToolMutability;
   allowedRoles: UserRole[];
   parameters: TSchema;

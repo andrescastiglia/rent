@@ -14,22 +14,37 @@ import { z } from 'zod';
 
 export const createUnitZodSchema = z
   .object({
-    propertyId: z.string().uuid(),
-    companyId: z.string().uuid().optional(),
+    propertyId: z.string().uuid().describe('UUID of the parent property'),
+    companyId: z.string().uuid().optional().describe('UUID of the company'),
     unitNumber: z.string().min(1),
     floor: z.string().optional(),
     bedrooms: z.coerce.number().int().min(0).optional().default(0),
     bathrooms: z.coerce.number().min(0).optional().default(0),
     area: z.coerce.number().min(0.01),
-    baseRent: z.coerce.number().min(0).optional(),
-    currency: z.string().optional().default('ARS'),
+    baseRent: z.coerce
+      .number()
+      .min(0)
+      .optional()
+      .describe('Base monthly rent for this unit'),
+    currency: z
+      .string()
+      .optional()
+      .default('ARS')
+      .describe('Currency code (default: ARS)'),
     unitType: z.string().optional(),
     hasParking: z.coerce.boolean().optional().default(false),
     parkingSpots: z.coerce.number().int().optional().default(0),
     hasStorage: z.coerce.boolean().optional().default(false),
     isFurnished: z.coerce.boolean().optional().default(false),
-    expenses: z.coerce.number().optional(),
-    status: z.nativeEnum(UnitStatus).optional().default(UnitStatus.AVAILABLE),
+    expenses: z.coerce
+      .number()
+      .optional()
+      .describe('Monthly expenses/common charges amount'),
+    status: z
+      .nativeEnum(UnitStatus)
+      .optional()
+      .default(UnitStatus.AVAILABLE)
+      .describe('available|occupied|maintenance|reserved'),
     description: z.string().optional(),
     notes: z.string().optional(),
   })

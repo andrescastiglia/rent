@@ -28,29 +28,79 @@ export const createInterestedProfileZodSchema = z
     lastName: z.string().optional(),
     phone: z.string().min(1),
     email: z.string().email().optional(),
-    peopleCount: z.coerce.number().int().min(1).optional(),
-    minAmount: z.coerce.number().min(0).optional(),
-    maxAmount: z.coerce.number().min(0).optional(),
+    peopleCount: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .describe('Number of people who will occupy the property'),
+    minAmount: z.coerce
+      .number()
+      .min(0)
+      .optional()
+      .describe('Minimum budget amount'),
+    maxAmount: z.coerce
+      .number()
+      .min(0)
+      .optional()
+      .describe('Maximum budget amount'),
     hasPets: z.coerce.boolean().optional(),
-    guaranteeTypes: z.array(z.string()).optional(),
-    preferredZones: z.array(z.string()).optional(),
+    guaranteeTypes: z
+      .array(z.string())
+      .optional()
+      .describe('Array of guarantee types the prospect can provide'),
+    preferredZones: z
+      .array(z.string())
+      .optional()
+      .describe('Array of preferred neighborhood/zone names'),
     preferredCity: z.string().optional(),
     desiredFeatures: z.array(z.string()).optional(),
-    propertyTypePreference: z.nativeEnum(InterestedPropertyType).optional(),
-    operation: z.nativeEnum(InterestedOperation).optional(),
-    operations: z.array(z.nativeEnum(InterestedOperation)).min(1).optional(),
-    status: z.nativeEnum(InterestedStatus).optional(),
-    qualificationLevel: z.nativeEnum(InterestedQualificationLevel).optional(),
+    propertyTypePreference: z
+      .nativeEnum(InterestedPropertyType)
+      .optional()
+      .describe(
+        'apartment|house|commercial|office|warehouse|land|parking|other',
+      ),
+    operation: z
+      .nativeEnum(InterestedOperation)
+      .optional()
+      .describe('rent|sale (deprecated, use operations)'),
+    operations: z
+      .array(z.nativeEnum(InterestedOperation))
+      .min(1)
+      .optional()
+      .describe('Array of: rent|sale — interested operation types'),
+    status: z
+      .nativeEnum(InterestedStatus)
+      .optional()
+      .describe('interested|tenant|buyer — pipeline status'),
+    qualificationLevel: z
+      .nativeEnum(InterestedQualificationLevel)
+      .optional()
+      .describe('mql|sql|rejected — lead qualification'),
     qualificationNotes: z.string().optional(),
-    source: z.string().optional(),
-    assignedToUserId: z.string().uuid().optional(),
+    source: z
+      .string()
+      .optional()
+      .describe('Lead source (e.g. website, referral, portal)'),
+    assignedToUserId: z
+      .string()
+      .uuid()
+      .optional()
+      .describe('UUID of staff user assigned to this lead'),
     organizationName: z.string().optional(),
     customFields: z.record(z.string(), z.unknown()).optional(),
-    consentContact: z.coerce.boolean().optional(),
+    consentContact: z.coerce
+      .boolean()
+      .optional()
+      .describe('Whether the prospect consented to be contacted'),
     consentRecordedAt: z.coerce.date().optional(),
     lastContactAt: z.coerce.date().optional(),
     nextContactAt: z.coerce.date().optional(),
-    lostReason: z.string().optional(),
+    lostReason: z
+      .string()
+      .optional()
+      .describe('Reason the lead was lost/rejected'),
     notes: z.string().optional(),
   })
   .strict();

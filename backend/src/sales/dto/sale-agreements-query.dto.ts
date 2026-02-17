@@ -3,7 +3,11 @@ import { z } from 'zod';
 
 const saleAgreementsQueryZodSchema = z
   .object({
-    folderId: z.string().min(1).optional(),
+    folderId: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Filter by sale folder UUID'),
   })
   .strict();
 

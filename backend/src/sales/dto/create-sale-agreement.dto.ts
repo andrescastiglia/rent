@@ -12,15 +12,30 @@ import { z } from 'zod';
 
 const createSaleAgreementZodSchema = z
   .object({
-    folderId: z.string().min(1),
+    folderId: z.string().min(1).describe('UUID of the sale folder'),
     buyerName: z.string().min(1),
     buyerPhone: z.string().min(1),
-    totalAmount: z.coerce.number().min(0),
-    currency: z.string().optional(),
-    installmentAmount: z.coerce.number().min(0),
-    installmentCount: z.coerce.number().int().min(1),
-    startDate: z.string().date(),
-    dueDay: z.coerce.number().int().min(1).optional(),
+    totalAmount: z.coerce.number().min(0).describe('Total sale amount'),
+    currency: z.string().optional().describe('Currency code'),
+    installmentAmount: z.coerce
+      .number()
+      .min(0)
+      .describe('Amount per installment'),
+    installmentCount: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .describe('Number of installments'),
+    startDate: z
+      .string()
+      .date()
+      .describe('First installment date (YYYY-MM-DD)'),
+    dueDay: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .describe('Day of month installments are due'),
     notes: z.string().optional(),
   })
   .strict();

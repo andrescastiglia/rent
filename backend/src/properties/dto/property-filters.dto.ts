@@ -14,15 +14,39 @@ import { z } from 'zod';
 
 const propertyFiltersZodSchema = z
   .object({
-    ownerId: z.string().uuid().optional(),
+    ownerId: z.string().uuid().optional().describe('Filter by owner UUID'),
     addressCity: z.string().min(1).optional(),
     addressState: z.string().min(1).optional(),
-    propertyType: z.nativeEnum(PropertyType).optional(),
-    status: z.nativeEnum(PropertyStatus).optional(),
-    minRent: z.coerce.number().min(0).optional(),
-    maxRent: z.coerce.number().min(0).optional(),
-    minSalePrice: z.coerce.number().min(0).optional(),
-    maxSalePrice: z.coerce.number().min(0).optional(),
+    propertyType: z
+      .nativeEnum(PropertyType)
+      .optional()
+      .describe(
+        'apartment|house|commercial|office|warehouse|land|parking|other',
+      ),
+    status: z
+      .nativeEnum(PropertyStatus)
+      .optional()
+      .describe('active|inactive|under_maintenance|pending_approval'),
+    minRent: z.coerce
+      .number()
+      .min(0)
+      .optional()
+      .describe('Minimum monthly rent filter'),
+    maxRent: z.coerce
+      .number()
+      .min(0)
+      .optional()
+      .describe('Maximum monthly rent filter'),
+    minSalePrice: z.coerce
+      .number()
+      .min(0)
+      .optional()
+      .describe('Minimum sale price filter'),
+    maxSalePrice: z.coerce
+      .number()
+      .min(0)
+      .optional()
+      .describe('Maximum sale price filter'),
     bedrooms: z.coerce.number().int().min(0).optional(),
     bathrooms: z.coerce.number().int().min(0).optional(),
     page: z.coerce.number().int().min(1).optional().default(1),

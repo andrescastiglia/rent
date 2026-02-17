@@ -11,12 +11,21 @@ import { z } from 'zod';
 
 const convertInterestedToBuyerZodSchema = z
   .object({
-    folderId: z.string().uuid(),
-    totalAmount: z.coerce.number().min(1),
-    installmentAmount: z.coerce.number().min(1),
-    installmentCount: z.coerce.number().min(1),
-    startDate: z.string().date(),
-    currency: z.string().optional(),
+    folderId: z.string().uuid().describe('UUID of the sale folder'),
+    totalAmount: z.coerce.number().min(1).describe('Total sale amount'),
+    installmentAmount: z.coerce
+      .number()
+      .min(1)
+      .describe('Amount per installment'),
+    installmentCount: z.coerce
+      .number()
+      .min(1)
+      .describe('Number of installments'),
+    startDate: z
+      .string()
+      .date()
+      .describe('First installment date (YYYY-MM-DD)'),
+    currency: z.string().optional().describe('Currency code'),
     notes: z.string().optional(),
   })
   .strict();

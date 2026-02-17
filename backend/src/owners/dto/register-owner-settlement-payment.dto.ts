@@ -10,10 +10,18 @@ import { z } from 'zod';
 
 const registerOwnerSettlementPaymentZodSchema = z
   .object({
-    paymentDate: z.string().date().optional(),
+    paymentDate: z
+      .string()
+      .date()
+      .optional()
+      .describe('Date of payment (YYYY-MM-DD)'),
     reference: z.string().max(120).optional(),
     notes: z.string().max(500).optional(),
-    amount: z.coerce.number().min(0).optional(),
+    amount: z.coerce
+      .number()
+      .min(0)
+      .optional()
+      .describe('Payment amount — must match settlement net amount exactly'),
   })
   .strict();
 

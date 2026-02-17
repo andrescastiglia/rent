@@ -16,13 +16,26 @@ import { z } from 'zod';
 
 export const createOwnerActivityZodSchema = z
   .object({
-    type: z.nativeEnum(OwnerActivityType),
+    type: z
+      .nativeEnum(OwnerActivityType)
+      .describe('call|task|note|email|whatsapp|visit|reserve'),
     subject: z.string().max(200),
     body: z.string().optional(),
-    dueAt: z.string().date().optional(),
-    completedAt: z.string().date().optional(),
-    status: z.nativeEnum(OwnerActivityStatus).optional(),
-    propertyId: z.string().uuid().optional(),
+    dueAt: z.string().date().optional().describe('Scheduled date (YYYY-MM-DD)'),
+    completedAt: z
+      .string()
+      .date()
+      .optional()
+      .describe('Completion date (YYYY-MM-DD)'),
+    status: z
+      .nativeEnum(OwnerActivityStatus)
+      .optional()
+      .describe('pending|completed|cancelled'),
+    propertyId: z
+      .string()
+      .uuid()
+      .optional()
+      .describe('UUID of related property (optional)'),
     metadata: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();

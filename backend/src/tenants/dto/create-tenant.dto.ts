@@ -10,13 +10,19 @@ import { z } from 'zod';
 
 export const createTenantZodSchema = z
   .object({
-    companyId: z.string().uuid(),
+    companyId: z
+      .string()
+      .uuid()
+      .describe('UUID of the company this tenant belongs to'),
     email: z.string().email(),
     password: z.string().min(8),
     firstName: z.string().min(1),
     lastName: z.string().min(1),
     phone: z.string().min(1).optional(),
-    dni: z.string().min(1),
+    dni: z
+      .string()
+      .min(1)
+      .describe('National identification number (DNI/CUIT/CPF)'),
     emergencyContact: z.string().min(1).optional(),
     emergencyPhone: z.string().min(1).optional(),
   })

@@ -12,7 +12,10 @@ export class UpdatePropertyDto extends PartialType(CreatePropertyDto) {
     .omit({ companyId: true, ownerId: true })
     .partial()
     .extend({
-      status: z.nativeEnum(PropertyStatus).optional(),
+      status: z
+        .nativeEnum(PropertyStatus)
+        .optional()
+        .describe('active|inactive|under_maintenance|pending_approval'),
     })
     .strict();
 

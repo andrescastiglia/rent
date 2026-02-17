@@ -183,7 +183,8 @@ export function buildAiToolDefinitions(
   return [
     {
       name: 'get_root',
-      description: 'Equivalent to GET /',
+      description:
+        'Returns a hello world message. Used for basic connectivity testing.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: emptyObjectSchema,
@@ -191,7 +192,8 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_health',
-      description: 'Equivalent to GET /health',
+      description:
+        'Returns the API health status. Use to check if the service is running.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: emptyObjectSchema,
@@ -199,7 +201,8 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_test_admin_only',
-      description: 'Equivalent to GET /test/admin-only',
+      description:
+        'Test endpoint restricted to admin role. Use to verify admin permissions.',
       mutability: 'readonly',
       allowedRoles: ADMIN,
       parameters: emptyObjectSchema,
@@ -209,7 +212,8 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_test_owner_only',
-      description: 'Equivalent to GET /test/owner-only',
+      description:
+        'Test endpoint restricted to owner role. Use to verify owner permissions.',
       mutability: 'readonly',
       allowedRoles: [UserRole.OWNER],
       parameters: emptyObjectSchema,
@@ -219,7 +223,8 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_test_tenant_only',
-      description: 'Equivalent to GET /test/tenant-only',
+      description:
+        'Test endpoint restricted to tenant role. Use to verify tenant permissions.',
       mutability: 'readonly',
       allowedRoles: [UserRole.TENANT],
       parameters: emptyObjectSchema,
@@ -229,7 +234,8 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_test_admin_or_owner',
-      description: 'Equivalent to GET /test/admin-or-owner',
+      description:
+        'Test endpoint restricted to admin or owner roles. Use to verify combined role permissions.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER,
       parameters: emptyObjectSchema,
@@ -239,7 +245,8 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_test_create_user_permission',
-      description: 'Equivalent to GET /test/create-user-permission',
+      description:
+        'Test endpoint restricted to users with create-user permission. Use to verify permission checks.',
       mutability: 'readonly',
       allowedRoles: ADMIN,
       parameters: emptyObjectSchema,
@@ -250,7 +257,9 @@ export function buildAiToolDefinitions(
 
     {
       name: 'post_auth_login',
-      description: 'Equivalent to POST /auth/login',
+      description:
+        'Authenticates a user with email and password credentials. Returns a JWT access token for subsequent API calls.',
+      responseDescription: 'JWT access token and user profile information.',
       mutability: 'mutable',
       allowedRoles: ALL_ROLES,
       parameters: LoginDto.zodSchema,
@@ -268,7 +277,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_auth_register',
-      description: 'Equivalent to POST /auth/register',
+      description:
+        'Registers a new user account with email, password, and profile details. Use for self-service sign-up.',
+      responseDescription: 'The newly created user profile with assigned UUID.',
       mutability: 'mutable',
       allowedRoles: ALL_ROLES,
       parameters: RegisterDto.zodSchema,
@@ -277,7 +288,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_auth_profile',
-      description: 'Equivalent to GET /auth/profile',
+      description:
+        "Returns the authenticated user's profile based on the current JWT token. Excludes sensitive fields like passwordHash.",
+      responseDescription:
+        'Current user profile including id, email, name, role, and company info.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: emptyObjectSchema,
@@ -294,7 +308,9 @@ export function buildAiToolDefinitions(
 
     {
       name: 'post_users',
-      description: 'Equivalent to POST /users',
+      description:
+        'Creates a new user account (admin only). Use to provision users with a specific role and company assignment.',
+      responseDescription: 'The newly created user record with assigned UUID.',
       mutability: 'mutable',
       allowedRoles: ADMIN,
       parameters: CreateUserDto.zodSchema,
@@ -309,7 +325,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_users',
-      description: 'Equivalent to GET /users',
+      description:
+        'Lists all users with pagination. Accepts page and limit params. Admin only.',
+      responseDescription: 'Paginated list of user records with total count.',
       mutability: 'readonly',
       allowedRoles: ADMIN,
       parameters: UserListQueryDto.zodSchema,
@@ -331,7 +349,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_users_profile_me',
-      description: 'Equivalent to GET /users/profile/me',
+      description:
+        "Returns the current authenticated user's own profile. Available to any logged-in user.",
+      responseDescription: "Current user's full profile details.",
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: emptyObjectSchema,
@@ -347,7 +367,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_users_profile_me',
-      description: 'Equivalent to PATCH /users/profile/me',
+      description:
+        "Updates the current authenticated user's own profile fields (name, phone, etc.). Available to any logged-in user.",
+      responseDescription: 'The updated user profile.',
       mutability: 'mutable',
       allowedRoles: ALL_ROLES,
       parameters: UpdateUserDto.zodSchema,
@@ -363,7 +385,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_users_profile_change_password',
-      description: 'Equivalent to POST /users/profile/change-password',
+      description:
+        "Changes the current user's password. Requires currentPassword and newPassword fields for verification.",
+      responseDescription:
+        'Confirmation that the password was changed successfully.',
       mutability: 'mutable',
       allowedRoles: ALL_ROLES,
       parameters: ChangePasswordDto.zodSchema,
@@ -379,7 +404,8 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_users_by_id',
-      description: 'Equivalent to GET /users/:id',
+      description: 'Retrieves a specific user by their UUID. Admin only.',
+      responseDescription: 'Full user record for the specified UUID.',
       mutability: 'readonly',
       allowedRoles: ADMIN,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -396,7 +422,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_users_by_id',
-      description: 'Equivalent to PATCH /users/:id',
+      description:
+        "Updates a specific user's fields by UUID. Admin only. Use to modify role, name, or other attributes.",
+      responseDescription: 'The updated user record.',
       mutability: 'mutable',
       allowedRoles: ADMIN,
       parameters: withParams(UpdateUserDto.zodSchema, { id: uuidSchema }),
@@ -412,7 +440,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_users_activation_by_id',
-      description: 'Equivalent to PATCH /users/:id/activation',
+      description:
+        'Activates or deactivates a user account by UUID. Accepts isActive boolean. Admin only.',
+      responseDescription:
+        'The updated user record with new activation status.',
       mutability: 'mutable',
       allowedRoles: ADMIN,
       parameters: withParams(SetUserActivationDto.zodSchema, {
@@ -433,7 +464,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_users_reset_password_by_id',
-      description: 'Equivalent to POST /users/:id/reset-password',
+      description:
+        "Resets a user's password by UUID (admin action). Generates or sets a new password for the target user.",
+      responseDescription:
+        'Confirmation with the new or reset password details.',
       mutability: 'mutable',
       allowedRoles: ADMIN,
       parameters: withParams(ResetUserPasswordDto.zodSchema, {
@@ -455,7 +489,8 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'delete_users_by_id',
-      description: 'Equivalent to DELETE /users/:id',
+      description: 'Permanently deletes a user account by UUID. Admin only.',
+      responseDescription: 'Confirmation that the user was deleted.',
       mutability: 'mutable',
       allowedRoles: ADMIN,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -468,7 +503,10 @@ export function buildAiToolDefinitions(
 
     {
       name: 'get_currencies',
-      description: 'Equivalent to GET /currencies',
+      description:
+        'Lists available currencies. Accepts optional activeOnly boolean filter to return only active currencies.',
+      responseDescription:
+        'Array of currency records with code, name, symbol, and active status.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: CurrencyFiltersDto.zodSchema,
@@ -479,7 +517,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_currencies_default_for_locale',
-      description: 'Equivalent to GET /currencies/default/:locale',
+      description:
+        "Returns the default currency for a given locale string (e.g., 'es-AR' returns ARS, 'en-US' returns USD).",
+      responseDescription:
+        "Single currency record matching the locale's default.",
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ locale: localeSchema }).strict(),
@@ -492,7 +533,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_currency_by_code',
-      description: 'Equivalent to GET /currencies/:code',
+      description:
+        "Retrieves a currency by its ISO code (e.g., 'USD', 'ARS', 'EUR'). Use to get details for a specific currency.",
+      responseDescription:
+        'Currency record with code, name, symbol, decimals, and active status.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ code: codeSchema }).strict(),
@@ -503,7 +547,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_currencies',
-      description: 'Equivalent to POST /currencies',
+      description:
+        'Creates a new currency record with code, name, symbol, and configuration. Admin only.',
+      responseDescription: 'The newly created currency record.',
       mutability: 'mutable',
       allowedRoles: ADMIN,
       parameters: CreateCurrencyDto.zodSchema,
@@ -512,7 +558,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'put_currencies_by_code',
-      description: 'Equivalent to PUT /currencies/:code',
+      description:
+        'Updates an existing currency by its ISO code. Use to modify name, symbol, or active status.',
+      responseDescription: 'The updated currency record.',
       mutability: 'mutable',
       allowedRoles: ADMIN,
       parameters: withParams(UpdateCurrencyDto.zodSchema, { code: codeSchema }),
@@ -525,7 +573,8 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'delete_currencies_by_code',
-      description: 'Equivalent to DELETE /currencies/:code',
+      description: 'Deletes a currency by its ISO code. Admin only.',
+      responseDescription: 'Confirmation that the currency was deleted.',
       mutability: 'mutable',
       allowedRoles: ADMIN,
       parameters: z.object({ code: codeSchema }).strict(),
@@ -538,7 +587,10 @@ export function buildAiToolDefinitions(
 
     {
       name: 'get_dashboard_stats',
-      description: 'Equivalent to GET /dashboard/stats',
+      description:
+        'Returns company KPIs: totalProperties, totalTenants, activeLeases, monthlyIncome, monthlyExpenses, currencyCode, totalPayments, totalInvoices, monthlyCommissions. Role-scoped (owners see only their data).',
+      responseDescription:
+        'Dashboard statistics object with numeric KPIs and currency code.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: emptyObjectSchema,
@@ -550,7 +602,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_dashboard_recent_activity',
-      description: 'Equivalent to GET /dashboard/recent-activity',
+      description:
+        'Returns a combined feed of recent interested and owner activities. Accepts limit param to control result count.',
+      responseDescription:
+        'Array of recent activity entries with type, description, timestamp, and related entity info.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: RecentActivityQueryDto.zodSchema,
@@ -565,7 +620,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_dashboard_reports',
-      description: 'Equivalent to GET /dashboard/reports',
+      description:
+        'Returns batch billing job execution history with pagination. Accepts page and limit params.',
+      responseDescription:
+        'Paginated list of batch job reports with execution status and timestamps.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: ReportJobsQueryDto.zodSchema,
@@ -582,7 +640,10 @@ export function buildAiToolDefinitions(
 
     {
       name: 'post_documents_upload_url',
-      description: 'Equivalent to POST /documents/upload-url',
+      description:
+        'Generates a pre-signed upload URL for a new document. Specify entity type, entity id, and file metadata.',
+      responseDescription:
+        'Pre-signed upload URL and the created document record with pending status.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: GenerateUploadUrlDto.zodSchema,
@@ -594,7 +655,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_documents_confirm_by_id',
-      description: 'Equivalent to PATCH /documents/:id/confirm',
+      description:
+        'Confirms that a document was successfully uploaded by its UUID. Transitions document from pending to confirmed.',
+      responseDescription: 'The confirmed document record with updated status.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -605,7 +668,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_documents_download_url_by_id',
-      description: 'Equivalent to GET /documents/:id/download-url',
+      description:
+        'Generates a download URL for a specific document by UUID. Use to retrieve stored files.',
+      responseDescription: 'Pre-signed download URL for the document.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -616,7 +681,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_documents_by_entity',
-      description: 'Equivalent to GET /documents/entity/:type/:id',
+      description:
+        "Lists all documents attached to a specific entity. Requires type (e.g., 'property', 'lease', 'tenant') and the entity's UUID.",
+      responseDescription:
+        'Array of document records for the specified entity.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ type: z.string().min(1), id: idSchema }).strict(),
@@ -629,7 +697,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'delete_documents_by_id',
-      description: 'Equivalent to DELETE /documents/:id',
+      description:
+        'Deletes a document by UUID, removing both the record and stored file.',
+      responseDescription: 'Confirmation that the document was deleted.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -642,7 +712,10 @@ export function buildAiToolDefinitions(
 
     {
       name: 'post_whatsapp_messages',
-      description: 'Equivalent to POST /whatsapp/messages',
+      description:
+        "Sends a WhatsApp text message. Requires 'to' (phone number) and 'text'. Optionally attach a pdfUrl.",
+      responseDescription:
+        'WhatsApp API response with message delivery status.',
       mutability: 'mutable',
       allowedRoles: ALL_ROLES,
       parameters: SendWhatsappMessageDto.zodSchema,
@@ -657,7 +730,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_whatsapp_messages_internal',
-      description: 'Equivalent to POST /whatsapp/messages/internal',
+      description:
+        'Sends a WhatsApp message via internal batch process. Requires batchToken for authorization. Used by automated jobs.',
+      responseDescription:
+        'WhatsApp API response with message delivery status.',
       mutability: 'mutable',
       allowedRoles: ALL_ROLES,
       parameters: withParams(SendWhatsappMessageDto.zodSchema, {
@@ -677,7 +753,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_whatsapp_webhook',
-      description: 'Equivalent to GET /whatsapp/webhook',
+      description:
+        'Handles WhatsApp webhook verification challenge. Returns the hub.challenge value for subscription confirmation.',
+      responseDescription:
+        'The verification challenge string for webhook setup.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: WhatsappWebhookQueryDto.zodSchema,
@@ -694,7 +773,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_whatsapp_webhook',
-      description: 'Equivalent to POST /whatsapp/webhook',
+      description:
+        'Processes incoming WhatsApp webhook payloads (message received, delivery status, etc.).',
+      responseDescription: 'Acknowledgment of the processed webhook event.',
       mutability: 'mutable',
       allowedRoles: ALL_ROLES,
       parameters: WhatsappWebhookPayloadDto.zodSchema,
@@ -707,7 +788,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_whatsapp_document_by_id',
-      description: 'Equivalent to GET /whatsapp/documents/:documentId',
+      description:
+        'Downloads a WhatsApp media document by ID using a WhatsApp-signed token. Use to retrieve media from incoming messages.',
+      responseDescription: 'The document binary content or download URL.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: withParams(WhatsappDocumentQueryDto.zodSchema, {
@@ -738,7 +821,10 @@ export function buildAiToolDefinitions(
 
     {
       name: 'post_properties',
-      description: 'Equivalent to POST /properties',
+      description:
+        'Creates a new property with owner assignment, address, and details. Use to register a rental or sale property.',
+      responseDescription:
+        'The newly created property record with assigned UUID.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: CreatePropertyDto.zodSchema,
@@ -750,7 +836,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_properties',
-      description: 'Equivalent to GET /properties',
+      description:
+        'Lists properties with optional filters: ownerId, page, limit. Role-scoped (owners see only their properties).',
+      responseDescription:
+        'Paginated list of property records with total count.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: PropertyFiltersDto.zodSchema,
@@ -762,7 +851,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_properties_by_id',
-      description: 'Equivalent to GET /properties/:id',
+      description:
+        'Retrieves full property details by UUID, including owner info, units, and images.',
+      responseDescription:
+        'Complete property record with nested owner, units, and image data.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -776,7 +868,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_properties_by_id',
-      description: 'Equivalent to PATCH /properties/:id',
+      description:
+        "Updates a property's fields (address, description, status, etc.) by UUID.",
+      responseDescription: 'The updated property record.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: withParams(UpdatePropertyDto.zodSchema, { id: uuidSchema }),
@@ -794,7 +888,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'delete_properties_by_id',
-      description: 'Equivalent to DELETE /properties/:id',
+      description:
+        'Deletes a property by UUID. Fails if the property has active leases.',
+      responseDescription: 'Confirmation that the property was deleted.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -806,7 +902,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_properties_upload',
-      description: 'Equivalent to POST /properties/upload',
+      description:
+        'Uploads an image for a property. Accepts a base64-encoded file with metadata.',
+      responseDescription:
+        'The created property image record with assigned imageId.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z
@@ -840,7 +939,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_properties_uploads_discard',
-      description: 'Equivalent to POST /properties/uploads/discard',
+      description:
+        'Discards temporary uploaded property images that were not confirmed. Use to clean up abandoned uploads.',
+      responseDescription: 'Confirmation that temporary images were discarded.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: DiscardPropertyImagesDto.zodSchema,
@@ -854,7 +955,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_properties_image_by_id',
-      description: 'Equivalent to GET /properties/images/:imageId',
+      description:
+        'Downloads a property image by imageId. Returns the image as base64-encoded content.',
+      responseDescription: 'Base64-encoded image data with content type.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ imageId: uuidSchema }).strict(),
@@ -876,7 +979,10 @@ export function buildAiToolDefinitions(
 
     {
       name: 'post_property_visits',
-      description: 'Equivalent to POST /properties/:propertyId/visits',
+      description:
+        'Schedules a visit for a property. Specify property, date, time, and visitor details.',
+      responseDescription:
+        'The created visit record with assigned UUID and scheduled datetime.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(CreatePropertyVisitDto.zodSchema, {
@@ -895,7 +1001,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_property_visits',
-      description: 'Equivalent to GET /properties/:propertyId/visits',
+      description: 'Lists all scheduled visits for a property by propertyId.',
+      responseDescription:
+        'Array of visit records with date, status, and visitor info.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ propertyId: uuidSchema }).strict(),
@@ -912,7 +1020,8 @@ export function buildAiToolDefinitions(
     {
       name: 'post_property_visit_maintenance_tasks',
       description:
-        'Equivalent to POST /properties/:propertyId/visits/maintenance-tasks',
+        'Creates a maintenance task associated with a property visit. Specify description, priority, and status.',
+      responseDescription: 'The created maintenance task record.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(CreatePropertyMaintenanceTaskDto.zodSchema, {
@@ -931,8 +1040,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_property_visit_maintenance_tasks',
-      description:
-        'Equivalent to GET /properties/:propertyId/visits/maintenance-tasks',
+      description: 'Lists all maintenance tasks for a property by propertyId.',
+      responseDescription:
+        'Array of maintenance task records with status and priority.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ propertyId: uuidSchema }).strict(),
@@ -949,7 +1059,9 @@ export function buildAiToolDefinitions(
 
     {
       name: 'post_units',
-      description: 'Equivalent to POST /units',
+      description:
+        'Creates a unit within a property (e.g., apartment, office). Specify propertyId, label, and unit details.',
+      responseDescription: 'The newly created unit record with assigned UUID.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: CreateUnitDto.zodSchema,
@@ -958,7 +1070,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_units_by_property',
-      description: 'Equivalent to GET /units/property/:propertyId',
+      description:
+        'Lists all units belonging to a specific property by propertyId.',
+      responseDescription: 'Array of unit records for the specified property.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ propertyId: uuidSchema }).strict(),
@@ -971,7 +1085,8 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_unit_by_id',
-      description: 'Equivalent to GET /units/:id',
+      description: 'Retrieves a specific unit by its UUID with full details.',
+      responseDescription: 'Complete unit record including property reference.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -982,7 +1097,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_unit_by_id',
-      description: 'Equivalent to PATCH /units/:id',
+      description:
+        "Updates a unit's fields (label, area, description, etc.) by UUID.",
+      responseDescription: 'The updated unit record.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: withParams(UpdateUnitDto.zodSchema, { id: uuidSchema }),
@@ -995,7 +1112,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'delete_unit_by_id',
-      description: 'Equivalent to DELETE /units/:id',
+      description:
+        'Deletes a unit by UUID. Fails if the unit has active leases.',
+      responseDescription: 'Confirmation that the unit was deleted.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1008,7 +1127,10 @@ export function buildAiToolDefinitions(
 
     {
       name: 'post_leases',
-      description: 'Equivalent to POST /leases',
+      description:
+        'Creates a new lease in draft status. Specify property, tenant, dates, rent amount, and billing terms.',
+      responseDescription:
+        'The newly created lease record in draft status with assigned UUID.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: CreateLeaseDto.zodSchema,
@@ -1017,7 +1139,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_leases',
-      description: 'Equivalent to GET /leases',
+      description:
+        'Lists leases with optional filters: propertyId, ownerId, tenantId, status, page, limit. Role-scoped by user permissions.',
+      responseDescription: 'Paginated list of lease records with total count.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: LeaseFiltersDto.zodSchema,
@@ -1029,7 +1153,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_lease_templates',
-      description: 'Equivalent to GET /leases/templates',
+      description:
+        "Lists available contract templates. Accepts contractType filter ('rental' or 'sale') to narrow results.",
+      responseDescription:
+        'Array of contract template records with name, type, and content.',
       mutability: 'readonly',
       allowedRoles: ADMIN_STAFF,
       parameters: LeaseTemplateFiltersDto.zodSchema,
@@ -1043,7 +1170,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_lease_templates',
-      description: 'Equivalent to POST /leases/templates',
+      description:
+        'Creates a new contract template with name, type (rental/sale), and template body with variable placeholders.',
+      responseDescription: 'The newly created contract template record.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: CreateLeaseContractTemplateDto.zodSchema,
@@ -1055,7 +1184,8 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_lease_template_by_id',
-      description: 'Equivalent to PATCH /leases/templates/:templateId',
+      description: "Updates a contract template's name, body, or type by UUID.",
+      responseDescription: 'The updated contract template record.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(UpdateLeaseContractTemplateDto.zodSchema, {
@@ -1074,7 +1204,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_lease_by_id',
-      description: 'Equivalent to GET /leases/:id',
+      description:
+        'Retrieves full lease details by UUID, including property, tenant, billing config, and status history.',
+      responseDescription:
+        'Complete lease record with nested property, tenant, and billing details.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1088,7 +1221,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_lease_by_id',
-      description: 'Equivalent to PATCH /leases/:id',
+      description:
+        "Updates a draft lease's fields (dates, rent amount, terms, etc.) by UUID. Only works on draft leases.",
+      responseDescription: 'The updated lease record.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(UpdateLeaseDto.zodSchema, { id: uuidSchema }),
@@ -1101,7 +1236,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_lease_draft_render',
-      description: 'Equivalent to POST /leases/:id/draft/render',
+      description:
+        'Renders the contract text for a draft lease by applying template variables (tenant name, dates, amounts, etc.).',
+      responseDescription:
+        'The rendered contract text string ready for review.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(RenderLeaseDraftDto.zodSchema, { id: uuidSchema }),
@@ -1114,7 +1252,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_lease_draft_text',
-      description: 'Equivalent to PATCH /leases/:id/draft-text',
+      description:
+        'Manually sets or overrides the draft contract text for a lease. Use after rendering to make manual edits.',
+      responseDescription: 'The updated lease record with new contract text.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(UpdateLeaseDraftTextDto.zodSchema, {
@@ -1129,7 +1269,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_lease_confirm',
-      description: 'Equivalent to POST /leases/:id/confirm',
+      description:
+        'Confirms a draft lease, transitioning it to active. Auto-creates tenant account for rentals and finalizes any existing active lease on the same property.',
+      responseDescription:
+        'The activated lease record with updated status and tenant account info.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(ConfirmLeaseDraftDto.zodSchema, {
@@ -1148,7 +1291,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_lease_activate',
-      description: 'Equivalent to PATCH /leases/:id/activate',
+      description:
+        'Activates a lease via alternative confirmation path. Transitions lease from draft to active status.',
+      responseDescription: 'The activated lease record.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1159,7 +1304,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_lease_terminate',
-      description: 'Equivalent to PATCH /leases/:id/terminate',
+      description:
+        'Terminates an active lease early. Requires a termination reason. Transitions status to terminated.',
+      responseDescription:
+        'The terminated lease record with reason and termination date.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(LeaseStatusReasonDto.zodSchema, {
@@ -1174,7 +1322,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_lease_finalize',
-      description: 'Equivalent to PATCH /leases/:id/finalize',
+      description:
+        'Finalizes/ends a lease at its natural conclusion. Requires a reason. Transitions status to finalized.',
+      responseDescription:
+        'The finalized lease record with reason and end date.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(LeaseStatusReasonDto.zodSchema, {
@@ -1189,7 +1340,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_lease_renew',
-      description: 'Equivalent to PATCH /leases/:id/renew',
+      description:
+        'Renews a lease by creating a new draft with incremented version, inheriting terms from the current lease.',
+      responseDescription:
+        'The new draft lease record with incremented version number.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(RenewLeaseDto.zodSchema, { id: uuidSchema }),
@@ -1202,7 +1356,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'delete_lease_by_id',
-      description: 'Equivalent to DELETE /leases/:id',
+      description:
+        'Deletes a draft lease by UUID. Only works on leases in draft status.',
+      responseDescription: 'Confirmation that the draft lease was deleted.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1214,7 +1370,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_lease_contract_by_id',
-      description: 'Equivalent to GET /leases-contract/:id/contract',
+      description:
+        'Downloads the signed lease contract as a PDF document by lease UUID.',
+      responseDescription: 'PDF binary content of the lease contract.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1241,7 +1399,9 @@ export function buildAiToolDefinitions(
 
     {
       name: 'post_amendments',
-      description: 'Equivalent to POST /amendments',
+      description:
+        'Creates an amendment for an active lease. Specify change type: rent_increase, rent_decrease, extension, or other modification types.',
+      responseDescription: 'The created amendment record in pending status.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: CreateAmendmentDto.zodSchema,
@@ -1253,7 +1413,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_amendments_by_lease',
-      description: 'Equivalent to GET /amendments/lease/:leaseId',
+      description: 'Lists all amendments for a specific lease by leaseId.',
+      responseDescription:
+        'Array of amendment records with type, status, and details.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ leaseId: uuidSchema }).strict(),
@@ -1266,7 +1428,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_amendment_by_id',
-      description: 'Equivalent to GET /amendments/:id',
+      description: 'Retrieves a specific amendment by UUID with full details.',
+      responseDescription:
+        'Complete amendment record including lease reference and change details.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1277,7 +1441,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_amendment_approve',
-      description: 'Equivalent to PATCH /amendments/:id/approve',
+      description:
+        'Approves a pending amendment, applying its changes to the active lease.',
+      responseDescription:
+        'The approved amendment record with applied changes.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1288,7 +1455,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_amendment_reject',
-      description: 'Equivalent to PATCH /amendments/:id/reject',
+      description:
+        'Rejects a pending amendment. The amendment is archived without applying changes.',
+      responseDescription: 'The rejected amendment record.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1300,7 +1469,10 @@ export function buildAiToolDefinitions(
 
     {
       name: 'post_payments',
-      description: 'Equivalent to POST /payments',
+      description:
+        'Creates a new payment record for a tenant account. Specify leaseId or tenantAccountId, amount, date, and payment method.',
+      responseDescription:
+        'The created payment record in pending status with assigned UUID.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: CreatePaymentDto.zodSchema,
@@ -1312,7 +1484,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_payment_confirm',
-      description: 'Equivalent to PATCH /payments/:id/confirm',
+      description:
+        'Confirms a pending payment: creates a PAYMENT movement, applies FIFO allocation to outstanding invoices, generates receipt PDF, and auto-creates credit notes for late fees.',
+      responseDescription:
+        'The confirmed payment record with receipt info and allocated invoice list.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1323,7 +1498,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_payment_by_id',
-      description: 'Equivalent to PATCH /payments/:id',
+      description:
+        "Updates a payment's editable fields (amount, date, notes, method) by UUID.",
+      responseDescription: 'The updated payment record.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(UpdatePaymentDto.zodSchema, { id: uuidSchema }),
@@ -1336,7 +1513,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_payments',
-      description: 'Equivalent to GET /payments',
+      description:
+        'Lists payments with optional filters: tenantId, leaseId, status, page, limit. Role-scoped by user permissions.',
+      responseDescription:
+        'Paginated list of payment records with total count.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: PaymentFiltersDto.zodSchema,
@@ -1348,7 +1528,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_payment_receipts_by_tenant',
-      description: 'Equivalent to GET /payments/tenant/:tenantId/receipts',
+      description:
+        'Lists all payment receipts for a specific tenant by tenantId. Use to view receipt history.',
+      responseDescription:
+        'Array of receipt records with amounts, dates, and PDF availability.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ tenantId: uuidSchema }).strict(),
@@ -1364,7 +1547,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_payment_by_id',
-      description: 'Equivalent to GET /payments/:id',
+      description:
+        'Retrieves a specific payment by UUID with full details including allocations.',
+      responseDescription:
+        'Complete payment record with tenant, lease, and invoice allocation details.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1378,7 +1564,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_payment_cancel',
-      description: 'Equivalent to PATCH /payments/:id/cancel',
+      description:
+        'Cancels a payment by UUID. If the payment was completed, reverses all associated movements and allocations.',
+      responseDescription:
+        'The cancelled payment record with reversal details.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1389,7 +1578,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_payment_receipt_pdf_by_id',
-      description: 'Equivalent to GET /payments/:id/receipt',
+      description:
+        'Downloads the receipt PDF for a specific confirmed payment by paymentId.',
+      responseDescription: 'PDF binary content of the payment receipt.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1415,7 +1606,10 @@ export function buildAiToolDefinitions(
 
     {
       name: 'post_invoices',
-      description: 'Equivalent to POST /invoices',
+      description:
+        'Creates a new invoice manually. Specify leaseId, tenant, line items, amounts, and due date.',
+      responseDescription:
+        'The created invoice record in draft status with assigned UUID.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: CreateInvoiceDto.zodSchema,
@@ -1424,7 +1618,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_invoices_generate_for_lease',
-      description: 'Equivalent to POST /invoices/lease/:leaseId/generate',
+      description:
+        'Auto-generates invoices for a lease based on its billing settings (frequency, amounts, dates). Use for bulk invoice creation.',
+      responseDescription:
+        'Array of newly generated invoice records for the lease period.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(GenerateInvoiceDto.zodSchema, {
@@ -1439,7 +1636,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_invoice_issue',
-      description: 'Equivalent to PATCH /invoices/:id/issue',
+      description:
+        'Issues a draft invoice: sets issuedAt timestamp, creates a CHARGE movement on tenant account, and triggers commission invoice if applicable.',
+      responseDescription: 'The issued invoice record with movement reference.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1456,7 +1655,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_invoices',
-      description: 'Equivalent to GET /invoices',
+      description:
+        'Lists invoices with optional filters: leaseId, ownerId, status (draft|pending|sent|partial|overdue|paid|cancelled), page, limit. Role-scoped.',
+      responseDescription:
+        'Paginated list of invoice records with total count.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: InvoiceFiltersDto.zodSchema,
@@ -1476,7 +1678,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_invoice_by_id',
-      description: 'Equivalent to GET /invoices/:id',
+      description:
+        'Retrieves a specific invoice by UUID with full line items, movements, and payment allocations.',
+      responseDescription:
+        'Complete invoice record with nested line items and allocation details.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1490,7 +1695,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_invoice_credit_notes',
-      description: 'Equivalent to GET /invoices/:id/credit-notes',
+      description:
+        'Lists all credit notes associated with a specific invoice by invoiceId.',
+      responseDescription:
+        'Array of credit note records linked to the invoice.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1505,7 +1713,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_invoice_cancel',
-      description: 'Equivalent to PATCH /invoices/:id/cancel',
+      description:
+        'Cancels a non-PAID invoice by UUID. Reverses the CHARGE movement on the tenant account.',
+      responseDescription:
+        'The cancelled invoice record with reversal confirmation.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1516,7 +1727,8 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_invoice_pdf',
-      description: 'Equivalent to GET /invoices/:id/pdf',
+      description: 'Downloads the invoice as a PDF document by invoiceId.',
+      responseDescription: 'PDF binary content of the invoice.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1541,7 +1753,8 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_credit_note_pdf',
-      description: 'Equivalent to GET /invoices/credit-notes/:creditNoteId/pdf',
+      description: 'Downloads a credit note as a PDF document by creditNoteId.',
+      responseDescription: 'PDF binary content of the credit note.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ creditNoteId: uuidSchema }).strict(),
@@ -1569,7 +1782,10 @@ export function buildAiToolDefinitions(
 
     {
       name: 'get_payment_templates',
-      description: 'Equivalent to GET /payment-templates',
+      description:
+        "Lists payment document templates. Accepts optional type filter: 'receipt', 'invoice', or 'credit_note'.",
+      responseDescription:
+        'Array of payment document template records with type, name, and body.',
       mutability: 'readonly',
       allowedRoles: ADMIN_STAFF,
       parameters: PaymentDocumentTemplateFiltersDto.zodSchema,
@@ -1585,7 +1801,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_payment_templates',
-      description: 'Equivalent to POST /payment-templates',
+      description:
+        'Creates a new payment document template (receipt, invoice, or credit_note) with name and HTML/template body.',
+      responseDescription:
+        'The newly created payment document template record.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: CreatePaymentDocumentTemplateDto.zodSchema,
@@ -1597,7 +1816,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_payment_template_by_id',
-      description: 'Equivalent to PATCH /payment-templates/:templateId',
+      description:
+        "Updates a payment document template's name or body by UUID.",
+      responseDescription: 'The updated payment document template record.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(UpdatePaymentDocumentTemplateDto.zodSchema, {
@@ -1617,7 +1838,10 @@ export function buildAiToolDefinitions(
 
     {
       name: 'get_tenant_account_by_lease',
-      description: 'Equivalent to GET /tenant-accounts/lease/:leaseId',
+      description:
+        'Retrieves the tenant account (cuenta corriente) associated with a specific lease by leaseId.',
+      responseDescription:
+        'Tenant account record with balance, lease reference, and tenant info.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ leaseId: uuidSchema }).strict(),
@@ -1630,7 +1854,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_tenant_account_by_id',
-      description: 'Equivalent to GET /tenant-accounts/:id',
+      description:
+        'Retrieves a tenant account by its UUID with balance and status details.',
+      responseDescription:
+        'Complete tenant account record with current balance.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1641,7 +1868,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_tenant_account_movements',
-      description: 'Equivalent to GET /tenant-accounts/:id/movements',
+      description:
+        'Lists all movements (charges, payments, adjustments, credits) for a tenant account. Shows the full transaction history.',
+      responseDescription:
+        'Array of movement records with type, amount, date, and related invoice/payment references.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1652,7 +1882,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_tenant_account_balance',
-      description: 'Equivalent to GET /tenant-accounts/:id/balance',
+      description:
+        'Returns the current balance summary for a tenant account, including total charges, payments, and outstanding amount.',
+      responseDescription:
+        'Balance object with totalCharges, totalPayments, totalAdjustments, and currentBalance.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1664,7 +1897,10 @@ export function buildAiToolDefinitions(
 
     {
       name: 'post_tenants',
-      description: 'Equivalent to POST /tenants',
+      description:
+        'Creates a new tenant record with user account association. Specify personal details and contact info.',
+      responseDescription:
+        'The newly created tenant record with assigned UUID and linked user account.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: CreateTenantDto.zodSchema,
@@ -1673,7 +1909,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_tenants',
-      description: 'Equivalent to GET /tenants',
+      description:
+        'Lists tenants with optional filters: name (text search), page, limit.',
+      responseDescription: 'Paginated list of tenant records with total count.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER,
       parameters: TenantFiltersDto.zodSchema,
@@ -1682,7 +1920,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_tenant_by_id',
-      description: 'Equivalent to GET /tenants/:id',
+      description:
+        'Retrieves a tenant by their user UUID with full profile and contact details.',
+      responseDescription:
+        'Complete tenant record with personal info and linked user account.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1693,7 +1934,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_tenant_leases',
-      description: 'Equivalent to GET /tenants/:id/leases',
+      description:
+        'Returns the lease history for a specific tenant by their user UUID. Shows all past and current leases.',
+      responseDescription: 'Array of lease records associated with the tenant.',
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1704,7 +1947,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_tenant_activities',
-      description: 'Equivalent to GET /tenants/:id/activities',
+      description:
+        'Lists CRM activities (calls, tasks, notes, emails, visits) for a specific tenant by tenantId.',
+      responseDescription:
+        'Array of activity records with type, description, date, and status.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1715,7 +1961,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_tenant_activities',
-      description: 'Equivalent to POST /tenants/:id/activities',
+      description:
+        'Creates a CRM activity for a tenant. Types: call, task, note, email, whatsapp, visit. Specify description and optional scheduled date.',
+      responseDescription: 'The created activity record with assigned UUID.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(CreateTenantActivityDto.zodSchema, {
@@ -1733,7 +1981,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_tenant_activity',
-      description: 'Equivalent to PATCH /tenants/:id/activities/:activityId',
+      description:
+        "Updates an existing tenant CRM activity's fields (description, status, date) by activityId.",
+      responseDescription: 'The updated activity record.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(UpdateTenantActivityDto.zodSchema, {
@@ -1755,7 +2005,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_tenant_by_id',
-      description: 'Equivalent to PATCH /tenants/:id',
+      description:
+        "Updates a tenant's profile fields (name, phone, address, etc.) by UUID.",
+      responseDescription: 'The updated tenant record.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: withParams(UpdateTenantDto.zodSchema, { id: uuidSchema }),
@@ -1768,7 +2020,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'delete_tenant_by_id',
-      description: 'Equivalent to DELETE /tenants/:id',
+      description:
+        'Deletes a tenant by UUID. Fails if the tenant has active leases.',
+      responseDescription: 'Confirmation that the tenant was deleted.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1781,7 +2035,10 @@ export function buildAiToolDefinitions(
 
     {
       name: 'post_interested',
-      description: 'Equivalent to POST /interested',
+      description:
+        'Creates a new interested/prospect profile in the CRM pipeline. Specify contact info, budget, and property preferences.',
+      responseDescription:
+        'The newly created interested profile with assigned UUID and initial pipeline stage.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: CreateInterestedProfileDto.zodSchema,
@@ -1793,7 +2050,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_interested_metrics_overview',
-      description: 'Equivalent to GET /interested/metrics/overview',
+      description:
+        'Returns pipeline-wide KPIs: total leads, leads by stage, conversion rates, and average time-to-convert.',
+      responseDescription:
+        'Metrics object with lead counts by stage and conversion rate percentages.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: emptyObjectSchema,
@@ -1802,7 +2062,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_interested_duplicates',
-      description: 'Equivalent to GET /interested/duplicates',
+      description:
+        'Finds potential duplicate interested profiles based on name, email, or phone matching.',
+      responseDescription:
+        'Array of potential duplicate groups with similarity scores.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: emptyObjectSchema,
@@ -1813,7 +2076,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_interested',
-      description: 'Equivalent to GET /interested',
+      description:
+        'Lists interested profiles with optional filters: name (text search), status, qualificationLevel, operations (rent/sale), page, limit.',
+      responseDescription:
+        'Paginated list of interested profiles with total count.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: InterestedFiltersDto.zodSchema,
@@ -1825,7 +2091,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_interested_by_id',
-      description: 'Equivalent to GET /interested/:id',
+      description:
+        'Retrieves an interested profile by UUID with full contact info, preferences, and current pipeline stage.',
+      responseDescription:
+        'Complete interested profile record with preferences and stage history.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1836,7 +2105,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_interested_summary',
-      description: 'Equivalent to GET /interested/:id/summary',
+      description:
+        'Returns an aggregated summary for an interested profile: activity count, property matches count, and active reservations.',
+      responseDescription:
+        'Summary object with counts for activities, matches, and reservations.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1850,7 +2122,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_interested_timeline',
-      description: 'Equivalent to GET /interested/:id/timeline',
+      description:
+        'Returns the chronological activity feed for an interested profile, including stage changes, activities, and match updates.',
+      responseDescription:
+        'Array of timeline entries ordered by date with type and description.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1864,7 +2139,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_interested_matches',
-      description: 'Equivalent to GET /interested/:id/matches',
+      description:
+        'Lists scored property matches for an interested profile based on their preferences (budget, location, size).',
+      responseDescription:
+        'Array of property match records with compatibility score and match status.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1878,7 +2156,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_interested_matches_refresh',
-      description: 'Equivalent to POST /interested/:id/matches/refresh',
+      description:
+        'Recalculates property matches for an interested profile using current preferences and available properties.',
+      responseDescription:
+        'Updated array of recalculated property matches with new scores.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1892,7 +2173,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_interested_match',
-      description: 'Equivalent to PATCH /interested/:id/matches/:matchId',
+      description:
+        'Updates the status of a property match (e.g., contacted → visit_scheduled → accepted/rejected) by matchId.',
+      responseDescription: 'The updated match record with new status.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(UpdateInterestedMatchDto.zodSchema, {
@@ -1914,7 +2197,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_interested_stage',
-      description: 'Equivalent to POST /interested/:id/stage',
+      description:
+        'Changes the pipeline stage of an interested profile (e.g., new → contacted → qualified → proposal → won/lost).',
+      responseDescription:
+        'The updated interested profile with new stage and transition timestamp.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(ChangeInterestedStageDto.zodSchema, {
@@ -1933,7 +2219,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_interested_activities',
-      description: 'Equivalent to POST /interested/:id/activities',
+      description:
+        'Creates a CRM activity for an interested profile. Types: call, task, note, email, whatsapp, visit.',
+      responseDescription: 'The created activity record with assigned UUID.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(CreateInterestedActivityDto.zodSchema, {
@@ -1952,7 +2240,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_interested_reservations',
-      description: 'Equivalent to POST /interested/:id/reservations',
+      description:
+        'Creates a property reservation for an interested profile. Links a prospect to a specific property with reservation terms.',
+      responseDescription:
+        'The created reservation record with property and date details.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(CreatePropertyReservationDto.zodSchema, {
@@ -1971,7 +2262,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_interested_reservations',
-      description: 'Equivalent to GET /interested/:id/reservations',
+      description:
+        'Lists all property reservations for a specific interested profile by interestedId.',
+      responseDescription:
+        'Array of reservation records with property, dates, and status.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -1985,7 +2279,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_interested_activity',
-      description: 'Equivalent to PATCH /interested/:id/activities/:activityId',
+      description:
+        'Updates a CRM activity for an interested profile by activityId. Modify description, status, or scheduled date.',
+      responseDescription: 'The updated activity record.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(UpdateInterestedActivityDto.zodSchema, {
@@ -2007,7 +2303,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_interested_convert_tenant',
-      description: 'Equivalent to POST /interested/:id/convert/tenant',
+      description:
+        'Converts an interested profile to a tenant. Creates User and Tenant records automatically. One-way irreversible operation.',
+      responseDescription:
+        'The created tenant record and updated interested profile with converted status.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(ConvertInterestedToTenantDto.zodSchema, {
@@ -2026,7 +2325,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_interested_convert_buyer',
-      description: 'Equivalent to POST /interested/:id/convert/buyer',
+      description:
+        'Converts an interested profile to a buyer. Creates a SaleAgreement automatically. One-way irreversible operation.',
+      responseDescription:
+        'The created sale agreement and updated interested profile with converted status.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(ConvertInterestedToBuyerDto.zodSchema, {
@@ -2045,7 +2347,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_interested_by_id',
-      description: 'Equivalent to PATCH /interested/:id',
+      description:
+        "Updates an interested profile's fields (contact info, preferences, budget, qualification) by UUID.",
+      responseDescription: 'The updated interested profile record.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(UpdateInterestedProfileDto.zodSchema, {
@@ -2064,7 +2368,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'delete_interested_by_id',
-      description: 'Equivalent to DELETE /interested/:id',
+      description:
+        'Deletes an interested profile by UUID. Removes all associated activities and matches.',
+      responseDescription:
+        'Confirmation that the interested profile was deleted.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -2077,7 +2384,10 @@ export function buildAiToolDefinitions(
 
     {
       name: 'get_owner_settlement_payments',
-      description: 'Equivalent to GET /owners/settlements/payments',
+      description:
+        'Lists settlement payment history across all owners. Accepts limit param to control result count.',
+      responseDescription:
+        'Array of settlement payment records with owner, amount, date, and status.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: ListOwnerSettlementPaymentsDto.zodSchema,
@@ -2095,7 +2405,8 @@ export function buildAiToolDefinitions(
     {
       name: 'get_owner_settlement_receipt',
       description:
-        'Equivalent to GET /owners/settlements/:settlementId/receipt',
+        'Downloads a settlement receipt as a PDF document by settlementId.',
+      responseDescription: 'PDF binary content of the settlement receipt.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ settlementId: uuidSchema }).strict(),
@@ -2113,7 +2424,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_owners',
-      description: 'Equivalent to GET /owners',
+      description:
+        'Lists all property owners in the company with contact and profile details.',
+      responseDescription:
+        'Array of owner records with name, contact info, and property count.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: emptyObjectSchema,
@@ -2122,7 +2436,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_owners',
-      description: 'Equivalent to POST /owners',
+      description:
+        'Creates a new owner record with user account association. Specify personal details, contact info, and commission terms.',
+      responseDescription:
+        'The newly created owner record with assigned UUID and linked user account.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: CreateOwnerDto.zodSchema,
@@ -2134,7 +2451,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_owner_by_id',
-      description: 'Equivalent to GET /owners/:id',
+      description:
+        'Retrieves an owner by UUID with full profile, properties, and settlement summary.',
+      responseDescription:
+        'Complete owner record with nested properties and financial summary.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -2145,7 +2465,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_owner_by_id',
-      description: 'Equivalent to PATCH /owners/:id',
+      description:
+        "Updates an owner's profile fields (name, phone, commission rate, etc.) by UUID.",
+      responseDescription: 'The updated owner record.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(UpdateOwnerDto.zodSchema, { id: uuidSchema }),
@@ -2162,7 +2484,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_owner_settlements',
-      description: 'Equivalent to GET /owners/:id/settlements',
+      description:
+        'Lists settlements (liquidaciones) for an owner. Accepts status filter (pending/completed/all) and limit param.',
+      responseDescription:
+        'Array of settlement records with period, net amount, and payment status.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(ListOwnerSettlementsDto.zodSchema, {
@@ -2184,7 +2509,9 @@ export function buildAiToolDefinitions(
     {
       name: 'post_owner_settlement_payment',
       description:
-        'Equivalent to POST /owners/:id/settlements/:settlementId/pay',
+        "Registers a payment for a specific owner settlement. Payment amount must match the settlement's net amount exactly.",
+      responseDescription:
+        'The updated settlement record with payment confirmation.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(RegisterOwnerSettlementPaymentDto.zodSchema, {
@@ -2206,7 +2533,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_owner_activities',
-      description: 'Equivalent to GET /owners/:id/activities',
+      description:
+        'Lists CRM activities (calls, tasks, notes, emails, visits) for a specific owner by ownerId.',
+      responseDescription:
+        'Array of activity records with type, description, date, and status.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -2217,7 +2547,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_owner_activities',
-      description: 'Equivalent to POST /owners/:id/activities',
+      description:
+        'Creates a CRM activity for an owner. Types: call, task, note, email, whatsapp, visit, reserve.',
+      responseDescription: 'The created activity record with assigned UUID.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(CreateOwnerActivityDto.zodSchema, {
@@ -2235,7 +2567,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_owner_activity',
-      description: 'Equivalent to PATCH /owners/:id/activities/:activityId',
+      description:
+        "Updates an existing owner CRM activity's fields (description, status, date) by activityId.",
+      responseDescription: 'The updated activity record.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(UpdateOwnerActivityDto.zodSchema, {
@@ -2258,7 +2592,10 @@ export function buildAiToolDefinitions(
 
     {
       name: 'post_sales_folders',
-      description: 'Equivalent to POST /sales/folders',
+      description:
+        'Creates a new sale folder to group related sale agreements. Specify name and optional description.',
+      responseDescription:
+        'The newly created sale folder record with assigned UUID.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: CreateSaleFolderDto.zodSchema,
@@ -2270,7 +2607,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_sales_folders',
-      description: 'Equivalent to GET /sales/folders',
+      description: 'Lists all sale folders in the company with summary info.',
+      responseDescription:
+        'Array of sale folder records with name, agreement count, and status.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: emptyObjectSchema,
@@ -2279,7 +2618,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_sales_agreements',
-      description: 'Equivalent to POST /sales/agreements',
+      description:
+        'Creates a sale agreement within a folder. Specify buyer, property, price, and payment terms.',
+      responseDescription:
+        'The newly created sale agreement record with assigned UUID.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: CreateSaleAgreementDto.zodSchema,
@@ -2291,7 +2633,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_sales_agreements',
-      description: 'Equivalent to GET /sales/agreements',
+      description:
+        'Lists sale agreements with optional folderId filter to scope by sale folder.',
+      responseDescription:
+        'Array of sale agreement records with buyer, property, and status details.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: SaleAgreementsQueryDto.zodSchema,
@@ -2305,7 +2650,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_sales_agreement_by_id',
-      description: 'Equivalent to GET /sales/agreements/:id',
+      description:
+        'Retrieves a sale agreement by UUID with full details including buyer, property, and payment schedule.',
+      responseDescription:
+        'Complete sale agreement record with nested details.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -2318,7 +2666,10 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_sales_agreement_receipts',
-      description: 'Equivalent to GET /sales/agreements/:id/receipts',
+      description:
+        'Lists all payment receipts for a specific sale agreement by agreementId.',
+      responseDescription:
+        'Array of receipt records with amounts, dates, and payment method.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
@@ -2331,7 +2682,9 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_sales_agreement_receipt',
-      description: 'Equivalent to POST /sales/agreements/:id/receipts',
+      description:
+        'Creates a payment receipt for a sale agreement. Specify amount, date, and payment method.',
+      responseDescription: 'The created receipt record with assigned UUID.',
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(CreateSaleReceiptDto.zodSchema, {
@@ -2348,7 +2701,8 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'get_sales_receipt_pdf',
-      description: 'Equivalent to GET /sales/receipts/:receiptId/pdf',
+      description: 'Downloads a sale receipt as a PDF document by receiptId.',
+      responseDescription: 'PDF binary content of the sale receipt.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ receiptId: uuidSchema }).strict(),

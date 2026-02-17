@@ -21,10 +21,26 @@ const paymentFiltersZodSchema = z
       .string()
       .regex(UUID_CANONICAL_REGEX, 'leaseId must be a UUID')
       .optional(),
-    status: z.nativeEnum(PaymentStatus).optional(),
-    method: z.nativeEnum(PaymentMethod).optional(),
-    fromDate: z.string().date().optional(),
-    toDate: z.string().date().optional(),
+    status: z
+      .nativeEnum(PaymentStatus)
+      .optional()
+      .describe('pending|processing|completed|failed|refunded|cancelled'),
+    method: z
+      .nativeEnum(PaymentMethod)
+      .optional()
+      .describe(
+        'cash|bank_transfer|credit_card|debit_card|check|digital_wallet|crypto|other',
+      ),
+    fromDate: z
+      .string()
+      .date()
+      .optional()
+      .describe('Start date filter (YYYY-MM-DD)'),
+    toDate: z
+      .string()
+      .date()
+      .optional()
+      .describe('End date filter (YYYY-MM-DD)'),
     page: optionalPositiveInt,
     limit: optionalPositiveInt,
   })

@@ -4,7 +4,11 @@ import { z } from 'zod';
 
 const updateInterestedMatchZodSchema = z
   .object({
-    status: z.nativeEnum(InterestedMatchStatus),
+    status: z
+      .nativeEnum(InterestedMatchStatus)
+      .describe(
+        'suggested|contacted|visit_scheduled|accepted|rejected|expired',
+      ),
     notes: z.string().optional(),
   })
   .strict();

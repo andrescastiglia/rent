@@ -10,12 +10,26 @@ import { z } from 'zod';
 
 const interestedFiltersZodSchema = z
   .object({
-    name: z.string().min(1).optional(),
-    phone: z.string().min(1).optional(),
-    operation: z.nativeEnum(InterestedOperation).optional(),
-    propertyTypePreference: z.nativeEnum(InterestedPropertyType).optional(),
-    status: z.nativeEnum(InterestedStatus).optional(),
-    qualificationLevel: z.nativeEnum(InterestedQualificationLevel).optional(),
+    name: z.string().min(1).optional().describe('Text search by prospect name'),
+    phone: z.string().min(1).optional().describe('Phone number filter'),
+    operation: z
+      .nativeEnum(InterestedOperation)
+      .optional()
+      .describe('rent|sale'),
+    propertyTypePreference: z
+      .nativeEnum(InterestedPropertyType)
+      .optional()
+      .describe(
+        'apartment|house|commercial|office|warehouse|land|parking|other',
+      ),
+    status: z
+      .nativeEnum(InterestedStatus)
+      .optional()
+      .describe('interested|tenant|buyer'),
+    qualificationLevel: z
+      .nativeEnum(InterestedQualificationLevel)
+      .optional()
+      .describe('mql|sql|rejected'),
     page: z.coerce.number().int().min(1).optional().default(1),
     limit: z.coerce.number().int().min(1).max(100).optional().default(10),
   })
