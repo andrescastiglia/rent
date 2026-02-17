@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from "axios";
+import axios, { AxiosError, AxiosInstance } from "axios";
 import https from "node:https";
 import { AppDataSource } from "../shared/database";
 import { logger } from "../shared/logger";
@@ -261,30 +261,99 @@ export class ExchangeRateService {
   ): Promise<ExchangeRateData[]> {
     const from = this.formatDateBcra(fromDate);
     const to = this.formatDateBcra(toDate);
-
-    const endpoint = `/datosvariable/${variableId}/${from}/${to}`;
+    const primaryEndpoint = `/datosvariable/${variableId}/${from}/${to}`;
 
     logger.info("Fetching exchange rates from BCRA", {
       fromCurrency,
       toCurrency,
-      endpoint,
+      endpoint: primaryEndpoint,
     });
 
-    const response = await this.bcraClient.get(endpoint);
+    try {
+      const response = await this.bcraClient.get(primaryEndpoint);
+      return this.mapBcraRates(response.data.results, fromCurrency, toCurrency);
+    } catch (error) {
+      if (!this.isNotFoundOrBadRequest(error)) {
+        throw error;
+      }
 
-    if (!response.data.results || response.data.results.length === 0) {
+      const fallbackEndpoint = `/monetarias/${variableId}`;
+      logger.warn("BCRA primary exchange rate endpoint unavailable, using fallback", {
+        fromCurrency,
+        toCurrency,
+        primaryEndpoint,
+        fallbackEndpoint,
+        status: this.extractStatus(error),
+        responseData: this.extractResponseData(error),
+      });
+
+      const response = await this.bcraClient.get(fallbackEndpoint, {
+        params: {
+          desde: from,
+          hasta: to,
+          limit: 5000,
+        },
+      });
+
+      return this.mapBcraRates(response.data.results, fromCurrency, toCurrency);
+    }
+  }
+
+  private mapBcraRates(
+    results: unknown,
+    fromCurrency: string,
+    toCurrency: string,
+  ): ExchangeRateData[] {
+    if (!Array.isArray(results) || results.length === 0) {
       return [];
     }
 
-    return response.data.results.map(
-      (item: { fecha: string; valor: number }) => ({
-        fromCurrency,
-        toCurrency,
-        rate: item.valor,
-        rateDate: this.parseDateBcra(item.fecha),
-        source: "BCRA",
-      }),
+    return results
+      .map((item) => {
+        const maybeItem = item as { fecha?: string; valor?: number | string };
+        if (!maybeItem.fecha || maybeItem.valor === undefined) {
+          return null;
+        }
+
+        const value =
+          typeof maybeItem.valor === "number"
+            ? maybeItem.valor
+            : Number.parseFloat(maybeItem.valor);
+
+        if (Number.isNaN(value)) {
+          return null;
+        }
+
+        return {
+          fromCurrency,
+          toCurrency,
+          rate: value,
+          rateDate: this.parseDateBcra(maybeItem.fecha),
+          source: "BCRA",
+        };
+      })
+      .filter((rate): rate is ExchangeRateData => rate !== null);
+  }
+
+  private isNotFoundOrBadRequest(error: unknown): boolean {
+    return (
+      axios.isAxiosError(error) &&
+      (error.response?.status === 404 || error.response?.status === 400)
     );
+  }
+
+  private extractStatus(error: unknown): number | undefined {
+    if (!axios.isAxiosError(error)) {
+      return undefined;
+    }
+    return error.response?.status;
+  }
+
+  private extractResponseData(error: unknown): unknown {
+    if (!axios.isAxiosError(error)) {
+      return undefined;
+    }
+    return error.response?.data;
   }
 
   /**
