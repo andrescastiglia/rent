@@ -150,14 +150,14 @@ export class InvoiceService {
         `INSERT INTO invoices (
                     lease_id, owner_id, tenant_account_id,
                     invoice_number, period_start, period_end,
-                    subtotal, total_amount, currency_code, due_date,
-                    status, issued_at,
-                    original_amount, original_currency, exchange_rate_used, exchange_rate_date,
+                    subtotal, total_amount, currency, due_date,
+                    status, issue_date,
+                    original_amount, original_currency, exchange_rate, exchange_rate_date,
                     withholding_iibb, withholding_iva, withholding_ganancias, withholdings_total,
                     adjustment_applied, adjustment_index_type, adjustment_index_value
                 ) VALUES (
                     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-                    'pending', NOW(),
+                    'pending', CURRENT_DATE,
                     $11, $12, $13, $14,
                     $15, $16, $17, $18,
                     $19, $20, $21
@@ -301,7 +301,7 @@ export class InvoiceService {
   ): Promise<InvoiceRecord> {
     const result = await AppDataSource.query(
       `UPDATE invoices 
-             SET late_fee = late_fee + $2,
+             SET late_fee_amount = late_fee_amount + $2,
                  total_amount = total_amount + $2,
                  updated_at = NOW()
              WHERE id = $1
@@ -391,6 +391,12 @@ export class InvoiceService {
    * Maps a database row to an InvoiceRecord.
    */
   private mapToRecord(row: Record<string, unknown>): InvoiceRecord {
+    const lateFeeRaw = row.late_fee_amount ?? row.late_fee ?? 0;
+    const adjustmentsRaw = row.discount_amount ?? row.adjustments ?? 0;
+    const currencyRaw = row.currency ?? row.currency_code ?? "ARS";
+    const issuedAtRaw = row.issue_date ?? row.issued_at;
+    const exchangeRateRaw = row.exchange_rate ?? row.exchange_rate_used;
+
     return {
       id: row.id as string,
       leaseId: row.lease_id as string,
@@ -400,29 +406,27 @@ export class InvoiceService {
       periodStart: new Date(row.period_start as string),
       periodEnd: new Date(row.period_end as string),
       subtotal: Number.parseFloat(row.subtotal as string),
-      lateFee: Number.parseFloat(row.late_fee as string),
-      adjustments: Number.parseFloat(
-        (row.discount_amount ?? row.adjustments ?? 0) as string,
-      ),
+      lateFee: Number.parseFloat(String(lateFeeRaw)),
+      adjustments: Number.parseFloat(String(adjustmentsRaw)),
       total: Number.parseFloat(row.total_amount as string),
-      currencyCode: row.currency_code as string,
+      currencyCode: String(currencyRaw),
       amountPaid: Number.parseFloat(row.amount_paid as string),
       dueDate: new Date(row.due_date as string),
       status: row.status as InvoiceStatus,
-      issuedAt: row.issued_at ? new Date(row.issued_at as string) : undefined,
+      issuedAt: issuedAtRaw ? new Date(issuedAtRaw as string) : undefined,
       originalAmount: row.original_amount
         ? Number.parseFloat(row.original_amount as string)
         : undefined,
       originalCurrency: row.original_currency as string | undefined,
-      exchangeRateUsed: row.exchange_rate_used
-        ? Number.parseFloat(row.exchange_rate_used as string)
+      exchangeRateUsed: exchangeRateRaw
+        ? Number.parseFloat(exchangeRateRaw as string)
         : undefined,
-      withholdingIibb: Number.parseFloat(row.withholding_iibb as string),
-      withholdingIva: Number.parseFloat(row.withholding_iva as string),
+      withholdingIibb: Number.parseFloat(String(row.withholding_iibb ?? 0)),
+      withholdingIva: Number.parseFloat(String(row.withholding_iva ?? 0)),
       withholdingGanancias: Number.parseFloat(
-        row.withholding_ganancias as string,
+        String(row.withholding_ganancias ?? 0),
       ),
-      withholdingsTotal: Number.parseFloat(row.withholdings_total as string),
+      withholdingsTotal: Number.parseFloat(String(row.withholdings_total ?? 0)),
       pdfUrl: (row.pdf_url as string | null) ?? undefined,
       createdAt: new Date(row.created_at as string),
     };
