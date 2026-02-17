@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from "axios";
+import axios, { AxiosError, AxiosInstance } from "axios";
 import https from "node:https";
 import { logger } from "../../shared/logger";
 
@@ -94,44 +94,86 @@ export class BcraService {
   async getIcl(fromDate: Date, toDate: Date): Promise<IclIndexData[]> {
     const from = this.formatDate(fromDate);
     const to = this.formatDate(toDate);
+    const candidates: Array<{
+      endpoint: string;
+      params?: Record<string, string | number>;
+    }> = [
+      {
+        endpoint: `/monetarias/${this.iclVariableId}`,
+        params: { desde: from, hasta: to, limit: 5000 },
+      },
+      {
+        endpoint: `/datosvariable/${this.iclVariableId}/${from}/${to}`,
+      },
+    ];
 
-    const endpoint = `/monetarias/${this.iclVariableId}`;
+    let lastError: unknown = null;
 
-    logger.info("Fetching ICL data from BCRA", { from, to, endpoint });
-
-    try {
-      const response = await this.client.get<BcraApiResponse>(endpoint, {
-        params: {
-          desde: from,
-          hasta: to,
-          limit: 5000,
-        },
-      });
-
-      if (!response.data.results || response.data.results.length === 0) {
-        logger.warn("No ICL data returned from BCRA", { from, to });
-        return [];
-      }
-
-      const data = response.data.results.map((item) => ({
-        date: this.parseDate(item.fecha),
-        value: item.valor,
-      }));
-
-      logger.info("Successfully fetched ICL data", {
-        count: data.length,
+    for (const candidate of candidates) {
+      logger.info("Fetching ICL data from BCRA", {
         from,
         to,
+        endpoint: candidate.endpoint,
       });
 
-      return data;
-    } catch (error) {
-      logger.error("Failed to fetch ICL data from BCRA", {
-        error: error instanceof Error ? error.message : error,
-        endpoint,
-      });
-      throw error;
+      try {
+        const response = await this.client.get<BcraApiResponse>(
+          candidate.endpoint,
+          candidate.params ? { params: candidate.params } : undefined,
+        );
+
+        if (!response.data.results || response.data.results.length === 0) {
+          logger.warn("No ICL data returned from BCRA", {
+            from,
+            to,
+            endpoint: candidate.endpoint,
+          });
+          return [];
+        }
+
+        const data = response.data.results.map((item) => ({
+          date: this.parseDate(item.fecha),
+          value: item.valor,
+        }));
+
+        logger.info("Successfully fetched ICL data", {
+          count: data.length,
+          from,
+          to,
+          endpoint: candidate.endpoint,
+        });
+
+        return data;
+      } catch (error) {
+        lastError = error;
+        if (this.isBadRequest(error)) {
+          logger.warn("ICL endpoint rejected request, trying fallback", {
+            endpoint: candidate.endpoint,
+            status: error.response?.status,
+            responseData: error.response?.data,
+          });
+          continue;
+        }
+
+        logger.error("Failed to fetch ICL data from BCRA", {
+          error: error instanceof Error ? error.message : error,
+          endpoint: candidate.endpoint,
+          status: this.extractStatus(error),
+          responseData: this.extractResponseData(error),
+        });
+        throw error;
+      }
     }
+
+    logger.error("Failed to fetch ICL data from BCRA", {
+      error: lastError instanceof Error ? lastError.message : lastError,
+      status: this.extractStatus(lastError),
+      responseData: this.extractResponseData(lastError),
+      variableId: this.iclVariableId,
+    });
+    throw lastError instanceof Error
+      ? lastError
+      : new Error("Unable to fetch ICL data from BCRA");
   }
 
   /**
@@ -185,5 +227,19 @@ export class BcraService {
       return trimmed;
     }
     return `${trimmed}/estadisticas/v3.0`;
+  }
+
+  private isBadRequest(error: unknown): error is AxiosError {
+    return axios.isAxiosError(error) && error.response?.status === 400;
+  }
+
+  private extractStatus(error: unknown): number | undefined {
+    if (!axios.isAxiosError(error)) return undefined;
+    return error.response?.status;
+  }
+
+  private extractResponseData(error: unknown): unknown {
+    if (!axios.isAxiosError(error)) return undefined;
+    return error.response?.data;
   }
 }
