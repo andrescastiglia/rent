@@ -198,7 +198,7 @@ export default function InterestedActivityCreatePage() {
                 type: e.target.value as InterestedActivity["type"],
               }))
             }
-            className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           >
             {ACTIVITY_TYPES.map((type) => (
               <option key={type} value={type}>
@@ -216,7 +216,7 @@ export default function InterestedActivityCreatePage() {
                 dueAt: e.target.value,
               }))
             }
-            className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           />
         </div>
 
@@ -230,7 +230,7 @@ export default function InterestedActivityCreatePage() {
             }))
           }
           placeholder={t("activities.subject")}
-          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
         />
 
         <textarea
@@ -243,7 +243,7 @@ export default function InterestedActivityCreatePage() {
             }))
           }
           placeholder={t("activities.body")}
-          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
         />
 
         <select
@@ -254,7 +254,7 @@ export default function InterestedActivityCreatePage() {
               propertyId: e.target.value,
             }))
           }
-          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
         >
           <option value="">{t("activities.noProperty")}</option>
           {suggestedProperties.map((property) => (
@@ -274,7 +274,7 @@ export default function InterestedActivityCreatePage() {
                 markReserved: e.target.checked,
               }))
             }
-            className="rounded-sm border-gray-300 dark:border-gray-600"
+            className="rounded-sm border border-gray-300 dark:border-gray-600"
           />
           {t("activities.markReserved")}
         </label>

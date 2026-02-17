@@ -45,7 +45,7 @@ function PaymentItemRow({
         placeholder={t("items.description")}
         value={item.description}
         onChange={(e) => onDescriptionChange(index, e.target.value)}
-        className="md:col-span-2 w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+        className="md:col-span-2 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
       />
       <input
         type="number"
@@ -53,14 +53,14 @@ function PaymentItemRow({
         step="0.01"
         value={item.amount}
         onChange={(e) => onAmountChange(index, Number(e.target.value))}
-        className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+        className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
       />
       <input
         type="number"
         min="1"
         value={item.quantity ?? 1}
         onChange={(e) => onQuantityChange(index, Number(e.target.value))}
-        className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+        className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
       />
       <div className="flex gap-2">
         <select
@@ -68,7 +68,7 @@ function PaymentItemRow({
           onChange={(e) =>
             onTypeChange(index, e.target.value as PaymentItemType)
           }
-          className="flex-1 rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+          className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
         >
           <option value="charge">{t("items.charge")}</option>
           <option value="discount">{t("items.discount")}</option>

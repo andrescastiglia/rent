@@ -1522,7 +1522,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
                   id="autoGenerateInvoices"
                   type="checkbox"
                   {...register("autoGenerateInvoices")}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded-sm"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded-sm border"
                 />
                 <label
                   htmlFor="autoGenerateInvoices"

@@ -222,7 +222,7 @@ export default function TenantActivityCreatePage() {
                 type: e.target.value as TenantActivityType,
               }))
             }
-            className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           >
             {ACTIVITY_TYPES.map((type) => (
               <option key={type} value={type}>
@@ -239,7 +239,7 @@ export default function TenantActivityCreatePage() {
                 dueAt: e.target.value,
               }))
             }
-            className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           />
         </div>
 
@@ -253,7 +253,7 @@ export default function TenantActivityCreatePage() {
             }))
           }
           placeholder={t("activities.subject")}
-          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
         />
 
         <textarea
@@ -266,7 +266,7 @@ export default function TenantActivityCreatePage() {
             }))
           }
           placeholder={t("activities.body")}
-          className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
         />
 
         <button

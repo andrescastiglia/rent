@@ -176,7 +176,7 @@ export default function SalesPage() {
               onChange={(e) =>
                 setFolderForm((prev) => ({ ...prev, name: e.target.value }))
               }
-              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
             />
             <textarea
               placeholder={t("folders.description")}
@@ -188,7 +188,7 @@ export default function SalesPage() {
                 }))
               }
               rows={2}
-              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
             />
             <button type="submit" className="btn btn-primary w-full">
               {tCommon("save")}
@@ -240,7 +240,7 @@ export default function SalesPage() {
                   folderId: e.target.value,
                 }))
               }
-              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
             >
               <option value="">{t("agreements.selectFolder")}</option>
               {folders.map((folder) => (
@@ -260,7 +260,7 @@ export default function SalesPage() {
                     buyerName: e.target.value,
                   }))
                 }
-                className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
               />
               <input
                 type="text"
@@ -272,7 +272,7 @@ export default function SalesPage() {
                     buyerPhone: e.target.value,
                   }))
                 }
-                className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
               />
               <input
                 type="number"
@@ -286,7 +286,7 @@ export default function SalesPage() {
                     totalAmount: Number(e.target.value),
                   }))
                 }
-                className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
               />
               <input
                 type="number"
@@ -300,7 +300,7 @@ export default function SalesPage() {
                     installmentAmount: Number(e.target.value),
                   }))
                 }
-                className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
               />
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
@@ -326,7 +326,7 @@ export default function SalesPage() {
                     installmentCount: Number(e.target.value),
                   }))
                 }
-                className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
               />
               <input
                 type="date"
@@ -337,7 +337,7 @@ export default function SalesPage() {
                     startDate: e.target.value,
                   }))
                 }
-                className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
               />
             </div>
             <button type="submit" className="btn btn-primary w-full">
@@ -392,7 +392,7 @@ export default function SalesPage() {
                           },
                         }))
                       }
-                      className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
                     />
                     <input
                       type="date"
@@ -409,7 +409,7 @@ export default function SalesPage() {
                           },
                         }))
                       }
-                      className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
                     />
                     <button
                       type="button"

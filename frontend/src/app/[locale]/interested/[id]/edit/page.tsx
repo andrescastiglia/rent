@@ -225,7 +225,7 @@ export default function EditInterestedPage() {
             onChange={(e) =>
               setForm((prev) => ({ ...prev, firstName: e.target.value }))
             }
-            className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           />
           <input
             type="text"
@@ -234,7 +234,7 @@ export default function EditInterestedPage() {
             onChange={(e) =>
               setForm((prev) => ({ ...prev, lastName: e.target.value }))
             }
-            className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           />
           <input
             type="text"
@@ -243,7 +243,7 @@ export default function EditInterestedPage() {
             onChange={(e) =>
               setForm((prev) => ({ ...prev, phone: e.target.value }))
             }
-            className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           />
           <input
             type="email"
@@ -252,7 +252,7 @@ export default function EditInterestedPage() {
             onChange={(e) =>
               setForm((prev) => ({ ...prev, email: e.target.value }))
             }
-            className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           />
 
           <div className="space-y-2 md:col-span-2">
@@ -271,7 +271,7 @@ export default function EditInterestedPage() {
                     onChange={(e) =>
                       handleOperationChange(operation, e.target.checked)
                     }
-                    className="rounded-sm border-gray-300 dark:border-gray-600"
+                    className="rounded-sm border border-gray-300 dark:border-gray-600"
                   />
                   {t(`operations.${operation}`)}
                 </label>
@@ -288,7 +288,7 @@ export default function EditInterestedPage() {
                   .value as InterestedPropertyType,
               }))
             }
-            className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           >
             <option value="apartment">{t("propertyTypes.apartment")}</option>
             <option value="house">{t("propertyTypes.house")}</option>
@@ -313,7 +313,7 @@ export default function EditInterestedPage() {
                   : undefined,
               }))
             }
-            className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           />
           <input
             type="number"
@@ -327,7 +327,7 @@ export default function EditInterestedPage() {
                 minAmount: e.target.value ? Number(e.target.value) : undefined,
               }))
             }
-            className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           />
           <input
             type="number"
@@ -341,7 +341,7 @@ export default function EditInterestedPage() {
                 maxAmount: e.target.value ? Number(e.target.value) : undefined,
               }))
             }
-            className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           />
           <input
             type="text"
@@ -350,7 +350,7 @@ export default function EditInterestedPage() {
             onChange={(e) =>
               setForm((prev) => ({ ...prev, preferredCity: e.target.value }))
             }
-            className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           />
           <input
             type="text"
@@ -365,7 +365,7 @@ export default function EditInterestedPage() {
                   .filter(Boolean),
               }))
             }
-            className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           />
 
           <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
@@ -375,7 +375,7 @@ export default function EditInterestedPage() {
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, hasPets: e.target.checked }))
               }
-              className="rounded-sm border-gray-300 dark:border-gray-600"
+              className="rounded-sm border border-gray-300 dark:border-gray-600"
             />
             {t("fields.hasPets")}
           </label>
@@ -387,7 +387,7 @@ export default function EditInterestedPage() {
               setForm((prev) => ({ ...prev, notes: e.target.value }))
             }
             rows={3}
-            className="md:col-span-2 w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            className="md:col-span-2 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           />
         </div>
 

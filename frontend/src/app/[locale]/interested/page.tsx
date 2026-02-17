@@ -791,7 +791,7 @@ export default function InterestedPage() {
             onChange={(e) =>
               setOperationFilter(e.target.value as "all" | InterestedOperation)
             }
-            className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           >
             <option value="all">{t("filters.allOperations")}</option>
             <option value="rent">{t("operations.rent")}</option>
@@ -802,7 +802,7 @@ export default function InterestedPage() {
             onChange={(e) =>
               setStatusFilter(e.target.value as "all" | InterestedStatus)
             }
-            className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           >
             <option value="all">{t("filters.allStages")}</option>
             {STAGE_OPTIONS.map((stage) => (

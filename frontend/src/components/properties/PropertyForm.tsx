@@ -521,7 +521,7 @@ export function PropertyForm({
                     type="checkbox"
                     checked={selectedOperations.includes(operation)}
                     onChange={() => handleToggleOperation(operation)}
-                    className="h-4 w-4 rounded-sm border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="h-4 w-4 rounded-sm border border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                   {t(`operations.${operation}`)}
                 </label>
@@ -539,7 +539,7 @@ export function PropertyForm({
               id="allowsPets"
               type="checkbox"
               {...register("allowsPets")}
-              className="h-4 w-4 rounded-sm border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="h-4 w-4 rounded-sm border border-gray-300 text-blue-600 focus:ring-blue-500"
             />
             <label
               htmlFor="allowsPets"

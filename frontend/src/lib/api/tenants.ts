@@ -54,6 +54,11 @@ const isPaginatedResponse = <T>(value: any): value is PaginatedResponse<T> => {
   return !!value && typeof value === "object" && Array.isArray(value.data);
 };
 
+const isUuid = (value: string): boolean =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+
 const mapBackendTenantToTenant = (raw: BackendTenantLike): Tenant => {
   const user = raw.user ?? null;
   const firstName = raw.firstName ?? user?.firstName ?? "";
@@ -61,6 +66,8 @@ const mapBackendTenantToTenant = (raw: BackendTenantLike): Tenant => {
   const email = raw.email ?? user?.email ?? "";
   const phone = raw.phone ?? user?.phone ?? "";
   const isActive = raw.isActive ?? user?.isActive ?? true;
+  const normalizedDni =
+    typeof raw.dni === "string" && raw.dni.trim().length > 0 ? raw.dni : "";
 
   return {
     id: raw.id,
@@ -68,7 +75,7 @@ const mapBackendTenantToTenant = (raw: BackendTenantLike): Tenant => {
     lastName,
     email,
     phone,
-    dni: raw.dni ?? raw.id,
+    dni: normalizedDni,
     status: isActive ? "ACTIVE" : "INACTIVE",
     createdAt: raw.createdAt
       ? new Date(raw.createdAt).toISOString()
@@ -298,7 +305,8 @@ const serializeUpdateTenantPayload = (
   if (phone !== undefined) payload.phone = phone;
 
   const dni = normalizeOptionalString(data.dni);
-  if (dni !== undefined) payload.dni = dni;
+  // tenants.dni is varchar(20) in DB and should never receive UUID user IDs.
+  if (dni !== undefined && dni.length <= 20 && !isUuid(dni)) payload.dni = dni;
 
   const emergencyContact =
     normalizeOptionalString(

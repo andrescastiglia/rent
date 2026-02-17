@@ -379,7 +379,7 @@ export default function TenantPaymentRegistrationPage() {
                     amount: e.target.value,
                   }))
                 }
-                className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
               />
               <input
                 type="date"
@@ -391,7 +391,7 @@ export default function TenantPaymentRegistrationPage() {
                     paymentDate: e.target.value,
                   }))
                 }
-                className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
               />
               <select
                 value={paymentForm.method}
@@ -401,7 +401,7 @@ export default function TenantPaymentRegistrationPage() {
                     method: e.target.value as PaymentMethod,
                   }))
                 }
-                className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
               >
                 {paymentMethods.map((method) => (
                   <option key={method} value={method}>
@@ -436,7 +436,7 @@ export default function TenantPaymentRegistrationPage() {
                     reference: e.target.value,
                   }))
                 }
-                className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
               />
             </div>
 
@@ -450,7 +450,7 @@ export default function TenantPaymentRegistrationPage() {
                   notes: e.target.value,
                 }))
               }
-              className="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
+              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
             />
 
             <button

@@ -488,7 +488,7 @@ export default function PaymentDetailPage() {
                             : prev,
                         )
                       }
-                      className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                      className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
                     />
                   </div>
                   <div>
@@ -503,7 +503,7 @@ export default function PaymentDetailPage() {
                           prev ? { ...prev, method: e.target.value } : prev,
                         )
                       }
-                      className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                      className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
                     />
                   </div>
                 </div>
@@ -521,7 +521,7 @@ export default function PaymentDetailPage() {
                           prev ? { ...prev, reference: e.target.value } : prev,
                         )
                       }
-                      className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                      className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
                     />
                   </div>
                   <div>
@@ -536,7 +536,7 @@ export default function PaymentDetailPage() {
                           prev ? { ...prev, notes: e.target.value } : prev,
                         )
                       }
-                      className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                      className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
                     />
                   </div>
                 </div>
@@ -569,7 +569,7 @@ export default function PaymentDetailPage() {
                                 return { ...prev, items };
                               })
                             }
-                            className="md:col-span-2 rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                            className="md:col-span-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
                           />
                           <input
                             type="number"
@@ -587,7 +587,7 @@ export default function PaymentDetailPage() {
                                 return { ...prev, items };
                               })
                             }
-                            className="rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                            className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
                           />
                           <input
                             type="number"
@@ -604,7 +604,7 @@ export default function PaymentDetailPage() {
                                 return { ...prev, items };
                               })
                             }
-                            className="rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                            className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
                           />
                           <select
                             value={item.type}
@@ -619,7 +619,7 @@ export default function PaymentDetailPage() {
                                 return { ...prev, items };
                               })
                             }
-                            className="rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                            className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
                           >
                             <option value="charge">{t("items.charge")}</option>
                             <option value="discount">
