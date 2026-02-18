@@ -171,6 +171,21 @@ PROMETHEUS_PUSHGATEWAY_INSTANCE=batch-node-1
 
 Si `PROMETHEUS_PUSHGATEWAY_URL` está vacío, la ejecución continúa sin push de métricas.
 
+### Traces (OpenTelemetry)
+
+El batch emite spans OTLP cuando `OTEL_EXPORTER_OTLP_ENDPOINT` o
+`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` está configurado.
+
+Variables:
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+# o endpoint específico:
+# OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://localhost:4318/v1/traces
+OTEL_SERVICE_NAME=rent-batch
+OTEL_ENVIRONMENT=production
+```
+
 ### Alertas Recomendadas
 
 | Condición | Acción |

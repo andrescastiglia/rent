@@ -2,8 +2,10 @@
 import "reflect-metadata";
 import { config } from "dotenv";
 import { Command } from "commander";
+import { SpanStatusCode, trace } from "@opentelemetry/api";
 import type { BillingJobService } from "./services/billing-job.service";
 import { batchMetrics } from "./shared/metrics";
+import { shutdownTracing, startTracing } from "./shared/tracing";
 
 // Load environment variables
 config();
@@ -43,10 +45,41 @@ let closeDatabase: () => Promise<void> = async () => {
 };
 
 const program = new Command();
+const tracer = trace.getTracer("rent-batch-cli");
 
 // Import logger after potential `process.env.LOG_FILE` is set.
 // Use dynamic import inside main() so ESLint does not complain about require().
 let logger: any;
+
+function withTracedAction<TOptions>(
+  commandName: string,
+  action: (options: TOptions) => Promise<void>,
+): (options: TOptions) => Promise<void> {
+  return async (options: TOptions) =>
+    tracer.startActiveSpan(
+      `batch.${commandName}`,
+      {
+        attributes: {
+          "batch.command": commandName,
+        },
+      },
+      async (span) => {
+        try {
+          await action(options);
+          span.setStatus({ code: SpanStatusCode.OK });
+        } catch (error) {
+          span.recordException(error as Error);
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: error instanceof Error ? error.message : String(error),
+          });
+          throw error;
+        } finally {
+          span.end();
+        }
+      },
+    );
+}
 
 async function processReminderInvoice(
   invoiceService: any,
@@ -414,89 +447,91 @@ program
   .option("-d, --dry-run", "Run without making changes", false)
   .option("--lease-id <id>", "Process specific lease only")
   .option("--date <date>", "Process for specific date (YYYY-MM-DD)")
-  .action(async (options) => {
-    const { BillingService } = await import("./services/billing.service");
+  .action(
+    withTracedAction("billing", async (options) => {
+      const { BillingService } = await import("./services/billing.service");
 
-    logger.info("Starting billing process", { options });
-    const startedAtNs = process.hrtime.bigint();
-    let jobId: string | undefined;
-    let metricsSummary:
-      | {
-          recordsTotal: number;
-          recordsProcessed: number;
-          recordsFailed: number;
-        }
-      | undefined;
-    try {
-      await initializeDatabase();
-      billingJobService = newBillingJobService();
+      logger.info("Starting billing process", { options });
+      const startedAtNs = process.hrtime.bigint();
+      let jobId: string | undefined;
+      let metricsSummary:
+        | {
+            recordsTotal: number;
+            recordsProcessed: number;
+            recordsFailed: number;
+          }
+        | undefined;
+      try {
+        await initializeDatabase();
+        billingJobService = newBillingJobService();
 
-      const billingDate = options.date ? new Date(options.date) : new Date();
+        const billingDate = options.date ? new Date(options.date) : new Date();
 
-      // Start job logging
-      jobId = await billingJobService.startJob(
-        "billing",
-        { leaseId: options.leaseId, date: options.date },
-        options.dryRun,
-      );
-
-      const billingService = new BillingService();
-      const result = await billingService.runBilling(
-        billingDate,
-        options.dryRun,
-      );
-
-      logger.info("Billing process completed", {
-        processedLeases: result.processedLeases,
-        invoicesCreated: result.invoicesCreated,
-        invoicesFailed: result.invoicesFailed,
-        totalAmount: result.totalAmount,
-      });
-
-      // Complete job logging
-      await billingJobService.completeJob(jobId, {
-        recordsTotal: result.processedLeases,
-        recordsProcessed: result.invoicesCreated,
-        recordsFailed: result.invoicesFailed,
-        errorLog: result.errors,
-      });
-      metricsSummary = {
-        recordsTotal: result.processedLeases,
-        recordsProcessed: result.invoicesCreated,
-        recordsFailed: result.invoicesFailed,
-      };
-
-      if (result.errors.length > 0) {
-        logger.warn("Some invoices failed", {
-          errorCount: result.errors.length,
-        });
-      }
-
-      await batchMetrics.recordJobRun({
-        job: "billing",
-        status: "success",
-        startedAtNs,
-        summary: metricsSummary,
-      });
-    } catch (error) {
-      logger.error("Billing process failed", { error });
-      if (jobId) {
-        await billingJobService.failJob(
-          jobId,
-          error instanceof Error ? error.message : "Unknown error",
+        // Start job logging
+        jobId = await billingJobService.startJob(
+          "billing",
+          { leaseId: options.leaseId, date: options.date },
+          options.dryRun,
         );
+
+        const billingService = new BillingService();
+        const result = await billingService.runBilling(
+          billingDate,
+          options.dryRun,
+        );
+
+        logger.info("Billing process completed", {
+          processedLeases: result.processedLeases,
+          invoicesCreated: result.invoicesCreated,
+          invoicesFailed: result.invoicesFailed,
+          totalAmount: result.totalAmount,
+        });
+
+        // Complete job logging
+        await billingJobService.completeJob(jobId, {
+          recordsTotal: result.processedLeases,
+          recordsProcessed: result.invoicesCreated,
+          recordsFailed: result.invoicesFailed,
+          errorLog: result.errors,
+        });
+        metricsSummary = {
+          recordsTotal: result.processedLeases,
+          recordsProcessed: result.invoicesCreated,
+          recordsFailed: result.invoicesFailed,
+        };
+
+        if (result.errors.length > 0) {
+          logger.warn("Some invoices failed", {
+            errorCount: result.errors.length,
+          });
+        }
+
+        await batchMetrics.recordJobRun({
+          job: "billing",
+          status: "success",
+          startedAtNs,
+          summary: metricsSummary,
+        });
+      } catch (error) {
+        logger.error("Billing process failed", { error });
+        if (jobId) {
+          await billingJobService.failJob(
+            jobId,
+            error instanceof Error ? error.message : "Unknown error",
+          );
+        }
+        await batchMetrics.recordJobRun({
+          job: "billing",
+          status: "failed",
+          startedAtNs,
+          summary: metricsSummary,
+        });
+        process.exit(1);
+      } finally {
+        await closeDatabase();
       }
-      await batchMetrics.recordJobRun({
-        job: "billing",
-        status: "failed",
-        startedAtNs,
-        summary: metricsSummary,
-      });
-      process.exit(1);
-    } finally {
-      await closeDatabase();
-    }
-  });
+    }),
+  );
 
 /**
  * Overdue command - Mark overdue invoices.
@@ -506,88 +541,90 @@ program
   .description("Mark invoices as overdue based on due date")
   .option("--log <file>", "Write logs to the given file (no rotation)")
   .option("-d, --dry-run", "Run without making changes", false)
-  .action(async (options) => {
-    const { BillingService } = await import("./services/billing.service");
+  .action(
+    withTracedAction("overdue", async (options) => {
+      const { BillingService } = await import("./services/billing.service");
 
-    logger.info("Starting overdue process", { options });
-    const startedAtNs = process.hrtime.bigint();
-    let jobId: string | undefined;
-    let metricsSummary:
-      | {
-          recordsTotal: number;
-          recordsProcessed: number;
-          recordsFailed: number;
+      logger.info("Starting overdue process", { options });
+      const startedAtNs = process.hrtime.bigint();
+      let jobId: string | undefined;
+      let metricsSummary:
+        | {
+            recordsTotal: number;
+            recordsProcessed: number;
+            recordsFailed: number;
+          }
+        | undefined;
+      try {
+        await initializeDatabase();
+        billingJobService = newBillingJobService();
+
+        // Start job logging
+        jobId = await billingJobService.startJob("overdue", {}, options.dryRun);
+
+        if (options.dryRun) {
+          const { InvoiceService } = await import("./services/invoice.service");
+          const invoiceService = new InvoiceService();
+          const overdueInvoices = await invoiceService.findOverdue();
+          logger.info("Dry run: would mark invoices as overdue", {
+            count: overdueInvoices.length,
+          });
+
+          await billingJobService.completeJob(jobId, {
+            recordsTotal: overdueInvoices.length,
+            recordsProcessed: 0,
+            recordsFailed: 0,
+          });
+          metricsSummary = {
+            recordsTotal: overdueInvoices.length,
+            recordsProcessed: 0,
+            recordsFailed: 0,
+          };
+        } else {
+          const billingService = new BillingService();
+          const result = await billingService.processOverdue();
+          logger.info("Overdue process completed", {
+            markedOverdue: result.markedOverdue,
+          });
+
+          await billingJobService.completeJob(jobId, {
+            recordsTotal: result.markedOverdue,
+            recordsProcessed: result.markedOverdue,
+            recordsFailed: 0,
+          });
+          metricsSummary = {
+            recordsTotal: result.markedOverdue,
+            recordsProcessed: result.markedOverdue,
+            recordsFailed: 0,
+          };
         }
-      | undefined;
-    try {
-      await initializeDatabase();
-      billingJobService = newBillingJobService();
 
-      // Start job logging
-      jobId = await billingJobService.startJob("overdue", {}, options.dryRun);
-
-      if (options.dryRun) {
-        const { InvoiceService } = await import("./services/invoice.service");
-        const invoiceService = new InvoiceService();
-        const overdueInvoices = await invoiceService.findOverdue();
-        logger.info("Dry run: would mark invoices as overdue", {
-          count: overdueInvoices.length,
+        await batchMetrics.recordJobRun({
+          job: "overdue",
+          status: "success",
+          startedAtNs,
+          summary: metricsSummary,
         });
-
-        await billingJobService.completeJob(jobId, {
-          recordsTotal: overdueInvoices.length,
-          recordsProcessed: 0,
-          recordsFailed: 0,
+      } catch (error) {
+        logger.error("Overdue process failed", { error });
+        if (jobId) {
+          await billingJobService.failJob(
+            jobId,
+            error instanceof Error ? error.message : "Unknown error",
+          );
+        }
+        await batchMetrics.recordJobRun({
+          job: "overdue",
+          status: "failed",
+          startedAtNs,
+          summary: metricsSummary,
         });
-        metricsSummary = {
-          recordsTotal: overdueInvoices.length,
-          recordsProcessed: 0,
-          recordsFailed: 0,
-        };
-      } else {
-        const billingService = new BillingService();
-        const result = await billingService.processOverdue();
-        logger.info("Overdue process completed", {
-          markedOverdue: result.markedOverdue,
-        });
-
-        await billingJobService.completeJob(jobId, {
-          recordsTotal: result.markedOverdue,
-          recordsProcessed: result.markedOverdue,
-          recordsFailed: 0,
-        });
-        metricsSummary = {
-          recordsTotal: result.markedOverdue,
-          recordsProcessed: result.markedOverdue,
-          recordsFailed: 0,
-        };
+        process.exit(1);
+      } finally {
+        await closeDatabase();
       }
-
-      await batchMetrics.recordJobRun({
-        job: "overdue",
-        status: "success",
-        startedAtNs,
-        summary: metricsSummary,
-      });
-    } catch (error) {
-      logger.error("Overdue process failed", { error });
-      if (jobId) {
-        await billingJobService.failJob(
-          jobId,
-          error instanceof Error ? error.message : "Unknown error",
-        );
-      }
-      await batchMetrics.recordJobRun({
-        job: "overdue",
-        status: "failed",
-        startedAtNs,
-        summary: metricsSummary,
-      });
-      process.exit(1);
-    } finally {
-      await closeDatabase();
-    }
-  });
+    }),
+  );
 
 /**
  * Reminders command - Send payment reminders via WhatsApp.
@@ -598,86 +635,88 @@ program
   .option("--log <file>", "Write logs to the given file (no rotation)")
   .option("-d, --dry-run", "Run without sending WhatsApp messages", false)
   .option("--days-before <days>", "Days before due date to send reminder", "3")
-  .action(async (options) => {
-    const { InvoiceService } = await import("./services/invoice.service");
-    const { WhatsappService } = await import("./services/whatsapp.service");
+  .action(
+    withTracedAction("reminders", async (options) => {
+      const { InvoiceService } = await import("./services/invoice.service");
+      const { WhatsappService } = await import("./services/whatsapp.service");
 
-    logger.info("Starting reminders process", { options });
-    const startedAtNs = process.hrtime.bigint();
-    let jobId: string | undefined;
-    let metricsSummary:
-      | {
-          recordsTotal: number;
-          recordsProcessed: number;
-          recordsFailed: number;
-        }
-      | undefined;
-    try {
-      await initializeDatabase();
-      billingJobService = newBillingJobService();
+      logger.info("Starting reminders process", { options });
+      const startedAtNs = process.hrtime.bigint();
+      let jobId: string | undefined;
+      let metricsSummary:
+        | {
+            recordsTotal: number;
+            recordsProcessed: number;
+            recordsFailed: number;
+          }
+        | undefined;
+      try {
+        await initializeDatabase();
+        billingJobService = newBillingJobService();
 
-      const daysBefore = Number.parseInt(options.daysBefore, 10);
+        const daysBefore = Number.parseInt(options.daysBefore, 10);
 
-      // Start job logging
-      jobId = await billingJobService.startJob(
-        "reminders",
-        { daysBefore },
-        options.dryRun,
-      );
-
-      const invoiceService = new InvoiceService();
-      const whatsappService = new WhatsappService();
-
-      const reminderResult = await runReminders(
-        invoiceService,
-        whatsappService,
-        daysBefore,
-        options.dryRun,
-      );
-
-      logger.info("Reminders process completed", {
-        total: reminderResult.total,
-        sent: reminderResult.sent,
-        failed: reminderResult.failed,
-      });
-
-      // Complete job logging
-      await billingJobService.completeJob(jobId, {
-        recordsTotal: reminderResult.total,
-        recordsProcessed: reminderResult.sent,
-        recordsFailed: reminderResult.failed,
-      });
-      metricsSummary = {
-        recordsTotal: reminderResult.total,
-        recordsProcessed: reminderResult.sent,
-        recordsFailed: reminderResult.failed,
-      };
-
-      await batchMetrics.recordJobRun({
-        job: "reminders",
-        status: "success",
-        startedAtNs,
-        summary: metricsSummary,
-      });
-    } catch (error) {
-      logger.error("Reminders process failed", { error });
-      if (jobId) {
-        await billingJobService.failJob(
-          jobId,
-          error instanceof Error ? error.message : "Unknown error",
+        // Start job logging
+        jobId = await billingJobService.startJob(
+          "reminders",
+          { daysBefore },
+          options.dryRun,
         );
+
+        const invoiceService = new InvoiceService();
+        const whatsappService = new WhatsappService();
+
+        const reminderResult = await runReminders(
+          invoiceService,
+          whatsappService,
+          daysBefore,
+          options.dryRun,
+        );
+
+        logger.info("Reminders process completed", {
+          total: reminderResult.total,
+          sent: reminderResult.sent,
+          failed: reminderResult.failed,
+        });
+
+        // Complete job logging
+        await billingJobService.completeJob(jobId, {
+          recordsTotal: reminderResult.total,
+          recordsProcessed: reminderResult.sent,
+          recordsFailed: reminderResult.failed,
+        });
+        metricsSummary = {
+          recordsTotal: reminderResult.total,
+          recordsProcessed: reminderResult.sent,
+          recordsFailed: reminderResult.failed,
+        };
+
+        await batchMetrics.recordJobRun({
+          job: "reminders",
+          status: "success",
+          startedAtNs,
+          summary: metricsSummary,
+        });
+      } catch (error) {
+        logger.error("Reminders process failed", { error });
+        if (jobId) {
+          await billingJobService.failJob(
+            jobId,
+            error instanceof Error ? error.message : "Unknown error",
+          );
+        }
+        await batchMetrics.recordJobRun({
+          job: "reminders",
+          status: "failed",
+          startedAtNs,
+          summary: metricsSummary,
+        });
+        process.exit(1);
+      } finally {
+        await closeDatabase();
       }
-      await batchMetrics.recordJobRun({
-        job: "reminders",
-        status: "failed",
-        startedAtNs,
-        summary: metricsSummary,
-      });
-      process.exit(1);
-    } finally {
-      await closeDatabase();
-    }
-  });
+    }),
+  );
 
 /**
  * Sync-indices command - Synchronize inflation indices.
@@ -687,73 +726,75 @@ program
   .description("Fetch and store latest inflation indices (ICL, IPC)")
   .option("--log <file>", "Write logs to the given file (no rotation)")
   .option("--index <type>", "Specific index to sync (icl, ipc)", "all")
-  .action(async (options) => {
-    const { IndicesSyncService } =
-      await import("./services/indices-sync.service");
+  .action(
+    withTracedAction("sync-indices", async (options) => {
+      const { IndicesSyncService } =
+        await import("./services/indices-sync.service");
 
-    logger.info("Starting sync-indices process", { options });
-    const startedAtNs = process.hrtime.bigint();
-    let jobId: string | undefined;
-    let metricsSummary:
-      | {
-          recordsTotal: number;
-          recordsProcessed: number;
-          recordsFailed: number;
-        }
-      | undefined;
-    try {
-      await initializeDatabase();
-      billingJobService = newBillingJobService();
+      logger.info("Starting sync-indices process", { options });
+      const startedAtNs = process.hrtime.bigint();
+      let jobId: string | undefined;
+      let metricsSummary:
+        | {
+            recordsTotal: number;
+            recordsProcessed: number;
+            recordsFailed: number;
+          }
+        | undefined;
+      try {
+        await initializeDatabase();
+        billingJobService = newBillingJobService();
 
-      // Start job logging
-      jobId = await billingJobService.startJob(
-        "sync_indices",
-        { index: options.index },
-        false,
-      );
-
-      const syncService = new IndicesSyncService();
-      const syncSummary = await runSyncIndices(syncService, options.index);
-
-      // Complete job logging
-      await billingJobService.completeJob(jobId, {
-        recordsTotal: syncSummary.recordsTotal,
-        recordsProcessed: syncSummary.recordsProcessed,
-        recordsFailed: syncSummary.recordsFailed,
-        errorLog: syncSummary.errorLog,
-      });
-      metricsSummary = {
-        recordsTotal: syncSummary.recordsTotal,
-        recordsProcessed: syncSummary.recordsProcessed,
-        recordsFailed: syncSummary.recordsFailed,
-      };
-
-      logger.info("Sync-indices process completed");
-      await batchMetrics.recordJobRun({
-        job: "sync_indices",
-        status: "success",
-        startedAtNs,
-        summary: metricsSummary,
-      });
-    } catch (error) {
-      logger.error("Sync-indices process failed", { error });
-      if (jobId) {
-        await billingJobService.failJob(
-          jobId,
-          error instanceof Error ? error.message : "Unknown error",
+        // Start job logging
+        jobId = await billingJobService.startJob(
+          "sync_indices",
+          { index: options.index },
+          false,
         );
+
+        const syncService = new IndicesSyncService();
+        const syncSummary = await runSyncIndices(syncService, options.index);
+
+        // Complete job logging
+        await billingJobService.completeJob(jobId, {
+          recordsTotal: syncSummary.recordsTotal,
+          recordsProcessed: syncSummary.recordsProcessed,
+          recordsFailed: syncSummary.recordsFailed,
+          errorLog: syncSummary.errorLog,
+        });
+        metricsSummary = {
+          recordsTotal: syncSummary.recordsTotal,
+          recordsProcessed: syncSummary.recordsProcessed,
+          recordsFailed: syncSummary.recordsFailed,
+        };
+
+        logger.info("Sync-indices process completed");
+        await batchMetrics.recordJobRun({
+          job: "sync_indices",
+          status: "success",
+          startedAtNs,
+          summary: metricsSummary,
+        });
+      } catch (error) {
+        logger.error("Sync-indices process failed", { error });
+        if (jobId) {
+          await billingJobService.failJob(
+            jobId,
+            error instanceof Error ? error.message : "Unknown error",
+          );
+        }
+        await batchMetrics.recordJobRun({
+          job: "sync_indices",
+          status: "failed",
+          startedAtNs,
+          summary: metricsSummary,
+        });
+        process.exit(1);
+      } finally {
+        await closeDatabase();
       }
-      await batchMetrics.recordJobRun({
-        job: "sync_indices",
-        status: "failed",
-        startedAtNs,
-        summary: metricsSummary,
-      });
-      process.exit(1);
-    } finally {
-      await closeDatabase();
-    }
-  });
+    }),
+  );
 
 /**
  * Sync-rates command - Synchronize exchange rates.
@@ -764,63 +805,65 @@ program
     "Fetch and store latest exchange rates (USD/ARS, BRL/ARS, USD/BRL)",
   )
   .option("--log <file>", "Write logs to the given file (no rotation)")
-  .action(async () => {
-    const { ExchangeRateService } =
-      await import("./services/exchange-rate.service");
+  .action(
+    withTracedAction("sync-rates", async () => {
+      const { ExchangeRateService } =
+        await import("./services/exchange-rate.service");
 
-    logger.info("Starting sync-rates process");
-    const startedAtNs = process.hrtime.bigint();
-    let jobId: string | undefined;
-    let metricsSummary:
-      | {
-          recordsTotal: number;
-          recordsProcessed: number;
-          recordsFailed: number;
+      logger.info("Starting sync-rates process");
+      const startedAtNs = process.hrtime.bigint();
+      let jobId: string | undefined;
+      let metricsSummary:
+        | {
+            recordsTotal: number;
+            recordsProcessed: number;
+            recordsFailed: number;
+          }
+        | undefined;
+      try {
+        await initializeDatabase();
+        billingJobService = newBillingJobService();
+
+        // Start job logging
+        jobId = await billingJobService.startJob("exchange_rates", {}, false);
+
+        const exchangeService = new ExchangeRateService();
+        const result = await exchangeService.syncRates();
+        metricsSummary = {
+          recordsTotal: result.processed,
+          recordsProcessed: result.inserted,
+          recordsFailed: result.errors.length,
+        };
+
+        await finalizeExchangeRatesJob(jobId, result);
+
+        logger.info("Sync-rates process completed");
+        await batchMetrics.recordJobRun({
+          job: "exchange_rates",
+          status: "success",
+          startedAtNs,
+          summary: metricsSummary,
+        });
+      } catch (error) {
+        logger.error("Sync-rates process failed", { error });
+        if (jobId) {
+          await billingJobService.failJob(
+            jobId,
+            error instanceof Error ? error.message : "Unknown error",
+          );
         }
-      | undefined;
-    try {
-      await initializeDatabase();
-      billingJobService = newBillingJobService();
-
-      // Start job logging
-      jobId = await billingJobService.startJob("exchange_rates", {}, false);
-
-      const exchangeService = new ExchangeRateService();
-      const result = await exchangeService.syncRates();
-      metricsSummary = {
-        recordsTotal: result.processed,
-        recordsProcessed: result.inserted,
-        recordsFailed: result.errors.length,
-      };
-
-      await finalizeExchangeRatesJob(jobId, result);
-
-      logger.info("Sync-rates process completed");
-      await batchMetrics.recordJobRun({
-        job: "exchange_rates",
-        status: "success",
-        startedAtNs,
-        summary: metricsSummary,
-      });
-    } catch (error) {
-      logger.error("Sync-rates process failed", { error });
-      if (jobId) {
-        await billingJobService.failJob(
-          jobId,
-          error instanceof Error ? error.message : "Unknown error",
-        );
+        await batchMetrics.recordJobRun({
+          job: "exchange_rates",
+          status: "failed",
+          startedAtNs,
+          summary: metricsSummary,
+        });
+        process.exit(1);
+      } finally {
+        await closeDatabase();
       }
-      await batchMetrics.recordJobRun({
-        job: "exchange_rates",
-        status: "failed",
-        startedAtNs,
-        summary: metricsSummary,
-      });
-      process.exit(1);
-    } finally {
-      await closeDatabase();
-    }
-  });
+    }),
+  );
 
 async function finalizeExchangeRatesJob(
   jobId: string,
@@ -859,104 +902,110 @@ program
   .option("--owner-id <id>", "Generate for specific owner only")
   .option("--month <month>", "Report month (YYYY-MM)", "")
   .option("-d, --dry-run", "Generate without sending", false)
-  .action(async (options) => {
-    const { ReportService } = await import("./services/report.service");
+  .action(
+    withTracedAction("reports", async (options) => {
+      const { ReportService } = await import("./services/report.service");
 
-    logger.info("Starting reports process", { options });
-    const startedAtNs = process.hrtime.bigint();
-    let jobId: string | undefined;
-    let metricsSummary:
-      | {
-          recordsTotal: number;
-          recordsProcessed: number;
-          recordsFailed: number;
-        }
-      | undefined;
-    try {
-      await initializeDatabase();
-      billingJobService = newBillingJobService();
+      logger.info("Starting reports process", { options });
+      const startedAtNs = process.hrtime.bigint();
+      let jobId: string | undefined;
+      let metricsSummary:
+        | {
+            recordsTotal: number;
+            recordsProcessed: number;
+            recordsFailed: number;
+          }
+        | undefined;
+      try {
+        await initializeDatabase();
+        billingJobService = newBillingJobService();
 
-      // Start job logging
-      jobId = await billingJobService.startJob(
-        "reports",
-        { type: options.type, ownerId: options.ownerId, month: options.month },
-        options.dryRun,
-      );
-
-      if (!options.ownerId) {
-        logger.error("Owner ID required. Use --owner-id <id>");
-        throw new Error("Owner ID required. Use --owner-id <id>");
-      }
-
-      const reportService = new ReportService();
-      const now = new Date();
-      const month =
-        options.month ||
-        `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-      const [year, mon] = month.split("-").map(Number);
-
-      const result =
-        options.type === "settlement"
-          ? await reportService.generateSettlement(options.ownerId, month)
-          : await reportService.generateMonthlySummary(
-              options.ownerId,
-              year,
-              mon,
-            );
-
-      if (result.success) {
-        logger.info("Report generated", { pdfUrl: result.pdfUrl });
-        await billingJobService.completeJob(jobId, {
-          recordsTotal: 1,
-          recordsProcessed: 1,
-          recordsFailed: 0,
-        });
-        metricsSummary = {
-          recordsTotal: 1,
-          recordsProcessed: 1,
-          recordsFailed: 0,
-        };
-      } else {
-        logger.error("Report generation failed", { error: result.error });
-        await billingJobService.completeJob(jobId, {
-          recordsTotal: 1,
-          recordsProcessed: 0,
-          recordsFailed: 1,
-          errorLog: [{ error: result.error }],
-        });
-        metricsSummary = {
-          recordsTotal: 1,
-          recordsProcessed: 0,
-          recordsFailed: 1,
-        };
-      }
-
-      logger.info("Reports process completed");
-      await batchMetrics.recordJobRun({
-        job: "reports",
-        status: "success",
-        startedAtNs,
-        summary: metricsSummary,
-      });
-    } catch (error) {
-      logger.error("Reports process failed", { error });
-      if (jobId) {
-        await billingJobService.failJob(
-          jobId,
-          error instanceof Error ? error.message : "Unknown error",
+        // Start job logging
+        jobId = await billingJobService.startJob(
+          "reports",
+          {
+            type: options.type,
+            ownerId: options.ownerId,
+            month: options.month,
+          },
+          options.dryRun,
         );
+
+        if (!options.ownerId) {
+          logger.error("Owner ID required. Use --owner-id <id>");
+          throw new Error("Owner ID required. Use --owner-id <id>");
+        }
+
+        const reportService = new ReportService();
+        const now = new Date();
+        const month =
+          options.month ||
+          `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+        const [year, mon] = month.split("-").map(Number);
+
+        const result =
+          options.type === "settlement"
+            ? await reportService.generateSettlement(options.ownerId, month)
+            : await reportService.generateMonthlySummary(
+                options.ownerId,
+                year,
+                mon,
+              );
+
+        if (result.success) {
+          logger.info("Report generated", { pdfUrl: result.pdfUrl });
+          await billingJobService.completeJob(jobId, {
+            recordsTotal: 1,
+            recordsProcessed: 1,
+            recordsFailed: 0,
+          });
+          metricsSummary = {
+            recordsTotal: 1,
+            recordsProcessed: 1,
+            recordsFailed: 0,
+          };
+        } else {
+          logger.error("Report generation failed", { error: result.error });
+          await billingJobService.completeJob(jobId, {
+            recordsTotal: 1,
+            recordsProcessed: 0,
+            recordsFailed: 1,
+            errorLog: [{ error: result.error }],
+          });
+          metricsSummary = {
+            recordsTotal: 1,
+            recordsProcessed: 0,
+            recordsFailed: 1,
+          };
+        }
+
+        logger.info("Reports process completed");
+        await batchMetrics.recordJobRun({
+          job: "reports",
+          status: "success",
+          startedAtNs,
+          summary: metricsSummary,
+        });
+      } catch (error) {
+        logger.error("Reports process failed", { error });
+        if (jobId) {
+          await billingJobService.failJob(
+            jobId,
+            error instanceof Error ? error.message : "Unknown error",
+          );
+        }
+        await batchMetrics.recordJobRun({
+          job: "reports",
+          status: "failed",
+          startedAtNs,
+          summary: metricsSummary,
+        });
+        process.exit(1);
+      } finally {
+        await closeDatabase();
       }
-      await batchMetrics.recordJobRun({
-        job: "reports",
-        status: "failed",
-        startedAtNs,
-        summary: metricsSummary,
-      });
-      process.exit(1);
-    } finally {
-      await closeDatabase();
-    }
-  });
+    }),
+  );
 
 /**
  * Process-settlements command - Calculate and process owner settlements.
@@ -972,79 +1021,82 @@ program
   .option("--owner-id <id>", "Process for specific owner only")
   .option("-d, --dry-run", "Calculate without creating settlements", false)
   .option("--process", "Process pending settlements (mark as paid)", false)
-  .action(async (options) => {
-    const { SettlementService } = await import("./services/settlement.service");
+  .action(
+    withTracedAction("process-settlements", async (options) => {
+      const { SettlementService } =
+        await import("./services/settlement.service");
 
-    logger.info("Starting process-settlements", { options });
-    const startedAtNs = process.hrtime.bigint();
-    let jobId: string | undefined;
-    let metricsSummary:
-      | {
-          recordsTotal: number;
-          recordsProcessed: number;
-          recordsFailed: number;
-        }
-      | undefined;
-    try {
-      await initializeDatabase();
-      billingJobService = newBillingJobService();
+      logger.info("Starting process-settlements", { options });
+      const startedAtNs = process.hrtime.bigint();
+      let jobId: string | undefined;
+      let metricsSummary:
+        | {
+            recordsTotal: number;
+            recordsProcessed: number;
+            recordsFailed: number;
+          }
+        | undefined;
+      try {
+        await initializeDatabase();
+        billingJobService = newBillingJobService();
 
-      // Start job logging
-      jobId = await billingJobService.startJob(
-        "process_settlements",
-        {
-          period: options.period,
-          ownerId: options.ownerId,
-          process: options.process,
-        },
-        options.dryRun,
-      );
-
-      const settlementService = new SettlementService();
-      const now = new Date();
-      const period =
-        options.period ||
-        `${now.getFullYear()}-${String(now.getMonth()).padStart(2, "0")}`;
-
-      const summary = await resolveSettlementsSummary(
-        settlementService,
-        options,
-        period,
-      );
-      metricsSummary = {
-        recordsTotal: summary.recordsTotal,
-        recordsProcessed: summary.recordsProcessed,
-        recordsFailed: summary.recordsFailed,
-      };
-
-      await billingJobService.completeJob(jobId, summary);
-
-      logger.info("Process-settlements completed");
-      await batchMetrics.recordJobRun({
-        job: "process_settlements",
-        status: "success",
-        startedAtNs,
-        summary: metricsSummary,
-      });
-    } catch (error) {
-      logger.error("Process-settlements failed", { error });
-      if (jobId) {
-        await billingJobService.failJob(
-          jobId,
-          error instanceof Error ? error.message : "Unknown error",
+        // Start job logging
+        jobId = await billingJobService.startJob(
+          "process_settlements",
+          {
+            period: options.period,
+            ownerId: options.ownerId,
+            process: options.process,
+          },
+          options.dryRun,
         );
+
+        const settlementService = new SettlementService();
+        const now = new Date();
+        const period =
+          options.period ||
+          `${now.getFullYear()}-${String(now.getMonth()).padStart(2, "0")}`;
+
+        const summary = await resolveSettlementsSummary(
+          settlementService,
+          options,
+          period,
+        );
+        metricsSummary = {
+          recordsTotal: summary.recordsTotal,
+          recordsProcessed: summary.recordsProcessed,
+          recordsFailed: summary.recordsFailed,
+        };
+
+        await billingJobService.completeJob(jobId, summary);
+
+        logger.info("Process-settlements completed");
+        await batchMetrics.recordJobRun({
+          job: "process_settlements",
+          status: "success",
+          startedAtNs,
+          summary: metricsSummary,
+        });
+      } catch (error) {
+        logger.error("Process-settlements failed", { error });
+        if (jobId) {
+          await billingJobService.failJob(
+            jobId,
+            error instanceof Error ? error.message : "Unknown error",
+          );
+        }
+        await batchMetrics.recordJobRun({
+          job: "process_settlements",
+          status: "failed",
+          startedAtNs,
+          summary: metricsSummary,
+        });
+        process.exit(1);
+      } finally {
+        await closeDatabase();
       }
-      await batchMetrics.recordJobRun({
-        job: "process_settlements",
-        status: "failed",
-        startedAtNs,
-        summary: metricsSummary,
-      });
-      process.exit(1);
-    } finally {
-      await closeDatabase();
-    }
-  });
+    }),
+  );
 
 async function resolveSettlementsSummary(
   settlementService: any,
@@ -1074,6 +1126,8 @@ async function resolveSettlementsSummary(
 
 async function main() {
   try {
+    await startTracing();
+
     const mod = await import("./shared/logger");
     logger = mod.logger;
 
@@ -1085,7 +1139,7 @@ async function main() {
     BillingJobServiceCtor = job.BillingJobService;
 
     // Parse command line arguments
-    program.parse(process.argv);
+    await program.parseAsync(process.argv);
 
     // Show help if no command provided
     if (!process.argv.slice(2).length) {
@@ -1099,6 +1153,8 @@ async function main() {
       console.error("Fatal error starting batch", err);
     }
     process.exit(1);
+  } finally {
+    await shutdownTracing();
   }
 }
 

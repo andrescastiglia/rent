@@ -87,6 +87,12 @@ PROMETHEUS_PUSHGATEWAY_JOB=rent_batch
 PROMETHEUS_PUSHGATEWAY_INSTANCE=rent-batch-dev
 ```
 
+## 🔍 Traces (OpenTelemetry)
+
+- **Backend** y **Batch** inicializan OpenTelemetry Node SDK y exportan traces vía OTLP (`OTEL_EXPORTER_OTLP_*`).
+- **Frontend** inicializa OpenTelemetry Web SDK y traza navegación + `fetch` (`NEXT_PUBLIC_OTEL_EXPORTER_OTLP_*`).
+- La infraestructura de trazas (Collector/Tempo/Grafana) no está incluida aquí.
+
 ## 📚 Documentación
 
 ### Documentación Funcional

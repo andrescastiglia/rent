@@ -8,6 +8,7 @@ import { locales } from "@/config/locales";
 import type { Locale } from "@/config/locales";
 import { ToastHost } from "@/components/common/ToastHost";
 import { FrontendMetricsReporter } from "@/components/common/FrontendMetricsReporter";
+import { OtelInitializer } from "@/components/common/OtelInitializer";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -80,6 +81,7 @@ export default async function LocaleLayout({
       <body>
         <NextIntlClientProvider messages={messages}>
           <AuthProvider>
+            <OtelInitializer />
             <FrontendMetricsReporter />
             <ToastHost />
             {children}

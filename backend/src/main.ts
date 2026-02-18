@@ -4,8 +4,10 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'node:path';
 import { AppModule } from './app.module';
 import { ZodValidationPipe } from './common/pipes/zod-validation.pipe';
+import { shutdownTracing, startTracing } from './tracing';
 
 async function bootstrap() {
+  await startTracing();
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.set('trust proxy', 1);
 
@@ -18,7 +20,13 @@ async function bootstrap() {
     origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'traceparent',
+      'tracestate',
+      'baggage',
+    ],
   });
 
   // Enable global validation pipe
@@ -41,3 +49,10 @@ async function bootstrap() {
   console.log(`Backend running on http://${host}:${port}`);
 }
 void bootstrap();
+
+const shutdownSignals = ['SIGTERM', 'SIGINT'] as const;
+for (const signal of shutdownSignals) {
+  process.once(signal, () => {
+    void shutdownTracing();
+  });
+}
