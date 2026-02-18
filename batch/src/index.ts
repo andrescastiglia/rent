@@ -3,6 +3,7 @@ import "reflect-metadata";
 import { config } from "dotenv";
 import { Command } from "commander";
 import type { BillingJobService } from "./services/billing-job.service";
+import { batchMetrics } from "./shared/metrics";
 
 // Load environment variables
 config();
@@ -417,7 +418,15 @@ program
     const { BillingService } = await import("./services/billing.service");
 
     logger.info("Starting billing process", { options });
+    const startedAtNs = process.hrtime.bigint();
     let jobId: string | undefined;
+    let metricsSummary:
+      | {
+          recordsTotal: number;
+          recordsProcessed: number;
+          recordsFailed: number;
+        }
+      | undefined;
     try {
       await initializeDatabase();
       billingJobService = newBillingJobService();
@@ -451,12 +460,24 @@ program
         recordsFailed: result.invoicesFailed,
         errorLog: result.errors,
       });
+      metricsSummary = {
+        recordsTotal: result.processedLeases,
+        recordsProcessed: result.invoicesCreated,
+        recordsFailed: result.invoicesFailed,
+      };
 
       if (result.errors.length > 0) {
         logger.warn("Some invoices failed", {
           errorCount: result.errors.length,
         });
       }
+
+      await batchMetrics.recordJobRun({
+        job: "billing",
+        status: "success",
+        startedAtNs,
+        summary: metricsSummary,
+      });
     } catch (error) {
       logger.error("Billing process failed", { error });
       if (jobId) {
@@ -465,6 +486,12 @@ program
           error instanceof Error ? error.message : "Unknown error",
         );
       }
+      await batchMetrics.recordJobRun({
+        job: "billing",
+        status: "failed",
+        startedAtNs,
+        summary: metricsSummary,
+      });
       process.exit(1);
     } finally {
       await closeDatabase();
@@ -483,7 +510,15 @@ program
     const { BillingService } = await import("./services/billing.service");
 
     logger.info("Starting overdue process", { options });
+    const startedAtNs = process.hrtime.bigint();
     let jobId: string | undefined;
+    let metricsSummary:
+      | {
+          recordsTotal: number;
+          recordsProcessed: number;
+          recordsFailed: number;
+        }
+      | undefined;
     try {
       await initializeDatabase();
       billingJobService = newBillingJobService();
@@ -504,6 +539,11 @@ program
           recordsProcessed: 0,
           recordsFailed: 0,
         });
+        metricsSummary = {
+          recordsTotal: overdueInvoices.length,
+          recordsProcessed: 0,
+          recordsFailed: 0,
+        };
       } else {
         const billingService = new BillingService();
         const result = await billingService.processOverdue();
@@ -516,7 +556,19 @@ program
           recordsProcessed: result.markedOverdue,
           recordsFailed: 0,
         });
+        metricsSummary = {
+          recordsTotal: result.markedOverdue,
+          recordsProcessed: result.markedOverdue,
+          recordsFailed: 0,
+        };
       }
+
+      await batchMetrics.recordJobRun({
+        job: "overdue",
+        status: "success",
+        startedAtNs,
+        summary: metricsSummary,
+      });
     } catch (error) {
       logger.error("Overdue process failed", { error });
       if (jobId) {
@@ -525,6 +577,12 @@ program
           error instanceof Error ? error.message : "Unknown error",
         );
       }
+      await batchMetrics.recordJobRun({
+        job: "overdue",
+        status: "failed",
+        startedAtNs,
+        summary: metricsSummary,
+      });
       process.exit(1);
     } finally {
       await closeDatabase();
@@ -545,7 +603,15 @@ program
     const { WhatsappService } = await import("./services/whatsapp.service");
 
     logger.info("Starting reminders process", { options });
+    const startedAtNs = process.hrtime.bigint();
     let jobId: string | undefined;
+    let metricsSummary:
+      | {
+          recordsTotal: number;
+          recordsProcessed: number;
+          recordsFailed: number;
+        }
+      | undefined;
     try {
       await initializeDatabase();
       billingJobService = newBillingJobService();
@@ -581,6 +647,18 @@ program
         recordsProcessed: reminderResult.sent,
         recordsFailed: reminderResult.failed,
       });
+      metricsSummary = {
+        recordsTotal: reminderResult.total,
+        recordsProcessed: reminderResult.sent,
+        recordsFailed: reminderResult.failed,
+      };
+
+      await batchMetrics.recordJobRun({
+        job: "reminders",
+        status: "success",
+        startedAtNs,
+        summary: metricsSummary,
+      });
     } catch (error) {
       logger.error("Reminders process failed", { error });
       if (jobId) {
@@ -589,6 +667,12 @@ program
           error instanceof Error ? error.message : "Unknown error",
         );
       }
+      await batchMetrics.recordJobRun({
+        job: "reminders",
+        status: "failed",
+        startedAtNs,
+        summary: metricsSummary,
+      });
       process.exit(1);
     } finally {
       await closeDatabase();
@@ -608,7 +692,15 @@ program
       await import("./services/indices-sync.service");
 
     logger.info("Starting sync-indices process", { options });
+    const startedAtNs = process.hrtime.bigint();
     let jobId: string | undefined;
+    let metricsSummary:
+      | {
+          recordsTotal: number;
+          recordsProcessed: number;
+          recordsFailed: number;
+        }
+      | undefined;
     try {
       await initializeDatabase();
       billingJobService = newBillingJobService();
@@ -630,8 +722,19 @@ program
         recordsFailed: syncSummary.recordsFailed,
         errorLog: syncSummary.errorLog,
       });
+      metricsSummary = {
+        recordsTotal: syncSummary.recordsTotal,
+        recordsProcessed: syncSummary.recordsProcessed,
+        recordsFailed: syncSummary.recordsFailed,
+      };
 
       logger.info("Sync-indices process completed");
+      await batchMetrics.recordJobRun({
+        job: "sync_indices",
+        status: "success",
+        startedAtNs,
+        summary: metricsSummary,
+      });
     } catch (error) {
       logger.error("Sync-indices process failed", { error });
       if (jobId) {
@@ -640,6 +743,12 @@ program
           error instanceof Error ? error.message : "Unknown error",
         );
       }
+      await batchMetrics.recordJobRun({
+        job: "sync_indices",
+        status: "failed",
+        startedAtNs,
+        summary: metricsSummary,
+      });
       process.exit(1);
     } finally {
       await closeDatabase();
@@ -660,7 +769,15 @@ program
       await import("./services/exchange-rate.service");
 
     logger.info("Starting sync-rates process");
+    const startedAtNs = process.hrtime.bigint();
     let jobId: string | undefined;
+    let metricsSummary:
+      | {
+          recordsTotal: number;
+          recordsProcessed: number;
+          recordsFailed: number;
+        }
+      | undefined;
     try {
       await initializeDatabase();
       billingJobService = newBillingJobService();
@@ -670,10 +787,21 @@ program
 
       const exchangeService = new ExchangeRateService();
       const result = await exchangeService.syncRates();
+      metricsSummary = {
+        recordsTotal: result.processed,
+        recordsProcessed: result.inserted,
+        recordsFailed: result.errors.length,
+      };
 
       await finalizeExchangeRatesJob(jobId, result);
 
       logger.info("Sync-rates process completed");
+      await batchMetrics.recordJobRun({
+        job: "exchange_rates",
+        status: "success",
+        startedAtNs,
+        summary: metricsSummary,
+      });
     } catch (error) {
       logger.error("Sync-rates process failed", { error });
       if (jobId) {
@@ -682,6 +810,12 @@ program
           error instanceof Error ? error.message : "Unknown error",
         );
       }
+      await batchMetrics.recordJobRun({
+        job: "exchange_rates",
+        status: "failed",
+        startedAtNs,
+        summary: metricsSummary,
+      });
       process.exit(1);
     } finally {
       await closeDatabase();
@@ -729,7 +863,15 @@ program
     const { ReportService } = await import("./services/report.service");
 
     logger.info("Starting reports process", { options });
+    const startedAtNs = process.hrtime.bigint();
     let jobId: string | undefined;
+    let metricsSummary:
+      | {
+          recordsTotal: number;
+          recordsProcessed: number;
+          recordsFailed: number;
+        }
+      | undefined;
     try {
       await initializeDatabase();
       billingJobService = newBillingJobService();
@@ -743,7 +885,7 @@ program
 
       if (!options.ownerId) {
         logger.error("Owner ID required. Use --owner-id <id>");
-        process.exit(1);
+        throw new Error("Owner ID required. Use --owner-id <id>");
       }
 
       const reportService = new ReportService();
@@ -769,6 +911,11 @@ program
           recordsProcessed: 1,
           recordsFailed: 0,
         });
+        metricsSummary = {
+          recordsTotal: 1,
+          recordsProcessed: 1,
+          recordsFailed: 0,
+        };
       } else {
         logger.error("Report generation failed", { error: result.error });
         await billingJobService.completeJob(jobId, {
@@ -777,9 +924,20 @@ program
           recordsFailed: 1,
           errorLog: [{ error: result.error }],
         });
+        metricsSummary = {
+          recordsTotal: 1,
+          recordsProcessed: 0,
+          recordsFailed: 1,
+        };
       }
 
       logger.info("Reports process completed");
+      await batchMetrics.recordJobRun({
+        job: "reports",
+        status: "success",
+        startedAtNs,
+        summary: metricsSummary,
+      });
     } catch (error) {
       logger.error("Reports process failed", { error });
       if (jobId) {
@@ -788,6 +946,12 @@ program
           error instanceof Error ? error.message : "Unknown error",
         );
       }
+      await batchMetrics.recordJobRun({
+        job: "reports",
+        status: "failed",
+        startedAtNs,
+        summary: metricsSummary,
+      });
       process.exit(1);
     } finally {
       await closeDatabase();
@@ -812,7 +976,15 @@ program
     const { SettlementService } = await import("./services/settlement.service");
 
     logger.info("Starting process-settlements", { options });
+    const startedAtNs = process.hrtime.bigint();
     let jobId: string | undefined;
+    let metricsSummary:
+      | {
+          recordsTotal: number;
+          recordsProcessed: number;
+          recordsFailed: number;
+        }
+      | undefined;
     try {
       await initializeDatabase();
       billingJobService = newBillingJobService();
@@ -839,10 +1011,21 @@ program
         options,
         period,
       );
+      metricsSummary = {
+        recordsTotal: summary.recordsTotal,
+        recordsProcessed: summary.recordsProcessed,
+        recordsFailed: summary.recordsFailed,
+      };
 
       await billingJobService.completeJob(jobId, summary);
 
       logger.info("Process-settlements completed");
+      await batchMetrics.recordJobRun({
+        job: "process_settlements",
+        status: "success",
+        startedAtNs,
+        summary: metricsSummary,
+      });
     } catch (error) {
       logger.error("Process-settlements failed", { error });
       if (jobId) {
@@ -851,6 +1034,12 @@ program
           error instanceof Error ? error.message : "Unknown error",
         );
       }
+      await batchMetrics.recordJobRun({
+        job: "process_settlements",
+        status: "failed",
+        startedAtNs,
+        summary: metricsSummary,
+      });
       process.exit(1);
     } finally {
       await closeDatabase();

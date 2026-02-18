@@ -72,6 +72,21 @@ Si vas a usar autenticación con CAPTCHA, revisá la sección **CAPTCHA (Turnsti
 - `TURNSTILE_SECRET_KEY`
 - `NEXT_PUBLIC_TURNSTILE_SITE_KEY`
 
+## 📈 Observabilidad (Prometheus)
+
+- **Backend** expone métricas en `GET /metrics`.
+- **Frontend** reporta Web Vitals y errores a `POST /frontend-metrics` (ingestados por backend).
+- **Batch** reporta métricas de ejecución a Pushgateway cuando `PROMETHEUS_PUSHGATEWAY_URL` está configurado.
+
+Variables sugeridas en `.env`:
+
+```bash
+PROMETHEUS_PUSHGATEWAY_URL=http://localhost:9091
+PROMETHEUS_PUSHGATEWAY_JOB=rent_batch
+# opcional
+PROMETHEUS_PUSHGATEWAY_INSTANCE=rent-batch-dev
+```
+
 ## 📚 Documentación
 
 ### Documentación Funcional
@@ -118,6 +133,10 @@ Si vas a usar autenticación con CAPTCHA, revisá la sección **CAPTCHA (Turnsti
   - Generación de reportes
   - Captura y seguimiento de leads (CRM)
   - Renovación de contrato
+
+- **[Observabilidad Prometheus](docs/technical/observability-prometheus.md)**
+  - Métricas de backend, frontend y batch
+  - Reglas de alerta sugeridas
 
 ### Plan de Trabajo
 

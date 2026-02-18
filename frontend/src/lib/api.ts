@@ -1,6 +1,7 @@
 import { isTokenExpired } from "@/lib/auth";
 import { forceLogout } from "@/lib/forceLogout";
 import { emitToast } from "@/lib/toastBus";
+import { getCurrentPath, reportApiError } from "@/lib/frontend-metrics";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -133,6 +134,7 @@ class ApiClient {
     options: RequestOptions = {},
   ): Promise<T> {
     const { token, ...fetchOptions } = options;
+    const method = (fetchOptions.method ?? "GET").toString().toUpperCase();
 
     // Auth guard: if token is expired/invalid, force logoff and do NOT attempt request.
     // Skip entirely in mock mode.
@@ -150,10 +152,21 @@ class ApiClient {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      ...fetchOptions,
-      headers,
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}${endpoint}`, {
+        ...fetchOptions,
+        headers,
+      });
+    } catch (error) {
+      reportApiError({
+        method,
+        endpoint,
+        statusCode: 0,
+        path: getCurrentPath(),
+      });
+      throw error;
+    }
 
     if (response.status === 401) {
       // Spec: 401 -> toast (internationalized) WITHOUT logoff.
@@ -165,6 +178,12 @@ class ApiClient {
     }
 
     if (!response.ok) {
+      reportApiError({
+        method,
+        endpoint,
+        statusCode: response.status,
+        path: getCurrentPath(),
+      });
       const error = await response
         .json()
         .catch(() => ({ message: response.statusText }));
@@ -225,11 +244,22 @@ class ApiClient {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      method: "POST",
-      headers,
-      body: formData,
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}${endpoint}`, {
+        method: "POST",
+        headers,
+        body: formData,
+      });
+    } catch (error) {
+      reportApiError({
+        method: "POST",
+        endpoint,
+        statusCode: 0,
+        path: getCurrentPath(),
+      });
+      throw error;
+    }
 
     if (response.status === 401) {
       emitToast({
@@ -240,6 +270,12 @@ class ApiClient {
     }
 
     if (!response.ok) {
+      reportApiError({
+        method: "POST",
+        endpoint,
+        statusCode: response.status,
+        path: getCurrentPath(),
+      });
       const error = await response.json().catch(() => ({
         message: response.statusText,
       }));

@@ -105,6 +105,18 @@ services:
     profiles:
       - tools
 
+  # Prometheus Pushgateway - Métricas de jobs batch efímeros
+  pushgateway:
+    image: prom/pushgateway:latest
+    container_name: rent-pushgateway
+    restart: unless-stopped
+    ports:
+      - "${PUSHGATEWAY_PORT:-9091}:9091"
+    networks:
+      - rent-network
+    profiles:
+      - tools
+
 # Volúmenes nombrados para persistencia de datos
 volumes:
   postgres_data:

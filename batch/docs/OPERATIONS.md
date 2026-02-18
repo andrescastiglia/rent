@@ -150,6 +150,27 @@ npm run start -- --version
 npm run start -- billing --dry-run
 ```
 
+### Prometheus (Pushgateway)
+
+El batch es efímero, por lo que reporta métricas al finalizar cada comando:
+- `batch_job_runs_total{job,status}`
+- `batch_job_duration_seconds{job,status}`
+- `batch_records_total{job}`
+- `batch_records_processed_total{job}`
+- `batch_records_failed_total{job}`
+- `batch_last_success_timestamp_seconds{job}`
+
+Variables:
+
+```bash
+PROMETHEUS_PUSHGATEWAY_URL=http://localhost:9091
+PROMETHEUS_PUSHGATEWAY_JOB=rent_batch
+# opcional
+PROMETHEUS_PUSHGATEWAY_INSTANCE=batch-node-1
+```
+
+Si `PROMETHEUS_PUSHGATEWAY_URL` está vacío, la ejecución continúa sin push de métricas.
+
 ### Alertas Recomendadas
 
 | Condición | Acción |

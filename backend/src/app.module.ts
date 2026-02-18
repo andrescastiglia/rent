@@ -23,6 +23,7 @@ import { InterestedModule } from './interested/interested.module';
 import { SalesModule } from './sales/sales.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { AiModule } from './ai/ai.module';
+import { MetricsModule } from './metrics/metrics.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -67,6 +68,7 @@ import * as path from 'node:path';
     SalesModule,
     WhatsappModule,
     AiModule,
+    MetricsModule,
   ],
   controllers: [AppController],
   providers: [

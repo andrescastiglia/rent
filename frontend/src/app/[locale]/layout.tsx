@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/auth-context";
 import { locales } from "@/config/locales";
 import type { Locale } from "@/config/locales";
 import { ToastHost } from "@/components/common/ToastHost";
+import { FrontendMetricsReporter } from "@/components/common/FrontendMetricsReporter";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -79,6 +80,7 @@ export default async function LocaleLayout({
       <body>
         <NextIntlClientProvider messages={messages}>
           <AuthProvider>
+            <FrontendMetricsReporter />
             <ToastHost />
             {children}
           </AuthProvider>
