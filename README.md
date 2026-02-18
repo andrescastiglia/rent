@@ -93,6 +93,12 @@ PROMETHEUS_PUSHGATEWAY_INSTANCE=rent-batch-dev
 - **Frontend** inicializa OpenTelemetry Web SDK y traza navegación + `fetch` (`NEXT_PUBLIC_OTEL_EXPORTER_OTLP_*`).
 - La infraestructura de trazas (Collector/Tempo/Grafana) no está incluida aquí.
 
+## 🔬 Profiling Continuo (Pyroscope)
+
+- **Backend** y **Batch** integran `@pyroscope/nodejs` para profiling continuo.
+- Activación por variables `PYROSCOPE_*` (requiere `PYROSCOPE_SERVER_ADDRESS`).
+- Frontend browser no usa Pyroscope (se recomienda Web Vitals/RUM).
+
 ## 📚 Documentación
 
 ### Documentación Funcional

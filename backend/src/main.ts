@@ -4,9 +4,11 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'node:path';
 import { AppModule } from './app.module';
 import { ZodValidationPipe } from './common/pipes/zod-validation.pipe';
+import { startProfiling, stopProfiling } from './profiling';
 import { shutdownTracing, startTracing } from './tracing';
 
 async function bootstrap() {
+  startProfiling();
   await startTracing();
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.set('trust proxy', 1);
@@ -53,6 +55,7 @@ void bootstrap();
 const shutdownSignals = ['SIGTERM', 'SIGINT'] as const;
 for (const signal of shutdownSignals) {
   process.once(signal, () => {
+    void stopProfiling();
     void shutdownTracing();
   });
 }

@@ -186,6 +186,23 @@ OTEL_SERVICE_NAME=rent-batch
 OTEL_ENVIRONMENT=production
 ```
 
+### Profiling continuo (Pyroscope)
+
+El batch inicia profiler si `PYROSCOPE_SERVER_ADDRESS` está configurado.
+
+Variables:
+
+```bash
+PYROSCOPE_ENABLED=true
+PYROSCOPE_SERVER_ADDRESS=http://localhost:4040
+PYROSCOPE_APPLICATION_NAME=rent-batch
+PYROSCOPE_AUTH_TOKEN=
+PYROSCOPE_TENANT_ID=
+PYROSCOPE_FLUSH_INTERVAL_MS=10000
+PYROSCOPE_TAGS=team=platform,region=us-east-1
+PYROSCOPE_ENV=production
+```
+
 ### Alertas Recomendadas
 
 | Condición | Acción |

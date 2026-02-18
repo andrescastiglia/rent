@@ -63,7 +63,10 @@ export async function startTracing(): Promise<void> {
 
   sdk = new NodeSDK({
     resource: resourceFromAttributes({
-      [SEMRESATTRS_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || "rent-batch",
+      [SEMRESATTRS_SERVICE_NAME]:
+        process.env.OTEL_SERVICE_NAME_BATCH ||
+        process.env.OTEL_SERVICE_NAME ||
+        "rent-batch",
       [SEMRESATTRS_SERVICE_VERSION]: process.env.npm_package_version || "1.0.0",
       [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]:
         process.env.OTEL_ENVIRONMENT || process.env.NODE_ENV || "development",

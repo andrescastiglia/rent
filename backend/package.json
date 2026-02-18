@@ -39,6 +39,7 @@
     "@opentelemetry/resources": "^2.5.1",
     "@opentelemetry/sdk-node": "^0.212.0",
     "@opentelemetry/semantic-conventions": "^1.39.0",
+    "@pyroscope/nodejs": "^0.4.10",
     "@types/bcrypt": "^6.0.0",
     "@types/passport-jwt": "^4.0.1",
     "@types/pdfkit": "^0.17.4",

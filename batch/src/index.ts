@@ -5,6 +5,7 @@ import { Command } from "commander";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
 import type { BillingJobService } from "./services/billing-job.service";
 import { batchMetrics } from "./shared/metrics";
+import { startProfiling, stopProfiling } from "./shared/profiling";
 import { shutdownTracing, startTracing } from "./shared/tracing";
 
 // Load environment variables
@@ -1126,6 +1127,7 @@ async function resolveSettlementsSummary(
 
 async function main() {
   try {
+    startProfiling();
     await startTracing();
 
     const mod = await import("./shared/logger");
@@ -1155,6 +1157,7 @@ async function main() {
     process.exit(1);
   } finally {
     await shutdownTracing();
+    await stopProfiling();
   }
 }
 
