@@ -32,4 +32,27 @@ describe('DashboardController', () => {
       controller.getReports(req, { page: 1, limit: 25 } as any),
     ).resolves.toEqual({ data: [], total: 0 });
   });
+
+  it('uses default pagination values when query params are missing', async () => {
+    dashboardService.getRecentActivity.mockResolvedValue({
+      overdue: [],
+      today: [],
+    });
+    dashboardService.getReportJobs.mockResolvedValue({ data: [], total: 0 });
+
+    await controller.getRecentActivity(req, {} as any);
+    expect(dashboardService.getRecentActivity).toHaveBeenCalledWith(
+      'c1',
+      req.user,
+      10,
+    );
+
+    await controller.getReports(req, {} as any);
+    expect(dashboardService.getReportJobs).toHaveBeenCalledWith(
+      'c1',
+      req.user,
+      1,
+      25,
+    );
+  });
 });

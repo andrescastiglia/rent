@@ -7,21 +7,27 @@ import { AiToolCatalogService } from './ai-tool-catalog.service';
 import { AiToolExecutorService } from './ai-tool-executor.service';
 import { AiExecutionContext, AiToolDefinition } from './types/ai-tool.types';
 
-const OPENAI_FALLBACK_PARAMETERS_SCHEMA = z.object({}).passthrough();
+const OPENAI_PRIMITIVE_SCHEMA = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.null(),
+]);
+const OPENAI_LOOSE_OBJECT_SCHEMA = z.record(
+  z.string(),
+  OPENAI_PRIMITIVE_SCHEMA,
+);
+const OPENAI_LOOSE_UNKNOWN_SCHEMA = z.union([
+  OPENAI_PRIMITIVE_SCHEMA,
+  z.array(OPENAI_PRIMITIVE_SCHEMA),
+  OPENAI_LOOSE_OBJECT_SCHEMA,
+  z.array(OPENAI_LOOSE_OBJECT_SCHEMA),
+]);
+const OPENAI_FALLBACK_PARAMETERS_SCHEMA = z
+  .object({})
+  .catchall(OPENAI_LOOSE_UNKNOWN_SCHEMA);
 const OPENAI_TOOLS_LIMIT = 128;
 const AI_PROMPT_ALIASES_FILENAME = 'ai-prompt-aliases.json';
-const OPENAI_LOOSE_UNKNOWN_SCHEMA = z
-  .union([
-    z.string(),
-    z.number(),
-    z.boolean(),
-    z.object({}).passthrough(),
-    z.array(z.object({}).passthrough()),
-    z.array(z.string()),
-    z.array(z.number()),
-    z.array(z.boolean()),
-  ])
-  .nullable();
 
 function normalizeText(value: string): string {
   return value
@@ -168,7 +174,7 @@ function toOpenAiCompatibleSchema(schema: any): any {
     return transformPipeSchema(schema);
   }
   if (schema instanceof z.ZodTransform) {
-    return z.unknown();
+    return OPENAI_LOOSE_UNKNOWN_SCHEMA;
   }
   if (schema instanceof z.ZodOptional || schema instanceof z.ZodNullable) {
     return withNullable(toOpenAiCompatibleSchema(schema.unwrap()));
@@ -269,6 +275,106 @@ function hasInvalidAnyOfSchemaNode(schema: unknown): boolean {
   return Object.values(node).some((value) => hasInvalidAnyOfSchemaNode(value));
 }
 
+function inferTypeFromConst(value: unknown): string | null {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  if (typeof value === 'object') return 'object';
+  if (typeof value === 'string') return 'string';
+  if (typeof value === 'number') return 'number';
+  if (typeof value === 'boolean') return 'boolean';
+  return null;
+}
+
+function inferTypeFromEnum(values: unknown[]): string | null {
+  if (values.length === 0) return null;
+  return inferTypeFromConst(values[0]);
+}
+
+function sanitizeAnyOfBranch(branch: Record<string, unknown>): void {
+  if (typeof branch.type === 'string') {
+    return;
+  }
+
+  if (Array.isArray(branch.enum)) {
+    const inferred = inferTypeFromEnum(branch.enum);
+    if (inferred) {
+      branch.type = inferred;
+      return;
+    }
+  }
+
+  if ('const' in branch) {
+    const inferred = inferTypeFromConst(branch.const);
+    if (inferred) {
+      branch.type = inferred;
+      return;
+    }
+  }
+
+  if ('items' in branch) {
+    branch.type = 'array';
+    return;
+  }
+
+  if ('properties' in branch || 'additionalProperties' in branch) {
+    branch.type = 'object';
+    if (
+      branch.additionalProperties &&
+      typeof branch.additionalProperties === 'object'
+    ) {
+      const nested = branch.additionalProperties as Record<string, unknown>;
+      if (Object.keys(nested).length === 0) {
+        branch.additionalProperties = true;
+      }
+    }
+    return;
+  }
+
+  if (Object.keys(branch).length === 0) {
+    branch.type = 'object';
+    branch.additionalProperties = true;
+  }
+}
+
+function sanitizeOpenAiSchemaNode(schema: unknown): void {
+  if (!schema || typeof schema !== 'object') {
+    return;
+  }
+  if (Array.isArray(schema)) {
+    for (const item of schema) {
+      sanitizeOpenAiSchemaNode(item);
+    }
+    return;
+  }
+
+  const node = schema as Record<string, unknown>;
+  if (Array.isArray(node.anyOf)) {
+    for (const branch of node.anyOf) {
+      if (!branch || typeof branch !== 'object' || Array.isArray(branch)) {
+        continue;
+      }
+      sanitizeAnyOfBranch(branch as Record<string, unknown>);
+    }
+  }
+
+  if (
+    node.additionalProperties &&
+    typeof node.additionalProperties === 'object' &&
+    !Array.isArray(node.additionalProperties)
+  ) {
+    const additional = node.additionalProperties as Record<string, unknown>;
+    if (Object.keys(additional).length === 0) {
+      node.additionalProperties = true;
+    } else if (typeof additional.type !== 'string') {
+      sanitizeAnyOfBranch(additional);
+    }
+  }
+
+  for (const value of Object.values(node)) {
+    sanitizeOpenAiSchemaNode(value);
+  }
+}
+
 @Injectable()
 export class AiToolsRegistryService {
   private readonly logger = new Logger(AiToolsRegistryService.name);
@@ -303,7 +409,7 @@ export class AiToolsRegistryService {
       if (this.hasInvalidAnyOfSchema(built)) {
         this.logBuildErrorOnce(
           tool.name,
-          `OpenAI schema validation failed for tool "${tool.name}" (invalid anyOf branch without type). Falling back to passthrough object schema.`,
+          `OpenAI schema validation failed for tool "${tool.name}" (invalid anyOf branch without type). Falling back to typed object schema.`,
         );
         return this.buildTool(tool, OPENAI_FALLBACK_PARAMETERS_SCHEMA, context);
       }
@@ -312,7 +418,7 @@ export class AiToolsRegistryService {
       const message = error instanceof Error ? error.message : String(error);
       this.logBuildErrorOnce(
         tool.name,
-        `Failed to build OpenAI schema for tool "${tool.name}": ${message}. Falling back to passthrough object schema.`,
+        `Failed to build OpenAI schema for tool "${tool.name}": ${message}. Falling back to typed object schema.`,
       );
       return this.buildTool(tool, OPENAI_FALLBACK_PARAMETERS_SCHEMA, context);
     }
@@ -327,13 +433,34 @@ export class AiToolsRegistryService {
       ? `${tool.description} Returns: ${tool.responseDescription}`
       : tool.description;
 
-    return zodFunction({
+    const built = zodFunction({
       name: tool.name,
       description,
       parameters: parameters as any,
       function: async (args: unknown) =>
         this.executor.execute(tool.name, args, context),
     });
+    return this.sanitizeBuiltToolSchema(built);
+  }
+
+  private sanitizeBuiltToolSchema<T>(toolConfig: T): T {
+    if (!toolConfig || typeof toolConfig !== 'object') {
+      return toolConfig;
+    }
+    const candidate = toolConfig as Record<string, unknown>;
+    const fnNode =
+      candidate.function && typeof candidate.function === 'object'
+        ? (candidate.function as Record<string, unknown>)
+        : null;
+    if (
+      !fnNode ||
+      !fnNode.parameters ||
+      typeof fnNode.parameters !== 'object'
+    ) {
+      return toolConfig;
+    }
+    sanitizeOpenAiSchemaNode(fnNode.parameters);
+    return toolConfig;
   }
 
   private resolveParametersSchema(tool: AiToolDefinition): z.ZodObject<any> {
@@ -359,7 +486,7 @@ export class AiToolsRegistryService {
       }
       this.logWarnOnce(
         tool.name,
-        `OpenAI tool schema for "${tool.name}" is not an object after transform; using passthrough object fallback`,
+        `OpenAI tool schema for "${tool.name}" is not an object after transform; using typed object fallback`,
       );
       return OPENAI_FALLBACK_PARAMETERS_SCHEMA;
     }
@@ -384,11 +511,12 @@ export class AiToolsRegistryService {
   }
 
   private hasInvalidAnyOfSchema(toolConfig: unknown): boolean {
-    if (!toolConfig || typeof toolConfig !== 'object') {
+    const sanitized = this.sanitizeBuiltToolSchema(toolConfig);
+    if (!sanitized || typeof sanitized !== 'object') {
       return true;
     }
 
-    const candidate = toolConfig as Record<string, unknown>;
+    const candidate = sanitized as Record<string, unknown>;
     const fnNode =
       candidate.function && typeof candidate.function === 'object'
         ? (candidate.function as Record<string, unknown>)
