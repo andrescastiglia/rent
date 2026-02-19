@@ -2002,6 +2002,45 @@ CREATE TRIGGER update_billing_jobs_updated_at
 COMMENT ON TABLE billing_jobs IS 'Tracking table for batch billing job executions';
 
 -- -----------------------------------------------------------------------------
+-- AI Conversations and GitHub Issue Previews
+-- -----------------------------------------------------------------------------
+CREATE TABLE ai_conversations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_id UUID,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    messages JSONB NOT NULL DEFAULT '[]'::jsonb,
+    tool_state JSONB NOT NULL DEFAULT '{}'::jsonb,
+    last_activity_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_ai_conversations_user_updated
+    ON ai_conversations (user_id, updated_at DESC);
+CREATE INDEX idx_ai_conversations_company_updated
+    ON ai_conversations (company_id, updated_at DESC);
+
+COMMENT ON TABLE ai_conversations IS 'Persisted AI chat conversations and tool state';
+
+CREATE TABLE ai_github_issue_previews (
+    preview_id UUID PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    company_id UUID,
+    conversation_id UUID,
+    draft JSONB NOT NULL,
+    similar_issues JSONB NOT NULL,
+    recommendation JSONB NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_ai_github_issue_previews_user_expires
+    ON ai_github_issue_previews (user_id, expires_at);
+
+COMMENT ON TABLE ai_github_issue_previews IS 'Persisted GitHub issue previews for AI-assisted reporting';
+
+-- -----------------------------------------------------------------------------
 -- Bank Accounts (T811)
 -- -----------------------------------------------------------------------------
 CREATE TABLE bank_accounts (
@@ -2547,6 +2586,7 @@ SET TIME ZONE 'America/Argentina/Buenos_Aires';
 \echo '  - Banking: bank_accounts, crypto_wallets, lightning_invoices'
 \echo '  - Settlements: settlements'
 \echo '  - Reference: currencies, inflation_indices, exchange_rates'
+\echo '  - AI: ai_conversations, ai_github_issue_previews'
 \echo '  - System: notification_preferences, billing_jobs'
 \echo '  - Audit: audit.logs'
 \echo ''

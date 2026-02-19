@@ -13,13 +13,13 @@ export class AiGithubIssuePreview {
   @PrimaryColumn({ name: 'preview_id', type: 'uuid' })
   previewId: string;
 
-  @Column({ name: 'user_id' })
+  @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
-  @Column({ name: 'company_id', nullable: true })
+  @Column({ name: 'company_id', type: 'uuid', nullable: true })
   companyId: string | null;
 
-  @Column({ name: 'conversation_id', nullable: true })
+  @Column({ name: 'conversation_id', type: 'uuid', nullable: true })
   conversationId: string | null;
 
   @Column({ type: 'jsonb' })

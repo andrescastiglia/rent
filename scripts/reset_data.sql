@@ -16,17 +16,22 @@ CREATE TEMP TABLE _reset_data_password_hash (
 INSERT INTO _reset_data_password_hash (password_hash)
 SELECT u.password_hash
 FROM users u
-WHERE lower(u.email) = lower('admin@rentflow.demo')
+WHERE lower(u.email) IN (lower('admin@rent.demo'), lower('admin@rentflow.demo'))
+ORDER BY CASE
+    WHEN lower(u.email) = lower('admin@rent.demo') THEN 0
+    ELSE 1
+END
 LIMIT 1;
 
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM _reset_data_password_hash) THEN
-        RAISE EXCEPTION 'Cannot reset demo data: user admin@rentflow.demo was not found before cleanup.';
+        RAISE EXCEPTION 'Cannot reset demo data: admin@rent.demo/admin@rentflow.demo was not found before cleanup.';
     END IF;
 END $$;
 
--- Clean all business data while preserving schema metadata and PostGIS system tables.
+-- Clean all business data (including AI conversation/preview tables)
+-- while preserving schema metadata and PostGIS system tables.
 DO $$
 DECLARE
     v_tables TEXT;

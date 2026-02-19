@@ -24,10 +24,10 @@ export class AiConversation {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'company_id', nullable: true })
+  @Column({ name: 'company_id', type: 'uuid', nullable: true })
   companyId: string | null;
 
-  @Column({ name: 'user_id' })
+  @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
   @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
