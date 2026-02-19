@@ -86,6 +86,12 @@ describe('openai-tools.registry', () => {
       whatsappService: {
         sendTextMessage: jest.fn(),
       },
+      githubIssuesService: {
+        listIssues: jest.fn(),
+        getIssueDetail: jest.fn(),
+        prepareIssueReport: jest.fn(),
+        commitIssueReport: jest.fn(),
+      },
     } as any;
 
     const definitions = buildAiToolDefinitions(deps);

@@ -21,6 +21,7 @@ import { TenantsService } from '../tenants/tenants.service';
 import { UsersService } from '../users/users.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { AiToolRegistryDeps } from './openai-tools.registry';
+import { GithubIssuesService } from './github-issues.service';
 
 @Injectable()
 export class AiToolRegistryDepsProvider implements AiToolRegistryDeps {
@@ -46,5 +47,6 @@ export class AiToolRegistryDepsProvider implements AiToolRegistryDeps {
     readonly salesService: SalesService,
     readonly tenantsService: TenantsService,
     readonly whatsappService: WhatsappService,
+    readonly githubIssuesService: GithubIssuesService,
   ) {}
 }

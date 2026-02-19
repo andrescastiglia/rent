@@ -99,6 +99,7 @@ import { WhatsappDocumentQueryDto } from '../whatsapp/dto/whatsapp-document-quer
 import { WhatsappWebhookPayloadDto } from '../whatsapp/dto/whatsapp-webhook-payload.dto';
 import { WhatsappWebhookQueryDto } from '../whatsapp/dto/whatsapp-webhook-query.dto';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
+import { GithubIssuesService } from './github-issues.service';
 import { AiExecutionContext, AiToolDefinition } from './types/ai-tool.types';
 
 export type AiToolRegistryDeps = {
@@ -123,6 +124,7 @@ export type AiToolRegistryDeps = {
   salesService: SalesService;
   tenantsService: TenantsService;
   whatsappService: WhatsappService;
+  githubIssuesService: GithubIssuesService;
 };
 
 const emptyObjectSchema = z.object({}).strict();
@@ -130,6 +132,13 @@ const idSchema = z.string().min(1);
 const uuidSchema = z.string().uuid();
 const localeSchema = z.string().min(2);
 const codeSchema = z.string().min(1);
+const githubIssueStateSchema = z.enum(['open', 'closed', 'all']);
+const githubReportKindSchema = z.enum(['bug', 'feature', 'tech-report']);
+const githubCommitActionSchema = z.enum([
+  'auto',
+  'create_new_issue',
+  'merge_open_issue',
+]);
 
 const ADMIN = [UserRole.ADMIN];
 const ADMIN_STAFF = [UserRole.ADMIN, UserRole.STAFF];
@@ -2587,6 +2596,129 @@ export function buildAiToolDefinitions(
           parsed,
           context.companyId ?? '',
         );
+      },
+    },
+
+    {
+      name: 'get_github_issues',
+      description:
+        'Lists GitHub issues for the configured repository. Supports open, closed, or all states and optional text query.',
+      responseDescription:
+        'Issue list with number, title, state, labels, URL, and markdown body.',
+      mutability: 'readonly',
+      allowedRoles: ADMIN_STAFF,
+      parameters: z
+        .object({
+          state: githubIssueStateSchema.default('open'),
+          query: z.string().trim().min(1).max(200).optional(),
+          page: z.coerce.number().int().min(1).max(100).default(1),
+          perPage: z.coerce.number().int().min(1).max(50).default(20),
+        })
+        .strict(),
+      execute: async (args) => {
+        const parsed = z
+          .object({
+            state: githubIssueStateSchema.default('open'),
+            query: z.string().trim().min(1).max(200).optional(),
+            page: z.coerce.number().int().min(1).max(100).default(1),
+            perPage: z.coerce.number().int().min(1).max(50).default(20),
+          })
+          .strict()
+          .parse(args) as any;
+        return deps.githubIssuesService.listIssues(parsed);
+      },
+    },
+    {
+      name: 'get_github_issue_by_number',
+      description:
+        'Gets a single GitHub issue by issue number, including full markdown description.',
+      responseDescription:
+        'Issue details with markdown description and metadata.',
+      mutability: 'readonly',
+      allowedRoles: ADMIN_STAFF,
+      parameters: z
+        .object({
+          issueNumber: z.coerce.number().int().min(1),
+        })
+        .strict(),
+      execute: async (args) => {
+        const parsed = z
+          .object({
+            issueNumber: z.coerce.number().int().min(1),
+          })
+          .strict()
+          .parse(args) as any;
+        return deps.githubIssuesService.getIssueDetail(parsed.issueNumber);
+      },
+    },
+    {
+      name: 'post_github_issue_preview',
+      description:
+        'Builds a draft issue from a chat report, searches similar open/closed issues, and returns a preview before saving.',
+      responseDescription:
+        'Preview ID, draft markdown, similar issues, and recommended action.',
+      mutability: 'readonly',
+      allowedRoles: ADMIN_STAFF,
+      parameters: z
+        .object({
+          kind: githubReportKindSchema.default('bug'),
+          title: z.string().trim().min(3).max(120).optional(),
+          summary: z.string().trim().min(3).max(300).optional(),
+          report: z.string().trim().min(10).max(12000),
+          labels: z.array(codeSchema).max(12).optional(),
+        })
+        .strict(),
+      execute: async (args, context) => {
+        const parsed = z
+          .object({
+            kind: githubReportKindSchema.default('bug'),
+            title: z.string().trim().min(3).max(120).optional(),
+            summary: z.string().trim().min(3).max(300).optional(),
+            report: z.string().trim().min(10).max(12000),
+            labels: z.array(codeSchema).max(12).optional(),
+          })
+          .strict()
+          .parse(args) as any;
+        return deps.githubIssuesService.prepareIssueReport(parsed, {
+          userId: context.userId,
+        });
+      },
+    },
+    {
+      name: 'post_github_issue_commit',
+      description:
+        'Persists a GitHub issue action from a previous preview. Requires previewId and confirm=true to mutate GitHub.',
+      responseDescription:
+        'Creation result or merge/comment result, including target issue and URLs.',
+      mutability: 'mutable',
+      allowedRoles: ADMIN_STAFF,
+      parameters: z
+        .object({
+          previewId: z.string().uuid(),
+          action: githubCommitActionSchema.default('auto'),
+          targetIssueNumber: z.coerce.number().int().min(1).optional(),
+          confirm: z.coerce.boolean().default(false),
+          titleOverride: z.string().trim().min(3).max(120).optional(),
+          bodyOverride: z.string().trim().min(10).max(30000).optional(),
+          labelsOverride: z.array(codeSchema).max(12).optional(),
+        })
+        .strict(),
+      execute: async (args, context) => {
+        const parsed = z
+          .object({
+            previewId: z.string().uuid(),
+            action: githubCommitActionSchema.default('auto'),
+            targetIssueNumber: z.coerce.number().int().min(1).optional(),
+            confirm: z.coerce.boolean().default(false),
+            titleOverride: z.string().trim().min(3).max(120).optional(),
+            bodyOverride: z.string().trim().min(10).max(30000).optional(),
+            labelsOverride: z.array(codeSchema).max(12).optional(),
+          })
+          .strict()
+          .parse(args) as any;
+        return deps.githubIssuesService.commitIssueReport(parsed, {
+          userId: context.userId,
+        });
       },
     },
 

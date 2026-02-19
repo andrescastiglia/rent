@@ -63,6 +63,7 @@ describe('AI tools integration', () => {
   const salesService = {};
   const tenantsService = {};
   const whatsappService = {};
+  const githubIssuesService = {};
 
   let catalog: AiToolCatalogService;
   let executor: AiToolExecutorService;
@@ -90,6 +91,7 @@ describe('AI tools integration', () => {
       salesService,
       tenantsService,
       whatsappService,
+      githubIssuesService,
     } as any);
     executor = new AiToolExecutorService(catalog);
     process.env.AI_TOOLS_MODE = 'FULL';

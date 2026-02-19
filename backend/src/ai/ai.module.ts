@@ -18,6 +18,7 @@ import { AiToolExecutorService } from './ai-tool-executor.service';
 import { AiOpenAiService } from './ai-openai.service';
 import { AiToolRegistryDepsProvider } from './ai-tool-registry-deps.provider';
 import { AiToolsRegistryService } from './ai-tools-registry.service';
+import { GithubIssuesService } from './github-issues.service';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { AiToolsRegistryService } from './ai-tools-registry.service';
   ],
   controllers: [AiController],
   providers: [
+    GithubIssuesService,
     AiToolRegistryDepsProvider,
     AiToolCatalogService,
     AiToolExecutorService,
