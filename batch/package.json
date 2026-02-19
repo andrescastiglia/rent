@@ -71,11 +71,6 @@
         "transform": {
             "^.+\\.(t|j)s$": "ts-jest"
         },
-        "collectCoverageFrom": [
-            "services/adjustment.service.ts",
-            "services/settlement.service.ts",
-            "services/withholdings.service.ts"
-        ],
         "coverageDirectory": "../coverage",
         "testEnvironment": "node",
         "coverageThreshold": {

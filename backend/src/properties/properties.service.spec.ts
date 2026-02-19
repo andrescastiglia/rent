@@ -15,6 +15,7 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
+import { UserRole } from '../users/entities/user.entity';
 
 describe('PropertiesService', () => {
   let service: PropertiesService;
@@ -509,6 +510,178 @@ describe('PropertiesService', () => {
       );
 
       expect(result.deleted).toBe(1);
+    });
+
+    it('should parse image ids and legacy file names safely', () => {
+      const validId = '123e4567-e89b-42d3-a456-426614174000';
+
+      expect(
+        (service as any).toPropertyImageId(`/properties/images/${validId}`),
+      ).toBe(validId);
+      expect(
+        (service as any).toPropertyImageId(
+          `https://example.com/api/properties/images/${validId}?v=1`,
+        ),
+      ).toBe(validId);
+      expect((service as any).toPropertyImageId('https://%%invalid-url')).toBe(
+        null,
+      );
+      expect(
+        (service as any).toPropertyImageId('/properties/images/not-a-uuid'),
+      ).toBe(null);
+      expect(
+        (service as any).toPropertyImageFileName('/uploads/properties/a.png'),
+      ).toBe('a.png');
+      expect(
+        (service as any).toPropertyImageFileName(
+          'https://site/api/uploads/properties/a%20b.png',
+        ),
+      ).toBe('a b.png');
+      expect(
+        (service as any).toPropertyImageFileName(
+          '/uploads/properties/../../etc/passwd',
+        ),
+      ).toBeNull();
+    });
+  });
+
+  describe('private scope and owner resolution branches', () => {
+    it('should apply visibility scope by role', () => {
+      const adminQuery = { andWhere: jest.fn(), innerJoin: jest.fn() };
+      (service as any).applyVisibilityScope(adminQuery as any, {
+        id: 'u-admin',
+        role: UserRole.ADMIN,
+      });
+      expect(adminQuery.andWhere).not.toHaveBeenCalled();
+      expect(adminQuery.innerJoin).not.toHaveBeenCalled();
+
+      const ownerQuery = { andWhere: jest.fn(), innerJoin: jest.fn() };
+      (service as any).applyVisibilityScope(ownerQuery as any, {
+        id: 'u-owner',
+        role: UserRole.OWNER,
+        email: ' Owner@Test.com ',
+        phone: '123',
+      });
+      expect(ownerQuery.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining('owner.user_id = :scopeUserId'),
+        expect.objectContaining({
+          scopeUserId: 'u-owner',
+          scopeEmail: 'owner@test.com',
+          scopePhone: '123',
+        }),
+      );
+
+      const tenantQuery = {
+        innerJoin: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+      };
+      (service as any).applyVisibilityScope(tenantQuery as any, {
+        id: 'u-tenant',
+        role: UserRole.TENANT,
+        email: 'tenant@test.com',
+        phone: '',
+      });
+      expect(tenantQuery.innerJoin).toHaveBeenCalledTimes(3);
+      expect(tenantQuery.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining('tenant.user_id = :scopeUserId'),
+        expect.objectContaining({
+          scopeUserId: 'u-tenant',
+          scopeEmail: 'tenant@test.com',
+          scopePhone: '',
+        }),
+      );
+    });
+
+    it('should resolve owner for create in all key branches', async () => {
+      await expect(
+        (service as any).resolveOwnerForCreate('owner-1', {
+          id: 'u1',
+          role: 'owner',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      ownerRepository.findOne!.mockResolvedValueOnce({
+        id: 'owner-2',
+        userId: 'other-user',
+        companyId: 'company-1',
+      });
+      await expect(
+        (service as any).resolveOwnerForCreate('owner-2', {
+          id: 'u1',
+          role: 'owner',
+          companyId: 'company-1',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      ownerRepository.findOne!.mockResolvedValueOnce({
+        id: 'owner-ok',
+        userId: 'u1',
+        companyId: 'company-1',
+      });
+      const selectedOwner = await (service as any).resolveOwnerForCreate(
+        'owner-ok',
+        {
+          id: 'u1',
+          role: 'owner',
+          companyId: 'company-1',
+        },
+      );
+      expect(selectedOwner.id).toBe('owner-ok');
+
+      ownerRepository.findOne!.mockResolvedValueOnce(null);
+      await expect(
+        (service as any).resolveOwnerForCreate(undefined, {
+          id: 'u-admin',
+          role: 'admin',
+          companyId: 'company-1',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      ownerRepository.findOne!.mockResolvedValueOnce(null);
+      await expect(
+        (service as any).resolveOwnerForCreate(undefined, {
+          id: 'u-owner',
+          role: 'owner',
+          companyId: 'company-1',
+        }),
+      ).rejects.toThrow(NotFoundException);
+
+      ownerRepository.findOne!.mockResolvedValueOnce({
+        id: 'owner-by-user',
+        userId: 'u-owner',
+        companyId: 'company-1',
+      });
+      const ownerByUser = await (service as any).resolveOwnerForCreate(
+        undefined,
+        {
+          id: 'u-owner',
+          role: 'owner',
+          companyId: 'company-1',
+        },
+      );
+      expect(ownerByUser.id).toBe('owner-by-user');
+    });
+
+    it('should find one scoped and apply company filter', async () => {
+      const scopedQb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue({ id: '1' }),
+      };
+      propertyRepository.createQueryBuilder!.mockReturnValue(scopedQb as any);
+
+      const result = await service.findOneScoped('1', {
+        id: 'u-staff',
+        role: UserRole.STAFF,
+        companyId: 'company-1',
+      } as any);
+
+      expect(result).toEqual({ id: '1' });
+      expect(scopedQb.andWhere).toHaveBeenCalledWith(
+        'property.company_id = :companyId',
+        { companyId: 'company-1' },
+      );
     });
   });
 });
