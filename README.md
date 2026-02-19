@@ -3,6 +3,12 @@
 [![Status](https://img.shields.io/badge/status-planning-blue)]()
 [![Version](https://img.shields.io/badge/version-1.0-green)]()
 [![Docs](https://img.shields.io/badge/docs-complete-success)]()
+[![CI](https://github.com/andrescastiglia/rent/actions/workflows/ci.yml/badge.svg)](https://github.com/andrescastiglia/rent/actions/workflows/ci.yml)
+[![Backend Coverage](https://img.shields.io/badge/backend%20coverage-70.03%25-yellowgreen)](#estado-tecnico-actual)
+[![Batch Coverage](https://img.shields.io/badge/batch%20coverage-79.82%25-brightgreen)](#estado-tecnico-actual)
+[![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-78.18%25-brightgreen)](#estado-tecnico-actual)
+[![Frontend E2E](https://img.shields.io/badge/frontend%20e2e-playwright-blue)](.github/workflows/ci.yml)
+[![Última Compilación](https://img.shields.io/badge/last%20build-2026--02--19%20OK-success)](#estado-tecnico-actual)
 
 ## 📋 Descripción
 

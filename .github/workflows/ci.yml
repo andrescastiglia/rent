@@ -145,6 +145,12 @@ jobs:
           name: batch-coverage
           path: batch/coverage
 
+      - name: Download frontend coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage
+
       - name: Download Playwright Sonar report
         uses: actions/download-artifact@v4
         with:
@@ -299,6 +305,12 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Run frontend unit tests with coverage
+        working-directory: frontend
+        run: npm run test:cov
+        env:
+          NODE_ENV: test
+
       - name: Get Playwright version
         id: playwright-version
         working-directory: frontend
@@ -347,6 +359,13 @@ jobs:
         with:
           name: playwright-sonar-report
           path: frontend/playwright-report/playwright-sonar-report.xml
+
+      - name: Upload frontend coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage
+          retention-days: 1
 
   # ─────────────────────────────────────────────────────────────
   # DEPLOY TO PRODUCTION (only on main branch)
