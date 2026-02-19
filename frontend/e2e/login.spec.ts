@@ -20,6 +20,8 @@ async function gotoWithRetry(page: import('@playwright/test').Page, path: string
 test.describe('Login Flow', () => {
     test.beforeEach(async ({ page }) => {
         await gotoWithRetry(page, localePath('/login'));
+        // In dev mode, ensure hydration has finished before interacting with the form.
+        await page.waitForLoadState('networkidle');
     });
 
     test('should display login page', async ({ page }) => {

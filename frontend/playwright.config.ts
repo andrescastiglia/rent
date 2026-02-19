@@ -47,7 +47,9 @@ export default defineConfig({
     webServer: {
         // In mock mode or CI, use dev server (mocks work with dev server)
         // When testing with real backend (test:e2e:real), also use dev server
-        command: 'npm run dev -- -H 127.0.0.1 -p 3000',
+        // Turbopack intermittently hangs compiling auth routes in CI/e2e.
+        // Force webpack dev server for stable page navigation (notably /[locale]/login).
+        command: 'npm run dev -- --webpack -H 127.0.0.1 -p 3000',
         url: 'http://localhost:3000',
         // In mock-mode, always start a fresh server so env flags are applied deterministically.
         // (If we reuse a manually-started dev server, it may not have NEXT_PUBLIC_MOCK_MODE enabled.)
