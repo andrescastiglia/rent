@@ -23,4 +23,12 @@ export default defineConfig([
       ],
     },
   },
+  {
+    files: ["**/*.spec.ts", "**/*.spec.tsx", "**/*.test.ts", "**/*.test.tsx"],
+    languageOptions: {
+      globals: {
+        ...globals.jest,
+      },
+    },
+  },
 ]);
