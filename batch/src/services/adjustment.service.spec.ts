@@ -181,6 +181,63 @@ describe("AdjustmentService", () => {
       expect(result.adjustmentRate).toBe(0);
       expect(mockQuery).toHaveBeenCalledTimes(1);
     });
+
+    it("should return original amount for unsupported adjustment type", async () => {
+      const lease = {
+        id: "lease-unsupported",
+        rentAmount: 100000,
+        adjustmentType: "unexpected_type" as any,
+      };
+
+      const result = await service.calculateAdjustedRent(lease);
+
+      expect(result.adjustedAmount).toBe(100000);
+      expect(result.adjustmentRate).toBe(0);
+      expect(mockQuery).not.toHaveBeenCalled();
+    });
+
+    it("should not adjust when base index is missing", async () => {
+      const lease = {
+        id: "lease-missing-base",
+        rentAmount: 100000,
+        adjustmentType: "icl" as const,
+        lastAdjustmentDate: new Date("2024-10-01"),
+      };
+
+      // Current index found
+      mockQuery.mockResolvedValueOnce([
+        { value: "1200.00", period_date: "2024-11-01" },
+      ]);
+      // Base index missing
+      mockQuery.mockResolvedValueOnce([]);
+
+      const result = await service.calculateAdjustedRent(
+        lease,
+        new Date("2024-12-15"),
+      );
+
+      expect(result.adjustedAmount).toBe(100000);
+      expect(result.adjustmentRate).toBe(0);
+      expect(mockQuery).toHaveBeenCalledTimes(2);
+    });
+
+    it("should return original amount when index lookup throws", async () => {
+      const lease = {
+        id: "lease-error",
+        rentAmount: 100000,
+        adjustmentType: "ipc" as const,
+      };
+
+      mockQuery.mockRejectedValueOnce(new Error("db failure"));
+
+      const result = await service.calculateAdjustedRent(
+        lease,
+        new Date("2025-03-20"),
+      );
+
+      expect(result.adjustedAmount).toBe(100000);
+      expect(result.adjustmentRate).toBe(0);
+    });
   });
 
   describe("getLatestIndex", () => {
@@ -203,6 +260,66 @@ describe("AdjustmentService", () => {
       const result = await service.getLatestIndex("igp_m");
 
       expect(result).toBeNull();
+    });
+
+    it("should normalize igpm index type to igp_m", async () => {
+      mockQuery.mockResolvedValueOnce([
+        { value: "555.00", period_date: "2024-12-01" },
+      ]);
+
+      await service.getLatestIndex("igpm");
+
+      expect(mockQuery).toHaveBeenCalledWith(expect.any(String), ["igp_m"]);
+    });
+  });
+
+  describe("shouldApplyAdjustment", () => {
+    it("should return false for none adjustment type", () => {
+      const lease = {
+        id: "lease-none",
+        rentAmount: 100000,
+        adjustmentType: "none" as const,
+      };
+
+      expect(service.shouldApplyAdjustment(lease)).toBe(false);
+    });
+
+    it("should return false when nextAdjustmentDate is missing", () => {
+      const lease = {
+        id: "lease-no-date",
+        rentAmount: 100000,
+        adjustmentType: "icl" as const,
+      };
+
+      expect(service.shouldApplyAdjustment(lease)).toBe(false);
+    });
+
+    it("should return false when nextAdjustmentDate is in the future", () => {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const lease = {
+        id: "lease-future",
+        rentAmount: 100000,
+        adjustmentType: "icl" as const,
+        nextAdjustmentDate: tomorrow,
+      };
+
+      expect(service.shouldApplyAdjustment(lease)).toBe(false);
+    });
+
+    it("should return true when nextAdjustmentDate is today or in the past", () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      const lease = {
+        id: "lease-due",
+        rentAmount: 100000,
+        adjustmentType: "icl" as const,
+        nextAdjustmentDate: yesterday,
+      };
+
+      expect(service.shouldApplyAdjustment(lease)).toBe(true);
     });
   });
 });

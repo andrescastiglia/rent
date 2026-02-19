@@ -96,6 +96,44 @@ describe('PropertiesService', () => {
   });
 
   describe('create', () => {
+    it('should reject create when company scope is missing', async () => {
+      await expect(
+        service.create({} as any, { id: 'u1', role: 'admin' } as any),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should reject create for admin without ownerId', async () => {
+      await expect(
+        service.create(
+          {
+            name: 'No owner',
+            propertyType: PropertyType.APARTMENT,
+            addressStreet: 'A',
+            addressCity: 'C',
+            addressState: 'S',
+          } as any,
+          { id: 'admin-user', role: 'admin', companyId: 'company-1' },
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject create when selected owner does not exist in company', async () => {
+      ownerRepository.findOne!.mockResolvedValue(null);
+      await expect(
+        service.create(
+          {
+            ownerId: 'owner-missing',
+            name: 'Test Property',
+            propertyType: PropertyType.APARTMENT,
+            addressStreet: 'A',
+            addressCity: 'C',
+            addressState: 'S',
+          } as any,
+          { id: 'owner-user-1', role: 'owner', companyId: 'company-1' },
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
     it('should create a property', async () => {
       const createPropertyDto = {
         ownerId: 'owner-1',
@@ -415,6 +453,62 @@ describe('PropertiesService', () => {
       ]);
 
       expect(normalized).toEqual(['/uploads/properties/house-1.jpg']);
+    });
+
+    it('should validate upload and image lookup branches', async () => {
+      await expect(
+        service.uploadPropertyImage(
+          { buffer: Buffer.from('x'), mimetype: 'image/png' },
+          { id: 'u1', role: 'admin' } as any,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+
+      await expect(
+        service.uploadPropertyImage({ mimetype: 'image/png' }, {
+          id: 'u1',
+          role: 'admin',
+          companyId: 'company-1',
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+
+      await expect(
+        service.uploadPropertyImage(
+          { buffer: Buffer.from('x'), mimetype: 'application/pdf' },
+          { id: 'u1', role: 'admin', companyId: 'company-1' } as any,
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      propertyImagesRepository.findOne!.mockResolvedValueOnce(null);
+      await expect(service.getPropertyImage('missing')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should discard uploaded images and enforce company scope', async () => {
+      await expect(
+        service.discardUploadedImages(['/uploads/properties/a.jpg'], {
+          id: 'u1',
+          role: 'owner',
+        } as any),
+      ).rejects.toThrow(ForbiddenException);
+
+      const deleteQb = {
+        delete: jest.fn().mockReturnThis(),
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+      propertyImagesRepository.createQueryBuilder!.mockReturnValue(
+        deleteQb as any,
+      );
+
+      const result = await service.discardUploadedImages(
+        ['/properties/images/123e4567-e89b-42d3-a456-426614174000'],
+        { id: 'u1', role: 'owner', companyId: 'company-1' } as any,
+      );
+
+      expect(result.deleted).toBe(1);
     });
   });
 });

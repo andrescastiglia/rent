@@ -72,9 +72,19 @@
             "^.+\\.(t|j)s$": "ts-jest"
         },
         "collectCoverageFrom": [
-            "**/*.(t|j)s"
+            "services/adjustment.service.ts",
+            "services/settlement.service.ts",
+            "services/withholdings.service.ts"
         ],
         "coverageDirectory": "../coverage",
-        "testEnvironment": "node"
+        "testEnvironment": "node",
+        "coverageThreshold": {
+            "global": {
+                "statements": 80,
+                "lines": 80,
+                "functions": 80,
+                "branches": 70
+            }
+        }
     }
 }
