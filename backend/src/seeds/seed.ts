@@ -34,8 +34,8 @@ const AppDataSource = new DataSource({
   host: process.env.POSTGRES_HOST || 'localhost',
   port: Number.parseInt(process.env.POSTGRES_PORT || '5432', 10),
   username: process.env.POSTGRES_USER || 'rent_user',
-  password: process.env.POSTGRES_PASSWORD || 'rent_dev_password',
-  database: process.env.POSTGRES_DB || 'rent_dev',
+  password: process.env.POSTGRES_PASSWORD || 'rent_password',
+  database: process.env.POSTGRES_DB || 'rent_db',
   entities: [
     User,
     Admin,

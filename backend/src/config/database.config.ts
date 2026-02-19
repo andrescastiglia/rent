@@ -17,9 +17,9 @@ export const getDatabaseConfig = (
           username: configService.get<string>('POSTGRES_USER', 'rent_user'),
           password: configService.get<string>(
             'POSTGRES_PASSWORD',
-            'rent_dev_password',
+            'rent_password',
           ),
-          database: configService.get<string>('POSTGRES_DB', 'rent_dev'),
+          database: configService.get<string>('POSTGRES_DB', 'rent_db'),
         }),
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],
     // Synchronize creates/updates tables automatically
