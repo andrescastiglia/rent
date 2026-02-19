@@ -97,6 +97,10 @@ describe('main bootstrap', () => {
   });
 
   it('uses default host, port and localhost CORS when env vars are absent', async () => {
+    delete process.env.FRONTEND_URL;
+    delete process.env.PORT;
+    delete process.env.HOST;
+
     const onceSpy = jest
       .spyOn(process, 'once')
       .mockImplementation(((..._args: unknown[]) => process) as any);
