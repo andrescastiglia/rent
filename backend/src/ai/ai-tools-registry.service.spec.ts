@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CurrencyFiltersDto } from '../currencies/dto/currency-filters.dto';
+import { UpdateInterestedActivityDto } from '../interested/dto/update-interested-activity.dto';
 import { UserRole } from '../users/entities/user.entity';
 import { AiToolCatalogService } from './ai-tool-catalog.service';
 import { AiToolExecutorService } from './ai-tool-executor.service';
@@ -169,5 +170,73 @@ describe('AiToolsRegistryService', () => {
     for (const branch of activeOnly?.anyOf ?? []) {
       expect(typeof branch.type).toBe('string');
     }
+  });
+
+  it('sanitizes schemas by removing disallowed keys and invalid anyOf wrappers', () => {
+    const catalog = {
+      getDefinitions: jest.fn().mockReturnValue([
+        {
+          name: 'patch_interested_activity',
+          description:
+            'Payload for PATCH /interested/:id/activities/:activityId',
+          mutability: 'mutable',
+          allowedRoles: [UserRole.ADMIN],
+          parameters: UpdateInterestedActivityDto.zodSchema,
+          execute: jest.fn(),
+        },
+      ]),
+    } as unknown as AiToolCatalogService;
+
+    const executor = {
+      execute: jest.fn(),
+      getMode: jest.fn().mockReturnValue('FULL'),
+    } as unknown as AiToolExecutorService;
+
+    const service = new AiToolsRegistryService(catalog, executor);
+    const errorSpy = jest.spyOn((service as any).logger, 'error');
+
+    const tools = service.getOpenAiTools({
+      userId: 'user-1',
+      companyId: 'company-1',
+      role: UserRole.ADMIN,
+    }) as any[];
+
+    const parameters = tools[0].function.parameters as Record<string, unknown>;
+    const serialized = JSON.stringify(parameters);
+    expect(serialized).not.toContain('propertyNames');
+
+    const invalidAnyOfPaths: string[] = [];
+    const walk = (node: unknown, path: string) => {
+      if (!node || typeof node !== 'object') {
+        return;
+      }
+      if (Array.isArray(node)) {
+        node.forEach((item, index) => walk(item, `${path}[${index}]`));
+        return;
+      }
+      const current = node as Record<string, unknown>;
+      if (Array.isArray(current.anyOf)) {
+        current.anyOf.forEach((branch, index) => {
+          if (
+            !branch ||
+            typeof branch !== 'object' ||
+            Array.isArray(branch) ||
+            typeof (branch as Record<string, unknown>).type !== 'string'
+          ) {
+            invalidAnyOfPaths.push(`${path}.anyOf[${index}]`);
+          }
+          walk(branch, `${path}.anyOf[${index}]`);
+        });
+      }
+      for (const [key, value] of Object.entries(current)) {
+        walk(value, `${path}.${key}`);
+      }
+    };
+
+    walk(parameters, '$');
+    expect(invalidAnyOfPaths).toEqual([]);
+    expect(errorSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining('patch_interested_activity'),
+    );
   });
 });

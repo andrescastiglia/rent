@@ -28,6 +28,7 @@ const OPENAI_FALLBACK_PARAMETERS_SCHEMA = z
   .catchall(OPENAI_LOOSE_UNKNOWN_SCHEMA);
 const OPENAI_TOOLS_LIMIT = 128;
 const AI_PROMPT_ALIASES_FILENAME = 'ai-prompt-aliases.json';
+const OPENAI_DISALLOWED_SCHEMA_KEYS = ['$schema', 'propertyNames'] as const;
 
 function normalizeText(value: string): string {
   return value
@@ -348,8 +349,14 @@ function sanitizeOpenAiSchemaNode(schema: unknown): void {
   }
 
   const node = schema as Record<string, unknown>;
+  for (const key of OPENAI_DISALLOWED_SCHEMA_KEYS) {
+    delete node[key];
+  }
+
   if (Array.isArray(node.anyOf)) {
-    for (const branch of node.anyOf) {
+    const flattenedAnyOf = flattenNestedAnyOf(node.anyOf);
+    node.anyOf = flattenedAnyOf;
+    for (const branch of flattenedAnyOf) {
       if (!branch || typeof branch !== 'object' || Array.isArray(branch)) {
         continue;
       }
@@ -373,6 +380,27 @@ function sanitizeOpenAiSchemaNode(schema: unknown): void {
   for (const value of Object.values(node)) {
     sanitizeOpenAiSchemaNode(value);
   }
+}
+
+function flattenNestedAnyOf(anyOf: unknown[]): unknown[] {
+  const flattened: unknown[] = [];
+
+  for (const option of anyOf) {
+    if (!option || typeof option !== 'object' || Array.isArray(option)) {
+      flattened.push(option);
+      continue;
+    }
+
+    const branch = option as Record<string, unknown>;
+    if (typeof branch.type === 'string' || !Array.isArray(branch.anyOf)) {
+      flattened.push(option);
+      continue;
+    }
+
+    flattened.push(...flattenNestedAnyOf(branch.anyOf));
+  }
+
+  return flattened;
 }
 
 @Injectable()
