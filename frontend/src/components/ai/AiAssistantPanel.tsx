@@ -177,6 +177,8 @@ const extractJsonPayload = (text: string): unknown => {
 const createId = () =>
   `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
+const AI_CONVERSATION_STORAGE_KEY = "ai-assistant-conversation-id";
+
 const renderMarkdown = (text: string): string => {
   const rawHtml = marked.parse(text, {
     gfm: true,
@@ -199,8 +201,10 @@ export default function AiAssistantPanel({
   const t = useTranslations("common");
   const [prompt, setPrompt] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -208,6 +212,42 @@ export default function AiAssistantPanel({
     if (!container) return;
     container.scrollTop = container.scrollHeight;
   }, [messages, sending]);
+
+  useEffect(() => {
+    if (!isOpen || hydrated) return;
+
+    const savedConversationId = window.localStorage.getItem(
+      AI_CONVERSATION_STORAGE_KEY,
+    );
+    if (!savedConversationId) {
+      setHydrated(true);
+      return;
+    }
+
+    aiApi
+      .getConversation(savedConversationId)
+      .then((conversation) => {
+        setConversationId(conversation.conversationId);
+        setMessages(
+          conversation.messages.map((message) => ({
+            id: message.id,
+            role: message.role,
+            text: message.content,
+            model: message.model ?? undefined,
+            jsonValue:
+              message.role === "assistant"
+                ? extractJsonPayload(message.content)
+                : undefined,
+          })),
+        );
+      })
+      .catch(() => {
+        window.localStorage.removeItem(AI_CONVERSATION_STORAGE_KEY);
+        setConversationId(null);
+        setMessages([]);
+      })
+      .finally(() => setHydrated(true));
+  }, [hydrated, isOpen]);
 
   if (!isOpen) return null;
 
@@ -228,7 +268,17 @@ export default function AiAssistantPanel({
 
     setSending(true);
     try {
-      const response = await aiApi.respond(trimmed);
+      const response = await aiApi.respond(trimmed, {
+        conversationId: conversationId ?? undefined,
+      });
+
+      if (response.conversationId) {
+        setConversationId(response.conversationId);
+        window.localStorage.setItem(
+          AI_CONVERSATION_STORAGE_KEY,
+          response.conversationId,
+        );
+      }
       const assistantText = response.outputText || "";
       setMessages((prev) => [
         ...prev,

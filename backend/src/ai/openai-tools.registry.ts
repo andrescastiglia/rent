@@ -2681,6 +2681,8 @@ export function buildAiToolDefinitions(
           .parse(args) as any;
         return deps.githubIssuesService.prepareIssueReport(parsed, {
           userId: context.userId,
+          companyId: context.companyId,
+          conversationId: context.conversationId,
         });
       },
     },
@@ -2694,7 +2696,7 @@ export function buildAiToolDefinitions(
       allowedRoles: ADMIN_STAFF,
       parameters: z
         .object({
-          previewId: z.string().uuid(),
+          previewId: z.string().uuid().optional(),
           action: githubCommitActionSchema.default('auto'),
           targetIssueNumber: z.coerce.number().int().min(1).optional(),
           confirm: z.coerce.boolean().default(false),
@@ -2706,7 +2708,7 @@ export function buildAiToolDefinitions(
       execute: async (args, context) => {
         const parsed = z
           .object({
-            previewId: z.string().uuid(),
+            previewId: z.string().uuid().optional(),
             action: githubCommitActionSchema.default('auto'),
             targetIssueNumber: z.coerce.number().int().min(1).optional(),
             confirm: z.coerce.boolean().default(false),
@@ -2718,6 +2720,8 @@ export function buildAiToolDefinitions(
           .parse(args) as any;
         return deps.githubIssuesService.commitIssueReport(parsed, {
           userId: context.userId,
+          companyId: context.companyId,
+          conversationId: context.conversationId,
         });
       },
     },

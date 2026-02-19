@@ -1,4 +1,10 @@
-import { IsArray, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsArray,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 import { z } from 'zod';
 
 const aiChatMessageZodSchema = z.object({
@@ -9,6 +15,7 @@ const aiChatMessageZodSchema = z.object({
 const aiChatRequestZodSchema = z
   .object({
     prompt: z.string().min(1),
+    conversationId: z.string().uuid().optional(),
     messages: z.array(aiChatMessageZodSchema).optional(),
   })
   .strict();
@@ -21,6 +28,11 @@ export class AiChatRequestDto {
   @IsString()
   @IsNotEmpty()
   prompt: string;
+
+  @IsString()
+  @IsUUID()
+  @IsOptional()
+  conversationId?: string;
 
   @IsArray()
   @IsOptional()

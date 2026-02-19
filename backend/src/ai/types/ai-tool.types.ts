@@ -7,6 +7,7 @@ export type AiToolMutability = 'readonly' | 'mutable';
 export interface AiExecutionContext {
   userId: string;
   companyId?: string;
+  conversationId?: string;
   role: UserRole;
 }
 

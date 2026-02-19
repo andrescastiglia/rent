@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
 import { CurrenciesModule } from '../currencies/currencies.module';
 import { DocumentsModule } from '../documents/documents.module';
@@ -18,10 +19,14 @@ import { AiToolExecutorService } from './ai-tool-executor.service';
 import { AiOpenAiService } from './ai-openai.service';
 import { AiToolRegistryDepsProvider } from './ai-tool-registry-deps.provider';
 import { AiToolsRegistryService } from './ai-tools-registry.service';
+import { AiConversationsService } from './ai-conversations.service';
+import { AiConversation } from './entities/ai-conversation.entity';
+import { AiGithubIssuePreview } from './entities/ai-github-issue-preview.entity';
 import { GithubIssuesService } from './github-issues.service';
 
 @Module({
   imports: [
+    TypeOrmModule.forFeature([AiConversation, AiGithubIssuePreview]),
     AuthModule,
     CurrenciesModule,
     DocumentsModule,
@@ -39,6 +44,7 @@ import { GithubIssuesService } from './github-issues.service';
   controllers: [AiController],
   providers: [
     GithubIssuesService,
+    AiConversationsService,
     AiToolRegistryDepsProvider,
     AiToolCatalogService,
     AiToolExecutorService,
@@ -50,6 +56,7 @@ import { GithubIssuesService } from './github-issues.service';
     AiToolExecutorService,
     AiOpenAiService,
     AiToolsRegistryService,
+    AiConversationsService,
   ],
 })
 export class AiModule {}

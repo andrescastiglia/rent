@@ -4,7 +4,11 @@ import {
   Injectable,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
+import { LessThanOrEqual, MoreThan, Repository } from 'typeorm';
+import { AiConversationsService } from './ai-conversations.service';
+import { AiGithubIssuePreview } from './entities/ai-github-issue-preview.entity';
 
 type GithubIssueState = 'open' | 'closed' | 'all';
 type GithubReportKind = 'bug' | 'feature' | 'tech-report';
@@ -60,7 +64,9 @@ type Recommendation = {
 type PreviewRecord = {
   previewId: string;
   userId: string;
-  expiresAt: number;
+  companyId?: string;
+  conversationId?: string;
+  expiresAt: Date;
   draft: IssueDraft;
   similarIssues: IssueSimilar[];
   recommendation: Recommendation;
@@ -150,7 +156,11 @@ function clamp(value: number, min: number, max: number): number {
 
 @Injectable()
 export class GithubIssuesService {
-  private readonly previews = new Map<string, PreviewRecord>();
+  constructor(
+    @InjectRepository(AiGithubIssuePreview)
+    private readonly previewsRepo: Repository<AiGithubIssuePreview>,
+    private readonly conversationsService: AiConversationsService,
+  ) {}
 
   async listIssues(params: {
     state: GithubIssueState;
@@ -220,9 +230,9 @@ export class GithubIssuesService {
       report: string;
       labels?: string[];
     },
-    context: { userId: string },
+    context: { userId: string; companyId?: string; conversationId?: string },
   ) {
-    this.pruneExpiredPreviews();
+    await this.pruneExpiredPreviews();
 
     const draft = this.buildDraft(input, context.userId);
     const similarIssues = await this.findSimilarIssues(
@@ -232,20 +242,35 @@ export class GithubIssuesService {
     const recommendation = this.buildRecommendation(similarIssues);
 
     const previewId = randomUUID();
-    const expiresAt = Date.now() + this.getPreviewTtlSeconds() * 1000;
+    const expiresAt = new Date(Date.now() + this.getPreviewTtlSeconds() * 1000);
 
-    this.previews.set(this.previewKey(context.userId, previewId), {
+    await this.previewsRepo.save({
       previewId,
       userId: context.userId,
+      companyId: context.companyId ?? null,
+      conversationId: context.conversationId ?? null,
       expiresAt,
-      draft,
-      similarIssues,
-      recommendation,
+      draft: draft as unknown as Record<string, unknown>,
+      similarIssues: similarIssues as unknown as Record<string, unknown>[],
+      recommendation: recommendation as unknown as Record<string, unknown>,
     });
+
+    if (context.conversationId) {
+      await this.conversationsService.mergeToolState({
+        conversationId: context.conversationId,
+        userId: context.userId,
+        patch: {
+          githubIssues: {
+            pendingPreviewId: previewId,
+            expiresAt: expiresAt.toISOString(),
+          },
+        },
+      });
+    }
 
     return {
       previewId,
-      expiresAt: new Date(expiresAt).toISOString(),
+      expiresAt: expiresAt.toISOString(),
       draft,
       similarIssues,
       recommendation,
@@ -258,7 +283,7 @@ export class GithubIssuesService {
 
   async commitIssueReport(
     input: {
-      previewId: string;
+      previewId?: string;
       action: GithubCommitAction;
       targetIssueNumber?: number;
       confirm: boolean;
@@ -266,12 +291,21 @@ export class GithubIssuesService {
       bodyOverride?: string;
       labelsOverride?: string[];
     },
-    context: { userId: string },
+    context: { userId: string; companyId?: string; conversationId?: string },
   ) {
-    this.pruneExpiredPreviews();
-
-    const preview = this.previews.get(
-      this.previewKey(context.userId, input.previewId),
+    await this.pruneExpiredPreviews();
+    const resolvedPreviewId =
+      input.previewId ||
+      (await this.getPendingPreviewIdFromConversation(context)) ||
+      (await this.getLatestPreviewIdForUser(context.userId));
+    if (!resolvedPreviewId) {
+      throw new BadRequestException(
+        'Preview not found or expired. Generate a new preview before committing.',
+      );
+    }
+    const preview = await this.getPreviewRecord(
+      resolvedPreviewId,
+      context.userId,
     );
 
     if (!preview) {
@@ -332,7 +366,11 @@ export class GithubIssuesService {
         this.buildMergeComment(finalTitle, finalBody, context.userId),
       );
 
-      this.previews.delete(this.previewKey(context.userId, input.previewId));
+      await this.previewsRepo.delete({ previewId: resolvedPreviewId });
+      await this.clearPendingPreviewFromConversation(
+        context,
+        resolvedPreviewId,
+      );
 
       return {
         status: 'merged_into_open_issue',
@@ -351,7 +389,8 @@ export class GithubIssuesService {
       finalBody,
       finalLabels,
     );
-    this.previews.delete(this.previewKey(context.userId, input.previewId));
+    await this.previewsRepo.delete({ previewId: resolvedPreviewId });
+    await this.clearPendingPreviewFromConversation(context, resolvedPreviewId);
 
     return {
       status: 'created_new_issue',
@@ -670,17 +709,104 @@ export class GithubIssuesService {
     return clamp(raw, 60, 24 * 60 * 60);
   }
 
-  private pruneExpiredPreviews(): void {
-    const now = Date.now();
-    for (const [key, value] of this.previews.entries()) {
-      if (value.expiresAt <= now) {
-        this.previews.delete(key);
-      }
-    }
+  private async pruneExpiredPreviews(): Promise<void> {
+    await this.previewsRepo.delete({
+      expiresAt: LessThanOrEqual(new Date()),
+    });
   }
 
-  private previewKey(userId: string, previewId: string): string {
-    return `${userId}:${previewId}`;
+  private async getPreviewRecord(
+    previewId: string,
+    userId: string,
+  ): Promise<PreviewRecord | null> {
+    const entity = await this.previewsRepo.findOne({
+      where: { previewId, userId },
+    });
+
+    if (!entity) {
+      return null;
+    }
+
+    return {
+      previewId: entity.previewId,
+      userId: entity.userId,
+      companyId: entity.companyId ?? undefined,
+      conversationId: entity.conversationId ?? undefined,
+      expiresAt: entity.expiresAt,
+      draft: entity.draft as unknown as IssueDraft,
+      similarIssues: entity.similarIssues as unknown as IssueSimilar[],
+      recommendation: entity.recommendation as unknown as Recommendation,
+    };
+  }
+
+  private async getLatestPreviewIdForUser(
+    userId: string,
+  ): Promise<string | null> {
+    const preview = await this.previewsRepo.findOne({
+      where: { userId, expiresAt: MoreThan(new Date()) },
+      order: { createdAt: 'DESC' },
+    });
+    return preview?.previewId ?? null;
+  }
+
+  private async getPendingPreviewIdFromConversation(context: {
+    userId: string;
+    conversationId?: string;
+  }): Promise<string | null> {
+    if (!context.conversationId) {
+      return null;
+    }
+
+    const conversation = await this.conversationsService.getConversationById({
+      conversationId: context.conversationId,
+      userId: context.userId,
+    });
+    const githubIssuesState =
+      (conversation.toolState?.githubIssues as
+        | Record<string, unknown>
+        | undefined) ?? undefined;
+    const pendingPreviewId = githubIssuesState?.pendingPreviewId;
+
+    return typeof pendingPreviewId === 'string' && pendingPreviewId.length > 0
+      ? pendingPreviewId
+      : null;
+  }
+
+  private async clearPendingPreviewFromConversation(
+    context: { userId: string; conversationId?: string },
+    previewId: string,
+  ): Promise<void> {
+    if (!context.conversationId) {
+      return;
+    }
+
+    const conversation = await this.conversationsService.getConversationById({
+      conversationId: context.conversationId,
+      userId: context.userId,
+    });
+    const githubIssuesState =
+      (conversation.toolState?.githubIssues as
+        | Record<string, unknown>
+        | undefined) ?? undefined;
+    const pendingPreviewId = githubIssuesState?.pendingPreviewId;
+    if (
+      typeof pendingPreviewId !== 'string' ||
+      pendingPreviewId !== previewId
+    ) {
+      return;
+    }
+
+    const nextGithubIssuesState = { ...githubIssuesState };
+    delete nextGithubIssuesState.pendingPreviewId;
+    delete nextGithubIssuesState.expiresAt;
+
+    await this.conversationsService.mergeToolState({
+      conversationId: context.conversationId,
+      userId: context.userId,
+      patch: {
+        githubIssues: nextGithubIssuesState,
+      },
+    });
   }
 
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
