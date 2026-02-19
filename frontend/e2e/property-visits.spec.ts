@@ -1,4 +1,4 @@
-import { test, expect, login, localePath } from './fixtures/auth';
+import { test, expect, gotoWithRetry, login, localePath } from './fixtures/auth';
 
 test.describe('Property Maintenance Log', () => {
     const ownerButtonSelector = '[data-testid="owner-row-main"]';
@@ -6,7 +6,7 @@ test.describe('Property Maintenance Log', () => {
 
     test.beforeEach(async ({ page }) => {
         await login(page);
-        await page.goto(localePath('/properties'));
+        await gotoWithRetry(page, localePath('/properties'));
     });
 
     test('should add a maintenance task and show it in history', async ({ page }) => {

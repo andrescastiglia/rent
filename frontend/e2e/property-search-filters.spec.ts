@@ -1,9 +1,9 @@
-import { test, expect, login, localePath } from './fixtures/auth';
+import { test, expect, gotoWithRetry, login, localePath } from './fixtures/auth';
 
 test.describe('Property Search Filters', () => {
     test.beforeEach(async ({ page }) => {
         await login(page);
-        await page.goto(localePath('/properties'));
+        await gotoWithRetry(page, localePath('/properties'));
     });
 
     test('should filter owners by search term', async ({ page }) => {

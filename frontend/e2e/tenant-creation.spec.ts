@@ -1,9 +1,9 @@
-import { test, expect, login, localePath } from './fixtures/auth';
+import { test, expect, gotoWithRetry, login, localePath } from './fixtures/auth';
 
 test.describe('Tenant Creation Flow', () => {
     test.beforeEach(async ({ page }) => {
         await login(page);
-        await page.goto(localePath('/tenants'));
+        await gotoWithRetry(page, localePath('/tenants'));
     });
 
     test('should display tenants list page', async ({ page }) => {
@@ -16,7 +16,7 @@ test.describe('Tenant Creation Flow', () => {
     });
 
     test('should display tenant creation form', async ({ page }) => {
-        await page.goto(localePath('/tenants/new'));
+        await gotoWithRetry(page, localePath('/tenants/new'));
 
         // Check form elements are visible using name attributes
         await expect(page.locator('input[name="firstName"]')).toBeVisible();
@@ -29,7 +29,7 @@ test.describe('Tenant Creation Flow', () => {
     });
 
     test('should show validation errors for empty form', async ({ page }) => {
-        await page.goto(localePath('/tenants/new'));
+        await gotoWithRetry(page, localePath('/tenants/new'));
 
         // Try to submit empty form
         await page.locator('button[type="submit"]').click();
@@ -39,7 +39,7 @@ test.describe('Tenant Creation Flow', () => {
     });
 
     test('should create a new tenant with valid data', async ({ page }) => {
-        await page.goto(localePath('/tenants/new'));
+        await gotoWithRetry(page, localePath('/tenants/new'));
 
         // Fill in tenant form using name attributes
         await page.locator('input[name="firstName"]').fill('John');
@@ -61,7 +61,7 @@ test.describe('Tenant Creation Flow', () => {
     });
 
     test('should navigate to tenant details', async ({ page }) => {
-        await page.goto(localePath('/tenants'));
+        await gotoWithRetry(page, localePath('/tenants'));
 
         // Click tenant details link from card title
         const firstTenantDetailLink = page.getByTestId('tenant-detail-link').first();
@@ -73,7 +73,7 @@ test.describe('Tenant Creation Flow', () => {
     });
 
     test('should display edit button on tenant detail page', async ({ page }) => {
-        await page.goto(localePath('/tenants'));
+        await gotoWithRetry(page, localePath('/tenants'));
 
         // Wait for and click first tenant detail link
         const firstTenantDetailLink = page.getByTestId('tenant-detail-link').first();
@@ -85,7 +85,7 @@ test.describe('Tenant Creation Flow', () => {
     });
 
     test('should search tenants', async ({ page }) => {
-        await page.goto(localePath('/tenants'));
+        await gotoWithRetry(page, localePath('/tenants'));
 
         // Type in search box (it's a text input)
         const searchInput = page.locator('input[type="text"]').first();
@@ -99,7 +99,7 @@ test.describe('Tenant Creation Flow', () => {
     });
 
     test('should navigate to edit tenant page', async ({ page }) => {
-        await page.goto(localePath('/tenants'));
+        await gotoWithRetry(page, localePath('/tenants'));
 
         // Wait for and click first tenant detail link
         const firstTenantDetailLink = page.getByTestId('tenant-detail-link').first();

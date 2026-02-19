@@ -40,6 +40,7 @@ const LOGIN_INVALID_CREDENTIALS_PATTERN =
     /credenciales inválidas|invalid credentials|credenciais inválidas/i;
 const LOGIN_NETWORK_ERROR_PATTERN = /failed to fetch/i;
 const LOGIN_GENERIC_ERROR_PATTERN = /error al iniciar sesión|erro ao entrar|login error|error signing in/i;
+const RETRIABLE_NAVIGATION_ERROR_PATTERN = /ERR_ABORTED|frame was detached/i;
 
 const MOCK_AUTH_USER = {
     id: '1',
@@ -89,18 +90,37 @@ function resolveCredentialCandidates(email?: string, password?: string): Credent
 export async function login(page: Page, email?: string, password?: string) {
     // In mock mode, prefer seeding auth storage directly to avoid flaky UI login under parallel runs.
     if (USE_MOCK && !email && !password) {
-        const token = `mock-token-${MOCK_AUTH_USER.id}-${Date.now()}`;
-        await page.goto(`/${DEFAULT_LOCALE}/login`, { waitUntil: 'domcontentloaded' });
-        await page.evaluate(
-            ({ authToken, authUser }) => {
-                localStorage.setItem('auth_token', authToken);
-                localStorage.setItem('auth_user', JSON.stringify(authUser));
-            },
-            { authToken: token, authUser: MOCK_AUTH_USER },
-        );
-        await page.goto(`/${DEFAULT_LOCALE}/dashboard`, { waitUntil: 'domcontentloaded' });
-        await page.waitForURL(`**/${DEFAULT_LOCALE}/dashboard`, { timeout: 10000 });
-        return;
+        const maxAttempts = 3;
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+            try {
+                const token = `mock-token-${MOCK_AUTH_USER.id}-${Date.now()}`;
+                await page.goto(`/${DEFAULT_LOCALE}/dashboard`, {
+                    waitUntil: 'domcontentloaded',
+                });
+                await page.evaluate(
+                    ({ authToken, authUser }) => {
+                        localStorage.setItem('auth_token', authToken);
+                        localStorage.setItem('auth_user', JSON.stringify(authUser));
+                    },
+                    { authToken: token, authUser: MOCK_AUTH_USER },
+                );
+                await page.goto(`/${DEFAULT_LOCALE}/dashboard`, {
+                    waitUntil: 'domcontentloaded',
+                });
+                await page.waitForURL(`**/${DEFAULT_LOCALE}/dashboard`, { timeout: 10000 });
+                return;
+            } catch (error) {
+                const message = String(error);
+                const isRetriable = RETRIABLE_NAVIGATION_ERROR_PATTERN.test(message);
+                if (!isRetriable || attempt === maxAttempts) {
+                    throw error;
+                }
+                if (page.isClosed()) {
+                    throw error;
+                }
+                await page.waitForTimeout(400);
+            }
+        }
     }
 
     const credentialCandidates = resolveCredentialCandidates(email, password);
@@ -156,6 +176,27 @@ export async function login(page: Page, email?: string, password?: string) {
     throw new Error(
         `E2E login failed after trying ${credentialCandidates.length} credential set(s). Last error: ${lastError}`,
     );
+}
+
+// Helper to navigate resiliently under next dev/turbopack transient frame detach events.
+export async function gotoWithRetry(
+    page: Page,
+    path: string,
+    options?: Parameters<Page['goto']>[1],
+) {
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+            await page.goto(path, { waitUntil: 'domcontentloaded', ...(options ?? {}) });
+            return;
+        } catch (error) {
+            const retriable = RETRIABLE_NAVIGATION_ERROR_PATTERN.test(String(error));
+            if (!retriable || attempt === maxAttempts || page.isClosed()) {
+                throw error;
+            }
+            await page.waitForTimeout(300);
+        }
+    }
 }
 
 // Helper to navigate to a page with locale prefix

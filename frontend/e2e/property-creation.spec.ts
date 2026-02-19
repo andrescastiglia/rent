@@ -1,4 +1,4 @@
-import { test, expect, login, localePath } from './fixtures/auth';
+import { test, expect, gotoWithRetry, login, localePath } from './fixtures/auth';
 
 test.describe('Property Creation Flow', () => {
     const ownerButtonSelector = '[data-testid="owner-row-main"]';
@@ -7,7 +7,7 @@ test.describe('Property Creation Flow', () => {
 
     test.beforeEach(async ({ page }) => {
         await login(page);
-        await page.goto(localePath('/properties'));
+        await gotoWithRetry(page, localePath('/properties'));
     });
 
     test('should display properties list page', async ({ page }) => {
@@ -23,7 +23,7 @@ test.describe('Property Creation Flow', () => {
     });
 
     test('should display property creation form', async ({ page }) => {
-        await page.goto(localePath('/properties/new?ownerId=owner1'));
+        await gotoWithRetry(page, localePath('/properties/new?ownerId=owner1'));
 
         // Check form elements are visible using semantic selectors
         await expect(page.locator('input[name="name"]')).toBeVisible();
@@ -34,7 +34,7 @@ test.describe('Property Creation Flow', () => {
     });
 
     test('should show validation errors for empty form', async ({ page }) => {
-        await page.goto(localePath('/properties/new?ownerId=owner1'));
+        await gotoWithRetry(page, localePath('/properties/new?ownerId=owner1'));
 
         // Try to submit empty form
         await page.locator('button[type="submit"]').click();
@@ -44,7 +44,7 @@ test.describe('Property Creation Flow', () => {
     });
 
     test('should create a new property with valid data', async ({ page }) => {
-        await page.goto(localePath('/properties/new?ownerId=owner1'));
+        await gotoWithRetry(page, localePath('/properties/new?ownerId=owner1'));
 
         // Fill in property form using name attributes
         const ownerSelect = page.locator('select[name="ownerId"]');
@@ -69,7 +69,7 @@ test.describe('Property Creation Flow', () => {
     });
 
     test('should navigate to property details', async ({ page }) => {
-        await page.goto(localePath('/properties'));
+        await gotoWithRetry(page, localePath('/properties'));
         await page.locator(ownerButtonSelector).first().click();
 
         await page.waitForSelector(propertyDetailLinkSelector, { timeout: 10000 });
@@ -83,7 +83,7 @@ test.describe('Property Creation Flow', () => {
     });
 
     test('should display edit button on property detail page', async ({ page }) => {
-        await page.goto(localePath('/properties'));
+        await gotoWithRetry(page, localePath('/properties'));
         await page.locator(ownerButtonSelector).first().click();
 
         await page.waitForSelector(propertyDetailLinkSelector, { timeout: 10000 });
@@ -99,7 +99,7 @@ test.describe('Property Creation Flow', () => {
     });
 
     test('should search properties', async ({ page }) => {
-        await page.goto(localePath('/properties'));
+        await gotoWithRetry(page, localePath('/properties'));
 
         // Type in search box (it's a text input with a search icon)
         const searchInput = page.locator('input[type="text"]').first();

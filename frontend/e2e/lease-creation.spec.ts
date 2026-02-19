@@ -1,11 +1,11 @@
-import { test, expect, login, localePath } from './fixtures/auth';
+import { test, expect, gotoWithRetry, login, localePath } from './fixtures/auth';
 
 const leaseDetailLinkSelector = 'a[href*="/leases/"]:not([href*="/leases/new"]):not([href*="/leases/templates"]):not([href*="/edit"])';
 
 test.describe('Lease Creation Flow', () => {
     test.beforeEach(async ({ page }) => {
         await login(page);
-        await page.goto(localePath('/leases'));
+        await gotoWithRetry(page, localePath('/leases'));
     });
 
     test('should display leases list page', async ({ page }) => {
@@ -15,14 +15,14 @@ test.describe('Lease Creation Flow', () => {
 
     test('should navigate to create lease page', async ({ page }) => {
         // New flow: create lease action is exposed from property context
-        await page.goto(localePath('/properties'));
+        await gotoWithRetry(page, localePath('/properties'));
         const createLeaseFromProperty = page.locator('a[href*="/leases/new?propertyId="]').first();
 
         if ((await createLeaseFromProperty.count()) > 0) {
             await createLeaseFromProperty.click({ force: true });
         } else {
             // Fallback for datasets where no property is currently eligible for "create lease"
-            await page.goto(localePath('/leases/new'));
+            await gotoWithRetry(page, localePath('/leases/new'));
         }
 
         // Should navigate to new lease page
@@ -30,7 +30,7 @@ test.describe('Lease Creation Flow', () => {
     });
 
     test('should display lease creation form', async ({ page }) => {
-        await page.goto(localePath('/leases/new'));
+        await gotoWithRetry(page, localePath('/leases/new'));
 
         // Check form elements are visible
         await expect(page.getByLabel(/property|propiedad/i)).toBeVisible();
@@ -42,7 +42,7 @@ test.describe('Lease Creation Flow', () => {
     });
 
     test('should show validation errors for empty form', async ({ page }) => {
-        await page.goto(localePath('/leases/new'));
+        await gotoWithRetry(page, localePath('/leases/new'));
 
         // Try to submit empty form
         await page.getByRole('button', { name: /save|guardar/i }).click();
@@ -52,7 +52,7 @@ test.describe('Lease Creation Flow', () => {
     });
 
     test('should create a new lease with valid data', async ({ page }) => {
-        await page.goto(localePath('/leases/new'));
+        await gotoWithRetry(page, localePath('/leases/new'));
 
         // Fill in lease form
         await page.getByLabel(/property|propiedad/i).selectOption({ index: 1 }); // Select first property
@@ -71,7 +71,7 @@ test.describe('Lease Creation Flow', () => {
     });
 
     test('should navigate to lease details', async ({ page }) => {
-        await page.goto(localePath('/leases'));
+        await gotoWithRetry(page, localePath('/leases'));
 
         // Wait for leases to load
         await page.waitForSelector(leaseDetailLinkSelector, { timeout: 5000 });
@@ -85,7 +85,7 @@ test.describe('Lease Creation Flow', () => {
     });
 
     test('should display lease details correctly', async ({ page }) => {
-        await page.goto(localePath('/leases'));
+        await gotoWithRetry(page, localePath('/leases'));
 
         // Wait for and click first lease
         await page.waitForSelector(leaseDetailLinkSelector, { timeout: 5000 });
@@ -96,7 +96,7 @@ test.describe('Lease Creation Flow', () => {
     });
 
     test('should display edit and delete buttons on lease detail page', async ({ page }) => {
-        await page.goto(localePath('/leases'));
+        await gotoWithRetry(page, localePath('/leases'));
 
         // Wait for and click first lease
         await page.waitForSelector(leaseDetailLinkSelector, { timeout: 5000 });
@@ -108,7 +108,7 @@ test.describe('Lease Creation Flow', () => {
     });
 
     test('should search leases', async ({ page }) => {
-        await page.goto(localePath('/leases'));
+        await gotoWithRetry(page, localePath('/leases'));
 
         // Type in search box
         const searchInput = page.getByPlaceholder(/search|buscar/i);
@@ -122,7 +122,7 @@ test.describe('Lease Creation Flow', () => {
     });
 
     test('should navigate to edit lease page', async ({ page }) => {
-        await page.goto(localePath('/leases'));
+        await gotoWithRetry(page, localePath('/leases'));
 
         // Wait for and click first lease
         await page.waitForSelector(leaseDetailLinkSelector, { timeout: 5000 });

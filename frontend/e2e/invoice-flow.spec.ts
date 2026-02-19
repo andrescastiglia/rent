@@ -1,4 +1,4 @@
-import { test, expect, login, localePath } from './fixtures/auth';
+import { test, expect, gotoWithRetry, login, localePath } from './fixtures/auth';
 import type { Page } from '@playwright/test';
 
 test.describe('Invoice Flow', () => {
@@ -15,7 +15,7 @@ test.describe('Invoice Flow', () => {
 
     test.beforeEach(async ({ page }) => {
         await login(page);
-        await page.goto(localePath('/invoices'));
+        await gotoWithRetry(page, localePath('/invoices'));
     });
 
     test('should display invoices list page', async ({ page }) => {
@@ -24,12 +24,12 @@ test.describe('Invoice Flow', () => {
     });
 
     test('should navigate to invoice details', async ({ page }) => {
-        await page.goto(localePath('/invoices'));
+        await gotoWithRetry(page, localePath('/invoices'));
         await openFirstInvoice(page);
     });
 
     test('should display invoice details correctly', async ({ page }) => {
-        await page.goto(localePath('/invoices'));
+        await gotoWithRetry(page, localePath('/invoices'));
         await openFirstInvoice(page);
 
         // Should show invoice heading or details (use level 1 heading)
@@ -37,7 +37,7 @@ test.describe('Invoice Flow', () => {
     });
 
     test('should search invoices', async ({ page }) => {
-        await page.goto(localePath('/invoices'));
+        await gotoWithRetry(page, localePath('/invoices'));
 
         // Type in search box if visible
         const searchInput = page.locator('input[type="text"]').first();
@@ -53,7 +53,7 @@ test.describe('Invoice Flow', () => {
     });
 
     test('should filter invoices by status', async ({ page }) => {
-        await page.goto(localePath('/invoices'));
+        await gotoWithRetry(page, localePath('/invoices'));
 
         // Find status filter select if exists
         const statusFilter = page.locator('select').first();
@@ -66,7 +66,7 @@ test.describe('Invoice Flow', () => {
     });
 
     test('should display invoice amounts and dates', async ({ page }) => {
-        await page.goto(localePath('/invoices'));
+        await gotoWithRetry(page, localePath('/invoices'));
         await openFirstInvoice(page);
 
         // Should display amount and date information

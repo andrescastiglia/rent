@@ -2,16 +2,18 @@ import { defineConfig, devices } from '@playwright/test';
 
 // Use mock mode by default unless explicitly disabled.
 const useMockMode = process.env.NEXT_PUBLIC_MOCK_MODE !== 'false';
+const runSerial = !!process.env.CI || useMockMode;
 
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
     testDir: './e2e',
-    fullyParallel: true,
+    timeout: 60000,
+    fullyParallel: !runSerial,
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 2 : 0,
-    workers: process.env.CI ? 1 : undefined,
+    workers: runSerial ? 1 : undefined,
     reporter: process.env.CI 
         ? [
             ['list'], 
@@ -23,6 +25,7 @@ export default defineConfig({
         : [['html', { open: 'never' }]],
     use: {
         baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
+        navigationTimeout: 45000,
         trace: 'on-first-retry',
         screenshot: 'only-on-failure',
     },
@@ -48,13 +51,17 @@ export default defineConfig({
         url: 'http://localhost:3000',
         // In mock-mode, always start a fresh server so env flags are applied deterministically.
         // (If we reuse a manually-started dev server, it may not have NEXT_PUBLIC_MOCK_MODE enabled.)
-        reuseExistingServer: !process.env.CI && !useMockMode,
+        reuseExistingServer: false,
         timeout: 120000,
         stdout: 'pipe',
         stderr: 'pipe',
         // Pass environment variables to the web server
         env: {
             NEXT_PUBLIC_MOCK_MODE: useMockMode ? 'true' : 'false',
+            // Ensure register/login captcha widget can be rendered in e2e.
+            NEXT_PUBLIC_TURNSTILE_SITE_KEY:
+                process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ||
+                'e2e-test-turnstile-site-key',
         },
     },
 });

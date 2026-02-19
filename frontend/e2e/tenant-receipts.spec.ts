@@ -1,9 +1,9 @@
-import { test, expect, login, localePath } from './fixtures/auth';
+import { test, expect, gotoWithRetry, login, localePath } from './fixtures/auth';
 
 test.describe('Tenant Receipts History', () => {
     test.beforeEach(async ({ page }) => {
         await login(page);
-        await page.goto(localePath('/tenants'));
+        await gotoWithRetry(page, localePath('/tenants'));
     });
 
     test('should show payments history on tenant detail', async ({ page }) => {

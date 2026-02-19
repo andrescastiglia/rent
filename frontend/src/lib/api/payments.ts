@@ -176,6 +176,24 @@ const shouldUseMock = (): boolean => {
 const findMockAccountByLeaseId = (leaseId: string): TenantAccount | undefined =>
   MOCK_TENANT_ACCOUNTS.find((item) => item.leaseId === leaseId);
 
+const ensureMockAccountByLeaseId = (leaseId: string): TenantAccount => {
+  const existing = findMockAccountByLeaseId(leaseId);
+  if (existing) {
+    return existing;
+  }
+
+  const created: TenantAccount = {
+    id: `ta-${leaseId}`,
+    leaseId,
+    balance: 0,
+    lastMovementAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  MOCK_TENANT_ACCOUNTS.push(created);
+  return created;
+};
+
 const sortPaymentsByRecency = (payments: Payment[]): Payment[] =>
   payments.toSorted(
     (a, b) =>
@@ -738,7 +756,7 @@ export const tenantAccountsApi = {
   getByLease: async (leaseId: string): Promise<TenantAccount | null> => {
     if (shouldUseMock()) {
       await delay(DELAY);
-      return MOCK_TENANT_ACCOUNTS.find((a) => a.leaseId === leaseId) || null;
+      return ensureMockAccountByLeaseId(leaseId);
     }
 
     const token = getToken();

@@ -1,9 +1,9 @@
-import { test, expect, login, localePath } from './fixtures/auth';
+import { test, expect, gotoWithRetry, login, localePath } from './fixtures/auth';
 
 test.describe('Payment Creation Flow', () => {
     test.beforeEach(async ({ page }) => {
         await login(page);
-        await page.goto(localePath('/payments'));
+        await gotoWithRetry(page, localePath('/payments'));
     });
 
     test('should display payments list page', async ({ page }) => {
@@ -12,21 +12,21 @@ test.describe('Payment Creation Flow', () => {
     });
 
     test('should navigate to create payment page', async ({ page }) => {
-        await page.goto(localePath('/payments/new'));
+        await gotoWithRetry(page, localePath('/payments/new'));
 
         // Should navigate to new payment page
         await expect(page).toHaveURL(/\/es\/payments\/new/);
     });
 
     test('should display payment creation form', async ({ page }) => {
-        await page.goto(localePath('/payments/new'));
+        await gotoWithRetry(page, localePath('/payments/new'));
 
         // Check form has submit button
         await expect(page.locator('button[type="submit"]')).toBeVisible();
     });
 
     test('should navigate to payment details', async ({ page }) => {
-        await page.goto(localePath('/payments'));
+        await gotoWithRetry(page, localePath('/payments'));
 
         // Wait for payments to load
         await page.waitForSelector('a[href*="/payments/"]:not([href*="/payments/new"])', { timeout: 5000 });
@@ -40,7 +40,7 @@ test.describe('Payment Creation Flow', () => {
     });
 
     test('should display payment details correctly', async ({ page }) => {
-        await page.goto(localePath('/payments'));
+        await gotoWithRetry(page, localePath('/payments'));
 
         // Wait for and click first payment
         await page.waitForSelector('a[href*="/payments/"]:not([href*="/payments/new"])', { timeout: 5000 });
@@ -51,7 +51,7 @@ test.describe('Payment Creation Flow', () => {
     });
 
     test('should search payments', async ({ page }) => {
-        await page.goto(localePath('/payments'));
+        await gotoWithRetry(page, localePath('/payments'));
 
         // Type in search box if visible
         const searchInput = page.locator('input[type="text"]').first();
@@ -67,7 +67,7 @@ test.describe('Payment Creation Flow', () => {
     });
 
     test('should filter payments by method', async ({ page }) => {
-        await page.goto(localePath('/payments'));
+        await gotoWithRetry(page, localePath('/payments'));
 
         // Find method filter select if exists
         const methodFilter = page.locator('select').first();
@@ -80,7 +80,7 @@ test.describe('Payment Creation Flow', () => {
     });
 
     test('should display payment amounts and dates', async ({ page }) => {
-        await page.goto(localePath('/payments'));
+        await gotoWithRetry(page, localePath('/payments'));
 
         // Wait for payments to load
         await page.waitForSelector('a[href*="/payments/"]:not([href*="/payments/new"])', { timeout: 5000 });

@@ -1,9 +1,25 @@
 import { test, expect } from '@playwright/test';
 import { login, localePath, TEST_USER } from './fixtures/auth';
 
+async function gotoWithRetry(page: import('@playwright/test').Page, path: string): Promise<void> {
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+            await page.goto(path, { waitUntil: 'domcontentloaded' });
+            return;
+        } catch (error) {
+            const retriable = /ERR_ABORTED|frame was detached/i.test(String(error));
+            if (!retriable || attempt === maxAttempts || page.isClosed()) {
+                throw error;
+            }
+            await page.waitForTimeout(300);
+        }
+    }
+}
+
 test.describe('Login Flow', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto(localePath('/login'));
+        await gotoWithRetry(page, localePath('/login'));
     });
 
     test('should display login page', async ({ page }) => {
@@ -33,7 +49,7 @@ test.describe('Login Flow', () => {
     });
 
     test('should redirect from root to login when not authenticated', async ({ page }) => {
-        await page.goto('/');
+        await gotoWithRetry(page, '/');
         await expect(page).toHaveURL(/\/es\/login/);
     });
 });
@@ -48,34 +64,34 @@ test.describe('Navigation after login', () => {
     });
 
     test('should navigate to properties page', async ({ page }) => {
-        await page.goto(localePath('/properties'));
+        await gotoWithRetry(page, localePath('/properties'));
         await expect(page).toHaveURL(/\/es\/properties/, { timeout: 10000 });
         await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
     });
 
     test('should navigate to tenants page', async ({ page }) => {
-        await page.goto(localePath('/tenants'));
+        await gotoWithRetry(page, localePath('/tenants'));
         await expect(page).toHaveURL(/\/es\/tenants/, { timeout: 10000 });
         await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
     });
 
     test('should navigate to leases page', async ({ page }) => {
-        await page.goto(localePath('/leases'));
+        await gotoWithRetry(page, localePath('/leases'));
         await expect(page).toHaveURL(/\/es\/leases/, { timeout: 10000 });
         await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
     });
 
     test('should navigate between different sections', async ({ page }) => {
         // Navigate to properties
-        await page.goto(localePath('/properties'));
+        await gotoWithRetry(page, localePath('/properties'));
         await expect(page).toHaveURL(/\/es\/properties/, { timeout: 10000 });
 
         // Navigate to tenants
-        await page.goto(localePath('/tenants'));
+        await gotoWithRetry(page, localePath('/tenants'));
         await expect(page).toHaveURL(/\/es\/tenants/, { timeout: 10000 });
 
         // Navigate to leases
-        await page.goto(localePath('/leases'));
+        await gotoWithRetry(page, localePath('/leases'));
         await expect(page).toHaveURL(/\/es\/leases/, { timeout: 10000 });
     });
 });
