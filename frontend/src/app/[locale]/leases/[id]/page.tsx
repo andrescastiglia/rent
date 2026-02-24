@@ -256,7 +256,6 @@ export default function LeaseDetailPage() {
                 <LeaseStatusBadge status={lease.status} />
               </div>
               <p className="text-gray-500 dark:text-gray-400">
-                {tCommon("id")}: {lease.id} ·{" "}
                 {t("versionLabel", { version: lease.versionNumber ?? 1 })}
               </p>
             </div>
