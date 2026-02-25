@@ -3,6 +3,7 @@ import { clearAuth, getToken } from '@/storage/auth-storage';
 import { isTokenExpired } from '@/utils/jwt';
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
+type SessionExpiredHandler = (() => void | Promise<void>) | null;
 
 type RequestOptions = {
   method?: Method;
@@ -10,6 +11,33 @@ type RequestOptions = {
   token?: string | null;
   headers?: Record<string, string>;
 };
+
+let sessionExpiredHandler: SessionExpiredHandler = null;
+let isHandlingSessionExpired = false;
+
+export function setSessionExpiredHandler(handler: SessionExpiredHandler): () => void {
+  sessionExpiredHandler = handler;
+
+  return () => {
+    if (sessionExpiredHandler === handler) {
+      sessionExpiredHandler = null;
+    }
+  };
+}
+
+async function handleSessionExpired(): Promise<void> {
+  if (isHandlingSessionExpired) return;
+  isHandlingSessionExpired = true;
+
+  try {
+    await clearAuth();
+    if (sessionExpiredHandler) {
+      await sessionExpiredHandler();
+    }
+  } finally {
+    isHandlingSessionExpired = false;
+  }
+}
 
 class ApiClient {
   constructor(private readonly baseUrl: string) {}
@@ -19,7 +47,7 @@ class ApiClient {
     const token = options.token ?? (await getToken());
 
     if (token && isTokenExpired(token)) {
-      await clearAuth();
+      await handleSessionExpired();
       throw new Error('SESSION_EXPIRED');
     }
 
@@ -37,6 +65,11 @@ class ApiClient {
       headers,
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
     });
+
+    if (response.status === 401 && token) {
+      await handleSessionExpired();
+      throw new Error('SESSION_EXPIRED');
+    }
 
     if (!response.ok) {
       const fallback = response.statusText || 'API request failed';

@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { authApi } from '@/api/auth';
+import { setSessionExpiredHandler } from '@/api/client';
 import { clearAuth, getToken, getUser, setToken, setUser } from '@/storage/auth-storage';
 import type { AuthResponse, LoginRequest, RegisterRequest, RegisterResponse, User } from '@/types/auth';
 import { i18n } from '@/i18n';
@@ -72,6 +73,14 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
     setUserState(null);
     router.replace('/(auth)/login');
   }, [router]);
+
+  useEffect(() => {
+    const unsubscribe = setSessionExpiredHandler(() => {
+      void logout();
+    });
+
+    return unsubscribe;
+  }, [logout]);
 
   const updateUser = useCallback(async (nextUser: User) => {
     await setUser(nextUser);
