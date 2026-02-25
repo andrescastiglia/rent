@@ -1,51 +1,65 @@
 import { useRouter } from 'expo-router';
+import { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { AppButton, H1 } from '@/components/ui';
 import { Screen } from '@/components/screen';
 import { useAuth } from '@/contexts/auth-context';
+import { useRoleNavigation } from '@/hooks/use-role-navigation';
 
 export default function SettingsScreen() {
   const { logout } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
+  const roleNavigation = useRoleNavigation();
+  const allowedRoutes = useMemo(() => new Set(roleNavigation.map((item) => item.href)), [roleNavigation]);
 
   return (
     <Screen>
       <H1>{t('common.settings')}</H1>
 
       <View style={styles.links}>
-        <AppButton
-          title={t('leases.title')}
-          variant="secondary"
-          testID="settings.goto.leases"
-          onPress={() => router.push('/(app)/leases' as never)}
-        />
-        <AppButton
-          title={t('users.title')}
-          variant="secondary"
-          testID="settings.goto.users"
-          onPress={() => router.push('/(app)/users' as never)}
-        />
-        <AppButton
-          title={t('reports.title')}
-          variant="secondary"
-          testID="settings.goto.reports"
-          onPress={() => router.push('/(app)/reports' as never)}
-        />
-        <AppButton
-          title={t('invoices.title')}
-          variant="secondary"
-          testID="settings.goto.invoices"
-          onPress={() => router.push('/(app)/invoices' as never)}
-        />
-        <AppButton
-          title={t('templatesHub.listTitle')}
-          variant="secondary"
-          testID="settings.goto.templates"
-          onPress={() => router.push('/(app)/templates' as never)}
-        />
+        {allowedRoutes.has('/leases') && (
+          <AppButton
+            title={t('leases.title')}
+            variant="secondary"
+            testID="settings.goto.leases"
+            onPress={() => router.push('/(app)/leases' as never)}
+          />
+        )}
+        {allowedRoutes.has('/users') && (
+          <AppButton
+            title={t('users.title')}
+            variant="secondary"
+            testID="settings.goto.users"
+            onPress={() => router.push('/(app)/users' as never)}
+          />
+        )}
+        {allowedRoutes.has('/reports') && (
+          <AppButton
+            title={t('reports.title')}
+            variant="secondary"
+            testID="settings.goto.reports"
+            onPress={() => router.push('/(app)/reports' as never)}
+          />
+        )}
+        {allowedRoutes.has('/invoices') && (
+          <AppButton
+            title={t('invoices.title')}
+            variant="secondary"
+            testID="settings.goto.invoices"
+            onPress={() => router.push('/(app)/invoices' as never)}
+          />
+        )}
+        {allowedRoutes.has('/templates') && (
+          <AppButton
+            title={t('templatesHub.listTitle')}
+            variant="secondary"
+            testID="settings.goto.templates"
+            onPress={() => router.push('/(app)/templates' as never)}
+          />
+        )}
       </View>
 
       <AppButton title={t('auth.logout')} onPress={() => void logout()} variant="secondary" />
