@@ -3,7 +3,7 @@ name: EAS CI by Branch
 on:
   push:
     branches:
-      - preview 
+      - preview
       - main
   workflow_dispatch:
 
@@ -38,7 +38,7 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Materialize Google Play service account key
-        if: ${{ github.ref_name == 'preview' }}
+        if: ${{ github.ref_name == 'main' }}
         env:
           GOOGLE_SERVICE_ACCOUNT_KEY_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_JSON }}
         run: |
@@ -46,8 +46,8 @@ jobs:
             printf '%s' "$GOOGLE_SERVICE_ACCOUNT_KEY_JSON" > rent-488517-f1ad7938bbe6.json
           fi
 
-      - name: Materialize Android signing credentials for preview
-        if: ${{ github.ref_name == 'preview' }}
+      - name: Materialize Android signing credentials for production
+        if: ${{ github.ref_name == 'main' }}
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -55,7 +55,7 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
-            echo "Missing Android signing secrets for preview."
+            echo "Missing Android signing secrets for production."
             echo "Required: ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD."
             exit 1
           fi
@@ -84,19 +84,16 @@ jobs:
             --channel preview \
             --message "CI: ${GITHUB_SHA}"
 
-      - name: Build Android and submit to Google Play internal track
-        if: ${{ github.ref_name == 'preview' }}
+      - name: Release Android on main (build + submit internal + OTA update)
+        if: ${{ github.ref_name == 'main' }}
         run: |
           eas build \
             --platform android \
-            --profile preview \
+            --profile production \
             --non-interactive \
             --wait \
-            --auto-submit-with-profile preview
-
-      - name: Publish update to production
-        if: ${{ github.ref_name == 'main' }}
-        run: |
+            --auto-submit-with-profile production
+          
           eas update \
             --platform android \
             --channel production \
