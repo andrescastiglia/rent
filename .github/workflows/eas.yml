@@ -1,0 +1,99 @@
+name: EAS CI by Branch
+
+on:
+  push:
+    branches:
+      - internal_testing
+      - main
+  workflow_dispatch:
+
+jobs:
+  eas-ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Materialize Google Play service account key
+        if: ${{ github.ref_name == 'internal_testing' }}
+        env:
+          GOOGLE_SERVICE_ACCOUNT_KEY_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICE_ACCOUNT_KEY_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICE_ACCOUNT_KEY_JSON" > rent-488517-f1ad7938bbe6.json
+          fi
+
+      - name: Materialize Android signing credentials for internal_testing
+        if: ${{ github.ref_name == 'internal_testing' }}
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
+            echo "Missing Android signing secrets for internal_testing."
+            echo "Required: ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD."
+            exit 1
+          fi
+
+          mkdir -p credentials
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > credentials/android-upload-keystore.jks
+
+          cat > credentials.json << EOF
+          {
+            "android": {
+              "keystore": {
+                "keystorePath": "credentials/android-upload-keystore.jks",
+                "keystorePassword": "$ANDROID_KEYSTORE_PASSWORD",
+                "keyAlias": "$ANDROID_KEY_ALIAS",
+                "keyPassword": "$ANDROID_KEY_PASSWORD"
+              }
+            }
+          }
+          EOF
+
+      - name: Publish update to internal_testing
+        if: ${{ github.ref_name == 'internal_testing' }}
+        run: |
+          eas update \
+            --platform android \
+            --channel internal_testing \
+            --message "CI: ${GITHUB_SHA}"
+
+      - name: Build Android and submit to Google Play internal track
+        if: ${{ github.ref_name == 'internal_testing' }}
+        run: |
+          eas build \
+            --platform android \
+            --profile internal_testing \
+            --non-interactive \
+            --wait \
+            --auto-submit-with-profile internal_testing
+
+      - name: Publish update to production
+        if: ${{ github.ref_name == 'main' }}
+        run: |
+          eas update \
+            --platform android \
+            --channel production \
+            --message "CI: ${GITHUB_SHA}"
