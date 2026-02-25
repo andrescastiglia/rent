@@ -1,0 +1,122 @@
+export type PropertyType =
+  | "APARTMENT"
+  | "HOUSE"
+  | "COMMERCIAL"
+  | "OFFICE"
+  | "WAREHOUSE"
+  | "LAND"
+  | "PARKING"
+  | "OTHER";
+export type PropertyStatus = "ACTIVE" | "INACTIVE" | "MAINTENANCE";
+export type PropertyOperation = "rent" | "sale";
+export type PropertyOperationState =
+  | "available"
+  | "rented"
+  | "reserved"
+  | "sold";
+
+export interface Address {
+  street: string;
+  number: string;
+  unit?: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  country: string;
+}
+
+export interface PropertyFeature {
+  id: string;
+  name: string;
+  value?: string;
+}
+
+export interface Unit {
+  id: string;
+  unitNumber: string;
+  floor?: string;
+  bedrooms: number;
+  bathrooms: number;
+  area: number; // in square meters
+  status: "AVAILABLE" | "OCCUPIED" | "MAINTENANCE";
+  rentAmount: number;
+}
+
+export interface PropertyMaintenanceTask {
+  id: string;
+  propertyId: string;
+  scheduledAt: string;
+  title: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Property {
+  id: string;
+  name: string;
+  description?: string;
+  type: PropertyType;
+  status: PropertyStatus;
+  address: Address;
+  features: PropertyFeature[];
+  units: Unit[];
+  images: string[];
+  ownerId: string;
+  ownerWhatsapp?: string;
+  rentPrice?: number;
+  salePrice?: number;
+  saleCurrency?: string;
+  operations?: PropertyOperation[];
+  operationState?: PropertyOperationState;
+  allowsPets?: boolean;
+  acceptedGuaranteeTypes?: string[];
+  maxOccupants?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePropertyInput {
+  name: string;
+  description?: string;
+  type: PropertyType;
+  address: Address;
+  features?: Omit<PropertyFeature, "id">[];
+  images?: string[];
+  ownerId?: string;
+  ownerWhatsapp?: string;
+  rentPrice?: number;
+  salePrice?: number;
+  saleCurrency?: string;
+  operations?: PropertyOperation[];
+  operationState?: PropertyOperationState;
+  allowsPets?: boolean;
+  acceptedGuaranteeTypes?: string[];
+  maxOccupants?: number;
+}
+
+export interface UpdatePropertyInput extends Partial<CreatePropertyInput> {
+  status?: PropertyStatus;
+}
+
+export interface CreatePropertyMaintenanceTaskInput {
+  scheduledAt?: string;
+  title: string;
+  notes?: string;
+}
+
+export interface PropertyFilters {
+  ownerId?: string;
+  addressCity?: string;
+  addressState?: string;
+  propertyType?: PropertyType;
+  status?: PropertyStatus;
+  minRent?: number;
+  maxRent?: number;
+  minSalePrice?: number;
+  maxSalePrice?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  page?: number;
+  limit?: number;
+}
