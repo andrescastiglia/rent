@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { authApi } from '@/api/auth';
@@ -24,6 +25,7 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
   const [token, setTokenState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     let mounted = true;
@@ -68,11 +70,12 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
   const register = useCallback((payload: RegisterRequest) => authApi.register(payload), []);
 
   const logout = useCallback(async () => {
-    await clearAuth();
+    await Promise.all([clearAuth(), queryClient.cancelQueries()]);
+    queryClient.clear();
     setTokenState(null);
     setUserState(null);
     router.replace('/(auth)/login');
-  }, [router]);
+  }, [queryClient, router]);
 
   useEffect(() => {
     const unsubscribe = setSessionExpiredHandler(() => {
