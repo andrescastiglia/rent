@@ -105,6 +105,17 @@ type BackendUpdatePropertyPayload = Partial<
 };
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
+let mockIdCounter = 0;
+
+const createMockId = (prefix: string): string => {
+  const randomUuid = globalThis.crypto?.randomUUID?.();
+  if (randomUuid) {
+    return `${prefix}-${randomUuid}`;
+  }
+
+  mockIdCounter += 1;
+  return `${prefix}-${Date.now()}-${mockIdCounter}`;
+};
 
 const isPaginatedResponse = <T>(value: any): value is PaginatedResponse<T> => {
   return !!value && typeof value === "object" && Array.isArray(value.data);
@@ -491,7 +502,7 @@ const mapBackendFeatures = (
       const id =
         typeof feature?.id === "string"
           ? feature.id
-          : Math.random().toString(36).slice(2);
+          : createMockId("property");
       const name =
         typeof feature?.name === "string"
           ? feature.name
@@ -823,14 +834,14 @@ export const propertiesApi = {
         type: data.type,
         address: data.address,
         images: data.images || [],
-        id: Math.random().toString(36).substring(2, 11),
+        id: createMockId("feature"),
         status: "ACTIVE",
         ownerId: data.ownerId ?? currentUserId ?? "owner-1",
         features: (data.features || []).map((f): PropertyFeature => {
           const feature: PropertyFeature = {
             name: f.name,
             value: f.value,
-            id: Math.random().toString(36).substring(2, 11),
+            id: createMockId("unit"),
           };
           return feature;
         }),
@@ -863,7 +874,7 @@ export const propertiesApi = {
             const feature: PropertyFeature = {
               name: f.name,
               value: f.value,
-              id: Math.random().toString(36).substring(2, 11),
+              id: createMockId("image"),
             };
             return feature;
           })
@@ -928,7 +939,7 @@ export const propertiesApi = {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
       const newVisit: PropertyVisit = {
-        id: `visit-${Math.random().toString(36).slice(2)}`,
+        id: createMockId("visit"),
         propertyId,
         visitedAt: data.visitedAt ?? new Date().toISOString(),
         interestedName: data.interestedName,
@@ -960,7 +971,7 @@ export const propertiesApi = {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
       const newTask: PropertyMaintenanceTask = {
-        id: `visit-${Math.random().toString(36).slice(2)}`,
+        id: createMockId("visit"),
         propertyId,
         scheduledAt: data.scheduledAt ?? new Date().toISOString(),
         title: data.title,

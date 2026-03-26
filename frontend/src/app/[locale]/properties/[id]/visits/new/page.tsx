@@ -27,7 +27,7 @@ export default function CreatePropertyVisitPage() {
     const now = new Date();
     const offsetMinutes = now.getTimezoneOffset();
     const local = new Date(now.getTime() - offsetMinutes * 60000);
-    return local.toISOString().slice(0, 16);
+    return local.toISOString().slice(0, 10);
   }, []);
 
   const [form, setForm] = useState({
@@ -75,7 +75,7 @@ export default function CreatePropertyVisitPage() {
     }
 
     const payload: CreatePropertyVisitInput = {
-      visitedAt: parsedVisitedAt.toISOString(),
+      visitedAt: form.visitedAt,
       interestedName: form.interestedName.trim(),
       comments: form.comments.trim() || undefined,
       hasOffer: form.hasOffer,
@@ -155,11 +155,11 @@ export default function CreatePropertyVisitPage() {
                 htmlFor="visitDate"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
-                Fecha y hora de visita
+                Fecha de visita
               </label>
               <input
                 id="visitDate"
-                type="datetime-local"
+                type="date"
                 value={form.visitedAt}
                 onChange={(event) =>
                   setForm((prev) => ({

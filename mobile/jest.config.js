@@ -24,5 +24,13 @@ module.exports = {
     '!src/**/*.d.ts',
   ],
   coveragePathIgnorePatterns: ['/node_modules/'],
+  coverageThreshold: {
+    global: {
+      statements: 80,
+      lines: 80,
+      functions: 80,
+      branches: 70,
+    },
+  },
   clearMocks: true,
 };
