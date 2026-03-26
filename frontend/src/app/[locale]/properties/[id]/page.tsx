@@ -4,7 +4,11 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
-import { Property, PropertyMaintenanceTask } from "@/types/property";
+import {
+  Property,
+  PropertyMaintenanceTask,
+  PropertyVisit,
+} from "@/types/property";
 import { propertiesApi } from "@/lib/api/properties";
 import { leasesApi } from "@/lib/api/leases";
 import { Lease } from "@/types/lease";
@@ -20,6 +24,7 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  CalendarDays,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
@@ -163,6 +168,7 @@ export default function PropertyDetailPage() {
   const propertyId = Array.isArray(params.id) ? params.id[0] : params.id;
   const router = useLocalizedRouter();
   const [property, setProperty] = useState<Property | null>(null);
+  const [visits, setVisits] = useState<PropertyVisit[]>([]);
   const [maintenanceTasks, setMaintenanceTasks] = useState<
     PropertyMaintenanceTask[]
   >([]);
@@ -219,13 +225,17 @@ export default function PropertyDetailPage() {
   const loadProperty = useCallback(
     async (id: string) => {
       try {
-        const [data, visitData, leaseData] = await Promise.all([
-          propertiesApi.getById(id),
-          propertiesApi.getMaintenanceTasks(id),
-          loadLeasesForProperty(id),
-        ]);
+        const [data, visitData, maintenanceData, leaseData] = await Promise.all(
+          [
+            propertiesApi.getById(id),
+            propertiesApi.getVisits(id),
+            propertiesApi.getMaintenanceTasks(id),
+            loadLeasesForProperty(id),
+          ],
+        );
         setProperty(data);
-        setMaintenanceTasks(visitData);
+        setVisits(visitData);
+        setMaintenanceTasks(maintenanceData);
         setLeasesForProperty(leaseData);
       } catch (error) {
         console.error("Failed to load property", error);
@@ -505,45 +515,108 @@ export default function PropertyDetailPage() {
               </section>
 
               <section id="maintenance-tasks">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    {t("maintenanceTasks")}
-                  </h2>
-                  <Link
-                    href={`/${locale}/properties/${property.id}/maintenance/new`}
-                    className="inline-flex items-center px-3 py-2 rounded-md border border-blue-300 dark:border-blue-700 text-sm text-blue-700 dark:text-blue-300"
-                  >
-                    {t("saveMaintenanceTask")}
-                  </Link>
-                </div>
-
-                <div className="mt-6 space-y-4">
-                  {maintenanceTasks.length > 0 ? (
-                    maintenanceTasks.map((task) => (
-                      <div
-                        key={task.id}
-                        className="border border-gray-100 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-gray-800"
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <div>
+                    <div className="mb-4 flex items-center justify-between">
+                      <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                        Visitas comerciales
+                      </h2>
+                      <Link
+                        href={`/${locale}/properties/${property.id}/visits/new`}
+                        className="inline-flex items-center gap-2 rounded-md border border-emerald-300 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-700 dark:text-emerald-300"
                       >
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="font-semibold text-gray-900 dark:text-white">
-                            {task.title}
-                          </p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {new Date(task.scheduledAt).toLocaleString()}
-                          </p>
-                        </div>
-                        {task.notes && (
-                          <p className="text-gray-600 dark:text-gray-300 mb-2">
-                            {task.notes}
-                          </p>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-gray-500 dark:text-gray-400 italic">
-                      {t("noMaintenanceTasks")}
-                    </p>
-                  )}
+                        <CalendarDays size={16} />
+                        Registrar visita
+                      </Link>
+                    </div>
+
+                    <div className="space-y-4">
+                      {visits.length > 0 ? (
+                        visits.map((visit) => (
+                          <div
+                            key={visit.id}
+                            className="border border-gray-100 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-gray-800"
+                          >
+                            <div className="mb-2 flex items-center justify-between">
+                              <p className="font-semibold text-gray-900 dark:text-white">
+                                {visit.interestedName ||
+                                  "Interesado sin nombre"}
+                              </p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                {new Date(visit.visitedAt).toLocaleString(
+                                  locale,
+                                )}
+                              </p>
+                            </div>
+                            {visit.comments ? (
+                              <p className="mb-2 text-gray-600 dark:text-gray-300">
+                                {visit.comments}
+                              </p>
+                            ) : null}
+                            {visit.hasOffer && visit.offerAmount ? (
+                              <p className="text-sm text-emerald-700 dark:text-emerald-300">
+                                Oferta: {visit.offerCurrency ?? "ARS"}{" "}
+                                {visit.offerAmount.toLocaleString(locale)}
+                              </p>
+                            ) : (
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                Sin oferta registrada
+                              </p>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-gray-500 dark:text-gray-400 italic">
+                          No hay visitas registradas todavía.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="mb-4 flex items-center justify-between">
+                      <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                        {t("maintenanceTasks")}
+                      </h2>
+                      <Link
+                        href={`/${locale}/properties/${property.id}/maintenance/new`}
+                        className="inline-flex items-center px-3 py-2 rounded-md border border-blue-300 dark:border-blue-700 text-sm text-blue-700 dark:text-blue-300"
+                      >
+                        {t("saveMaintenanceTask")}
+                      </Link>
+                    </div>
+
+                    <div className="space-y-4">
+                      {maintenanceTasks.length > 0 ? (
+                        maintenanceTasks.map((task) => (
+                          <div
+                            key={task.id}
+                            className="border border-gray-100 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-gray-800"
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="font-semibold text-gray-900 dark:text-white">
+                                {task.title}
+                              </p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                {new Date(task.scheduledAt).toLocaleString(
+                                  locale,
+                                )}
+                              </p>
+                            </div>
+                            {task.notes && (
+                              <p className="text-gray-600 dark:text-gray-300 mb-2">
+                                {task.notes}
+                              </p>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-gray-500 dark:text-gray-400 italic">
+                          {t("noMaintenanceTasks")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </section>
             </div>

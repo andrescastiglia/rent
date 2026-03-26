@@ -8,15 +8,31 @@ type ScreenProps = PropsWithChildren<{
   scrollViewTestID?: string;
 }>;
 
-export function Screen({ children, padded = true, scrollable = true, scrollViewTestID }: ScreenProps) {
+export function Screen({
+  children,
+  padded = true,
+  scrollable = true,
+  scrollViewTestID,
+}: ScreenProps) {
   const content = (
-    <View style={[styles.content, !scrollable && styles.fill, padded && styles.padded]}>{children}</View>
+    <View
+      style={[
+        styles.content,
+        !scrollable && styles.fill,
+        padded && styles.padded,
+      ]}
+    >
+      {children}
+    </View>
   );
 
   return (
     <SafeAreaView style={styles.safeArea}>
       {scrollable ? (
-        <ScrollView testID={scrollViewTestID} contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          testID={scrollViewTestID}
+          contentContainerStyle={styles.scrollContent}
+        >
           {content}
         </ScrollView>
       ) : (

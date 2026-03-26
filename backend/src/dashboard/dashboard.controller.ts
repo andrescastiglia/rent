@@ -1,6 +1,7 @@
 import { Controller, Get, UseGuards, Request, Query } from '@nestjs/common';
 import { DashboardService } from './dashboard.service';
 import { DashboardStatsDto } from './dto/dashboard-stats.dto';
+import { DashboardOperationsOverviewDto } from './dto/dashboard-operations-overview.dto';
 import { RecentActivityDto } from './dto/recent-activity.dto';
 import { ReportJobsDto } from './dto/report-jobs.dto';
 import { RecentActivityQueryDto } from './dto/recent-activity-query.dto';
@@ -18,6 +19,14 @@ export class DashboardController {
   async getStats(@Request() req: any): Promise<DashboardStatsDto> {
     const companyId = req.user.companyId;
     return this.dashboardService.getStats(companyId, req.user);
+  }
+
+  @Get('operations-overview')
+  async getOperationsOverview(
+    @Request() req: any,
+  ): Promise<DashboardOperationsOverviewDto> {
+    const companyId = req.user.companyId;
+    return this.dashboardService.getOperationsOverview(companyId, req.user);
   }
 
   @Get('recent-activity')

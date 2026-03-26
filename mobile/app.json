@@ -31,11 +31,7 @@
     "experiments": {
       "typedRoutes": true
     },
-    "plugins": [
-      "expo-router",
-      "expo-secure-store",
-      "expo-localization"
-    ],
+    "plugins": ["expo-router", "expo-secure-store", "expo-localization"],
     "extra": {
       "router": {},
       "eas": {

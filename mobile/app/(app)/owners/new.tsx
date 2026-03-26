@@ -36,15 +36,28 @@ export default function NewOwnerScreen() {
       router.replace('/(app)/(tabs)/properties');
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.saveError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.saveError'),
+      );
     },
   });
 
   return (
     <Screen>
       <H1>{t('properties.createOwnerTitle')}</H1>
-      <Field label={t('properties.ownerFields.firstName')} value={firstName} onChangeText={setFirstName} testID="ownerCreate.firstName" />
-      <Field label={t('properties.ownerFields.lastName')} value={lastName} onChangeText={setLastName} testID="ownerCreate.lastName" />
+      <Field
+        label={t('properties.ownerFields.firstName')}
+        value={firstName}
+        onChangeText={setFirstName}
+        testID="ownerCreate.firstName"
+      />
+      <Field
+        label={t('properties.ownerFields.lastName')}
+        value={lastName}
+        onChangeText={setLastName}
+        testID="ownerCreate.lastName"
+      />
       <Field
         label={t('auth.email')}
         value={email}
@@ -53,7 +66,13 @@ export default function NewOwnerScreen() {
         keyboardType="email-address"
         testID="ownerCreate.email"
       />
-      <Field label={t('properties.ownerFields.phone')} value={phone} onChangeText={setPhone} keyboardType="phone-pad" testID="ownerCreate.phone" />
+      <Field
+        label={t('properties.ownerFields.phone')}
+        value={phone}
+        onChangeText={setPhone}
+        keyboardType="phone-pad"
+        testID="ownerCreate.phone"
+      />
 
       <View style={styles.actions}>
         <AppButton

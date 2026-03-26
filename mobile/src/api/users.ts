@@ -101,7 +101,8 @@ export const usersApi = {
         email: payload.email?.trim().toLowerCase() ?? current.email,
         firstName: payload.firstName?.trim() ?? current.firstName,
         lastName: payload.lastName?.trim() ?? current.lastName,
-        phone: payload.phone === undefined ? current.phone : payload.phone || null,
+        phone:
+          payload.phone === undefined ? current.phone : payload.phone || null,
       };
       MOCK_USERS[index] = updated;
       return updated;
@@ -127,7 +128,10 @@ export const usersApi = {
     return apiClient.patch<User>(`/users/${id}/activation`, { isActive });
   },
 
-  async resetPassword(id: string, newPassword?: string): Promise<ResetUserPasswordResult> {
+  async resetPassword(
+    id: string,
+    newPassword?: string,
+  ): Promise<ResetUserPasswordResult> {
     if (IS_MOCK_MODE) {
       return {
         message: 'Password changed successfully',
@@ -135,7 +139,10 @@ export const usersApi = {
       };
     }
 
-    return apiClient.post<ResetUserPasswordResult>(`/users/${id}/reset-password`, { newPassword });
+    return apiClient.post<ResetUserPasswordResult>(
+      `/users/${id}/reset-password`,
+      { newPassword },
+    );
   },
 
   async delete(id: string): Promise<void> {

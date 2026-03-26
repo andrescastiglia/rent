@@ -9,7 +9,8 @@ import { Screen } from '@/components/screen';
 import { AppButton, DateField, Field, H1 } from '@/components/ui';
 import { i18n } from '@/i18n';
 
-const toDateInput = (value?: string | null) => (value ? value.slice(0, 10) : new Date().toISOString().slice(0, 10));
+const toDateInput = (value?: string | null) =>
+  value ? value.slice(0, 10) : new Date().toISOString().slice(0, 10);
 
 const formatAmount = (amount: number, currencyCode = 'ARS') =>
   new Intl.NumberFormat(i18n.language || 'es', {
@@ -45,7 +46,10 @@ export default function OwnerPayScreen() {
   );
 
   const completedSettlements = useMemo(
-    () => (settlementsQuery.data ?? []).filter((item) => item.status === 'completed'),
+    () =>
+      (settlementsQuery.data ?? []).filter(
+        (item) => item.status === 'completed',
+      ),
     [settlementsQuery.data],
   );
 
@@ -79,13 +83,23 @@ export default function OwnerPayScreen() {
       });
     },
     onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: ['owners', 'settlements', id] });
-      await queryClient.invalidateQueries({ queryKey: ['owners', 'settlements'] });
-      Alert.alert(t('common.success'), `${t('properties.ownerSettlement')} ${result.period}`);
+      await queryClient.invalidateQueries({
+        queryKey: ['owners', 'settlements', id],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['owners', 'settlements'],
+      });
+      Alert.alert(
+        t('common.success'),
+        `${t('properties.ownerSettlement')} ${result.period}`,
+      );
       router.back();
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.saveError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.saveError'),
+      );
     },
   });
 
@@ -93,12 +107,18 @@ export default function OwnerPayScreen() {
     <Screen>
       <H1>{t('properties.registerOwnerPayment')}</H1>
       <Text style={styles.subtitle}>
-        {ownerQuery.data ? `${ownerQuery.data.firstName} ${ownerQuery.data.lastName}` : `${t('properties.ownersTitle')} ${id}`}
+        {ownerQuery.data
+          ? `${ownerQuery.data.firstName} ${ownerQuery.data.lastName}`
+          : `${t('properties.ownersTitle')} ${id}`}
       </Text>
 
-      <Text style={styles.sectionTitle}>{t('properties.ownerNoPendingSettlements')}</Text>
+      <Text style={styles.sectionTitle}>
+        {t('properties.ownerNoPendingSettlements')}
+      </Text>
       {pendingSettlements.length === 0 ? (
-        <Text style={styles.empty}>{t('properties.ownerNoPendingSettlements')}</Text>
+        <Text style={styles.empty}>
+          {t('properties.ownerNoPendingSettlements')}
+        </Text>
       ) : (
         <View style={styles.list}>
           {pendingSettlements.map((settlement) => {
@@ -106,13 +126,20 @@ export default function OwnerPayScreen() {
             return (
               <Pressable
                 key={settlement.id}
-                style={[styles.settlementCard, selected && styles.settlementCardSelected]}
+                style={[
+                  styles.settlementCard,
+                  selected && styles.settlementCardSelected,
+                ]}
                 onPress={() => setSettlementId(settlement.id)}
                 testID={`ownerPay.settlement.${settlement.id}`}
               >
                 <Text style={styles.settlementPeriod}>{settlement.period}</Text>
-                <Text style={styles.settlementAmount}>{formatAmount(settlement.netAmount, settlement.currencyCode)}</Text>
-                <Text style={styles.settlementMeta}>{`${t('payments.amount')}: ${formatAmount(settlement.grossAmount, settlement.currencyCode)} · ${t('dashboard.stats.monthlyCommissions')}: ${formatAmount(settlement.commissionAmount, settlement.currencyCode)}`}</Text>
+                <Text style={styles.settlementAmount}>
+                  {formatAmount(settlement.netAmount, settlement.currencyCode)}
+                </Text>
+                <Text
+                  style={styles.settlementMeta}
+                >{`${t('payments.amount')}: ${formatAmount(settlement.grossAmount, settlement.currencyCode)} · ${t('dashboard.stats.monthlyCommissions')}: ${formatAmount(settlement.commissionAmount, settlement.currencyCode)}`}</Text>
                 <Text style={styles.settlementStatus}>{settlement.status}</Text>
               </Pressable>
             );
@@ -123,9 +150,14 @@ export default function OwnerPayScreen() {
       {selectedSettlement ? (
         <View style={styles.formBlock}>
           <View style={styles.amountBox} testID="ownerPay.amount">
-            <Text style={styles.amountLabel}>{t('properties.amountToPay')}</Text>
+            <Text style={styles.amountLabel}>
+              {t('properties.amountToPay')}
+            </Text>
             <Text style={styles.amountValue}>
-              {formatAmount(selectedSettlement.netAmount, selectedSettlement.currencyCode)}
+              {formatAmount(
+                selectedSettlement.netAmount,
+                selectedSettlement.currencyCode,
+              )}
             </Text>
           </View>
           <DateField
@@ -134,8 +166,18 @@ export default function OwnerPayScreen() {
             onChange={setPaymentDate}
             testID="ownerPay.paymentDate"
           />
-          <Field label={t('properties.reference')} value={reference} onChangeText={setReference} testID="ownerPay.reference" />
-          <Field label={t('properties.notes')} value={notes} onChangeText={setNotes} testID="ownerPay.notes" />
+          <Field
+            label={t('properties.reference')}
+            value={reference}
+            onChangeText={setReference}
+            testID="ownerPay.reference"
+          />
+          <Field
+            label={t('properties.notes')}
+            value={notes}
+            onChangeText={setNotes}
+            testID="ownerPay.notes"
+          />
 
           <View style={styles.actions}>
             <AppButton
@@ -149,17 +191,28 @@ export default function OwnerPayScreen() {
       ) : null}
 
       <View style={styles.history}>
-        <Text style={styles.sectionTitle}>{t('properties.ownerRecentPayments')}</Text>
-        {completedSettlements.length === 0 ? <Text style={styles.empty}>{t('properties.ownerNoRecentPayments')}</Text> : null}
+        <Text style={styles.sectionTitle}>
+          {t('properties.ownerRecentPayments')}
+        </Text>
+        {completedSettlements.length === 0 ? (
+          <Text style={styles.empty}>
+            {t('properties.ownerNoRecentPayments')}
+          </Text>
+        ) : null}
         {completedSettlements.map((settlement) => (
           <View key={settlement.id} style={styles.historyCard}>
             <Text style={styles.historyPeriod}>{settlement.period}</Text>
-            <Text style={styles.historyAmount}>{formatAmount(settlement.netAmount, settlement.currencyCode)}</Text>
+            <Text style={styles.historyAmount}>
+              {formatAmount(settlement.netAmount, settlement.currencyCode)}
+            </Text>
             <AppButton
               title={t('properties.downloadOwnerReceipt')}
               variant="secondary"
               onPress={() => {
-                void ownersApi.downloadSettlementReceipt(settlement.ownerId, settlement.id);
+                void ownersApi.downloadSettlementReceipt(
+                  settlement.ownerId,
+                  settlement.id,
+                );
               }}
               testID={`ownerPay.download.${settlement.id}`}
             />

@@ -1,58 +1,65 @@
-import { Lease } from "./lease";
+import { Lease } from './lease';
 
 /**
  * Estado del pago
  */
 export type PaymentStatus =
-  | "pending"
-  | "processing"
-  | "completed"
-  | "failed"
-  | "refunded"
-  | "cancelled";
+  | 'pending'
+  | 'processing'
+  | 'completed'
+  | 'failed'
+  | 'refunded'
+  | 'cancelled';
 
 /**
  * Método de pago
  */
 export type PaymentMethod =
-  | "cash"
-  | "bank_transfer"
-  | "credit_card"
-  | "debit_card"
-  | "check"
-  | "digital_wallet"
-  | "crypto"
-  | "other";
+  | 'cash'
+  | 'bank_transfer'
+  | 'credit_card'
+  | 'debit_card'
+  | 'check'
+  | 'digital_wallet'
+  | 'crypto'
+  | 'other';
+
+export type PaymentActivityType =
+  | 'monthly'
+  | 'annual'
+  | 'adjustment'
+  | 'late_fee'
+  | 'extraordinary';
 
 /**
  * Estado de la factura
  */
 export type InvoiceStatus =
-  | "draft"
-  | "pending"
-  | "sent"
-  | "partial"
-  | "paid"
-  | "overdue"
-  | "cancelled"
-  | "refunded";
+  | 'draft'
+  | 'pending'
+  | 'sent'
+  | 'partial'
+  | 'paid'
+  | 'overdue'
+  | 'cancelled'
+  | 'refunded';
 
-export type CreditNoteStatus = "draft" | "issued" | "cancelled";
-export type PaymentDocumentTemplateType = "receipt" | "invoice" | "credit_note";
+export type CreditNoteStatus = 'draft' | 'issued' | 'cancelled';
+export type PaymentDocumentTemplateType = 'receipt' | 'invoice' | 'credit_note';
 
 /**
  * Tipo de movimiento en cuenta corriente
  */
 export type MovementType =
-  | "charge"
-  | "payment"
-  | "adjustment"
-  | "refund"
-  | "interest"
-  | "late_fee"
-  | "discount";
+  | 'charge'
+  | 'payment'
+  | 'adjustment'
+  | 'refund'
+  | 'interest'
+  | 'late_fee'
+  | 'discount';
 
-export type PaymentItemType = "charge" | "discount";
+export type PaymentItemType = 'charge' | 'discount';
 
 export interface PaymentItem {
   id: string;
@@ -167,6 +174,7 @@ export interface Payment {
   paymentDate: string;
   processedAt?: string | null;
   method: PaymentMethod;
+  activityType: PaymentActivityType;
   reference: string | null;
   status: PaymentStatus;
   notes: string | null;
@@ -225,9 +233,10 @@ export interface CreatePaymentInput {
   currencyCode?: string;
   paymentDate: string;
   method: PaymentMethod;
+  activityType?: PaymentActivityType;
   reference?: string;
   notes?: string;
-  items?: Omit<PaymentItem, "id" | "paymentId">[];
+  items?: Omit<PaymentItem, 'id' | 'paymentId'>[];
 }
 
 /**
@@ -237,8 +246,10 @@ export interface PaymentFilters {
   tenantId?: string;
   tenantAccountId?: string;
   leaseId?: string;
+  propertyId?: string;
   status?: PaymentStatus;
   method?: PaymentMethod;
+  activityType?: PaymentActivityType;
   fromDate?: string;
   toDate?: string;
   page?: number;

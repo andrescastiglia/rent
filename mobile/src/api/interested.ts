@@ -12,7 +12,13 @@ import type {
   InterestedSummary,
   UpdateInterestedProfileInput,
 } from '@/types/interested';
-import type { Property, PropertyOperation, PropertyOperationState, PropertyStatus, PropertyType } from '@/types/property';
+import type {
+  Property,
+  PropertyOperation,
+  PropertyOperationState,
+  PropertyStatus,
+  PropertyType,
+} from '@/types/property';
 
 type PaginatedResponse<T> = {
   data: T[];
@@ -36,7 +42,8 @@ const toOptionalString = (value: unknown): string | undefined =>
 const deriveInterestedOperations = (raw: any): InterestedOperation[] => {
   if (Array.isArray(raw?.operations)) {
     const normalized = raw.operations.filter(
-      (item: unknown): item is InterestedOperation => item === 'rent' || item === 'sale',
+      (item: unknown): item is InterestedOperation =>
+        item === 'rent' || item === 'sale',
     );
     if (normalized.length > 0) return normalized;
   }
@@ -84,18 +91,27 @@ const mapPropertyStatus = (value?: string | null): PropertyStatus => {
 const mapPropertyOperations = (raw: any): PropertyOperation[] => {
   if (Array.isArray(raw?.operations)) {
     const normalized = raw.operations
-      .map((item: unknown) => (typeof item === 'string' ? item.toLowerCase() : ''))
-      .filter((item: string): item is PropertyOperation => item === 'rent' || item === 'sale');
+      .map((item: unknown) =>
+        typeof item === 'string' ? item.toLowerCase() : '',
+      )
+      .filter(
+        (item: string): item is PropertyOperation =>
+          item === 'rent' || item === 'sale',
+      );
     if (normalized.length > 0) return normalized;
   }
 
   const operations: PropertyOperation[] = [];
-  if (raw?.rentPrice !== null && raw?.rentPrice !== undefined) operations.push('rent');
-  if (raw?.salePrice !== null && raw?.salePrice !== undefined) operations.push('sale');
+  if (raw?.rentPrice !== null && raw?.rentPrice !== undefined)
+    operations.push('rent');
+  if (raw?.salePrice !== null && raw?.salePrice !== undefined)
+    operations.push('sale');
   return operations.length > 0 ? operations : ['rent'];
 };
 
-const mapPropertyOperationState = (value?: string | null): PropertyOperationState => {
+const mapPropertyOperationState = (
+  value?: string | null,
+): PropertyOperationState => {
   switch ((value ?? '').toLowerCase()) {
     case 'rented':
       return 'rented';
@@ -160,7 +176,9 @@ const mapProperty = (raw: any): Property => ({
   operations: mapPropertyOperations(raw),
   operationState: mapPropertyOperationState(raw.operationState),
   allowsPets: raw.allowsPets ?? undefined,
-  acceptedGuaranteeTypes: Array.isArray(raw.acceptedGuaranteeTypes) ? raw.acceptedGuaranteeTypes : undefined,
+  acceptedGuaranteeTypes: Array.isArray(raw.acceptedGuaranteeTypes)
+    ? raw.acceptedGuaranteeTypes
+    : undefined,
   maxOccupants: toOptionalNumber(raw.maxOccupants),
   createdAt: toIso(raw.createdAt),
   updatedAt: toIso(raw.updatedAt),
@@ -178,10 +196,16 @@ const mapProfile = (raw: any): InterestedProfile => {
     minAmount: toOptionalNumber(raw.minAmount),
     maxAmount: toOptionalNumber(raw.maxAmount),
     hasPets: typeof raw.hasPets === 'boolean' ? raw.hasPets : undefined,
-    guaranteeTypes: Array.isArray(raw.guaranteeTypes) ? raw.guaranteeTypes : undefined,
-    preferredZones: Array.isArray(raw.preferredZones) ? raw.preferredZones : undefined,
+    guaranteeTypes: Array.isArray(raw.guaranteeTypes)
+      ? raw.guaranteeTypes
+      : undefined,
+    preferredZones: Array.isArray(raw.preferredZones)
+      ? raw.preferredZones
+      : undefined,
     preferredCity: toOptionalString(raw.preferredCity),
-    desiredFeatures: Array.isArray(raw.desiredFeatures) ? raw.desiredFeatures : undefined,
+    desiredFeatures: Array.isArray(raw.desiredFeatures)
+      ? raw.desiredFeatures
+      : undefined,
     propertyTypePreference: raw.propertyTypePreference ?? undefined,
     operation: raw.operation ?? operations[0],
     operations,
@@ -195,10 +219,15 @@ const mapProfile = (raw: any): InterestedProfile => {
     lastContactAt: raw.lastContactAt ? toIso(raw.lastContactAt) : undefined,
     nextContactAt: raw.nextContactAt ? toIso(raw.nextContactAt) : undefined,
     lostReason: toOptionalString(raw.lostReason),
-    consentContact: typeof raw.consentContact === 'boolean' ? raw.consentContact : undefined,
-    consentRecordedAt: raw.consentRecordedAt ? toIso(raw.consentRecordedAt) : undefined,
+    consentContact:
+      typeof raw.consentContact === 'boolean' ? raw.consentContact : undefined,
+    consentRecordedAt: raw.consentRecordedAt
+      ? toIso(raw.consentRecordedAt)
+      : undefined,
     convertedToTenantId: toOptionalString(raw.convertedToTenantId),
-    convertedToSaleAgreementId: toOptionalString(raw.convertedToSaleAgreementId),
+    convertedToSaleAgreementId: toOptionalString(
+      raw.convertedToSaleAgreementId,
+    ),
     notes: toOptionalString(raw.notes),
     createdAt: toIso(raw.createdAt),
     updatedAt: toIso(raw.updatedAt),
@@ -247,7 +276,9 @@ const mapSummary = (raw: any): InterestedSummary => ({
         changedByUserId: toOptionalString(item.changedByUserId),
       }))
     : [],
-  activities: Array.isArray(raw.activities) ? raw.activities.map(mapActivity) : [],
+  activities: Array.isArray(raw.activities)
+    ? raw.activities.map(mapActivity)
+    : [],
   matches: Array.isArray(raw.matches) ? raw.matches.map(mapMatch) : [],
   visits: Array.isArray(raw.visits)
     ? raw.visits.map((visit: any) => ({
@@ -256,7 +287,8 @@ const mapSummary = (raw: any): InterestedSummary => ({
         visitedAt: toIso(visit.visitedAt),
         interestedName: toOptionalString(visit.interestedName),
         comments: toOptionalString(visit.comments),
-        hasOffer: typeof visit.hasOffer === 'boolean' ? visit.hasOffer : undefined,
+        hasOffer:
+          typeof visit.hasOffer === 'boolean' ? visit.hasOffer : undefined,
         offerAmount: toOptionalNumber(visit.offerAmount),
         offerCurrency: toOptionalString(visit.offerCurrency),
         property: visit.property ? mapProperty(visit.property) : undefined,
@@ -264,7 +296,12 @@ const mapSummary = (raw: any): InterestedSummary => ({
     : [],
 });
 
-const createMockProperty = (id: string, name: string, operations: PropertyOperation[], rentPrice?: number): Property => ({
+const createMockProperty = (
+  id: string,
+  name: string,
+  operations: PropertyOperation[],
+  rentPrice?: number,
+): Property => ({
   id,
   name,
   type: 'APARTMENT',
@@ -290,8 +327,18 @@ const createMockProperty = (id: string, name: string, operations: PropertyOperat
   updatedAt: new Date().toISOString(),
 });
 
-const MOCK_PROPERTY_A = createMockProperty('property-1', 'Departamento Palermo', ['rent'], 750000);
-const MOCK_PROPERTY_B = createMockProperty('property-2', 'Casa Caballito', ['rent', 'sale'], 980000);
+const MOCK_PROPERTY_A = createMockProperty(
+  'property-1',
+  'Departamento Palermo',
+  ['rent'],
+  750000,
+);
+const MOCK_PROPERTY_B = createMockProperty(
+  'property-2',
+  'Casa Caballito',
+  ['rent', 'sale'],
+  980000,
+);
 
 let MOCK_INTERESTED: InterestedProfile[] = [
   {
@@ -370,15 +417,21 @@ let MOCK_ACTIVITIES: InterestedActivity[] = [
   },
 ];
 
-const getProfileOperations = (profile: InterestedProfile): InterestedOperation[] =>
+const getProfileOperations = (
+  profile: InterestedProfile,
+): InterestedOperation[] =>
   profile.operations ?? (profile.operation ? [profile.operation] : ['rent']);
 
-const filterMockInterested = (data: InterestedProfile[], filters?: InterestedFilters): InterestedProfile[] => {
+const filterMockInterested = (
+  data: InterestedProfile[],
+  filters?: InterestedFilters,
+): InterestedProfile[] => {
   if (!filters) return data;
   return data.filter((profile) => {
     if (filters.name) {
       const needle = filters.name.toLowerCase();
-      const fullName = `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.toLowerCase();
+      const fullName =
+        `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.toLowerCase();
       if (
         !fullName.includes(needle) &&
         !(profile.phone ?? '').toLowerCase().includes(needle) &&
@@ -387,39 +440,53 @@ const filterMockInterested = (data: InterestedProfile[], filters?: InterestedFil
         return false;
       }
     }
-    if (filters.operation && !getProfileOperations(profile).includes(filters.operation)) return false;
+    if (
+      filters.operation &&
+      !getProfileOperations(profile).includes(filters.operation)
+    )
+      return false;
     if (filters.status && profile.status !== filters.status) return false;
     return true;
   });
 };
 
-const fetchInterested = async (filters?: InterestedFilters): Promise<PaginatedResponse<InterestedProfile>> => {
-    if (IS_MOCK_MODE) {
-      const data = filterMockInterested([...MOCK_INTERESTED], filters);
-      return {
-        data,
-        total: data.length,
-        page: 1,
-        limit: filters?.limit ?? 100,
-      };
-    }
-
-    const queryParams = new URLSearchParams();
-    if (filters?.name) queryParams.append('name', filters.name);
-    if (filters?.phone) queryParams.append('phone', filters.phone);
-    if (filters?.operation) queryParams.append('operation', filters.operation);
-    if (filters?.propertyTypePreference) queryParams.append('propertyTypePreference', filters.propertyTypePreference);
-    if (filters?.status) queryParams.append('status', filters.status);
-    if (filters?.qualificationLevel) queryParams.append('qualificationLevel', filters.qualificationLevel);
-    if (filters?.page) queryParams.append('page', String(filters.page));
-    if (filters?.limit) queryParams.append('limit', String(filters.limit));
-
-    const endpoint = queryParams.toString().length > 0 ? `/interested?${queryParams.toString()}` : '/interested';
-    const result = await apiClient.get<PaginatedResponse<any>>(endpoint);
+const fetchInterested = async (
+  filters?: InterestedFilters,
+): Promise<PaginatedResponse<InterestedProfile>> => {
+  if (IS_MOCK_MODE) {
+    const data = filterMockInterested([...MOCK_INTERESTED], filters);
     return {
-      ...result,
-      data: result.data.map(mapProfile),
+      data,
+      total: data.length,
+      page: 1,
+      limit: filters?.limit ?? 100,
     };
+  }
+
+  const queryParams = new URLSearchParams();
+  if (filters?.name) queryParams.append('name', filters.name);
+  if (filters?.phone) queryParams.append('phone', filters.phone);
+  if (filters?.operation) queryParams.append('operation', filters.operation);
+  if (filters?.propertyTypePreference)
+    queryParams.append(
+      'propertyTypePreference',
+      filters.propertyTypePreference,
+    );
+  if (filters?.status) queryParams.append('status', filters.status);
+  if (filters?.qualificationLevel)
+    queryParams.append('qualificationLevel', filters.qualificationLevel);
+  if (filters?.page) queryParams.append('page', String(filters.page));
+  if (filters?.limit) queryParams.append('limit', String(filters.limit));
+
+  const endpoint =
+    queryParams.toString().length > 0
+      ? `/interested?${queryParams.toString()}`
+      : '/interested';
+  const result = await apiClient.get<PaginatedResponse<any>>(endpoint);
+  return {
+    ...result,
+    data: result.data.map(mapProfile),
+  };
 };
 
 export const interestedApi = {
@@ -427,7 +494,9 @@ export const interestedApi = {
     return fetchInterested();
   },
 
-  async getAllWithFilters(filters?: InterestedFilters): Promise<PaginatedResponse<InterestedProfile>> {
+  async getAllWithFilters(
+    filters?: InterestedFilters,
+  ): Promise<PaginatedResponse<InterestedProfile>> {
     return fetchInterested(filters);
   },
 
@@ -444,7 +513,9 @@ export const interestedApi = {
     }
   },
 
-  async create(payload: CreateInterestedProfileInput): Promise<InterestedProfile> {
+  async create(
+    payload: CreateInterestedProfileInput,
+  ): Promise<InterestedProfile> {
     if (IS_MOCK_MODE) {
       const now = new Date().toISOString();
       const created: InterestedProfile = {
@@ -488,7 +559,10 @@ export const interestedApi = {
     return mapProfile(result);
   },
 
-  async update(id: string, payload: UpdateInterestedProfileInput): Promise<InterestedProfile> {
+  async update(
+    id: string,
+    payload: UpdateInterestedProfileInput,
+  ): Promise<InterestedProfile> {
     if (IS_MOCK_MODE) {
       const index = MOCK_INTERESTED.findIndex((item) => item.id === id);
       if (index < 0) {
@@ -504,9 +578,13 @@ export const interestedApi = {
             ? payload.consentRecordedAt?.toISOString()
             : current.consentRecordedAt,
         lastContactAt:
-          payload.lastContactAt !== undefined ? payload.lastContactAt?.toISOString() : current.lastContactAt,
+          payload.lastContactAt !== undefined
+            ? payload.lastContactAt?.toISOString()
+            : current.lastContactAt,
         nextContactAt:
-          payload.nextContactAt !== undefined ? payload.nextContactAt?.toISOString() : current.nextContactAt,
+          payload.nextContactAt !== undefined
+            ? payload.nextContactAt?.toISOString()
+            : current.nextContactAt,
         updatedAt: new Date().toISOString(),
       };
       MOCK_INTERESTED[index] = updated;
@@ -520,8 +598,12 @@ export const interestedApi = {
   async delete(id: string): Promise<void> {
     if (IS_MOCK_MODE) {
       MOCK_INTERESTED = MOCK_INTERESTED.filter((item) => item.id !== id);
-      MOCK_MATCHES = MOCK_MATCHES.filter((item) => item.interestedProfileId !== id);
-      MOCK_ACTIVITIES = MOCK_ACTIVITIES.filter((item) => item.interestedProfileId !== id);
+      MOCK_MATCHES = MOCK_MATCHES.filter(
+        (item) => item.interestedProfileId !== id,
+      );
+      MOCK_ACTIVITIES = MOCK_ACTIVITIES.filter(
+        (item) => item.interestedProfileId !== id,
+      );
       return;
     }
 
@@ -537,7 +619,9 @@ export const interestedApi = {
       return {
         profile,
         stageHistory: [],
-        activities: MOCK_ACTIVITIES.filter((item) => item.interestedProfileId === id),
+        activities: MOCK_ACTIVITIES.filter(
+          (item) => item.interestedProfileId === id,
+        ),
         matches: MOCK_MATCHES.filter((item) => item.interestedProfileId === id),
         visits: [],
       };
@@ -570,7 +654,9 @@ export const interestedApi = {
         body: payload.body,
         dueAt: payload.dueAt ? toIso(payload.dueAt) : undefined,
         templateName: payload.templateName,
-        metadata: payload.propertyId ? { propertyId: payload.propertyId } : undefined,
+        metadata: payload.propertyId
+          ? { propertyId: payload.propertyId }
+          : undefined,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -578,7 +664,10 @@ export const interestedApi = {
       return created;
     }
 
-    const result = await apiClient.post<any>(`/interested/${id}/activities`, payload);
+    const result = await apiClient.post<any>(
+      `/interested/${id}/activities`,
+      payload,
+    );
     return mapActivity(result);
   },
 
@@ -589,7 +678,9 @@ export const interestedApi = {
     notes?: string,
   ): Promise<InterestedMatch> {
     if (IS_MOCK_MODE) {
-      const index = MOCK_MATCHES.findIndex((item) => item.id === matchId && item.interestedProfileId === id);
+      const index = MOCK_MATCHES.findIndex(
+        (item) => item.id === matchId && item.interestedProfileId === id,
+      );
       if (index < 0) {
         throw new Error('Match not found');
       }
@@ -603,7 +694,10 @@ export const interestedApi = {
       return updated;
     }
 
-    const result = await apiClient.patch<any>(`/interested/${id}/matches/${matchId}`, { status, notes });
+    const result = await apiClient.patch<any>(
+      `/interested/${id}/matches/${matchId}`,
+      { status, notes },
+    );
     return mapMatch(result);
   },
 
@@ -624,7 +718,8 @@ export const interestedApi = {
       }
 
       const current = MOCK_INTERESTED[index];
-      const convertedTenantId = current.convertedToTenantId ?? `tenant-${current.id}`;
+      const convertedTenantId =
+        current.convertedToTenantId ?? `tenant-${current.id}`;
       const updated: InterestedProfile = {
         ...current,
         convertedToTenantId: convertedTenantId,

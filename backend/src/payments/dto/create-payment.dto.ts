@@ -9,7 +9,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { PaymentMethod } from '../entities/payment.entity';
+import { PaymentActivityType, PaymentMethod } from '../entities/payment.entity';
 import { PaymentItemDto, paymentItemZodSchema } from './payment-item.dto';
 import { Type } from 'class-transformer';
 import { z } from 'zod';
@@ -39,6 +39,11 @@ export const createPaymentZodSchema = z
       .describe(
         'cash|bank_transfer|credit_card|debit_card|check|digital_wallet|crypto|other',
       ),
+    activityType: z
+      .nativeEnum(PaymentActivityType)
+      .optional()
+      .default(PaymentActivityType.MONTHLY)
+      .describe('monthly|annual|adjustment|late_fee|extraordinary'),
     reference: z.string().min(1).optional(),
     notes: z.string().min(1).optional(),
     items: z
@@ -76,6 +81,10 @@ export class CreatePaymentDto {
   @IsEnum(PaymentMethod)
   @IsNotEmpty()
   method: PaymentMethod;
+
+  @IsEnum(PaymentActivityType)
+  @IsOptional()
+  activityType?: PaymentActivityType = PaymentActivityType.MONTHLY;
 
   @IsString()
   @IsOptional()

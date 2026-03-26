@@ -1,15 +1,23 @@
-# Plan de Trabajo - Plataforma de Administración de Alquileres
+# Plan de Trabajo - Sistema de Gestión Inmobiliaria
 
 ---
 
 ## Resumen Ejecutivo
 
-Este plan de trabajo detalla la implementación completa de la Plataforma de Administración de Alquileres, basándose en:
+Este plan de trabajo detalla la implementación completa del Sistema de Gestión Inmobiliaria, basándose en:
 - **Documento de Requerimientos Funcionales (DRF)**
 - **Documento de Arquitectura Técnica (DAT)**
 - **Diagramas C4** (Contexto, Contenedores, Componentes, Código)
 - **Modelo de Datos (ERD)**
 - **Diagramas de Secuencia**
+
+## Ajuste Funcional 2026-03-26
+
+- Reorganización del ingreso operativo en dos paneles principales: `Propiedades` y `Pagos`.
+- Incorporación de vistas operativas para `Venta`, `Alquileres vigentes`, `Vencen este mes`, `Próximos cuatro meses` y `Vencidos`.
+- Registro estructurado de pagos por propiedad y contrato con clasificación por actividad.
+- Alta de alertas automáticas de renovación y job batch diario para seguimiento de vencimientos.
+- Registro de visitas comerciales a propiedades con preparación para notificación al propietario.
 
 El proyecto se divide en **9 fases principales**:
 - Fases 0-6: Core de la plataforma

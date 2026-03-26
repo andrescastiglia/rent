@@ -21,7 +21,10 @@ export default function NewUserScreen() {
       router.replace(`/(app)/users/${created.id}` as never);
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('users.errors.save'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('users.errors.save'),
+      );
     },
   });
 

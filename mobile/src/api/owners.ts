@@ -1,7 +1,12 @@
 import { apiClient } from '@/api/client';
 import { createAndShareMockPdf, downloadAndSharePdf } from '@/api/pdf';
 import { IS_MOCK_MODE } from '@/api/env';
-import type { CreateOwnerInput, Owner, OwnerSettlementSummary, UpdateOwnerInput } from '@/types/owner';
+import type {
+  CreateOwnerInput,
+  Owner,
+  OwnerSettlementSummary,
+  UpdateOwnerInput,
+} from '@/types/owner';
 
 const nowIso = () => new Date().toISOString();
 
@@ -32,7 +37,7 @@ let MOCK_OWNERS: Owner[] = [
   },
 ];
 
-let MOCK_SETTLEMENTS: OwnerSettlementSummary[] = [
+const MOCK_SETTLEMENTS: OwnerSettlementSummary[] = [
   {
     id: 'settlement-1',
     ownerId: 'owner-1',
@@ -95,9 +100,13 @@ let MOCK_SETTLEMENTS: OwnerSettlementSummary[] = [
   },
 ];
 
-const byNewest = <T extends { createdAt: string; updatedAt: string }>(items: T[]): T[] =>
+const byNewest = <T extends { createdAt: string; updatedAt: string }>(
+  items: T[],
+): T[] =>
   [...items].sort(
-    (a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime(),
+    (a, b) =>
+      new Date(b.updatedAt || b.createdAt).getTime() -
+      new Date(a.updatedAt || a.createdAt).getTime(),
   );
 
 type BackendOwner = Partial<Owner> & {
@@ -211,7 +220,10 @@ export const ownersApi = {
       return updated;
     }
 
-    const result = await apiClient.patch<BackendOwner>(`/owners/${id}`, payload);
+    const result = await apiClient.patch<BackendOwner>(
+      `/owners/${id}`,
+      payload,
+    );
     return mapOwner(result);
   },
 
@@ -221,20 +233,24 @@ export const ownersApi = {
     limit = 6,
   ): Promise<OwnerSettlementSummary[]> {
     if (IS_MOCK_MODE) {
-      const ownerSettlements = byNewest(MOCK_SETTLEMENTS).filter((settlement) => {
-        if (settlement.ownerId !== ownerId) {
-          return false;
-        }
-        if (status === 'all') {
-          return true;
-        }
-        return settlement.status === status;
-      });
+      const ownerSettlements = byNewest(MOCK_SETTLEMENTS).filter(
+        (settlement) => {
+          if (settlement.ownerId !== ownerId) {
+            return false;
+          }
+          if (status === 'all') {
+            return true;
+          }
+          return settlement.status === status;
+        },
+      );
       return ownerSettlements.slice(0, limit);
     }
 
     const params = new URLSearchParams({ status, limit: String(limit) });
-    return apiClient.get<OwnerSettlementSummary[]>(`/owners/${ownerId}/settlements?${params.toString()}`);
+    return apiClient.get<OwnerSettlementSummary[]>(
+      `/owners/${ownerId}/settlements?${params.toString()}`,
+    );
   },
 
   async registerSettlementPayment(
@@ -249,7 +265,8 @@ export const ownersApi = {
   ): Promise<OwnerSettlementSummary> {
     if (IS_MOCK_MODE) {
       const index = MOCK_SETTLEMENTS.findIndex(
-        (settlement) => settlement.id === settlementId && settlement.ownerId === ownerId,
+        (settlement) =>
+          settlement.id === settlementId && settlement.ownerId === ownerId,
       );
 
       if (index < 0) {
@@ -273,12 +290,21 @@ export const ownersApi = {
       return updated;
     }
 
-    return apiClient.post<OwnerSettlementSummary>(`/owners/${ownerId}/settlements/${settlementId}/pay`, payload);
+    return apiClient.post<OwnerSettlementSummary>(
+      `/owners/${ownerId}/settlements/${settlementId}/pay`,
+      payload,
+    );
   },
 
-  async downloadSettlementReceipt(ownerId: string, settlementId: string): Promise<void> {
+  async downloadSettlementReceipt(
+    ownerId: string,
+    settlementId: string,
+  ): Promise<void> {
     if (IS_MOCK_MODE) {
-      await createAndShareMockPdf(`owner-${ownerId}-${settlementId}-receipt`, 'Recibo de liquidacion de propietario');
+      await createAndShareMockPdf(
+        `owner-${ownerId}-${settlementId}-receipt`,
+        'Recibo de liquidacion de propietario',
+      );
       return;
     }
 

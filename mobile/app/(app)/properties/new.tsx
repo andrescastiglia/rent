@@ -22,7 +22,10 @@ export default function NewPropertyScreen() {
       router.replace(`/(app)/properties/${created.id}`);
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.saveError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.saveError'),
+      );
     },
   });
 

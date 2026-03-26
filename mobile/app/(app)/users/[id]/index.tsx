@@ -26,7 +26,10 @@ export default function UserDetailScreen() {
       await queryClient.invalidateQueries({ queryKey: ['users', id] });
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('users.errors.activation'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('users.errors.activation'),
+      );
     },
   });
 
@@ -36,16 +39,22 @@ export default function UserDetailScreen() {
     <Screen>
       <H1>{t('users.userDetails')}</H1>
       {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
-      {query.error ? <Text style={styles.error}>{(query.error as Error).message}</Text> : null}
+      {query.error ? (
+        <Text style={styles.error}>{(query.error as Error).message}</Text>
+      ) : null}
       {!query.isLoading && !user ? <Text>{t('users.noUsers')}</Text> : null}
 
       {user ? (
         <View style={styles.card}>
-          <Text style={styles.title}>{`${user.firstName} ${user.lastName}`}</Text>
+          <Text
+            style={styles.title}
+          >{`${user.firstName} ${user.lastName}`}</Text>
           <Text style={styles.detail}>{user.email}</Text>
           <Text style={styles.detail}>{user.phone ?? '-'}</Text>
           <Text style={styles.detail}>{`${t('auth.role')}: ${user.role}`}</Text>
-          <Text style={styles.detail}>{`${t('users.status')}: ${user.isActive ? t('users.active') : t('users.inactive')}`}</Text>
+          <Text
+            style={styles.detail}
+          >{`${t('users.status')}: ${user.isActive ? t('users.active') : t('users.inactive')}`}</Text>
         </View>
       ) : null}
 
@@ -67,7 +76,9 @@ export default function UserDetailScreen() {
             title={t('users.resetPassword')}
             variant="secondary"
             testID="userDetail.resetPassword"
-            onPress={() => router.push(`/(app)/users/${user.id}/reset-password` as never)}
+            onPress={() =>
+              router.push(`/(app)/users/${user.id}/reset-password` as never)
+            }
           />
         </View>
       ) : null}

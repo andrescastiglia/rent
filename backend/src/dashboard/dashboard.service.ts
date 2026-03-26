@@ -1,15 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
-import { Property } from '../properties/entities/property.entity';
+import {
+  Property,
+  PropertyOperation,
+} from '../properties/entities/property.entity';
 import {
   ContractType,
   Lease,
   LeaseStatus,
 } from '../leases/entities/lease.entity';
 import { User, UserRole } from '../users/entities/user.entity';
-import { Payment } from '../payments/entities/payment.entity';
-import { Invoice } from '../payments/entities/invoice.entity';
+import { Payment, PaymentStatus } from '../payments/entities/payment.entity';
+import { Invoice, InvoiceStatus } from '../payments/entities/invoice.entity';
 import {
   BillingJob,
   BillingJobType,
@@ -19,6 +22,14 @@ import {
   CommissionInvoiceStatus,
 } from '../payments/entities/commission-invoice.entity';
 import { DashboardStatsDto } from './dto/dashboard-stats.dto';
+import {
+  DashboardLeaseOperationItemDto,
+  DashboardOperationsOverviewDto,
+  DashboardPaymentOperationItemDto,
+  DashboardPropertiesPanelDto,
+  DashboardPaymentsPanelDto,
+  DashboardSalePropertyItemDto,
+} from './dto/dashboard-operations-overview.dto';
 import {
   PersonActivityItemDto,
   RecentActivityDto,
@@ -252,6 +263,207 @@ export class DashboardService {
       totalPayments,
       totalInvoices,
       monthlyCommissions,
+    };
+  }
+
+  async getOperationsOverview(
+    companyId: string,
+    user: RequestUser,
+  ): Promise<DashboardOperationsOverviewDto> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    endOfMonth.setHours(23, 59, 59, 999);
+
+    const nextFourMonths = new Date(today);
+    nextFourMonths.setMonth(nextFourMonths.getMonth() + 4);
+    nextFourMonths.setHours(23, 59, 59, 999);
+
+    const totalPropertiesResult = await this.buildScopedPropertiesQuery(
+      companyId,
+      user,
+    )
+      .select('COUNT(DISTINCT property.id)', 'total')
+      .getRawOne<{ total: string }>();
+
+    const saleProperties = await this.buildScopedPropertiesQuery(
+      companyId,
+      user,
+    )
+      .leftJoinAndSelect('property.owner', 'owner')
+      .leftJoinAndSelect('owner.user', 'ownerUser')
+      .andWhere(':saleOperation = ANY(property.operations)', {
+        saleOperation: PropertyOperation.SALE,
+      })
+      .orderBy('property.updated_at', 'DESC')
+      .take(6)
+      .getMany();
+
+    const saleCountResult = await this.buildScopedPropertiesQuery(
+      companyId,
+      user,
+    )
+      .andWhere(':saleOperation = ANY(property.operations)', {
+        saleOperation: PropertyOperation.SALE,
+      })
+      .select('COUNT(DISTINCT property.id)', 'total')
+      .getRawOne<{ total: string }>();
+
+    const rentalLeasesQuery = this.leasesRepository
+      .createQueryBuilder('lease')
+      .leftJoinAndSelect('lease.property', 'property')
+      .leftJoinAndSelect('property.owner', 'owner')
+      .leftJoinAndSelect('owner.user', 'ownerUser')
+      .leftJoinAndSelect('lease.tenant', 'tenant')
+      .leftJoinAndSelect('tenant.user', 'tenantUser')
+      .where('property.company_id = :companyId', { companyId })
+      .andWhere('lease.contract_type = :contractType', {
+        contractType: ContractType.RENTAL,
+      })
+      .andWhere('lease.deleted_at IS NULL');
+
+    this.applyRoleScope(rentalLeasesQuery, user, {
+      ownerAlias: 'owner',
+      ownerUserAlias: 'ownerUser',
+      tenantAlias: 'tenant',
+      tenantUserAlias: 'tenantUser',
+    });
+
+    const rentalLeases = await rentalLeasesQuery
+      .orderBy('lease.end_date', 'ASC', 'NULLS LAST')
+      .addOrderBy('lease.updated_at', 'DESC')
+      .getMany();
+
+    const currentRentals = rentalLeases.filter(
+      (lease) =>
+        lease.status === LeaseStatus.ACTIVE &&
+        (!lease.endDate || this.normalizeDate(lease.endDate) >= today),
+    );
+
+    const expiredRentals = rentalLeases.filter((lease) => {
+      if (!lease.endDate) {
+        return lease.status === LeaseStatus.FINALIZED;
+      }
+      return this.normalizeDate(lease.endDate) < today;
+    });
+
+    const expiringThisMonth = currentRentals.filter(
+      (lease) =>
+        lease.endDate &&
+        this.normalizeDate(lease.endDate) >= today &&
+        this.normalizeDate(lease.endDate) <= endOfMonth,
+    );
+
+    const expiringNextFourMonths = currentRentals.filter(
+      (lease) =>
+        lease.endDate &&
+        this.normalizeDate(lease.endDate) > endOfMonth &&
+        this.normalizeDate(lease.endDate) <= nextFourMonths,
+    );
+
+    const paymentsScopeQuery = this.paymentsRepository
+      .createQueryBuilder('payment')
+      .leftJoinAndSelect('payment.tenantAccount', 'account')
+      .leftJoinAndSelect('account.lease', 'lease')
+      .leftJoinAndSelect('lease.property', 'property')
+      .leftJoinAndSelect('property.owner', 'owner')
+      .leftJoinAndSelect('owner.user', 'ownerUser')
+      .leftJoinAndSelect('lease.tenant', 'tenant')
+      .leftJoinAndSelect('tenant.user', 'tenantUser')
+      .leftJoinAndSelect('payment.receipt', 'receipt')
+      .where('property.company_id = :companyId', { companyId })
+      .andWhere('payment.deleted_at IS NULL');
+
+    this.applyRoleScope(paymentsScopeQuery, user, {
+      ownerAlias: 'owner',
+      ownerUserAlias: 'ownerUser',
+      tenantAlias: 'tenant',
+      tenantUserAlias: 'tenantUser',
+    });
+
+    const totalPayments = await paymentsScopeQuery.clone().getCount();
+    const pendingPayments = await paymentsScopeQuery
+      .clone()
+      .andWhere('payment.status = :status', { status: PaymentStatus.PENDING })
+      .getCount();
+    const completedPayments = await paymentsScopeQuery
+      .clone()
+      .andWhere('payment.status = :status', { status: PaymentStatus.COMPLETED })
+      .getCount();
+
+    const recentPayments = await paymentsScopeQuery
+      .clone()
+      .orderBy('payment.payment_date', 'DESC')
+      .addOrderBy('payment.created_at', 'DESC')
+      .take(8)
+      .getMany();
+
+    const overdueInvoicesQuery = this.invoicesRepository
+      .createQueryBuilder('invoice')
+      .leftJoin('invoice.lease', 'lease')
+      .leftJoin('lease.property', 'property')
+      .leftJoin('property.owner', 'owner')
+      .leftJoin('owner.user', 'ownerUser')
+      .leftJoin('lease.tenant', 'tenant')
+      .leftJoin('tenant.user', 'tenantUser')
+      .where('property.company_id = :companyId', { companyId })
+      .andWhere('invoice.deleted_at IS NULL')
+      .andWhere('invoice.due_date < :today', { today })
+      .andWhere('invoice.status IN (:...statuses)', {
+        statuses: [
+          InvoiceStatus.PENDING,
+          InvoiceStatus.SENT,
+          InvoiceStatus.PARTIAL,
+          InvoiceStatus.OVERDUE,
+        ],
+      });
+
+    this.applyRoleScope(overdueInvoicesQuery, user, {
+      ownerAlias: 'owner',
+      ownerUserAlias: 'ownerUser',
+      tenantAlias: 'tenant',
+      tenantUserAlias: 'tenantUser',
+    });
+
+    const propertiesPanel: DashboardPropertiesPanelDto = {
+      totalProperties: Number(totalPropertiesResult?.total ?? 0),
+      saleCount: Number(saleCountResult?.total ?? 0),
+      rentalActiveCount: currentRentals.length,
+      rentalExpiredCount: expiredRentals.length,
+      expiringThisMonthCount: expiringThisMonth.length,
+      expiringNextFourMonthsCount: expiringNextFourMonths.length,
+      saleHighlights: saleProperties.map((property) =>
+        this.mapSalePropertyItem(property),
+      ),
+      currentRentals: currentRentals
+        .slice(0, 8)
+        .map((lease) => this.mapLeaseOperationItem(lease, today)),
+      expiringThisMonth: expiringThisMonth.map((lease) =>
+        this.mapLeaseOperationItem(lease, today),
+      ),
+      expiringNextFourMonths: expiringNextFourMonths.map((lease) =>
+        this.mapLeaseOperationItem(lease, today),
+      ),
+      expiredRentals: expiredRentals
+        .slice(0, 8)
+        .map((lease) => this.mapLeaseOperationItem(lease, today)),
+    };
+
+    const paymentsPanel: DashboardPaymentsPanelDto = {
+      totalPayments,
+      pendingPayments,
+      completedPayments,
+      overdueInvoices: await overdueInvoicesQuery.getCount(),
+      recentPayments: recentPayments.map((payment) =>
+        this.mapPaymentOperationItem(payment),
+      ),
+    };
+
+    return {
+      generatedAt: new Date(),
+      propertiesPanel,
+      paymentsPanel,
     };
   }
 
@@ -667,6 +879,122 @@ export class DashboardService {
       page: pageNumber,
       limit: pageLimit,
     };
+  }
+
+  private mapSalePropertyItem(
+    property: Property,
+  ): DashboardSalePropertyItemDto {
+    return {
+      propertyId: property.id,
+      propertyName: property.name,
+      propertyAddress: this.buildPropertyAddress(property),
+      ownerId: property.ownerId,
+      ownerName: this.resolvePersonName(property.owner?.user),
+      salePrice:
+        property.salePrice !== undefined && property.salePrice !== null
+          ? Number(property.salePrice)
+          : null,
+      saleCurrency: property.saleCurrency ?? 'ARS',
+      operationState: property.operationState,
+      updatedAt: property.updatedAt,
+    };
+  }
+
+  private mapLeaseOperationItem(
+    lease: Lease,
+    today: Date,
+  ): DashboardLeaseOperationItemDto {
+    const endDate = lease.endDate ? this.normalizeDate(lease.endDate) : null;
+    const daysUntilEnd = endDate
+      ? Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+
+    return {
+      leaseId: lease.id,
+      propertyId: lease.propertyId ?? null,
+      propertyName: lease.property?.name ?? null,
+      propertyAddress: this.buildPropertyAddress(lease.property),
+      ownerId: lease.ownerId,
+      ownerName: this.resolvePersonName(lease.property?.owner?.user),
+      tenantId: lease.tenantId ?? null,
+      tenantName: this.resolvePersonName(lease.tenant?.user),
+      status: lease.status,
+      contractType: lease.contractType,
+      startDate: lease.startDate ? this.normalizeDate(lease.startDate) : null,
+      endDate,
+      monthlyRent:
+        lease.monthlyRent !== undefined && lease.monthlyRent !== null
+          ? Number(lease.monthlyRent)
+          : null,
+      currency: lease.currency ?? 'ARS',
+      daysUntilEnd,
+      renewalAlertEnabled: lease.renewalAlertEnabled ?? true,
+      renewalAlertPeriodicity: lease.renewalAlertPeriodicity ?? 'monthly',
+      renewalAlertCustomDays: lease.renewalAlertCustomDays ?? null,
+    };
+  }
+
+  private mapPaymentOperationItem(
+    payment: Payment,
+  ): DashboardPaymentOperationItemDto {
+    return {
+      paymentId: payment.id,
+      propertyId: payment.tenantAccount?.lease?.propertyId ?? null,
+      propertyName: payment.tenantAccount?.lease?.property?.name ?? null,
+      leaseId: payment.tenantAccount?.lease?.id ?? null,
+      tenantName: this.resolvePersonName(
+        payment.tenantAccount?.lease?.tenant?.user ?? payment.tenant?.user,
+      ),
+      amount: Number(payment.amount ?? 0),
+      currencyCode: payment.currencyCode ?? 'ARS',
+      paymentDate: this.normalizeDate(payment.paymentDate),
+      status: payment.status,
+      method: payment.method,
+      activityType: payment.activityType,
+      reference: payment.reference ?? null,
+    };
+  }
+
+  private buildPropertyAddress(property?: Property | null): string | null {
+    if (!property) {
+      return null;
+    }
+
+    const parts = [
+      property.addressStreet,
+      property.addressNumber,
+      property.addressCity,
+      property.addressState,
+    ].filter((value) => typeof value === 'string' && value.trim().length > 0);
+
+    return parts.length > 0 ? parts.join(', ') : null;
+  }
+
+  private resolvePersonName(
+    user?: {
+      firstName?: string | null;
+      lastName?: string | null;
+      email?: string | null;
+    } | null,
+  ): string | null {
+    if (!user) {
+      return null;
+    }
+
+    const fullName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
+    if (fullName) {
+      return fullName;
+    }
+
+    return user.email ?? null;
+  }
+
+  private normalizeDate(value: Date | string): Date {
+    const date = value instanceof Date ? new Date(value) : new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return new Date();
+    }
+    return date;
   }
 
   private buildOwnerActivityQuery(

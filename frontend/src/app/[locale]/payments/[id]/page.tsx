@@ -7,6 +7,7 @@ import {
   CreditNote,
   Invoice,
   Payment,
+  PaymentActivityType,
   PaymentItemType,
   PaymentMethod,
 } from "@/types/payment";
@@ -25,6 +26,14 @@ import {
   ReceiptText,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+
+const activityTypeLabels: Record<PaymentActivityType, string> = {
+  monthly: "Mensual",
+  annual: "Anual",
+  adjustment: "Ajuste",
+  late_fee: "Mora",
+  extraordinary: "Extraordinario",
+};
 
 function ReceiptSection({
   payment,
@@ -173,6 +182,7 @@ export default function PaymentDetailPage() {
   const [editForm, setEditForm] = useState<{
     paymentDate: string;
     method: string;
+    activityType: PaymentActivityType;
     reference: string;
     notes: string;
     items: {
@@ -232,6 +242,7 @@ export default function PaymentDetailPage() {
     setEditForm({
       paymentDate: payment.paymentDate,
       method: payment.method,
+      activityType: payment.activityType,
       reference: payment.reference || "",
       notes: payment.notes || "",
       items: (payment.items || []).map((item) => ({
@@ -251,6 +262,7 @@ export default function PaymentDetailPage() {
       const updated = await paymentsApi.update(payment.id, {
         paymentDate: editForm.paymentDate,
         method: editForm.method as PaymentMethod,
+        activityType: editForm.activityType,
         reference: editForm.reference,
         notes: editForm.notes,
         items: editForm.items,
@@ -407,6 +419,16 @@ export default function PaymentDetailPage() {
               </span>
             </div>
 
+            <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
+              <span className="text-gray-600 dark:text-gray-400">
+                Actividad
+              </span>
+              <span className="text-gray-900 dark:text-white">
+                {activityTypeLabels[payment.activityType] ??
+                  payment.activityType}
+              </span>
+            </div>
+
             {payment.reference && (
               <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
                 <span className="flex items-center text-gray-600 dark:text-gray-400">
@@ -505,6 +527,34 @@ export default function PaymentDetailPage() {
                       }
                       className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 dark:text-gray-400">
+                      Actividad
+                    </label>
+                    <select
+                      value={editForm.activityType}
+                      onChange={(e) =>
+                        setEditForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                activityType: e.target
+                                  .value as PaymentActivityType,
+                              }
+                            : prev,
+                        )
+                      }
+                      className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+                    >
+                      {Object.entries(activityTypeLabels).map(
+                        ([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ),
+                      )}
+                    </select>
                   </div>
                 </div>
 

@@ -1,7 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { invoicesApi } from '@/api/payments';
@@ -71,7 +77,9 @@ export default function InvoicesScreen() {
       </View>
 
       {isLoading ? <ActivityIndicator /> : null}
-      {error ? <Text style={styles.error}>{(error as Error).message}</Text> : null}
+      {error ? (
+        <Text style={styles.error}>{(error as Error).message}</Text>
+      ) : null}
 
       <View style={styles.list}>
         {filteredInvoices.map((invoice) => (
@@ -82,12 +90,16 @@ export default function InvoicesScreen() {
             onPress={() => router.push(`/(app)/invoices/${invoice.id}`)}
           >
             <Text style={styles.title}>{invoice.invoiceNumber}</Text>
-            <Text style={styles.detail}>{`${invoice.currencyCode} ${invoice.total}`}</Text>
+            <Text
+              style={styles.detail}
+            >{`${invoice.currencyCode} ${invoice.total}`}</Text>
             <Text style={styles.detail}>{invoice.status}</Text>
           </Pressable>
         ))}
         {!isLoading && filteredInvoices.length === 0 ? (
-          <Text style={styles.empty}>{t('invoices.noInvoicesDescription')}</Text>
+          <Text style={styles.empty}>
+            {t('invoices.noInvoicesDescription')}
+          </Text>
         ) : null}
       </View>
     </Screen>

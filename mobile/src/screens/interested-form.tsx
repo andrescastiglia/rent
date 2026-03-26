@@ -32,7 +32,9 @@ type InterestedFormProps = {
   mode: 'create' | 'edit';
   initial?: InterestedProfile;
   submitting?: boolean;
-  onSubmit: (payload: CreateInterestedProfileInput | UpdateInterestedProfileInput) => Promise<void>;
+  onSubmit: (
+    payload: CreateInterestedProfileInput | UpdateInterestedProfileInput,
+  ) => Promise<void>;
   submitLabel: string;
   testIDPrefix?: string;
 };
@@ -141,7 +143,9 @@ export function InterestedForm({
     setError(null);
   }, [defaults]);
 
-  const getNormalizedOperations = (currentForm: FormValues): InterestedOperation[] => {
+  const getNormalizedOperations = (
+    currentForm: FormValues,
+  ): InterestedOperation[] => {
     if (currentForm.operations.length > 0) {
       return Array.from(new Set(currentForm.operations));
     }
@@ -190,7 +194,9 @@ export function InterestedForm({
       <Field
         label={t('interested.fields.firstName')}
         value={form.firstName}
-        onChangeText={(firstName) => setForm((prev) => ({ ...prev, firstName }))}
+        onChangeText={(firstName) =>
+          setForm((prev) => ({ ...prev, firstName }))
+        }
         testID={`${testIDPrefix}.firstName`}
       />
       <Field
@@ -216,7 +222,9 @@ export function InterestedForm({
       />
 
       <View style={styles.fieldContainer}>
-        <Text style={styles.fieldLabel}>{t('interested.fields.operations')}</Text>
+        <Text style={styles.fieldLabel}>
+          {t('interested.fields.operations')}
+        </Text>
         <View style={styles.operationsContainer}>
           {operationOptions.map((option) => {
             const selected = form.operations.includes(option.value);
@@ -224,10 +232,22 @@ export function InterestedForm({
               <Pressable
                 key={option.value}
                 testID={`${testIDPrefix}.operation.${option.value}`}
-                style={[styles.operationChip, selected && styles.operationChipSelected]}
-                onPress={() => setForm((prev) => toggleOperation(prev, option.value, !selected))}
+                style={[
+                  styles.operationChip,
+                  selected && styles.operationChipSelected,
+                ]}
+                onPress={() =>
+                  setForm((prev) =>
+                    toggleOperation(prev, option.value, !selected),
+                  )
+                }
               >
-                <Text style={[styles.operationChipText, selected && styles.operationChipTextSelected]}>
+                <Text
+                  style={[
+                    styles.operationChipText,
+                    selected && styles.operationChipTextSelected,
+                  ]}
+                >
                   {t(`interested.operations.${option.value}`)}
                 </Text>
               </Pressable>
@@ -239,7 +259,9 @@ export function InterestedForm({
       <ChoiceGroup
         label={t('properties.fields.type')}
         value={form.propertyTypePreference}
-        onChange={(propertyTypePreference) => setForm((prev) => ({ ...prev, propertyTypePreference }))}
+        onChange={(propertyTypePreference) =>
+          setForm((prev) => ({ ...prev, propertyTypePreference }))
+        }
         options={propertyTypeOptions.map((option) => ({
           value: option.value,
           label: t(`interested.propertyTypes.${option.value}`),
@@ -249,44 +271,58 @@ export function InterestedForm({
       <Field
         label={t('interested.fields.peopleCount')}
         value={form.peopleCount}
-        onChangeText={(peopleCount) => setForm((prev) => ({ ...prev, peopleCount }))}
+        onChangeText={(peopleCount) =>
+          setForm((prev) => ({ ...prev, peopleCount }))
+        }
         keyboardType="numeric"
         testID={`${testIDPrefix}.peopleCount`}
       />
       <Field
         label={t('interested.fields.minAmount')}
         value={form.minAmount}
-        onChangeText={(minAmount) => setForm((prev) => ({ ...prev, minAmount }))}
+        onChangeText={(minAmount) =>
+          setForm((prev) => ({ ...prev, minAmount }))
+        }
         keyboardType="numeric"
         testID={`${testIDPrefix}.minAmount`}
       />
       <Field
         label={t('interested.fields.maxAmount')}
         value={form.maxAmount}
-        onChangeText={(maxAmount) => setForm((prev) => ({ ...prev, maxAmount }))}
+        onChangeText={(maxAmount) =>
+          setForm((prev) => ({ ...prev, maxAmount }))
+        }
         keyboardType="numeric"
         testID={`${testIDPrefix}.maxAmount`}
       />
       <Field
         label={t('interested.fields.preferredCity')}
         value={form.preferredCity}
-        onChangeText={(preferredCity) => setForm((prev) => ({ ...prev, preferredCity }))}
+        onChangeText={(preferredCity) =>
+          setForm((prev) => ({ ...prev, preferredCity }))
+        }
         testID={`${testIDPrefix}.preferredCity`}
       />
       <Field
         label={t('interested.fields.desiredFeatures')}
         value={form.desiredFeaturesCsv}
-        onChangeText={(desiredFeaturesCsv) => setForm((prev) => ({ ...prev, desiredFeaturesCsv }))}
+        onChangeText={(desiredFeaturesCsv) =>
+          setForm((prev) => ({ ...prev, desiredFeaturesCsv }))
+        }
         testID={`${testIDPrefix}.desiredFeatures`}
       />
 
       <View style={styles.fieldContainer}>
         <View style={styles.switchRow}>
-          <Text style={styles.fieldLabel}>{t('interested.fields.hasPets')}</Text>
+          <Text style={styles.fieldLabel}>
+            {t('interested.fields.hasPets')}
+          </Text>
           <Switch
             testID={`${testIDPrefix}.hasPets`}
             value={form.hasPets}
-            onValueChange={(hasPets) => setForm((prev) => ({ ...prev, hasPets }))}
+            onValueChange={(hasPets) =>
+              setForm((prev) => ({ ...prev, hasPets }))
+            }
           />
         </View>
       </View>

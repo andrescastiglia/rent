@@ -1,7 +1,9 @@
 import {
   Property,
   PropertyFeature,
+  PropertyVisit,
   CreatePropertyInput,
+  CreatePropertyVisitInput,
   UpdatePropertyInput,
   PropertyMaintenanceTask,
   CreatePropertyMaintenanceTaskInput,
@@ -61,7 +63,8 @@ type BackendPropertyVisit = {
   id: string;
   propertyId: string;
   visitedAt: string | Date;
-  interestedName: string;
+  interestedName?: string | null;
+  interestedProfileId?: string | null;
   comments?: string | null;
   hasOffer?: boolean | null;
   offerAmount?: number | string | null;
@@ -545,12 +548,26 @@ const mapBackendVisitToMaintenanceTask = (
     id: raw.id,
     propertyId: raw.propertyId,
     scheduledAt: toIsoDate(raw.visitedAt),
-    title: raw.interestedName,
+    title: raw.interestedName ?? "Tarea de mantenimiento",
     notes: raw.comments ?? undefined,
     createdAt: toIsoDate(raw.createdAt),
     updatedAt: toIsoDate(raw.updatedAt),
   };
 };
+
+const mapBackendVisitToVisit = (raw: BackendPropertyVisit): PropertyVisit => ({
+  id: raw.id,
+  propertyId: raw.propertyId,
+  visitedAt: toIsoDate(raw.visitedAt),
+  interestedName: raw.interestedName ?? undefined,
+  interestedProfileId: raw.interestedProfileId ?? undefined,
+  comments: raw.comments ?? undefined,
+  hasOffer: raw.hasOffer ?? undefined,
+  offerAmount: toOptionalNumber(raw.offerAmount),
+  offerCurrency: raw.offerCurrency ?? undefined,
+  createdAt: toIsoDate(raw.createdAt),
+  updatedAt: toIsoDate(raw.updatedAt),
+});
 
 // Mock data for development/testing
 const MOCK_PROPERTIES: Property[] = [
@@ -624,6 +641,23 @@ const MOCK_MAINTENANCE_TASKS: Record<string, PropertyMaintenanceTask[]> = {
       scheduledAt: new Date().toISOString(),
       title: "Revisión de instalación eléctrica",
       notes: "Chequeo preventivo trimestral en pasillos.",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ],
+  "2": [],
+};
+
+const MOCK_VISITS: Record<string, PropertyVisit[]> = {
+  "1": [
+    {
+      id: "property-visit-1",
+      propertyId: "1",
+      visitedAt: new Date().toISOString(),
+      interestedName: "Lucia Perez",
+      comments: "Pidió coordinar segunda visita con la familia.",
+      hasOffer: false,
+      offerCurrency: "ARS",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
@@ -871,6 +905,52 @@ export const propertiesApi = {
     return Array.isArray(result)
       ? result.map(mapBackendVisitToMaintenanceTask)
       : [];
+  },
+
+  getVisits: async (propertyId: string): Promise<PropertyVisit[]> => {
+    if (IS_MOCK_MODE) {
+      await delay(DELAY);
+      return MOCK_VISITS[propertyId] ?? [];
+    }
+
+    const token = getToken();
+    const result = await apiClient.get<BackendPropertyVisit[]>(
+      `/properties/${propertyId}/visits`,
+      token ?? undefined,
+    );
+    return Array.isArray(result) ? result.map(mapBackendVisitToVisit) : [];
+  },
+
+  createVisit: async (
+    propertyId: string,
+    data: CreatePropertyVisitInput,
+  ): Promise<PropertyVisit> => {
+    if (IS_MOCK_MODE) {
+      await delay(DELAY);
+      const newVisit: PropertyVisit = {
+        id: `visit-${Math.random().toString(36).slice(2)}`,
+        propertyId,
+        visitedAt: data.visitedAt ?? new Date().toISOString(),
+        interestedName: data.interestedName,
+        interestedProfileId: data.interestedProfileId,
+        comments: data.comments,
+        hasOffer: data.hasOffer,
+        offerAmount: data.offerAmount,
+        offerCurrency: data.offerCurrency ?? "ARS",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      MOCK_VISITS[propertyId] = [newVisit, ...(MOCK_VISITS[propertyId] ?? [])];
+      return newVisit;
+    }
+
+    const token = getToken();
+    const result = await apiClient.post<BackendPropertyVisit>(
+      `/properties/${propertyId}/visits`,
+      data,
+      token ?? undefined,
+    );
+    return mapBackendVisitToVisit(result);
   },
 
   createMaintenanceTask: async (

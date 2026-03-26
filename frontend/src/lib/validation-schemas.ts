@@ -121,6 +121,11 @@ export const createLeaseSchema = (t: TranslationFunction) =>
         ] as const)
         .optional(),
       paymentDueDay: z.coerce.number().min(1).max(28).optional(),
+      renewalAlertEnabled: z.boolean().optional(),
+      renewalAlertPeriodicity: z
+        .enum(["monthly", "four_months", "custom"] as const)
+        .optional(),
+      renewalAlertCustomDays: z.coerce.number().min(1).optional(),
       billingFrequency: z
         .enum([
           "first_of_month",
@@ -202,6 +207,18 @@ export const createLeaseSchema = (t: TranslationFunction) =>
             message: t("required"),
           });
         }
+      }
+
+      if (
+        data.renewalAlertPeriodicity === "custom" &&
+        (data.renewalAlertCustomDays === undefined ||
+          data.renewalAlertCustomDays === null)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["renewalAlertCustomDays"],
+          message: t("required"),
+        });
       }
     });
 

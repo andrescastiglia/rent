@@ -1,18 +1,18 @@
-export type TenantStatus = "ACTIVE" | "INACTIVE" | "PROSPECT";
+export type TenantStatus = 'ACTIVE' | 'INACTIVE' | 'PROSPECT';
 export type EmploymentStatus =
-  | "employed"
-  | "self_employed"
-  | "unemployed"
-  | "retired"
-  | "student";
+  | 'employed'
+  | 'self_employed'
+  | 'unemployed'
+  | 'retired'
+  | 'student';
 export type TenantActivityType =
-  | "call"
-  | "task"
-  | "note"
-  | "email"
-  | "whatsapp"
-  | "visit";
-export type TenantActivityStatus = "pending" | "completed" | "cancelled";
+  | 'call'
+  | 'task'
+  | 'note'
+  | 'email'
+  | 'whatsapp'
+  | 'visit';
+export type TenantActivityStatus = 'pending' | 'completed' | 'cancelled';
 
 export interface Tenant {
   id: string;

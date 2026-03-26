@@ -3,7 +3,8 @@ import { decode as base64Decode } from 'base-64';
 function decodeBase64Url(input: string): string {
   const normalized = input.replace(/-/g, '+').replace(/_/g, '/');
   const padding = normalized.length % 4;
-  const withPadding = padding === 0 ? normalized : normalized + '='.repeat(4 - padding);
+  const withPadding =
+    padding === 0 ? normalized : normalized + '='.repeat(4 - padding);
   return base64Decode(withPadding);
 }
 

@@ -1,19 +1,19 @@
 export type PropertyType =
-  | "APARTMENT"
-  | "HOUSE"
-  | "COMMERCIAL"
-  | "OFFICE"
-  | "WAREHOUSE"
-  | "LAND"
-  | "PARKING"
-  | "OTHER";
-export type PropertyStatus = "ACTIVE" | "INACTIVE" | "MAINTENANCE";
-export type PropertyOperation = "rent" | "sale";
+  | 'APARTMENT'
+  | 'HOUSE'
+  | 'COMMERCIAL'
+  | 'OFFICE'
+  | 'WAREHOUSE'
+  | 'LAND'
+  | 'PARKING'
+  | 'OTHER';
+export type PropertyStatus = 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE';
+export type PropertyOperation = 'rent' | 'sale';
 export type PropertyOperationState =
-  | "available"
-  | "rented"
-  | "reserved"
-  | "sold";
+  | 'available'
+  | 'rented'
+  | 'reserved'
+  | 'sold';
 
 export interface Address {
   street: string;
@@ -38,7 +38,7 @@ export interface Unit {
   bedrooms: number;
   bathrooms: number;
   area: number; // in square meters
-  status: "AVAILABLE" | "OCCUPIED" | "MAINTENANCE";
+  status: 'AVAILABLE' | 'OCCUPIED' | 'MAINTENANCE';
   rentAmount: number;
 }
 
@@ -48,6 +48,20 @@ export interface PropertyMaintenanceTask {
   scheduledAt: string;
   title: string;
   notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PropertyVisit {
+  id: string;
+  propertyId: string;
+  visitedAt: string;
+  interestedName?: string;
+  interestedProfileId?: string;
+  comments?: string;
+  hasOffer?: boolean;
+  offerAmount?: number;
+  offerCurrency?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -81,7 +95,7 @@ export interface CreatePropertyInput {
   description?: string;
   type: PropertyType;
   address: Address;
-  features?: Omit<PropertyFeature, "id">[];
+  features?: Omit<PropertyFeature, 'id'>[];
   images?: string[];
   ownerId?: string;
   ownerWhatsapp?: string;
@@ -103,6 +117,16 @@ export interface CreatePropertyMaintenanceTaskInput {
   scheduledAt?: string;
   title: string;
   notes?: string;
+}
+
+export interface CreatePropertyVisitInput {
+  visitedAt?: string;
+  interestedName?: string;
+  interestedProfileId?: string;
+  comments?: string;
+  hasOffer?: boolean;
+  offerAmount?: number;
+  offerCurrency?: string;
 }
 
 export interface PropertyFilters {

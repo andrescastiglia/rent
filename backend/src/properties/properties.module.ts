@@ -7,6 +7,7 @@ import { PropertyVisit } from './entities/property-visit.entity';
 import { PropertyVisitNotification } from './entities/property-visit-notification.entity';
 import { PropertyImage } from './entities/property-image.entity';
 import { Owner } from '../owners/entities/owner.entity';
+import { OwnerActivity } from '../owners/entities/owner-activity.entity';
 import { PropertiesService } from './properties.service';
 import { UnitsService } from './units.service';
 import { PropertyVisitsService } from './property-visits.service';
@@ -27,6 +28,7 @@ import { WhatsappModule } from '../whatsapp/whatsapp.module';
       PropertyVisitNotification,
       PropertyImage,
       Owner,
+      OwnerActivity,
     ]),
   ],
   controllers: [

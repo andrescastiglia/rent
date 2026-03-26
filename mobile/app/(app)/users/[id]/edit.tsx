@@ -22,14 +22,18 @@ export default function EditUserScreen() {
   });
 
   const mutation = useMutation({
-    mutationFn: (payload: UpdateManagedUserInput) => usersApi.update(id, payload),
+    mutationFn: (payload: UpdateManagedUserInput) =>
+      usersApi.update(id, payload),
     onSuccess: async (updated) => {
       await queryClient.invalidateQueries({ queryKey: ['users'] });
       await queryClient.invalidateQueries({ queryKey: ['users', id] });
       router.replace(`/(app)/users/${updated.id}` as never);
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('users.errors.save'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('users.errors.save'),
+      );
     },
   });
 
@@ -37,7 +41,9 @@ export default function EditUserScreen() {
     <Screen scrollViewTestID="userEdit.scroll">
       <H1>{t('common.edit')}</H1>
       {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
-      {!query.isLoading && !query.data ? <Text>{t('users.noUsers')}</Text> : null}
+      {!query.isLoading && !query.data ? (
+        <Text>{t('users.noUsers')}</Text>
+      ) : null}
 
       {query.data ? (
         <UserForm

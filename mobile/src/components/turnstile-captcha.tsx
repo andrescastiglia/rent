@@ -14,7 +14,8 @@ type BridgePayload =
   | { type: 'expired' }
   | { type: 'error'; error?: string };
 
-const TURNSTILE_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+const TURNSTILE_SRC =
+  'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 
 const buildHtml = (siteKey: string) => `<!doctype html>
 <html lang="en">
@@ -80,7 +81,10 @@ const buildHtml = (siteKey: string) => `<!doctype html>
   </body>
 </html>`;
 
-export function TurnstileCaptcha({ onTokenChange, testID = 'captcha.widget' }: TurnstileCaptchaProps) {
+export function TurnstileCaptcha({
+  onTokenChange,
+  testID = 'captcha.widget',
+}: TurnstileCaptchaProps) {
   const { t } = useTranslation();
   const siteKey = process.env.EXPO_PUBLIC_TURNSTILE_SITE_KEY?.trim() ?? '';
 
@@ -109,7 +113,8 @@ export function TurnstileCaptcha({ onTokenChange, testID = 'captcha.widget' }: T
       <View style={styles.warningBox} testID={`${testID}.missingKey`}>
         <Text style={styles.warningText}>
           {t('auth.errors.captchaUnavailable', {
-            defaultValue: 'El servicio CAPTCHA no está disponible en este momento.',
+            defaultValue:
+              'El servicio CAPTCHA no está disponible en este momento.',
           })}
         </Text>
         <Text style={styles.hintText}>{t('auth.captchaConfigHint')}</Text>

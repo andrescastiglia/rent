@@ -23,7 +23,8 @@ type ChatMessage = {
   model?: string | null;
 };
 
-const createId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+const createId = () =>
+  `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
 export default function AiScreen() {
   const { t } = useTranslation();
@@ -86,7 +87,9 @@ export default function AiScreen() {
 
     setSending(true);
     try {
-      const response = await aiApi.respond(trimmed, { conversationId: conversationId ?? undefined });
+      const response = await aiApi.respond(trimmed, {
+        conversationId: conversationId ?? undefined,
+      });
       if (response.conversationId && !conversationId) {
         setConversationId(response.conversationId);
       }
@@ -100,7 +103,11 @@ export default function AiScreen() {
         },
       ]);
     } catch (submitError) {
-      pushAssistantError(submitError instanceof Error ? submitError.message : t('messages.loadError'));
+      pushAssistantError(
+        submitError instanceof Error
+          ? submitError.message
+          : t('messages.loadError'),
+      );
     } finally {
       setSending(false);
       setTimeout(() => {
@@ -118,7 +125,11 @@ export default function AiScreen() {
         scrollRef.current?.scrollToEnd({ animated: false });
       }, 10);
     } catch (reloadError) {
-      pushAssistantError(reloadError instanceof Error ? reloadError.message : t('messages.loadError'));
+      pushAssistantError(
+        reloadError instanceof Error
+          ? reloadError.message
+          : t('messages.loadError'),
+      );
     }
   };
 
@@ -131,11 +142,19 @@ export default function AiScreen() {
       >
         <View style={styles.topBar}>
           <View>
-            <Text style={styles.topSubtitle}>{`${t('dashboard.activity.columns.status')}: ${modeLabel}`}</Text>
+            <Text
+              style={styles.topSubtitle}
+            >{`${t('dashboard.activity.columns.status')}: ${modeLabel}`}</Text>
           </View>
           {conversationId ? (
-            <Pressable style={styles.reloadChip} onPress={() => void handleReloadConversation()} testID="ai.reloadConversation">
-              <Text style={styles.reloadChipText}>{t('interested.actions.reload')}</Text>
+            <Pressable
+              style={styles.reloadChip}
+              onPress={() => void handleReloadConversation()}
+              testID="ai.reloadConversation"
+            >
+              <Text style={styles.reloadChipText}>
+                {t('interested.actions.reload')}
+              </Text>
             </Pressable>
           ) : null}
         </View>
@@ -147,19 +166,25 @@ export default function AiScreen() {
           </View>
         ) : null}
 
-        {error ? <Text style={styles.error}>{(error as Error).message}</Text> : null}
+        {error ? (
+          <Text style={styles.error}>{(error as Error).message}</Text>
+        ) : null}
 
         <ScrollView
           ref={scrollRef}
           style={styles.messagesContainer}
           contentContainerStyle={styles.messagesContent}
           keyboardShouldPersistTaps="handled"
-          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+          onContentSizeChange={() =>
+            scrollRef.current?.scrollToEnd({ animated: true })
+          }
           testID="ai.chat.scroll"
         >
           {sortedMessages.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>{t('common.aiAssistantPlaceholder')}</Text>
+              <Text style={styles.emptyText}>
+                {t('common.aiAssistantPlaceholder')}
+              </Text>
             </View>
           ) : null}
 
@@ -168,14 +193,31 @@ export default function AiScreen() {
             return (
               <View
                 key={message.id}
-                style={[styles.messageRow, isUser ? styles.messageRowUser : styles.messageRowAssistant]}
+                style={[
+                  styles.messageRow,
+                  isUser ? styles.messageRowUser : styles.messageRowAssistant,
+                ]}
                 testID={`ai.message.${message.role}.${message.id}`}
               >
-                <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.assistantBubble]}>
-                  <Text style={[styles.messageText, isUser ? styles.userMessageText : styles.assistantMessageText]}>
+                <View
+                  style={[
+                    styles.messageBubble,
+                    isUser ? styles.userBubble : styles.assistantBubble,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.messageText,
+                      isUser
+                        ? styles.userMessageText
+                        : styles.assistantMessageText,
+                    ]}
+                  >
                     {message.text}
                   </Text>
-                  {message.model ? <Text style={styles.modelTag}>{message.model}</Text> : null}
+                  {message.model ? (
+                    <Text style={styles.modelTag}>{message.model}</Text>
+                  ) : null}
                 </View>
               </View>
             );
@@ -184,7 +226,9 @@ export default function AiScreen() {
           {sending ? (
             <View style={styles.messageRowAssistant}>
               <View style={[styles.messageBubble, styles.assistantBubble]}>
-                <Text style={styles.assistantMessageText}>{t('common.loading')}</Text>
+                <Text style={styles.assistantMessageText}>
+                  {t('common.loading')}
+                </Text>
               </View>
             </View>
           ) : null}
@@ -196,17 +240,30 @@ export default function AiScreen() {
             onChangeText={setPrompt}
             editable={chatEnabled && !sending}
             multiline
-            placeholder={chatEnabled ? t('common.aiPromptPlaceholder') : t('common.aiDisabled')}
-            style={[styles.promptInput, (!chatEnabled || sending) && styles.promptInputDisabled]}
+            placeholder={
+              chatEnabled
+                ? t('common.aiPromptPlaceholder')
+                : t('common.aiDisabled')
+            }
+            style={[
+              styles.promptInput,
+              (!chatEnabled || sending) && styles.promptInputDisabled,
+            ]}
             testID="ai.prompt"
           />
           <Pressable
-            style={[styles.sendButton, (!chatEnabled || sending || !prompt.trim()) && styles.sendButtonDisabled]}
+            style={[
+              styles.sendButton,
+              (!chatEnabled || sending || !prompt.trim()) &&
+                styles.sendButtonDisabled,
+            ]}
             onPress={() => void handleSend()}
             disabled={!chatEnabled || sending || !prompt.trim()}
             testID="ai.send"
           >
-            <Text style={styles.sendButtonText}>{sending ? t('common.saving') : t('common.send')}</Text>
+            <Text style={styles.sendButtonText}>
+              {sending ? t('common.saving') : t('common.send')}
+            </Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>

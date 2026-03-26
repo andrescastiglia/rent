@@ -12,7 +12,9 @@ const normalizeLocale = (value: string | undefined): 'es' | 'en' | 'pt' => {
   return 'es';
 };
 
-const initialLocale = normalizeLocale(Localization.getLocales()[0]?.languageTag);
+const initialLocale = normalizeLocale(
+  Localization.getLocales()[0]?.languageTag,
+);
 
 if (!i18n.isInitialized) {
   void i18n.use(initReactI18next).init({

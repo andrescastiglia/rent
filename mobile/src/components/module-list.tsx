@@ -13,7 +13,13 @@ type ModuleListProps<T> = {
   renderItem: (item: T) => React.ReactNode;
 };
 
-export function ModuleListScreen<T>({ title, subtitle, queryFn, queryKey, renderItem }: ModuleListProps<T>) {
+export function ModuleListScreen<T>({
+  title,
+  subtitle,
+  queryFn,
+  queryKey,
+  renderItem,
+}: ModuleListProps<T>) {
   const { t } = useTranslation();
   const query = useQuery({ queryKey, queryFn });
 
@@ -42,8 +48,14 @@ export function ModuleListScreen<T>({ title, subtitle, queryFn, queryKey, render
     <Screen>
       <H1>{title}</H1>
       {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-      {items.length === 0 ? <Text style={styles.empty}>{t('common.noDataAvailable')}</Text> : null}
-      <View style={styles.list}>{items.map((item, index) => <View key={index}>{renderItem(item)}</View>)}</View>
+      {items.length === 0 ? (
+        <Text style={styles.empty}>{t('common.noDataAvailable')}</Text>
+      ) : null}
+      <View style={styles.list}>
+        {items.map((item, index) => (
+          <View key={index}>{renderItem(item)}</View>
+        ))}
+      </View>
     </Screen>
   );
 }

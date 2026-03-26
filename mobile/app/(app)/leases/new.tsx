@@ -31,7 +31,10 @@ export default function NewLeaseScreen() {
       router.replace(`/(app)/leases/${created.id}`);
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.saveError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.saveError'),
+      );
     },
   });
 

@@ -15,13 +15,17 @@ export default function NewInterestedScreen() {
   const { t } = useTranslation();
 
   const mutation = useMutation({
-    mutationFn: (payload: CreateInterestedProfileInput) => interestedApi.create(payload),
+    mutationFn: (payload: CreateInterestedProfileInput) =>
+      interestedApi.create(payload),
     onSuccess: async (created) => {
       await queryClient.invalidateQueries({ queryKey: ['interested'] });
       router.replace(`/(app)/interested/${created.id}` as never);
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.saveError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.saveError'),
+      );
     },
   });
 

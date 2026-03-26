@@ -1,6 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -24,20 +32,33 @@ export default function UsersScreen() {
       await queryClient.invalidateQueries({ queryKey: ['users'] });
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('users.errors.activation'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('users.errors.activation'),
+      );
     },
   });
 
   return (
     <Screen>
       {isLoading ? <ActivityIndicator /> : null}
-      {error ? <Text style={styles.error}>{(error as Error).message}</Text> : null}
+      {error ? (
+        <Text style={styles.error}>{(error as Error).message}</Text>
+      ) : null}
 
       <View style={styles.list}>
         {(data?.data ?? []).map((user) => (
-          <View key={user.id} testID={`users.item.${user.id}`} style={styles.card}>
+          <View
+            key={user.id}
+            testID={`users.item.${user.id}`}
+            style={styles.card}
+          >
             <View style={styles.titleRow}>
-              <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">{`${user.firstName} ${user.lastName}`}</Text>
+              <Text
+                style={styles.title}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >{`${user.firstName} ${user.lastName}`}</Text>
               <ScrollView
                 horizontal
                 style={styles.actionsScroller}
@@ -48,7 +69,9 @@ export default function UsersScreen() {
                 <Pressable
                   testID={`users.edit.${user.id}`}
                   style={styles.actionChip}
-                  onPress={() => router.push(`/(app)/users/${user.id}/edit` as never)}
+                  onPress={() =>
+                    router.push(`/(app)/users/${user.id}/edit` as never)
+                  }
                 >
                   <Text style={styles.actionChipText}>{t('common.edit')}</Text>
                 </Pressable>
@@ -56,13 +79,22 @@ export default function UsersScreen() {
                   testID={`users.resetPassword.${user.id}`}
                   style={styles.actionChip}
                   disabled={Boolean(togglingUserId)}
-                  onPress={() => router.push(`/(app)/users/${user.id}/reset-password` as never)}
+                  onPress={() =>
+                    router.push(
+                      `/(app)/users/${user.id}/reset-password` as never,
+                    )
+                  }
                 >
-                  <Text style={styles.actionChipText}>{t('users.resetPassword')}</Text>
+                  <Text style={styles.actionChipText}>
+                    {t('users.resetPassword')}
+                  </Text>
                 </Pressable>
                 <Pressable
                   testID={`users.toggle.${user.id}`}
-                  style={[styles.actionChip, togglingUserId === user.id && styles.actionChipDisabled]}
+                  style={[
+                    styles.actionChip,
+                    togglingUserId === user.id && styles.actionChipDisabled,
+                  ]}
                   disabled={Boolean(togglingUserId)}
                   onPress={() => {
                     setTogglingUserId(user.id);

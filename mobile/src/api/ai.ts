@@ -43,7 +43,10 @@ export const aiApi = {
     return apiClient.get<AiToolsStatusResponse>('/ai/tools');
   },
 
-  async respond(prompt: string, params?: { conversationId?: string }): Promise<AiRespondResponse> {
+  async respond(
+    prompt: string,
+    params?: { conversationId?: string },
+  ): Promise<AiRespondResponse> {
     if (IS_MOCK_MODE) {
       return {
         mode: 'NONE',
@@ -59,7 +62,9 @@ export const aiApi = {
     });
   },
 
-  async getConversation(conversationId: string): Promise<AiConversationResponse> {
+  async getConversation(
+    conversationId: string,
+  ): Promise<AiConversationResponse> {
     if (IS_MOCK_MODE) {
       return {
         conversationId,
@@ -67,6 +72,8 @@ export const aiApi = {
       };
     }
 
-    return apiClient.get<AiConversationResponse>(`/ai/tools/conversations/${conversationId}`);
+    return apiClient.get<AiConversationResponse>(
+      `/ai/tools/conversations/${conversationId}`,
+    );
   },
 };

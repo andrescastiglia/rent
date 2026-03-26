@@ -1,7 +1,17 @@
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
 import { useSegments } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 type ButtonProps = {
   title: string;
@@ -12,19 +22,39 @@ type ButtonProps = {
   testID?: string;
 };
 
-export function AppButton({ title, onPress, disabled, loading, variant = 'primary', testID }: ButtonProps) {
+export function AppButton({
+  title,
+  onPress,
+  disabled,
+  loading,
+  variant = 'primary',
+  testID,
+}: ButtonProps) {
   const isDisabled = disabled || loading;
   return (
     <Pressable
       testID={testID}
-      style={[styles.button, variant === 'secondary' && styles.secondaryButton, isDisabled && styles.buttonDisabled]}
+      style={[
+        styles.button,
+        variant === 'secondary' && styles.secondaryButton,
+        isDisabled && styles.buttonDisabled,
+      ]}
       onPress={onPress}
       disabled={isDisabled}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'secondary' ? '#1f2a37' : '#ffffff'} />
+        <ActivityIndicator
+          color={variant === 'secondary' ? '#1f2a37' : '#ffffff'}
+        />
       ) : (
-        <Text style={[styles.buttonText, variant === 'secondary' && styles.secondaryButtonText]}>{title}</Text>
+        <Text
+          style={[
+            styles.buttonText,
+            variant === 'secondary' && styles.secondaryButtonText,
+          ]}
+        >
+          {title}
+        </Text>
       )}
     </Pressable>
   );
@@ -103,10 +133,19 @@ const formatDateInput = (value: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
-export function DateField({ label, value, onChange, placeholder = 'YYYY-MM-DD', testID }: DateFieldProps) {
+export function DateField({
+  label,
+  value,
+  onChange,
+  placeholder = 'YYYY-MM-DD',
+  testID,
+}: DateFieldProps) {
   const [showPicker, setShowPicker] = useState(false);
 
-  const selectedDate = useMemo(() => parseDateInput(value) ?? new Date(), [value]);
+  const selectedDate = useMemo(
+    () => parseDateInput(value) ?? new Date(),
+    [value],
+  );
 
   const handlePickerChange = (event: DateTimePickerEvent, selected?: Date) => {
     if (Platform.OS === 'android') {
@@ -192,7 +231,12 @@ export function ChoiceGroup<T extends string>({
               style={[styles.choiceChip, selected && styles.choiceChipSelected]}
               onPress={() => onChange(option.value)}
             >
-              <Text style={[styles.choiceText, selected && styles.choiceTextSelected]}>
+              <Text
+                style={[
+                  styles.choiceText,
+                  selected && styles.choiceTextSelected,
+                ]}
+              >
                 {option.label}
               </Text>
             </Pressable>

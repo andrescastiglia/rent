@@ -21,6 +21,7 @@ let MOCK_PAYMENTS: Payment[] = [
     currencyCode: 'ARS',
     paymentDate: new Date().toISOString().slice(0, 10),
     method: 'bank_transfer',
+    activityType: 'monthly',
     reference: null,
     status: 'completed',
     notes: null,
@@ -39,7 +40,7 @@ let MOCK_PAYMENTS: Payment[] = [
   },
 ];
 
-let MOCK_INVOICES: Invoice[] = [
+const MOCK_INVOICES: Invoice[] = [
   {
     id: 'inv1',
     leaseId: '1',
@@ -112,6 +113,7 @@ const toPayment = (raw: any): Payment => ({
   paymentDate: raw.paymentDate,
   processedAt: raw.processedAt,
   method: raw.method,
+  activityType: raw.activityType ?? 'monthly',
   reference: raw.reference ?? null,
   status: raw.status,
   notes: raw.notes ?? null,
@@ -161,7 +163,9 @@ const toInvoice = (raw: any): Invoice => ({
 });
 
 const ensureTenantAccountForLease = (leaseId: string): TenantAccount => {
-  const existing = MOCK_TENANT_ACCOUNTS.find((item) => item.leaseId === leaseId);
+  const existing = MOCK_TENANT_ACCOUNTS.find(
+    (item) => item.leaseId === leaseId,
+  );
   if (existing) {
     return existing;
   }
@@ -189,7 +193,10 @@ const ensureSingleDefaultPaymentTemplate = (
   );
 };
 
-const applyMockPaymentFilters = (payments: Payment[], filters?: PaymentFilters): Payment[] => {
+const applyMockPaymentFilters = (
+  payments: Payment[],
+  filters?: PaymentFilters,
+): Payment[] => {
   if (!filters) {
     return payments;
   }
@@ -197,15 +204,30 @@ const applyMockPaymentFilters = (payments: Payment[], filters?: PaymentFilters):
   return payments.filter((item) => {
     if (filters.status && item.status !== filters.status) return false;
     if (filters.method && item.method !== filters.method) return false;
+    if (filters.activityType && item.activityType !== filters.activityType)
+      return false;
     if (filters.tenantId && item.tenantId !== filters.tenantId) return false;
-    if (filters.tenantAccountId && item.tenantAccountId !== filters.tenantAccountId) return false;
+    if (
+      filters.tenantAccountId &&
+      item.tenantAccountId !== filters.tenantAccountId
+    )
+      return false;
+    if (filters.leaseId && item.tenantAccount?.leaseId !== filters.leaseId)
+      return false;
+    if (
+      filters.propertyId &&
+      item.tenantAccount?.lease?.propertyId !== filters.propertyId
+    )
+      return false;
     if (filters.fromDate && item.paymentDate < filters.fromDate) return false;
     if (filters.toDate && item.paymentDate > filters.toDate) return false;
     return true;
   });
 };
 
-const fetchPayments = async (filters?: PaymentFilters): Promise<PaginatedResponse<Payment>> => {
+const fetchPayments = async (
+  filters?: PaymentFilters,
+): Promise<PaginatedResponse<Payment>> => {
   if (IS_MOCK_MODE) {
     const filtered = applyMockPaymentFilters([...MOCK_PAYMENTS], filters);
     return {
@@ -218,16 +240,23 @@ const fetchPayments = async (filters?: PaymentFilters): Promise<PaginatedRespons
 
   const queryParams = new URLSearchParams();
   if (filters?.tenantId) queryParams.append('tenantId', filters.tenantId);
-  if (filters?.tenantAccountId) queryParams.append('tenantAccountId', filters.tenantAccountId);
+  if (filters?.tenantAccountId)
+    queryParams.append('tenantAccountId', filters.tenantAccountId);
   if (filters?.leaseId) queryParams.append('leaseId', filters.leaseId);
+  if (filters?.propertyId) queryParams.append('propertyId', filters.propertyId);
   if (filters?.status) queryParams.append('status', filters.status);
   if (filters?.method) queryParams.append('method', filters.method);
+  if (filters?.activityType)
+    queryParams.append('activityType', filters.activityType);
   if (filters?.fromDate) queryParams.append('fromDate', filters.fromDate);
   if (filters?.toDate) queryParams.append('toDate', filters.toDate);
   if (filters?.page) queryParams.append('page', String(filters.page));
   if (filters?.limit) queryParams.append('limit', String(filters.limit));
 
-  const endpoint = queryParams.toString().length > 0 ? `/payments?${queryParams.toString()}` : '/payments';
+  const endpoint =
+    queryParams.toString().length > 0
+      ? `/payments?${queryParams.toString()}`
+      : '/payments';
   const result = await apiClient.get<PaginatedResponse<any>>(endpoint);
   return {
     ...result,
@@ -235,7 +264,10 @@ const fetchPayments = async (filters?: PaymentFilters): Promise<PaginatedRespons
   };
 };
 
-const applyMockInvoiceFilters = (invoices: Invoice[], filters?: InvoiceFilters): Invoice[] => {
+const applyMockInvoiceFilters = (
+  invoices: Invoice[],
+  filters?: InvoiceFilters,
+): Invoice[] => {
   if (!filters) {
     return invoices;
   }
@@ -253,7 +285,9 @@ export const paymentsApi = {
     return fetchPayments();
   },
 
-  async getAllWithFilters(filters?: PaymentFilters): Promise<PaginatedResponse<Payment>> {
+  async getAllWithFilters(
+    filters?: PaymentFilters,
+  ): Promise<PaginatedResponse<Payment>> {
     return fetchPayments(filters);
   },
 
@@ -279,6 +313,7 @@ export const paymentsApi = {
         currencyCode: payload.currencyCode ?? 'ARS',
         paymentDate: payload.paymentDate,
         method: payload.method,
+        activityType: payload.activityType ?? 'monthly',
         reference: payload.reference ?? null,
         status: 'pending',
         notes: payload.notes ?? null,
@@ -331,7 +366,10 @@ export const paymentsApi = {
 
   async downloadReceiptPdf(paymentId: string): Promise<void> {
     if (IS_MOCK_MODE) {
-      await createAndShareMockPdf(`recibo-${paymentId}`, `Recibo mock del pago ${paymentId}`);
+      await createAndShareMockPdf(
+        `recibo-${paymentId}`,
+        `Recibo mock del pago ${paymentId}`,
+      );
       return;
     }
 
@@ -361,7 +399,10 @@ export const invoicesApi = {
     if (filters?.page) queryParams.append('page', String(filters.page));
     if (filters?.limit) queryParams.append('limit', String(filters.limit));
 
-    const endpoint = queryParams.toString().length > 0 ? `/invoices?${queryParams.toString()}` : '/invoices';
+    const endpoint =
+      queryParams.toString().length > 0
+        ? `/invoices?${queryParams.toString()}`
+        : '/invoices';
     const result = await apiClient.get<PaginatedResponse<any>>(endpoint);
     return {
       ...result,
@@ -402,7 +443,9 @@ export const tenantAccountsApi = {
     }
 
     try {
-      return await apiClient.get<TenantAccount>(`/tenant-accounts/lease/${leaseId}`);
+      return await apiClient.get<TenantAccount>(
+        `/tenant-accounts/lease/${leaseId}`,
+      );
     } catch {
       return null;
     }
@@ -410,7 +453,9 @@ export const tenantAccountsApi = {
 };
 
 export const paymentDocumentTemplatesApi = {
-  async list(type?: PaymentDocumentTemplateType): Promise<PaymentDocumentTemplate[]> {
+  async list(
+    type?: PaymentDocumentTemplateType,
+  ): Promise<PaymentDocumentTemplate[]> {
     if (IS_MOCK_MODE) {
       if (!type) {
         return [...MOCK_PAYMENT_TEMPLATES];
@@ -419,7 +464,9 @@ export const paymentDocumentTemplatesApi = {
     }
 
     const query = type ? `?type=${type}` : '';
-    return apiClient.get<PaymentDocumentTemplate[]>(`/payment-templates${query}`);
+    return apiClient.get<PaymentDocumentTemplate[]>(
+      `/payment-templates${query}`,
+    );
   },
 
   async create(data: {
@@ -430,7 +477,9 @@ export const paymentDocumentTemplatesApi = {
     isDefault?: boolean;
   }): Promise<PaymentDocumentTemplate> {
     if (IS_MOCK_MODE) {
-      const isFirstForType = !MOCK_PAYMENT_TEMPLATES.some((item) => item.type === data.type);
+      const isFirstForType = !MOCK_PAYMENT_TEMPLATES.some(
+        (item) => item.type === data.type,
+      );
       const isDefault = data.isDefault ?? isFirstForType;
       const created: PaymentDocumentTemplate = {
         id: `tpl-${Date.now()}`,
@@ -463,7 +512,9 @@ export const paymentDocumentTemplatesApi = {
     }>,
   ): Promise<PaymentDocumentTemplate> {
     if (IS_MOCK_MODE) {
-      const index = MOCK_PAYMENT_TEMPLATES.findIndex((item) => item.id === templateId);
+      const index = MOCK_PAYMENT_TEMPLATES.findIndex(
+        (item) => item.id === templateId,
+      );
       if (index < 0) {
         throw new Error('Template not found');
       }
@@ -480,12 +531,17 @@ export const paymentDocumentTemplatesApi = {
       return updated;
     }
 
-    return apiClient.patch<PaymentDocumentTemplate>(`/payment-templates/${templateId}`, data);
+    return apiClient.patch<PaymentDocumentTemplate>(
+      `/payment-templates/${templateId}`,
+      data,
+    );
   },
 
   async delete(templateId: string): Promise<void> {
     if (IS_MOCK_MODE) {
-      MOCK_PAYMENT_TEMPLATES = MOCK_PAYMENT_TEMPLATES.filter((item) => item.id !== templateId);
+      MOCK_PAYMENT_TEMPLATES = MOCK_PAYMENT_TEMPLATES.filter(
+        (item) => item.id !== templateId,
+      );
       return;
     }
 

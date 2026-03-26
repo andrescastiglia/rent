@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   CreatePaymentInput,
+  PaymentActivityType,
   PaymentMethod,
   TenantAccount,
   PaymentItemType,
@@ -156,6 +157,7 @@ type PaymentDetailsCardProps = {
   t: (key: string) => string;
   tCurrencies: (key: string) => string;
   paymentMethods: PaymentMethod[];
+  activityType?: PaymentActivityType;
   totalFromItems: number;
   itemsLength: number;
   paymentDate?: string;
@@ -166,6 +168,7 @@ type PaymentDetailsCardProps = {
   onAmountChange: (value: string) => void;
   onPaymentDateChange: (value: string) => void;
   onMethodChange: (value: string) => void;
+  onActivityTypeChange: (value: string) => void;
   onCurrencyChange: (value: string) => void;
   onReferenceChange: (value: string) => void;
   onNotesChange: (value: string) => void;
@@ -175,6 +178,7 @@ function PaymentDetailsCard({
   t,
   tCurrencies,
   paymentMethods,
+  activityType,
   totalFromItems,
   itemsLength,
   paymentDate,
@@ -185,6 +189,7 @@ function PaymentDetailsCard({
   onAmountChange,
   onPaymentDateChange,
   onMethodChange,
+  onActivityTypeChange,
   onCurrencyChange,
   onReferenceChange,
   onNotesChange,
@@ -245,6 +250,24 @@ function PaymentDetailsCard({
                 {t(`method.${paymentMethod}`)}
               </option>
             ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Actividad *
+          </label>
+          <select
+            required
+            value={activityType}
+            onChange={(e) => onActivityTypeChange(e.target.value)}
+            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          >
+            <option value="monthly">Mensual</option>
+            <option value="annual">Anual</option>
+            <option value="adjustment">Ajuste</option>
+            <option value="late_fee">Mora</option>
+            <option value="extraordinary">Extraordinario</option>
           </select>
         </div>
 
@@ -313,6 +336,7 @@ export default function NewPaymentPage() {
     currencyCode: "ARS",
     paymentDate: new Date().toISOString().split("T")[0],
     method: "bank_transfer",
+    activityType: "monthly",
     reference: "",
     notes: "",
     items: [],
@@ -395,6 +419,7 @@ export default function NewPaymentPage() {
         currencyCode: formData.currencyCode,
         paymentDate: formData.paymentDate!,
         method: formData.method as PaymentMethod,
+        activityType: formData.activityType as PaymentActivityType,
         reference: formData.reference,
         notes: formData.notes,
         items: effectiveItems.length > 0 ? effectiveItems : undefined,
@@ -489,6 +514,13 @@ export default function NewPaymentPage() {
     }));
   };
 
+  const handleActivityTypeChange = (value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      activityType: value as PaymentActivityType,
+    }));
+  };
+
   const handleCurrencyChange = (value: string) => {
     setFormData((prev) => ({ ...prev, currencyCode: value }));
   };
@@ -541,6 +573,7 @@ export default function NewPaymentPage() {
           t={t}
           tCurrencies={tCurrencies}
           paymentMethods={paymentMethods}
+          activityType={formData.activityType}
           totalFromItems={totalFromItems}
           itemsLength={items.length}
           paymentDate={formData.paymentDate}
@@ -551,6 +584,7 @@ export default function NewPaymentPage() {
           onAmountChange={handleAmountChange}
           onPaymentDateChange={handlePaymentDateChange}
           onMethodChange={handleMethodChange}
+          onActivityTypeChange={handleActivityTypeChange}
           onCurrencyChange={handleCurrencyChange}
           onReferenceChange={handleReferenceChange}
           onNotesChange={handleNotesChange}

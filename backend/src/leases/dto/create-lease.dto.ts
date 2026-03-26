@@ -17,6 +17,7 @@ import {
   AdjustmentType,
   IncreaseClauseType,
   InflationIndexType,
+  LeaseRenewalAlertPeriodicity,
 } from '../entities/lease.entity';
 import { z } from 'zod';
 
@@ -89,6 +90,18 @@ export const createLeaseZodSchema = z
       .optional()
       .default(10)
       .describe('Day of month rent is due (1-28)'),
+    renewalAlertEnabled: z.coerce.boolean().optional().default(true),
+    renewalAlertPeriodicity: z
+      .nativeEnum(LeaseRenewalAlertPeriodicity)
+      .optional()
+      .default(LeaseRenewalAlertPeriodicity.MONTHLY)
+      .describe('monthly|four_months|custom'),
+    renewalAlertCustomDays: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .describe('Custom number of days before lease end'),
     billingFrequency: z
       .nativeEnum(BillingFrequency)
       .optional()
@@ -217,6 +230,20 @@ export class CreateLeaseDto {
   @IsNumber()
   @IsOptional()
   paymentDueDay?: number = 10;
+
+  @IsBoolean()
+  @IsOptional()
+  renewalAlertEnabled?: boolean = true;
+
+  @IsEnum(LeaseRenewalAlertPeriodicity)
+  @IsOptional()
+  renewalAlertPeriodicity?: LeaseRenewalAlertPeriodicity =
+    LeaseRenewalAlertPeriodicity.MONTHLY;
+
+  @IsNumber()
+  @Min(1)
+  @IsOptional()
+  renewalAlertCustomDays?: number;
 
   @IsEnum(BillingFrequency)
   @IsOptional()

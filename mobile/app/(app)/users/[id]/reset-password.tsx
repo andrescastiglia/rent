@@ -16,15 +16,23 @@ export default function ResetUserPasswordScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({
-    mutationFn: (nextPassword: string) => usersApi.resetPassword(id, nextPassword),
+    mutationFn: (nextPassword: string) =>
+      usersApi.resetPassword(id, nextPassword),
     onSuccess: (result) => {
       const message = result.temporaryPassword
         ? `${result.message}\n${t('users.newPasswordPrompt')} ${result.temporaryPassword}`
         : result.message;
-      Alert.alert(t('users.messages.passwordReset'), message, [{ text: 'OK', onPress: () => router.back() }]);
+      Alert.alert(t('users.messages.passwordReset'), message, [
+        { text: 'OK', onPress: () => router.back() },
+      ]);
     },
     onError: (submitError) => {
-      Alert.alert(t('common.error'), submitError instanceof Error ? submitError.message : t('users.errors.resetPassword'));
+      Alert.alert(
+        t('common.error'),
+        submitError instanceof Error
+          ? submitError.message
+          : t('users.errors.resetPassword'),
+      );
     },
   });
 

@@ -6,12 +6,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
   dashboardApi,
-  DashboardStats,
+  DashboardOperationsOverview,
   PeopleActivityResponse,
   PersonActivityItem,
   PersonActivityStatus,
 } from "@/lib/api/dashboard";
 import { formatMoneyByCode } from "@/lib/format-money";
+import { Building2, CalendarClock, CreditCard, TrendingUp } from "lucide-react";
 
 const STATUS_COLORS: Record<PersonActivityStatus, string> = {
   pending:
@@ -21,11 +22,17 @@ const STATUS_COLORS: Record<PersonActivityStatus, string> = {
   cancelled: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
 };
 
+function formatPersonName(name: string | null | undefined): string {
+  return name?.trim() || "Sin asignar";
+}
+
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const t = useTranslations("dashboard");
   const locale = useLocale();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [overview, setOverview] = useState<DashboardOperationsOverview | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [peopleActivity, setPeopleActivity] =
     useState<PeopleActivityResponse | null>(null);
@@ -38,16 +45,17 @@ export default function DashboardPage() {
     useState<PersonActivityItem | null>(null);
   const [editingComment, setEditingComment] = useState("");
 
-  const fetchStats = async () => {
+  const fetchOverview = useCallback(async () => {
     try {
-      const data = await dashboardApi.getStats();
-      setStats(data);
+      setLoading(true);
+      const data = await dashboardApi.getOperationsOverview();
+      setOverview(data);
     } catch (error) {
-      console.error("Error fetching dashboard stats:", error);
+      console.error("Error fetching dashboard operations overview:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const fetchPeopleActivity = useCallback(async () => {
     setActivityLoading(true);
@@ -63,10 +71,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    fetchStats().catch((error) => {
-      console.error("Error fetching dashboard stats:", error);
+    fetchOverview().catch((error) => {
+      console.error("Error fetching dashboard overview:", error);
     });
-  }, [authLoading]);
+  }, [authLoading, fetchOverview]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -75,10 +83,14 @@ export default function DashboardPage() {
     });
   }, [authLoading, fetchPeopleActivity]);
 
+  const formatDate = (dateStr: string | null | undefined): string => {
+    if (!dateStr) return "-";
+    return new Date(dateStr).toLocaleDateString(locale);
+  };
+
   const formatDateTime = (dateStr: string | null): string => {
     if (!dateStr) return "-";
-    const date = new Date(dateStr);
-    return date.toLocaleString(locale, {
+    return new Date(dateStr).toLocaleString(locale, {
       dateStyle: "short",
       timeStyle: "short",
     });
@@ -165,7 +177,7 @@ export default function DashboardPage() {
                 <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
                   {item.subject}
                   {item.body ? (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                       {item.body}
                     </p>
                   ) : null}
@@ -208,68 +220,318 @@ export default function DashboardPage() {
     );
   };
 
+  const propertyPanel = overview?.propertiesPanel;
+  const paymentsPanel = overview?.paymentsPanel;
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+      <div className="rounded-3xl border border-slate-200 bg-linear-to-r from-amber-50 via-white to-emerald-50 p-6 shadow-sm dark:border-slate-800 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950">
+        <p className="text-sm font-medium uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+          Sistema de Gestión Inmobiliaria
+        </p>
+        <h1 className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
           {t("title")}
         </h1>
-        <p className="mt-2 text-gray-600 dark:text-gray-400">
+        <p className="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-300">
           {t("welcome", { name: `${user?.firstName} ${user?.lastName}` })}
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Link
-          href={`/${locale}/properties`}
-          className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4"
-        >
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t("stats.properties")}
-          </p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">
-            {loading ? "..." : (stats?.totalProperties ?? 0)}
-          </p>
-        </Link>
-        <Link
-          href={`/${locale}/tenants`}
-          className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4"
-        >
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t("stats.tenants")}
-          </p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">
-            {loading ? "..." : (stats?.totalTenants ?? 0)}
-          </p>
-        </Link>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t("stats.monthlyIncome")}
-          </p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">
-            {loading
-              ? "..."
-              : formatMoneyByCode(
-                  stats?.monthlyIncome ?? 0,
-                  stats?.currencyCode ?? "ARS",
-                  locale,
-                )}
-          </p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t("stats.monthlyExpenses")}
-          </p>
-          <p className="text-2xl font-bold text-red-700 dark:text-red-400">
-            {loading
-              ? "..."
-              : `-${formatMoneyByCode(
-                  Math.abs(stats?.monthlyExpenses ?? 0),
-                  stats?.currencyCode ?? "ARS",
-                  locale,
-                )}`}
-          </p>
-        </div>
+      <div className="grid gap-6 xl:grid-cols-2">
+        <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="border-b border-slate-200 bg-slate-950 px-6 py-5 text-white dark:border-slate-800">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10">
+                  <Building2 size={20} />
+                </span>
+                <div>
+                  <p className="text-sm uppercase tracking-[0.18em] text-slate-300">
+                    Panel Principal
+                  </p>
+                  <h2 className="text-xl font-semibold">Propiedades</h2>
+                </div>
+              </div>
+              <Link
+                href={`/${locale}/properties`}
+                className="rounded-full border border-white/20 px-4 py-2 text-sm hover:bg-white/10"
+              >
+                Ver panel
+              </Link>
+            </div>
+          </div>
+
+          <div className="space-y-6 p-6">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl bg-emerald-50 p-4 dark:bg-emerald-950/40">
+                <p className="text-xs uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
+                  Venta
+                </p>
+                <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
+                  {loading ? "..." : (propertyPanel?.saleCount ?? 0)}
+                </p>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  propiedades publicadas para venta
+                </p>
+              </div>
+              <div className="rounded-2xl bg-blue-50 p-4 dark:bg-blue-950/40">
+                <p className="text-xs uppercase tracking-[0.16em] text-blue-700 dark:text-blue-300">
+                  Alquileres Vigentes
+                </p>
+                <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
+                  {loading ? "..." : (propertyPanel?.rentalActiveCount ?? 0)}
+                </p>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  contratos activos para seguimiento
+                </p>
+              </div>
+              <div className="rounded-2xl bg-amber-50 p-4 dark:bg-amber-950/40">
+                <p className="text-xs uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300">
+                  Vencen Este Mes
+                </p>
+                <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
+                  {loading
+                    ? "..."
+                    : (propertyPanel?.expiringThisMonthCount ?? 0)}
+                </p>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  revisar para renovar ahora
+                </p>
+              </div>
+              <div className="rounded-2xl bg-rose-50 p-4 dark:bg-rose-950/40">
+                <p className="text-xs uppercase tracking-[0.16em] text-rose-700 dark:text-rose-300">
+                  Vencidos
+                </p>
+                <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
+                  {loading ? "..." : (propertyPanel?.rentalExpiredCount ?? 0)}
+                </p>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  contratos para regularizar o renovar
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                    Venta destacada
+                  </h3>
+                  <Link
+                    href={`/${locale}/properties`}
+                    className="text-sm text-blue-600 hover:underline"
+                  >
+                    Ir a ventas
+                  </Link>
+                </div>
+                <div className="space-y-3">
+                  {(propertyPanel?.saleHighlights ?? []).map((item) => (
+                    <div
+                      key={item.propertyId}
+                      className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800"
+                    >
+                      <p className="font-semibold text-slate-900 dark:text-white">
+                        {item.propertyName}
+                      </p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        {item.propertyAddress || "Sin dirección"}
+                      </p>
+                      <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">
+                        {item.salePrice !== null
+                          ? formatMoneyByCode(
+                              item.salePrice,
+                              item.saleCurrency,
+                              locale,
+                            )
+                          : "Precio a definir"}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Propietario: {formatPersonName(item.ownerName)}
+                      </p>
+                    </div>
+                  ))}
+                  {!loading &&
+                  (propertyPanel?.saleHighlights.length ?? 0) === 0 ? (
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      No hay propiedades en venta para mostrar.
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                      Vencimientos del Mes
+                    </h3>
+                    <CalendarClock size={16} className="text-amber-500" />
+                  </div>
+                  <div className="space-y-2">
+                    {(propertyPanel?.expiringThisMonth ?? []).map((item) => (
+                      <div
+                        key={item.leaseId}
+                        className="rounded-2xl border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-900 dark:bg-amber-950/20"
+                      >
+                        <p className="font-medium text-slate-900 dark:text-white">
+                          {item.propertyName}
+                        </p>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                          {formatPersonName(item.tenantName)} · vence{" "}
+                          {formatDate(item.endDate)}
+                        </p>
+                      </div>
+                    ))}
+                    {!loading &&
+                    (propertyPanel?.expiringThisMonth.length ?? 0) === 0 ? (
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        No hay vencimientos este mes.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                      Próximos 4 Meses
+                    </h3>
+                    <TrendingUp size={16} className="text-blue-500" />
+                  </div>
+                  <div className="space-y-2">
+                    {(propertyPanel?.expiringNextFourMonths ?? []).map(
+                      (item) => (
+                        <div
+                          key={item.leaseId}
+                          className="rounded-2xl border border-slate-200 p-3 dark:border-slate-800"
+                        >
+                          <p className="font-medium text-slate-900 dark:text-white">
+                            {item.propertyName}
+                          </p>
+                          <p className="text-sm text-slate-600 dark:text-slate-400">
+                            {formatPersonName(item.ownerName)} · vence{" "}
+                            {formatDate(item.endDate)}
+                          </p>
+                        </div>
+                      ),
+                    )}
+                    {!loading &&
+                    (propertyPanel?.expiringNextFourMonths.length ?? 0) ===
+                      0 ? (
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        No hay renovaciones en la ventana de cuatro meses.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="border-b border-slate-200 bg-linear-to-r from-slate-900 to-slate-800 px-6 py-5 text-white dark:border-slate-800">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10">
+                  <CreditCard size={20} />
+                </span>
+                <div>
+                  <p className="text-sm uppercase tracking-[0.18em] text-slate-300">
+                    Panel Principal
+                  </p>
+                  <h2 className="text-xl font-semibold">Pagos</h2>
+                </div>
+              </div>
+              <Link
+                href={`/${locale}/payments`}
+                className="rounded-full border border-white/20 px-4 py-2 text-sm hover:bg-white/10"
+              >
+                Ver panel
+              </Link>
+            </div>
+          </div>
+
+          <div className="space-y-6 p-6">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                  Total
+                </p>
+                <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
+                  {loading ? "..." : (paymentsPanel?.totalPayments ?? 0)}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-900 dark:bg-amber-950/20">
+                <p className="text-xs uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300">
+                  Pendientes
+                </p>
+                <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
+                  {loading ? "..." : (paymentsPanel?.pendingPayments ?? 0)}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-900 dark:bg-emerald-950/20">
+                <p className="text-xs uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
+                  Realizados
+                </p>
+                <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
+                  {loading ? "..." : (paymentsPanel?.completedPayments ?? 0)}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-rose-200 bg-rose-50/80 p-4 dark:border-rose-900 dark:bg-rose-950/20">
+                <p className="text-xs uppercase tracking-[0.16em] text-rose-700 dark:text-rose-300">
+                  Facturas Vencidas
+                </p>
+                <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
+                  {loading ? "..." : (paymentsPanel?.overdueInvoices ?? 0)}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                Últimos movimientos
+              </h3>
+              <div className="space-y-3">
+                {(paymentsPanel?.recentPayments ?? []).map((payment) => (
+                  <div
+                    key={payment.paymentId}
+                    className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-slate-900 dark:text-white">
+                          {payment.propertyName || "Propiedad sin vincular"}
+                        </p>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                          {formatPersonName(payment.tenantName)} ·{" "}
+                          {payment.activityType}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {formatDate(payment.paymentDate)} · estado{" "}
+                          {payment.status}
+                        </p>
+                      </div>
+                      <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
+                        {formatMoneyByCode(
+                          payment.amount,
+                          payment.currencyCode,
+                          locale,
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {!loading &&
+                (paymentsPanel?.recentPayments.length ?? 0) === 0 ? (
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    No hay pagos recientes para mostrar.
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
@@ -345,17 +607,13 @@ export default function DashboardPage() {
                   setEditingActivity(null);
                   setEditingComment("");
                 }}
-                className="px-3 py-2 rounded-md bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200 text-sm"
+                className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-200"
               >
                 {t("peopleActivity.actions.cancel")}
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  handleSaveComment().catch((error) => {
-                    console.error("Failed to edit activity comment", error);
-                  });
-                }}
+                onClick={() => void handleSaveComment()}
                 disabled={updatingActivityId === editingActivity.id}
                 className="px-3 py-2 rounded-md bg-blue-600 text-white text-sm disabled:opacity-50"
               >

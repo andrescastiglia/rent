@@ -30,7 +30,9 @@ export default function TabsLayout() {
           options={{
             title: t('nav.dashboard'),
             href: null,
-            tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" color={color} size={size} />,
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="home-outline" color={color} size={size} />
+            ),
           }}
         />
       )}
@@ -41,7 +43,11 @@ export default function TabsLayout() {
             title: t('properties.title'),
             tabBarButtonTestID: 'tab.properties',
             headerLeft: () => (
-              <Pressable style={styles.headerBackButton} onPress={goDashboard} testID="header.back.properties">
+              <Pressable
+                style={styles.headerBackButton}
+                onPress={goDashboard}
+                testID="header.back.properties"
+              >
                 <Ionicons name="arrow-back" color="#0f172a" size={20} />
               </Pressable>
             ),
@@ -51,10 +57,14 @@ export default function TabsLayout() {
                 onPress={() => router.push('/(app)/owners/new' as never)}
                 testID="owners.new"
               >
-                <Text style={styles.headerActionText}>{t('breadcrumbs.new')}</Text>
+                <Text style={styles.headerActionText}>
+                  {t('breadcrumbs.new')}
+                </Text>
               </Pressable>
             ),
-            tabBarIcon: ({ color, size }) => <Ionicons name="business-outline" color={color} size={size} />,
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="business-outline" color={color} size={size} />
+            ),
           }}
         />
       )}
@@ -65,11 +75,17 @@ export default function TabsLayout() {
             title: t('tenants.title'),
             tabBarButtonTestID: 'tab.tenants',
             headerLeft: () => (
-              <Pressable style={styles.headerBackButton} onPress={goDashboard} testID="header.back.tenants">
+              <Pressable
+                style={styles.headerBackButton}
+                onPress={goDashboard}
+                testID="header.back.tenants"
+              >
                 <Ionicons name="arrow-back" color="#0f172a" size={20} />
               </Pressable>
             ),
-            tabBarIcon: ({ color, size }) => <Ionicons name="people-outline" color={color} size={size} />,
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="people-outline" color={color} size={size} />
+            ),
           }}
         />
       )}
@@ -80,7 +96,11 @@ export default function TabsLayout() {
             title: t('interested.title'),
             tabBarButtonTestID: 'tab.interested',
             headerLeft: () => (
-              <Pressable style={styles.headerBackButton} onPress={goDashboard} testID="header.back.interested">
+              <Pressable
+                style={styles.headerBackButton}
+                onPress={goDashboard}
+                testID="header.back.interested"
+              >
                 <Ionicons name="arrow-back" color="#0f172a" size={20} />
               </Pressable>
             ),
@@ -90,10 +110,14 @@ export default function TabsLayout() {
                 onPress={() => router.push('/(app)/interested/new' as never)}
                 testID="interested.new"
               >
-                <Text style={styles.headerActionText}>{t('breadcrumbs.new')}</Text>
+                <Text style={styles.headerActionText}>
+                  {t('breadcrumbs.new')}
+                </Text>
               </Pressable>
             ),
-            tabBarIcon: ({ color, size }) => <Ionicons name="sparkles-outline" color={color} size={size} />,
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="sparkles-outline" color={color} size={size} />
+            ),
           }}
         />
       )}
@@ -104,7 +128,11 @@ export default function TabsLayout() {
             href: null,
             title: t('leases.title'),
             headerLeft: () => (
-              <Pressable style={styles.headerBackButton} onPress={goDashboard} testID="header.back.leases">
+              <Pressable
+                style={styles.headerBackButton}
+                onPress={goDashboard}
+                testID="header.back.leases"
+              >
                 <Ionicons name="arrow-back" color="#0f172a" size={20} />
               </Pressable>
             ),
@@ -118,11 +146,17 @@ export default function TabsLayout() {
             title: t('payments.title'),
             tabBarButtonTestID: 'tab.payments',
             headerLeft: () => (
-              <Pressable style={styles.headerBackButton} onPress={goDashboard} testID="header.back.payments">
+              <Pressable
+                style={styles.headerBackButton}
+                onPress={goDashboard}
+                testID="header.back.payments"
+              >
                 <Ionicons name="arrow-back" color="#0f172a" size={20} />
               </Pressable>
             ),
-            tabBarIcon: ({ color, size }) => <Ionicons name="card-outline" color={color} size={size} />,
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="card-outline" color={color} size={size} />
+            ),
           }}
         />
       )}
@@ -132,7 +166,13 @@ export default function TabsLayout() {
           options={{
             title: t('common.aiAssistant'),
             tabBarButtonTestID: 'tab.ai',
-            tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-ellipses-outline" color={color} size={size} />,
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons
+                name="chatbubble-ellipses-outline"
+                color={color}
+                size={size}
+              />
+            ),
           }}
         />
       )}
@@ -142,11 +182,17 @@ export default function TabsLayout() {
           title: t('common.settings'),
           tabBarButtonTestID: 'tab.settings',
           headerLeft: () => (
-            <Pressable style={styles.headerBackButton} onPress={goDashboard} testID="header.back.settings">
+            <Pressable
+              style={styles.headerBackButton}
+              onPress={goDashboard}
+              testID="header.back.settings"
+            >
               <Ionicons name="arrow-back" color="#0f172a" size={20} />
             </Pressable>
           ),
-          tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="settings-outline" color={color} size={size} />
+          ),
         }}
       />
     </Tabs>

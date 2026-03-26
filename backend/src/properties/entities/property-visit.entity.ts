@@ -12,6 +12,11 @@ import { Property } from './property.entity';
 import { PropertyVisitNotification } from './property-visit-notification.entity';
 import { InterestedProfile } from '../../interested/entities/interested-profile.entity';
 
+export enum PropertyVisitKind {
+  VISIT = 'visit',
+  MAINTENANCE = 'maintenance',
+}
+
 @Entity('property_visits')
 export class PropertyVisit {
   @PrimaryGeneratedColumn('uuid')
@@ -23,6 +28,14 @@ export class PropertyVisit {
   @ManyToOne(() => Property)
   @JoinColumn({ name: 'property_id' })
   property: Property;
+
+  @Column({
+    type: 'enum',
+    enum: PropertyVisitKind,
+    enumName: 'property_visit_kind',
+    default: PropertyVisitKind.VISIT,
+  })
+  kind: PropertyVisitKind;
 
   @Column({ name: 'visited_at', type: 'timestamptz' })
   visitedAt: Date;

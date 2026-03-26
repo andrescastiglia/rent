@@ -1,4 +1,4 @@
-# Guía de Deployment - Rent Management System
+# Guía de Deployment - Real Estate Management System
 
 **Versión**: 1.0  
 **Última Actualización**: Diciembre 2025

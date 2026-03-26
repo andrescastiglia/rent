@@ -3,8 +3,10 @@ import { IS_MOCK_MODE } from '@/api/env';
 import type {
   CreatePropertyInput,
   CreatePropertyMaintenanceTaskInput,
+  CreatePropertyVisitInput,
   Property,
   PropertyMaintenanceTask,
+  PropertyVisit,
   PropertyOperation,
   PropertyOperationState,
   PropertyStatus,
@@ -12,8 +14,18 @@ import type {
   UpdatePropertyInput,
 } from '@/types/property';
 
-type PaginatedResponse<T> = { data: T[]; total: number; page: number; limit: number };
-type PaginatedItemsResponse<T> = { items: T[]; total: number; page: number; limit: number };
+type PaginatedResponse<T> = {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+};
+type PaginatedItemsResponse<T> = {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+};
 
 type BackendProperty = {
   id: string;
@@ -45,6 +57,10 @@ type BackendMaintenanceTask = Partial<PropertyMaintenanceTask> & {
   dueDate?: string | Date;
   date?: string | Date;
   maintenanceDate?: string | Date;
+};
+
+type BackendPropertyVisit = Partial<PropertyVisit> & {
+  visitedAt?: string | Date;
 };
 
 let MOCK_PROPERTIES: Property[] = [
@@ -94,7 +110,22 @@ let MOCK_MAINTENANCE_TASKS: PropertyMaintenanceTask[] = [
   },
 ];
 
-const toIso = (value?: string | Date): string => (value ? new Date(value).toISOString() : new Date().toISOString());
+let MOCK_VISITS: PropertyVisit[] = [
+  {
+    id: 'visit-1',
+    propertyId: '1',
+    visitedAt: new Date().toISOString(),
+    interestedName: 'Lucia Pérez',
+    comments: 'Consultó por renovación y expensas.',
+    hasOffer: false,
+    offerCurrency: 'ARS',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+const toIso = (value?: string | Date): string =>
+  value ? new Date(value).toISOString() : new Date().toISOString();
 
 const mapType = (value?: string | null): PropertyType => {
   switch ((value ?? '').toLowerCase()) {
@@ -161,15 +192,25 @@ const toBackendStatus = (value: PropertyStatus): string => {
   }
 };
 
-const mapOperations = (value?: string[] | string | null): PropertyOperation[] | undefined => {
-  const source = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : [];
+const mapOperations = (
+  value?: string[] | string | null,
+): PropertyOperation[] | undefined => {
+  const source = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? value.split(',')
+      : [];
   const normalized = source
     .map((item) => item.trim().toLowerCase())
-    .filter((item): item is PropertyOperation => item === 'rent' || item === 'sale');
+    .filter(
+      (item): item is PropertyOperation => item === 'rent' || item === 'sale',
+    );
   return normalized.length > 0 ? normalized : undefined;
 };
 
-const mapOperationState = (value?: string | null): PropertyOperationState | undefined => {
+const mapOperationState = (
+  value?: string | null,
+): PropertyOperationState | undefined => {
   switch ((value ?? '').toLowerCase()) {
     case 'available':
       return 'available';
@@ -209,8 +250,14 @@ const mapProperty = (raw: BackendProperty): Property => ({
   images: Array.isArray(raw.images) ? raw.images : [],
   ownerId: raw.ownerId ?? '',
   ownerWhatsapp: raw.ownerWhatsapp ?? undefined,
-  rentPrice: raw.rentPrice === null || raw.rentPrice === undefined ? undefined : Number(raw.rentPrice),
-  salePrice: raw.salePrice === null || raw.salePrice === undefined ? undefined : Number(raw.salePrice),
+  rentPrice:
+    raw.rentPrice === null || raw.rentPrice === undefined
+      ? undefined
+      : Number(raw.rentPrice),
+  salePrice:
+    raw.salePrice === null || raw.salePrice === undefined
+      ? undefined
+      : Number(raw.salePrice),
   saleCurrency: raw.saleCurrency ?? undefined,
   operations: mapOperations(raw.operations),
   operationState: mapOperationState(raw.operationState),
@@ -218,8 +265,17 @@ const mapProperty = (raw: BackendProperty): Property => ({
   updatedAt: toIso(raw.updatedAt),
 });
 
-const mapMaintenanceTask = (propertyId: string, raw: BackendMaintenanceTask, index: number): PropertyMaintenanceTask => {
-  const scheduledCandidate = raw.scheduledAt ?? raw.scheduledDate ?? raw.dueDate ?? raw.date ?? raw.maintenanceDate;
+const mapMaintenanceTask = (
+  propertyId: string,
+  raw: BackendMaintenanceTask,
+  index: number,
+): PropertyMaintenanceTask => {
+  const scheduledCandidate =
+    raw.scheduledAt ??
+    raw.scheduledDate ??
+    raw.dueDate ??
+    raw.date ??
+    raw.maintenanceDate;
   return {
     id: raw.id ?? `maintenance-${propertyId}-${index}`,
     propertyId: raw.propertyId ?? propertyId,
@@ -230,6 +286,27 @@ const mapMaintenanceTask = (propertyId: string, raw: BackendMaintenanceTask, ind
     updatedAt: toIso(raw.updatedAt),
   };
 };
+
+const mapVisit = (
+  propertyId: string,
+  raw: BackendPropertyVisit,
+  index: number,
+): PropertyVisit => ({
+  id: raw.id ?? `visit-${propertyId}-${index}`,
+  propertyId: raw.propertyId ?? propertyId,
+  visitedAt: toIso(raw.visitedAt),
+  interestedName: raw.interestedName ?? undefined,
+  interestedProfileId: raw.interestedProfileId ?? undefined,
+  comments: raw.comments ?? undefined,
+  hasOffer: raw.hasOffer ?? undefined,
+  offerAmount:
+    raw.offerAmount === null || raw.offerAmount === undefined
+      ? undefined
+      : Number(raw.offerAmount),
+  offerCurrency: raw.offerCurrency ?? undefined,
+  createdAt: toIso(raw.createdAt),
+  updatedAt: toIso(raw.updatedAt),
+});
 
 const toCreatePayload = (value: CreatePropertyInput) => ({
   name: value.name,
@@ -291,8 +368,12 @@ export const propertiesApi = {
       return [...MOCK_PROPERTIES];
     }
 
-    const result = await apiClient.get<BackendProperty[] | PaginatedResponse<BackendProperty>>('/properties');
-    return Array.isArray(result) ? result.map(mapProperty) : result.data.map(mapProperty);
+    const result = await apiClient.get<
+      BackendProperty[] | PaginatedResponse<BackendProperty>
+    >('/properties');
+    return Array.isArray(result)
+      ? result.map(mapProperty)
+      : result.data.map(mapProperty);
   },
 
   async getById(id: string): Promise<Property | null> {
@@ -342,7 +423,10 @@ export const propertiesApi = {
       return created;
     }
 
-    const result = await apiClient.post<BackendProperty>('/properties', toCreatePayload(payload));
+    const result = await apiClient.post<BackendProperty>(
+      '/properties',
+      toCreatePayload(payload),
+    );
     return mapProperty(result);
   },
 
@@ -356,7 +440,9 @@ export const propertiesApi = {
       const current = MOCK_PROPERTIES[index];
       const mappedFeatures =
         payload.features?.map((feature, featureIndex) => ({
-          id: current.features[featureIndex]?.id ?? `feature-${Date.now()}-${featureIndex}`,
+          id:
+            current.features[featureIndex]?.id ??
+            `feature-${Date.now()}-${featureIndex}`,
           name: feature.name,
           value: feature.value,
         })) ?? current.features;
@@ -372,39 +458,114 @@ export const propertiesApi = {
       return updated;
     }
 
-    const result = await apiClient.patch<BackendProperty>(`/properties/${id}`, toUpdatePayload(payload));
+    const result = await apiClient.patch<BackendProperty>(
+      `/properties/${id}`,
+      toUpdatePayload(payload),
+    );
     return mapProperty(result);
   },
 
   async delete(id: string): Promise<void> {
     if (IS_MOCK_MODE) {
       MOCK_PROPERTIES = MOCK_PROPERTIES.filter((item) => item.id !== id);
-      MOCK_MAINTENANCE_TASKS = MOCK_MAINTENANCE_TASKS.filter((task) => task.propertyId !== id);
+      MOCK_MAINTENANCE_TASKS = MOCK_MAINTENANCE_TASKS.filter(
+        (task) => task.propertyId !== id,
+      );
       return;
     }
 
     await apiClient.delete(`/properties/${id}`);
   },
 
-  async getMaintenanceTasks(propertyId: string, limit = 5): Promise<PropertyMaintenanceTask[]> {
+  async getMaintenanceTasks(
+    propertyId: string,
+    limit = 5,
+  ): Promise<PropertyMaintenanceTask[]> {
     if (IS_MOCK_MODE) {
       return [...MOCK_MAINTENANCE_TASKS]
         .filter((task) => task.propertyId === propertyId)
-        .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())
+        .sort(
+          (a, b) =>
+            new Date(b.scheduledAt).getTime() -
+            new Date(a.scheduledAt).getTime(),
+        )
         .slice(0, limit);
     }
 
     const response = await apiClient.get<
-      BackendMaintenanceTask[] | PaginatedResponse<BackendMaintenanceTask> | PaginatedItemsResponse<BackendMaintenanceTask>
-    >(
-      `/properties/${propertyId}/visits/maintenance-tasks?limit=${limit}`,
-    );
+      | BackendMaintenanceTask[]
+      | PaginatedResponse<BackendMaintenanceTask>
+      | PaginatedItemsResponse<BackendMaintenanceTask>
+    >(`/properties/${propertyId}/visits/maintenance-tasks?limit=${limit}`);
 
-    const rawItems = Array.isArray(response) ? response : 'data' in response ? response.data : response.items;
-    return rawItems.map((item, index) => mapMaintenanceTask(propertyId, item, index));
+    const rawItems = Array.isArray(response)
+      ? response
+      : 'data' in response
+        ? response.data
+        : response.items;
+    return rawItems.map((item, index) =>
+      mapMaintenanceTask(propertyId, item, index),
+    );
   },
 
-  async createMaintenanceTask(propertyId: string, payload: CreatePropertyMaintenanceTaskInput): Promise<PropertyMaintenanceTask> {
+  async getVisits(propertyId: string, limit = 5): Promise<PropertyVisit[]> {
+    if (IS_MOCK_MODE) {
+      return [...MOCK_VISITS]
+        .filter((visit) => visit.propertyId === propertyId)
+        .sort(
+          (a, b) =>
+            new Date(b.visitedAt).getTime() - new Date(a.visitedAt).getTime(),
+        )
+        .slice(0, limit);
+    }
+
+    const response = await apiClient.get<
+      | BackendPropertyVisit[]
+      | PaginatedResponse<BackendPropertyVisit>
+      | PaginatedItemsResponse<BackendPropertyVisit>
+    >(`/properties/${propertyId}/visits?limit=${limit}`);
+
+    const rawItems = Array.isArray(response)
+      ? response
+      : 'data' in response
+        ? response.data
+        : response.items;
+    return rawItems.map((item, index) => mapVisit(propertyId, item, index));
+  },
+
+  async createVisit(
+    propertyId: string,
+    payload: CreatePropertyVisitInput,
+  ): Promise<PropertyVisit> {
+    if (IS_MOCK_MODE) {
+      const created: PropertyVisit = {
+        id: `visit-${Date.now()}`,
+        propertyId,
+        visitedAt: payload.visitedAt ?? new Date().toISOString(),
+        interestedName: payload.interestedName,
+        interestedProfileId: payload.interestedProfileId,
+        comments: payload.comments,
+        hasOffer: payload.hasOffer,
+        offerAmount: payload.offerAmount,
+        offerCurrency: payload.offerCurrency ?? 'ARS',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      MOCK_VISITS = [created, ...MOCK_VISITS];
+      return created;
+    }
+
+    const result = await apiClient.post<BackendPropertyVisit>(
+      `/properties/${propertyId}/visits`,
+      payload,
+    );
+    return mapVisit(propertyId, result, 0);
+  },
+
+  async createMaintenanceTask(
+    propertyId: string,
+    payload: CreatePropertyMaintenanceTaskInput,
+  ): Promise<PropertyMaintenanceTask> {
     if (IS_MOCK_MODE) {
       const created: PropertyMaintenanceTask = {
         id: `maintenance-${Date.now()}`,
@@ -419,6 +580,9 @@ export const propertiesApi = {
       return created;
     }
 
-    return apiClient.post<PropertyMaintenanceTask>(`/properties/${propertyId}/visits/maintenance-tasks`, payload);
+    return apiClient.post<PropertyMaintenanceTask>(
+      `/properties/${propertyId}/visits/maintenance-tasks`,
+      payload,
+    );
   },
 };

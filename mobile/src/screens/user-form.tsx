@@ -7,7 +7,10 @@ import { z } from 'zod';
 
 import { AppButton, ChoiceGroup, Field } from '@/components/ui';
 import type { User } from '@/types/auth';
-import type { CreateManagedUserInput, UpdateManagedUserInput } from '@/api/users';
+import type {
+  CreateManagedUserInput,
+  UpdateManagedUserInput,
+} from '@/api/users';
 
 const createSchema = z.object({
   email: z.string().email(),
@@ -30,7 +33,9 @@ type UserFormProps = {
   mode: 'create' | 'edit';
   initial?: User;
   submitting?: boolean;
-  onSubmit: (payload: CreateManagedUserInput | UpdateManagedUserInput) => Promise<void>;
+  onSubmit: (
+    payload: CreateManagedUserInput | UpdateManagedUserInput,
+  ) => Promise<void>;
   submitLabel: string;
   testIDPrefix?: string;
 };
@@ -128,14 +133,24 @@ export function UserForm({
         control={control}
         name="firstName"
         render={({ field }) => (
-          <Field label={t('auth.firstName')} value={field.value} onChangeText={field.onChange} testID={`${testIDPrefix}.firstName`} />
+          <Field
+            label={t('auth.firstName')}
+            value={field.value}
+            onChangeText={field.onChange}
+            testID={`${testIDPrefix}.firstName`}
+          />
         )}
       />
       <Controller
         control={control}
         name="lastName"
         render={({ field }) => (
-          <Field label={t('auth.lastName')} value={field.value} onChangeText={field.onChange} testID={`${testIDPrefix}.lastName`} />
+          <Field
+            label={t('auth.lastName')}
+            value={field.value}
+            onChangeText={field.onChange}
+            testID={`${testIDPrefix}.lastName`}
+          />
         )}
       />
       <Controller

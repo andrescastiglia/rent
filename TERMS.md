@@ -2,7 +2,7 @@
 
 **Last Updated: December 2, 2025**
 
-Welcome to the Rent Management System software ("the Software"). These terms and conditions outline the rules and regulations for the use of the Software.
+Welcome to the Real Estate Management System software ("the Software"). These terms and conditions outline the rules and regulations for the use of the Software.
 
 By accessing and using the Software, you accept these terms and conditions in full. Do not continue to use the Software if you do not accept all of the terms and conditions stated on this page.
 

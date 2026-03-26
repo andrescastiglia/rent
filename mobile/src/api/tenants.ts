@@ -10,7 +10,12 @@ import type {
   UpdateTenantInput,
 } from '@/types/tenant';
 
-type PaginatedResponse<T> = { data: T[]; total: number; page: number; limit: number };
+type PaginatedResponse<T> = {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+};
 
 type BackendTenant = {
   id: string;
@@ -67,10 +72,13 @@ let MOCK_TENANTS: Tenant[] = [
   },
 ];
 
-const toIso = (value?: string | Date): string => (value ? new Date(value).toISOString() : new Date().toISOString());
-const toIsoNullable = (value?: string | Date | null): string | null => (value ? new Date(value).toISOString() : null);
+const toIso = (value?: string | Date): string =>
+  value ? new Date(value).toISOString() : new Date().toISOString();
+const toIsoNullable = (value?: string | Date | null): string | null =>
+  value ? new Date(value).toISOString() : null;
 
-const statusFromIsActive = (isActive?: boolean | null): TenantStatus => (isActive ?? true ? 'ACTIVE' : 'INACTIVE');
+const statusFromIsActive = (isActive?: boolean | null): TenantStatus =>
+  (isActive ?? true) ? 'ACTIVE' : 'INACTIVE';
 
 const mapTenant = (raw: BackendTenant): Tenant => {
   const user = raw.user ?? null;
@@ -156,7 +164,9 @@ export const tenantsApi = {
 
       const needle = filters.name.trim().toLowerCase();
       return MOCK_TENANTS.filter((item) =>
-        `${item.firstName} ${item.lastName} ${item.email} ${item.phone}`.toLowerCase().includes(needle),
+        `${item.firstName} ${item.lastName} ${item.email} ${item.phone}`
+          .toLowerCase()
+          .includes(needle),
       );
     }
 
@@ -167,9 +177,15 @@ export const tenantsApi = {
     if (filters?.page) queryParams.append('page', String(filters.page));
     if (filters?.limit) queryParams.append('limit', String(filters.limit));
 
-    const endpoint = queryParams.toString() ? `/tenants?${queryParams.toString()}` : '/tenants';
-    const result = await apiClient.get<BackendTenant[] | PaginatedResponse<BackendTenant>>(endpoint);
-    return Array.isArray(result) ? result.map(mapTenant) : result.data.map(mapTenant);
+    const endpoint = queryParams.toString()
+      ? `/tenants?${queryParams.toString()}`
+      : '/tenants';
+    const result = await apiClient.get<
+      BackendTenant[] | PaginatedResponse<BackendTenant>
+    >(endpoint);
+    return Array.isArray(result)
+      ? result.map(mapTenant)
+      : result.data.map(mapTenant);
   },
 
   async getById(id: string): Promise<Tenant | null> {
@@ -197,7 +213,10 @@ export const tenantsApi = {
       return created;
     }
 
-    const result = await apiClient.post<BackendTenant>('/tenants', toCreatePayload(payload));
+    const result = await apiClient.post<BackendTenant>(
+      '/tenants',
+      toCreatePayload(payload),
+    );
     return mapTenant(result);
   },
 
@@ -218,7 +237,10 @@ export const tenantsApi = {
       return updated;
     }
 
-    const result = await apiClient.patch<BackendTenant>(`/tenants/${id}`, toUpdatePayload(payload));
+    const result = await apiClient.patch<BackendTenant>(
+      `/tenants/${id}`,
+      toUpdatePayload(payload),
+    );
     return mapTenant(result);
   },
 
@@ -257,7 +279,10 @@ export const tenantsApi = {
       };
     }
 
-    const result = await apiClient.post<BackendTenantActivity>(`/tenants/${tenantId}/activities`, payload);
+    const result = await apiClient.post<BackendTenantActivity>(
+      `/tenants/${tenantId}/activities`,
+      payload,
+    );
     return mapTenantActivity(result);
   },
 };

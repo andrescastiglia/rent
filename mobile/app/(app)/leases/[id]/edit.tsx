@@ -29,7 +29,10 @@ export default function EditLeaseScreen() {
       router.replace(`/(app)/leases/${updated.id}`);
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.saveError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.saveError'),
+      );
     },
   });
 
@@ -37,7 +40,9 @@ export default function EditLeaseScreen() {
     <Screen scrollViewTestID="leaseEdit.scroll">
       <H1>{t('leases.editLease')}</H1>
       {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
-      {!query.isLoading && !query.data ? <Text>{t('leases.notFound')}</Text> : null}
+      {!query.isLoading && !query.data ? (
+        <Text>{t('leases.notFound')}</Text>
+      ) : null}
 
       {query.data ? (
         <LeaseForm

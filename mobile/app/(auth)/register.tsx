@@ -49,10 +49,14 @@ export default function RegisterScreen() {
 
   const getErrorMessage = (submitError: unknown): string => {
     if (!(submitError instanceof Error)) return t('auth.errors.registerError');
-    if (submitError.message === 'Email already exists') return t('auth.errors.emailAlreadyRegistered');
-    if (submitError.message === 'CAPTCHA_REQUIRED') return t('auth.errors.captchaRequired');
-    if (submitError.message === 'CAPTCHA_INVALID') return t('auth.errors.captchaInvalid');
-    if (submitError.message === 'CAPTCHA_NOT_CONFIGURED') return t('auth.errors.captchaUnavailable');
+    if (submitError.message === 'Email already exists')
+      return t('auth.errors.emailAlreadyRegistered');
+    if (submitError.message === 'CAPTCHA_REQUIRED')
+      return t('auth.errors.captchaRequired');
+    if (submitError.message === 'CAPTCHA_INVALID')
+      return t('auth.errors.captchaInvalid');
+    if (submitError.message === 'CAPTCHA_NOT_CONFIGURED')
+      return t('auth.errors.captchaUnavailable');
     return submitError.message;
   };
 
@@ -87,23 +91,29 @@ export default function RegisterScreen() {
     <Screen>
       <View style={styles.header}>
         <H1>{t('auth.createAccount')}</H1>
-        <Text style={styles.subtitle}>
-          {t('metadata.description')}
-        </Text>
+        <Text style={styles.subtitle}>{t('metadata.description')}</Text>
       </View>
 
       <Controller
         control={control}
         name="firstName"
         render={({ field }) => (
-          <Field label={t('auth.firstName', { defaultValue: 'Nombre' })} value={field.value} onChangeText={field.onChange} />
+          <Field
+            label={t('auth.firstName', { defaultValue: 'Nombre' })}
+            value={field.value}
+            onChangeText={field.onChange}
+          />
         )}
       />
       <Controller
         control={control}
         name="lastName"
         render={({ field }) => (
-          <Field label={t('auth.lastName', { defaultValue: 'Apellido' })} value={field.value} onChangeText={field.onChange} />
+          <Field
+            label={t('auth.lastName', { defaultValue: 'Apellido' })}
+            value={field.value}
+            onChangeText={field.onChange}
+          />
         )}
       />
       <Controller
@@ -152,7 +162,9 @@ export default function RegisterScreen() {
         name="confirmPassword"
         render={({ field }) => (
           <Field
-            label={t('auth.confirmPassword', { defaultValue: 'Repetir contraseña' })}
+            label={t('auth.confirmPassword', {
+              defaultValue: 'Repetir contraseña',
+            })}
             value={field.value}
             onChangeText={field.onChange}
             secureTextEntry
@@ -165,13 +177,18 @@ export default function RegisterScreen() {
         <Text style={styles.captchaLabel}>
           {t('auth.captcha', { defaultValue: 'Verificación de seguridad' })}
         </Text>
-        <TurnstileCaptcha onTokenChange={setCaptchaToken} testID="register.captcha" />
+        <TurnstileCaptcha
+          onTokenChange={setCaptchaToken}
+          testID="register.captcha"
+        />
       </View>
 
       {Object.values(formState.errors).map((fieldError) => {
         if (!fieldError?.message) return null;
         const message =
-          fieldError.message === 'password_mismatch' ? t('auth.errors.passwordMismatch') : fieldError.message;
+          fieldError.message === 'password_mismatch'
+            ? t('auth.errors.passwordMismatch')
+            : fieldError.message;
         return (
           <Text key={`${fieldError.message}-${message}`} style={styles.error}>
             {message}

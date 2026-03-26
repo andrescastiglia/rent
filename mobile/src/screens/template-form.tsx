@@ -54,7 +54,10 @@ const contractTypeOptions: Array<{ label: string; value: ContractType }> = [
   { label: 'Venta', value: 'sale' },
 ];
 
-const paymentTypeOptions: Array<{ label: string; value: PaymentDocumentTemplateType }> = [
+const paymentTypeOptions: Array<{
+  label: string;
+  value: PaymentDocumentTemplateType;
+}> = [
   { label: 'Recibo', value: 'receipt' },
   { label: 'Factura', value: 'invoice' },
   { label: 'Nota crédito', value: 'credit_note' },
@@ -101,9 +104,14 @@ export function TemplateForm({
       name: values.name,
       templateBody: values.templateBody,
       isActive: values.isActive === 'yes',
-      isDefault: values.kind === 'payment' ? values.isDefault === 'yes' : undefined,
-      contractType: values.kind === 'lease' ? values.contractType ?? 'rental' : undefined,
-      paymentType: values.kind === 'payment' ? values.paymentType ?? 'receipt' : undefined,
+      isDefault:
+        values.kind === 'payment' ? values.isDefault === 'yes' : undefined,
+      contractType:
+        values.kind === 'lease' ? (values.contractType ?? 'rental') : undefined,
+      paymentType:
+        values.kind === 'payment'
+          ? (values.paymentType ?? 'receipt')
+          : undefined,
     });
   });
 
@@ -120,7 +128,10 @@ export function TemplateForm({
               onChange={field.onChange}
               options={kindOptions.map((option) => ({
                 value: option.value,
-                label: option.value === 'lease' ? t('leases.title') : t('templatesHub.title'),
+                label:
+                  option.value === 'lease'
+                    ? t('leases.title')
+                    : t('templatesHub.title'),
               }))}
               testID={`${testIDPrefix}.kind`}
             />
@@ -173,7 +184,12 @@ export function TemplateForm({
         control={control}
         name="name"
         render={({ field }) => (
-          <Field label={t('properties.fields.name')} value={field.value} onChangeText={field.onChange} testID={`${testIDPrefix}.name`} />
+          <Field
+            label={t('properties.fields.name')}
+            value={field.value}
+            onChangeText={field.onChange}
+            testID={`${testIDPrefix}.name`}
+          />
         )}
       />
       <Controller
@@ -192,14 +208,17 @@ export function TemplateForm({
         control={control}
         name="isActive"
         render={({ field }) => (
-            <ChoiceGroup
-              label={t('templatesHub.activeLabel')}
-              value={field.value ?? 'yes'}
-              onChange={field.onChange}
-              options={boolOptions.map((option) => ({ value: option.value, label: option.value === 'yes' ? t('common.yes') : t('common.no') }))}
-              testID={`${testIDPrefix}.isActive`}
-            />
-          )}
+          <ChoiceGroup
+            label={t('templatesHub.activeLabel')}
+            value={field.value ?? 'yes'}
+            onChange={field.onChange}
+            options={boolOptions.map((option) => ({
+              value: option.value,
+              label: option.value === 'yes' ? t('common.yes') : t('common.no'),
+            }))}
+            testID={`${testIDPrefix}.isActive`}
+          />
+        )}
       />
       {kind === 'payment' ? (
         <Controller
@@ -210,7 +229,11 @@ export function TemplateForm({
               label={t('templatesHub.defaultLabel')}
               value={field.value ?? 'no'}
               onChange={field.onChange}
-              options={boolOptions.map((option) => ({ value: option.value, label: option.value === 'yes' ? t('common.yes') : t('common.no') }))}
+              options={boolOptions.map((option) => ({
+                value: option.value,
+                label:
+                  option.value === 'yes' ? t('common.yes') : t('common.no'),
+              }))}
               testID={`${testIDPrefix}.isDefault`}
             />
           )}

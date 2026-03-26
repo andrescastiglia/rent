@@ -24,6 +24,9 @@ LOG_DIR=/var/log/rent
 # Reminders: Send payment reminders via WhatsApp (10:00 AM)
 0 10 * * * cd $BATCH_DIR && node index.js reminders --log $LOG_DIR/reminders.log
 
+# Lease renewals: Alert upcoming rental expirations (11:00 AM)
+0 11 * * * cd $BATCH_DIR && node index.js lease-renewal-alerts --log $LOG_DIR/lease-renewal-alerts.log
+
 # -----------------------------------------------------------------------------
 # Monthly Jobs
 # -----------------------------------------------------------------------------

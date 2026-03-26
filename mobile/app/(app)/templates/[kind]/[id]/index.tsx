@@ -3,11 +3,16 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { deleteTemplate, getTemplate, type TemplateKind } from '@/api/templates';
+import {
+  deleteTemplate,
+  getTemplate,
+  type TemplateKind,
+} from '@/api/templates';
 import { Screen } from '@/components/screen';
 import { AppButton, H1 } from '@/components/ui';
 
-const isTemplateKind = (value: string): value is TemplateKind => value === 'lease' || value === 'payment';
+const isTemplateKind = (value: string): value is TemplateKind =>
+  value === 'lease' || value === 'payment';
 
 export default function TemplateDetailScreen() {
   const { id, kind } = useLocalSearchParams<{ id: string; kind: string }>();
@@ -30,7 +35,10 @@ export default function TemplateDetailScreen() {
       router.replace('/(app)/templates');
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.deleteError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.deleteError'),
+      );
     },
   });
 
@@ -41,21 +49,33 @@ export default function TemplateDetailScreen() {
       <H1>{t('templatesHub.listTitle')}</H1>
       {!validKind ? <Text>{t('common.error')}</Text> : null}
       {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
-      {query.error ? <Text style={styles.error}>{(query.error as Error).message}</Text> : null}
-      {!query.isLoading && validKind && !template ? <Text>{t('templatesHub.templateNotFound')}</Text> : null}
+      {query.error ? (
+        <Text style={styles.error}>{(query.error as Error).message}</Text>
+      ) : null}
+      {!query.isLoading && validKind && !template ? (
+        <Text>{t('templatesHub.templateNotFound')}</Text>
+      ) : null}
 
       {template ? (
         <View style={styles.card}>
           <Text style={styles.title}>{template.name}</Text>
-          <Text style={styles.detail}>{`${t('common.details')}: ${template.kind === 'lease' ? t('leases.title') : t('templatesHub.title')}`}</Text>
+          <Text
+            style={styles.detail}
+          >{`${t('common.details')}: ${template.kind === 'lease' ? t('leases.title') : t('templatesHub.title')}`}</Text>
           <Text style={styles.detail}>
             {template.kind === 'lease'
               ? `${t('leases.fields.contractType')}: ${template.contractType ?? '-'}`
               : `${t('templatesHub.scopes.invoice')}: ${template.paymentType ?? '-'}`}
           </Text>
-          <Text style={styles.detail}>{template.isActive ? t('templatesHub.active') : t('templatesHub.inactive')}</Text>
+          <Text style={styles.detail}>
+            {template.isActive
+              ? t('templatesHub.active')
+              : t('templatesHub.inactive')}
+          </Text>
           {template.kind === 'payment' ? (
-            <Text style={styles.detail}>{template.isDefault ? t('templatesHub.defaultLabel') : '-'}</Text>
+            <Text style={styles.detail}>
+              {template.isDefault ? t('templatesHub.defaultLabel') : '-'}
+            </Text>
           ) : null}
           <Text style={styles.body}>{template.templateBody}</Text>
         </View>
@@ -65,7 +85,11 @@ export default function TemplateDetailScreen() {
         <View style={styles.actions}>
           <AppButton
             title={t('common.edit')}
-            onPress={() => router.push(`/(app)/templates/${template.kind}/${template.id}/edit` as never)}
+            onPress={() =>
+              router.push(
+                `/(app)/templates/${template.kind}/${template.id}/edit` as never,
+              )
+            }
             testID="templateDetail.edit"
           />
           <AppButton
@@ -76,7 +100,11 @@ export default function TemplateDetailScreen() {
             onPress={() => {
               Alert.alert(t('common.delete'), t('messages.deleteConfirm'), [
                 { text: t('common.cancel'), style: 'cancel' },
-                { text: t('common.delete'), style: 'destructive', onPress: () => deleteMutation.mutate() },
+                {
+                  text: t('common.delete'),
+                  style: 'destructive',
+                  onPress: () => deleteMutation.mutate(),
+                },
               ]);
             }}
           />

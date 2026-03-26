@@ -845,6 +845,8 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
       depositAmount: 0,
       currency: "ARS",
       paymentFrequency: "monthly",
+      renewalAlertEnabled: true,
+      renewalAlertPeriodicity: "monthly",
       billingFrequency: "first_of_month",
       lateFeeType: "none",
       adjustmentType: "fixed",
@@ -855,6 +857,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const formValues = watch();
   const lateFeeType = formValues.lateFeeType;
   const adjustmentType = formValues.adjustmentType;
+  const renewalAlertPeriodicity = formValues.renewalAlertPeriodicity;
   const contractType = formValues.contractType ?? "rental";
   const selectedPropertyId = formValues.propertyId;
   const selectedOwnerId = formValues.ownerId;
@@ -1531,6 +1534,54 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
                   {t("fields.autoGenerateInvoices")}
                 </label>
               </div>
+
+              <div className="flex items-center pt-6">
+                <input
+                  id="renewalAlertEnabled"
+                  type="checkbox"
+                  {...register("renewalAlertEnabled")}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded-sm border"
+                />
+                <label
+                  htmlFor="renewalAlertEnabled"
+                  className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                >
+                  Alertas automáticas de renovación
+                </label>
+              </div>
+
+              <div>
+                <label htmlFor="renewalAlertPeriodicity" className={labelClass}>
+                  Periodicidad de alerta
+                </label>
+                <select
+                  id="renewalAlertPeriodicity"
+                  {...register("renewalAlertPeriodicity")}
+                  className={inputClass}
+                >
+                  <option value="monthly">Mensual</option>
+                  <option value="four_months">Cada cuatro meses</option>
+                  <option value="custom">Personalizada</option>
+                </select>
+              </div>
+
+              {renewalAlertPeriodicity === "custom" ? (
+                <div>
+                  <label
+                    htmlFor="renewalAlertCustomDays"
+                    className={labelClass}
+                  >
+                    Días previos para alertar
+                  </label>
+                  <input
+                    id="renewalAlertCustomDays"
+                    type="number"
+                    min="1"
+                    {...register("renewalAlertCustomDays")}
+                    className={inputClass}
+                  />
+                </div>
+              ) : null}
             </div>
           </div>
 

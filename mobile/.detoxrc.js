@@ -2,7 +2,7 @@
 module.exports = {
   testRunner: {
     args: {
-      '$0': 'jest',
+      $0: 'jest',
       config: 'e2e/jest.config.js',
     },
     jest: {
@@ -13,7 +13,8 @@ module.exports = {
     'android.debug': {
       type: 'android.apk',
       binaryPath: 'android/app/build/outputs/apk/debug/app-debug.apk',
-      testBinaryPath: 'android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk',
+      testBinaryPath:
+        'android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk',
       build:
         'cd android && EXPO_PUBLIC_MOCK_MODE=true EXPO_PUBLIC_E2E_MODE=true ./gradlew app:assembleDebug app:assembleDebugAndroidTest -DtestBuildType=debug',
       reversePorts: [8081],
