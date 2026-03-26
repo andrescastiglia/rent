@@ -26,6 +26,20 @@ function formatPersonName(name: string | null | undefined): string {
   return name?.trim() || "Sin asignar";
 }
 
+function getMetricValue(
+  loading: boolean,
+  value: number | null | undefined,
+): number | string {
+  return loading ? "..." : (value ?? 0);
+}
+
+function shouldShowEmptyState(
+  loading: boolean,
+  items: ReadonlyArray<unknown> | null | undefined,
+): boolean {
+  return loading ? false : (items?.length ?? 0) === 0;
+}
+
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const t = useTranslations("dashboard");
@@ -108,7 +122,12 @@ export default function DashboardPage() {
     }
   };
 
-  const handleEditComment = async (activity: PersonActivityItem) => {
+  const closeEditCommentDialog = () => {
+    setEditingActivity(null);
+    setEditingComment("");
+  };
+
+  const handleEditComment = (activity: PersonActivityItem) => {
     setEditingActivity(activity);
     setEditingComment(activity.body ?? "");
   };
@@ -122,8 +141,7 @@ export default function DashboardPage() {
         editingComment,
       );
       await fetchPeopleActivity();
-      setEditingActivity(null);
-      setEditingComment("");
+      closeEditCommentDialog();
     } catch (error) {
       console.error("Failed to edit activity comment", error);
     } finally {
@@ -268,7 +286,7 @@ export default function DashboardPage() {
                   Venta
                 </p>
                 <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {loading ? "..." : (propertyPanel?.saleCount ?? 0)}
+                  {getMetricValue(loading, propertyPanel?.saleCount)}
                 </p>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
                   propiedades publicadas para venta
@@ -279,7 +297,7 @@ export default function DashboardPage() {
                   Alquileres Vigentes
                 </p>
                 <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {loading ? "..." : (propertyPanel?.rentalActiveCount ?? 0)}
+                  {getMetricValue(loading, propertyPanel?.rentalActiveCount)}
                 </p>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
                   contratos activos para seguimiento
@@ -290,9 +308,10 @@ export default function DashboardPage() {
                   Vencen Este Mes
                 </p>
                 <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {loading
-                    ? "..."
-                    : (propertyPanel?.expiringThisMonthCount ?? 0)}
+                  {getMetricValue(
+                    loading,
+                    propertyPanel?.expiringThisMonthCount,
+                  )}
                 </p>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
                   revisar para renovar ahora
@@ -303,7 +322,7 @@ export default function DashboardPage() {
                   Vencidos
                 </p>
                 <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {loading ? "..." : (propertyPanel?.rentalExpiredCount ?? 0)}
+                  {getMetricValue(loading, propertyPanel?.rentalExpiredCount)}
                 </p>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
                   contratos para regularizar o renovar
@@ -350,8 +369,10 @@ export default function DashboardPage() {
                       </p>
                     </div>
                   ))}
-                  {!loading &&
-                  (propertyPanel?.saleHighlights.length ?? 0) === 0 ? (
+                  {shouldShowEmptyState(
+                    loading,
+                    propertyPanel?.saleHighlights,
+                  ) ? (
                     <p className="text-sm text-slate-500 dark:text-slate-400">
                       No hay propiedades en venta para mostrar.
                     </p>
@@ -382,8 +403,10 @@ export default function DashboardPage() {
                         </p>
                       </div>
                     ))}
-                    {!loading &&
-                    (propertyPanel?.expiringThisMonth.length ?? 0) === 0 ? (
+                    {shouldShowEmptyState(
+                      loading,
+                      propertyPanel?.expiringThisMonth,
+                    ) ? (
                       <p className="text-sm text-slate-500 dark:text-slate-400">
                         No hay vencimientos este mes.
                       </p>
@@ -415,9 +438,10 @@ export default function DashboardPage() {
                         </div>
                       ),
                     )}
-                    {!loading &&
-                    (propertyPanel?.expiringNextFourMonths.length ?? 0) ===
-                      0 ? (
+                    {shouldShowEmptyState(
+                      loading,
+                      propertyPanel?.expiringNextFourMonths,
+                    ) ? (
                       <p className="text-sm text-slate-500 dark:text-slate-400">
                         No hay renovaciones en la ventana de cuatro meses.
                       </p>
@@ -459,7 +483,7 @@ export default function DashboardPage() {
                   Total
                 </p>
                 <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {loading ? "..." : (paymentsPanel?.totalPayments ?? 0)}
+                  {getMetricValue(loading, paymentsPanel?.totalPayments)}
                 </p>
               </div>
               <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-900 dark:bg-amber-950/20">
@@ -467,7 +491,7 @@ export default function DashboardPage() {
                   Pendientes
                 </p>
                 <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {loading ? "..." : (paymentsPanel?.pendingPayments ?? 0)}
+                  {getMetricValue(loading, paymentsPanel?.pendingPayments)}
                 </p>
               </div>
               <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-900 dark:bg-emerald-950/20">
@@ -475,7 +499,7 @@ export default function DashboardPage() {
                   Realizados
                 </p>
                 <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {loading ? "..." : (paymentsPanel?.completedPayments ?? 0)}
+                  {getMetricValue(loading, paymentsPanel?.completedPayments)}
                 </p>
               </div>
               <div className="rounded-2xl border border-rose-200 bg-rose-50/80 p-4 dark:border-rose-900 dark:bg-rose-950/20">
@@ -483,7 +507,7 @@ export default function DashboardPage() {
                   Facturas Vencidas
                 </p>
                 <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {loading ? "..." : (paymentsPanel?.overdueInvoices ?? 0)}
+                  {getMetricValue(loading, paymentsPanel?.overdueInvoices)}
                 </p>
               </div>
             </div>
@@ -522,8 +546,10 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 ))}
-                {!loading &&
-                (paymentsPanel?.recentPayments.length ?? 0) === 0 ? (
+                {shouldShowEmptyState(
+                  loading,
+                  paymentsPanel?.recentPayments,
+                ) ? (
                   <p className="text-sm text-slate-500 dark:text-slate-400">
                     No hay pagos recientes para mostrar.
                   </p>
@@ -603,10 +629,7 @@ export default function DashboardPage() {
             <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  setEditingActivity(null);
-                  setEditingComment("");
-                }}
+                onClick={closeEditCommentDialog}
                 className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-200"
               >
                 {t("peopleActivity.actions.cancel")}

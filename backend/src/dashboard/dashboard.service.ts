@@ -990,7 +990,7 @@ export class DashboardService {
   }
 
   private normalizeDate(value: Date | string): Date {
-    const date = value instanceof Date ? new Date(value) : new Date(value);
+    const date = new Date(value);
     if (Number.isNaN(date.getTime())) {
       return new Date();
     }

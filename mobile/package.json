@@ -9,6 +9,7 @@
     "web": "expo start --web",
     "lint": "eslint \"{app,src}/**/*.{ts,tsx}\" --fix",
     "format": "prettier --write \"{app,src}/**/*.{ts,tsx}\" \"*.{js,json}\"",
+    "type-check": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "jest --config jest.config.js",
     "test:cov": "jest --config jest.config.js --coverage",

@@ -500,9 +500,7 @@ const mapBackendFeatures = (
   return features
     .map((feature: any) => {
       const id =
-        typeof feature?.id === "string"
-          ? feature.id
-          : createMockId("property");
+        typeof feature?.id === "string" ? feature.id : createMockId("property");
       const name =
         typeof feature?.name === "string"
           ? feature.name

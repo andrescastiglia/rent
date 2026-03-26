@@ -202,7 +202,7 @@ export default function LeasesPage() {
 
   const expiredRentals = filteredLeases.filter((lease) => {
     const endDate = normalizeDate(lease.endDate);
-    if (!endDate) {
+    if (endDate === null) {
       return lease.status === "FINALIZED";
     }
     return endDate < today || lease.status === "FINALIZED";

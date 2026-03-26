@@ -211,15 +211,19 @@ export default function CreatePropertyVisitPage() {
             />
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+          <label
+            htmlFor="visitHasOffer"
+            className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
+          >
             <input
+              id="visitHasOffer"
               type="checkbox"
               checked={form.hasOffer}
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, hasOffer: event.target.checked }))
               }
             />
-            La visita incluyó una oferta
+            {"La visita incluyó una oferta"}
           </label>
 
           {form.hasOffer ? (

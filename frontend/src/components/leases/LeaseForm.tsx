@@ -764,6 +764,177 @@ function ContractPartyFields({
   );
 }
 
+interface PropertyFieldProps {
+  readonly hasPreselectedProperty: boolean;
+  readonly register: UseFormRegister<LeaseFormData>;
+  readonly labelClass: string;
+  readonly inputClass: string;
+  readonly readOnlyInputClass: string;
+  readonly selectedPropertyDisplayName: string;
+  readonly filteredProperties: readonly Property[];
+  readonly errors: FieldErrors<LeaseFormData>;
+  readonly t: (key: string) => string;
+}
+
+function PropertyField({
+  hasPreselectedProperty,
+  register,
+  labelClass,
+  inputClass,
+  readOnlyInputClass,
+  selectedPropertyDisplayName,
+  filteredProperties,
+  errors,
+  t,
+}: PropertyFieldProps) {
+  if (hasPreselectedProperty) {
+    return (
+      <div>
+        <input type="hidden" {...register("propertyId")} />
+        <label className={labelClass}>{t("fields.property")}</label>
+        <p className={readOnlyInputClass}>{selectedPropertyDisplayName}</p>
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          {t("prefilledFieldHint")}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <label htmlFor="propertyId" className={labelClass}>
+        {t("fields.property")}
+      </label>
+      <select
+        id="propertyId"
+        {...register("propertyId")}
+        className={inputClass}
+      >
+        <option value="">{t("selectProperty")}</option>
+        {filteredProperties.map((property) => (
+          <option key={property.id} value={property.id}>
+            {property.name}
+          </option>
+        ))}
+      </select>
+      <ErrorMessage message={errors.propertyId?.message} />
+    </div>
+  );
+}
+
+interface ContractTypeFieldProps {
+  readonly shouldShowContractTypeSelect: boolean;
+  readonly register: UseFormRegister<LeaseFormData>;
+  readonly labelClass: string;
+  readonly inputClass: string;
+  readonly hasResolvableContractTypeFromProperty: boolean;
+  readonly contractType: string;
+  readonly contractTypeHelperText: string;
+  readonly errors: FieldErrors<LeaseFormData>;
+  readonly t: (key: string) => string;
+}
+
+function ContractTypeField({
+  shouldShowContractTypeSelect,
+  register,
+  labelClass,
+  inputClass,
+  hasResolvableContractTypeFromProperty,
+  contractType,
+  contractTypeHelperText,
+  errors,
+  t,
+}: ContractTypeFieldProps) {
+  const resolvedContractTypeLabel = hasResolvableContractTypeFromProperty
+    ? t(`contractTypes.${contractType}`)
+    : "-";
+
+  return (
+    <div>
+      <label htmlFor="contractType" className={labelClass}>
+        {t("fields.contractType")}
+      </label>
+      {shouldShowContractTypeSelect ? (
+        <select
+          id="contractType"
+          {...register("contractType")}
+          className={inputClass}
+        >
+          <option value="rental">{t("contractTypes.rental")}</option>
+          <option value="sale">{t("contractTypes.sale")}</option>
+        </select>
+      ) : (
+        <>
+          <input type="hidden" {...register("contractType")} />
+          <p className={inputClass}>{resolvedContractTypeLabel}</p>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {contractTypeHelperText}
+          </p>
+        </>
+      )}
+      <ErrorMessage message={errors.contractType?.message} />
+    </div>
+  );
+}
+
+interface TemplateFieldProps {
+  readonly singleTemplateForType: LeaseTemplate | null;
+  readonly register: UseFormRegister<LeaseFormData>;
+  readonly labelClass: string;
+  readonly inputClass: string;
+  readonly templatesForType: readonly LeaseTemplate[];
+  readonly selectedTemplate: LeaseTemplate | undefined;
+  readonly t: (key: string) => string;
+}
+
+function TemplateField({
+  singleTemplateForType,
+  register,
+  labelClass,
+  inputClass,
+  templatesForType,
+  selectedTemplate,
+  t,
+}: TemplateFieldProps) {
+  return (
+    <div>
+      <label htmlFor="templateId" className={labelClass}>
+        {t("fields.template")}
+      </label>
+      {singleTemplateForType ? (
+        <>
+          <input type="hidden" {...register("templateId")} />
+          <p className={inputClass}>{singleTemplateForType.name}</p>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {t("templateLockedHint")}
+          </p>
+        </>
+      ) : (
+        <select
+          id="templateId"
+          {...register("templateId")}
+          className={inputClass}
+        >
+          <option value="">{t("templates.select")}</option>
+          {templatesForType.map((template) => (
+            <option key={template.id} value={template.id}>
+              {template.name}
+            </option>
+          ))}
+        </select>
+      )}
+      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        {t("templateAutofillHint")}
+      </p>
+      {selectedTemplate ? (
+        <p className="mt-1 text-xs text-blue-700 dark:text-blue-300">
+          {t("templateInUse")}: {selectedTemplate.name}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 interface TermsSectionProps {
   readonly register: UseFormRegister<LeaseFormData>;
   readonly selectedTemplate: LeaseTemplate | undefined;
@@ -1252,102 +1423,41 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
         <h3 className={sectionTitleClass}>{t("leaseDetails")}</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {hasPreselectedProperty ? (
-            <div>
-              <input type="hidden" {...register("propertyId")} />
-              <label className={labelClass}>{t("fields.property")}</label>
-              <p className={readOnlyInputClass}>
-                {selectedPropertyDisplayName}
-              </p>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {t("prefilledFieldHint")}
-              </p>
-            </div>
-          ) : (
-            <div>
-              <label htmlFor="propertyId" className={labelClass}>
-                {t("fields.property")}
-              </label>
-              <select
-                id="propertyId"
-                {...register("propertyId")}
-                className={inputClass}
-              >
-                <option value="">{t("selectProperty")}</option>
-                {filteredProperties.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-              <ErrorMessage message={errors.propertyId?.message} />
-            </div>
-          )}
+          <PropertyField
+            hasPreselectedProperty={hasPreselectedProperty}
+            register={register}
+            labelClass={labelClass}
+            inputClass={inputClass}
+            readOnlyInputClass={readOnlyInputClass}
+            selectedPropertyDisplayName={selectedPropertyDisplayName}
+            filteredProperties={filteredProperties}
+            errors={errors}
+            t={t as (key: string) => string}
+          />
 
-          <div>
-            <label htmlFor="contractType" className={labelClass}>
-              {t("fields.contractType")}
-            </label>
-            {shouldShowContractTypeSelect ? (
-              <select
-                id="contractType"
-                {...register("contractType")}
-                className={inputClass}
-              >
-                <option value="rental">{t("contractTypes.rental")}</option>
-                <option value="sale">{t("contractTypes.sale")}</option>
-              </select>
-            ) : (
-              <>
-                <input type="hidden" {...register("contractType")} />
-                <p className={inputClass}>
-                  {hasResolvableContractTypeFromProperty
-                    ? t(`contractTypes.${contractType}`)
-                    : "-"}
-                </p>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {contractTypeHelperText}
-                </p>
-              </>
-            )}
-            <ErrorMessage message={errors.contractType?.message} />
-          </div>
+          <ContractTypeField
+            shouldShowContractTypeSelect={shouldShowContractTypeSelect}
+            register={register}
+            labelClass={labelClass}
+            inputClass={inputClass}
+            hasResolvableContractTypeFromProperty={
+              hasResolvableContractTypeFromProperty
+            }
+            contractType={contractType}
+            contractTypeHelperText={contractTypeHelperText}
+            errors={errors}
+            t={t as (key: string) => string}
+          />
 
-          <div>
-            <label htmlFor="templateId" className={labelClass}>
-              {t("fields.template")}
-            </label>
-            {singleTemplateForType ? (
-              <>
-                <input type="hidden" {...register("templateId")} />
-                <p className={inputClass}>{singleTemplateForType.name}</p>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {t("templateLockedHint")}
-                </p>
-              </>
-            ) : (
-              <select
-                id="templateId"
-                {...register("templateId")}
-                className={inputClass}
-              >
-                <option value="">{t("templates.select")}</option>
-                {templatesForType.map((template) => (
-                  <option key={template.id} value={template.id}>
-                    {template.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {t("templateAutofillHint")}
-            </p>
-            {selectedTemplate ? (
-              <p className="mt-1 text-xs text-blue-700 dark:text-blue-300">
-                {t("templateInUse")}: {selectedTemplate.name}
-              </p>
-            ) : null}
-          </div>
+          <TemplateField
+            singleTemplateForType={singleTemplateForType}
+            register={register}
+            labelClass={labelClass}
+            inputClass={inputClass}
+            templatesForType={templatesForType}
+            selectedTemplate={selectedTemplate}
+            t={t as (key: string) => string}
+          />
 
           <div>
             <input type="hidden" {...register("ownerId")} />

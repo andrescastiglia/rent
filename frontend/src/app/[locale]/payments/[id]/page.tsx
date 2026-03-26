@@ -497,10 +497,14 @@ export default function PaymentDetailPage() {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-400">
+                    <label
+                      htmlFor="edit-payment-date"
+                      className="block text-sm text-gray-600 dark:text-gray-400"
+                    >
                       {t("date")}
                     </label>
                     <input
+                      id="edit-payment-date"
                       type="date"
                       value={editForm.paymentDate}
                       onChange={(e) =>
@@ -514,10 +518,14 @@ export default function PaymentDetailPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-400">
+                    <label
+                      htmlFor="edit-payment-method"
+                      className="block text-sm text-gray-600 dark:text-gray-400"
+                    >
                       {t("method.label")}
                     </label>
                     <input
+                      id="edit-payment-method"
                       type="text"
                       value={editForm.method}
                       onChange={(e) =>
@@ -529,10 +537,14 @@ export default function PaymentDetailPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-400">
+                    <label
+                      htmlFor="edit-payment-activity-type"
+                      className="block text-sm text-gray-600 dark:text-gray-400"
+                    >
                       Actividad
                     </label>
                     <select
+                      id="edit-payment-activity-type"
                       value={editForm.activityType}
                       onChange={(e) =>
                         setEditForm((prev) =>
@@ -560,10 +572,14 @@ export default function PaymentDetailPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-400">
+                    <label
+                      htmlFor="edit-payment-reference"
+                      className="block text-sm text-gray-600 dark:text-gray-400"
+                    >
                       {t("reference")}
                     </label>
                     <input
+                      id="edit-payment-reference"
                       type="text"
                       value={editForm.reference}
                       onChange={(e) =>
@@ -575,10 +591,14 @@ export default function PaymentDetailPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-400">
+                    <label
+                      htmlFor="edit-payment-notes"
+                      className="block text-sm text-gray-600 dark:text-gray-400"
+                    >
                       {t("notes")}
                     </label>
                     <input
+                      id="edit-payment-notes"
                       type="text"
                       value={editForm.notes}
                       onChange={(e) =>

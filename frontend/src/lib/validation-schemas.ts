@@ -12,6 +12,79 @@ type TranslationFunction = (
   params?: Record<string, string | number>,
 ) => string;
 
+type LeaseRefinementData = {
+  contractType: "rental" | "sale";
+  tenantId?: string;
+  buyerProfileId?: string;
+  startDate?: string;
+  endDate?: string;
+  rentAmount?: number | null;
+  fiscalValue?: number | null;
+  renewalAlertPeriodicity?: "monthly" | "four_months" | "custom";
+  renewalAlertCustomDays?: number | null;
+};
+
+function addCustomIssue(
+  ctx: z.RefinementCtx,
+  path: keyof LeaseRefinementData,
+  message: string,
+): void {
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    path: [path],
+    message,
+  });
+}
+
+function isNil(value: unknown): value is null | undefined {
+  return value === undefined || value === null;
+}
+
+function validateRentalLease(
+  data: LeaseRefinementData,
+  ctx: z.RefinementCtx,
+  t: TranslationFunction,
+): void {
+  if (!data.tenantId) {
+    addCustomIssue(ctx, "tenantId", t("tenantRequired"));
+  }
+  if (!data.startDate) {
+    addCustomIssue(ctx, "startDate", t("startDateRequired"));
+  }
+  if (!data.endDate) {
+    addCustomIssue(ctx, "endDate", t("endDateRequired"));
+  }
+  if (isNil(data.rentAmount)) {
+    addCustomIssue(ctx, "rentAmount", t("rentAmountPositive"));
+  }
+}
+
+function validateSaleLease(
+  data: LeaseRefinementData,
+  ctx: z.RefinementCtx,
+  t: TranslationFunction,
+): void {
+  if (!data.buyerProfileId) {
+    addCustomIssue(ctx, "buyerProfileId", t("required"));
+  }
+  if (isNil(data.fiscalValue)) {
+    addCustomIssue(ctx, "fiscalValue", t("required"));
+  }
+}
+
+function validateRenewalAlertSettings(
+  data: LeaseRefinementData,
+  ctx: z.RefinementCtx,
+  t: TranslationFunction,
+): void {
+  if (
+    data.renewalAlertPeriodicity === "custom" &&
+    isNil(data.renewalAlertCustomDays)
+  ) {
+    addCustomIssue(ctx, "renewalAlertCustomDays", t("required"));
+  }
+}
+
 /**
  * Crea el schema de validación para propiedades con mensajes traducidos
  */
@@ -162,64 +235,14 @@ export const createLeaseSchema = (t: TranslationFunction) =>
     })
     .superRefine((data, ctx) => {
       if (data.contractType === "rental") {
-        if (!data.tenantId) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ["tenantId"],
-            message: t("tenantRequired"),
-          });
-        }
-        if (!data.startDate) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ["startDate"],
-            message: t("startDateRequired"),
-          });
-        }
-        if (!data.endDate) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ["endDate"],
-            message: t("endDateRequired"),
-          });
-        }
-        if (data.rentAmount === undefined || data.rentAmount === null) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ["rentAmount"],
-            message: t("rentAmountPositive"),
-          });
-        }
+        validateRentalLease(data, ctx, t);
       }
 
       if (data.contractType === "sale") {
-        if (!data.buyerProfileId) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ["buyerProfileId"],
-            message: t("required"),
-          });
-        }
-        if (data.fiscalValue === undefined || data.fiscalValue === null) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ["fiscalValue"],
-            message: t("required"),
-          });
-        }
+        validateSaleLease(data, ctx, t);
       }
 
-      if (
-        data.renewalAlertPeriodicity === "custom" &&
-        (data.renewalAlertCustomDays === undefined ||
-          data.renewalAlertCustomDays === null)
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["renewalAlertCustomDays"],
-          message: t("required"),
-        });
-      }
+      validateRenewalAlertSettings(data, ctx, t);
     });
 
 // Tipos inferidos de los schemas
