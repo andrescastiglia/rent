@@ -44,6 +44,14 @@ export enum PaymentStatus {
   CANCELLED = 'cancelled',
 }
 
+export enum PaymentActivityType {
+  MONTHLY = 'monthly',
+  ANNUAL = 'annual',
+  ADJUSTMENT = 'adjustment',
+  LATE_FEE = 'late_fee',
+  EXTRAORDINARY = 'extraordinary',
+}
+
 /**
  * Pago realizado por el inquilino.
  */
@@ -103,6 +111,15 @@ export class Payment {
 
   @Column({ name: 'payment_method', type: 'enum', enum: PaymentMethod })
   method: PaymentMethod;
+
+  @Column({
+    name: 'activity_type',
+    type: 'enum',
+    enum: PaymentActivityType,
+    enumName: 'payment_activity_type',
+    default: PaymentActivityType.MONTHLY,
+  })
+  activityType: PaymentActivityType;
 
   @Column({ name: 'reference_number', nullable: true })
   reference: string;

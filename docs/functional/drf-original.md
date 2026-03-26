@@ -1,8 +1,16 @@
-# Documento de Requerimientos Funcionales (DRF) – Plataforma de Administración de Alquileres
+# Documento de Requerimientos Funcionales (DRF) – Sistema de Gestión Inmobiliaria
 
 ## 1. Introducción
 
 El objetivo general de esta plataforma es centralizar y automatizar la gestión de una cartera de propiedades en alquiler, mejorando la eficiencia operativa y reduciendo errores humanos. En particular, se buscará la **consolidación y centralización de los datos críticos** del negocio inmobiliario (propiedades, contratos, pagos, etc.) en un único sistema robusto [1](#ref-1). El alcance abarca inmuebles residenciales, comerciales y vacacionales, con funcionalidades adaptadas a cada tipo (por ejemplo, temporadas cortas para vacacionales y contratos de largo plazo para residenciales).
+
+### Actualización Funcional Prioritaria
+
+- El ingreso principal del sistema debe quedar organizado en dos paneles: `Propiedades` y `Pagos`.
+- El panel de `Propiedades` debe separar operación de `Venta` y `Alquileres`, incluyendo visitas comerciales y actividades asociadas.
+- El panel de `Pagos` debe registrar transacciones por propiedad y contrato, con actividad del pago, fecha y estado.
+- La gestión de alquileres debe priorizar visibilidad de `vencen este mes`, `próximos cuatro meses` y `vencidos`.
+- Las alertas automáticas de renovación deben ser configurables y complementarse con aviso al propietario cuando exista integración activa de WhatsApp.
 
 Los usuarios del sistema incluyen:
 

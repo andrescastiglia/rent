@@ -1,11 +1,30 @@
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { authApi } from '@/api/auth';
 import { setSessionExpiredHandler } from '@/api/client';
-import { clearAuth, getToken, getUser, setToken, setUser } from '@/storage/auth-storage';
-import type { AuthResponse, LoginRequest, RegisterRequest, RegisterResponse, User } from '@/types/auth';
+import {
+  clearAuth,
+  getToken,
+  getUser,
+  setToken,
+  setUser,
+} from '@/storage/auth-storage';
+import type {
+  AuthResponse,
+  LoginRequest,
+  RegisterRequest,
+  RegisterResponse,
+  User,
+} from '@/types/auth';
 import { i18n } from '@/i18n';
 
 type AuthContextValue = {
@@ -20,7 +39,9 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-export function AuthProvider({ children }: Readonly<{ children: React.ReactNode }>) {
+export function AuthProvider({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
   const [user, setUserState] = useState<User | null>(null);
   const [token, setTokenState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,7 +53,10 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
 
     const bootstrap = async () => {
       try {
-        const [storedToken, storedUser] = await Promise.all([getToken(), getUser()]);
+        const [storedToken, storedUser] = await Promise.all([
+          getToken(),
+          getUser(),
+        ]);
         if (!mounted) return;
         setTokenState(storedToken);
         setUserState(storedUser);
@@ -56,7 +80,10 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
   const login = useCallback(
     async (payload: LoginRequest) => {
       const response: AuthResponse = await authApi.login(payload);
-      await Promise.all([setToken(response.accessToken), setUser(response.user)]);
+      await Promise.all([
+        setToken(response.accessToken),
+        setUser(response.user),
+      ]);
       setTokenState(response.accessToken);
       setUserState(response.user);
       if (response.user.language) {
@@ -67,7 +94,10 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
     [router],
   );
 
-  const register = useCallback((payload: RegisterRequest) => authApi.register(payload), []);
+  const register = useCallback(
+    (payload: RegisterRequest) => authApi.register(payload),
+    [],
+  );
 
   const logout = useCallback(async () => {
     await Promise.all([clearAuth(), queryClient.cancelQueries()]);

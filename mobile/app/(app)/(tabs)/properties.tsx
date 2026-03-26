@@ -1,6 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
@@ -27,9 +34,13 @@ const formatAmount = (amount: number, currencyCode = 'ARS') => {
   }).format(amount);
 };
 
-const byNewest = <T extends { updatedAt: string; createdAt: string }>(items: T[]): T[] =>
+const byNewest = <T extends { updatedAt: string; createdAt: string }>(
+  items: T[],
+): T[] =>
   [...items].sort(
-    (a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime(),
+    (a, b) =>
+      new Date(b.updatedAt || b.createdAt).getTime() -
+      new Date(a.updatedAt || a.createdAt).getTime(),
   );
 
 const toDateAtStartOfDay = (value: string): Date => {
@@ -47,7 +58,10 @@ const isRentalLeaseExpired = (lease: Lease): boolean => {
   return toDateAtStartOfDay(lease.endDate) < today;
 };
 
-const resolveLeaseAction = (leases: Lease[], operations: Property['operations']): LeaseAction => {
+const resolveLeaseAction = (
+  leases: Lease[],
+  operations: Property['operations'],
+): LeaseAction => {
   const ordered = byNewest(leases);
 
   const draft = ordered.find((lease) => lease.status === 'DRAFT');
@@ -55,21 +69,28 @@ const resolveLeaseAction = (leases: Lease[], operations: Property['operations'])
     return { type: 'view', leaseId: draft.id };
   }
 
-  const activeNonExpired = ordered.find((lease) => lease.status === 'ACTIVE' && !isRentalLeaseExpired(lease));
+  const activeNonExpired = ordered.find(
+    (lease) => lease.status === 'ACTIVE' && !isRentalLeaseExpired(lease),
+  );
   if (activeNonExpired) {
     return { type: 'view', leaseId: activeNonExpired.id };
   }
 
   const expiredRental = ordered.find((lease) => isRentalLeaseExpired(lease));
   if (expiredRental) {
-    return { type: 'renew', leaseId: expiredRental.id, contractType: expiredRental.contractType };
+    return {
+      type: 'renew',
+      leaseId: expiredRental.id,
+      contractType: expiredRental.contractType,
+    };
   }
 
   if (ordered[0]) {
     return { type: 'view', leaseId: ordered[0].id };
   }
 
-  const canCreate = (operations ?? []).includes('rent') || (operations ?? []).includes('sale');
+  const canCreate =
+    (operations ?? []).includes('rent') || (operations ?? []).includes('sale');
   if (canCreate) {
     return { type: 'create' };
   }
@@ -80,7 +101,15 @@ const resolveLeaseAction = (leases: Lease[], operations: Property['operations'])
 const ownerSearchHaystack = (owner: Owner): string =>
   `${owner.firstName} ${owner.lastName} ${owner.email ?? ''} ${owner.phone ?? ''}`.toLowerCase();
 
-function ActionChip({ title, onPress, testID }: { title: string; onPress: () => void; testID?: string }) {
+function ActionChip({
+  title,
+  onPress,
+  testID,
+}: {
+  title: string;
+  onPress: () => void;
+  testID?: string;
+}) {
   return (
     <Pressable style={styles.actionChip} onPress={onPress} testID={testID}>
       <Text style={styles.actionChipText}>{title}</Text>
@@ -109,7 +138,14 @@ export default function PropertiesScreen() {
     queryFn: leasesApi.getAll,
   });
 
-  const ownerIdsKey = useMemo(() => (ownersQuery.data ?? []).map((owner) => owner.id).sort().join(','), [ownersQuery.data]);
+  const ownerIdsKey = useMemo(
+    () =>
+      (ownersQuery.data ?? [])
+        .map((owner) => owner.id)
+        .sort()
+        .join(','),
+    [ownersQuery.data],
+  );
 
   const settlementsQuery = useQuery({
     queryKey: ['owners', 'settlements', ownerIdsKey],
@@ -118,12 +154,19 @@ export default function PropertiesScreen() {
       const owners = ownersQuery.data ?? [];
       const result = await Promise.all(
         owners.map(async (owner) => {
-          const settlements = await ownersApi.getSettlements(owner.id, 'all', 3);
+          const settlements = await ownersApi.getSettlements(
+            owner.id,
+            'all',
+            3,
+          );
           return [owner.id, settlements] as const;
         }),
       );
 
-      return Object.fromEntries(result) as Record<string, OwnerSettlementSummary[]>;
+      return Object.fromEntries(result) as Record<
+        string,
+        OwnerSettlementSummary[]
+      >;
     },
   });
 
@@ -133,7 +176,9 @@ export default function PropertiesScreen() {
     if (!needle) {
       return owners;
     }
-    return owners.filter((owner) => ownerSearchHaystack(owner).includes(needle));
+    return owners.filter((owner) =>
+      ownerSearchHaystack(owner).includes(needle),
+    );
   }, [ownersQuery.data, query]);
 
   const propertiesByOwner = useMemo(() => {
@@ -151,7 +196,9 @@ export default function PropertiesScreen() {
     }
 
     for (const ownerId of Object.keys(grouped)) {
-      grouped[ownerId] = [...grouped[ownerId]].sort((a, b) => a.name.localeCompare(b.name));
+      grouped[ownerId] = [...grouped[ownerId]].sort((a, b) =>
+        a.name.localeCompare(b.name),
+      );
     }
 
     return grouped;
@@ -174,8 +221,10 @@ export default function PropertiesScreen() {
     return grouped;
   }, [leasesQuery.data]);
 
-  const isLoading = ownersQuery.isLoading || propertiesQuery.isLoading || leasesQuery.isLoading;
-  const hasError = ownersQuery.error || propertiesQuery.error || leasesQuery.error;
+  const isLoading =
+    ownersQuery.isLoading || propertiesQuery.isLoading || leasesQuery.isLoading;
+  const hasError =
+    ownersQuery.error || propertiesQuery.error || leasesQuery.error;
 
   return (
     <Screen>
@@ -188,93 +237,154 @@ export default function PropertiesScreen() {
       />
 
       {isLoading ? <ActivityIndicator /> : null}
-      {hasError ? <Text style={styles.error}>{t('messages.loadError')}</Text> : null}
+      {hasError ? (
+        <Text style={styles.error}>{t('messages.loadError')}</Text>
+      ) : null}
 
       <View style={styles.ownersList}>
         {ownersBySearch.map((owner) => {
-          const ownerDisplayName = `${owner.firstName ?? ''} ${owner.lastName ?? ''}`.trim() || owner.email || t('common.noDataAvailable');
+          const ownerDisplayName =
+            `${owner.firstName ?? ''} ${owner.lastName ?? ''}`.trim() ||
+            owner.email ||
+            t('common.noDataAvailable');
           const ownerProperties = propertiesByOwner[owner.id] ?? [];
           const ownerSettlements = settlementsQuery.data?.[owner.id] ?? [];
           const isExpanded = expandedOwnerId === owner.id;
 
           return (
-            <View key={owner.id} style={styles.ownerCard} testID={`owner.card.${owner.id}`}>
+            <View
+              key={owner.id}
+              style={styles.ownerCard}
+              testID={`owner.card.${owner.id}`}
+            >
               <Pressable
-                onPress={() => setExpandedOwnerId((current) => (current === owner.id ? null : owner.id))}
+                onPress={() =>
+                  setExpandedOwnerId((current) =>
+                    current === owner.id ? null : owner.id,
+                  )
+                }
                 style={styles.ownerHeaderPressable}
                 testID={`owner.header.${owner.id}`}
               >
                 <View style={styles.ownerHeaderText}>
                   <Text style={styles.ownerName}>{ownerDisplayName}</Text>
                   <Text style={styles.ownerDetail}>{owner.email || '-'}</Text>
-                  {owner.phone ? <Text style={styles.ownerDetail}>{owner.phone}</Text> : null}
+                  {owner.phone ? (
+                    <Text style={styles.ownerDetail}>{owner.phone}</Text>
+                  ) : null}
                 </View>
-                <Text style={styles.expandIndicator}>{isExpanded ? '▴' : '▾'}</Text>
+                <Text style={styles.expandIndicator}>
+                  {isExpanded ? '▴' : '▾'}
+                </Text>
               </Pressable>
 
               <View style={styles.ownerActionsRow}>
                 <ActionChip
                   title={t('properties.addPropertyForOwner')}
-                  onPress={() => router.push(`/(app)/properties/new?ownerId=${encodeURIComponent(owner.id)}` as never)}
+                  onPress={() =>
+                    router.push(
+                      `/(app)/properties/new?ownerId=${encodeURIComponent(owner.id)}` as never,
+                    )
+                  }
                   testID={`owner.addProperty.${owner.id}`}
                 />
                 <ActionChip
                   title={t('common.edit')}
-                  onPress={() => router.push(`/(app)/owners/${owner.id}/edit` as never)}
+                  onPress={() =>
+                    router.push(`/(app)/owners/${owner.id}/edit` as never)
+                  }
                   testID={`owner.edit.${owner.id}`}
                 />
                 <ActionChip
                   title={t('properties.ownerPay')}
-                  onPress={() => router.push(`/(app)/owners/${owner.id}/pay` as never)}
+                  onPress={() =>
+                    router.push(`/(app)/owners/${owner.id}/pay` as never)
+                  }
                   testID={`owner.pay.${owner.id}`}
                 />
               </View>
 
               {isExpanded ? (
                 <View style={styles.ownerDetailBlock}>
-                  <Text style={styles.sectionTitle}>{`${t('properties.ownerAssignedProperties')} (${ownerProperties.length})`}</Text>
+                  <Text
+                    style={styles.sectionTitle}
+                  >{`${t('properties.ownerAssignedProperties')} (${ownerProperties.length})`}</Text>
                   {ownerProperties.length === 0 ? (
-                    <Text style={styles.mutedText}>{t('properties.ownerNoProperties')}</Text>
+                    <Text style={styles.mutedText}>
+                      {t('properties.ownerNoProperties')}
+                    </Text>
                   ) : (
                     ownerProperties.map((property) => {
                       const settlementsText = ownerSettlements
                         .slice(0, 2)
-                        .map((settlement) => `${settlement.period}: ${formatAmount(settlement.netAmount, settlement.currencyCode)}`)
+                        .map(
+                          (settlement) =>
+                            `${settlement.period}: ${formatAmount(settlement.netAmount, settlement.currencyCode)}`,
+                        )
                         .join(' · ');
-                      const leaseAction = resolveLeaseAction(leasesByProperty[property.id] ?? [], property.operations);
+                      const leaseAction = resolveLeaseAction(
+                        leasesByProperty[property.id] ?? [],
+                        property.operations,
+                      );
 
                       return (
-                        <View key={property.id} style={styles.propertyCard} testID={`property.card.${property.id}`}>
-                          <Text style={styles.propertyTitle}>{property.name}</Text>
-                          <Text style={styles.ownerDetail}>{`${property.address.street} ${property.address.number}, ${property.address.city}`}</Text>
+                        <View
+                          key={property.id}
+                          style={styles.propertyCard}
+                          testID={`property.card.${property.id}`}
+                        >
+                          <Text style={styles.propertyTitle}>
+                            {property.name}
+                          </Text>
+                          <Text
+                            style={styles.ownerDetail}
+                          >{`${property.address.street} ${property.address.number}, ${property.address.city}`}</Text>
                           {settlementsText ? (
-                            <Text style={styles.paymentPreview}>{`${t('properties.ownerRecentPayments')}: ${settlementsText}`}</Text>
+                            <Text
+                              style={styles.paymentPreview}
+                            >{`${t('properties.ownerRecentPayments')}: ${settlementsText}`}</Text>
                           ) : (
-                            <Text style={styles.paymentPreview}>{`${t('properties.ownerRecentPayments')}: -`}</Text>
+                            <Text
+                              style={styles.paymentPreview}
+                            >{`${t('properties.ownerRecentPayments')}: -`}</Text>
                           )}
 
                           <View style={styles.propertyActionsRow}>
                             <ActionChip
                               title={t('common.view')}
-                              onPress={() => router.push(`/(app)/properties/${property.id}` as never)}
+                              onPress={() =>
+                                router.push(
+                                  `/(app)/properties/${property.id}` as never,
+                                )
+                              }
                               testID={`property.view.${property.id}`}
                             />
                             <ActionChip
                               title={t('common.edit')}
-                              onPress={() => router.push(`/(app)/properties/${property.id}/edit` as never)}
+                              onPress={() =>
+                                router.push(
+                                  `/(app)/properties/${property.id}/edit` as never,
+                                )
+                              }
                               testID={`property.edit.${property.id}`}
                             />
                             <ActionChip
                               title={t('properties.saveMaintenanceTask')}
                               onPress={() =>
-                                router.push(`/(app)/properties/${property.id}/maintenance/new` as never)
+                                router.push(
+                                  `/(app)/properties/${property.id}/maintenance/new` as never,
+                                )
                               }
                               testID={`property.maintenance.new.${property.id}`}
                             />
                             {leaseAction.type === 'view' ? (
                               <ActionChip
                                 title={t('properties.viewLease')}
-                                onPress={() => router.push(`/(app)/leases/${leaseAction.leaseId}` as never)}
+                                onPress={() =>
+                                  router.push(
+                                    `/(app)/leases/${leaseAction.leaseId}` as never,
+                                  )
+                                }
                                 testID={`property.lease.view.${property.id}`}
                               />
                             ) : null}
@@ -287,15 +397,25 @@ export default function PropertiesScreen() {
                                     propertyName: property.name,
                                     ownerId: owner.id,
                                   });
-                                  if (property.operations && property.operations.length > 0) {
-                                    query.set('propertyOperations', property.operations.join(','));
+                                  if (
+                                    property.operations &&
+                                    property.operations.length > 0
+                                  ) {
+                                    query.set(
+                                      'propertyOperations',
+                                      property.operations.join(','),
+                                    );
                                   }
-                                  const ownerName = `${owner.firstName ?? ''} ${owner.lastName ?? ''}`.trim() || owner.email;
+                                  const ownerName =
+                                    `${owner.firstName ?? ''} ${owner.lastName ?? ''}`.trim() ||
+                                    owner.email;
                                   if (ownerName) {
                                     query.set('ownerName', ownerName);
                                   }
 
-                                  router.push(`/(app)/leases/new?${query.toString()}` as never);
+                                  router.push(
+                                    `/(app)/leases/new?${query.toString()}` as never,
+                                  );
                                 }}
                                 testID={`property.lease.create.${property.id}`}
                               />
@@ -311,15 +431,25 @@ export default function PropertiesScreen() {
                                     previousLeaseId: leaseAction.leaseId,
                                     contractType: leaseAction.contractType,
                                   });
-                                  if (property.operations && property.operations.length > 0) {
-                                    query.set('propertyOperations', property.operations.join(','));
+                                  if (
+                                    property.operations &&
+                                    property.operations.length > 0
+                                  ) {
+                                    query.set(
+                                      'propertyOperations',
+                                      property.operations.join(','),
+                                    );
                                   }
-                                  const ownerName = `${owner.firstName ?? ''} ${owner.lastName ?? ''}`.trim() || owner.email;
+                                  const ownerName =
+                                    `${owner.firstName ?? ''} ${owner.lastName ?? ''}`.trim() ||
+                                    owner.email;
                                   if (ownerName) {
                                     query.set('ownerName', ownerName);
                                   }
 
-                                  router.push(`/(app)/leases/new?${query.toString()}` as never);
+                                  router.push(
+                                    `/(app)/leases/new?${query.toString()}` as never,
+                                  );
                                 }}
                                 testID={`property.lease.renew.${property.id}`}
                               />
@@ -330,15 +460,28 @@ export default function PropertiesScreen() {
                     })
                   )}
 
-                  <Text style={styles.sectionTitle}>{t('properties.ownerRecentPayments')}</Text>
+                  <Text style={styles.sectionTitle}>
+                    {t('properties.ownerRecentPayments')}
+                  </Text>
                   {ownerSettlements.length === 0 ? (
-                    <Text style={styles.mutedText}>{t('properties.ownerNoRecentPayments')}</Text>
+                    <Text style={styles.mutedText}>
+                      {t('properties.ownerNoRecentPayments')}
+                    </Text>
                   ) : (
                     ownerSettlements.map((settlement) => (
                       <View key={settlement.id} style={styles.paymentRow}>
-                        <Text style={styles.paymentRowTitle}>{settlement.period}</Text>
-                        <Text style={styles.paymentRowDetail}>{formatAmount(settlement.netAmount, settlement.currencyCode)}</Text>
-                        <Text style={styles.paymentRowStatus}>{settlement.status}</Text>
+                        <Text style={styles.paymentRowTitle}>
+                          {settlement.period}
+                        </Text>
+                        <Text style={styles.paymentRowDetail}>
+                          {formatAmount(
+                            settlement.netAmount,
+                            settlement.currencyCode,
+                          )}
+                        </Text>
+                        <Text style={styles.paymentRowStatus}>
+                          {settlement.status}
+                        </Text>
                       </View>
                     ))
                   )}

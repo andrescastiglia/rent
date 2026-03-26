@@ -26,7 +26,10 @@ export default function InterestedDetailScreen() {
       router.replace('/(app)/(tabs)/interested');
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.deleteError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.deleteError'),
+      );
     },
   });
 
@@ -36,18 +39,32 @@ export default function InterestedDetailScreen() {
     <Screen>
       <H1>{t('interested.title')}</H1>
       {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
-      {query.error ? <Text style={styles.error}>{(query.error as Error).message}</Text> : null}
-      {!query.isLoading && !profile ? <Text>{t('interested.noResults')}</Text> : null}
+      {query.error ? (
+        <Text style={styles.error}>{(query.error as Error).message}</Text>
+      ) : null}
+      {!query.isLoading && !profile ? (
+        <Text>{t('interested.noResults')}</Text>
+      ) : null}
 
       {profile ? (
         <View style={styles.card}>
-          <Text style={styles.title}>{`${profile.firstName ?? ''} ${profile.lastName ?? ''}`}</Text>
+          <Text
+            style={styles.title}
+          >{`${profile.firstName ?? ''} ${profile.lastName ?? ''}`}</Text>
           <Text style={styles.detail}>{profile.phone}</Text>
           <Text style={styles.detail}>{profile.email ?? '-'}</Text>
-          <Text style={styles.detail}>{`${t('interested.fields.operations')}: ${profile.operation ?? profile.operations?.[0] ?? '-'}`}</Text>
-          <Text style={styles.detail}>{`${t('tenants.leaseStatus')}: ${profile.status ?? '-'}`}</Text>
-          <Text style={styles.detail}>{`${t('interested.labels.score')}: ${profile.qualificationLevel ?? '-'}`}</Text>
-          <Text style={styles.detail}>{`${t('payments.amount')}: ${profile.minAmount ?? '-'} a ${profile.maxAmount ?? '-'}`}</Text>
+          <Text
+            style={styles.detail}
+          >{`${t('interested.fields.operations')}: ${profile.operation ?? profile.operations?.[0] ?? '-'}`}</Text>
+          <Text
+            style={styles.detail}
+          >{`${t('tenants.leaseStatus')}: ${profile.status ?? '-'}`}</Text>
+          <Text
+            style={styles.detail}
+          >{`${t('interested.labels.score')}: ${profile.qualificationLevel ?? '-'}`}</Text>
+          <Text
+            style={styles.detail}
+          >{`${t('payments.amount')}: ${profile.minAmount ?? '-'} a ${profile.maxAmount ?? '-'}`}</Text>
           <Text style={styles.detail}>{profile.notes ?? '-'}</Text>
         </View>
       ) : null}
@@ -57,12 +74,18 @@ export default function InterestedDetailScreen() {
           <AppButton
             title={t('interested.activities.add')}
             variant="secondary"
-            onPress={() => router.push(`/(app)/interested/${profile.id}/activities/new` as never)}
+            onPress={() =>
+              router.push(
+                `/(app)/interested/${profile.id}/activities/new` as never,
+              )
+            }
             testID="interestedDetail.activity.new"
           />
           <AppButton
             title={t('common.edit')}
-            onPress={() => router.push(`/(app)/interested/${profile.id}/edit` as never)}
+            onPress={() =>
+              router.push(`/(app)/interested/${profile.id}/edit` as never)
+            }
             testID="interestedDetail.edit"
           />
           <AppButton

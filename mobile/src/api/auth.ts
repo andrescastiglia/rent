@@ -1,6 +1,12 @@
 import { apiClient } from '@/api/client';
 import { IS_MOCK_MODE } from '@/api/env';
-import type { AuthResponse, LoginRequest, RegisterRequest, RegisterResponse, User } from '@/types/auth';
+import type {
+  AuthResponse,
+  LoginRequest,
+  RegisterRequest,
+  RegisterResponse,
+  User,
+} from '@/types/auth';
 
 const MOCK_USERS: Array<User & { password: string }> = [
   {
@@ -32,7 +38,11 @@ const MOCK_USERS: Array<User & { password: string }> = [
 export const authApi = {
   async login(payload: LoginRequest): Promise<AuthResponse> {
     if (IS_MOCK_MODE) {
-      const user = MOCK_USERS.find((candidate) => candidate.email === payload.email && candidate.password === payload.password);
+      const user = MOCK_USERS.find(
+        (candidate) =>
+          candidate.email === payload.email &&
+          candidate.password === payload.password,
+      );
       if (!user) {
         throw new Error('Credenciales inválidas');
       }

@@ -1,5 +1,9 @@
 import { IsOptional, IsEnum, IsDateString, Matches } from 'class-validator';
-import { PaymentStatus, PaymentMethod } from '../entities/payment.entity';
+import {
+  PaymentActivityType,
+  PaymentMethod,
+  PaymentStatus,
+} from '../entities/payment.entity';
 import { z } from 'zod';
 
 const UUID_CANONICAL_REGEX =
@@ -21,6 +25,10 @@ const paymentFiltersZodSchema = z
       .string()
       .regex(UUID_CANONICAL_REGEX, 'leaseId must be a UUID')
       .optional(),
+    propertyId: z
+      .string()
+      .regex(UUID_CANONICAL_REGEX, 'propertyId must be a UUID')
+      .optional(),
     status: z
       .nativeEnum(PaymentStatus)
       .optional()
@@ -31,6 +39,10 @@ const paymentFiltersZodSchema = z
       .describe(
         'cash|bank_transfer|credit_card|debit_card|check|digital_wallet|crypto|other',
       ),
+    activityType: z
+      .nativeEnum(PaymentActivityType)
+      .optional()
+      .describe('monthly|annual|adjustment|late_fee|extraordinary'),
     fromDate: z
       .string()
       .date()
@@ -64,12 +76,20 @@ export class PaymentFiltersDto {
   leaseId?: string;
 
   @IsOptional()
+  @Matches(UUID_CANONICAL_REGEX, { message: 'propertyId must be a UUID' })
+  propertyId?: string;
+
+  @IsOptional()
   @IsEnum(PaymentStatus)
   status?: PaymentStatus;
 
   @IsOptional()
   @IsEnum(PaymentMethod)
   method?: PaymentMethod;
+
+  @IsOptional()
+  @IsEnum(PaymentActivityType)
+  activityType?: PaymentActivityType;
 
   @IsOptional()
   @IsDateString()

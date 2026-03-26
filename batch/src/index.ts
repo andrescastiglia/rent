@@ -720,6 +720,83 @@ program
   );
 
 /**
+ * Lease-renewal-alerts command - Notify upcoming rental contract expirations.
+ */
+program
+  .command("lease-renewal-alerts")
+  .description(
+    "Create owner alerts and optional WhatsApp notifications for lease renewals",
+  )
+  .option("--log <file>", "Write logs to the given file (no rotation)")
+  .option(
+    "-d, --dry-run",
+    "Run without creating activities or sending WhatsApp",
+    false,
+  )
+  .option("--date <date>", "Reference date for alert evaluation (YYYY-MM-DD)")
+  .action(
+    withTracedAction("lease-renewal-alerts", async (options) => {
+      const { LeaseRenewalService } =
+        await import("./services/lease-renewal.service");
+
+      logger.info("Starting lease renewal alerts process", { options });
+      const startedAtNs = process.hrtime.bigint();
+      let metricsSummary:
+        | {
+            recordsTotal: number;
+            recordsProcessed: number;
+            recordsFailed: number;
+          }
+        | undefined;
+
+      try {
+        await initializeDatabase();
+
+        const referenceDate = options.date
+          ? new Date(options.date)
+          : new Date();
+        const leaseRenewalService = new LeaseRenewalService();
+        const result = await leaseRenewalService.processDueRenewals(
+          referenceDate,
+          options.dryRun,
+        );
+
+        metricsSummary = {
+          recordsTotal: result.recordsTotal,
+          recordsProcessed: result.recordsProcessed,
+          recordsFailed: result.recordsFailed,
+        };
+
+        logger.info("Lease renewal alerts process completed", {
+          total: result.recordsTotal,
+          processed: result.recordsProcessed,
+          failed: result.recordsFailed,
+          whatsappSent: result.whatsappSent,
+          dryRun: options.dryRun,
+        });
+
+        await batchMetrics.recordJobRun({
+          job: "lease_renewal_alerts",
+          status: result.recordsFailed > 0 ? "failed" : "success",
+          startedAtNs,
+          summary: metricsSummary,
+        });
+      } catch (error) {
+        logger.error("Lease renewal alerts process failed", { error });
+        await batchMetrics.recordJobRun({
+          job: "lease_renewal_alerts",
+          status: "failed",
+          startedAtNs,
+          summary: metricsSummary,
+        });
+        process.exit(1);
+      } finally {
+        await closeDatabase();
+      }
+    }),
+  );
+
+/**
  * Sync-indices command - Synchronize inflation indices.
  */
 program

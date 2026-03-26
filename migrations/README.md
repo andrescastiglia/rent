@@ -1,6 +1,6 @@
 # Database Migrations
 
-Este directorio contiene las migraciones de base de datos para la Plataforma de Administración de Alquileres.
+Este directorio contiene las migraciones de base de datos para el Sistema de Gestión Inmobiliaria.
 
 ## 📋 Tabla de Contenidos
 

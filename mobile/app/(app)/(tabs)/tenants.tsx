@@ -1,14 +1,29 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { tenantsApi } from '@/api/tenants';
 import { Screen } from '@/components/screen';
 import { H1 } from '@/components/ui';
 
-function ActionChip({ title, onPress, testID }: { title: string; onPress: () => void; testID?: string }) {
+function ActionChip({
+  title,
+  onPress,
+  testID,
+}: {
+  title: string;
+  onPress: () => void;
+  testID?: string;
+}) {
   return (
     <Pressable style={styles.actionChip} onPress={onPress} testID={testID}>
       <Text style={styles.actionChipText}>{title}</Text>
@@ -31,12 +46,19 @@ export default function TenantsScreen() {
 
   const tenantsQuery = useQuery({
     queryKey: ['tenants', debouncedSearch],
-    queryFn: () => tenantsApi.getAll(debouncedSearch ? { name: debouncedSearch } : undefined),
+    queryFn: () =>
+      tenantsApi.getAll(
+        debouncedSearch ? { name: debouncedSearch } : undefined,
+      ),
   });
 
   const tenants = useMemo(() => tenantsQuery.data ?? [], [tenantsQuery.data]);
 
-  const toDisplayName = (firstName?: string, lastName?: string, email?: string) => {
+  const toDisplayName = (
+    firstName?: string,
+    lastName?: string,
+    email?: string,
+  ) => {
     const fullName = `${firstName ?? ''} ${lastName ?? ''}`.trim();
     if (fullName.length > 0) return fullName;
     if (email && email.trim().length > 0) return email;
@@ -69,16 +91,37 @@ export default function TenantsScreen() {
       />
 
       {tenantsQuery.isLoading ? <ActivityIndicator /> : null}
-      {tenantsQuery.error ? <Text style={styles.error}>{(tenantsQuery.error as Error).message}</Text> : null}
+      {tenantsQuery.error ? (
+        <Text style={styles.error}>
+          {(tenantsQuery.error as Error).message}
+        </Text>
+      ) : null}
 
       <View style={styles.list}>
         {tenants.map((tenant) => (
-          <View key={tenant.id} testID={`tenants.item.${tenant.id}`} style={styles.card}>
+          <View
+            key={tenant.id}
+            testID={`tenants.item.${tenant.id}`}
+            style={styles.card}
+          >
             <View style={styles.headerLine}>
-              <Pressable onPress={() => router.push(`/(app)/tenants/${tenant.id}` as never)} testID={`tenants.open.${tenant.id}`}>
-                <Text style={styles.title}>{toDisplayName(tenant.firstName, tenant.lastName, tenant.email)}</Text>
+              <Pressable
+                onPress={() =>
+                  router.push(`/(app)/tenants/${tenant.id}` as never)
+                }
+                testID={`tenants.open.${tenant.id}`}
+              >
+                <Text style={styles.title}>
+                  {toDisplayName(
+                    tenant.firstName,
+                    tenant.lastName,
+                    tenant.email,
+                  )}
+                </Text>
               </Pressable>
-              <Text style={[styles.statusBadge, statusStyle(tenant.status)]}>{statusLabel(tenant.status)}</Text>
+              <Text style={[styles.statusBadge, statusStyle(tenant.status)]}>
+                {statusLabel(tenant.status)}
+              </Text>
             </View>
             <Text style={styles.detail}>{tenant.email || '-'}</Text>
             <Text style={styles.detail}>{tenant.phone || '-'}</Text>
@@ -86,17 +129,27 @@ export default function TenantsScreen() {
             <View style={styles.actionsRow}>
               <ActionChip
                 title={t('common.edit')}
-                onPress={() => router.push(`/(app)/tenants/${tenant.id}/edit` as never)}
+                onPress={() =>
+                  router.push(`/(app)/tenants/${tenant.id}/edit` as never)
+                }
                 testID={`tenant.edit.${tenant.id}`}
               />
               <ActionChip
                 title={t('tenants.paymentRegistration.title')}
-                onPress={() => router.push(`/(app)/tenants/${tenant.id}/payments/new` as never)}
+                onPress={() =>
+                  router.push(
+                    `/(app)/tenants/${tenant.id}/payments/new` as never,
+                  )
+                }
                 testID={`tenant.payment.new.${tenant.id}`}
               />
               <ActionChip
                 title={t('tenants.activities.add')}
-                onPress={() => router.push(`/(app)/tenants/${tenant.id}/activities/new` as never)}
+                onPress={() =>
+                  router.push(
+                    `/(app)/tenants/${tenant.id}/activities/new` as never,
+                  )
+                }
                 testID={`tenant.activity.new.${tenant.id}`}
               />
             </View>

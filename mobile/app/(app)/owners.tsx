@@ -16,7 +16,9 @@ export default function OwnersScreen() {
       queryFn={ownersApi.getAll}
       renderItem={(owner) => (
         <View style={styles.card}>
-          <Text style={styles.title}>{`${owner.firstName} ${owner.lastName}`}</Text>
+          <Text
+            style={styles.title}
+          >{`${owner.firstName} ${owner.lastName}`}</Text>
           <Text style={styles.detail}>{owner.email}</Text>
         </View>
       )}

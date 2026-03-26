@@ -15,6 +15,7 @@ import { Tenant } from "@/types/tenant";
 import {
   AccountBalance,
   Invoice,
+  PaymentActivityType,
   PaymentMethod,
   TenantAccount,
   TenantAccountMovement,
@@ -100,6 +101,7 @@ export default function TenantPaymentRegistrationPage() {
     currencyCode: "ARS",
     paymentDate: new Date().toISOString().split("T")[0],
     method: "bank_transfer" as PaymentMethod,
+    activityType: "monthly" as PaymentActivityType,
     reference: "",
     notes: "",
   });
@@ -235,6 +237,7 @@ export default function TenantPaymentRegistrationPage() {
         currencyCode: paymentForm.currencyCode,
         paymentDate: paymentForm.paymentDate,
         method: paymentForm.method,
+        activityType: paymentForm.activityType,
         reference: paymentForm.reference || undefined,
         notes: paymentForm.notes || undefined,
       });

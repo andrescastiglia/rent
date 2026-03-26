@@ -39,12 +39,18 @@ export default function LoginScreen() {
   const getErrorMessage = (submitError: unknown): string => {
     if (!(submitError instanceof Error)) return t('auth.errors.loginError');
     if (submitError.message === 'user.blocked') return t('auth.errors.blocked');
-    if (submitError.message === 'Invalid credentials' || submitError.message === 'Credenciales inválidas') {
+    if (
+      submitError.message === 'Invalid credentials' ||
+      submitError.message === 'Credenciales inválidas'
+    ) {
       return t('auth.errors.invalidCredentials');
     }
-    if (submitError.message === 'CAPTCHA_REQUIRED') return t('auth.errors.captchaRequired');
-    if (submitError.message === 'CAPTCHA_INVALID') return t('auth.errors.captchaInvalid');
-    if (submitError.message === 'CAPTCHA_NOT_CONFIGURED') return t('auth.errors.captchaUnavailable');
+    if (submitError.message === 'CAPTCHA_REQUIRED')
+      return t('auth.errors.captchaRequired');
+    if (submitError.message === 'CAPTCHA_INVALID')
+      return t('auth.errors.captchaInvalid');
+    if (submitError.message === 'CAPTCHA_NOT_CONFIGURED')
+      return t('auth.errors.captchaUnavailable');
     return submitError.message;
   };
 
@@ -60,7 +66,7 @@ export default function LoginScreen() {
       await login({
         email: data.email,
         password: data.password,
-        captchaToken: requiresCaptcha ? captchaToken ?? undefined : undefined,
+        captchaToken: requiresCaptcha ? (captchaToken ?? undefined) : undefined,
       });
       setLoginFailures(0);
       setForceCaptcha(false);
@@ -68,11 +74,15 @@ export default function LoginScreen() {
     } catch (submitError) {
       if (
         submitError instanceof Error &&
-        (submitError.message === 'Invalid credentials' || submitError.message === 'Credenciales inválidas')
+        (submitError.message === 'Invalid credentials' ||
+          submitError.message === 'Credenciales inválidas')
       ) {
         setLoginFailures((value) => value + 1);
       }
-      if (submitError instanceof Error && submitError.message === 'CAPTCHA_REQUIRED') {
+      if (
+        submitError instanceof Error &&
+        submitError.message === 'CAPTCHA_REQUIRED'
+      ) {
         setForceCaptcha(true);
       }
       setCaptchaToken(null);
@@ -86,9 +96,7 @@ export default function LoginScreen() {
     <Screen>
       <View style={styles.header}>
         <H1>{t('auth.login')}</H1>
-        <Text style={styles.subtitle}>
-          {t('metadata.description')}
-        </Text>
+        <Text style={styles.subtitle}>{t('metadata.description')}</Text>
       </View>
 
       <Controller
@@ -106,7 +114,9 @@ export default function LoginScreen() {
           />
         )}
       />
-      {formState.errors.email?.message ? <Text style={styles.error}>{formState.errors.email.message}</Text> : null}
+      {formState.errors.email?.message ? (
+        <Text style={styles.error}>{formState.errors.email.message}</Text>
+      ) : null}
 
       <Controller
         control={control}
@@ -123,14 +133,19 @@ export default function LoginScreen() {
           />
         )}
       />
-      {formState.errors.password?.message ? <Text style={styles.error}>{formState.errors.password.message}</Text> : null}
+      {formState.errors.password?.message ? (
+        <Text style={styles.error}>{formState.errors.password.message}</Text>
+      ) : null}
 
       {requiresCaptcha ? (
         <View style={styles.captchaBlock}>
           <Text style={styles.captchaLabel}>
             {t('auth.captcha', { defaultValue: 'Verificación de seguridad' })}
           </Text>
-          <TurnstileCaptcha onTokenChange={setCaptchaToken} testID="login.captcha" />
+          <TurnstileCaptcha
+            onTokenChange={setCaptchaToken}
+            testID="login.captcha"
+          />
         </View>
       ) : null}
 

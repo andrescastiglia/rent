@@ -61,6 +61,10 @@ type BackendLease = {
   updatedAt?: string | Date;
   paymentFrequency?: string | null;
   paymentDueDay?: number | null;
+  renewalAlertEnabled?: boolean | null;
+  renewalAlertPeriodicity?: string | null;
+  renewalAlertCustomDays?: number | null;
+  renewalAlertLastSentAt?: string | Date | null;
   billingFrequency?: string | null;
   billingDay?: number | null;
   autoGenerateInvoices?: boolean | null;
@@ -112,6 +116,9 @@ type BackendLeasePayload = {
   currency?: string;
   paymentFrequency?: string;
   paymentDueDay?: number;
+  renewalAlertEnabled?: boolean;
+  renewalAlertPeriodicity?: string;
+  renewalAlertCustomDays?: number;
   billingFrequency?: string;
   billingDay?: number;
   autoGenerateInvoices?: boolean;
@@ -192,6 +199,9 @@ const getLeasePayloadMappedFields = (
   ["currency", data.currency],
   ["paymentFrequency", data.paymentFrequency],
   ["paymentDueDay", data.paymentDueDay],
+  ["renewalAlertEnabled", data.renewalAlertEnabled],
+  ["renewalAlertPeriodicity", data.renewalAlertPeriodicity],
+  ["renewalAlertCustomDays", data.renewalAlertCustomDays],
   ["billingFrequency", data.billingFrequency],
   ["billingDay", data.billingDay],
   ["autoGenerateInvoices", data.autoGenerateInvoices],
@@ -363,6 +373,12 @@ const mapLeaseDatesAndDocs = (raw: BackendLease) => ({
 const mapLeaseRules = (raw: BackendLease) => ({
   paymentFrequency: (raw.paymentFrequency as any) ?? undefined,
   paymentDueDay: raw.paymentDueDay ?? undefined,
+  renewalAlertEnabled: raw.renewalAlertEnabled ?? undefined,
+  renewalAlertPeriodicity: (raw.renewalAlertPeriodicity as any) ?? undefined,
+  renewalAlertCustomDays: raw.renewalAlertCustomDays ?? undefined,
+  renewalAlertLastSentAt: raw.renewalAlertLastSentAt
+    ? normalizeDate(raw.renewalAlertLastSentAt)
+    : undefined,
   billingFrequency: (raw.billingFrequency as any) ?? undefined,
   billingDay: raw.billingDay ?? undefined,
   autoGenerateInvoices: raw.autoGenerateInvoices ?? undefined,

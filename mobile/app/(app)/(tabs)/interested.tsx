@@ -1,20 +1,35 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { interestedApi } from '@/api/interested';
 import { Screen } from '@/components/screen';
 import { ChoiceGroup } from '@/components/ui';
 import { i18n } from '@/i18n';
-import type { InterestedMatch, InterestedOperation, InterestedProfile, InterestedStatus, InterestedSummary } from '@/types/interested';
+import type {
+  InterestedMatch,
+  InterestedOperation,
+  InterestedProfile,
+  InterestedStatus,
+  InterestedSummary,
+} from '@/types/interested';
 
 type OperationFilter = 'all' | InterestedOperation;
 type StatusFilter = 'all' | InterestedStatus;
 
 const getDisplayName = (profile: InterestedProfile) => {
-  const fullName = `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim();
+  const fullName =
+    `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim();
   return fullName.length > 0 ? fullName : profile.phone;
 };
 
@@ -66,7 +81,14 @@ function ActionChip({
       disabled={disabled}
       testID={testID}
     >
-      <Text style={[styles.actionChipText, variant === 'secondary' && styles.actionChipTextSecondary]}>{title}</Text>
+      <Text
+        style={[
+          styles.actionChipText,
+          variant === 'secondary' && styles.actionChipTextSecondary,
+        ]}
+      >
+        {title}
+      </Text>
     </Pressable>
   );
 }
@@ -76,10 +98,14 @@ export default function InterestedScreen() {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
-  const [operationFilter, setOperationFilter] = useState<OperationFilter>('all');
+  const [operationFilter, setOperationFilter] =
+    useState<OperationFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
-  const [selectedSummary, setSelectedSummary] = useState<InterestedSummary | null>(null);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
+    null,
+  );
+  const [selectedSummary, setSelectedSummary] =
+    useState<InterestedSummary | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
 
   const operationOptions: Array<{ label: string; value: OperationFilter }> = [
@@ -95,8 +121,10 @@ export default function InterestedScreen() {
     { label: t('interested.status.buyer'), value: 'buyer' },
   ];
 
-  const statusLabel = (status?: InterestedStatus) => t(`interested.status.${status ?? 'interested'}`);
-  const operationLabel = (operation: InterestedOperation) => t(`interested.operations.${operation}`);
+  const statusLabel = (status?: InterestedStatus) =>
+    t(`interested.status.${status ?? 'interested'}`);
+  const operationLabel = (operation: InterestedOperation) =>
+    t(`interested.operations.${operation}`);
 
   const interestedQuery = useQuery({
     queryKey: ['interested', 'list'],
@@ -104,7 +132,13 @@ export default function InterestedScreen() {
   });
 
   const confirmingRentMutation = useMutation({
-    mutationFn: async ({ profile, match }: { profile: InterestedProfile; match: InterestedMatch }) => {
+    mutationFn: async ({
+      profile,
+      match,
+    }: {
+      profile: InterestedProfile;
+      match: InterestedMatch;
+    }) => {
       if (!profile.convertedToTenantId) {
         await interestedApi.convertToTenant(profile.id, {});
       }
@@ -118,29 +152,39 @@ export default function InterestedScreen() {
       await queryClient.invalidateQueries({ queryKey: ['interested'] });
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('interested.actions.confirmRent'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error
+          ? error.message
+          : t('interested.actions.confirmRent'),
+      );
     },
   });
-
-  const selectedProfile = useMemo(() => {
-    if (!selectedProfileId) return null;
-    return (interestedQuery.data?.data ?? []).find((item) => item.id === selectedProfileId) ?? null;
-  }, [interestedQuery.data?.data, selectedProfileId]);
 
   const filteredProfiles = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     return [...(interestedQuery.data?.data ?? [])]
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      )
       .filter((profile) => {
         const operations = getOperations(profile);
-        if (operationFilter !== 'all' && !operations.includes(operationFilter)) {
+        if (
+          operationFilter !== 'all' &&
+          !operations.includes(operationFilter)
+        ) {
           return false;
         }
-        if (statusFilter !== 'all' && (profile.status ?? 'interested') !== statusFilter) {
+        if (
+          statusFilter !== 'all' &&
+          (profile.status ?? 'interested') !== statusFilter
+        ) {
           return false;
         }
         if (!term) return true;
-        const fullName = `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.toLowerCase();
+        const fullName =
+          `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.toLowerCase();
         return (
           fullName.includes(term) ||
           (profile.phone ?? '').toLowerCase().includes(term) ||
@@ -151,7 +195,9 @@ export default function InterestedScreen() {
 
   const sortedActivities = useMemo(() => {
     return [...(selectedSummary?.activities ?? [])].sort(
-      (a, b) => new Date(b.dueAt ?? b.createdAt).getTime() - new Date(a.dueAt ?? a.createdAt).getTime(),
+      (a, b) =>
+        new Date(b.dueAt ?? b.createdAt).getTime() -
+        new Date(a.dueAt ?? a.createdAt).getTime(),
     );
   }, [selectedSummary?.activities]);
 
@@ -168,14 +214,20 @@ export default function InterestedScreen() {
       const summary = await interestedApi.getSummary(profile.id);
       setSelectedSummary(summary);
     } catch (error) {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.loadError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.loadError'),
+      );
       setSelectedSummary(null);
     } finally {
       setLoadingSummary(false);
     }
   };
 
-  const canConfirmRent = (profile: InterestedProfile, match: InterestedMatch) => {
+  const canConfirmRent = (
+    profile: InterestedProfile,
+    match: InterestedMatch,
+  ) => {
     const profileOperations = getOperations(profile);
     const propertyOperations = match.property?.operations ?? [];
     if (!profileOperations.includes('rent')) return false;
@@ -211,36 +263,64 @@ export default function InterestedScreen() {
       />
 
       {interestedQuery.isLoading ? <ActivityIndicator /> : null}
-      {interestedQuery.error ? <Text style={styles.error}>{(interestedQuery.error as Error).message}</Text> : null}
+      {interestedQuery.error ? (
+        <Text style={styles.error}>
+          {(interestedQuery.error as Error).message}
+        </Text>
+      ) : null}
 
       <View style={styles.list}>
         {filteredProfiles.map((profile) => {
           const operations = getOperations(profile);
           const isSelected = selectedProfileId === profile.id;
-          const hasLoadedSummary = isSelected && selectedSummary?.profile.id === profile.id;
+          const hasLoadedSummary =
+            isSelected && selectedSummary?.profile.id === profile.id;
 
           return (
-            <View key={profile.id} style={[styles.card, isSelected && styles.cardSelected]} testID={`interested.item.${profile.id}`}>
-              <Pressable onPress={() => void selectProfile(profile)} style={styles.cardHeaderPressable}>
+            <View
+              key={profile.id}
+              style={[styles.card, isSelected && styles.cardSelected]}
+              testID={`interested.item.${profile.id}`}
+            >
+              <Pressable
+                onPress={() => void selectProfile(profile)}
+                style={styles.cardHeaderPressable}
+              >
                 <View style={styles.cardHeaderLine}>
                   <Text style={styles.title}>{getDisplayName(profile)}</Text>
-                  <Text style={[styles.statusBadge, statusStyle(profile.status)]}>{statusLabel(profile.status)}</Text>
+                  <Text
+                    style={[styles.statusBadge, statusStyle(profile.status)]}
+                  >
+                    {statusLabel(profile.status)}
+                  </Text>
                 </View>
                 <Text style={styles.detail}>{profile.phone}</Text>
-                {profile.email ? <Text style={styles.detail}>{profile.email}</Text> : null}
-                <Text style={styles.detail}>{t('interested.operationsLabel', { op: operations.map(operationLabel).join(', ') })}</Text>
+                {profile.email ? (
+                  <Text style={styles.detail}>{profile.email}</Text>
+                ) : null}
+                <Text style={styles.detail}>
+                  {t('interested.operationsLabel', {
+                    op: operations.map(operationLabel).join(', '),
+                  })}
+                </Text>
               </Pressable>
 
               <View style={styles.actionsRow}>
                 <ActionChip
                   title={t('interested.actions.edit')}
-                  onPress={() => router.push(`/(app)/interested/${profile.id}/edit` as never)}
+                  onPress={() =>
+                    router.push(`/(app)/interested/${profile.id}/edit` as never)
+                  }
                   testID={`interested.edit.${profile.id}`}
                 />
                 <ActionChip
                   title={t('interested.activities.add')}
                   variant="secondary"
-                  onPress={() => router.push(`/(app)/interested/${profile.id}/activities/new` as never)}
+                  onPress={() =>
+                    router.push(
+                      `/(app)/interested/${profile.id}/activities/new` as never,
+                    )
+                  }
                   testID={`interested.activity.new.${profile.id}`}
                 />
               </View>
@@ -251,32 +331,57 @@ export default function InterestedScreen() {
                     <ActivityIndicator />
                   ) : (
                     <>
-                      <Text style={styles.sectionTitle}>{t('interested.matchesTitle')}</Text>
+                      <Text style={styles.sectionTitle}>
+                        {t('interested.matchesTitle')}
+                      </Text>
                       {(selectedSummary?.matches ?? []).length === 0 ? (
-                        <Text style={styles.empty}>{t('interested.noMatches')}</Text>
+                        <Text style={styles.empty}>
+                          {t('interested.noMatches')}
+                        </Text>
                       ) : (
                         <View style={styles.subList}>
                           {(selectedSummary?.matches ?? []).map((match) => {
                             const canConfirm = canConfirmRent(profile, match);
                             const confirmingCurrent =
                               confirmingRentMutation.isPending &&
-                              confirmingRentMutation.variables?.match.id === match.id;
+                              confirmingRentMutation.variables?.match.id ===
+                                match.id;
                             return (
-                              <View key={match.id} style={styles.subCard} testID={`interested.match.${match.id}`}>
-                                <Text style={styles.subTitle}>{match.property?.name ?? t('interested.matchesTitle')}</Text>
-                                <Text style={styles.detail}>{`${t('interested.labels.score')}: ${(match.score ?? 0).toFixed(2)}%`}</Text>
+                              <View
+                                key={match.id}
+                                style={styles.subCard}
+                                testID={`interested.match.${match.id}`}
+                              >
+                                <Text style={styles.subTitle}>
+                                  {match.property?.name ??
+                                    t('interested.matchesTitle')}
+                                </Text>
+                                <Text
+                                  style={styles.detail}
+                                >{`${t('interested.labels.score')}: ${(match.score ?? 0).toFixed(2)}%`}</Text>
                                 {match.property?.address?.city ? (
-                                  <Text style={styles.detail}>{match.property.address.city}</Text>
+                                  <Text style={styles.detail}>
+                                    {match.property.address.city}
+                                  </Text>
                                 ) : null}
                                 <Text style={styles.detail}>
                                   {`${t('interested.operations.rent')}: ${formatMoney(match.property?.rentPrice)} · ${t('interested.operations.sale')}: ${formatMoney(match.property?.salePrice)}`}
                                 </Text>
-                                <Text style={styles.detail}>{`${t('dashboard.activity.columns.status')}: ${t(`interested.matchStatus.${match.status}`)}`}</Text>
+                                <Text
+                                  style={styles.detail}
+                                >{`${t('dashboard.activity.columns.status')}: ${t(`interested.matchStatus.${match.status}`)}`}</Text>
                                 <View style={styles.actionsRow}>
                                   <ActionChip
-                                    title={confirmingCurrent ? t('interested.actions.confirming') : t('interested.actions.confirmRent')}
+                                    title={
+                                      confirmingCurrent
+                                        ? t('interested.actions.confirming')
+                                        : t('interested.actions.confirmRent')
+                                    }
                                     onPress={() => {
-                                      confirmingRentMutation.mutate({ profile, match });
+                                      confirmingRentMutation.mutate({
+                                        profile,
+                                        match,
+                                      });
                                     }}
                                     disabled={!canConfirm || confirmingCurrent}
                                     testID={`interested.confirm.rent.${match.id}`}
@@ -288,19 +393,39 @@ export default function InterestedScreen() {
                         </View>
                       )}
 
-                      <Text style={styles.sectionTitle}>{t('interested.activities.title')}</Text>
+                      <Text style={styles.sectionTitle}>
+                        {t('interested.activities.title')}
+                      </Text>
                       {sortedActivities.length === 0 ? (
-                        <Text style={styles.empty}>{t('interested.activities.empty')}</Text>
+                        <Text style={styles.empty}>
+                          {t('interested.activities.empty')}
+                        </Text>
                       ) : (
                         <View style={styles.subList}>
                           {sortedActivities.map((activity) => (
-                            <View key={activity.id} style={styles.subCard} testID={`interested.activity.${activity.id}`}>
+                            <View
+                              key={activity.id}
+                              style={styles.subCard}
+                              testID={`interested.activity.${activity.id}`}
+                            >
                               <View style={styles.cardHeaderLine}>
-                                <Text style={styles.subTitle}>{activity.subject}</Text>
-                                <Text style={styles.activityStatus}>{t(`interested.activityStatus.${activity.status}`)}</Text>
+                                <Text style={styles.subTitle}>
+                                  {activity.subject}
+                                </Text>
+                                <Text style={styles.activityStatus}>
+                                  {t(
+                                    `interested.activityStatus.${activity.status}`,
+                                  )}
+                                </Text>
                               </View>
-                              <Text style={styles.detail}>{`${t(`interested.activityTypes.${activity.type}`)} · ${formatDate(activity.createdAt)}`}</Text>
-                              {activity.body ? <Text style={styles.detail}>{activity.body}</Text> : null}
+                              <Text
+                                style={styles.detail}
+                              >{`${t(`interested.activityTypes.${activity.type}`)} · ${formatDate(activity.createdAt)}`}</Text>
+                              {activity.body ? (
+                                <Text style={styles.detail}>
+                                  {activity.body}
+                                </Text>
+                              ) : null}
                             </View>
                           ))}
                         </View>

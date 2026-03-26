@@ -24,6 +24,14 @@ interface PaymentCardProps {
   readonly payment: Payment;
 }
 
+const activityTypeLabels: Record<string, string> = {
+  monthly: "Mensual",
+  annual: "Anual",
+  adjustment: "Ajuste",
+  late_fee: "Mora",
+  extraordinary: "Extraordinario",
+};
+
 const methodIcons = {
   cash: Banknote,
   bank_transfer: Landmark,
@@ -153,6 +161,12 @@ export function PaymentCard({ payment }: PaymentCardProps) {
           <div className="flex items-center">
             <Calendar size={16} className="mr-2" />
             <span>{formattedDate}</span>
+          </div>
+          <div className="flex items-center">
+            <ReceiptText size={16} className="mr-2" />
+            <span>
+              {activityTypeLabels[payment.activityType] ?? payment.activityType}
+            </span>
           </div>
           {payment.reference && (
             <div className="flex items-center">

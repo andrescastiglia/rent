@@ -2,7 +2,7 @@
 
 **Last Updated: December 2, 2025**
 
-This Privacy Policy describes how your personal information may be collected, used, and shared when you use the Rent Management System software ("the Software"). This policy reflects the nature of the Software as a development and demonstration project.
+This Privacy Policy describes how your personal information may be collected, used, and shared when you use the Real Estate Management System software ("the Software"). This policy reflects the nature of the Software as a development and demonstration project.
 
 ## 1. Information We Collect
 

@@ -22,14 +22,18 @@ export default function EditInterestedScreen() {
   });
 
   const mutation = useMutation({
-    mutationFn: (payload: UpdateInterestedProfileInput) => interestedApi.update(id, payload),
+    mutationFn: (payload: UpdateInterestedProfileInput) =>
+      interestedApi.update(id, payload),
     onSuccess: async (updated) => {
       await queryClient.invalidateQueries({ queryKey: ['interested'] });
       await queryClient.invalidateQueries({ queryKey: ['interested', id] });
       router.replace(`/(app)/interested/${updated.id}` as never);
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.saveError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.saveError'),
+      );
     },
   });
 
@@ -37,7 +41,9 @@ export default function EditInterestedScreen() {
     <Screen scrollViewTestID="interestedEdit.scroll">
       <H1>{t('interested.editTitle')}</H1>
       {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
-      {!query.isLoading && !query.data ? <Text>{t('interested.noResults')}</Text> : null}
+      {!query.isLoading && !query.data ? (
+        <Text>{t('interested.noResults')}</Text>
+      ) : null}
 
       {query.data ? (
         <InterestedForm

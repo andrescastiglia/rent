@@ -59,7 +59,10 @@ const statusOptions: Array<{ label: string; value: TenantStatus }> = [
   { label: 'Prospecto', value: 'PROSPECT' },
 ];
 
-const employmentStatusOptions: Array<{ label: string; value: EmploymentStatus }> = [
+const employmentStatusOptions: Array<{
+  label: string;
+  value: EmploymentStatus;
+}> = [
   { label: 'Empleado/a', value: 'employed' },
   { label: 'Autónomo/a', value: 'self_employed' },
   { label: 'Desempleado/a', value: 'unemployed' },
@@ -122,7 +125,11 @@ export function TenantForm({
       nationality: values.nationality || undefined,
       status: values.status,
       address:
-        values.addressStreet || values.addressNumber || values.addressCity || values.addressState || values.addressZipCode
+        values.addressStreet ||
+        values.addressNumber ||
+        values.addressCity ||
+        values.addressState ||
+        values.addressZipCode
           ? {
               street: values.addressStreet || '',
               number: values.addressNumber || '',
@@ -133,11 +140,14 @@ export function TenantForm({
           : undefined,
       occupation: values.occupation || undefined,
       employer: values.employer || undefined,
-      monthlyIncome: values.monthlyIncome ? Number(values.monthlyIncome) : undefined,
+      monthlyIncome: values.monthlyIncome
+        ? Number(values.monthlyIncome)
+        : undefined,
       employmentStatus: values.employmentStatus || undefined,
       emergencyContactName: values.emergencyContactName || undefined,
       emergencyContactPhone: values.emergencyContactPhone || undefined,
-      emergencyContactRelationship: values.emergencyContactRelationship || undefined,
+      emergencyContactRelationship:
+        values.emergencyContactRelationship || undefined,
       creditScore: values.creditScore ? Number(values.creditScore) : undefined,
       notes: values.notes || undefined,
     };
@@ -151,14 +161,24 @@ export function TenantForm({
         control={control}
         name="firstName"
         render={({ field }) => (
-          <Field label={t('tenants.fields.firstName')} value={field.value} onChangeText={field.onChange} testID={`${testIDPrefix}.firstName`} />
+          <Field
+            label={t('tenants.fields.firstName')}
+            value={field.value}
+            onChangeText={field.onChange}
+            testID={`${testIDPrefix}.firstName`}
+          />
         )}
       />
       <Controller
         control={control}
         name="lastName"
         render={({ field }) => (
-          <Field label={t('tenants.fields.lastName')} value={field.value} onChangeText={field.onChange} testID={`${testIDPrefix}.lastName`} />
+          <Field
+            label={t('tenants.fields.lastName')}
+            value={field.value}
+            onChangeText={field.onChange}
+            testID={`${testIDPrefix}.lastName`}
+          />
         )}
       />
       <Controller
@@ -192,7 +212,13 @@ export function TenantForm({
         control={control}
         name="dni"
         render={({ field }) => (
-          <Field label={t('tenants.fields.dni')} value={field.value} onChangeText={field.onChange} keyboardType="numeric" testID={`${testIDPrefix}.dni`} />
+          <Field
+            label={t('tenants.fields.dni')}
+            value={field.value}
+            onChangeText={field.onChange}
+            keyboardType="numeric"
+            testID={`${testIDPrefix}.dni`}
+          />
         )}
       />
       <Controller
@@ -235,18 +261,18 @@ export function TenantForm({
         control={control}
         name="status"
         render={({ field }) => (
-            <ChoiceGroup
-              label={t('tenants.fields.status')}
-              value={field.value}
-              onChange={field.onChange}
-              options={statusOptions.map((option) => ({
-                value: option.value,
-                label: t(`tenants.status.${option.value}`),
-              }))}
-              testID={`${testIDPrefix}.status`}
-            />
-          )}
-        />
+          <ChoiceGroup
+            label={t('tenants.fields.status')}
+            value={field.value}
+            onChange={field.onChange}
+            options={statusOptions.map((option) => ({
+              value: option.value,
+              label: t(`tenants.status.${option.value}`),
+            }))}
+            testID={`${testIDPrefix}.status`}
+          />
+        )}
+      />
       <Controller
         control={control}
         name="addressStreet"
@@ -348,18 +374,18 @@ export function TenantForm({
         control={control}
         name="employmentStatus"
         render={({ field }) => (
-            <ChoiceGroup
-              label={t('tenants.fields.employmentStatus')}
-              value={field.value ?? 'employed'}
-              onChange={field.onChange}
-              options={employmentStatusOptions.map((option) => ({
-                value: option.value,
-                label: t(`tenants.employmentStatuses.${option.value}`),
-              }))}
-              testID={`${testIDPrefix}.employmentStatus`}
-            />
-          )}
-        />
+          <ChoiceGroup
+            label={t('tenants.fields.employmentStatus')}
+            value={field.value ?? 'employed'}
+            onChange={field.onChange}
+            options={employmentStatusOptions.map((option) => ({
+              value: option.value,
+              label: t(`tenants.employmentStatuses.${option.value}`),
+            }))}
+            testID={`${testIDPrefix}.employmentStatus`}
+          />
+        )}
+      />
       <Controller
         control={control}
         name="emergencyContactName"

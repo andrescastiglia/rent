@@ -15,7 +15,9 @@ type RequestOptions = {
 let sessionExpiredHandler: SessionExpiredHandler = null;
 let isHandlingSessionExpired = false;
 
-export function setSessionExpiredHandler(handler: SessionExpiredHandler): () => void {
+export function setSessionExpiredHandler(
+  handler: SessionExpiredHandler,
+): () => void {
   sessionExpiredHandler = handler;
 
   return () => {
@@ -42,7 +44,10 @@ async function handleSessionExpired(): Promise<void> {
 class ApiClient {
   constructor(private readonly baseUrl: string) {}
 
-  private async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  private async request<T>(
+    path: string,
+    options: RequestOptions = {},
+  ): Promise<T> {
     const method = options.method ?? 'GET';
     const token = options.token ?? (await getToken());
 
@@ -63,7 +68,8 @@ class ApiClient {
     const response = await fetch(`${this.baseUrl}${path}`, {
       method,
       headers,
-      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      body:
+        options.body !== undefined ? JSON.stringify(options.body) : undefined,
     });
 
     if (response.status === 401 && token) {
@@ -73,7 +79,9 @@ class ApiClient {
 
     if (!response.ok) {
       const fallback = response.statusText || 'API request failed';
-      const payload = await response.json().catch(() => ({ message: fallback }));
+      const payload = await response
+        .json()
+        .catch(() => ({ message: fallback }));
       throw new Error(payload.message ?? fallback);
     }
 

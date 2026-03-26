@@ -21,7 +21,10 @@ export default function NewTenantScreen() {
       router.replace(`/(app)/tenants/${created.id}`);
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.saveError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.saveError'),
+      );
     },
   });
 

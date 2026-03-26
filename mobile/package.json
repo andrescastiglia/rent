@@ -7,7 +7,12 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
+    "lint": "eslint \"{app,src}/**/*.{ts,tsx}\" --fix",
+    "format": "prettier --write \"{app,src}/**/*.{ts,tsx}\" \"*.{js,json}\"",
+    "type-check": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
+    "test": "jest --config jest.config.js",
+    "test:cov": "jest --config jest.config.js --coverage",
     "e2e:build:android": "EXPO_PUBLIC_MOCK_MODE=true EXPO_PUBLIC_E2E_MODE=true detox build -c android.emu.debug",
     "e2e:test:android": "EXPO_PUBLIC_MOCK_MODE=true EXPO_PUBLIC_E2E_MODE=true detox test -c android.emu.debug --cleanup",
     "e2e:android": "npm run e2e:build:android && npm run e2e:test:android"
@@ -43,15 +48,20 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@types/base-64": "^1.0.2",
     "@types/jest": "^29.5.14",
     "@types/react": "~19.1.0",
     "babel-preset-expo": "^54.0.10",
     "detox": "^20.47.0",
+    "eslint": "^9.39.2",
+    "globals": "^17.3.0",
     "jest": "^29.7.0",
     "jest-circus": "^29.7.0",
+    "prettier": "^3.8.1",
     "ts-jest": "^29.4.6",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "typescript-eslint": "^8.55.0"
   },
   "private": true
 }

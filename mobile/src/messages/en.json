@@ -82,7 +82,7 @@
     "noAccount": "Don't have an account?",
     "loggingIn": "Signing in...",
     "registering": "Registering...",
-    "systemTitle": "Rental Management System",
+    "systemTitle": "Real Estate Management System",
     "errors": {
       "invalidCredentials": "Invalid credentials",
       "emailAlreadyRegistered": "Email is already registered",
@@ -1216,8 +1216,8 @@
     "ownerRequired": "Owner is required"
   },
   "metadata": {
-    "title": "Rent Management System",
-    "description": "Professional platform for managing properties, tenants and rental contracts"
+    "title": "Real Estate Management System",
+    "description": "Professional platform for managing sale properties, rentals, payments, and renewals"
   },
   "currencies": {
     "title": "Currency",

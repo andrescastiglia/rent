@@ -1,5 +1,5 @@
 ---
-- name: Deploy Rent Management System
+- name: Deploy Real Estate Management System
   hosts: all
   become: false
   vars:

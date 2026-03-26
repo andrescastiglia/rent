@@ -67,6 +67,9 @@ export class PropertyVisitsController {
     @Param('propertyId', ParseUUIDPipe) propertyId: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.propertyVisitsService.findAll(propertyId, req.user);
+    return this.propertyVisitsService.findMaintenanceTasks(
+      propertyId,
+      req.user,
+    );
   }
 }

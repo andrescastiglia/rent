@@ -18,7 +18,16 @@ const schema = z.object({
   leaseId: z.string().min(1, 'Selecciona un contrato'),
   amount: z.string().min(1, 'El monto es obligatorio'),
   paymentDate: z.string().min(10, 'La fecha es obligatoria'),
-  method: z.enum(['cash', 'bank_transfer', 'credit_card', 'debit_card', 'check', 'digital_wallet', 'crypto', 'other']),
+  method: z.enum([
+    'cash',
+    'bank_transfer',
+    'credit_card',
+    'debit_card',
+    'check',
+    'digital_wallet',
+    'crypto',
+    'other',
+  ]),
   reference: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -61,28 +70,33 @@ export default function NewTenantPaymentScreen() {
     () =>
       (leasesQuery.data ?? []).map((lease) => ({
         value: lease.id,
-        label: lease.property?.name ? `${lease.id} · ${lease.property.name}` : lease.id,
+        label: lease.property?.name
+          ? `${lease.id} · ${lease.property.name}`
+          : lease.id,
       })),
     [leasesQuery.data],
   );
 
-  const { control, handleSubmit, formState, setValue, getValues } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      leaseId: '',
-      amount: '',
-      paymentDate: new Date().toISOString().slice(0, 10),
-      method: 'bank_transfer',
-      reference: '',
-      notes: '',
-    },
-  });
+  const { control, handleSubmit, formState, setValue, getValues } =
+    useForm<FormValues>({
+      resolver: zodResolver(schema),
+      defaultValues: {
+        leaseId: '',
+        amount: '',
+        paymentDate: new Date().toISOString().slice(0, 10),
+        method: 'bank_transfer',
+        reference: '',
+        notes: '',
+      },
+    });
 
   useEffect(() => {
     if (!leaseOptions.length) return;
     const currentLeaseId = getValues('leaseId');
     if (currentLeaseId) return;
-    const preferred = (leasesQuery.data ?? []).find((lease) => lease.status === 'ACTIVE') ?? leasesQuery.data?.[0];
+    const preferred =
+      (leasesQuery.data ?? []).find((lease) => lease.status === 'ACTIVE') ??
+      leasesQuery.data?.[0];
     if (preferred) {
       setValue('leaseId', preferred.id);
     }
@@ -116,20 +130,28 @@ export default function NewTenantPaymentScreen() {
       router.replace(`/(app)/payments/${created.id}` as never);
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.saveError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.saveError'),
+      );
     },
   });
 
   const submit = handleSubmit((values) => mutation.mutate(values));
-  const tenantName = `${tenantQuery.data?.firstName ?? ''} ${tenantQuery.data?.lastName ?? ''}`.trim();
+  const tenantName =
+    `${tenantQuery.data?.firstName ?? ''} ${tenantQuery.data?.lastName ?? ''}`.trim();
 
   return (
     <Screen>
       <H1>{t('tenants.paymentRegistration.title')}</H1>
       {tenantName ? <Text style={styles.subtitle}>{tenantName}</Text> : null}
-      {tenantQuery.data?.email ? <Text style={styles.subtitle}>{tenantQuery.data.email}</Text> : null}
+      {tenantQuery.data?.email ? (
+        <Text style={styles.subtitle}>{tenantQuery.data.email}</Text>
+      ) : null}
 
-      {leasesQuery.isLoading ? <Text style={styles.help}>{t('common.loading')}</Text> : null}
+      {leasesQuery.isLoading ? (
+        <Text style={styles.help}>{t('common.loading')}</Text>
+      ) : null}
       {!leasesQuery.isLoading && leaseOptions.length === 0 ? (
         <Text style={styles.warn}>{t('tenants.noActiveLeases')}</Text>
       ) : null}
@@ -183,7 +205,10 @@ export default function NewTenantPaymentScreen() {
             label={t('payments.method.label')}
             value={field.value}
             onChange={field.onChange}
-            options={methodOptions.map((option) => ({ ...option, label: t(`payments.method.${option.value}`) }))}
+            options={methodOptions.map((option) => ({
+              ...option,
+              label: t(`payments.method.${option.value}`),
+            }))}
             testID="tenantPaymentCreate.method"
           />
         )}

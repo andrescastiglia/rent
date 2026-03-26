@@ -23,7 +23,16 @@ import type {
 const schema = z.object({
   name: z.string().min(2),
   description: z.string().optional(),
-  type: z.enum(['APARTMENT', 'HOUSE', 'COMMERCIAL', 'OFFICE', 'WAREHOUSE', 'LAND', 'PARKING', 'OTHER']),
+  type: z.enum([
+    'APARTMENT',
+    'HOUSE',
+    'COMMERCIAL',
+    'OFFICE',
+    'WAREHOUSE',
+    'LAND',
+    'PARKING',
+    'OTHER',
+  ]),
   status: z.enum(['ACTIVE', 'INACTIVE', 'MAINTENANCE']),
   ownerId: z.string().min(1),
   ownerWhatsapp: z.string().optional(),
@@ -35,7 +44,9 @@ const schema = z.object({
   zipCode: z.string().min(1),
   country: z.string().min(1),
   operationsCsv: z.string().min(1, 'property.operations.required'),
-  operationState: z.enum(['available', 'rented', 'reserved', 'sold']).optional(),
+  operationState: z
+    .enum(['available', 'rented', 'reserved', 'sold'])
+    .optional(),
   allowsPets: z.enum(['unspecified', 'yes', 'no']).default('yes'),
   acceptedGuaranteeTypesCsv: z.string().optional(),
   maxOccupants: z.string().optional(),
@@ -51,7 +62,9 @@ type PropertyFormProps = {
   initial?: Property;
   defaultOwnerId?: string;
   submitting?: boolean;
-  onSubmit: (payload: CreatePropertyInput | UpdatePropertyInput) => Promise<void>;
+  onSubmit: (
+    payload: CreatePropertyInput | UpdatePropertyInput,
+  ) => Promise<void>;
   submitLabel: string;
   testIDPrefix?: string;
 };
@@ -73,7 +86,10 @@ const statusOptions: Array<{ label: string; value: PropertyStatus }> = [
   { label: 'Mantenimiento', value: 'MAINTENANCE' },
 ];
 
-const operationStateOptions: Array<{ label: string; value: PropertyOperationState }> = [
+const operationStateOptions: Array<{
+  label: string;
+  value: PropertyOperationState;
+}> = [
   { label: 'Disponible', value: 'available' },
   { label: 'Alquilada', value: 'rented' },
   { label: 'Reservada', value: 'reserved' },
@@ -93,7 +109,9 @@ const splitCsv = (value?: string): string[] =>
     .filter(Boolean);
 
 const parseOperations = (value?: string): PropertyOperation[] =>
-  splitCsv(value).filter((item): item is PropertyOperation => item === 'rent' || item === 'sale');
+  splitCsv(value).filter(
+    (item): item is PropertyOperation => item === 'rent' || item === 'sale',
+  );
 
 export function PropertyForm({
   mode,
@@ -109,11 +127,16 @@ export function PropertyForm({
   const [showCurrencyOptions, setShowCurrencyOptions] = useState(false);
   const isOwnerLocked = mode === 'edit' || Boolean(defaultOwnerId);
   const initialFeatureRows = useMemo(
-    () => (initial?.features ?? []).map((item) => ({ name: item.name ?? '', value: item.value ?? '' })),
+    () =>
+      (initial?.features ?? []).map((item) => ({
+        name: item.name ?? '',
+        value: item.value ?? '',
+      })),
     [initial],
   );
   const initialImageUrls = useMemo(() => initial?.images ?? [], [initial]);
-  const [featureRows, setFeatureRows] = useState<Array<{ name: string; value: string }>>(initialFeatureRows);
+  const [featureRows, setFeatureRows] =
+    useState<Array<{ name: string; value: string }>>(initialFeatureRows);
   const [imageUrls, setImageUrls] = useState<string[]>(initialImageUrls);
 
   const defaults: FormValues = useMemo(
@@ -133,8 +156,14 @@ export function PropertyForm({
       country: initial?.address.country ?? 'Argentina',
       operationsCsv: initial?.operations?.join(', ') ?? 'rent',
       operationState: initial?.operationState ?? 'available',
-      allowsPets: initial?.allowsPets === undefined ? 'yes' : initial.allowsPets ? 'yes' : 'no',
-      acceptedGuaranteeTypesCsv: initial?.acceptedGuaranteeTypes?.join(', ') ?? '',
+      allowsPets:
+        initial?.allowsPets === undefined
+          ? 'yes'
+          : initial.allowsPets
+            ? 'yes'
+            : 'no',
+      acceptedGuaranteeTypesCsv:
+        initial?.acceptedGuaranteeTypes?.join(', ') ?? '',
       maxOccupants: initial?.maxOccupants?.toString() ?? '',
       rentPrice: initial?.rentPrice?.toString() ?? '',
       salePrice: initial?.salePrice?.toString() ?? '',
@@ -143,7 +172,15 @@ export function PropertyForm({
     [defaultOwnerId, initial],
   );
 
-  const { control, getValues, handleSubmit, formState, setValue, watch, clearErrors } = useForm<FormValues>({
+  const {
+    control,
+    getValues,
+    handleSubmit,
+    formState,
+    setValue,
+    watch,
+    clearErrors,
+  } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: defaults,
   });
@@ -159,7 +196,10 @@ export function PropertyForm({
 
   const ownerIdFromForm = watch('ownerId');
   const saleCurrencyValue = watch('saleCurrency');
-  const activeOwnerId = mode === 'edit' ? initial?.ownerId ?? ownerIdFromForm : defaultOwnerId ?? ownerIdFromForm;
+  const activeOwnerId =
+    mode === 'edit'
+      ? (initial?.ownerId ?? ownerIdFromForm)
+      : (defaultOwnerId ?? ownerIdFromForm);
   const activeOwner = useMemo(
     () => (ownersQuery.data ?? []).find((owner) => owner.id === activeOwnerId),
     [activeOwnerId, ownersQuery.data],
@@ -171,7 +211,9 @@ export function PropertyForm({
   const currencyOptions = useMemo(() => {
     const apiCodes = (currenciesQuery.data ?? []).map((item) => item.code);
     const base = apiCodes.length > 0 ? apiCodes : ['ARS'];
-    return saleCurrencyValue && !base.includes(saleCurrencyValue) ? [saleCurrencyValue, ...base] : base;
+    return saleCurrencyValue && !base.includes(saleCurrencyValue)
+      ? [saleCurrencyValue, ...base]
+      : base;
   }, [currenciesQuery.data, saleCurrencyValue]);
 
   useEffect(() => {
@@ -197,7 +239,9 @@ export function PropertyForm({
       return;
     }
 
-    setValue('ownerWhatsapp', activeOwner.phone ?? '', { shouldValidate: true });
+    setValue('ownerWhatsapp', activeOwner.phone ?? '', {
+      shouldValidate: true,
+    });
   }, [activeOwner, isOwnerLocked, setValue]);
 
   useEffect(() => {
@@ -223,8 +267,13 @@ export function PropertyForm({
       return;
     }
 
-    const next = current.includes(operation) ? current.filter((item) => item !== operation) : [...current, operation];
-    setValue('operationsCsv', next.join(', '), { shouldValidate: true, shouldDirty: true });
+    const next = current.includes(operation)
+      ? current.filter((item) => item !== operation)
+      : [...current, operation];
+    setValue('operationsCsv', next.join(', '), {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
   };
 
   const submit = handleSubmit(async (values) => {
@@ -245,7 +294,9 @@ export function PropertyForm({
       description: values.description || undefined,
       type: values.type,
       ownerId: resolvedOwnerId,
-      ownerWhatsapp: isOwnerLocked ? activeOwner?.phone || undefined : values.ownerWhatsapp || undefined,
+      ownerWhatsapp: isOwnerLocked
+        ? activeOwner?.phone || undefined
+        : values.ownerWhatsapp || undefined,
       address: {
         street: values.street,
         number: values.number,
@@ -256,15 +307,21 @@ export function PropertyForm({
         country: values.country,
       },
       operations,
-      operationState: mode === 'edit' ? values.operationState || undefined : undefined,
+      operationState:
+        mode === 'edit' ? values.operationState || undefined : undefined,
       allowsPets:
         values.allowsPets === 'unspecified'
           ? undefined
           : values.allowsPets === 'yes',
       acceptedGuaranteeTypes: splitCsv(values.acceptedGuaranteeTypesCsv),
-      maxOccupants: values.maxOccupants ? Number(values.maxOccupants) : undefined,
+      maxOccupants: values.maxOccupants
+        ? Number(values.maxOccupants)
+        : undefined,
       features: featureRows
-        .map((item) => ({ name: item.name.trim(), value: item.value.trim() || undefined }))
+        .map((item) => ({
+          name: item.name.trim(),
+          value: item.value.trim() || undefined,
+        }))
         .filter((item) => item.name.length > 0),
       images: imageUrls.filter(Boolean),
       rentPrice: values.rentPrice ? Number(values.rentPrice) : undefined,
@@ -273,7 +330,10 @@ export function PropertyForm({
     } satisfies CreatePropertyInput;
 
     if (mode === 'edit') {
-      await onSubmit({ ...payloadBase, status: values.status } satisfies UpdatePropertyInput);
+      await onSubmit({
+        ...payloadBase,
+        status: values.status,
+      } satisfies UpdatePropertyInput);
       return;
     }
 
@@ -286,7 +346,12 @@ export function PropertyForm({
         control={control}
         name="name"
         render={({ field }) => (
-          <Field label={t('properties.fields.name')} value={field.value} onChangeText={field.onChange} testID={`${testIDPrefix}.name`} />
+          <Field
+            label={t('properties.fields.name')}
+            value={field.value}
+            onChangeText={field.onChange}
+            testID={`${testIDPrefix}.name`}
+          />
         )}
       />
       <Controller
@@ -305,14 +370,17 @@ export function PropertyForm({
         control={control}
         name="type"
         render={({ field }) => (
-            <ChoiceGroup
-              label={t('properties.fields.type')}
-              value={field.value}
-              onChange={field.onChange}
-              options={typeOptions.map((option) => ({ value: option.value, label: t(`properties.types.${option.value}`) }))}
-              testID={`${testIDPrefix}.type`}
-            />
-          )}
+          <ChoiceGroup
+            label={t('properties.fields.type')}
+            value={field.value}
+            onChange={field.onChange}
+            options={typeOptions.map((option) => ({
+              value: option.value,
+              label: t(`properties.types.${option.value}`),
+            }))}
+            testID={`${testIDPrefix}.type`}
+          />
+        )}
       />
 
       {mode === 'edit' ? (
@@ -324,7 +392,10 @@ export function PropertyForm({
               label={t('properties.fields.status')}
               value={field.value}
               onChange={field.onChange}
-              options={statusOptions.map((option) => ({ value: option.value, label: t(`properties.status.${option.value}`) }))}
+              options={statusOptions.map((option) => ({
+                value: option.value,
+                label: t(`properties.status.${option.value}`),
+              }))}
               testID={`${testIDPrefix}.status`}
             />
           )}
@@ -334,13 +405,22 @@ export function PropertyForm({
       <View style={styles.ownerBox}>
         <Text style={styles.ownerLabel}>{t('properties.fields.owner')}</Text>
         {isOwnerLocked ? (
-          <Text style={styles.ownerValue}>{activeOwner ? `${activeOwner.firstName} ${activeOwner.lastName}`.trim() : activeOwnerId || '-'}</Text>
+          <Text style={styles.ownerValue}>
+            {activeOwner
+              ? `${activeOwner.firstName} ${activeOwner.lastName}`.trim()
+              : activeOwnerId || '-'}
+          </Text>
         ) : (
           <Controller
             control={control}
             name="ownerId"
             render={({ field }) => (
-              <Field label={t('properties.fields.owner')} value={field.value} onChangeText={field.onChange} testID={`${testIDPrefix}.ownerId`} />
+              <Field
+                label={t('properties.fields.owner')}
+                value={field.value}
+                onChangeText={field.onChange}
+                testID={`${testIDPrefix}.ownerId`}
+              />
             )}
           />
         )}
@@ -362,59 +442,126 @@ export function PropertyForm({
       <Controller
         control={control}
         name="street"
-        render={({ field }) => <Field label={t('properties.fields.street')} value={field.value} onChangeText={field.onChange} testID={`${testIDPrefix}.street`} />}
+        render={({ field }) => (
+          <Field
+            label={t('properties.fields.street')}
+            value={field.value}
+            onChangeText={field.onChange}
+            testID={`${testIDPrefix}.street`}
+          />
+        )}
       />
       <Controller
         control={control}
         name="number"
-        render={({ field }) => <Field label={t('properties.fields.number')} value={field.value} onChangeText={field.onChange} testID={`${testIDPrefix}.number`} />}
+        render={({ field }) => (
+          <Field
+            label={t('properties.fields.number')}
+            value={field.value}
+            onChangeText={field.onChange}
+            testID={`${testIDPrefix}.number`}
+          />
+        )}
       />
       <Controller
         control={control}
         name="unit"
         render={({ field }) => (
-          <Field label={t('properties.fields.unit')} value={field.value ?? ''} onChangeText={field.onChange} testID={`${testIDPrefix}.unit`} />
+          <Field
+            label={t('properties.fields.unit')}
+            value={field.value ?? ''}
+            onChangeText={field.onChange}
+            testID={`${testIDPrefix}.unit`}
+          />
         )}
       />
       <Controller
         control={control}
         name="city"
-        render={({ field }) => <Field label={t('properties.fields.city')} value={field.value} onChangeText={field.onChange} testID={`${testIDPrefix}.city`} />}
+        render={({ field }) => (
+          <Field
+            label={t('properties.fields.city')}
+            value={field.value}
+            onChangeText={field.onChange}
+            testID={`${testIDPrefix}.city`}
+          />
+        )}
       />
       <Controller
         control={control}
         name="state"
-        render={({ field }) => <Field label={t('properties.fields.state')} value={field.value} onChangeText={field.onChange} testID={`${testIDPrefix}.state`} />}
+        render={({ field }) => (
+          <Field
+            label={t('properties.fields.state')}
+            value={field.value}
+            onChangeText={field.onChange}
+            testID={`${testIDPrefix}.state`}
+          />
+        )}
       />
       <Controller
         control={control}
         name="zipCode"
         render={({ field }) => (
-          <Field label={t('properties.fields.zipCode')} value={field.value} onChangeText={field.onChange} testID={`${testIDPrefix}.zipCode`} />
+          <Field
+            label={t('properties.fields.zipCode')}
+            value={field.value}
+            onChangeText={field.onChange}
+            testID={`${testIDPrefix}.zipCode`}
+          />
         )}
       />
       <Controller
         control={control}
         name="country"
-        render={({ field }) => <Field label={t('properties.fields.country')} value={field.value} onChangeText={field.onChange} testID={`${testIDPrefix}.country`} />}
+        render={({ field }) => (
+          <Field
+            label={t('properties.fields.country')}
+            value={field.value}
+            onChangeText={field.onChange}
+            testID={`${testIDPrefix}.country`}
+          />
+        )}
       />
 
       <View style={styles.operationsBlock}>
-        <Text style={styles.operationsLabel}>{t('properties.fields.operations')}</Text>
+        <Text style={styles.operationsLabel}>
+          {t('properties.fields.operations')}
+        </Text>
         <View style={styles.operationsRow}>
           <Pressable
             onPress={() => toggleOperation('rent')}
-            style={[styles.operationChip, isRentOperationSelected && styles.operationChipSelected]}
+            style={[
+              styles.operationChip,
+              isRentOperationSelected && styles.operationChipSelected,
+            ]}
             testID={`${testIDPrefix}.operations.rent`}
           >
-            <Text style={[styles.operationChipText, isRentOperationSelected && styles.operationChipTextSelected]}>{t('properties.operations.rent')}</Text>
+            <Text
+              style={[
+                styles.operationChipText,
+                isRentOperationSelected && styles.operationChipTextSelected,
+              ]}
+            >
+              {t('properties.operations.rent')}
+            </Text>
           </Pressable>
           <Pressable
             onPress={() => toggleOperation('sale')}
-            style={[styles.operationChip, isSaleOperationSelected && styles.operationChipSelected]}
+            style={[
+              styles.operationChip,
+              isSaleOperationSelected && styles.operationChipSelected,
+            ]}
             testID={`${testIDPrefix}.operations.sale`}
           >
-            <Text style={[styles.operationChipText, isSaleOperationSelected && styles.operationChipTextSelected]}>{t('properties.operations.sale')}</Text>
+            <Text
+              style={[
+                styles.operationChipText,
+                isSaleOperationSelected && styles.operationChipTextSelected,
+              ]}
+            >
+              {t('properties.operations.sale')}
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -428,7 +575,10 @@ export function PropertyForm({
               label={t('properties.fields.operationState')}
               value={field.value ?? 'available'}
               onChange={field.onChange}
-              options={operationStateOptions.map((option) => ({ value: option.value, label: t(`properties.operationState.${option.value}`) }))}
+              options={operationStateOptions.map((option) => ({
+                value: option.value,
+                label: t(`properties.operationState.${option.value}`),
+              }))}
               testID={`${testIDPrefix}.operationState`}
             />
           )}
@@ -439,11 +589,19 @@ export function PropertyForm({
         control={control}
         name="allowsPets"
         render={({ field }) => (
-            <ChoiceGroup
+          <ChoiceGroup
             label={t('properties.fields.allowsPets')}
             value={field.value ?? 'yes'}
             onChange={field.onChange}
-            options={allowsPetsOptions.map((option) => ({ value: option.value, label: option.value === 'yes' ? t('common.yes') : option.value === 'no' ? t('common.no') : '-' }))}
+            options={allowsPetsOptions.map((option) => ({
+              value: option.value,
+              label:
+                option.value === 'yes'
+                  ? t('common.yes')
+                  : option.value === 'no'
+                    ? t('common.no')
+                    : '-',
+            }))}
             testID={`${testIDPrefix}.allowsPets`}
           />
         )}
@@ -478,15 +636,21 @@ export function PropertyForm({
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{t('properties.features')}</Text>
           <Pressable
-            onPress={() => setFeatureRows((current) => [...current, { name: '', value: '' }])}
+            onPress={() =>
+              setFeatureRows((current) => [...current, { name: '', value: '' }])
+            }
             style={styles.inlineAction}
             testID={`${testIDPrefix}.features.add`}
           >
-            <Text style={styles.inlineActionText}>{t('properties.addFeature')}</Text>
+            <Text style={styles.inlineActionText}>
+              {t('properties.addFeature')}
+            </Text>
           </Pressable>
         </View>
 
-        {featureRows.length === 0 ? <Text style={styles.muted}>{t('properties.noFeatures')}</Text> : null}
+        {featureRows.length === 0 ? (
+          <Text style={styles.muted}>{t('properties.noFeatures')}</Text>
+        ) : null}
         {featureRows.map((row, index) => (
           <View key={`feature-${index}`} style={styles.featureRow}>
             <Field
@@ -494,7 +658,9 @@ export function PropertyForm({
               value={row.name}
               onChangeText={(next) =>
                 setFeatureRows((current) =>
-                  current.map((item, itemIndex) => (itemIndex === index ? { ...item, name: next } : item)),
+                  current.map((item, itemIndex) =>
+                    itemIndex === index ? { ...item, name: next } : item,
+                  ),
                 )
               }
               testID={`${testIDPrefix}.feature.${index}.name`}
@@ -504,13 +670,19 @@ export function PropertyForm({
               value={row.value}
               onChangeText={(next) =>
                 setFeatureRows((current) =>
-                  current.map((item, itemIndex) => (itemIndex === index ? { ...item, value: next } : item)),
+                  current.map((item, itemIndex) =>
+                    itemIndex === index ? { ...item, value: next } : item,
+                  ),
                 )
               }
               testID={`${testIDPrefix}.feature.${index}.value`}
             />
             <Pressable
-              onPress={() => setFeatureRows((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+              onPress={() =>
+                setFeatureRows((current) =>
+                  current.filter((_, itemIndex) => itemIndex !== index),
+                )
+              }
               style={styles.removeAction}
               testID={`${testIDPrefix}.feature.${index}.remove`}
             >
@@ -532,25 +704,42 @@ export function PropertyForm({
             void pickAndUploadImages()
               .then((uploaded) => {
                 if (uploaded.length === 0) return;
-                setImageUrls((current) => Array.from(new Set([...current, ...uploaded.map((item) => item.url)])));
+                setImageUrls((current) =>
+                  Array.from(
+                    new Set([...current, ...uploaded.map((item) => item.url)]),
+                  ),
+                );
               })
               .catch((error) => {
-                Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.saveError'));
+                Alert.alert(
+                  t('common.error'),
+                  error instanceof Error
+                    ? error.message
+                    : t('messages.saveError'),
+                );
               })
               .finally(() => setUploadingImages(false));
           }}
         />
-        {imageUrls.length === 0 ? <Text style={styles.muted}>{t('common.noDataAvailable')}</Text> : null}
+        {imageUrls.length === 0 ? (
+          <Text style={styles.muted}>{t('common.noDataAvailable')}</Text>
+        ) : null}
         <View style={styles.imageGrid}>
           {imageUrls.map((uri, index) => (
             <View key={`${uri}-${index}`} style={styles.imageCard}>
               <Image source={{ uri }} style={styles.imagePreview} />
               <Pressable
-                onPress={() => setImageUrls((current) => current.filter((_, imageIndex) => imageIndex !== index))}
+                onPress={() =>
+                  setImageUrls((current) =>
+                    current.filter((_, imageIndex) => imageIndex !== index),
+                  )
+                }
                 style={styles.removeImageButton}
                 testID={`${testIDPrefix}.image.${index}.remove`}
               >
-                <Text style={styles.removeImageButtonText}>{t('common.delete')}</Text>
+                <Text style={styles.removeImageButtonText}>
+                  {t('common.delete')}
+                </Text>
               </Pressable>
             </View>
           ))}
@@ -590,14 +779,20 @@ export function PropertyForm({
         name="saleCurrency"
         render={({ field }) => (
           <View style={styles.fieldContainer}>
-            <Text style={styles.fieldLabel}>{t('properties.fields.saleCurrency')}</Text>
+            <Text style={styles.fieldLabel}>
+              {t('properties.fields.saleCurrency')}
+            </Text>
             <Pressable
               onPress={() => setShowCurrencyOptions((current) => !current)}
               style={styles.selectTrigger}
               testID={`${testIDPrefix}.saleCurrency`}
             >
-              <Text style={styles.selectTriggerText}>{field.value || 'ARS'}</Text>
-              <Text style={styles.selectIndicator}>{showCurrencyOptions ? '▴' : '▾'}</Text>
+              <Text style={styles.selectTriggerText}>
+                {field.value || 'ARS'}
+              </Text>
+              <Text style={styles.selectIndicator}>
+                {showCurrencyOptions ? '▴' : '▾'}
+              </Text>
             </Pressable>
             {showCurrencyOptions ? (
               <View style={styles.selectMenu}>
@@ -611,10 +806,19 @@ export function PropertyForm({
                         field.onChange(currencyCode);
                         setShowCurrencyOptions(false);
                       }}
-                      style={[styles.selectOption, selected && styles.selectOptionSelected, isLast && styles.selectOptionLast]}
+                      style={[
+                        styles.selectOption,
+                        selected && styles.selectOptionSelected,
+                        isLast && styles.selectOptionLast,
+                      ]}
                       testID={`${testIDPrefix}.saleCurrency.${currencyCode}`}
                     >
-                      <Text style={[styles.selectOptionText, selected && styles.selectOptionTextSelected]}>
+                      <Text
+                        style={[
+                          styles.selectOptionText,
+                          selected && styles.selectOptionTextSelected,
+                        ]}
+                      >
                         {currencyCode}
                       </Text>
                     </Pressable>
@@ -628,7 +832,10 @@ export function PropertyForm({
 
       {Object.values(formState.errors).map((item) => {
         if (!item?.message) return null;
-        const message = item.message === 'property.operations.required' ? t('validation.required') : item.message;
+        const message =
+          item.message === 'property.operations.required'
+            ? t('validation.required')
+            : item.message;
         return (
           <Text key={`${item.message}-${message}`} style={styles.error}>
             {message}

@@ -13,7 +13,10 @@ export default function SettingsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const roleNavigation = useRoleNavigation();
-  const allowedRoutes = useMemo(() => new Set(roleNavigation.map((item) => item.href)), [roleNavigation]);
+  const allowedRoutes = useMemo(
+    () => new Set(roleNavigation.map((item) => item.href)),
+    [roleNavigation],
+  );
 
   return (
     <Screen>
@@ -62,7 +65,11 @@ export default function SettingsScreen() {
         )}
       </View>
 
-      <AppButton title={t('auth.logout')} onPress={() => void logout()} variant="secondary" />
+      <AppButton
+        title={t('auth.logout')}
+        onPress={() => void logout()}
+        variant="secondary"
+      />
     </Screen>
   );
 }

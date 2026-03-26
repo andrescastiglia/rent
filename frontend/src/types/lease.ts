@@ -23,6 +23,7 @@ export type LateFeeType =
   | "daily_percentage";
 export type AdjustmentType = "fixed" | "percentage" | "inflation_index";
 export type InflationIndexType = "icl" | "ipc" | "igp_m";
+export type LeaseRenewalAlertPeriodicity = "monthly" | "four_months" | "custom";
 
 export interface LeaseTemplate {
   id: string;
@@ -71,6 +72,10 @@ export interface Lease {
   // Billing configuration
   paymentFrequency?: PaymentFrequency;
   paymentDueDay?: number;
+  renewalAlertEnabled?: boolean;
+  renewalAlertPeriodicity?: LeaseRenewalAlertPeriodicity;
+  renewalAlertCustomDays?: number;
+  renewalAlertLastSentAt?: string | null;
   billingFrequency?: BillingFrequency;
   billingDay?: number;
   autoGenerateInvoices?: boolean;
@@ -114,6 +119,9 @@ export interface CreateLeaseInput {
   // Billing configuration
   paymentFrequency?: PaymentFrequency;
   paymentDueDay?: number;
+  renewalAlertEnabled?: boolean;
+  renewalAlertPeriodicity?: LeaseRenewalAlertPeriodicity;
+  renewalAlertCustomDays?: number;
   billingFrequency?: BillingFrequency;
   billingDay?: number;
   autoGenerateInvoices?: boolean;

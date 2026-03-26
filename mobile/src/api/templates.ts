@@ -28,7 +28,9 @@ export type UpsertTemplateInput = {
   paymentType?: PaymentDocumentTemplateType;
 };
 
-const mapLeaseTemplate = (item: Awaited<ReturnType<typeof leasesApi.getTemplates>>[number]): UnifiedTemplate => ({
+const mapLeaseTemplate = (
+  item: Awaited<ReturnType<typeof leasesApi.getTemplates>>[number],
+): UnifiedTemplate => ({
   id: item.id,
   kind: 'lease',
   name: item.name,
@@ -54,7 +56,9 @@ const mapPaymentTemplate = (
   updatedAt: item.updatedAt,
 });
 
-export async function listTemplates(kind?: TemplateKind): Promise<UnifiedTemplate[]> {
+export async function listTemplates(
+  kind?: TemplateKind,
+): Promise<UnifiedTemplate[]> {
   if (kind === 'lease') {
     const templates = await leasesApi.getTemplates();
     return templates.map(mapLeaseTemplate);
@@ -70,15 +74,23 @@ export async function listTemplates(kind?: TemplateKind): Promise<UnifiedTemplat
     paymentDocumentTemplatesApi.list(),
   ]);
 
-  return [...leaseTemplates.map(mapLeaseTemplate), ...paymentTemplates.map(mapPaymentTemplate)];
+  return [
+    ...leaseTemplates.map(mapLeaseTemplate),
+    ...paymentTemplates.map(mapPaymentTemplate),
+  ];
 }
 
-export async function getTemplate(kind: TemplateKind, id: string): Promise<UnifiedTemplate | null> {
+export async function getTemplate(
+  kind: TemplateKind,
+  id: string,
+): Promise<UnifiedTemplate | null> {
   const items = await listTemplates(kind);
   return items.find((item) => item.id === id) ?? null;
 }
 
-export async function createTemplate(payload: UpsertTemplateInput): Promise<UnifiedTemplate> {
+export async function createTemplate(
+  payload: UpsertTemplateInput,
+): Promise<UnifiedTemplate> {
   if (payload.kind === 'lease') {
     const created = await leasesApi.createTemplate({
       name: payload.name,
@@ -124,7 +136,10 @@ export async function updateTemplate(
   return mapPaymentTemplate(updated);
 }
 
-export async function deleteTemplate(kind: TemplateKind, id: string): Promise<void> {
+export async function deleteTemplate(
+  kind: TemplateKind,
+  id: string,
+): Promise<void> {
   if (kind === 'lease') {
     await leasesApi.deleteTemplate(id);
     return;

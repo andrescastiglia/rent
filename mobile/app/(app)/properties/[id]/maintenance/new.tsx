@@ -1,8 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { propertiesApi } from '@/api/properties';
@@ -56,20 +65,32 @@ export default function NewPropertyMaintenanceTaskScreen() {
       });
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['properties', id, 'maintenance'] });
+      await queryClient.invalidateQueries({
+        queryKey: ['properties', id, 'maintenance'],
+      });
       router.replace(`/(app)/properties/${id}` as never);
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.saveError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.saveError'),
+      );
     },
   });
 
   return (
     <Screen>
       <H1>{t('properties.saveMaintenanceTask')}</H1>
-      <Text style={styles.subtitle}>{propertyQuery.data?.name ?? `${t('properties.title')} ${id}`}</Text>
+      <Text style={styles.subtitle}>
+        {propertyQuery.data?.name ?? `${t('properties.title')} ${id}`}
+      </Text>
 
-      <Field label={t('properties.fields.taskTitle')} value={title} onChangeText={setTitle} testID="maintenanceCreate.title" />
+      <Field
+        label={t('properties.fields.taskTitle')}
+        value={title}
+        onChangeText={setTitle}
+        testID="maintenanceCreate.title"
+      />
       <Text style={styles.fieldLabel}>{t('payments.date')}</Text>
       <View style={styles.dateTimeRow}>
         <Pressable
@@ -81,7 +102,9 @@ export default function NewPropertyMaintenanceTaskScreen() {
           testID="maintenanceCreate.scheduledAt.date"
         >
           <Text style={styles.dateTimeButtonLabel}>{t('payments.date')}</Text>
-          <Text style={styles.dateTimeButtonValue}>{scheduledAt.toLocaleDateString()}</Text>
+          <Text style={styles.dateTimeButtonValue}>
+            {scheduledAt.toLocaleDateString()}
+          </Text>
         </Pressable>
         <Pressable
           onPress={() => {
@@ -91,9 +114,14 @@ export default function NewPropertyMaintenanceTaskScreen() {
           style={styles.dateTimeButton}
           testID="maintenanceCreate.scheduledAt.time"
         >
-          <Text style={styles.dateTimeButtonLabel}>{t('dashboard.peopleActivity.columns.dueAt')}</Text>
+          <Text style={styles.dateTimeButtonLabel}>
+            {t('dashboard.peopleActivity.columns.dueAt')}
+          </Text>
           <Text style={styles.dateTimeButtonValue}>
-            {scheduledAt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+            {scheduledAt.toLocaleTimeString(undefined, {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
           </Text>
         </Pressable>
       </View>
@@ -106,7 +134,12 @@ export default function NewPropertyMaintenanceTaskScreen() {
           testID="maintenanceCreate.scheduledAt.picker"
         />
       ) : null}
-      <Field label={t('properties.fields.taskNotes')} value={notes} onChangeText={setNotes} testID="maintenanceCreate.notes" />
+      <Field
+        label={t('properties.fields.taskNotes')}
+        value={notes}
+        onChangeText={setNotes}
+        testID="maintenanceCreate.notes"
+      />
 
       <View style={styles.actions}>
         <AppButton

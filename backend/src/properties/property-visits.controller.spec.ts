@@ -5,6 +5,7 @@ describe('PropertyVisitsController', () => {
     create: jest.fn(),
     findAll: jest.fn(),
     createMaintenanceTask: jest.fn(),
+    findMaintenanceTasks: jest.fn(),
   };
 
   let controller: PropertyVisitsController;
@@ -26,6 +27,9 @@ describe('PropertyVisitsController', () => {
     propertyVisitsService.create.mockResolvedValue({ id: 'v1' });
     propertyVisitsService.findAll.mockResolvedValue([{ id: 'v1' }]);
     propertyVisitsService.createMaintenanceTask.mockResolvedValue({ id: 'm1' });
+    propertyVisitsService.findMaintenanceTasks.mockResolvedValue([
+      { id: 'm1' },
+    ]);
 
     expect(
       await controller.create('p1', { comments: 'ok' } as any, req),
@@ -36,12 +40,12 @@ describe('PropertyVisitsController', () => {
     expect(
       await controller.createMaintenanceTask(
         'p1',
-        { taskTitle: 'Fix' } as any,
+        { title: 'Fix' } as any,
         req,
       ),
     ).toEqual({ id: 'm1' });
     expect(await controller.findAllMaintenanceTasks('p1', req)).toEqual([
-      { id: 'v1' },
+      { id: 'm1' },
     ]);
   });
 });

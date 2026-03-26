@@ -160,6 +160,10 @@ export class LeasesService {
       monthlyRent: isRental ? Number(createLeaseDto.monthlyRent ?? 0) : null,
       startDate,
       endDate,
+      renewalAlertEnabled: createLeaseDto.renewalAlertEnabled ?? true,
+      renewalAlertPeriodicity: createLeaseDto.renewalAlertPeriodicity,
+      renewalAlertCustomDays: createLeaseDto.renewalAlertCustomDays ?? null,
+      renewalAlertLastSentAt: null,
       fiscalValue: isRental ? null : Number(createLeaseDto.fiscalValue ?? 0),
       lateFeeType: isRental
         ? (createLeaseDto.lateFeeType ?? LateFeeType.NONE)
@@ -508,6 +512,14 @@ export class LeasesService {
       currency: newTerms.currency || oldLease.currency,
       paymentFrequency: newTerms.paymentFrequency || oldLease.paymentFrequency,
       paymentDueDay: newTerms.paymentDueDay || oldLease.paymentDueDay,
+      renewalAlertEnabled:
+        newTerms.renewalAlertEnabled ?? oldLease.renewalAlertEnabled,
+      renewalAlertPeriodicity:
+        newTerms.renewalAlertPeriodicity ?? oldLease.renewalAlertPeriodicity,
+      renewalAlertCustomDays:
+        newTerms.renewalAlertCustomDays ??
+        oldLease.renewalAlertCustomDays ??
+        undefined,
       billingFrequency: newTerms.billingFrequency || oldLease.billingFrequency,
       billingDay: newTerms.billingDay || oldLease.billingDay,
       lateFeeType: newTerms.lateFeeType || oldLease.lateFeeType,
@@ -648,6 +660,10 @@ export class LeasesService {
       currency: original.currency,
       paymentFrequency: original.paymentFrequency,
       paymentDueDay: original.paymentDueDay,
+      renewalAlertEnabled: original.renewalAlertEnabled,
+      renewalAlertPeriodicity: original.renewalAlertPeriodicity,
+      renewalAlertCustomDays: original.renewalAlertCustomDays,
+      renewalAlertLastSentAt: original.renewalAlertLastSentAt,
       billingFrequency: original.billingFrequency,
       billingDay: original.billingDay,
       nextBillingDate: original.nextBillingDate,
@@ -869,6 +885,9 @@ export class LeasesService {
     lease.monthlyRent = null;
     lease.startDate = null;
     lease.endDate = null;
+    lease.renewalAlertEnabled = false;
+    lease.renewalAlertCustomDays = null;
+    lease.renewalAlertLastSentAt = null;
     lease.lateFeeType = LateFeeType.NONE;
     lease.lateFeeValue = 0;
     lease.adjustmentValue = 0;

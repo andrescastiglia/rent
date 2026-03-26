@@ -6,7 +6,9 @@ import { AuthProvider } from '@/contexts/auth-context';
 
 const queryClient = new QueryClient();
 
-export function AppProviders({ children }: Readonly<{ children: React.ReactNode }>) {
+export function AppProviders({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>

@@ -1,8 +1,18 @@
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Alert,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { tenantsApi } from '@/api/tenants';
@@ -16,7 +26,10 @@ export default function NewTenantActivityScreen() {
   const router = useRouter();
   const { t } = useTranslation();
 
-  const activityTypeOptions: Array<{ label: string; value: TenantActivityType }> = [
+  const activityTypeOptions: Array<{
+    label: string;
+    value: TenantActivityType;
+  }> = [
     { label: t('tenants.activityTypes.task'), value: 'task' },
     { label: t('tenants.activityTypes.call'), value: 'call' },
     { label: t('tenants.activityTypes.note'), value: 'note' },
@@ -86,11 +99,15 @@ export default function NewTenantActivityScreen() {
       router.replace(`/(app)/tenants/${id}` as never);
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.saveError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.saveError'),
+      );
     },
   });
 
-  const tenantName = `${tenantQuery.data?.firstName ?? ''} ${tenantQuery.data?.lastName ?? ''}`.trim();
+  const tenantName =
+    `${tenantQuery.data?.firstName ?? ''} ${tenantQuery.data?.lastName ?? ''}`.trim();
 
   return (
     <Screen>
@@ -105,7 +122,12 @@ export default function NewTenantActivityScreen() {
         testID="tenantActivityCreate.type"
       />
 
-      <Field label={t('tenants.activities.subject')} value={subject} onChangeText={setSubject} testID="tenantActivityCreate.subject" />
+      <Field
+        label={t('tenants.activities.subject')}
+        value={subject}
+        onChangeText={setSubject}
+        testID="tenantActivityCreate.subject"
+      />
 
       <View style={styles.fieldContainer}>
         <Text style={styles.fieldLabel}>{t('tenants.activities.body')}</Text>
@@ -121,7 +143,9 @@ export default function NewTenantActivityScreen() {
 
       <View style={styles.fieldContainer}>
         <AppButton
-          title={includeDueAt ? t('common.cancel') : t('tenants.activities.dueAt')}
+          title={
+            includeDueAt ? t('common.cancel') : t('tenants.activities.dueAt')
+          }
           variant="secondary"
           onPress={() => setIncludeDueAt((current) => !current)}
           testID="tenantActivityCreate.toggleDueAt"
@@ -140,8 +164,12 @@ export default function NewTenantActivityScreen() {
               style={styles.dateTimeButton}
               testID="tenantActivityCreate.dueAt.date"
             >
-              <Text style={styles.dateTimeButtonLabel}>{t('payments.date')}</Text>
-              <Text style={styles.dateTimeButtonValue}>{dueAt.toLocaleDateString()}</Text>
+              <Text style={styles.dateTimeButtonLabel}>
+                {t('payments.date')}
+              </Text>
+              <Text style={styles.dateTimeButtonValue}>
+                {dueAt.toLocaleDateString()}
+              </Text>
             </Pressable>
             <Pressable
               onPress={() => {
@@ -151,9 +179,14 @@ export default function NewTenantActivityScreen() {
               style={styles.dateTimeButton}
               testID="tenantActivityCreate.dueAt.time"
             >
-              <Text style={styles.dateTimeButtonLabel}>{t('dashboard.peopleActivity.columns.dueAt')}</Text>
+              <Text style={styles.dateTimeButtonLabel}>
+                {t('dashboard.peopleActivity.columns.dueAt')}
+              </Text>
               <Text style={styles.dateTimeButtonValue}>
-                {dueAt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                {dueAt.toLocaleTimeString(undefined, {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
               </Text>
             </Pressable>
           </View>

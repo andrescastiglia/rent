@@ -87,6 +87,12 @@ export enum InflationIndexType {
   IGP_M = 'igp_m',
 }
 
+export enum LeaseRenewalAlertPeriodicity {
+  MONTHLY = 'monthly',
+  FOUR_MONTHS = 'four_months',
+  CUSTOM = 'custom',
+}
+
 @Entity('leases')
 export class Lease {
   @PrimaryGeneratedColumn('uuid')
@@ -174,6 +180,32 @@ export class Lease {
 
   @Column({ name: 'payment_due_day', type: 'integer', default: 10 })
   paymentDueDay: number;
+
+  @Column({ name: 'renewal_alert_enabled', type: 'boolean', default: true })
+  renewalAlertEnabled: boolean;
+
+  @Column({
+    name: 'renewal_alert_periodicity',
+    type: 'enum',
+    enum: LeaseRenewalAlertPeriodicity,
+    enumName: 'lease_renewal_alert_periodicity',
+    default: LeaseRenewalAlertPeriodicity.MONTHLY,
+  })
+  renewalAlertPeriodicity: LeaseRenewalAlertPeriodicity;
+
+  @Column({
+    name: 'renewal_alert_custom_days',
+    type: 'integer',
+    nullable: true,
+  })
+  renewalAlertCustomDays: number | null;
+
+  @Column({
+    name: 'renewal_alert_last_sent_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  renewalAlertLastSentAt: Date | null;
 
   @Column({
     name: 'billing_frequency',

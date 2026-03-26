@@ -7,6 +7,14 @@ import { paymentsApi } from '@/api/payments';
 import { Screen } from '@/components/screen';
 import { AppButton, H1 } from '@/components/ui';
 
+const activityTypeLabel = (value?: string): string => {
+  if (value === 'annual') return 'Anual';
+  if (value === 'adjustment') return 'Ajuste';
+  if (value === 'late_fee') return 'Mora';
+  if (value === 'extraordinary') return 'Extraordinario';
+  return 'Mensual';
+};
+
 export default function PaymentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const queryClient = useQueryClient();
@@ -26,14 +34,20 @@ export default function PaymentDetailScreen() {
       Alert.alert(t('payments.confirmPayment'));
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.saveError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.saveError'),
+      );
     },
   });
 
   const downloadMutation = useMutation({
     mutationFn: () => paymentsApi.downloadReceiptPdf(id),
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.loadError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.loadError'),
+      );
     },
   });
 
@@ -43,8 +57,12 @@ export default function PaymentDetailScreen() {
     <Screen scrollViewTestID="paymentDetail.scroll">
       <H1>{t('payments.paymentDetails')}</H1>
       {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
-      {query.error ? <Text style={styles.error}>{(query.error as Error).message}</Text> : null}
-      {!query.isLoading && !payment ? <Text>{t('payments.notFound')}</Text> : null}
+      {query.error ? (
+        <Text style={styles.error}>{(query.error as Error).message}</Text>
+      ) : null}
+      {!query.isLoading && !payment ? (
+        <Text>{t('payments.notFound')}</Text>
+      ) : null}
 
       {payment ? (
         <View style={styles.actions}>
@@ -66,7 +84,9 @@ export default function PaymentDetailScreen() {
               onPress={() => downloadMutation.mutate()}
             />
           ) : (
-            <Text style={styles.warn}>{t('payments.receiptPendingDescription')}</Text>
+            <Text style={styles.warn}>
+              {t('payments.receiptPendingDescription')}
+            </Text>
           )}
         </View>
       ) : null}
@@ -74,11 +94,24 @@ export default function PaymentDetailScreen() {
       {payment ? (
         <View style={styles.card}>
           <Text style={styles.title}>{`Pago ${payment.id}`}</Text>
-          <Text style={styles.detail}>{`${payment.currencyCode} ${payment.amount}`}</Text>
-          <Text style={styles.detail}>{`${t('invoices.paymentStatus')}: ${payment.status}`}</Text>
-          <Text style={styles.detail}>{`${t('payments.method.label')}: ${payment.method}`}</Text>
-          <Text style={styles.detail}>{`${t('payments.date')}: ${payment.paymentDate}`}</Text>
-          <Text style={styles.detail}>{`${t('payments.reference')}: ${payment.reference ?? '-'}`}</Text>
+          <Text
+            style={styles.detail}
+          >{`${payment.currencyCode} ${payment.amount}`}</Text>
+          <Text
+            style={styles.detail}
+          >{`${t('invoices.paymentStatus')}: ${payment.status}`}</Text>
+          <Text
+            style={styles.detail}
+          >{`Actividad: ${activityTypeLabel(payment.activityType)}`}</Text>
+          <Text
+            style={styles.detail}
+          >{`${t('payments.method.label')}: ${payment.method}`}</Text>
+          <Text
+            style={styles.detail}
+          >{`${t('payments.date')}: ${payment.paymentDate}`}</Text>
+          <Text
+            style={styles.detail}
+          >{`${t('payments.reference')}: ${payment.reference ?? '-'}`}</Text>
         </View>
       ) : null}
     </Screen>

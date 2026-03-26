@@ -24,6 +24,13 @@ export type PaymentMethod =
   | "crypto"
   | "other";
 
+export type PaymentActivityType =
+  | "monthly"
+  | "annual"
+  | "adjustment"
+  | "late_fee"
+  | "extraordinary";
+
 /**
  * Estado de la factura
  */
@@ -167,6 +174,7 @@ export interface Payment {
   paymentDate: string;
   processedAt?: string | null;
   method: PaymentMethod;
+  activityType: PaymentActivityType;
   reference: string | null;
   status: PaymentStatus;
   notes: string | null;
@@ -225,6 +233,7 @@ export interface CreatePaymentInput {
   currencyCode?: string;
   paymentDate: string;
   method: PaymentMethod;
+  activityType?: PaymentActivityType;
   reference?: string;
   notes?: string;
   items?: Omit<PaymentItem, "id" | "paymentId">[];
@@ -237,8 +246,10 @@ export interface PaymentFilters {
   tenantId?: string;
   tenantAccountId?: string;
   leaseId?: string;
+  propertyId?: string;
   status?: PaymentStatus;
   method?: PaymentMethod;
+  activityType?: PaymentActivityType;
   fromDate?: string;
   toDate?: string;
   page?: number;

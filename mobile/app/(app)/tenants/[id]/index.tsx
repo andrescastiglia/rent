@@ -26,7 +26,10 @@ export default function TenantDetailScreen() {
       router.replace('/(app)/(tabs)/tenants');
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('tenants.deleteError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('tenants.deleteError'),
+      );
     },
   });
 
@@ -36,16 +39,26 @@ export default function TenantDetailScreen() {
     <Screen>
       <H1>{t('tenants.tenantDetails')}</H1>
       {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
-      {query.error ? <Text style={styles.error}>{(query.error as Error).message}</Text> : null}
-      {!query.isLoading && !tenant ? <Text>{t('tenants.notFound')}</Text> : null}
+      {query.error ? (
+        <Text style={styles.error}>{(query.error as Error).message}</Text>
+      ) : null}
+      {!query.isLoading && !tenant ? (
+        <Text>{t('tenants.notFound')}</Text>
+      ) : null}
 
       {tenant ? (
         <View style={styles.card}>
-          <Text style={styles.title}>{`${tenant.firstName} ${tenant.lastName}`}</Text>
+          <Text
+            style={styles.title}
+          >{`${tenant.firstName} ${tenant.lastName}`}</Text>
           <Text style={styles.detail}>{tenant.email}</Text>
           <Text style={styles.detail}>{tenant.phone}</Text>
-          <Text style={styles.detail}>{`${t('tenants.fields.dni')}: ${tenant.dni}`}</Text>
-          <Text style={styles.detail}>{t(`tenants.status.${tenant.status}`)}</Text>
+          <Text
+            style={styles.detail}
+          >{`${t('tenants.fields.dni')}: ${tenant.dni}`}</Text>
+          <Text style={styles.detail}>
+            {t(`tenants.status.${tenant.status}`)}
+          </Text>
         </View>
       ) : null}
 
@@ -62,10 +75,18 @@ export default function TenantDetailScreen() {
             loading={deleteMutation.isPending}
             testID="tenantDetail.delete"
             onPress={() => {
-              Alert.alert(t('tenants.deleteTenant'), t('tenants.confirmDelete'), [
-                { text: t('common.cancel'), style: 'cancel' },
-                { text: t('common.delete'), style: 'destructive', onPress: () => deleteMutation.mutate() },
-              ]);
+              Alert.alert(
+                t('tenants.deleteTenant'),
+                t('tenants.confirmDelete'),
+                [
+                  { text: t('common.cancel'), style: 'cancel' },
+                  {
+                    text: t('common.delete'),
+                    style: 'destructive',
+                    onPress: () => deleteMutation.mutate(),
+                  },
+                ],
+              );
             }}
           />
         </View>

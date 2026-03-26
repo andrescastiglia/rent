@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   CreatePaymentInput,
+  PaymentActivityType,
   PaymentMethod,
   TenantAccount,
   PaymentItemType,
@@ -115,20 +116,29 @@ function LeaseSelectionCard({
           <Loader2 className="animate-spin h-6 w-6 text-blue-500" />
         </div>
       ) : (
-        <select
-          value={selectedLeaseId}
-          onChange={(e) => onSelectLease(e.target.value)}
-          required
-          className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
-        >
-          <option value="">{t("selectLeasePlaceholder")}</option>
-          {leases.map((lease) => (
-            <option key={lease.id} value={lease.id}>
-              {lease.property?.name || "Propiedad"} - {lease.tenant?.firstName}{" "}
-              {lease.tenant?.lastName}
-            </option>
-          ))}
-        </select>
+        <>
+          <label
+            htmlFor="tenantLeaseId"
+            className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            {t("selectLease")}
+          </label>
+          <select
+            id="tenantLeaseId"
+            value={selectedLeaseId}
+            onChange={(e) => onSelectLease(e.target.value)}
+            required
+            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">{t("selectLeasePlaceholder")}</option>
+            {leases.map((lease) => (
+              <option key={lease.id} value={lease.id}>
+                {lease.property?.name || "Propiedad"} -{" "}
+                {lease.tenant?.firstName} {lease.tenant?.lastName}
+              </option>
+            ))}
+          </select>
+        </>
       )}
 
       {account ? (
@@ -156,6 +166,7 @@ type PaymentDetailsCardProps = {
   t: (key: string) => string;
   tCurrencies: (key: string) => string;
   paymentMethods: PaymentMethod[];
+  activityType?: PaymentActivityType;
   totalFromItems: number;
   itemsLength: number;
   paymentDate?: string;
@@ -166,6 +177,7 @@ type PaymentDetailsCardProps = {
   onAmountChange: (value: string) => void;
   onPaymentDateChange: (value: string) => void;
   onMethodChange: (value: string) => void;
+  onActivityTypeChange: (value: string) => void;
   onCurrencyChange: (value: string) => void;
   onReferenceChange: (value: string) => void;
   onNotesChange: (value: string) => void;
@@ -175,6 +187,7 @@ function PaymentDetailsCard({
   t,
   tCurrencies,
   paymentMethods,
+  activityType,
   totalFromItems,
   itemsLength,
   paymentDate,
@@ -185,6 +198,7 @@ function PaymentDetailsCard({
   onAmountChange,
   onPaymentDateChange,
   onMethodChange,
+  onActivityTypeChange,
   onCurrencyChange,
   onReferenceChange,
   onNotesChange,
@@ -197,10 +211,14 @@ function PaymentDetailsCard({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label
+            htmlFor="paymentAmount"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+          >
             {t("amount")} *
           </label>
           <input
+            id="paymentAmount"
             type="number"
             step="0.01"
             min="0.01"
@@ -218,10 +236,14 @@ function PaymentDetailsCard({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label
+            htmlFor="paymentDate"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+          >
             {t("date")} *
           </label>
           <input
+            id="paymentDate"
             type="date"
             required
             value={paymentDate}
@@ -231,10 +253,14 @@ function PaymentDetailsCard({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label
+            htmlFor="paymentMethod"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+          >
             {t("method.label")} *
           </label>
           <select
+            id="paymentMethod"
             required
             value={method}
             onChange={(e) => onMethodChange(e.target.value)}
@@ -249,7 +275,32 @@ function PaymentDetailsCard({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label
+            htmlFor="paymentActivityType"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+          >
+            Actividad *
+          </label>
+          <select
+            id="paymentActivityType"
+            required
+            value={activityType}
+            onChange={(e) => onActivityTypeChange(e.target.value)}
+            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          >
+            <option value="monthly">Mensual</option>
+            <option value="annual">Anual</option>
+            <option value="adjustment">Ajuste</option>
+            <option value="late_fee">Mora</option>
+            <option value="extraordinary">Extraordinario</option>
+          </select>
+        </div>
+
+        <div>
+          <label
+            htmlFor="currencyCode"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+          >
             {tCurrencies("title")} *
           </label>
           <CurrencySelect
@@ -261,10 +312,14 @@ function PaymentDetailsCard({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label
+            htmlFor="paymentReference"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+          >
             {t("reference")}
           </label>
           <input
+            id="paymentReference"
             type="text"
             value={reference}
             onChange={(e) => onReferenceChange(e.target.value)}
@@ -275,10 +330,14 @@ function PaymentDetailsCard({
       </div>
 
       <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label
+          htmlFor="paymentNotes"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+        >
           {t("notes")}
         </label>
         <textarea
+          id="paymentNotes"
           rows={3}
           value={notes}
           onChange={(e) => onNotesChange(e.target.value)}
@@ -313,6 +372,7 @@ export default function NewPaymentPage() {
     currencyCode: "ARS",
     paymentDate: new Date().toISOString().split("T")[0],
     method: "bank_transfer",
+    activityType: "monthly",
     reference: "",
     notes: "",
     items: [],
@@ -395,6 +455,7 @@ export default function NewPaymentPage() {
         currencyCode: formData.currencyCode,
         paymentDate: formData.paymentDate!,
         method: formData.method as PaymentMethod,
+        activityType: formData.activityType as PaymentActivityType,
         reference: formData.reference,
         notes: formData.notes,
         items: effectiveItems.length > 0 ? effectiveItems : undefined,
@@ -489,6 +550,13 @@ export default function NewPaymentPage() {
     }));
   };
 
+  const handleActivityTypeChange = (value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      activityType: value as PaymentActivityType,
+    }));
+  };
+
   const handleCurrencyChange = (value: string) => {
     setFormData((prev) => ({ ...prev, currencyCode: value }));
   };
@@ -541,6 +609,7 @@ export default function NewPaymentPage() {
           t={t}
           tCurrencies={tCurrencies}
           paymentMethods={paymentMethods}
+          activityType={formData.activityType}
           totalFromItems={totalFromItems}
           itemsLength={items.length}
           paymentDate={formData.paymentDate}
@@ -551,6 +620,7 @@ export default function NewPaymentPage() {
           onAmountChange={handleAmountChange}
           onPaymentDateChange={handlePaymentDateChange}
           onMethodChange={handleMethodChange}
+          onActivityTypeChange={handleActivityTypeChange}
           onCurrencyChange={handleCurrencyChange}
           onReferenceChange={handleReferenceChange}
           onNotesChange={handleNotesChange}

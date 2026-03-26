@@ -7,7 +7,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { Property } from './entities/property.entity';
-import { PropertyVisit } from './entities/property-visit.entity';
+import {
+  PropertyVisit,
+  PropertyVisitKind,
+} from './entities/property-visit.entity';
 import {
   PropertyVisitNotification,
   VisitNotificationChannel,
@@ -16,6 +19,11 @@ import {
 import { CreatePropertyVisitDto } from './dto/create-property-visit.dto';
 import { CreatePropertyMaintenanceTaskDto } from './dto/create-property-maintenance-task.dto';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
+import {
+  OwnerActivity,
+  OwnerActivityStatus,
+  OwnerActivityType,
+} from '../owners/entities/owner-activity.entity';
 
 interface VisitUserContext {
   id: string;
@@ -32,6 +40,8 @@ export class PropertyVisitsService {
     private readonly propertyVisitsRepository: Repository<PropertyVisit>,
     @InjectRepository(PropertyVisitNotification)
     private readonly notificationsRepository: Repository<PropertyVisitNotification>,
+    @InjectRepository(OwnerActivity)
+    private readonly ownerActivitiesRepository: Repository<OwnerActivity>,
     private readonly whatsappService: WhatsappService,
   ) {}
 
@@ -41,35 +51,22 @@ export class PropertyVisitsService {
     user: VisitUserContext,
   ): Promise<PropertyVisit> {
     const property = await this.getPropertyForAccess(propertyId, user);
+    const savedVisit = await this.createVisitRecord(
+      property,
+      {
+        kind: PropertyVisitKind.VISIT,
+        visitedAt: dto.visitedAt,
+        interestedName: dto.interestedName,
+        interestedProfileId: dto.interestedProfileId,
+        comments: dto.comments,
+        hasOffer: dto.hasOffer,
+        offerAmount: dto.offerAmount,
+        offerCurrency: dto.offerCurrency,
+      },
+      user,
+    );
 
-    const visitedAt = dto.visitedAt ? new Date(dto.visitedAt) : new Date();
-    if (Number.isNaN(visitedAt.getTime())) {
-      throw new BadRequestException('Invalid visit date');
-    }
-
-    const hasOffer = dto.hasOffer ?? typeof dto.offerAmount === 'number';
-    if (hasOffer && dto.offerAmount === undefined) {
-      throw new BadRequestException('Offer amount is required when hasOffer');
-    }
-    if (!dto.interestedName && !dto.interestedProfileId) {
-      throw new BadRequestException(
-        'Interested name or interested profile is required',
-      );
-    }
-
-    const visit = this.propertyVisitsRepository.create({
-      propertyId,
-      visitedAt,
-      interestedName: dto.interestedName,
-      interestedProfileId: dto.interestedProfileId,
-      comments: dto.comments,
-      hasOffer,
-      offerAmount: dto.offerAmount,
-      offerCurrency: dto.offerCurrency ?? 'ARS',
-      createdByUserId: user.id,
-    });
-
-    const savedVisit = await this.propertyVisitsRepository.save(visit);
+    await this.createOwnerVisitActivity(property, savedVisit, user);
 
     const notifications = this.buildNotifications(property, savedVisit);
     if (notifications.length > 0) {
@@ -87,14 +84,21 @@ export class PropertyVisitsService {
     dto: CreatePropertyMaintenanceTaskDto,
     user: VisitUserContext,
   ): Promise<PropertyVisit> {
-    const legacyDto: CreatePropertyVisitDto = {
-      visitedAt: dto.scheduledAt,
-      interestedName: dto.title,
-      comments: dto.notes,
-      hasOffer: false,
-    };
+    const property = await this.getPropertyForAccess(propertyId, user);
+    const maintenanceTask = await this.createVisitRecord(
+      property,
+      {
+        kind: PropertyVisitKind.MAINTENANCE,
+        visitedAt: dto.scheduledAt,
+        interestedName: dto.title,
+        comments: dto.notes,
+        hasOffer: false,
+      },
+      user,
+    );
 
-    return this.create(propertyId, legacyDto, user);
+    await this.createOwnerMaintenanceActivity(property, maintenanceTask, user);
+    return maintenanceTask;
   }
 
   async findAll(
@@ -104,9 +108,81 @@ export class PropertyVisitsService {
     await this.getPropertyForAccess(propertyId, user);
 
     return this.propertyVisitsRepository.find({
-      where: { propertyId },
+      where: { propertyId, kind: PropertyVisitKind.VISIT },
+      relations: ['interestedProfile'],
       order: { visitedAt: 'DESC' },
     });
+  }
+
+  async findMaintenanceTasks(
+    propertyId: string,
+    user: VisitUserContext,
+  ): Promise<PropertyVisit[]> {
+    await this.getPropertyForAccess(propertyId, user);
+
+    return this.propertyVisitsRepository.find({
+      where: { propertyId, kind: PropertyVisitKind.MAINTENANCE },
+      order: { visitedAt: 'DESC' },
+    });
+  }
+
+  private async createVisitRecord(
+    property: Property,
+    input: {
+      kind: PropertyVisitKind;
+      visitedAt?: string;
+      interestedName?: string;
+      interestedProfileId?: string;
+      comments?: string;
+      hasOffer?: boolean;
+      offerAmount?: number;
+      offerCurrency?: string;
+    },
+    user: VisitUserContext,
+  ): Promise<PropertyVisit> {
+    const visitedAt = input.visitedAt ? new Date(input.visitedAt) : new Date();
+    if (Number.isNaN(visitedAt.getTime())) {
+      throw new BadRequestException('Invalid visit date');
+    }
+
+    const hasOffer = input.hasOffer ?? typeof input.offerAmount === 'number';
+    if (hasOffer && input.offerAmount === undefined) {
+      throw new BadRequestException('Offer amount is required when hasOffer');
+    }
+
+    if (
+      input.kind === PropertyVisitKind.VISIT &&
+      !input.interestedName &&
+      !input.interestedProfileId
+    ) {
+      throw new BadRequestException(
+        'Interested name or interested profile is required',
+      );
+    }
+
+    if (
+      input.kind === PropertyVisitKind.MAINTENANCE &&
+      !input.interestedName?.trim()
+    ) {
+      throw new BadRequestException('Maintenance task title is required');
+    }
+
+    const visitData: Partial<PropertyVisit> = {
+      propertyId: property.id,
+      kind: input.kind,
+      visitedAt,
+      interestedName: input.interestedName?.trim() || undefined,
+      interestedProfileId: input.interestedProfileId,
+      comments: input.comments,
+      hasOffer,
+      offerAmount: input.offerAmount,
+      offerCurrency: input.offerCurrency ?? 'ARS',
+      createdByUserId: user.id,
+    };
+
+    const visit = this.propertyVisitsRepository.create(visitData);
+
+    return this.propertyVisitsRepository.save(visit);
   }
 
   private async getPropertyForAccess(
@@ -137,10 +213,14 @@ export class PropertyVisitsService {
     property: Property,
     visit: PropertyVisit,
   ): PropertyVisitNotification[] {
+    if (visit.kind !== PropertyVisitKind.VISIT) {
+      return [];
+    }
+
     const messageParts = [
-      `Tarea de mantenimiento registrada para ${property.name}.`,
-      `Fecha: ${visit.visitedAt.toISOString()}.`,
-      `Tarea: ${visit.interestedName ?? visit.interestedProfileId ?? 'N/D'}.`,
+      `Se registró una visita para ${property.name}.`,
+      `Fecha: ${this.formatWhatsappDate(visit.visitedAt)}.`,
+      `Interesado: ${visit.interestedName ?? visit.interestedProfileId ?? 'N/D'}.`,
     ];
 
     if (visit.comments) {
@@ -170,6 +250,91 @@ export class PropertyVisitsService {
     }
 
     return notifications;
+  }
+
+  private async createOwnerVisitActivity(
+    property: Property,
+    visit: PropertyVisit,
+    user: VisitUserContext,
+  ): Promise<void> {
+    if (!property.ownerId) {
+      return;
+    }
+
+    const interested =
+      visit.interestedName?.trim() || visit.interestedProfileId || 'Visita';
+
+    await this.ownerActivitiesRepository.save(
+      this.ownerActivitiesRepository.create({
+        companyId: property.companyId,
+        ownerId: property.ownerId,
+        propertyId: property.id,
+        type: OwnerActivityType.VISIT,
+        status: OwnerActivityStatus.COMPLETED,
+        subject: `Visita registrada en ${property.name}`,
+        body: [
+          `Interesado: ${interested}.`,
+          visit.comments ? `Comentarios: ${visit.comments}.` : null,
+          visit.hasOffer && visit.offerAmount !== undefined
+            ? `Oferta: ${visit.offerCurrency ?? 'ARS'} ${visit.offerAmount}.`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(' '),
+        dueAt: visit.visitedAt,
+        completedAt: new Date(),
+        metadata: {
+          visitId: visit.id,
+          kind: visit.kind,
+          interestedName: visit.interestedName ?? null,
+          interestedProfileId: visit.interestedProfileId ?? null,
+        },
+        createdByUserId: user.id,
+      }),
+    );
+  }
+
+  private async createOwnerMaintenanceActivity(
+    property: Property,
+    task: PropertyVisit,
+    user: VisitUserContext,
+  ): Promise<void> {
+    if (!property.ownerId) {
+      return;
+    }
+
+    await this.ownerActivitiesRepository.save(
+      this.ownerActivitiesRepository.create({
+        companyId: property.companyId,
+        ownerId: property.ownerId,
+        propertyId: property.id,
+        type: OwnerActivityType.TASK,
+        status: OwnerActivityStatus.PENDING,
+        subject: `Revisar mantenimiento de ${property.name}`,
+        body: [
+          `Tarea: ${task.interestedName ?? 'Mantenimiento'}.`,
+          task.comments ? `Detalle: ${task.comments}.` : null,
+        ]
+          .filter(Boolean)
+          .join(' '),
+        dueAt: task.visitedAt,
+        completedAt: null,
+        metadata: {
+          taskId: task.id,
+          kind: task.kind,
+          title: task.interestedName ?? null,
+        },
+        createdByUserId: user.id,
+      }),
+    );
+  }
+
+  private formatWhatsappDate(value: Date): string {
+    return new Intl.DateTimeFormat('es-AR', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: 'America/Argentina/Jujuy',
+    }).format(value);
   }
 
   private async dispatchNotifications(

@@ -21,7 +21,10 @@ export default function NewTemplateScreen() {
       router.replace(`/(app)/templates/${created.kind}/${created.id}` as never);
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.saveError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.saveError'),
+      );
     },
   });
 

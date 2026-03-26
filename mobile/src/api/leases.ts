@@ -1,9 +1,20 @@
 import { apiClient } from '@/api/client';
 import { IS_MOCK_MODE } from '@/api/env';
 import { createAndShareMockPdf, downloadAndSharePdf } from '@/api/pdf';
-import type { CreateLeaseInput, Lease, LeaseStatus, LeaseTemplate, UpdateLeaseInput } from '@/types/lease';
+import type {
+  CreateLeaseInput,
+  Lease,
+  LeaseStatus,
+  LeaseTemplate,
+  UpdateLeaseInput,
+} from '@/types/lease';
 
-type PaginatedResponse<T> = { data: T[]; total: number; page: number; limit: number };
+type PaginatedResponse<T> = {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+};
 
 type LeaseListFilters = {
   includeFinalized?: boolean;
@@ -30,6 +41,10 @@ type BackendLease = {
   confirmedAt?: string | Date | null;
   templateId?: string | null;
   templateName?: string | null;
+  renewalAlertEnabled?: boolean | null;
+  renewalAlertPeriodicity?: string | null;
+  renewalAlertCustomDays?: number | null;
+  renewalAlertLastSentAt?: string | Date | null;
   documents?: string[] | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;
@@ -59,6 +74,10 @@ let MOCK_LEASES: Lease[] = [
     currency: 'ARS',
     status: 'DRAFT',
     draftContractText: 'Borrador de contrato base',
+    renewalAlertEnabled: true,
+    renewalAlertPeriodicity: 'monthly',
+    renewalAlertCustomDays: undefined,
+    renewalAlertLastSentAt: null,
     documents: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -70,7 +89,8 @@ let MOCK_TEMPLATES: LeaseTemplate[] = [
     id: 'tpl-rental',
     name: 'Plantilla alquiler base',
     contractType: 'rental',
-    templateBody: 'Contrato de alquiler de {{property.name}} para {{tenant.fullName}}',
+    templateBody:
+      'Contrato de alquiler de {{property.name}} para {{tenant.fullName}}',
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -79,14 +99,16 @@ let MOCK_TEMPLATES: LeaseTemplate[] = [
     id: 'tpl-sale',
     name: 'Plantilla compraventa base',
     contractType: 'sale',
-    templateBody: 'Contrato de compraventa de {{property.name}} para {{buyer.fullName}}',
+    templateBody:
+      'Contrato de compraventa de {{property.name}} para {{buyer.fullName}}',
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
 ];
 
-const toIso = (value?: string | Date | null): string => (value ? new Date(value).toISOString() : new Date().toISOString());
+const toIso = (value?: string | Date | null): string =>
+  value ? new Date(value).toISOString() : new Date().toISOString();
 
 const mapStatus = (value?: string | null): LeaseStatus => {
   switch ((value ?? '').toLowerCase()) {
@@ -118,6 +140,14 @@ const mapLease = (raw: BackendLease): Lease => ({
   confirmedAt: raw.confirmedAt ? toIso(raw.confirmedAt) : undefined,
   templateId: raw.templateId ?? undefined,
   templateName: raw.templateName ?? undefined,
+  renewalAlertEnabled: raw.renewalAlertEnabled ?? undefined,
+  renewalAlertPeriodicity:
+    (raw.renewalAlertPeriodicity as Lease['renewalAlertPeriodicity']) ??
+    undefined,
+  renewalAlertCustomDays: raw.renewalAlertCustomDays ?? undefined,
+  renewalAlertLastSentAt: raw.renewalAlertLastSentAt
+    ? toIso(raw.renewalAlertLastSentAt)
+    : null,
   documents: Array.isArray(raw.documents) ? raw.documents : [],
   createdAt: toIso(raw.createdAt),
   updatedAt: toIso(raw.updatedAt),
@@ -150,6 +180,9 @@ const toCreatePayload = (value: CreateLeaseInput) => ({
   termsAndConditions: value.terms,
   paymentFrequency: value.paymentFrequency,
   paymentDueDay: value.paymentDueDay,
+  renewalAlertEnabled: value.renewalAlertEnabled,
+  renewalAlertPeriodicity: value.renewalAlertPeriodicity,
+  renewalAlertCustomDays: value.renewalAlertCustomDays,
   billingFrequency: value.billingFrequency,
   billingDay: value.billingDay,
   autoGenerateInvoices: value.autoGenerateInvoices,
@@ -189,14 +222,18 @@ const fetchLeases = async (filters?: LeaseListFilters): Promise<Lease[]> => {
     let leases = [...MOCK_LEASES];
     if (filters?.includeFinalized !== undefined) {
       leases = filters.includeFinalized
-        ? leases.filter((item) => item.status === 'ACTIVE' || item.status === 'FINALIZED')
+        ? leases.filter(
+            (item) => item.status === 'ACTIVE' || item.status === 'FINALIZED',
+          )
         : leases.filter((item) => item.status === 'ACTIVE');
     }
     if (filters?.status) {
       leases = leases.filter((item) => item.status === filters.status);
     }
     if (filters?.contractType) {
-      leases = leases.filter((item) => item.contractType === filters.contractType);
+      leases = leases.filter(
+        (item) => item.contractType === filters.contractType,
+      );
     }
     return leases;
   }
@@ -212,9 +249,16 @@ const fetchLeases = async (filters?: LeaseListFilters): Promise<Lease[]> => {
     queryParams.append('contractType', filters.contractType);
   }
 
-  const endpoint = queryParams.toString().length > 0 ? `/leases?${queryParams.toString()}` : '/leases';
-  const result = await apiClient.get<BackendLease[] | PaginatedResponse<BackendLease>>(endpoint);
-  return Array.isArray(result) ? result.map(mapLease) : result.data.map(mapLease);
+  const endpoint =
+    queryParams.toString().length > 0
+      ? `/leases?${queryParams.toString()}`
+      : '/leases';
+  const result = await apiClient.get<
+    BackendLease[] | PaginatedResponse<BackendLease>
+  >(endpoint);
+  return Array.isArray(result)
+    ? result.map(mapLease)
+    : result.data.map(mapLease);
 };
 
 export const leasesApi = {
@@ -261,6 +305,9 @@ export const leasesApi = {
         documents: payload.documents ?? [],
         paymentFrequency: payload.paymentFrequency,
         paymentDueDay: payload.paymentDueDay,
+        renewalAlertEnabled: payload.renewalAlertEnabled,
+        renewalAlertPeriodicity: payload.renewalAlertPeriodicity,
+        renewalAlertCustomDays: payload.renewalAlertCustomDays,
         billingFrequency: payload.billingFrequency,
         billingDay: payload.billingDay,
         autoGenerateInvoices: payload.autoGenerateInvoices,
@@ -280,7 +327,10 @@ export const leasesApi = {
       return created;
     }
 
-    const result = await apiClient.post<BackendLease>('/leases', toCreatePayload(payload));
+    const result = await apiClient.post<BackendLease>(
+      '/leases',
+      toCreatePayload(payload),
+    );
     return mapLease(result);
   },
 
@@ -300,7 +350,10 @@ export const leasesApi = {
       return updated;
     }
 
-    const result = await apiClient.patch<BackendLease>(`/leases/${id}`, toUpdatePayload(payload));
+    const result = await apiClient.patch<BackendLease>(
+      `/leases/${id}`,
+      toUpdatePayload(payload),
+    );
     return mapLease(result);
   },
 
@@ -313,13 +366,19 @@ export const leasesApi = {
     await apiClient.delete(`/leases/${id}`);
   },
 
-  async getTemplates(contractType?: Lease['contractType']): Promise<LeaseTemplate[]> {
+  async getTemplates(
+    contractType?: Lease['contractType'],
+  ): Promise<LeaseTemplate[]> {
     if (IS_MOCK_MODE) {
-      return contractType ? MOCK_TEMPLATES.filter((item) => item.contractType === contractType) : [...MOCK_TEMPLATES];
+      return contractType
+        ? MOCK_TEMPLATES.filter((item) => item.contractType === contractType)
+        : [...MOCK_TEMPLATES];
     }
 
     const query = contractType ? `?contractType=${contractType}` : '';
-    const result = await apiClient.get<BackendTemplate[]>(`/leases/templates${query}`);
+    const result = await apiClient.get<BackendTemplate[]>(
+      `/leases/templates${query}`,
+    );
     return result.map(mapTemplate);
   },
 
@@ -343,7 +402,10 @@ export const leasesApi = {
       return created;
     }
 
-    const result = await apiClient.post<BackendTemplate>('/leases/templates', data);
+    const result = await apiClient.post<BackendTemplate>(
+      '/leases/templates',
+      data,
+    );
     return mapTemplate(result);
   },
 
@@ -371,7 +433,10 @@ export const leasesApi = {
       return updated;
     }
 
-    const result = await apiClient.patch<BackendTemplate>(`/leases/templates/${templateId}`, data);
+    const result = await apiClient.patch<BackendTemplate>(
+      `/leases/templates/${templateId}`,
+      data,
+    );
     return mapTemplate(result);
   },
 
@@ -405,7 +470,10 @@ export const leasesApi = {
       return lease;
     }
 
-    const result = await apiClient.post<BackendLease>(`/leases/${id}/draft/render`, { templateId });
+    const result = await apiClient.post<BackendLease>(
+      `/leases/${id}/draft/render`,
+      { templateId },
+    );
     return mapLease(result);
   },
 
@@ -421,7 +489,10 @@ export const leasesApi = {
       return lease;
     }
 
-    const result = await apiClient.patch<BackendLease>(`/leases/${id}/draft-text`, { draftText });
+    const result = await apiClient.patch<BackendLease>(
+      `/leases/${id}/draft-text`,
+      { draftText },
+    );
     return mapLease(result);
   },
 
@@ -439,13 +510,18 @@ export const leasesApi = {
       return lease;
     }
 
-    const result = await apiClient.post<BackendLease>(`/leases/${id}/confirm`, { finalText });
+    const result = await apiClient.post<BackendLease>(`/leases/${id}/confirm`, {
+      finalText,
+    });
     return mapLease(result);
   },
 
   async downloadContract(id: string): Promise<void> {
     if (IS_MOCK_MODE) {
-      await createAndShareMockPdf(`contrato-${id}`, `Contrato mock para lease ${id}`);
+      await createAndShareMockPdf(
+        `contrato-${id}`,
+        `Contrato mock para lease ${id}`,
+      );
       return;
     }
 

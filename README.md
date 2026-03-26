@@ -1,4 +1,4 @@
-# Plataforma de Administración de Alquileres
+# Sistema de Gestión Inmobiliaria
 
 [![Status](https://img.shields.io/badge/status-planning-blue)]()
 [![Version](https://img.shields.io/badge/version-1.0-green)]()
@@ -12,13 +12,20 @@
 
 ## 📋 Descripción
 
-Sistema integral de administración de propiedades en alquiler que centraliza y automatiza la gestión de una cartera inmobiliaria. La plataforma abarca desde la captación de interesados hasta la facturación, pasando por la firma de contratos, cobro de rentas y generación de reportes, con portales diferenciados para administradores, inquilinos y propietarios.
+Sistema integral para la gestión inmobiliaria que centraliza propiedades en venta, alquileres, pagos, vencimientos y renovaciones. La plataforma abarca desde la captación de interesados hasta la facturación, pasando por visitas comerciales, contratos, cobro de rentas, liquidaciones y generación de reportes, con portales diferenciados para administradores, inquilinos y propietarios.
 
 ### Alcance
 
-- **Propiedades**: Residenciales, comerciales y vacacionales
+- **Propiedades**: Residenciales, comerciales y vacacionales, en venta o alquiler
 - **Usuarios**: Administradores, propietarios, inquilinos, personal de mantenimiento
-- **Funcionalidades**: Gestión integral de propiedades, contratos, pagos, mantenimiento, reportes y CRM
+- **Funcionalidades**: Gestión integral de propiedades, contratos, pagos, mantenimiento, vencimientos, renovaciones, reportes y CRM
+
+### Ingreso Operativo Actual
+
+- **Panel de Propiedades**: acceso directo a propiedades en venta, alquileres vigentes, vencimientos del mes y ventana de renovación de cuatro meses.
+- **Panel de Pagos**: seguimiento por propiedad y contrato con actividad del pago, fecha, estado y acceso rápido al detalle.
+- **Visitas Comerciales**: registro de visitas por propiedad con datos del interesado, comentarios y ofertas, preparado para aviso al propietario por WhatsApp.
+- **Alertas de Renovación**: vencimientos visibles y alertas automáticas configurables con periodicidad mensual, cada cuatro meses o personalizada.
 
 ## 🎯 Objetivos del Sistema
 
@@ -70,6 +77,16 @@ make down          # Detener servicios
 make logs          # Ver logs
 make db-shell      # Abrir shell de PostgreSQL
 make info          # Ver información de conexión
+```
+
+#### Batch Operativo
+
+```bash
+# Simular alertas de renovación de alquileres
+cd batch && npm run dev -- lease-renewal-alerts --dry-run
+
+# Ejecutar alertas de renovación para la fecha actual
+cd batch && npm run dev -- lease-renewal-alerts
 ```
 
 📖 **Documentación completa**: [Guía de Configuración Local](docs/development/local-setup.md)
@@ -398,4 +415,4 @@ Para consultas sobre esta documentación, referirse al equipo de arquitectura de
 
 ---
 
-**© 2025 - Plataforma de Administración de Alquileres**
+**© 2025 - Sistema de Gestión Inmobiliaria**

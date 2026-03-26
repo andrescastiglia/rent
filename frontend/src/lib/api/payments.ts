@@ -91,6 +91,7 @@ const MOCK_PAYMENTS: Payment[] = [
     currencyCode: "ARS",
     paymentDate: "2024-11-15",
     method: "bank_transfer",
+    activityType: "monthly",
     reference: "TRF-12345",
     status: "completed",
     notes: "Pago noviembre",
@@ -229,6 +230,19 @@ const addPredicateForLeaseFilter = (
   predicates.push((payment) => payment.tenantAccountId === account.id);
 };
 
+const addPredicateForPropertyFilter = (
+  predicates: Array<(payment: Payment) => boolean>,
+  propertyId?: string,
+) => {
+  if (!propertyId) {
+    return;
+  }
+
+  predicates.push(
+    (payment) => payment.tenantAccount?.lease?.propertyId === propertyId,
+  );
+};
+
 const buildMockPaymentPredicates = (
   filters?: PaymentFilters,
 ): Array<(payment: Payment) => boolean> => {
@@ -253,7 +267,13 @@ const buildMockPaymentPredicates = (
     filters.method,
     (payment) => payment.method,
   );
+  addPredicateForPrimitiveFilter(
+    predicates,
+    filters.activityType,
+    (payment) => payment.activityType,
+  );
   addPredicateForLeaseFilter(predicates, filters.leaseId);
+  addPredicateForPropertyFilter(predicates, filters.propertyId);
 
   return predicates;
 };
@@ -376,7 +396,13 @@ export const paymentsApi = {
     if (filters?.tenantId) queryParams.append("tenantId", filters.tenantId);
     if (filters?.status) queryParams.append("status", filters.status);
     if (filters?.method) queryParams.append("method", filters.method);
+    if (filters?.activityType)
+      queryParams.append("activityType", filters.activityType);
     if (filters?.leaseId) queryParams.append("leaseId", filters.leaseId);
+    if (filters?.propertyId)
+      queryParams.append("propertyId", filters.propertyId);
+    if (filters?.fromDate) queryParams.append("fromDate", filters.fromDate);
+    if (filters?.toDate) queryParams.append("toDate", filters.toDate);
     if (filters?.page) queryParams.append("page", String(filters.page));
     if (filters?.limit) queryParams.append("limit", String(filters.limit));
 
@@ -424,6 +450,7 @@ export const paymentsApi = {
         currencyCode: data.currencyCode || "ARS",
         paymentDate: data.paymentDate,
         method: data.method,
+        activityType: data.activityType ?? "monthly",
         reference: data.reference || null,
         status: "pending",
         notes: data.notes || null,
@@ -537,6 +564,7 @@ export const paymentsApi = {
       MOCK_PAYMENTS[index] = {
         ...MOCK_PAYMENTS[index],
         ...data,
+        activityType: data.activityType ?? MOCK_PAYMENTS[index].activityType,
         items,
         amount: data.amount ?? amountFromItems,
         updatedAt: new Date().toISOString(),

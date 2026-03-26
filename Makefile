@@ -1,5 +1,5 @@
 # =============================================================================
-# Makefile - Plataforma de Administración de Alquileres
+# Makefile - Sistema de Gestión Inmobiliaria
 # =============================================================================
 # Comandos útiles para desarrollo local con Docker Compose
 # =============================================================================

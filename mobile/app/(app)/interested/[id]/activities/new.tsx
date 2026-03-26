@@ -7,7 +7,10 @@ import { useTranslation } from 'react-i18next';
 import { interestedApi } from '@/api/interested';
 import { Screen } from '@/components/screen';
 import { AppButton, ChoiceGroup, DateField, H1 } from '@/components/ui';
-import type { InterestedActivityStatus, InterestedActivityType } from '@/types/interested';
+import type {
+  InterestedActivityStatus,
+  InterestedActivityType,
+} from '@/types/interested';
 
 export default function NewInterestedActivityScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -15,7 +18,10 @@ export default function NewInterestedActivityScreen() {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
 
-  const activityTypeOptions: Array<{ label: string; value: InterestedActivityType }> = [
+  const activityTypeOptions: Array<{
+    label: string;
+    value: InterestedActivityType;
+  }> = [
     { label: t('interested.activityTypes.task'), value: 'task' },
     { label: t('interested.activityTypes.call'), value: 'call' },
     { label: t('interested.activityTypes.note'), value: 'note' },
@@ -24,7 +30,10 @@ export default function NewInterestedActivityScreen() {
     { label: t('interested.activityTypes.email'), value: 'email' },
   ];
 
-  const activityStatusOptions: Array<{ label: string; value: InterestedActivityStatus }> = [
+  const activityStatusOptions: Array<{
+    label: string;
+    value: InterestedActivityStatus;
+  }> = [
     { label: t('interested.activityStatus.pending'), value: 'pending' },
     { label: t('interested.activityStatus.completed'), value: 'completed' },
     { label: t('interested.activityStatus.cancelled'), value: 'cancelled' },
@@ -59,7 +68,10 @@ export default function NewInterestedActivityScreen() {
       router.back();
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.saveError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.saveError'),
+      );
     },
   });
 

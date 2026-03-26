@@ -5,7 +5,11 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository, SelectQueryBuilder } from 'typeorm';
-import { Payment, PaymentStatus } from './entities/payment.entity';
+import {
+  Payment,
+  PaymentActivityType,
+  PaymentStatus,
+} from './entities/payment.entity';
 import { PaymentItem, PaymentItemType } from './entities/payment-item.entity';
 import { Receipt } from './entities/receipt.entity';
 import { Invoice, InvoiceStatus } from './entities/invoice.entity';
@@ -70,6 +74,7 @@ export class PaymentsService {
       currencyCode: dto.currencyCode || 'ARS',
       paymentDate: dto.paymentDate,
       method: dto.method,
+      activityType: dto.activityType ?? PaymentActivityType.MONTHLY,
       reference: dto.reference,
       status: PaymentStatus.PENDING,
       notes: dto.notes,
@@ -107,6 +112,7 @@ export class PaymentsService {
 
     if (dto.paymentDate) payment.paymentDate = new Date(dto.paymentDate) as any;
     if (dto.method) payment.method = dto.method;
+    if (dto.activityType) payment.activityType = dto.activityType;
     if (dto.reference !== undefined) payment.reference = dto.reference;
     if (dto.notes !== undefined) payment.notes = dto.notes;
     if (dto.currencyCode) payment.currencyCode = dto.currencyCode;
@@ -412,8 +418,10 @@ export class PaymentsService {
       tenantId,
       tenantAccountId,
       leaseId,
+      propertyId,
       status,
       method,
+      activityType,
       fromDate,
       toDate,
       page = 1,
@@ -450,12 +458,20 @@ export class PaymentsService {
       query.andWhere('account.lease_id = :leaseId', { leaseId });
     }
 
+    if (propertyId) {
+      query.andWhere('lease.property_id = :propertyId', { propertyId });
+    }
+
     if (status) {
       query.andWhere('payment.status = :status', { status });
     }
 
     if (method) {
       query.andWhere('payment.method = :method', { method });
+    }
+
+    if (activityType) {
+      query.andWhere('payment.activity_type = :activityType', { activityType });
     }
 
     if (fromDate) {

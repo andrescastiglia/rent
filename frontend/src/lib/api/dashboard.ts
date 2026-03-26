@@ -15,6 +15,78 @@ export interface DashboardStats {
   monthlyCommissions: number;
 }
 
+export interface DashboardLeaseOperationItem {
+  leaseId: string;
+  propertyId: string | null;
+  propertyName: string | null;
+  propertyAddress: string | null;
+  ownerId: string;
+  ownerName: string | null;
+  tenantId: string | null;
+  tenantName: string | null;
+  status: string;
+  contractType: string;
+  startDate: string | null;
+  endDate: string | null;
+  monthlyRent: number | null;
+  currency: string;
+  daysUntilEnd: number | null;
+  renewalAlertEnabled: boolean;
+  renewalAlertPeriodicity: string;
+  renewalAlertCustomDays: number | null;
+}
+
+export interface DashboardSalePropertyItem {
+  propertyId: string;
+  propertyName: string;
+  propertyAddress: string | null;
+  ownerId: string;
+  ownerName: string | null;
+  salePrice: number | null;
+  saleCurrency: string;
+  operationState: string;
+  updatedAt: string;
+}
+
+export interface DashboardPaymentOperationItem {
+  paymentId: string;
+  propertyId: string | null;
+  propertyName: string | null;
+  leaseId: string | null;
+  tenantName: string | null;
+  amount: number;
+  currencyCode: string;
+  paymentDate: string;
+  status: string;
+  method: string;
+  activityType: string;
+  reference: string | null;
+}
+
+export interface DashboardOperationsOverview {
+  generatedAt: string;
+  propertiesPanel: {
+    totalProperties: number;
+    saleCount: number;
+    rentalActiveCount: number;
+    rentalExpiredCount: number;
+    expiringThisMonthCount: number;
+    expiringNextFourMonthsCount: number;
+    saleHighlights: DashboardSalePropertyItem[];
+    currentRentals: DashboardLeaseOperationItem[];
+    expiringThisMonth: DashboardLeaseOperationItem[];
+    expiringNextFourMonths: DashboardLeaseOperationItem[];
+    expiredRentals: DashboardLeaseOperationItem[];
+  };
+  paymentsPanel: {
+    totalPayments: number;
+    pendingPayments: number;
+    completedPayments: number;
+    overdueInvoices: number;
+    recentPayments: DashboardPaymentOperationItem[];
+  };
+}
+
 export type PersonActivitySource = "interested" | "owner";
 export type PersonActivityStatus = "pending" | "completed" | "cancelled";
 
@@ -79,6 +151,14 @@ export const dashboardApi = {
     const token = getToken();
     return apiClient.get<DashboardStats>(
       "/dashboard/stats",
+      token ?? undefined,
+    );
+  },
+
+  getOperationsOverview: async (): Promise<DashboardOperationsOverview> => {
+    const token = getToken();
+    return apiClient.get<DashboardOperationsOverview>(
+      "/dashboard/operations-overview",
       token ?? undefined,
     );
   },

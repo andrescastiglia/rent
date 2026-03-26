@@ -26,14 +26,19 @@ const resolveUrl = ({ absoluteUrl, relativePath }: DownloadOptions): string => {
     throw new Error('Missing download URL');
   }
 
-  if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) {
+  if (
+    relativePath.startsWith('http://') ||
+    relativePath.startsWith('https://')
+  ) {
     return relativePath;
   }
 
   return `${API_URL}${relativePath}`;
 };
 
-export async function downloadAndSharePdf(options: DownloadOptions): Promise<string> {
+export async function downloadAndSharePdf(
+  options: DownloadOptions,
+): Promise<string> {
   const token = await getToken();
   const url = resolveUrl(options);
   const filename = `${sanitizeFilename(options.filenamePrefix)}-${Date.now()}.pdf`;
@@ -66,7 +71,10 @@ export async function downloadAndSharePdf(options: DownloadOptions): Promise<str
   return result.uri;
 }
 
-export async function createAndShareMockPdf(filenamePrefix: string, body: string): Promise<string> {
+export async function createAndShareMockPdf(
+  filenamePrefix: string,
+  body: string,
+): Promise<string> {
   const filename = `${sanitizeFilename(filenamePrefix)}-${Date.now()}.pdf`;
   const baseDir = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
 

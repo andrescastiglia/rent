@@ -82,7 +82,7 @@
     "noAccount": "¿No tienes cuenta?",
     "loggingIn": "Iniciando sesión...",
     "registering": "Registrando...",
-    "systemTitle": "Sistema de Gestión de Alquileres",
+    "systemTitle": "Sistema de Gestión Inmobiliaria",
     "errors": {
       "invalidCredentials": "Credenciales inválidas",
       "emailAlreadyRegistered": "El email ya está registrado",
@@ -1216,8 +1216,8 @@
     "ownerRequired": "El propietario es requerido"
   },
   "metadata": {
-    "title": "Sistema de Gestión de Alquileres",
-    "description": "Plataforma profesional para la gestión de propiedades, inquilinos y contratos de alquiler"
+    "title": "Sistema de Gestión Inmobiliaria",
+    "description": "Plataforma profesional para gestionar propiedades en venta, alquileres, pagos y renovaciones"
   },
   "currencies": {
     "title": "Moneda",

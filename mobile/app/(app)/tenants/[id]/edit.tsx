@@ -29,7 +29,10 @@ export default function EditTenantScreen() {
       router.replace(`/(app)/tenants/${updated.id}`);
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.saveError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.saveError'),
+      );
     },
   });
 
@@ -37,7 +40,9 @@ export default function EditTenantScreen() {
     <Screen scrollViewTestID="tenantEdit.scroll">
       <H1>{t('tenants.editTenant')}</H1>
       {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
-      {!query.isLoading && !query.data ? <Text>{t('tenants.notFound')}</Text> : null}
+      {!query.isLoading && !query.data ? (
+        <Text>{t('tenants.notFound')}</Text>
+      ) : null}
 
       {query.data ? (
         <TenantForm

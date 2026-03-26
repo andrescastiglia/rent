@@ -20,7 +20,10 @@ export default function InvoiceDetailScreen() {
   const downloadMutation = useMutation({
     mutationFn: () => invoicesApi.downloadPdf(id),
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.loadError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.loadError'),
+      );
     },
   });
 
@@ -30,16 +33,28 @@ export default function InvoiceDetailScreen() {
     <Screen scrollViewTestID="invoiceDetail.scroll">
       <H1>{t('invoices.invoiceDetails')}</H1>
       {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
-      {query.error ? <Text style={styles.error}>{(query.error as Error).message}</Text> : null}
-      {!query.isLoading && !invoice ? <Text>{t('invoices.notFound')}</Text> : null}
+      {query.error ? (
+        <Text style={styles.error}>{(query.error as Error).message}</Text>
+      ) : null}
+      {!query.isLoading && !invoice ? (
+        <Text>{t('invoices.notFound')}</Text>
+      ) : null}
 
       {invoice ? (
         <View style={styles.card}>
           <Text style={styles.title}>{invoice.invoiceNumber}</Text>
-          <Text style={styles.detail}>{`${invoice.currencyCode} ${invoice.total}`}</Text>
-          <Text style={styles.detail}>{`${t('invoices.paymentStatus')}: ${invoice.status}`}</Text>
-          <Text style={styles.detail}>{`${t('invoices.dueDate')}: ${invoice.dueDate}`}</Text>
-          <Text style={styles.detail}>{`${t('invoices.amountPaid')}: ${invoice.amountPaid}`}</Text>
+          <Text
+            style={styles.detail}
+          >{`${invoice.currencyCode} ${invoice.total}`}</Text>
+          <Text
+            style={styles.detail}
+          >{`${t('invoices.paymentStatus')}: ${invoice.status}`}</Text>
+          <Text
+            style={styles.detail}
+          >{`${t('invoices.dueDate')}: ${invoice.dueDate}`}</Text>
+          <Text
+            style={styles.detail}
+          >{`${t('invoices.amountPaid')}: ${invoice.amountPaid}`}</Text>
         </View>
       ) : null}
 

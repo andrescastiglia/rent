@@ -10,13 +10,33 @@ import { leasesApi } from '@/api/leases';
 import { paymentsApi, tenantAccountsApi } from '@/api/payments';
 import { Screen } from '@/components/screen';
 import { AppButton, ChoiceGroup, DateField, Field, H1 } from '@/components/ui';
-import type { CreatePaymentInput, PaymentMethod } from '@/types/payment';
+import type {
+  CreatePaymentInput,
+  PaymentActivityType,
+  PaymentMethod,
+} from '@/types/payment';
 
 const schema = z.object({
   leaseId: z.string().min(1),
   amount: z.string().min(1),
   paymentDate: z.string().min(10),
-  method: z.enum(['cash', 'bank_transfer', 'credit_card', 'debit_card', 'check', 'digital_wallet', 'crypto', 'other']),
+  method: z.enum([
+    'cash',
+    'bank_transfer',
+    'credit_card',
+    'debit_card',
+    'check',
+    'digital_wallet',
+    'crypto',
+    'other',
+  ]),
+  activityType: z.enum([
+    'monthly',
+    'annual',
+    'adjustment',
+    'late_fee',
+    'extraordinary',
+  ]),
   reference: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -38,6 +58,33 @@ export default function NewPaymentScreen() {
     { label: t('payments.method.crypto'), value: 'crypto' },
     { label: t('payments.method.other'), value: 'other' },
   ];
+  const activityTypeOptions: Array<{
+    label: string;
+    value: PaymentActivityType;
+  }> = [
+    {
+      label: t('payments.activity.monthly', { defaultValue: 'Mensual' }),
+      value: 'monthly',
+    },
+    {
+      label: t('payments.activity.annual', { defaultValue: 'Anual' }),
+      value: 'annual',
+    },
+    {
+      label: t('payments.activity.adjustment', { defaultValue: 'Ajuste' }),
+      value: 'adjustment',
+    },
+    {
+      label: t('payments.activity.late_fee', { defaultValue: 'Mora' }),
+      value: 'late_fee',
+    },
+    {
+      label: t('payments.activity.extraordinary', {
+        defaultValue: 'Extraordinario',
+      }),
+      value: 'extraordinary',
+    },
+  ];
 
   const leasesQuery = useQuery({
     queryKey: ['leases'],
@@ -51,6 +98,7 @@ export default function NewPaymentScreen() {
       amount: '',
       paymentDate: new Date().toISOString().slice(0, 10),
       method: 'bank_transfer',
+      activityType: 'monthly',
       reference: '',
       notes: '',
     },
@@ -68,6 +116,7 @@ export default function NewPaymentScreen() {
         amount: Number(values.amount),
         paymentDate: values.paymentDate,
         method: values.method,
+        activityType: values.activityType,
         reference: values.reference || undefined,
         notes: values.notes || undefined,
       };
@@ -79,7 +128,10 @@ export default function NewPaymentScreen() {
       router.replace(`/(app)/payments/${created.id}`);
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.saveError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.saveError'),
+      );
     },
   });
 
@@ -97,7 +149,9 @@ export default function NewPaymentScreen() {
             label={t('payments.selectLease')}
             value={field.value}
             onChangeText={field.onChange}
-            placeholder={leasesQuery.data?.[0]?.id ?? t('payments.selectLeasePlaceholder')}
+            placeholder={
+              leasesQuery.data?.[0]?.id ?? t('payments.selectLeasePlaceholder')
+            }
             testID="paymentCreate.leaseId"
           />
         )}
@@ -105,7 +159,9 @@ export default function NewPaymentScreen() {
 
       <View style={styles.hintBox}>
         <Text style={styles.hintTitle}>{t('leases.title')}</Text>
-        <Text style={styles.hintText}>{leasesQuery.data?.map((lease) => lease.id).join(', ') || '-'}</Text>
+        <Text style={styles.hintText}>
+          {leasesQuery.data?.map((lease) => lease.id).join(', ') || '-'}
+        </Text>
       </View>
 
       <Controller
@@ -148,6 +204,19 @@ export default function NewPaymentScreen() {
       />
       <Controller
         control={control}
+        name="activityType"
+        render={({ field }) => (
+          <ChoiceGroup
+            label={t('payments.activityType', { defaultValue: 'Actividad' })}
+            value={field.value}
+            onChange={field.onChange}
+            options={activityTypeOptions}
+            testID="paymentCreate.activityType"
+          />
+        )}
+      />
+      <Controller
+        control={control}
         name="reference"
         render={({ field }) => (
           <Field
@@ -162,7 +231,12 @@ export default function NewPaymentScreen() {
         control={control}
         name="notes"
         render={({ field }) => (
-          <Field label={t('payments.notes')} value={field.value ?? ''} onChangeText={field.onChange} testID="paymentCreate.notes" />
+          <Field
+            label={t('payments.notes')}
+            value={field.value ?? ''}
+            onChangeText={field.onChange}
+            testID="paymentCreate.notes"
+          />
         )}
       />
 
@@ -175,7 +249,12 @@ export default function NewPaymentScreen() {
         );
       })}
 
-      <AppButton title={t('payments.savePayment')} onPress={submit} loading={mutation.isPending} testID="paymentCreate.submit" />
+      <AppButton
+        title={t('payments.savePayment')}
+        onPress={submit}
+        loading={mutation.isPending}
+        testID="paymentCreate.submit"
+      />
     </Screen>
   );
 }

@@ -58,7 +58,10 @@ export default function EditOwnerScreen() {
       router.back();
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.saveError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.saveError'),
+      );
     },
   });
 
@@ -66,10 +69,22 @@ export default function EditOwnerScreen() {
     <Screen>
       <H1>{t('properties.editOwnerTitle')}</H1>
       {ownerQuery.isLoading ? <Text>{t('common.loading')}</Text> : null}
-      {ownerQuery.error ? <Text style={styles.error}>{(ownerQuery.error as Error).message}</Text> : null}
+      {ownerQuery.error ? (
+        <Text style={styles.error}>{(ownerQuery.error as Error).message}</Text>
+      ) : null}
 
-      <Field label={t('properties.ownerFields.firstName')} value={firstName} onChangeText={setFirstName} testID="ownerEdit.firstName" />
-      <Field label={t('properties.ownerFields.lastName')} value={lastName} onChangeText={setLastName} testID="ownerEdit.lastName" />
+      <Field
+        label={t('properties.ownerFields.firstName')}
+        value={firstName}
+        onChangeText={setFirstName}
+        testID="ownerEdit.firstName"
+      />
+      <Field
+        label={t('properties.ownerFields.lastName')}
+        value={lastName}
+        onChangeText={setLastName}
+        testID="ownerEdit.lastName"
+      />
       <Field
         label={t('auth.email')}
         value={email}
@@ -78,10 +93,21 @@ export default function EditOwnerScreen() {
         keyboardType="email-address"
         testID="ownerEdit.email"
       />
-      <Field label={t('properties.ownerFields.phone')} value={phone} onChangeText={setPhone} keyboardType="phone-pad" testID="ownerEdit.phone" />
+      <Field
+        label={t('properties.ownerFields.phone')}
+        value={phone}
+        onChangeText={setPhone}
+        keyboardType="phone-pad"
+        testID="ownerEdit.phone"
+      />
 
       <View style={styles.actions}>
-        <AppButton title={t('common.save')} onPress={() => mutation.mutate()} loading={mutation.isPending} testID="ownerEdit.submit" />
+        <AppButton
+          title={t('common.save')}
+          onPress={() => mutation.mutate()}
+          loading={mutation.isPending}
+          testID="ownerEdit.submit"
+        />
       </View>
     </Screen>
   );

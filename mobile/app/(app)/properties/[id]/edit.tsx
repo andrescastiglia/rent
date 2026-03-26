@@ -22,14 +22,18 @@ export default function EditPropertyScreen() {
   });
 
   const mutation = useMutation({
-    mutationFn: (payload: UpdatePropertyInput) => propertiesApi.update(id, payload),
+    mutationFn: (payload: UpdatePropertyInput) =>
+      propertiesApi.update(id, payload),
     onSuccess: async (updated) => {
       await queryClient.invalidateQueries({ queryKey: ['properties'] });
       await queryClient.invalidateQueries({ queryKey: ['properties', id] });
       router.replace(`/(app)/properties/${updated.id}`);
     },
     onError: (error) => {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('messages.saveError'));
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('messages.saveError'),
+      );
     },
   });
 
@@ -37,7 +41,9 @@ export default function EditPropertyScreen() {
     <Screen scrollViewTestID="propertyEdit.scroll">
       <H1>{t('properties.editProperty')}</H1>
       {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
-      {!query.isLoading && !query.data ? <Text>{t('properties.notFound')}</Text> : null}
+      {!query.isLoading && !query.data ? (
+        <Text>{t('properties.notFound')}</Text>
+      ) : null}
 
       {query.data ? (
         <PropertyForm

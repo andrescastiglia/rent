@@ -18,7 +18,9 @@ const guessMimeType = (uri: string): string => {
   return 'image/jpeg';
 };
 
-export async function pickImageAssets(): Promise<ImagePicker.ImagePickerAsset[]> {
+export async function pickImageAssets(): Promise<
+  ImagePicker.ImagePickerAsset[]
+> {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!permission.granted) {
     throw new Error('Permiso de galería denegado');
@@ -37,7 +39,9 @@ export async function pickImageAssets(): Promise<ImagePicker.ImagePickerAsset[]>
   return result.assets;
 }
 
-export async function uploadAsset(asset: ImagePicker.ImagePickerAsset): Promise<UploadedAsset> {
+export async function uploadAsset(
+  asset: ImagePicker.ImagePickerAsset,
+): Promise<UploadedAsset> {
   const fileName = asset.fileName ?? `upload-${Date.now()}`;
   const mimeType = asset.mimeType ?? guessMimeType(asset.uri);
 

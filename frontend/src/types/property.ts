@@ -52,6 +52,20 @@ export interface PropertyMaintenanceTask {
   updatedAt: string;
 }
 
+export interface PropertyVisit {
+  id: string;
+  propertyId: string;
+  visitedAt: string;
+  interestedName?: string;
+  interestedProfileId?: string;
+  comments?: string;
+  hasOffer?: boolean;
+  offerAmount?: number;
+  offerCurrency?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Property {
   id: string;
   name: string;
@@ -103,6 +117,16 @@ export interface CreatePropertyMaintenanceTaskInput {
   scheduledAt?: string;
   title: string;
   notes?: string;
+}
+
+export interface CreatePropertyVisitInput {
+  visitedAt?: string;
+  interestedName?: string;
+  interestedProfileId?: string;
+  comments?: string;
+  hasOffer?: boolean;
+  offerAmount?: number;
+  offerCurrency?: string;
 }
 
 export interface PropertyFilters {
