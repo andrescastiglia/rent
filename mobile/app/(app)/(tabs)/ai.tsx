@@ -26,6 +26,19 @@ type ChatMessage = {
 const createId = () =>
   `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
+const getModeLabel = (
+  mode: string | undefined,
+  t: (key: string) => string,
+): string => {
+  if (mode === 'FULL') {
+    return t('common.aiModeFull');
+  }
+  if (mode === 'READONLY') {
+    return t('common.aiModeReadonly');
+  }
+  return t('common.aiDisabled');
+};
+
 export default function AiScreen() {
   const { t } = useTranslation();
   const { data, isLoading, error } = useQuery({
@@ -40,12 +53,7 @@ export default function AiScreen() {
   const scrollRef = useRef<ScrollView | null>(null);
 
   const chatEnabled = data?.mode === 'FULL' || data?.mode === 'READONLY';
-  const modeLabel =
-    data?.mode === 'FULL'
-      ? t('common.aiModeFull')
-      : data?.mode === 'READONLY'
-        ? t('common.aiModeReadonly')
-        : t('common.aiDisabled');
+  const modeLabel = getModeLabel(data?.mode, t);
 
   const sortedMessages = useMemo(() => messages, [messages]);
 
@@ -166,9 +174,7 @@ export default function AiScreen() {
           </View>
         ) : null}
 
-        {error ? (
-          <Text style={styles.error}>{(error as Error).message}</Text>
-        ) : null}
+        {error ? <Text style={styles.error}>{error.message}</Text> : null}
 
         <ScrollView
           ref={scrollRef}

@@ -10,7 +10,10 @@ export default function InvoicesLayout({
 }) {
   return (
     <MainLayout>
-      <RoleGuard allowedRoles={["admin", "owner", "tenant", "staff"]}>
+      <RoleGuard
+        allowedRoles={["admin", "owner", "tenant", "staff"]}
+        requiredModule="invoices"
+      >
         {children}
       </RoleGuard>
     </MainLayout>

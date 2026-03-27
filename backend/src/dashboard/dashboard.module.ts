@@ -13,6 +13,7 @@ import { InterestedActivity } from '../interested/entities/interested-activity.e
 import { InterestedProfile } from '../interested/entities/interested-profile.entity';
 import { OwnerActivity } from '../owners/entities/owner-activity.entity';
 import { Owner } from '../owners/entities/owner.entity';
+import { Company } from '../companies/entities/company.entity';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { Owner } from '../owners/entities/owner.entity';
       InterestedProfile,
       OwnerActivity,
       Owner,
+      Company,
     ]),
   ],
   controllers: [DashboardController],

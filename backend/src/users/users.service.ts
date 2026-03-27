@@ -32,6 +32,7 @@ export class UsersService {
       ...createUserDto,
       email: createUserDto.email.trim().toLowerCase(),
       passwordHash: hashedPassword,
+      permissions: createUserDto.permissions ?? {},
     });
     return this.usersRepository.save(user);
   }
@@ -55,7 +56,9 @@ export class UsersService {
   }
 
   async findOneByEmail(email: string): Promise<User | null> {
-    return this.usersRepository.findOne({ where: { email } });
+    return this.usersRepository.findOne({
+      where: { email: email.trim().toLowerCase() },
+    });
   }
 
   async findOneById(id: string): Promise<User | null> {
@@ -176,6 +179,10 @@ export class UsersService {
     if (updateUserDto.avatarUrl !== undefined) {
       const avatar = (updateUserDto.avatarUrl ?? '').trim();
       user.avatarUrl = avatar.length > 0 ? avatar : null;
+    }
+
+    if (updateUserDto.permissions !== undefined) {
+      user.permissions = updateUserDto.permissions;
     }
   }
 

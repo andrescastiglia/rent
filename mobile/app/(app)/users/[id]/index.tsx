@@ -40,7 +40,7 @@ export default function UserDetailScreen() {
       <H1>{t('users.userDetails')}</H1>
       {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
       {query.error ? (
-        <Text style={styles.error}>{(query.error as Error).message}</Text>
+        <Text style={styles.error}>{query.error.message}</Text>
       ) : null}
       {!query.isLoading && !user ? <Text>{t('users.noUsers')}</Text> : null}
 

@@ -12,7 +12,7 @@ import { z } from 'zod';
 export const createPaymentDocumentTemplateZodSchema = z
   .object({
     type: z
-      .nativeEnum(PaymentDocumentTemplateType)
+      .enum(PaymentDocumentTemplateType)
       .describe('receipt|invoice|credit_note'),
     name: z.string().min(1).max(120),
     templateBody: z

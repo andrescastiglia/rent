@@ -333,7 +333,7 @@ export class PropertyVisitsService {
     return new Intl.DateTimeFormat('es-AR', {
       dateStyle: 'medium',
       timeStyle: 'short',
-      timeZone: 'America/Argentina/Jujuy',
+      timeZone: 'America/Argentina/Buenos_Aires',
     }).format(value);
   }
 

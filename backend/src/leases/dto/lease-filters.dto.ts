@@ -18,22 +18,15 @@ const toBoolean = z
 
 const leaseFiltersZodSchema = z
   .object({
-    propertyId: z
-      .string()
-      .uuid()
-      .optional()
-      .describe('Filter by property UUID'),
-    tenantId: z.string().uuid().optional().describe('Filter by tenant UUID'),
+    propertyId: z.uuid().optional().describe('Filter by property UUID'),
+    tenantId: z.uuid().optional().describe('Filter by tenant UUID'),
+    buyerId: z.uuid().optional().describe('Filter by buyer UUID'),
     buyerProfileId: z
-      .string()
       .uuid()
       .optional()
-      .describe('Filter by buyer profile UUID'),
-    status: z
-      .nativeEnum(LeaseStatus)
-      .optional()
-      .describe('draft|active|finalized'),
-    contractType: z.nativeEnum(ContractType).optional().describe('rental|sale'),
+      .describe('Deprecated filter by interested buyer profile UUID'),
+    status: z.enum(LeaseStatus).optional().describe('draft|active|finalized'),
+    contractType: z.enum(ContractType).optional().describe('rental|sale'),
     propertyAddress: z
       .string()
       .min(1)
@@ -58,6 +51,10 @@ export class LeaseFiltersDto {
   @IsUUID()
   @IsOptional()
   tenantId?: string;
+
+  @IsUUID()
+  @IsOptional()
+  buyerId?: string;
 
   @IsUUID()
   @IsOptional()

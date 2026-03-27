@@ -33,14 +33,14 @@ export const createPaymentZodSchema = z
       .optional()
       .default('ARS')
       .describe('Currency code (default: ARS)'),
-    paymentDate: z.string().date().describe('Date of payment (YYYY-MM-DD)'),
+    paymentDate: z.iso.date().describe('Date of payment (YYYY-MM-DD)'),
     method: z
-      .nativeEnum(PaymentMethod)
+      .enum(PaymentMethod)
       .describe(
         'cash|bank_transfer|credit_card|debit_card|check|digital_wallet|crypto|other',
       ),
     activityType: z
-      .nativeEnum(PaymentActivityType)
+      .enum(PaymentActivityType)
       .optional()
       .default(PaymentActivityType.MONTHLY)
       .describe('monthly|annual|adjustment|late_fee|extraordinary'),

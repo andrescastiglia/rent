@@ -1238,4 +1238,9 @@ async function main() {
   }
 }
 
-void main();
+process.nextTick(() => {
+  void main().catch((error) => {
+    console.error("Fatal error starting batch", error);
+    process.exit(1);
+  });
+});

@@ -135,6 +135,8 @@ class ApiClient {
   ): Promise<T> {
     const { token, ...fetchOptions } = options;
     const method = (fetchOptions.method ?? "GET").toString().toUpperCase();
+    const isFormDataBody =
+      typeof FormData !== "undefined" && fetchOptions.body instanceof FormData;
 
     // Auth guard: if token is expired/invalid, force logoff and do NOT attempt request.
     // Skip entirely in mock mode.
@@ -144,9 +146,12 @@ class ApiClient {
     }
 
     const headers: Record<string, string> = {
-      "Content-Type": "application/json",
       ...(fetchOptions.headers as Record<string, string>),
     };
+
+    if (!isFormDataBody) {
+      headers["Content-Type"] = "application/json";
+    }
 
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
@@ -211,7 +216,10 @@ class ApiClient {
     }
     return this.request<T>(endpoint, {
       method: "POST",
-      body: JSON.stringify(data),
+      body:
+        typeof FormData !== "undefined" && data instanceof FormData
+          ? data
+          : JSON.stringify(data),
       token,
     });
   }

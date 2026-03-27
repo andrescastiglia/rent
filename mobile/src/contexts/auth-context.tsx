@@ -15,8 +15,8 @@ import {
   clearAuth,
   getToken,
   getUser,
-  setToken,
-  setUser,
+  setToken as persistToken,
+  setUser as persistUser,
 } from '@/storage/auth-storage';
 import type {
   AuthResponse,
@@ -42,8 +42,8 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const [user, setUserState] = useState<User | null>(null);
-  const [token, setTokenState] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -58,8 +58,8 @@ export function AuthProvider({
           getUser(),
         ]);
         if (!mounted) return;
-        setTokenState(storedToken);
-        setUserState(storedUser);
+        setToken(storedToken);
+        setUser(storedUser);
         if (storedUser?.language) {
           await i18n.changeLanguage(storedUser.language);
         }
@@ -81,11 +81,11 @@ export function AuthProvider({
     async (payload: LoginRequest) => {
       const response: AuthResponse = await authApi.login(payload);
       await Promise.all([
-        setToken(response.accessToken),
-        setUser(response.user),
+        persistToken(response.accessToken),
+        persistUser(response.user),
       ]);
-      setTokenState(response.accessToken);
-      setUserState(response.user);
+      setToken(response.accessToken);
+      setUser(response.user);
       if (response.user.language) {
         await i18n.changeLanguage(response.user.language);
       }
@@ -102,8 +102,8 @@ export function AuthProvider({
   const logout = useCallback(async () => {
     await Promise.all([clearAuth(), queryClient.cancelQueries()]);
     queryClient.clear();
-    setTokenState(null);
-    setUserState(null);
+    setToken(null);
+    setUser(null);
     router.replace('/(auth)/login');
   }, [queryClient, router]);
 
@@ -116,8 +116,8 @@ export function AuthProvider({
   }, [logout]);
 
   const updateUser = useCallback(async (nextUser: User) => {
-    await setUser(nextUser);
-    setUserState(nextUser);
+    await persistUser(nextUser);
+    setUser(nextUser);
     if (nextUser.language) {
       await i18n.changeLanguage(nextUser.language);
     }

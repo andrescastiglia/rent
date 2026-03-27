@@ -15,7 +15,7 @@ type TranslationFunction = (
 type LeaseRefinementData = {
   contractType: "rental" | "sale";
   tenantId?: string;
-  buyerProfileId?: string;
+  buyerId?: string;
   startDate?: string;
   endDate?: string;
   rentAmount?: number | null;
@@ -30,7 +30,7 @@ function addCustomIssue(
   message: string,
 ): void {
   ctx.addIssue({
-    code: z.ZodIssueCode.custom,
+    code: "custom",
     path: [path],
     message,
   });
@@ -64,8 +64,8 @@ function validateSaleLease(
   ctx: z.RefinementCtx,
   t: TranslationFunction,
 ): void {
-  if (!data.buyerProfileId) {
-    addCustomIssue(ctx, "buyerProfileId", t("required"));
+  if (!data.buyerId) {
+    addCustomIssue(ctx, "buyerId", t("required"));
   }
   if (isNil(data.fiscalValue)) {
     addCustomIssue(ctx, "fiscalValue", t("required"));
@@ -149,7 +149,7 @@ export const createTenantSchema = (t: TranslationFunction) =>
   z.object({
     firstName: z.string().min(2, t("minLength", { min: 2 })),
     lastName: z.string().min(2, t("minLength", { min: 2 })),
-    email: z.string().email(t("invalidEmail")),
+    email: z.email(t("invalidEmail")),
     phone: z.string().min(6, t("invalidPhone")),
     dni: z.string().min(6, t("invalidDni")),
     address: z.string().optional(),
@@ -170,7 +170,7 @@ export const createLeaseSchema = (t: TranslationFunction) =>
     .object({
       propertyId: z.string().min(1, t("propertyRequired")),
       tenantId: z.string().optional(),
-      buyerProfileId: z.string().optional(),
+      buyerId: z.string().optional(),
       ownerId: z.string().optional(),
       templateId: z.string().optional(),
       contractType: z.enum(["rental", "sale"] as const).default("rental"),

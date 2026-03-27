@@ -4,7 +4,7 @@ import {
   Injectable,
   PipeTransform,
 } from '@nestjs/common';
-import { ZodTypeAny } from 'zod';
+import type { ZodType } from 'zod';
 import { ZodSchemaCarrier } from '../validation/zod-validation.types';
 
 @Injectable()
@@ -30,7 +30,7 @@ export class ZodValidationPipe implements PipeTransform {
     });
   }
 
-  private getSchema(metadata: ArgumentMetadata): ZodTypeAny | undefined {
+  private getSchema(metadata: ArgumentMetadata): ZodType | undefined {
     const metatype = metadata.metatype as ZodSchemaCarrier | undefined;
     return metatype?.zodSchema;
   }

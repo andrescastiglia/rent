@@ -15,7 +15,7 @@ const aiChatMessageZodSchema = z.object({
 const aiChatRequestZodSchema = z
   .object({
     prompt: z.string().min(1),
-    conversationId: z.string().uuid().optional(),
+    conversationId: z.uuid().optional(),
     messages: z.array(aiChatMessageZodSchema).optional(),
   })
   .strict();

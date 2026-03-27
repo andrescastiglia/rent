@@ -2,11 +2,56 @@ import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
-import { UserRole } from '../../users/entities/user.entity';
+import {
+  UserModulePermissionKey,
+  UserModulePermissions,
+  UserRole,
+} from '../../users/entities/user.entity';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
+
+  private resolveStaffResource(
+    pathname: string,
+  ): UserModulePermissionKey | null {
+    const path = pathname.toLowerCase();
+
+    if (path.startsWith('/dashboard')) return 'dashboard';
+    if (path.startsWith('/properties')) return 'properties';
+    if (path.startsWith('/owners')) return 'owners';
+    if (path.startsWith('/interested')) return 'interested';
+    if (path.startsWith('/tenants')) return 'tenants';
+    if (path.startsWith('/leases')) return 'leases';
+    if (path.startsWith('/payments/document-templates')) return 'templates';
+    if (path.startsWith('/payments')) return 'payments';
+    if (path.startsWith('/invoices')) return 'invoices';
+    if (path.startsWith('/buyers')) return 'sales';
+    if (path.startsWith('/sales')) return 'sales';
+    if (path.startsWith('/reports')) return 'reports';
+    if (path.startsWith('/users')) return 'users';
+    if (path.startsWith('/templates')) return 'templates';
+
+    return null;
+  }
+
+  private staffHasAccess(
+    path: string,
+    permissions: UserModulePermissions | undefined,
+  ): boolean {
+    const resource = this.resolveStaffResource(path);
+    if (!resource) {
+      return true;
+    }
+
+    // Backward compatibility for existing staff users: no permissions means full
+    // staff access until the admin explicitly narrows it down.
+    if (!permissions || Object.keys(permissions).length === 0) {
+      return true;
+    }
+
+    return permissions[resource] === true;
+  }
 
   canActivate(context: ExecutionContext): boolean {
     // Check if endpoint is public
@@ -45,10 +90,24 @@ export class RolesGuard implements CanActivate {
       requiredRoles.includes(UserRole.ADMIN) &&
       !String(request.path ?? request.originalUrl ?? '').startsWith('/users')
     ) {
-      return true;
+      return this.staffHasAccess(
+        String(request.path ?? request.originalUrl ?? ''),
+        user.permissions,
+      );
     }
 
     // Check if user has one of the required roles
-    return requiredRoles.includes(user.role);
+    if (!requiredRoles.includes(user.role)) {
+      return false;
+    }
+
+    if (user.role === UserRole.STAFF) {
+      return this.staffHasAccess(
+        String(request.path ?? request.originalUrl ?? ''),
+        user.permissions,
+      );
+    }
+
+    return true;
   }
 }

@@ -18,29 +18,24 @@ import { z } from 'zod';
 export const createInterestedActivityZodSchema = z
   .object({
     type: z
-      .nativeEnum(InterestedActivityType)
+      .enum(InterestedActivityType)
       .describe('call|task|note|email|whatsapp|visit'),
     subject: z.string().max(200),
     body: z.string().optional(),
-    dueAt: z.string().date().optional().describe('Scheduled date (YYYY-MM-DD)'),
-    completedAt: z
-      .string()
+    dueAt: z.iso.date().optional().describe('Scheduled date (YYYY-MM-DD)'),
+    completedAt: z.iso
       .date()
       .optional()
       .describe('Completion date (YYYY-MM-DD)'),
     templateName: z.string().optional(),
     metadata: z.record(z.string(), z.unknown()).optional(),
-    propertyId: z
-      .string()
-      .uuid()
-      .optional()
-      .describe('UUID of related property'),
+    propertyId: z.uuid().optional().describe('UUID of related property'),
     markReserved: z.coerce
       .boolean()
       .optional()
       .describe('Automatically reserve the property for this prospect'),
     status: z
-      .nativeEnum(InterestedActivityStatus)
+      .enum(InterestedActivityStatus)
       .optional()
       .describe('pending|completed|cancelled'),
   })

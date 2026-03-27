@@ -37,6 +37,20 @@ export class LeaseContractTemplate {
   @Column({ name: 'template_body', type: 'text' })
   templateBody: string;
 
+  @Column({
+    name: 'template_format',
+    type: 'varchar',
+    length: 20,
+    default: 'plain_text',
+  })
+  templateFormat: 'plain_text' | 'html';
+
+  @Column({ name: 'source_file_name', length: 255, nullable: true })
+  sourceFileName: string | null;
+
+  @Column({ name: 'source_mime_type', length: 120, nullable: true })
+  sourceMimeType: string | null;
+
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
 

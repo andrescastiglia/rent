@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
-import { getNavigationForRole } from "@/config/navigation";
+import { getNavigationForUser } from "@/config/navigation";
 import { X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -21,7 +21,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
   if (!user) return null;
 
-  const navItems = getNavigationForRole(user.role);
+  const navItems = getNavigationForUser(user);
   const sidebarTransformClass = isOpen
     ? "translate-x-0"
     : "-translate-x-full lg:translate-x-0";

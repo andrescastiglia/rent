@@ -7,7 +7,6 @@ import { createTemplate } from '@/api/templates';
 import { Screen } from '@/components/screen';
 import { H1 } from '@/components/ui';
 import { TemplateForm } from '@/screens/template-form';
-import type { TemplateFormInput } from '@/screens/template-form';
 
 export default function NewTemplateScreen() {
   const router = useRouter();
@@ -37,7 +36,7 @@ export default function NewTemplateScreen() {
         submitting={mutation.isPending}
         testIDPrefix="templateCreate"
         onSubmit={async (payload) => {
-          await mutation.mutateAsync(payload as TemplateFormInput);
+          await mutation.mutateAsync(payload);
         }}
       />
     </Screen>

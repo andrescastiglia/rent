@@ -77,9 +77,7 @@ export default function InvoicesScreen() {
       </View>
 
       {isLoading ? <ActivityIndicator /> : null}
-      {error ? (
-        <Text style={styles.error}>{(error as Error).message}</Text>
-      ) : null}
+      {error ? <Text style={styles.error}>{error.message}</Text> : null}
 
       <View style={styles.list}>
         {filteredInvoices.map((invoice) => (

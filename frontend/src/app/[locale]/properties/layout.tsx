@@ -10,7 +10,10 @@ export default function PropertiesLayout({
 }) {
   return (
     <MainLayout>
-      <RoleGuard allowedRoles={["admin", "owner", "staff"]}>
+      <RoleGuard
+        allowedRoles={["admin", "owner", "staff"]}
+        requiredModule="properties"
+      >
         {children}
       </RoleGuard>
     </MainLayout>

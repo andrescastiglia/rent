@@ -46,6 +46,11 @@ function formatDateTime(value?: string | null): string {
   });
 }
 
+const getActivitySourceLabel = (item: PersonActivityItem): string =>
+  item.propertyName
+    ? `${item.sourceType} · ${item.propertyName}`
+    : item.sourceType;
+
 function periodicityLabel(value?: string): string {
   if (value === 'four_months') return 'Cada 4 meses';
   if (value === 'custom') return 'Personalizada';
@@ -193,9 +198,7 @@ function ActivitySection({
           <Text style={styles.itemTitle}>{item.personName}</Text>
           <Text style={styles.itemMeta}>{item.subject}</Text>
           {item.body ? <Text style={styles.itemMeta}>{item.body}</Text> : null}
-          <Text
-            style={styles.itemMeta}
-          >{`${item.sourceType}${item.propertyName ? ` · ${item.propertyName}` : ''}`}</Text>
+          <Text style={styles.itemMeta}>{getActivitySourceLabel(item)}</Text>
           <Text
             style={styles.itemMeta}
           >{`Vence: ${formatDateTime(item.dueAt)}`}</Text>
@@ -240,9 +243,7 @@ export default function DashboardScreen() {
       {loading ? (
         <Text style={styles.loadingText}>{t('common.loading')}</Text>
       ) : null}
-      {error ? (
-        <Text style={styles.error}>{(error as Error).message}</Text>
-      ) : null}
+      {error ? <Text style={styles.error}>{error.message}</Text> : null}
 
       {propertyPanel ? (
         <View style={styles.panelCard}>

@@ -15,21 +15,15 @@ const generateInvoiceZodSchema = z
       .boolean()
       .optional()
       .describe('Calculate and apply rent adjustment'),
-    periodStart: z
-      .string()
+    periodStart: z.iso
       .date()
       .optional()
       .describe('Custom period start (YYYY-MM-DD)'),
-    periodEnd: z
-      .string()
+    periodEnd: z.iso
       .date()
       .optional()
       .describe('Custom period end (YYYY-MM-DD)'),
-    dueDate: z
-      .string()
-      .date()
-      .optional()
-      .describe('Custom due date (YYYY-MM-DD)'),
+    dueDate: z.iso.date().optional().describe('Custom due date (YYYY-MM-DD)'),
   })
   .strict();
 

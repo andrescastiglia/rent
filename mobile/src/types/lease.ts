@@ -1,6 +1,6 @@
 import { Property } from './property';
 import { Tenant } from './tenant';
-import { InterestedProfile } from './interested';
+import { Buyer } from './buyer';
 
 export type LeaseStatus = 'DRAFT' | 'ACTIVE' | 'FINALIZED';
 export type ContractType = 'rental' | 'sale';
@@ -24,12 +24,14 @@ export type LateFeeType =
 export type AdjustmentType = 'fixed' | 'percentage' | 'inflation_index';
 export type InflationIndexType = 'icl' | 'ipc' | 'igp_m';
 export type LeaseRenewalAlertPeriodicity = 'monthly' | 'four_months' | 'custom';
+export type LeaseTemplateFormat = 'plain_text' | 'html';
 
 export interface LeaseTemplate {
   id: string;
   name: string;
   contractType: ContractType;
   templateBody: string;
+  templateFormat: LeaseTemplateFormat;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -46,7 +48,7 @@ export interface Lease {
   id: string;
   propertyId: string;
   tenantId?: string;
-  buyerProfileId?: string;
+  buyerId?: string;
   ownerId: string;
   templateId?: string;
   templateName?: string;
@@ -61,7 +63,9 @@ export interface Lease {
   status: LeaseStatus;
   terms?: string;
   draftContractText?: string;
+  draftContractFormat?: LeaseTemplateFormat;
   confirmedContractText?: string;
+  confirmedContractFormat?: LeaseTemplateFormat;
   confirmedAt?: string;
   previousLeaseId?: string;
   versionNumber?: number;
@@ -97,13 +101,13 @@ export interface Lease {
   // Expanded relations for UI convenience (in a real app, might be separate or included)
   property?: Property;
   tenant?: Tenant;
-  buyerProfile?: InterestedProfile;
+  buyer?: Buyer;
 }
 
 export interface CreateLeaseInput {
   propertyId: string;
   tenantId?: string;
-  buyerProfileId?: string;
+  buyerId?: string;
   ownerId?: string;
   templateId?: string;
   contractType: ContractType;

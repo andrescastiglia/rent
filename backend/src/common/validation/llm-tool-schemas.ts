@@ -1,5 +1,5 @@
 import { zodToJsonSchema } from 'zod-to-json-schema';
-import { ZodTypeAny } from 'zod';
+import type { ZodType } from 'zod';
 import { LoginDto } from '../../auth/dto/login.dto';
 import { RegisterDto } from '../../auth/dto/register.dto';
 import { ConfirmLeaseDraftDto } from '../../leases/dto/confirm-lease-draft.dto';
@@ -78,7 +78,7 @@ import { UpdateTenantDto } from '../../tenants/dto/update-tenant.dto';
 
 type ZodDtoClass = {
   name: string;
-  zodSchema: ZodTypeAny;
+  zodSchema: ZodType;
 };
 
 type ToolSchemaDefinition = {

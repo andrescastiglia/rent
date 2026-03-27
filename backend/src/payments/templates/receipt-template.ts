@@ -32,14 +32,14 @@ export function generateReceiptPdf(
       doc
         .fontSize(20)
         .font('Helvetica-Bold')
-        .text(await i18n.t('payment.title', { lang }), { align: 'center' })
+        .text(i18n.t('payment.title', { lang }), { align: 'center' })
         .moveDown();
 
       doc
         .fontSize(12)
         .font('Helvetica')
         .text(
-          `${await i18n.t('payment.receiptNumber', { lang })} ${receipt.receiptNumber}`,
+          `${i18n.t('payment.receiptNumber', { lang })} ${receipt.receiptNumber}`,
           { align: 'right' },
         )
         .moveDown(0.5);
@@ -47,7 +47,7 @@ export function generateReceiptPdf(
       doc
         .fontSize(10)
         .text(
-          `${await i18n.t('payment.issueDate', { lang })}: ${new Date(receipt.issuedAt).toLocaleDateString(lang)}`,
+          `${i18n.t('payment.issueDate', { lang })}: ${new Date(receipt.issuedAt).toLocaleDateString(lang)}`,
           { align: 'right' },
         )
         .moveDown(2);
@@ -59,17 +59,17 @@ export function generateReceiptPdf(
         doc
           .fontSize(14)
           .font('Helvetica-Bold')
-          .text(await i18n.t('payment.receivedFrom', { lang }))
+          .text(i18n.t('payment.receivedFrom', { lang }))
           .moveDown(0.5);
 
         doc
           .fontSize(11)
           .font('Helvetica')
           .text(
-            `${await i18n.t('payment.name', { lang })}: ${tenantUser.firstName || ''} ${tenantUser.lastName || ''}`,
+            `${i18n.t('payment.name', { lang })}: ${tenantUser.firstName || ''} ${tenantUser.lastName || ''}`,
           )
           .text(
-            `${await i18n.t('payment.email', { lang })}: ${tenantUser.email || ''}`,
+            `${i18n.t('payment.email', { lang })}: ${tenantUser.email || ''}`,
           )
           .moveDown(1.5);
       }

@@ -34,7 +34,7 @@ export default function InvoiceDetailScreen() {
       <H1>{t('invoices.invoiceDetails')}</H1>
       {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
       {query.error ? (
-        <Text style={styles.error}>{(query.error as Error).message}</Text>
+        <Text style={styles.error}>{query.error.message}</Text>
       ) : null}
       {!query.isLoading && !invoice ? (
         <Text>{t('invoices.notFound')}</Text>

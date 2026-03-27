@@ -144,13 +144,15 @@ export class OwnersService {
   }
 
   async create(dto: CreateOwnerDto, companyId: string): Promise<Owner> {
-    const normalizedEmail = dto.email.trim().toLowerCase();
-    const existingUser = await this.usersRepository.findOne({
-      where: { email: normalizedEmail, deletedAt: IsNull() },
-    });
+    const normalizedEmail = dto.email?.trim().toLowerCase() || null;
+    if (normalizedEmail) {
+      const existingUser = await this.usersRepository.findOne({
+        where: { email: normalizedEmail, deletedAt: IsNull() },
+      });
 
-    if (existingUser) {
-      throw new ConflictException('A user with this email already exists');
+      if (existingUser) {
+        throw new ConflictException('A user with this email already exists');
+      }
     }
 
     const password = dto.password?.trim() || randomBytes(16).toString('hex');
@@ -167,6 +169,7 @@ export class OwnersService {
         lastName: dto.lastName.trim(),
         phone: dto.phone?.trim() || undefined,
         isActive: true,
+        permissions: {},
       });
 
       const savedUser = await manager.getRepository(User).save(user);
@@ -218,15 +221,20 @@ export class OwnersService {
   ): Promise<void> {
     if (dto.email !== undefined) {
       const normalizedEmail = dto.email.trim().toLowerCase();
-      if (normalizedEmail !== owner.user.email) {
-        const existingUser = await this.usersRepository.findOne({
-          where: { email: normalizedEmail, deletedAt: IsNull() },
-        });
-        if (existingUser && existingUser.id !== owner.userId) {
-          throw new ConflictException('A user with this email already exists');
+      const nextEmail = normalizedEmail.length > 0 ? normalizedEmail : null;
+      if (nextEmail !== owner.user.email) {
+        if (nextEmail) {
+          const existingUser = await this.usersRepository.findOne({
+            where: { email: nextEmail, deletedAt: IsNull() },
+          });
+          if (existingUser && existingUser.id !== owner.userId) {
+            throw new ConflictException(
+              'A user with this email already exists',
+            );
+          }
         }
+        owner.user.email = nextEmail;
       }
-      owner.user.email = normalizedEmail;
     }
 
     this.assignTrimmedIfDefined(owner.user, 'firstName', dto.firstName);

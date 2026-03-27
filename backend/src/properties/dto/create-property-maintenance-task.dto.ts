@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 const createPropertyMaintenanceTaskZodSchema = z
   .object({
-    scheduledAt: z.string().date().optional(),
+    scheduledAt: z.iso.date().optional(),
     title: z.string().min(1),
     notes: z.string().optional(),
   })

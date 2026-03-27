@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import DOMPurify from "dompurify";
 import Link from "next/link";
 import { ArrowLeft, Info, Loader2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
@@ -20,6 +21,7 @@ import {
 type TemplateForm = {
   name: string;
   templateBody: string;
+  templateFormat: "plain_text" | "html";
   isActive: boolean;
   isDefault: boolean;
 };
@@ -30,11 +32,172 @@ type TemplateEditorContentProps = {
   scope: TemplateScope;
   variableGroups: Record<string, string[]>;
   saving: boolean;
+  importingDocx: boolean;
+  editorRef: React.RefObject<HTMLDivElement | null>;
   t: (key: string) => string;
   tc: (key: string) => string;
   onFormChange: React.Dispatch<React.SetStateAction<TemplateForm>>;
   onInsertVariable: (variableKey: string) => void;
+  onRichCommand: (command: string) => void;
+  onImportDocx: (file: File) => void;
   onSave: () => void;
+};
+
+const isNodeInsideEditor = (
+  editor: HTMLDivElement,
+  node: Node | null,
+): boolean => node !== null && (node === editor || editor.contains(node));
+
+const getEditorSelection = (editor: HTMLDivElement): Selection | null => {
+  const selection = globalThis.getSelection();
+  if (!selection) {
+    return null;
+  }
+
+  if (
+    selection.rangeCount === 0 ||
+    !isNodeInsideEditor(editor, selection.getRangeAt(0).commonAncestorContainer)
+  ) {
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  return selection;
+};
+
+const syncEditorBody = (
+  editor: HTMLDivElement | null,
+  onFormChange: React.Dispatch<React.SetStateAction<TemplateForm>>,
+) => {
+  onFormChange((prev) => ({
+    ...prev,
+    templateBody: editor?.innerHTML ?? prev.templateBody,
+  }));
+};
+
+const moveCaretToEnd = (selection: Selection, element: HTMLElement) => {
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  range.collapse(false);
+  selection.removeAllRanges();
+  selection.addRange(range);
+};
+
+const insertTextAtCursor = (editor: HTMLDivElement, text: string) => {
+  const selection = getEditorSelection(editor);
+  if (!selection || selection.rangeCount === 0) {
+    return false;
+  }
+
+  const range = selection.getRangeAt(0);
+  range.deleteContents();
+  const textNode = document.createTextNode(text);
+  range.insertNode(textNode);
+
+  range.setStartAfter(textNode);
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
+  return true;
+};
+
+const wrapSelectionWithTag = (editor: HTMLDivElement, tagName: string) => {
+  const selection = getEditorSelection(editor);
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+    return false;
+  }
+
+  const range = selection.getRangeAt(0);
+  const fragment = range.extractContents();
+  const wrapper = document.createElement(tagName);
+  wrapper.append(fragment);
+  range.insertNode(wrapper);
+  moveCaretToEnd(selection, wrapper);
+  return true;
+};
+
+const findCurrentBlock = (
+  editor: HTMLDivElement,
+  node: Node | null,
+): HTMLElement | null => {
+  let current: Node | null = node;
+  while (current && current !== editor) {
+    if (
+      current instanceof HTMLElement &&
+      ["P", "DIV", "H1", "H2", "H3", "BLOCKQUOTE", "LI"].includes(
+        current.tagName,
+      )
+    ) {
+      return current;
+    }
+    current = current.parentNode;
+  }
+  return null;
+};
+
+const replaceCurrentBlockTag = (editor: HTMLDivElement, tagName: string) => {
+  const selection = getEditorSelection(editor);
+  if (!selection || selection.rangeCount === 0) {
+    return false;
+  }
+
+  const block = findCurrentBlock(
+    editor,
+    selection.getRangeAt(0).commonAncestorContainer,
+  );
+  if (!block || block.tagName.toLowerCase() === tagName) {
+    return block !== null;
+  }
+
+  const replacement = document.createElement(tagName);
+  replacement.innerHTML = block.innerHTML || "<br>";
+  block.replaceWith(replacement);
+  moveCaretToEnd(selection, replacement);
+  return true;
+};
+
+const insertUnorderedList = (editor: HTMLDivElement) => {
+  const selection = getEditorSelection(editor);
+  if (!selection || selection.rangeCount === 0) {
+    return false;
+  }
+
+  const range = selection.getRangeAt(0);
+  const list = document.createElement("ul");
+  const item = document.createElement("li");
+
+  if (range.collapsed) {
+    item.append(document.createElement("br"));
+  } else {
+    item.append(range.extractContents());
+    if (!item.textContent?.trim() && item.children.length === 0) {
+      item.append(document.createElement("br"));
+    }
+  }
+
+  list.append(item);
+  range.insertNode(list);
+  moveCaretToEnd(selection, item);
+  return true;
+};
+
+const applyRichCommand = (editor: HTMLDivElement, command: string) => {
+  if (command === "bold") {
+    return wrapSelectionWithTag(editor, "strong");
+  }
+  if (command === "italic") {
+    return wrapSelectionWithTag(editor, "em");
+  }
+  if (command === "insertUnorderedList") {
+    return insertUnorderedList(editor);
+  }
+  if (command.startsWith("formatBlock:")) {
+    return replaceCurrentBlockTag(editor, command.split(":")[1] ?? "p");
+  }
+  return false;
 };
 
 function TemplateEditorContent({
@@ -43,10 +206,14 @@ function TemplateEditorContent({
   scope,
   variableGroups,
   saving,
+  importingDocx,
+  editorRef,
   t,
   tc,
   onFormChange,
   onInsertVariable,
+  onRichCommand,
+  onImportDocx,
   onSave,
 }: Readonly<TemplateEditorContentProps>) {
   if (notFound) {
@@ -71,15 +238,130 @@ function TemplateEditorContent({
         className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
       />
 
-      <textarea
-        rows={16}
-        value={form.templateBody}
-        onChange={(e) =>
-          onFormChange((prev) => ({ ...prev, templateBody: e.target.value }))
-        }
-        placeholder={t("bodyPlaceholder")}
-        className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm font-mono"
-      />
+      {isContractScope(scope) ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/40">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                onFormChange((prev) => ({
+                  ...prev,
+                  templateFormat: "plain_text",
+                }))
+              }
+              className={`rounded-full px-3 py-1 text-sm ${
+                form.templateFormat === "plain_text"
+                  ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
+                  : "border border-slate-300 text-slate-700 dark:border-slate-700 dark:text-slate-200"
+              }`}
+            >
+              Texto plano
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                onFormChange((prev) => ({
+                  ...prev,
+                  templateFormat: "html",
+                }))
+              }
+              className={`rounded-full px-3 py-1 text-sm ${
+                form.templateFormat === "html"
+                  ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
+                  : "border border-slate-300 text-slate-700 dark:border-slate-700 dark:text-slate-200"
+              }`}
+            >
+              Formato enriquecido
+            </button>
+          </div>
+
+          <label className="inline-flex cursor-pointer items-center rounded-full border border-slate-300 px-3 py-1 text-sm text-slate-700 dark:border-slate-700 dark:text-slate-200">
+            <input
+              type="file"
+              accept=".docx"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) {
+                  onImportDocx(file);
+                }
+                event.currentTarget.value = "";
+              }}
+            />
+            {importingDocx ? "Importando DOCX..." : "Cargar DOCX"}
+          </label>
+        </div>
+      ) : null}
+
+      {form.templateFormat === "html" && isContractScope(scope) ? (
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => onRichCommand("bold")}
+              className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700"
+            >
+              Negrita
+            </button>
+            <button
+              type="button"
+              onClick={() => onRichCommand("italic")}
+              className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700"
+            >
+              Cursiva
+            </button>
+            <button
+              type="button"
+              onClick={() => onRichCommand("insertUnorderedList")}
+              className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700"
+            >
+              Lista
+            </button>
+            <button
+              type="button"
+              onClick={() => onRichCommand("formatBlock:p")}
+              className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700"
+            >
+              Parrafo
+            </button>
+          </div>
+
+          <div
+            ref={editorRef}
+            contentEditable
+            suppressContentEditableWarning
+            onInput={(event) =>
+              onFormChange((prev) => ({
+                ...prev,
+                templateBody: (event.target as HTMLDivElement).innerHTML,
+              }))
+            }
+            className="min-h-[360px] rounded-md border border-gray-300 bg-white p-3 text-sm text-slate-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+          />
+
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/40">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+              Vista previa HTML
+            </p>
+            <div
+              className="prose prose-sm max-w-none dark:prose-invert"
+              dangerouslySetInnerHTML={{
+                __html: DOMPurify.sanitize(form.templateBody || "<p></p>"),
+              }}
+            />
+          </div>
+        </div>
+      ) : (
+        <textarea
+          rows={16}
+          value={form.templateBody}
+          onChange={(e) =>
+            onFormChange((prev) => ({ ...prev, templateBody: e.target.value }))
+          }
+          placeholder={t("bodyPlaceholder")}
+          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm font-mono"
+        />
+      )}
 
       <div className="rounded-md border border-blue-200 bg-blue-50/80 dark:border-blue-900 dark:bg-blue-900/20 p-3">
         <div className="flex items-start gap-2 mb-2">
@@ -183,8 +465,10 @@ export default function TemplateEditorPage() {
   );
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [importingDocx, setImportingDocx] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [form, setForm] = useState<TemplateForm>(emptyTemplateForm);
+  const editorRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setScope(parseTemplateScope(searchParams.get("scope")));
@@ -214,6 +498,7 @@ export default function TemplateEditorPage() {
           setForm({
             name: target.name,
             templateBody: target.templateBody,
+            templateFormat: target.templateFormat ?? "plain_text",
             isActive: target.isActive,
             isDefault: false,
           });
@@ -231,6 +516,7 @@ export default function TemplateEditorPage() {
         setForm({
           name: target.name,
           templateBody: target.templateBody,
+          templateFormat: "plain_text",
           isActive: target.isActive,
           isDefault: target.isDefault,
         });
@@ -262,14 +548,66 @@ export default function TemplateEditorPage() {
 
   const isEditing = !!templateId;
 
+  useEffect(() => {
+    if (form.templateFormat !== "html" || !editorRef.current) {
+      return;
+    }
+
+    if (editorRef.current.innerHTML !== form.templateBody) {
+      editorRef.current.innerHTML = form.templateBody || "<p></p>";
+    }
+  }, [form.templateBody, form.templateFormat]);
+
   const handleInsertVariable = (variableKey: string) => {
     const token = `{{${variableKey}}}`;
+    if (form.templateFormat === "html" && editorRef.current) {
+      editorRef.current.focus();
+      insertTextAtCursor(editorRef.current, token);
+      syncEditorBody(editorRef.current, setForm);
+      return;
+    }
+
     setForm((prev) => ({
       ...prev,
       templateBody: prev.templateBody
         ? `${prev.templateBody}\n${token}`
         : token,
     }));
+  };
+
+  const handleRichCommand = (command: string) => {
+    if (!editorRef.current) return;
+
+    editorRef.current.focus();
+    applyRichCommand(editorRef.current, command);
+    syncEditorBody(editorRef.current, setForm);
+  };
+
+  const handleImportDocx = async (file: File) => {
+    if (!isContractScope(scope)) {
+      return;
+    }
+
+    try {
+      setImportingDocx(true);
+      const imported = await leasesApi.importTemplateDocx(
+        file,
+        scopeToContractType[scope],
+        form.name,
+      );
+
+      setForm((prev) => ({
+        ...prev,
+        name: imported.name ?? prev.name,
+        templateBody: imported.templateBody ?? prev.templateBody,
+        templateFormat: imported.templateFormat ?? "html",
+      }));
+    } catch (error) {
+      console.error("Failed to import DOCX template", error);
+      alert(tc("error"));
+    } finally {
+      setImportingDocx(false);
+    }
   };
 
   const handleSave = async () => {
@@ -281,18 +619,24 @@ export default function TemplateEditorPage() {
     try {
       if (isContractScope(scope)) {
         const contractType = scopeToContractType[scope];
+        const normalizedBody =
+          form.templateFormat === "html"
+            ? DOMPurify.sanitize(form.templateBody)
+            : form.templateBody;
         if (templateId) {
           await leasesApi.updateTemplate(templateId, {
             contractType,
             name: form.name.trim(),
-            templateBody: form.templateBody,
+            templateBody: normalizedBody,
+            templateFormat: form.templateFormat,
             isActive: form.isActive,
           });
         } else {
           await leasesApi.createTemplate({
             contractType,
             name: form.name.trim(),
-            templateBody: form.templateBody,
+            templateBody: normalizedBody,
+            templateFormat: form.templateFormat,
             isActive: form.isActive,
           });
         }
@@ -373,10 +717,16 @@ export default function TemplateEditorPage() {
           scope={scope}
           variableGroups={variableGroups}
           saving={saving}
+          importingDocx={importingDocx}
+          editorRef={editorRef}
           t={t}
           tc={tc}
           onFormChange={setForm}
           onInsertVariable={handleInsertVariable}
+          onRichCommand={handleRichCommand}
+          onImportDocx={(file) => {
+            void handleImportDocx(file);
+          }}
           onSave={handleSave}
         />
       )}

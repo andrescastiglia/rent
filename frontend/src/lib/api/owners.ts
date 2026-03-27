@@ -61,7 +61,7 @@ type BackendOwner = Partial<Owner> & {
   user?: {
     firstName?: string;
     lastName?: string;
-    email?: string;
+    email?: string | null;
     phone?: string;
   } | null;
 };
@@ -72,7 +72,7 @@ const mapOwner = (raw: BackendOwner): Owner => ({
   companyId: raw.companyId ?? "",
   firstName: raw.firstName ?? raw.user?.firstName ?? "",
   lastName: raw.lastName ?? raw.user?.lastName ?? "",
-  email: raw.email ?? raw.user?.email ?? "",
+  email: raw.email ?? raw.user?.email ?? null,
   phone: raw.phone ?? raw.user?.phone ?? undefined,
   taxId: raw.taxId ?? undefined,
   taxIdType: raw.taxIdType ?? undefined,
@@ -157,7 +157,7 @@ export const ownersApi = {
         companyId: "company-1",
         firstName: data.firstName,
         lastName: data.lastName,
-        email: data.email,
+        email: data.email ?? null,
         phone: data.phone,
         taxId: data.taxId,
         taxIdType: data.taxIdType ?? "CUIT",

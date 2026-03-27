@@ -5,6 +5,7 @@ import {
   Property,
   PropertyOperation,
 } from '../properties/entities/property.entity';
+import { Company } from '../companies/entities/company.entity';
 import {
   ContractType,
   Lease,
@@ -97,6 +98,8 @@ export class DashboardService {
   constructor(
     @InjectRepository(Property)
     private readonly propertiesRepository: Repository<Property>,
+    @InjectRepository(Company)
+    private readonly companiesRepository: Repository<Company>,
     @InjectRepository(Lease)
     private readonly leasesRepository: Repository<Lease>,
     @InjectRepository(User)
@@ -270,15 +273,9 @@ export class DashboardService {
     companyId: string,
     user: RequestUser,
   ): Promise<DashboardOperationsOverviewDto> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    endOfMonth.setHours(23, 59, 59, 999);
-
-    const nextFourMonths = new Date(today);
-    nextFourMonths.setMonth(nextFourMonths.getMonth() + 4);
-    nextFourMonths.setHours(23, 59, 59, 999);
+    const timezone = await this.getCompanyTimezone(companyId);
+    const timeline = this.buildCompanyTimeline(timezone);
+    const today = timeline.todayDate;
 
     const totalPropertiesResult = await this.buildScopedPropertiesQuery(
       companyId,
@@ -338,28 +335,29 @@ export class DashboardService {
     const currentRentals = rentalLeases.filter(
       (lease) =>
         lease.status === LeaseStatus.ACTIVE &&
-        (!lease.endDate || this.normalizeDate(lease.endDate) >= today),
+        (!lease.endDate ||
+          this.normalizeDateOnly(lease.endDate) >= timeline.todayIso),
     );
 
     const expiredRentals = rentalLeases.filter((lease) => {
       if (!lease.endDate) {
         return lease.status === LeaseStatus.FINALIZED;
       }
-      return this.normalizeDate(lease.endDate) < today;
+      return this.normalizeDateOnly(lease.endDate) < timeline.todayIso;
     });
 
     const expiringThisMonth = currentRentals.filter(
       (lease) =>
         lease.endDate &&
-        this.normalizeDate(lease.endDate) >= today &&
-        this.normalizeDate(lease.endDate) <= endOfMonth,
+        this.normalizeDateOnly(lease.endDate) >= timeline.todayIso &&
+        this.normalizeDateOnly(lease.endDate) <= timeline.endOfMonthIso,
     );
 
     const expiringNextFourMonths = currentRentals.filter(
       (lease) =>
         lease.endDate &&
-        this.normalizeDate(lease.endDate) > endOfMonth &&
-        this.normalizeDate(lease.endDate) <= nextFourMonths,
+        this.normalizeDateOnly(lease.endDate) > timeline.endOfMonthIso &&
+        this.normalizeDateOnly(lease.endDate) <= timeline.nextFourMonthsIso,
     );
 
     const paymentsScopeQuery = this.paymentsRepository
@@ -750,7 +748,8 @@ export class DashboardService {
           personId: pendingUser.id,
           personName:
             `${pendingUser.firstName ?? ''} ${pendingUser.lastName ?? ''}`.trim() ||
-            pendingUser.email,
+            pendingUser.email ||
+            'Sin email',
           subject: 'Aprobacion de registro pendiente',
           body: `Rol ${pendingUser.role}. Usuario ${pendingUser.email}`,
           status: OwnerActivityStatus.PENDING,
@@ -995,6 +994,91 @@ export class DashboardService {
       return new Date();
     }
     return date;
+  }
+
+  private async getCompanyTimezone(companyId: string): Promise<string> {
+    const company = await this.companiesRepository.findOne({
+      where: { id: companyId },
+      select: ['id', 'settings'],
+    });
+
+    const timezone = company?.settings?.timezone;
+    return typeof timezone === 'string' && timezone.trim().length > 0
+      ? timezone.trim()
+      : 'America/Argentina/Buenos_Aires';
+  }
+
+  private buildCompanyTimeline(timezone: string): {
+    todayIso: string;
+    endOfMonthIso: string;
+    nextFourMonthsIso: string;
+    todayDate: Date;
+  } {
+    const zonedNow = this.getDatePartsInTimezone(new Date(), timezone);
+    const lastDayOfMonth = new Date(
+      Date.UTC(zonedNow.year, zonedNow.month, 0),
+    ).getUTCDate();
+    const fourMonthsAhead = new Date(
+      Date.UTC(zonedNow.year, zonedNow.month - 1, zonedNow.day),
+    );
+    fourMonthsAhead.setUTCMonth(fourMonthsAhead.getUTCMonth() + 4);
+
+    return {
+      todayIso: this.toIsoDateString(
+        zonedNow.year,
+        zonedNow.month,
+        zonedNow.day,
+      ),
+      endOfMonthIso: this.toIsoDateString(
+        zonedNow.year,
+        zonedNow.month,
+        lastDayOfMonth,
+      ),
+      nextFourMonthsIso: this.toIsoDateString(
+        fourMonthsAhead.getUTCFullYear(),
+        fourMonthsAhead.getUTCMonth() + 1,
+        fourMonthsAhead.getUTCDate(),
+      ),
+      todayDate: new Date(
+        Date.UTC(zonedNow.year, zonedNow.month - 1, zonedNow.day),
+      ),
+    };
+  }
+
+  private getDatePartsInTimezone(
+    value: Date,
+    timezone: string,
+  ): { year: number; month: number; day: number } {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const parts = formatter.formatToParts(value);
+
+    const year = Number(parts.find((part) => part.type === 'year')?.value);
+    const month = Number(parts.find((part) => part.type === 'month')?.value);
+    const day = Number(parts.find((part) => part.type === 'day')?.value);
+
+    return { year, month, day };
+  }
+
+  private toIsoDateString(year: number, month: number, day: number): string {
+    return `${year.toString().padStart(4, '0')}-${month
+      .toString()
+      .padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+  }
+
+  private normalizeDateOnly(value: Date | string): string {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        return trimmed;
+      }
+    }
+
+    return this.normalizeDate(value).toISOString().slice(0, 10);
   }
 
   private buildOwnerActivityQuery(

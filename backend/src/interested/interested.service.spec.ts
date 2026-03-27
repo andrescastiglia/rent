@@ -27,6 +27,7 @@ import { SaleAgreement } from '../sales/entities/sale-agreement.entity';
 import { SaleFolder } from '../sales/entities/sale-folder.entity';
 import { I18nService } from 'nestjs-i18n';
 import { PropertyOperationState } from '../properties/entities/property.entity';
+import { Buyer } from '../buyers/entities/buyer.entity';
 import * as bcrypt from 'bcrypt';
 
 describe('InterestedService', () => {
@@ -91,6 +92,10 @@ describe('InterestedService', () => {
         },
         {
           provide: getRepositoryToken(Tenant),
+          useValue: createMockRepository(),
+        },
+        {
+          provide: getRepositoryToken(Buyer),
           useValue: createMockRepository(),
         },
         {
@@ -777,18 +782,53 @@ describe('InterestedService', () => {
       firstName: 'Ana',
       lastName: 'Diaz',
     });
-    const folderRepo = (service as any).saleFoldersRepository as MockRepository;
-    folderRepo.findOne!.mockResolvedValue({
-      id: 'folder-1',
-      companyId: 'company-1',
-    });
-    const agreementsRepo = (service as any)
-      .saleAgreementsRepository as MockRepository;
-    agreementsRepo.create!.mockImplementation((data) => data);
-    agreementsRepo.save!.mockResolvedValue({ id: 'agr-1' });
-    interestedRepository.save!.mockResolvedValue({ id: 'int-1' });
-    stageHistoryRepository.create!.mockImplementation((data) => data);
-    stageHistoryRepository.save!.mockResolvedValue({ id: 'hist-1' } as any);
+    const usersRepo = (service as any).usersRepository as MockRepository;
+    usersRepo.findOne!.mockResolvedValue(null);
+
+    jest.spyOn(bcrypt, 'genSalt').mockResolvedValue('salt' as never);
+    jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashed' as never);
+
+    const userRepo = {
+      create: jest.fn((data) => data),
+      save: jest.fn().mockResolvedValue({ id: 'user-1' }),
+    };
+    const buyerRepo = {
+      create: jest.fn((data) => data),
+      save: jest.fn().mockResolvedValue({ id: 'buyer-1' }),
+    };
+    const folderRepo = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'folder-1',
+        companyId: 'company-1',
+      }),
+    };
+    const agreementsRepo = {
+      create: jest.fn((data) => data),
+      save: jest.fn().mockResolvedValue({ id: 'agr-1' }),
+    };
+    const profileRepo = { save: jest.fn().mockResolvedValue({ id: 'int-1' }) };
+    const historyRepo = {
+      create: jest.fn((data) => data),
+      save: jest.fn().mockResolvedValue({ id: 'hist-1' }),
+    };
+    const activityRepo = {
+      create: jest.fn((data) => data),
+      save: jest.fn().mockResolvedValue({ id: 'activity-1' }),
+    };
+    dataSource.transaction.mockImplementation(async (cb) =>
+      cb({
+        getRepository: (entity: any) => {
+          if (entity === User) return userRepo;
+          if (entity === Buyer) return buyerRepo;
+          if (entity === SaleFolder) return folderRepo;
+          if (entity === SaleAgreement) return agreementsRepo;
+          if (entity === InterestedProfile) return profileRepo;
+          if (entity === InterestedStageHistory) return historyRepo;
+          if (entity === InterestedActivity) return activityRepo;
+          return { create: jest.fn(), save: jest.fn(), findOne: jest.fn() };
+        },
+      }),
+    );
 
     const result = await service.convertToBuyer(
       'int-1',
@@ -802,8 +842,9 @@ describe('InterestedService', () => {
       { id: 'user-1', role: 'admin', companyId: 'company-1' },
     );
 
+    expect(result.buyer).toEqual({ id: 'buyer-1' });
     expect(result.agreement).toEqual({ id: 'agr-1' });
-    expect(stageHistoryRepository.save).toHaveBeenCalled();
+    expect(historyRepo.save).toHaveBeenCalled();
   });
 
   it('should compute metrics summary and activity by agent', async () => {
@@ -980,12 +1021,46 @@ describe('InterestedService', () => {
       convertedToSaleAgreementId: null,
       phone: '1',
     });
-    const folderRepo = (service as any).saleFoldersRepository as MockRepository;
-    folderRepo.findOne!.mockResolvedValue(null);
+    const usersRepo = (service as any).usersRepository as MockRepository;
+    usersRepo.findOne!.mockResolvedValue(null);
+    jest.spyOn(bcrypt, 'genSalt').mockResolvedValue('salt' as never);
+    jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashed' as never);
+
+    dataSource.transaction.mockImplementation(async (cb) =>
+      cb({
+        getRepository: (entity: any) => {
+          if (entity === User) {
+            return {
+              create: jest.fn((data) => data),
+              save: jest.fn().mockResolvedValue({ id: 'user-2' }),
+            };
+          }
+          if (entity === Buyer) {
+            return {
+              create: jest.fn((data) => data),
+              save: jest.fn().mockResolvedValue({ id: 'buyer-2' }),
+            };
+          }
+          if (entity === SaleFolder) {
+            return {
+              findOne: jest.fn().mockResolvedValue(null),
+            };
+          }
+          return { create: jest.fn(), save: jest.fn(), findOne: jest.fn() };
+        },
+      }),
+    );
+
     await expect(
       service.convertToBuyer(
         'int-2',
-        { folderId: 'missing', totalAmount: 1 } as any,
+        {
+          folderId: 'missing',
+          totalAmount: 1,
+          installmentAmount: 1,
+          installmentCount: 1,
+          startDate: '2025-01-01',
+        } as any,
         { id: 'admin-1', role: 'admin', companyId: 'company-1' },
       ),
     ).rejects.toThrow('Sale folder not found');

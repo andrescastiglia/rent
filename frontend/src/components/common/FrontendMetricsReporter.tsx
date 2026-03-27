@@ -22,12 +22,15 @@ export function FrontendMetricsReporter() {
       reportClientError("unhandled_rejection", getCurrentPath());
     };
 
-    window.addEventListener("error", onError);
-    window.addEventListener("unhandledrejection", onUnhandledRejection);
+    globalThis.addEventListener("error", onError);
+    globalThis.addEventListener("unhandledrejection", onUnhandledRejection);
 
     return () => {
-      window.removeEventListener("error", onError);
-      window.removeEventListener("unhandledrejection", onUnhandledRejection);
+      globalThis.removeEventListener("error", onError);
+      globalThis.removeEventListener(
+        "unhandledrejection",
+        onUnhandledRejection,
+      );
     };
   }, []);
 

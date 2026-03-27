@@ -27,7 +27,7 @@ export const createInterestedProfileZodSchema = z
     firstName: z.string().optional(),
     lastName: z.string().optional(),
     phone: z.string().min(1),
-    email: z.string().email().optional(),
+    email: z.email().optional(),
     peopleCount: z.coerce
       .number()
       .int()
@@ -56,26 +56,26 @@ export const createInterestedProfileZodSchema = z
     preferredCity: z.string().optional(),
     desiredFeatures: z.array(z.string()).optional(),
     propertyTypePreference: z
-      .nativeEnum(InterestedPropertyType)
+      .enum(InterestedPropertyType)
       .optional()
       .describe(
         'apartment|house|commercial|office|warehouse|land|parking|other',
       ),
     operation: z
-      .nativeEnum(InterestedOperation)
+      .enum(InterestedOperation)
       .optional()
       .describe('rent|sale (deprecated, use operations)'),
     operations: z
-      .array(z.nativeEnum(InterestedOperation))
+      .array(z.enum(InterestedOperation))
       .min(1)
       .optional()
       .describe('Array of: rent|sale — interested operation types'),
     status: z
-      .nativeEnum(InterestedStatus)
+      .enum(InterestedStatus)
       .optional()
       .describe('interested|tenant|buyer — pipeline status'),
     qualificationLevel: z
-      .nativeEnum(InterestedQualificationLevel)
+      .enum(InterestedQualificationLevel)
       .optional()
       .describe('mql|sql|rejected — lead qualification'),
     qualificationNotes: z.string().optional(),
@@ -84,7 +84,6 @@ export const createInterestedProfileZodSchema = z
       .optional()
       .describe('Lead source (e.g. website, referral, portal)'),
     assignedToUserId: z
-      .string()
       .uuid()
       .optional()
       .describe('UUID of staff user assigned to this lead'),

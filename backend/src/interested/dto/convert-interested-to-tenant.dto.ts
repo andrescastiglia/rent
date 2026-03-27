@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 const convertInterestedToTenantZodSchema = z
   .object({
-    email: z.string().email().optional(),
+    email: z.email().optional(),
     password: z.string().min(8).optional(),
     dni: z
       .string()

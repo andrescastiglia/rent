@@ -19,6 +19,7 @@ import Link from "next/link";
 import { formatMoneyByCode } from "@/lib/format-money";
 import { Lease } from "@/types/lease";
 import { Property } from "@/types/property";
+import { normalizeSearchText } from "@/lib/search";
 
 const activityTypeLabels: Record<PaymentActivityType, string> = {
   monthly: "Mensual",
@@ -116,7 +117,7 @@ export default function PaymentsPage() {
   }, [loadPayments, authLoading]);
 
   const filteredPayments = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
+    const term = normalizeSearchText(searchTerm);
     if (!term) {
       return payments;
     }
@@ -129,10 +130,8 @@ export default function PaymentsPage() {
         payment.reference ?? "",
         payment.receipt?.receiptNumber ?? "",
         activityTypeLabels[payment.activityType] ?? payment.activityType,
-      ]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(term);
+      ].join(" ");
+      return normalizeSearchText(haystack).includes(term);
     });
   }, [payments, searchTerm]);
 
@@ -142,6 +141,28 @@ export default function PaymentsPage() {
     }
     return leases.filter((lease) => lease.propertyId === propertyFilter);
   }, [leases, propertyFilter]);
+  const activeLeaseMatches = useMemo(() => {
+    const term = normalizeSearchText(searchTerm);
+    if (!term) {
+      return [];
+    }
+
+    return leases
+      .filter((lease) => lease.status === "ACTIVE")
+      .filter((lease) =>
+        propertyFilter ? lease.propertyId === propertyFilter : true,
+      )
+      .filter((lease) =>
+        normalizeSearchText(
+          [
+            lease.tenant?.firstName ?? "",
+            lease.tenant?.lastName ?? "",
+            lease.property?.name ?? "",
+          ].join(" "),
+        ).includes(term),
+      )
+      .slice(0, 8);
+  }, [leases, propertyFilter, searchTerm]);
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-8">
@@ -298,6 +319,51 @@ export default function PaymentsPage() {
               </p>
             </div>
           </div>
+
+          {activeLeaseMatches.length > 0 ? (
+            <div className="rounded-3xl border border-sky-200 bg-sky-50 p-6 shadow-sm dark:border-sky-900 dark:bg-sky-950/20">
+              <div className="mb-4">
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                  Contratos encontrados para cobrar
+                </h2>
+                <p className="text-sm text-slate-600 dark:text-slate-300">
+                  Resultado rapido por apellido para registrar un pago con la
+                  menor cantidad de pasos posible.
+                </p>
+              </div>
+
+              <div className="grid gap-3 lg:grid-cols-2">
+                {activeLeaseMatches.map((lease) => (
+                  <div
+                    key={lease.id}
+                    className="rounded-2xl border border-sky-200 bg-white p-4 dark:border-sky-900/40 dark:bg-slate-900"
+                  >
+                    <p className="font-medium text-slate-900 dark:text-white">
+                      {`${lease.tenant?.firstName ?? ""} ${lease.tenant?.lastName ?? ""}`.trim() ||
+                        "Sin inquilino"}
+                    </p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      {lease.property?.name ?? "Propiedad sin nombre"}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-3">
+                      <Link
+                        href={`/${locale}/leases/${lease.id}`}
+                        className="text-sm text-slate-700 hover:underline dark:text-slate-200"
+                      >
+                        Ver ficha
+                      </Link>
+                      <Link
+                        href={`/${locale}/payments/new?leaseId=${lease.id}`}
+                        className="text-sm font-medium text-blue-600 hover:underline"
+                      >
+                        Registrar pago directo
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="border-b border-slate-200 px-6 py-4 dark:border-slate-800">

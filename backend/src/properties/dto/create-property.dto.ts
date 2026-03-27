@@ -22,16 +22,12 @@ import { z } from 'zod';
 
 export const createPropertyZodSchema = z
   .object({
-    companyId: z.string().uuid().optional().describe('UUID of the company'),
-    ownerId: z
-      .string()
-      .uuid()
-      .optional()
-      .describe('UUID of the property owner'),
+    companyId: z.uuid().optional().describe('UUID of the company'),
+    ownerId: z.uuid().optional().describe('UUID of the property owner'),
     name: z.string().min(1),
     ownerWhatsapp: z.string().optional(),
     propertyType: z
-      .nativeEnum(PropertyType)
+      .enum(PropertyType)
       .describe(
         'apartment|house|commercial|office|warehouse|land|parking|other',
       ),
@@ -69,12 +65,12 @@ export const createPropertyZodSchema = z
       .optional()
       .describe('Currency code for sale price (e.g. USD, ARS)'),
     operations: z
-      .array(z.nativeEnum(PropertyOperation))
+      .array(z.enum(PropertyOperation))
       .min(1)
       .optional()
       .describe('Array of: rent|sale — allowed operation types'),
     operationState: z
-      .nativeEnum(PropertyOperationState)
+      .enum(PropertyOperationState)
       .optional()
       .describe('available|rented|reserved|sold'),
     allowsPets: z.coerce.boolean().optional(),

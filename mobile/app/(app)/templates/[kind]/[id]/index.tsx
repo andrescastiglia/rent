@@ -14,6 +14,92 @@ import { AppButton, H1 } from '@/components/ui';
 const isTemplateKind = (value: string): value is TemplateKind =>
   value === 'lease' || value === 'payment';
 
+const requireTemplateKind = (kind: TemplateKind | null): TemplateKind => {
+  if (!kind) {
+    throw new Error('Invalid template kind');
+  }
+
+  return kind;
+};
+
+const getTemplateKindDescription = (
+  kind: TemplateKind,
+  t: ReturnType<typeof useTranslation>['t'],
+): string => (kind === 'lease' ? t('leases.title') : t('templatesHub.title'));
+
+const getTemplateTypeDescription = (
+  template: NonNullable<Awaited<ReturnType<typeof getTemplate>>>,
+  t: ReturnType<typeof useTranslation>['t'],
+): string =>
+  template.kind === 'lease'
+    ? `${t('leases.fields.contractType')}: ${template.contractType ?? '-'}`
+    : `${t('templatesHub.scopes.invoice')}: ${template.paymentType ?? '-'}`;
+
+const getTemplateErrorMessage = (error: unknown, fallback: string): string =>
+  error instanceof Error ? error.message : fallback;
+
+type TemplateDetailTranslations = ReturnType<typeof useTranslation>['t'];
+
+function TemplateSummaryCard({
+  template,
+  t,
+}: Readonly<{
+  template: NonNullable<Awaited<ReturnType<typeof getTemplate>>>;
+  t: TemplateDetailTranslations;
+}>) {
+  return (
+    <View style={styles.card}>
+      <Text style={styles.title}>{template.name}</Text>
+      <Text style={styles.detail}>
+        {`${t('common.details')}: ${getTemplateKindDescription(template.kind, t)}`}
+      </Text>
+      <Text style={styles.detail}>
+        {getTemplateTypeDescription(template, t)}
+      </Text>
+      <Text style={styles.detail}>
+        {template.isActive
+          ? t('templatesHub.active')
+          : t('templatesHub.inactive')}
+      </Text>
+      {template.kind === 'payment' ? (
+        <Text style={styles.detail}>
+          {template.isDefault ? t('templatesHub.defaultLabel') : '-'}
+        </Text>
+      ) : null}
+      <Text style={styles.body}>{template.templateBody}</Text>
+    </View>
+  );
+}
+
+function TemplateActions({
+  loading,
+  onEdit,
+  onDelete,
+  t,
+}: Readonly<{
+  loading: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+  t: TemplateDetailTranslations;
+}>) {
+  return (
+    <View style={styles.actions}>
+      <AppButton
+        title={t('common.edit')}
+        onPress={onEdit}
+        testID="templateDetail.edit"
+      />
+      <AppButton
+        title={t('common.delete')}
+        variant="secondary"
+        loading={loading}
+        testID="templateDetail.delete"
+        onPress={onDelete}
+      />
+    </View>
+  );
+}
+
 export default function TemplateDetailScreen() {
   const { id, kind } = useLocalSearchParams<{ id: string; kind: string }>();
   const router = useRouter();
@@ -21,15 +107,16 @@ export default function TemplateDetailScreen() {
   const { t } = useTranslation();
 
   const validKind = isTemplateKind(kind) ? kind : null;
+  const resolvedKind = validKind ? requireTemplateKind(validKind) : null;
 
   const query = useQuery({
     queryKey: ['templates', validKind, id],
-    queryFn: () => getTemplate(validKind as TemplateKind, id),
-    enabled: Boolean(id && validKind),
+    queryFn: () => getTemplate(requireTemplateKind(validKind), id),
+    enabled: Boolean(id && resolvedKind),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteTemplate(validKind as TemplateKind, id),
+    mutationFn: () => deleteTemplate(requireTemplateKind(validKind), id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['templates'] });
       router.replace('/(app)/templates');
@@ -43,72 +130,56 @@ export default function TemplateDetailScreen() {
   });
 
   const template = query.data;
+  const errorMessage = getTemplateErrorMessage(
+    query.error,
+    t('messages.loadError'),
+  );
+
+  if (!validKind) {
+    return (
+      <Screen>
+        <H1>{t('templatesHub.listTitle')}</H1>
+        <Text>{t('common.error')}</Text>
+      </Screen>
+    );
+  }
+
+  const handleEdit = () => {
+    if (!template) {
+      return;
+    }
+
+    router.push(`/(app)/templates/${template.kind}/${template.id}/edit`);
+  };
+  const handleDelete = () => {
+    Alert.alert(t('common.delete'), t('messages.deleteConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.delete'),
+        style: 'destructive',
+        onPress: () => deleteMutation.mutate(),
+      },
+    ]);
+  };
 
   return (
     <Screen>
       <H1>{t('templatesHub.listTitle')}</H1>
-      {!validKind ? <Text>{t('common.error')}</Text> : null}
       {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
-      {query.error ? (
-        <Text style={styles.error}>{(query.error as Error).message}</Text>
-      ) : null}
-      {!query.isLoading && validKind && !template ? (
+      {query.error ? <Text style={styles.error}>{errorMessage}</Text> : null}
+      {!query.isLoading && !template ? (
         <Text>{t('templatesHub.templateNotFound')}</Text>
       ) : null}
 
-      {template ? (
-        <View style={styles.card}>
-          <Text style={styles.title}>{template.name}</Text>
-          <Text
-            style={styles.detail}
-          >{`${t('common.details')}: ${template.kind === 'lease' ? t('leases.title') : t('templatesHub.title')}`}</Text>
-          <Text style={styles.detail}>
-            {template.kind === 'lease'
-              ? `${t('leases.fields.contractType')}: ${template.contractType ?? '-'}`
-              : `${t('templatesHub.scopes.invoice')}: ${template.paymentType ?? '-'}`}
-          </Text>
-          <Text style={styles.detail}>
-            {template.isActive
-              ? t('templatesHub.active')
-              : t('templatesHub.inactive')}
-          </Text>
-          {template.kind === 'payment' ? (
-            <Text style={styles.detail}>
-              {template.isDefault ? t('templatesHub.defaultLabel') : '-'}
-            </Text>
-          ) : null}
-          <Text style={styles.body}>{template.templateBody}</Text>
-        </View>
-      ) : null}
+      {template ? <TemplateSummaryCard template={template} t={t} /> : null}
 
       {template ? (
-        <View style={styles.actions}>
-          <AppButton
-            title={t('common.edit')}
-            onPress={() =>
-              router.push(
-                `/(app)/templates/${template.kind}/${template.id}/edit` as never,
-              )
-            }
-            testID="templateDetail.edit"
-          />
-          <AppButton
-            title={t('common.delete')}
-            variant="secondary"
-            loading={deleteMutation.isPending}
-            testID="templateDetail.delete"
-            onPress={() => {
-              Alert.alert(t('common.delete'), t('messages.deleteConfirm'), [
-                { text: t('common.cancel'), style: 'cancel' },
-                {
-                  text: t('common.delete'),
-                  style: 'destructive',
-                  onPress: () => deleteMutation.mutate(),
-                },
-              ]);
-            }}
-          />
-        </View>
+        <TemplateActions
+          loading={deleteMutation.isPending}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          t={t}
+        />
       ) : null}
     </Screen>
   );

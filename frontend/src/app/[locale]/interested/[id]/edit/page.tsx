@@ -128,7 +128,7 @@ export default function EditInterestedPage() {
     });
   }, [authLoading, interestedId, loadProfile]);
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.SyntheticEvent) => {
     event.preventDefault();
     if (!profile) return;
     if (!form.phone?.trim()) {

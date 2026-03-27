@@ -122,7 +122,7 @@ export default function TenantActivityCreatePage() {
     });
   }, [authLoading, tenantId, loadData]);
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.SyntheticEvent) => {
     event.preventDefault();
     if (!tenant) return;
 

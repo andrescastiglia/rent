@@ -149,11 +149,11 @@ export class MetricsService {
     const rawRoute = this.normalizeLabelValue(route ?? '/unknown', 120);
     const withoutQuery = rawRoute.split('?')[0] || '/unknown';
     const collapsed = withoutQuery
-      .replace(
+      .replaceAll(
         /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi,
         ':id',
       )
-      .replace(/\/\d+(?=\/|$)/g, '/:id');
+      .replaceAll(/\/\d+(?=\/|$)/g, '/:id');
 
     return collapsed.startsWith('/') ? collapsed : `/${collapsed}`;
   }
@@ -164,7 +164,7 @@ export class MetricsService {
       return 'unknown';
     }
 
-    const safe = trimmed.replace(/[\s\t\r\n]+/g, '_');
+    const safe = trimmed.replaceAll(/\s+/g, '_');
     return safe.length <= maxLength ? safe : safe.slice(0, maxLength);
   }
 }

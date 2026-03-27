@@ -17,7 +17,7 @@ import type {
 const schema = z.object({
   firstName: z.string().min(2),
   lastName: z.string().min(2),
-  email: z.string().email(),
+  email: z.email(),
   phone: z.string().min(6),
   dni: z.string().min(6),
   cuil: z.string().optional(),
@@ -44,14 +44,13 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-type TenantFormProps = {
-  mode: 'create' | 'edit';
+type TenantFormProps = Readonly<{
   initial?: Tenant;
   submitting?: boolean;
   onSubmit: (payload: CreateTenantInput | UpdateTenantInput) => Promise<void>;
   submitLabel: string;
   testIDPrefix?: string;
-};
+}>;
 
 const statusOptions: Array<{ label: string; value: TenantStatus }> = [
   { label: 'Activo', value: 'ACTIVE' },

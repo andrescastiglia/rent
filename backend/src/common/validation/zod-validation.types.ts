@@ -1,5 +1,5 @@
-import { ZodTypeAny } from 'zod';
+import type { ZodType } from 'zod';
 
 export interface ZodSchemaCarrier {
-  zodSchema?: ZodTypeAny;
+  zodSchema?: ZodType;
 }

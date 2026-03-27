@@ -7,6 +7,7 @@ import { Property } from '../properties/entities/property.entity';
 import { Document } from '../documents/entities/document.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { InterestedProfile } from '../interested/entities/interested-profile.entity';
+import { Buyer } from '../buyers/entities/buyer.entity';
 import { LeasesService } from './leases.service';
 import { AmendmentsService } from './amendments.service';
 import { PdfService } from './pdf.service';
@@ -24,6 +25,7 @@ import { PaymentsModule } from '../payments/payments.module';
       LeaseContractTemplate,
       Property,
       InterestedProfile,
+      Buyer,
       Document,
       Tenant,
     ]),

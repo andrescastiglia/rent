@@ -40,7 +40,7 @@ export default function InterestedDetailScreen() {
       <H1>{t('interested.title')}</H1>
       {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
       {query.error ? (
-        <Text style={styles.error}>{(query.error as Error).message}</Text>
+        <Text style={styles.error}>{query.error.message}</Text>
       ) : null}
       {!query.isLoading && !profile ? (
         <Text>{t('interested.noResults')}</Text>

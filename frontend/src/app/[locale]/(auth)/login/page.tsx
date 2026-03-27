@@ -39,7 +39,7 @@ export default function LoginPage() {
     return error.message;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     setError("");
     if (requiresCaptcha && !captchaToken) {

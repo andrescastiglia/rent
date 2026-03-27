@@ -70,7 +70,7 @@ export default function EditOwnerScreen() {
       <H1>{t('properties.editOwnerTitle')}</H1>
       {ownerQuery.isLoading ? <Text>{t('common.loading')}</Text> : null}
       {ownerQuery.error ? (
-        <Text style={styles.error}>{(ownerQuery.error as Error).message}</Text>
+        <Text style={styles.error}>{ownerQuery.error.message}</Text>
       ) : null}
 
       <Field

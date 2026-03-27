@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 const loginZodSchema = z
   .object({
-    email: z.string().email(),
+    email: z.email(),
     password: z.string().min(1),
     captchaToken: z.string().min(1).optional(),
   })

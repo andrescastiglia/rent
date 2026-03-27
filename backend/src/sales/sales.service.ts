@@ -13,6 +13,7 @@ import { SaleReceiptPdfService } from './sale-receipt-pdf.service';
 import { CreateSaleFolderDto } from './dto/create-sale-folder.dto';
 import { CreateSaleAgreementDto } from './dto/create-sale-agreement.dto';
 import { CreateSaleReceiptDto } from './dto/create-sale-receipt.dto';
+import { Buyer } from '../buyers/entities/buyer.entity';
 
 interface UserContext {
   companyId?: string;
@@ -27,6 +28,8 @@ export class SalesService {
     private readonly agreementsRepository: Repository<SaleAgreement>,
     @InjectRepository(SaleReceipt)
     private readonly receiptsRepository: Repository<SaleReceipt>,
+    @InjectRepository(Buyer)
+    private readonly buyersRepository: Repository<Buyer>,
     private readonly receiptPdfService: SaleReceiptPdfService,
   ) {}
 
@@ -72,11 +75,14 @@ export class SalesService {
       throw new NotFoundException('Folder not found');
     }
 
+    const buyer = await this.resolveAgreementBuyer(dto, user.companyId);
+
     const agreement = this.agreementsRepository.create({
       companyId: user.companyId,
       folderId: dto.folderId,
-      buyerName: dto.buyerName,
-      buyerPhone: dto.buyerPhone,
+      buyerId: buyer.id,
+      buyerName: `${buyer.user.firstName} ${buyer.user.lastName}`.trim(),
+      buyerPhone: buyer.user.phone ?? '',
       totalAmount: dto.totalAmount,
       currency: dto.currency || 'ARS',
       installmentAmount: dto.installmentAmount,
@@ -97,6 +103,8 @@ export class SalesService {
     const query = this.agreementsRepository
       .createQueryBuilder('agreement')
       .leftJoinAndSelect('agreement.folder', 'folder')
+      .leftJoinAndSelect('agreement.buyer', 'buyer')
+      .leftJoinAndSelect('buyer.user', 'buyerUser')
       .where('agreement.company_id = :companyId', { companyId: user.companyId })
       .andWhere('agreement.deleted_at IS NULL');
 
@@ -114,7 +122,7 @@ export class SalesService {
 
     const agreement = await this.agreementsRepository.findOne({
       where: { id, companyId: user.companyId, deletedAt: IsNull() },
-      relations: ['folder', 'receipts'],
+      relations: ['folder', 'receipts', 'buyer', 'buyer.user'],
     });
 
     if (!agreement) {
@@ -262,5 +270,21 @@ export class SalesService {
       }
     }
     return new Date(value);
+  }
+
+  private async resolveAgreementBuyer(
+    dto: CreateSaleAgreementDto,
+    companyId: string,
+  ): Promise<Buyer> {
+    const buyer = await this.buyersRepository.findOne({
+      where: { id: dto.buyerId, companyId, deletedAt: IsNull() },
+      relations: ['user'],
+    });
+
+    if (!buyer) {
+      throw new NotFoundException('Buyer not found');
+    }
+
+    return buyer;
   }
 }

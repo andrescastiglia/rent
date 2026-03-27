@@ -195,17 +195,27 @@ const toBackendStatus = (value: PropertyStatus): string => {
 const mapOperations = (
   value?: string[] | string | null,
 ): PropertyOperation[] | undefined => {
-  const source = Array.isArray(value)
-    ? value
-    : typeof value === 'string'
-      ? value.split(',')
-      : [];
+  let source: string[] = [];
+  if (Array.isArray(value)) {
+    source = value;
+  } else if (typeof value === 'string') {
+    source = value.split(',');
+  }
   const normalized = source
     .map((item) => item.trim().toLowerCase())
     .filter(
       (item): item is PropertyOperation => item === 'rent' || item === 'sale',
     );
   return normalized.length > 0 ? normalized : undefined;
+};
+
+const getResponseItems = <T>(
+  response: T[] | PaginatedResponse<T> | PaginatedItemsResponse<T>,
+): T[] => {
+  if (Array.isArray(response)) {
+    return response;
+  }
+  return 'data' in response ? response.data : response.items;
 };
 
 const mapOperationState = (
@@ -498,11 +508,7 @@ export const propertiesApi = {
       | PaginatedItemsResponse<BackendMaintenanceTask>
     >(`/properties/${propertyId}/visits/maintenance-tasks?limit=${limit}`);
 
-    const rawItems = Array.isArray(response)
-      ? response
-      : 'data' in response
-        ? response.data
-        : response.items;
+    const rawItems = getResponseItems(response);
     return rawItems.map((item, index) =>
       mapMaintenanceTask(propertyId, item, index),
     );
@@ -525,11 +531,7 @@ export const propertiesApi = {
       | PaginatedItemsResponse<BackendPropertyVisit>
     >(`/properties/${propertyId}/visits?limit=${limit}`);
 
-    const rawItems = Array.isArray(response)
-      ? response
-      : 'data' in response
-        ? response.data
-        : response.items;
+    const rawItems = getResponseItems(response);
     return rawItems.map((item, index) => mapVisit(propertyId, item, index));
   },
 

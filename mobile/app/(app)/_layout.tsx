@@ -1,11 +1,43 @@
+import type { Href } from 'expo-router';
 import { Redirect, Stack, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '@/contexts/auth-context';
 
-export default function ProtectedLayout() {
+type NewHeaderActionProps = Readonly<{
+  route: Href;
+  testID: string;
+}>;
+
+function NewHeaderAction({ route, testID }: NewHeaderActionProps) {
   const router = useRouter();
+  const { t } = useTranslation();
+
+  return (
+    <Pressable
+      onPress={() => router.push(route)}
+      testID={testID}
+      style={{ paddingHorizontal: 6, paddingVertical: 4 }}
+    >
+      <Text style={{ color: '#1d4ed8', fontWeight: '700', fontSize: 14 }}>
+        {t('breadcrumbs.new')}
+      </Text>
+    </Pressable>
+  );
+}
+
+function UsersHeaderRight() {
+  return <NewHeaderAction route="/(app)/users/new" testID="users.new" />;
+}
+
+function TemplatesHeaderRight() {
+  return (
+    <NewHeaderAction route="/(app)/templates/new" testID="templates.new" />
+  );
+}
+
+export default function ProtectedLayout() {
   const { t } = useTranslation();
   const { user, loading } = useAuth();
 
@@ -113,19 +145,7 @@ export default function ProtectedLayout() {
         name="users"
         options={{
           title: t('users.title'),
-          headerRight: () => (
-            <Pressable
-              onPress={() => router.push('/(app)/users/new' as never)}
-              testID="users.new"
-              style={{ paddingHorizontal: 6, paddingVertical: 4 }}
-            >
-              <Text
-                style={{ color: '#1d4ed8', fontWeight: '700', fontSize: 14 }}
-              >
-                {t('breadcrumbs.new')}
-              </Text>
-            </Pressable>
-          ),
+          headerRight: UsersHeaderRight,
         }}
       />
       <Stack.Screen name="users/new" options={{ title: t('users.newUser') }} />
@@ -142,19 +162,7 @@ export default function ProtectedLayout() {
         name="templates"
         options={{
           title: t('templatesHub.listTitle'),
-          headerRight: () => (
-            <Pressable
-              onPress={() => router.push('/(app)/templates/new' as never)}
-              testID="templates.new"
-              style={{ paddingHorizontal: 6, paddingVertical: 4 }}
-            >
-              <Text
-                style={{ color: '#1d4ed8', fontWeight: '700', fontSize: 14 }}
-              >
-                {t('breadcrumbs.new')}
-              </Text>
-            </Pressable>
-          ),
+          headerRight: TemplatesHeaderRight,
         }}
       />
       <Stack.Screen

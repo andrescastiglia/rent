@@ -22,6 +22,7 @@ export class PdfService {
     lease: Lease,
     _userId: string,
     contractText?: string,
+    contractFormat: 'plain_text' | 'html' = 'plain_text',
   ): Promise<Document> {
     // Obtener idioma preferido del usuario o default
     const lang = lease.tenant?.user?.language || 'es';
@@ -31,6 +32,7 @@ export class PdfService {
       this.i18n,
       lang,
       contractText,
+      contractFormat,
     );
 
     // Create document record

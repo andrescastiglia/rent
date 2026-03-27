@@ -4,6 +4,21 @@ import * as PDFDocument from "pdfkit";
 
 const TEMPLATE_PLACEHOLDER_REGEX = /{{\s*([a-zA-Z0-9_.]+)\s*}}/g;
 
+const toScalarString = (value: unknown, fallback = ""): string => {
+  switch (typeof value) {
+    case "string":
+    case "number":
+    case "boolean":
+    case "bigint":
+      return String(value);
+    default:
+      return fallback;
+  }
+};
+
+const toFloat = (value: unknown): number =>
+  Number.parseFloat(toScalarString(value, "0"));
+
 /**
  * Status of an invoice.
  */
@@ -406,10 +421,10 @@ export class InvoiceService {
       periodStart: new Date(row.period_start as string),
       periodEnd: new Date(row.period_end as string),
       subtotal: Number.parseFloat(row.subtotal as string),
-      lateFee: Number.parseFloat(String(lateFeeRaw)),
-      adjustments: Number.parseFloat(String(adjustmentsRaw)),
+      lateFee: toFloat(lateFeeRaw),
+      adjustments: toFloat(adjustmentsRaw),
       total: Number.parseFloat(row.total_amount as string),
-      currencyCode: String(currencyRaw),
+      currencyCode: toScalarString(currencyRaw, "ARS"),
       amountPaid: Number.parseFloat(row.amount_paid as string),
       dueDate: new Date(row.due_date as string),
       status: row.status as InvoiceStatus,
@@ -421,12 +436,10 @@ export class InvoiceService {
       exchangeRateUsed: exchangeRateRaw
         ? Number.parseFloat(exchangeRateRaw as string)
         : undefined,
-      withholdingIibb: Number.parseFloat(String(row.withholding_iibb ?? 0)),
-      withholdingIva: Number.parseFloat(String(row.withholding_iva ?? 0)),
-      withholdingGanancias: Number.parseFloat(
-        String(row.withholding_ganancias ?? 0),
-      ),
-      withholdingsTotal: Number.parseFloat(String(row.withholdings_total ?? 0)),
+      withholdingIibb: toFloat(row.withholding_iibb ?? 0),
+      withholdingIva: toFloat(row.withholding_iva ?? 0),
+      withholdingGanancias: toFloat(row.withholding_ganancias ?? 0),
+      withholdingsTotal: toFloat(row.withholdings_total ?? 0),
       pdfUrl: (row.pdf_url as string | null) ?? undefined,
       createdAt: new Date(row.created_at as string),
     };
@@ -765,7 +778,7 @@ export class InvoiceService {
         if (typeof value === "object") {
           return "";
         }
-        return String(value);
+        return toScalarString(value);
       },
     );
   }

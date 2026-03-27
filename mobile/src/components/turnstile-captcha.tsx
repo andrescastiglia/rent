@@ -4,10 +4,10 @@ import { WebView } from 'react-native-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
 import { useTranslation } from 'react-i18next';
 
-type TurnstileCaptchaProps = {
+type TurnstileCaptchaProps = Readonly<{
   onTokenChange: (token: string | null) => void;
   testID?: string;
-};
+}>;
 
 type BridgePayload =
   | { type: 'token'; token: string }

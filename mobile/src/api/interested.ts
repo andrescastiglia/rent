@@ -124,6 +124,24 @@ const mapPropertyOperationState = (
   }
 };
 
+const mapUnitStatus = (
+  value?: string | null,
+): 'OCCUPIED' | 'MAINTENANCE' | 'AVAILABLE' => {
+  switch (value) {
+    case 'OCCUPIED':
+      return 'OCCUPIED';
+    case 'MAINTENANCE':
+      return 'MAINTENANCE';
+    default:
+      return 'AVAILABLE';
+  }
+};
+
+const resolveUpdatedDate = (
+  value: Date | undefined,
+  fallback?: string,
+): string | undefined => (value === undefined ? fallback : value.toISOString());
+
 const mapProperty = (raw: any): Property => ({
   id: raw.id,
   name: raw.name ?? 'Propiedad',
@@ -154,12 +172,7 @@ const mapProperty = (raw: any): Property => ({
         bedrooms: Number(unit?.bedrooms ?? 0),
         bathrooms: Number(unit?.bathrooms ?? 0),
         area: Number(unit?.area ?? 0),
-        status:
-          unit?.status === 'OCCUPIED'
-            ? 'OCCUPIED'
-            : unit?.status === 'MAINTENANCE'
-              ? 'MAINTENANCE'
-              : 'AVAILABLE',
+        status: mapUnitStatus(unit?.status),
         rentAmount: Number(unit?.baseRent ?? unit?.rentAmount ?? 0),
       }))
     : [],
@@ -225,6 +238,7 @@ const mapProfile = (raw: any): InterestedProfile => {
       ? toIso(raw.consentRecordedAt)
       : undefined,
     convertedToTenantId: toOptionalString(raw.convertedToTenantId),
+    convertedToBuyerId: toOptionalString(raw.convertedToBuyerId),
     convertedToSaleAgreementId: toOptionalString(
       raw.convertedToSaleAgreementId,
     ),
@@ -573,18 +587,18 @@ export const interestedApi = {
       const updated: InterestedProfile = {
         ...current,
         ...payload,
-        consentRecordedAt:
-          payload.consentRecordedAt !== undefined
-            ? payload.consentRecordedAt?.toISOString()
-            : current.consentRecordedAt,
-        lastContactAt:
-          payload.lastContactAt !== undefined
-            ? payload.lastContactAt?.toISOString()
-            : current.lastContactAt,
-        nextContactAt:
-          payload.nextContactAt !== undefined
-            ? payload.nextContactAt?.toISOString()
-            : current.nextContactAt,
+        consentRecordedAt: resolveUpdatedDate(
+          payload.consentRecordedAt,
+          current.consentRecordedAt,
+        ),
+        lastContactAt: resolveUpdatedDate(
+          payload.lastContactAt,
+          current.lastContactAt,
+        ),
+        nextContactAt: resolveUpdatedDate(
+          payload.nextContactAt,
+          current.nextContactAt,
+        ),
         updatedAt: new Date().toISOString(),
       };
       MOCK_INTERESTED[index] = updated;

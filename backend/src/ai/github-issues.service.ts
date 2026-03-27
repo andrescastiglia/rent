@@ -674,7 +674,7 @@ export class GithubIssuesService {
 
   private getRepository(): { owner: string; repo: string } {
     const repository = process.env.GITHUB_REPOSITORY?.trim();
-    if (!repository || !repository.includes('/')) {
+    if (!repository?.includes('/')) {
       throw new ServiceUnavailableException(
         'GITHUB_REPOSITORY is not configured. Expected format: owner/repo.',
       );
@@ -822,7 +822,7 @@ export class GithubIssuesService {
         'X-GitHub-Api-Version': '2022-11-28',
         'User-Agent': 'rent-ai-github-issues',
         'Content-Type': 'application/json',
-        ...(init.headers ?? {}),
+        ...(init.headers ?? undefined),
       },
     });
 

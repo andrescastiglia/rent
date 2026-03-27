@@ -40,7 +40,7 @@ export default function TenantDetailScreen() {
       <H1>{t('tenants.tenantDetails')}</H1>
       {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
       {query.error ? (
-        <Text style={styles.error}>{(query.error as Error).message}</Text>
+        <Text style={styles.error}>{query.error.message}</Text>
       ) : null}
       {!query.isLoading && !tenant ? (
         <Text>{t('tenants.notFound')}</Text>

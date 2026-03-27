@@ -11,12 +11,12 @@ import { z } from 'zod';
 
 const registerZodSchema = z
   .object({
-    email: z.string().email(),
+    email: z.email(),
     password: z.string().min(8),
     firstName: z.string().min(1),
     lastName: z.string().min(1),
     role: z
-      .nativeEnum(UserRole)
+      .enum(UserRole)
       .refine((value) => value === UserRole.OWNER || value === UserRole.TENANT)
       .optional()
       .default(UserRole.TENANT),

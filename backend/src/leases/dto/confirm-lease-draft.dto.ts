@@ -4,6 +4,7 @@ import { z } from 'zod';
 const confirmLeaseDraftZodSchema = z
   .object({
     finalText: z.string().min(1).optional(),
+    finalFormat: z.enum(['plain_text', 'html']).optional(),
   })
   .strict();
 
@@ -13,4 +14,8 @@ export class ConfirmLeaseDraftDto {
   @IsString()
   @IsOptional()
   finalText?: string;
+
+  @IsString()
+  @IsOptional()
+  finalFormat?: 'plain_text' | 'html';
 }

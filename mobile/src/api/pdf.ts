@@ -13,9 +13,9 @@ type DownloadOptions = {
 const sanitizeFilename = (value: string): string =>
   value
     .toLowerCase()
-    .replace(/[^a-z0-9-_]+/gi, '-')
-    .replace(/-+/g, '-')
-    .replace(/(^-|-$)/g, '');
+    .replaceAll(/[^a-z0-9-_]+/gi, '-')
+    .replaceAll(/-+/g, '-')
+    .replaceAll(/(^-|-$)/g, '');
 
 const resolveUrl = ({ absoluteUrl, relativePath }: DownloadOptions): string => {
   if (absoluteUrl) {

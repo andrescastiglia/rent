@@ -210,7 +210,7 @@ describe('TenantsService', () => {
       await service.findAll(filters);
 
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-        '(user.first_name ILIKE :name OR user.last_name ILIKE :name)',
+        expect.stringContaining("coalesce(user.first_name, '')"),
         { name: '%John%' },
       );
     });
@@ -225,7 +225,7 @@ describe('TenantsService', () => {
       await service.findAll(filters);
 
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-        '(user.first_name ILIKE :name OR user.last_name ILIKE :name)',
+        expect.stringContaining("coalesce(user.first_name, '')"),
         { name: '%Doe%' },
       );
     });

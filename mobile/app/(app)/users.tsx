@@ -15,6 +15,17 @@ import { useTranslation } from 'react-i18next';
 import { usersApi } from '@/api/users';
 import { Screen } from '@/components/screen';
 
+const getToggleButtonLabel = (
+  isSaving: boolean,
+  isActive: boolean | undefined,
+  t: (key: string) => string,
+) => {
+  if (isSaving) {
+    return t('common.saving');
+  }
+  return isActive ? t('users.deactivate') : t('users.activate');
+};
+
 export default function UsersScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -42,9 +53,7 @@ export default function UsersScreen() {
   return (
     <Screen>
       {isLoading ? <ActivityIndicator /> : null}
-      {error ? (
-        <Text style={styles.error}>{(error as Error).message}</Text>
-      ) : null}
+      {error ? <Text style={styles.error}>{error.message}</Text> : null}
 
       <View style={styles.list}>
         {(data?.data ?? []).map((user) => (
@@ -107,11 +116,11 @@ export default function UsersScreen() {
                   }}
                 >
                   <Text style={styles.actionChipText}>
-                    {togglingUserId === user.id
-                      ? t('common.saving')
-                      : user.isActive
-                        ? t('users.deactivate')
-                        : t('users.activate')}
+                    {getToggleButtonLabel(
+                      togglingUserId === user.id,
+                      user.isActive,
+                      t,
+                    )}
                   </Text>
                 </Pressable>
               </ScrollView>

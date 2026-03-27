@@ -13,6 +13,7 @@ import { Tenant } from '../tenants/entities/tenant.entity';
 import { SaleAgreement } from '../sales/entities/sale-agreement.entity';
 import { SaleFolder } from '../sales/entities/sale-folder.entity';
 import { PropertyReservation } from './entities/property-reservation.entity';
+import { Buyer } from '../buyers/entities/buyer.entity';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { PropertyReservation } from './entities/property-reservation.entity';
       PropertyVisit,
       User,
       Tenant,
+      Buyer,
       SaleAgreement,
       SaleFolder,
     ]),

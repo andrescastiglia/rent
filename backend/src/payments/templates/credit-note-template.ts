@@ -18,66 +18,73 @@ export function generateCreditNotePdf(
     doc.on('error', reject);
 
     const buildPdf = async () => {
+      const tHeader = await i18n.t('creditNote.header', { lang });
+      const tNumber = await i18n.t('creditNote.number', { lang });
+      const tIssueDate = await i18n.t('creditNote.issueDate', { lang });
+      const tRelatedInvoice = await i18n.t('creditNote.relatedInvoice', {
+        lang,
+      });
+      const tInvoiceNumber = await i18n.t('creditNote.invoiceNumber', { lang });
+      const tInvoiceDueDate = await i18n.t('creditNote.invoiceDueDate', {
+        lang,
+      });
+      const tInvoiceTotal = await i18n.t('creditNote.invoiceTotal', { lang });
+      const tDetail = await i18n.t('creditNote.detail', { lang });
+      const tReason = await i18n.t('creditNote.reason', { lang });
+      const tDefaultReason = creditNote.reason
+        ? ''
+        : await i18n.t('creditNote.defaultReason', { lang });
+      const tAmount = await i18n.t('creditNote.amount', { lang });
+      const tId = await i18n.t('creditNote.id', { lang });
+
       doc
         .fontSize(20)
         .font('Helvetica-Bold')
-        .text(await i18n.t('creditNote.header', { lang }), { align: 'center' })
+        .text(tHeader, { align: 'center' })
         .moveDown();
 
       doc
         .fontSize(10)
         .font('Helvetica')
+        .text(`${tNumber}: ${creditNote.noteNumber}`)
         .text(
-          `${await i18n.t('creditNote.number', { lang })}: ${creditNote.noteNumber}`,
-        )
-        .text(
-          `${await i18n.t('creditNote.issueDate', { lang })}: ${new Date(creditNote.issuedAt).toLocaleDateString(lang)}`,
-        )
-        .moveDown();
-
-      doc
-        .fontSize(12)
-        .font('Helvetica-Bold')
-        .text(await i18n.t('creditNote.relatedInvoice', { lang }))
-        .moveDown(0.5);
-
-      doc
-        .fontSize(10)
-        .font('Helvetica')
-        .text(
-          `${await i18n.t('creditNote.invoiceNumber', { lang })}: ${invoice.invoiceNumber}`,
-        )
-        .text(
-          `${await i18n.t('creditNote.invoiceDueDate', { lang })}: ${new Date(invoice.dueDate).toLocaleDateString(lang)}`,
-        )
-        .text(
-          `${await i18n.t('creditNote.invoiceTotal', { lang })}: ${invoice.currencyCode} ${Number(invoice.total).toLocaleString(lang)}`,
+          `${tIssueDate}: ${new Date(creditNote.issuedAt).toLocaleDateString(lang)}`,
         )
         .moveDown();
 
       doc
         .fontSize(12)
         .font('Helvetica-Bold')
-        .text(await i18n.t('creditNote.detail', { lang }))
+        .text(tRelatedInvoice)
         .moveDown(0.5);
 
       doc
         .fontSize(10)
         .font('Helvetica')
+        .text(`${tInvoiceNumber}: ${invoice.invoiceNumber}`)
         .text(
-          `${await i18n.t('creditNote.reason', { lang })}: ${creditNote.reason || (await i18n.t('creditNote.defaultReason', { lang }))}`,
+          `${tInvoiceDueDate}: ${new Date(invoice.dueDate).toLocaleDateString(lang)}`,
         )
         .text(
-          `${await i18n.t('creditNote.amount', { lang })}: ${creditNote.currencyCode} ${Number(creditNote.amount).toLocaleString(lang)}`,
+          `${tInvoiceTotal}: ${invoice.currencyCode} ${Number(invoice.total).toLocaleString(lang)}`,
+        )
+        .moveDown();
+
+      doc.fontSize(12).font('Helvetica-Bold').text(tDetail).moveDown(0.5);
+
+      doc
+        .fontSize(10)
+        .font('Helvetica')
+        .text(`${tReason}: ${creditNote.reason || tDefaultReason}`)
+        .text(
+          `${tAmount}: ${creditNote.currencyCode} ${Number(creditNote.amount).toLocaleString(lang)}`,
         )
         .moveDown(2);
 
       doc
         .fontSize(8)
         .font('Helvetica')
-        .text(`${await i18n.t('creditNote.id', { lang })}: ${creditNote.id}`, {
-          align: 'center',
-        });
+        .text(`${tId}: ${creditNote.id}`, { align: 'center' });
 
       doc.end();
     };

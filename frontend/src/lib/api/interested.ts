@@ -785,11 +785,14 @@ export const interestedApi = {
   convertToBuyer: async (
     id: string,
     payload: {
-      folderId: string;
-      totalAmount: number;
-      installmentAmount: number;
-      installmentCount: number;
-      startDate: string;
+      email?: string;
+      password?: string;
+      dni?: string;
+      folderId?: string;
+      totalAmount?: number;
+      installmentAmount?: number;
+      installmentCount?: number;
+      startDate?: string;
       currency?: string;
       notes?: string;
     },
@@ -801,16 +804,39 @@ export const interestedApi = {
         throw new Error("Interested profile not found");
       }
 
-      profile.convertedToSaleAgreementId = `sale-${profile.id}`;
+      profile.convertedToBuyerId = `buyer-${profile.id}`;
+      profile.convertedToSaleAgreementId = payload.folderId
+        ? `sale-${profile.id}`
+        : undefined;
       profile.status = "buyer";
       profile.updatedAt = new Date().toISOString();
 
       return {
         profile,
-        agreement: {
-          id: profile.convertedToSaleAgreementId,
-          ...payload,
+        buyer: {
+          id: profile.convertedToBuyerId,
+          firstName: profile.firstName ?? "",
+          lastName: profile.lastName ?? "",
+          email: payload.email ?? profile.email ?? null,
+          phone: profile.phone,
+          dni: payload.dni,
+          interestedProfileId: profile.id,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         },
+        user: {
+          id: `buyer-user-${profile.id}`,
+          email:
+            payload.email ??
+            profile.email ??
+            `interesado.${profile.id}@rentflow.local`,
+        },
+        agreement: profile.convertedToSaleAgreementId
+          ? {
+              id: profile.convertedToSaleAgreementId,
+              ...payload,
+            }
+          : null,
       };
     }
 

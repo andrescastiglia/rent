@@ -255,6 +255,40 @@ export default function DashboardPage() {
         </p>
       </div>
 
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Link
+          href={`/${locale}/dashboard/rentals`}
+          className="rounded-3xl border border-sky-200 bg-sky-50 p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-sky-900/40 dark:bg-sky-950/20"
+        >
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-sky-700 dark:text-sky-300">
+            Dashboard
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">
+            Alquileres
+          </h2>
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+            Vigentes, vencidos, por vencer, busqueda por apellido y acceso
+            rapido a cobros.
+          </p>
+        </Link>
+
+        <Link
+          href={`/${locale}/dashboard/sales`}
+          className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-emerald-900/40 dark:bg-emerald-950/20"
+        >
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
+            Dashboard
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">
+            Ventas
+          </h2>
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+            Carpetas, acuerdos, cuotas a seguir y busqueda por apellido del
+            comprador.
+          </p>
+        </Link>
+      </div>
+
       <div className="grid gap-6 xl:grid-cols-2">
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="border-b border-slate-200 bg-slate-950 px-6 py-5 text-white dark:border-slate-800">
@@ -356,13 +390,13 @@ export default function DashboardPage() {
                         {item.propertyAddress || "Sin dirección"}
                       </p>
                       <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">
-                        {item.salePrice !== null
-                          ? formatMoneyByCode(
+                        {item.salePrice === null
+                          ? "Precio a definir"
+                          : formatMoneyByCode(
                               item.salePrice,
                               item.saleCurrency,
                               locale,
-                            )
-                          : "Precio a definir"}
+                            )}
                       </p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
                         Propietario: {formatPersonName(item.ownerName)}

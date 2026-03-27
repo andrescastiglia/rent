@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { SaleFolder } from './sale-folder.entity';
 import { SaleReceipt } from './sale-receipt.entity';
+import { Buyer } from '../../buyers/entities/buyer.entity';
 
 @Entity('sale_agreements')
 export class SaleAgreement {
@@ -26,6 +27,13 @@ export class SaleAgreement {
   @ManyToOne(() => SaleFolder, (folder) => folder.agreements)
   @JoinColumn({ name: 'folder_id' })
   folder: SaleFolder;
+
+  @Column({ name: 'buyer_id', type: 'uuid', nullable: true })
+  buyerId: string | null;
+
+  @ManyToOne(() => Buyer, { nullable: true })
+  @JoinColumn({ name: 'buyer_id' })
+  buyer: Buyer | null;
 
   @Column({ name: 'buyer_name' })
   buyerName: string;

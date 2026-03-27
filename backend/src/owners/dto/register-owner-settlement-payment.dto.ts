@@ -10,8 +10,7 @@ import { z } from 'zod';
 
 const registerOwnerSettlementPaymentZodSchema = z
   .object({
-    paymentDate: z
-      .string()
+    paymentDate: z.iso
       .date()
       .optional()
       .describe('Date of payment (YYYY-MM-DD)'),

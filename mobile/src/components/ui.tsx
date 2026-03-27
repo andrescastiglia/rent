@@ -29,7 +29,7 @@ export function AppButton({
   loading,
   variant = 'primary',
   testID,
-}: ButtonProps) {
+}: Readonly<ButtonProps>) {
   const isDisabled = disabled || loading;
   return (
     <Pressable
@@ -82,7 +82,7 @@ export function Field({
   autoCapitalize = 'sentences',
   keyboardType = 'default',
   testID,
-}: FieldProps) {
+}: Readonly<FieldProps>) {
   return (
     <View style={styles.fieldContainer}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -139,7 +139,7 @@ export function DateField({
   onChange,
   placeholder = 'YYYY-MM-DD',
   testID,
-}: DateFieldProps) {
+}: Readonly<DateFieldProps>) {
   const [showPicker, setShowPicker] = useState(false);
 
   const selectedDate = useMemo(
@@ -217,7 +217,7 @@ export function ChoiceGroup<T extends string>({
   options,
   onChange,
   testID,
-}: ChoiceGroupProps<T>) {
+}: Readonly<ChoiceGroupProps<T>>) {
   return (
     <View style={styles.fieldContainer}>
       <Text style={styles.fieldLabel}>{label}</Text>

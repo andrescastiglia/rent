@@ -4,10 +4,10 @@ import { InvoiceStatus } from '../entities/invoice.entity';
 
 const invoiceFiltersZodSchema = z
   .object({
-    leaseId: z.string().uuid().optional().describe('Filter by lease UUID'),
-    ownerId: z.string().uuid().optional().describe('Filter by owner UUID'),
+    leaseId: z.uuid().optional().describe('Filter by lease UUID'),
+    ownerId: z.uuid().optional().describe('Filter by owner UUID'),
     status: z
-      .nativeEnum(InvoiceStatus)
+      .enum(InvoiceStatus)
       .optional()
       .describe('draft|pending|sent|partial|paid|overdue|cancelled|refunded'),
     page: z.coerce.number().int().min(1).optional().default(1),

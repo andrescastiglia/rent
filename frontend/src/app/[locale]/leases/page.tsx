@@ -8,6 +8,7 @@ import { Search, Loader2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
 import { formatMoneyByCode } from "@/lib/format-money";
+import { normalizeSearchText } from "@/lib/search";
 
 function normalizeDate(value?: string): Date | null {
   if (!value) return null;
@@ -98,13 +99,13 @@ function LeaseSection({
                   Canon
                 </p>
                 <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                  {lease.rentAmount !== undefined
-                    ? formatMoneyByCode(
+                  {lease.rentAmount === undefined
+                    ? "-"
+                    : formatMoneyByCode(
                         lease.rentAmount,
                         lease.currency,
                         locale,
-                      )
-                    : "-"}
+                      )}
                 </p>
               </div>
             </div>
@@ -157,7 +158,7 @@ export default function LeasesPage() {
   }, [authLoading]);
 
   const filteredLeases = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
+    const term = normalizeSearchText(searchTerm);
     if (!term) return leases;
 
     return leases.filter((lease) => {
@@ -166,10 +167,8 @@ export default function LeasesPage() {
         lease.tenant?.firstName ?? "",
         lease.tenant?.lastName ?? "",
         lease.property?.address.city ?? "",
-      ]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(term);
+      ].join(" ");
+      return normalizeSearchText(haystack).includes(term);
     });
   }, [leases, searchTerm]);
 
@@ -220,6 +219,12 @@ export default function LeasesPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Link
+            href={`/${locale}/leases/import`}
+            className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-200"
+          >
+            Cargar contrato actual
+          </Link>
           <Link
             href={`/${locale}/templates`}
             className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-200"

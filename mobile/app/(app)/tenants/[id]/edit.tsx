@@ -46,7 +46,6 @@ export default function EditTenantScreen() {
 
       {query.data ? (
         <TenantForm
-          mode="edit"
           initial={query.data}
           submitLabel={t('tenants.saveTenant')}
           submitting={mutation.isPending}

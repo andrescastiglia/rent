@@ -5,7 +5,7 @@ import { z } from 'zod';
 const createSaleReceiptZodSchema = z
   .object({
     amount: z.coerce.number().min(0.01).describe('Receipt amount'),
-    paymentDate: z.string().date().describe('Payment date (YYYY-MM-DD)'),
+    paymentDate: z.iso.date().describe('Payment date (YYYY-MM-DD)'),
     installmentNumber: z.coerce
       .number()
       .min(1)

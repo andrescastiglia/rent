@@ -10,7 +10,9 @@ export default function InterestedLayout({
 }) {
   return (
     <MainLayout>
-      <RoleGuard allowedRoles={["admin", "staff"]}>{children}</RoleGuard>
+      <RoleGuard allowedRoles={["admin", "staff"]} requiredModule="interested">
+        {children}
+      </RoleGuard>
     </MainLayout>
   );
 }

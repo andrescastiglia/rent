@@ -352,7 +352,9 @@ export class WithholdingsService {
     if (typeof value === "boolean") {
       return value ? 1 : 0;
     }
-    const parsed = Number.parseFloat(String(value));
+    const numericValue =
+      typeof value === "number" ? value.toString() : (value as string);
+    const parsed = Number.parseFloat(numericValue);
     return Number.isFinite(parsed) ? parsed : 0;
   }
 

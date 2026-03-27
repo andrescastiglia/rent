@@ -23,43 +23,32 @@ import { z } from 'zod';
 
 export const createLeaseZodSchema = z
   .object({
-    companyId: z.string().uuid().describe('UUID of the company'),
-    propertyId: z.string().uuid().describe('UUID of the property being leased'),
+    companyId: z.uuid().describe('UUID of the company'),
+    propertyId: z.uuid().describe('UUID of the property being leased'),
     tenantId: z
-      .string()
       .uuid()
       .optional()
       .describe('UUID of the tenant (for rental contracts)'),
+    buyerId: z
+      .uuid()
+      .optional()
+      .describe('UUID of the buyer entity (for sale contracts)'),
     buyerProfileId: z
-      .string()
       .uuid()
       .optional()
-      .describe('UUID of the buyer profile (for sale contracts)'),
-    ownerId: z
-      .string()
-      .uuid()
-      .optional()
-      .describe('UUID of the property owner'),
+      .describe('Deprecated UUID of the interested buyer profile'),
+    ownerId: z.uuid().optional().describe('UUID of the property owner'),
     templateId: z
-      .string()
       .uuid()
       .optional()
       .describe('UUID of the contract template to use'),
-    contractType: z
-      .nativeEnum(ContractType)
-      .optional()
-      .default(ContractType.RENTAL),
+    contractType: z.enum(ContractType).optional().default(ContractType.RENTAL),
     leaseNumber: z.string().min(1).optional(),
-    startDate: z
-      .string()
+    startDate: z.iso
       .date()
       .optional()
       .describe('Lease start date (YYYY-MM-DD)'),
-    endDate: z
-      .string()
-      .date()
-      .optional()
-      .describe('Lease end date (YYYY-MM-DD)'),
+    endDate: z.iso.date().optional().describe('Lease end date (YYYY-MM-DD)'),
     monthlyRent: z.coerce
       .number()
       .min(0)
@@ -82,7 +71,7 @@ export const createLeaseZodSchema = z
       .optional()
       .describe('Security deposit amount'),
     paymentFrequency: z
-      .nativeEnum(PaymentFrequency)
+      .enum(PaymentFrequency)
       .optional()
       .default(PaymentFrequency.MONTHLY),
     paymentDueDay: z.coerce
@@ -92,7 +81,7 @@ export const createLeaseZodSchema = z
       .describe('Day of month rent is due (1-28)'),
     renewalAlertEnabled: z.coerce.boolean().optional().default(true),
     renewalAlertPeriodicity: z
-      .nativeEnum(LeaseRenewalAlertPeriodicity)
+      .enum(LeaseRenewalAlertPeriodicity)
       .optional()
       .default(LeaseRenewalAlertPeriodicity.MONTHLY)
       .describe('monthly|four_months|custom'),
@@ -103,7 +92,7 @@ export const createLeaseZodSchema = z
       .optional()
       .describe('Custom number of days before lease end'),
     billingFrequency: z
-      .nativeEnum(BillingFrequency)
+      .enum(BillingFrequency)
       .optional()
       .describe('first_of_month|last_of_month|contract_date|custom'),
     billingDay: z.coerce
@@ -111,7 +100,7 @@ export const createLeaseZodSchema = z
       .optional()
       .describe('Day of month for billing'),
     lateFeeType: z
-      .nativeEnum(LateFeeType)
+      .enum(LateFeeType)
       .optional()
       .describe('none|fixed|percentage|daily_fixed|daily_percentage'),
     lateFeeValue: z.coerce
@@ -125,7 +114,7 @@ export const createLeaseZodSchema = z
     lateFeeMax: z.coerce.number().optional().describe('Maximum late fee cap'),
     autoGenerateInvoices: z.coerce.boolean().optional(),
     adjustmentType: z
-      .nativeEnum(AdjustmentType)
+      .enum(AdjustmentType)
       .optional()
       .describe('fixed|percentage|inflation_index'),
     adjustmentValue: z.coerce
@@ -136,17 +125,16 @@ export const createLeaseZodSchema = z
       .number()
       .optional()
       .describe('Months between rent adjustments'),
-    nextAdjustmentDate: z
-      .string()
+    nextAdjustmentDate: z.iso
       .date()
       .optional()
       .describe('Next scheduled adjustment date (YYYY-MM-DD)'),
     inflationIndexType: z
-      .nativeEnum(InflationIndexType)
+      .enum(InflationIndexType)
       .optional()
       .describe('icl|ipc|igp_m'),
     increaseClauseType: z
-      .nativeEnum(IncreaseClauseType)
+      .enum(IncreaseClauseType)
       .optional()
       .describe(
         'none|annual_fixed|annual_percentage|inflation_linked|custom_schedule',
@@ -175,6 +163,10 @@ export class CreateLeaseDto {
   @IsUUID()
   @IsOptional()
   tenantId?: string;
+
+  @IsUUID()
+  @IsOptional()
+  buyerId?: string;
 
   @IsUUID()
   @IsOptional()

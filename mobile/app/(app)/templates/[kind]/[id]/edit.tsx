@@ -50,7 +50,7 @@ export default function EditTemplateScreen() {
   return (
     <Screen scrollViewTestID="templateEdit.scroll">
       <H1>{t('templatesHub.editTemplate')}</H1>
-      {!validKind ? <Text>{t('common.error')}</Text> : null}
+      {validKind ? null : <Text>{t('common.error')}</Text>}
       {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
       {!query.isLoading && validKind && !query.data ? (
         <Text>{t('templatesHub.templateNotFound')}</Text>
@@ -64,7 +64,7 @@ export default function EditTemplateScreen() {
           submitting={mutation.isPending}
           testIDPrefix="templateEdit"
           onSubmit={async (payload) => {
-            const { kind: _kind, ...rest } = payload as TemplateFormInput;
+            const { kind: _kind, ...rest } = payload;
             await mutation.mutateAsync(rest);
           }}
         />

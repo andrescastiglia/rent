@@ -12,22 +12,19 @@ const interestedFiltersZodSchema = z
   .object({
     name: z.string().min(1).optional().describe('Text search by prospect name'),
     phone: z.string().min(1).optional().describe('Phone number filter'),
-    operation: z
-      .nativeEnum(InterestedOperation)
-      .optional()
-      .describe('rent|sale'),
+    operation: z.enum(InterestedOperation).optional().describe('rent|sale'),
     propertyTypePreference: z
-      .nativeEnum(InterestedPropertyType)
+      .enum(InterestedPropertyType)
       .optional()
       .describe(
         'apartment|house|commercial|office|warehouse|land|parking|other',
       ),
     status: z
-      .nativeEnum(InterestedStatus)
+      .enum(InterestedStatus)
       .optional()
       .describe('interested|tenant|buyer'),
     qualificationLevel: z
-      .nativeEnum(InterestedQualificationLevel)
+      .enum(InterestedQualificationLevel)
       .optional()
       .describe('mql|sql|rejected'),
     page: z.coerce.number().int().min(1).optional().default(1),

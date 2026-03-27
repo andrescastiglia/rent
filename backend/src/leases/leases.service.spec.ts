@@ -17,6 +17,8 @@ import { PdfService } from './pdf.service';
 import { LeaseContractTemplate } from './entities/lease-contract-template.entity';
 import { TenantAccountsService } from '../payments/tenant-accounts.service';
 import { UserRole } from '../users/entities/user.entity';
+import { Buyer } from '../buyers/entities/buyer.entity';
+import { Document } from '../documents/entities/document.entity';
 
 type MockRepository<T extends Record<string, any> = any> = Partial<
   Record<keyof Repository<T>, jest.Mock>
@@ -36,6 +38,7 @@ const createMockRepository = (): MockRepository => ({
     orderBy: jest.fn().mockReturnThis(),
     skip: jest.fn().mockReturnThis(),
     take: jest.fn().mockReturnThis(),
+    getOne: jest.fn().mockResolvedValue(null),
     getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
   })),
 });
@@ -46,6 +49,8 @@ describe('LeasesService', () => {
   let _templateRepository: MockRepository<LeaseContractTemplate>;
   let propertyRepository: MockRepository<Property>;
   let interestedRepository: MockRepository<InterestedProfile>;
+  let buyerRepository: MockRepository<Buyer>;
+  let documentRepository: MockRepository<Document>;
   let pdfService: { generateContract: jest.Mock };
   let tenantAccountsService: { createForLease: jest.Mock };
 
@@ -76,6 +81,14 @@ describe('LeasesService', () => {
           provide: getRepositoryToken(InterestedProfile),
           useValue: createMockRepository(),
         },
+        {
+          provide: getRepositoryToken(Buyer),
+          useValue: createMockRepository(),
+        },
+        {
+          provide: getRepositoryToken(Document),
+          useValue: createMockRepository(),
+        },
         { provide: PdfService, useValue: pdfService },
         { provide: TenantAccountsService, useValue: tenantAccountsService },
       ],
@@ -86,6 +99,8 @@ describe('LeasesService', () => {
     _templateRepository = module.get(getRepositoryToken(LeaseContractTemplate));
     propertyRepository = module.get(getRepositoryToken(Property));
     interestedRepository = module.get(getRepositoryToken(InterestedProfile));
+    buyerRepository = module.get(getRepositoryToken(Buyer));
+    documentRepository = module.get(getRepositoryToken(Document));
   });
 
   it('creates a rental lease in draft', async () => {
@@ -125,6 +140,70 @@ describe('LeasesService', () => {
 
     expect(result.status).toBe(LeaseStatus.DRAFT);
     expect(leaseRepository.create).toHaveBeenCalled();
+  });
+
+  it('imports legacy .doc contracts as rich text without OCR', async () => {
+    const property = { id: 'prop-1', ownerId: 'owner-1' } as Property;
+    const buyer = {
+      id: 'buyer-1',
+      user: { firstName: 'Buyer', lastName: 'User' },
+    } as Buyer;
+    const importedLease = {
+      id: 'lease-imported-1',
+      companyId: 'company-1',
+      propertyId: property.id,
+      ownerId: property.ownerId,
+      buyerId: buyer.id,
+      contractType: ContractType.SALE,
+      status: LeaseStatus.ACTIVE,
+      draftContractText: '<p>Contrato legado</p>',
+      draftContractFormat: 'html',
+      confirmedContractText: '<p>Contrato legado</p>',
+      confirmedContractFormat: 'html',
+    } as unknown as Lease;
+
+    propertyRepository.findOne!.mockResolvedValue(property);
+    buyerRepository.findOne!.mockResolvedValue(buyer);
+    leaseRepository.create!.mockReturnValue(importedLease);
+    leaseRepository
+      .save!.mockResolvedValueOnce(importedLease)
+      .mockResolvedValueOnce({
+        ...importedLease,
+        contractPdfUrl: 'db://document/doc-1',
+      } as Lease);
+    documentRepository.create!.mockImplementation((value) => value as any);
+    documentRepository
+      .save!.mockResolvedValueOnce({
+        id: 'doc-1',
+        fileUrl: 'db://document/pending',
+      } as any)
+      .mockResolvedValueOnce({
+        id: 'doc-1',
+        fileUrl: 'db://document/doc-1',
+      } as any);
+    jest
+      .spyOn(service as any, 'convertLegacyWordDocumentToHtml')
+      .mockResolvedValue('<p>Contrato legado</p>');
+    jest.spyOn(service, 'findOne').mockResolvedValue(importedLease);
+
+    const result = await service.importCurrentContract(
+      {
+        buffer: Buffer.from('doc'),
+        mimetype: 'application/msword',
+        originalname: 'contrato.doc',
+        size: 128,
+      },
+      {
+        propertyId: property.id,
+        ownerId: property.ownerId,
+        contractType: ContractType.SALE,
+        buyerId: buyer.id,
+      } as any,
+      'company-1',
+    );
+
+    expect(result.draftContractFormat).toBe('html');
+    expect(documentRepository.save).toHaveBeenCalled();
   });
 
   it('rejects creating rental if property already has active rental', async () => {
@@ -221,6 +300,7 @@ describe('LeasesService', () => {
       ownerId: 'owner-1',
     } as Property);
     interestedRepository.findOne!.mockResolvedValue(null);
+    buyerRepository.findOne!.mockResolvedValue(null);
 
     await expect(
       service.create({
@@ -228,7 +308,7 @@ describe('LeasesService', () => {
         propertyId: 'prop-1',
         ownerId: 'owner-1',
         contractType: ContractType.SALE,
-        buyerProfileId: 'buyer-1',
+        buyerId: 'buyer-1',
         fiscalValue: 100000,
       } as any),
     ).rejects.toThrow(NotFoundException);
@@ -253,7 +333,7 @@ describe('LeasesService', () => {
     } as Lease);
 
     await expect(service.confirmDraft('lease-1', 'user-1')).rejects.toThrow(
-      'Contract draft text is required',
+      'The contract content could not be interpreted',
     );
   });
 
@@ -441,7 +521,7 @@ describe('LeasesService', () => {
       templateId: null,
       property: {},
       tenant: {},
-      buyerProfile: {},
+      buyer: {},
     } as unknown as Lease;
     const renderedLease = {
       ...lease,

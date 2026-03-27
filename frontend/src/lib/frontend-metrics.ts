@@ -22,16 +22,16 @@ type FrontendMetricPayload =
     };
 
 function isBrowserRuntime(): boolean {
-  return typeof window !== "undefined";
+  return globalThis.window !== undefined;
 }
 
 function normalizePath(path: string): string {
   const sanitized = path
-    .replace(
+    .replaceAll(
       /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi,
       ":id",
     )
-    .replace(/\/\d+(?=\/|$)/g, "/:id");
+    .replaceAll(/\/\d+(?=\/|$)/g, "/:id");
 
   return sanitized || "/unknown";
 }
@@ -54,7 +54,7 @@ export function getCurrentPath(): string {
   if (!isBrowserRuntime()) {
     return "/unknown";
   }
-  return normalizePath(window.location.pathname || "/");
+  return normalizePath(globalThis.location.pathname || "/");
 }
 
 export function reportWebVital(
