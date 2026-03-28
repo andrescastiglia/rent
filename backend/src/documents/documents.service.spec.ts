@@ -2,6 +2,7 @@ import { Readable } from 'stream';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { DocumentsService } from './documents.service';
 import { DocumentStatus, DocumentType } from './entities/document.entity';
+import { getS3Config } from '../config/s3.config';
 
 jest.mock('@aws-sdk/s3-request-presigner', () => ({
   getSignedUrl: jest.fn(async () => 'https://signed.url'),
@@ -11,6 +12,8 @@ jest.mock('../config/s3.config', () => ({
   S3_BUCKET_NAME: 'bucket-test',
   getS3Config: jest.fn(),
 }));
+
+const mockedGetS3Config = jest.mocked(getS3Config);
 
 describe('DocumentsService', () => {
   const documentsRepository = {
@@ -104,6 +107,13 @@ describe('DocumentsService', () => {
     });
   });
 
+  it('confirmUpload throws when document not found', async () => {
+    documentsRepository.findOne.mockResolvedValueOnce(null);
+    await expect(service.confirmUpload('missing')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
   it('confirmUpload updates status and findByEntity lists documents', async () => {
     documentsRepository.findOne.mockResolvedValueOnce({
       id: 'doc-1',
@@ -171,5 +181,49 @@ describe('DocumentsService', () => {
     await expect(service.downloadByS3Key('missing-key')).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  describe('onModuleInit / ensureBucketExists', () => {
+    it('succeeds when bucket already exists', async () => {
+      const mockClient = { send: jest.fn().mockResolvedValue({}) };
+      mockedGetS3Config.mockReturnValue(mockClient as any);
+
+      await service.onModuleInit();
+
+      expect(mockClient.send).toHaveBeenCalledTimes(1);
+    });
+
+    it('creates bucket when HeadBucket throws', async () => {
+      const mockClient = {
+        send: jest
+          .fn()
+          .mockRejectedValueOnce(new Error('NotFound'))
+          .mockResolvedValueOnce({}),
+      };
+      mockedGetS3Config.mockReturnValue(mockClient as any);
+
+      await service.onModuleInit();
+
+      expect(mockClient.send).toHaveBeenCalledTimes(2);
+    });
+
+    it('logs error when bucket creation fails', async () => {
+      const mockClient = {
+        send: jest
+          .fn()
+          .mockRejectedValueOnce(new Error('NotFound'))
+          .mockRejectedValueOnce(new Error('CreateFailed')),
+      };
+      mockedGetS3Config.mockReturnValue(mockClient as any);
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      await service.onModuleInit();
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to create S3 bucket:',
+        expect.any(Error),
+      );
+      consoleSpy.mockRestore();
+    });
   });
 });

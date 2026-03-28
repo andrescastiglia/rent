@@ -42,7 +42,7 @@ describe('ReceiptPdfService', () => {
       findActiveTemplate: jest.fn(),
     };
     i18n = {
-      t: jest.fn().mockResolvedValue('Recibo'),
+      t: jest.fn().mockReturnValue('Recibo'),
     };
 
     const module: TestingModule = await Test.createTestingModule({

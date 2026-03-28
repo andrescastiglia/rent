@@ -75,7 +75,7 @@ export class ReceiptPdfService {
     payment: Payment,
     lang: string,
   ): Promise<Buffer> {
-    const title = await this.i18n.t('payment.title', { lang });
+    const title = this.i18n.t('payment.title', { lang });
     const context = this.buildTemplateContext(receipt, payment);
     const rendered = renderDocumentTemplate(templateBody, context);
     return generateCustomDocumentPdf(

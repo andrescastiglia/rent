@@ -17,25 +17,25 @@ export function generateCreditNotePdf(
     doc.on('end', () => resolve(Buffer.concat(buffers)));
     doc.on('error', reject);
 
-    const buildPdf = async () => {
-      const tHeader = await i18n.t('creditNote.header', { lang });
-      const tNumber = await i18n.t('creditNote.number', { lang });
-      const tIssueDate = await i18n.t('creditNote.issueDate', { lang });
-      const tRelatedInvoice = await i18n.t('creditNote.relatedInvoice', {
+    const buildPdf = () => {
+      const tHeader = i18n.t('creditNote.header', { lang });
+      const tNumber = i18n.t('creditNote.number', { lang });
+      const tIssueDate = i18n.t('creditNote.issueDate', { lang });
+      const tRelatedInvoice = i18n.t('creditNote.relatedInvoice', {
         lang,
       });
-      const tInvoiceNumber = await i18n.t('creditNote.invoiceNumber', { lang });
-      const tInvoiceDueDate = await i18n.t('creditNote.invoiceDueDate', {
+      const tInvoiceNumber = i18n.t('creditNote.invoiceNumber', { lang });
+      const tInvoiceDueDate = i18n.t('creditNote.invoiceDueDate', {
         lang,
       });
-      const tInvoiceTotal = await i18n.t('creditNote.invoiceTotal', { lang });
-      const tDetail = await i18n.t('creditNote.detail', { lang });
-      const tReason = await i18n.t('creditNote.reason', { lang });
+      const tInvoiceTotal = i18n.t('creditNote.invoiceTotal', { lang });
+      const tDetail = i18n.t('creditNote.detail', { lang });
+      const tReason = i18n.t('creditNote.reason', { lang });
       const tDefaultReason = creditNote.reason
         ? ''
-        : await i18n.t('creditNote.defaultReason', { lang });
-      const tAmount = await i18n.t('creditNote.amount', { lang });
-      const tId = await i18n.t('creditNote.id', { lang });
+        : i18n.t('creditNote.defaultReason', { lang });
+      const tAmount = i18n.t('creditNote.amount', { lang });
+      const tId = i18n.t('creditNote.id', { lang });
 
       doc
         .fontSize(20)
@@ -89,6 +89,10 @@ export function generateCreditNotePdf(
       doc.end();
     };
 
-    void buildPdf().catch(reject);
+    try {
+      buildPdf();
+    } catch (error) {
+      reject(error);
+    }
   });
 }

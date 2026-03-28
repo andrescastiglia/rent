@@ -46,6 +46,10 @@ export class BuyersController {
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
   ) {
+    if (req.user.role === UserRole.BUYER) {
+      return this.buyersService.findOne(id, req.user.companyId, req.user.id);
+    }
+
     return this.buyersService.findOne(id, req.user.companyId);
   }
 

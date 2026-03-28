@@ -42,7 +42,7 @@ describe('CreditNotePdfService', () => {
       findActiveTemplate: jest.fn(),
     };
     i18n = {
-      t: jest.fn().mockResolvedValue('Nota de crédito'),
+      t: jest.fn().mockReturnValue('Nota de crédito'),
     };
 
     const module: TestingModule = await Test.createTestingModule({

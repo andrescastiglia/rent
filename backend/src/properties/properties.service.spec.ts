@@ -683,5 +683,339 @@ describe('PropertiesService', () => {
         { companyId: 'company-1' },
       );
     });
+
+    it('should throw NotFoundException when findOneScoped returns null', async () => {
+      const scopedQb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(null),
+      };
+      propertyRepository.createQueryBuilder!.mockReturnValue(scopedQb as any);
+
+      await expect(
+        service.findOneScoped('missing', {
+          id: 'u-staff',
+          role: UserRole.STAFF,
+          companyId: 'company-1',
+        } as any),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should apply staff visibility scope without extra constraints', () => {
+      const staffQuery = { andWhere: jest.fn(), innerJoin: jest.fn() };
+      (service as any).applyVisibilityScope(staffQuery as any, {
+        id: 'u-staff',
+        role: UserRole.STAFF,
+      });
+      expect(staffQuery.andWhere).not.toHaveBeenCalled();
+      expect(staffQuery.innerJoin).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('update with images', () => {
+    const propertyWithImages = {
+      ...mockProperty,
+      images: ['/properties/images/aaaaaaaa-aaaa-1aaa-aaaa-aaaaaaaaaa00'],
+    };
+
+    it('should update a property with new images and remove old ones', async () => {
+      const newImageId = 'bbbbbbbb-bbbb-1bbb-9bbb-bbbbbbbbbbbb';
+      propertyRepository.findOne!.mockResolvedValue(propertyWithImages);
+      propertyRepository.save!.mockImplementation(async (data) => data);
+
+      propertyImagesRepository.find!.mockResolvedValue([
+        { id: newImageId, propertyId: null },
+      ]);
+
+      const updateQb = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+      const deleteQb = {
+        delete: jest.fn().mockReturnThis(),
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+
+      let qbCallCount = 0;
+      propertyImagesRepository.createQueryBuilder!.mockImplementation(() => {
+        qbCallCount++;
+        return qbCallCount === 1 ? updateQb : deleteQb;
+      });
+
+      await service.update(
+        '1',
+        { images: [`/properties/images/${newImageId}`] },
+        'owner-1',
+        'owner',
+      );
+
+      expect(updateQb.set).toHaveBeenCalledWith({
+        propertyId: '1',
+        isTemporary: false,
+      });
+      expect(deleteQb.execute).toHaveBeenCalled();
+    });
+
+    it('should throw when some images are invalid', async () => {
+      propertyRepository.findOne!.mockResolvedValue(propertyWithImages);
+      propertyImagesRepository.find!.mockResolvedValue([]);
+
+      await expect(
+        service.update(
+          '1',
+          {
+            images: ['/properties/images/cccccccc-cccc-1ccc-9ccc-cccccccccccc'],
+          },
+          'owner-1',
+          'owner',
+        ),
+      ).rejects.toThrow('Some property images are invalid');
+    });
+
+    it('should throw when an image is already assigned to another property', async () => {
+      const imgId = 'dddddddd-dddd-1ddd-9ddd-dddddddddddd';
+      propertyRepository.findOne!.mockResolvedValue(propertyWithImages);
+      propertyImagesRepository.find!.mockResolvedValue([
+        { id: imgId, propertyId: 'other-property' },
+      ]);
+
+      await expect(
+        service.update(
+          '1',
+          { images: [`/properties/images/${imgId}`] },
+          'owner-1',
+          'owner',
+        ),
+      ).rejects.toThrow(
+        'One or more images are already assigned to another property',
+      );
+    });
+  });
+
+  describe('uploadPropertyImage success', () => {
+    it('should save image and return url', async () => {
+      const savedImage = { id: 'img-uuid-1' };
+      propertyImagesRepository.create!.mockReturnValue(savedImage);
+      propertyImagesRepository.save!.mockResolvedValue(savedImage);
+
+      const result = await service.uploadPropertyImage(
+        {
+          buffer: Buffer.from('PNG'),
+          mimetype: 'image/png',
+          originalname: 'photo.png',
+          size: 3,
+        },
+        { id: 'u1', role: 'admin', companyId: 'company-1' },
+      );
+
+      expect(result).toEqual({ url: '/properties/images/img-uuid-1' });
+      expect(propertyImagesRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          companyId: 'company-1',
+          mimeType: 'image/png',
+          isTemporary: true,
+        }),
+      );
+    });
+  });
+
+  describe('getPropertyImage success', () => {
+    it('should return the image when found', async () => {
+      const image = { id: 'img-1', data: Buffer.from('data') };
+      propertyImagesRepository.findOne!.mockResolvedValue(image);
+
+      const result = await service.getPropertyImage('img-1');
+      expect(result).toEqual(image);
+    });
+  });
+
+  describe('findAll with user context and filters', () => {
+    it('should apply owner, state, propertyType, status filters', async () => {
+      const mockQb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+        innerJoin: jest.fn().mockReturnThis(),
+      };
+      propertyRepository.createQueryBuilder!.mockReturnValue(mockQb);
+
+      await service.findAll(
+        {
+          ownerId: 'o1',
+          addressState: 'BA',
+          propertyType: PropertyType.HOUSE,
+          status: PropertyStatus.ACTIVE,
+          minRent: 1000,
+          maxRent: 5000,
+          bedrooms: 3,
+          bathrooms: 2,
+          page: 2,
+          limit: 5,
+        },
+        {
+          id: 'u1',
+          role: UserRole.TENANT,
+          companyId: 'company-1',
+          email: 'test@test.com',
+          phone: '555',
+        },
+      );
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'property.owner_id = :ownerId',
+        { ownerId: 'o1' },
+      );
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'property.address_state ILIKE :addressState',
+        { addressState: '%BA%' },
+      );
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'property.property_type = :propertyType',
+        { propertyType: PropertyType.HOUSE },
+      );
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'property.status = :status',
+        { status: PropertyStatus.ACTIVE },
+      );
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        '(property.rent_price >= :minRent OR units.base_rent >= :minRent)',
+        { minRent: 1000 },
+      );
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        '(property.rent_price <= :maxRent OR units.base_rent <= :maxRent)',
+        { maxRent: 5000 },
+      );
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'units.bedrooms = :bedrooms',
+        { bedrooms: 3 },
+      );
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'units.bathrooms = :bathrooms',
+        { bathrooms: 2 },
+      );
+      expect(mockQb.skip).toHaveBeenCalledWith(5);
+      expect(mockQb.take).toHaveBeenCalledWith(5);
+    });
+  });
+
+  describe('edge cases for image parsing', () => {
+    it('should return null for empty, null, or non-string inputs', () => {
+      expect((service as any).toPropertyImageId('')).toBeNull();
+      expect((service as any).toPropertyImageId(null)).toBeNull();
+      expect((service as any).toPropertyImageId(123)).toBeNull();
+      expect((service as any).toPropertyImageId('   ')).toBeNull();
+      expect((service as any).toPropertyImageFileName('')).toBeNull();
+      expect((service as any).toPropertyImageFileName(null)).toBeNull();
+      expect((service as any).toPropertyImageFileName(123)).toBeNull();
+      expect((service as any).toPropertyImageFileName('   ')).toBeNull();
+    });
+
+    it('should return null for paths without matching prefix', () => {
+      expect((service as any).toPropertyImageId('/other/path/uuid')).toBeNull();
+      expect(
+        (service as any).toPropertyImageFileName('/other/path/file.jpg'),
+      ).toBeNull();
+    });
+
+    it('should reject filename with backslash', () => {
+      expect(
+        (service as any).toPropertyImageFileName(
+          '/uploads/properties/path\\file.jpg',
+        ),
+      ).toBeNull();
+    });
+
+    it('should handle URL parsing error for legacy filenames', () => {
+      expect(
+        (service as any).toPropertyImageFileName('https://%%invalid-url'),
+      ).toBeNull();
+    });
+  });
+
+  describe('deletePropertyImages without companyId', () => {
+    it('should delete images without company filter', async () => {
+      const deleteQb = {
+        delete: jest.fn().mockReturnThis(),
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 2 }),
+      };
+      propertyImagesRepository.createQueryBuilder!.mockReturnValue(deleteQb);
+
+      const imgId = 'eeeeeeee-eeee-1eee-aeee-eeeeeeeeeeee';
+      const result = await (service as any).deletePropertyImages(
+        [`/properties/images/${imgId}`],
+        undefined,
+      );
+
+      expect(result).toBe(2);
+      expect(deleteQb.andWhere).not.toHaveBeenCalled();
+    });
+
+    it('should return 0 for empty array', async () => {
+      const result = await (service as any).deletePropertyImages([], 'c1');
+      expect(result).toBe(0);
+    });
+  });
+
+  describe('create with images', () => {
+    it('should create property with uploaded images', async () => {
+      const imgId = 'ffffffff-ffff-1fff-bfff-ffffffffffff';
+      ownerRepository.findOne!.mockResolvedValue({
+        id: 'owner-1',
+        companyId: 'company-1',
+        userId: 'admin-user',
+      });
+      propertyImagesRepository.find!.mockResolvedValue([
+        { id: imgId, propertyId: null },
+      ]);
+      const updateQb = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+      propertyImagesRepository.createQueryBuilder!.mockReturnValue(updateQb);
+
+      propertyRepository.create!.mockReturnValue({
+        ...mockProperty,
+        id: 'new-prop',
+      });
+      propertyRepository.save!.mockResolvedValue({
+        ...mockProperty,
+        id: 'new-prop',
+      });
+
+      await service.create(
+        {
+          ownerId: 'owner-1',
+          name: 'Prop with Images',
+          propertyType: PropertyType.APARTMENT,
+          addressStreet: 'A',
+          addressCity: 'C',
+          addressState: 'S',
+          images: [`/properties/images/${imgId}`],
+        } as any,
+        { id: 'admin-user', role: 'admin', companyId: 'company-1' },
+      );
+
+      expect(updateQb.set).toHaveBeenCalledWith({
+        propertyId: 'new-prop',
+        isTemporary: false,
+      });
+    });
   });
 });

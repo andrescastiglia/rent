@@ -42,7 +42,7 @@ describe('InvoicePdfService', () => {
       findActiveTemplate: jest.fn(),
     };
     i18n = {
-      t: jest.fn().mockResolvedValue('Factura'),
+      t: jest.fn().mockReturnValue('Factura'),
     };
 
     const module: TestingModule = await Test.createTestingModule({

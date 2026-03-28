@@ -14,7 +14,7 @@ describe('UsersController', () => {
   };
 
   const i18n = {
-    t: jest.fn(async (key: string) => key),
+    t: jest.fn((key: string) => key),
   } as any;
 
   let controller: UsersController;

@@ -3,7 +3,7 @@ import { generateCreditNotePdf } from './credit-note-template';
 describe('generateCreditNotePdf', () => {
   it('generates a credit note using explicit reason', async () => {
     const i18n = {
-      t: jest.fn(async (key: string) => key),
+      t: jest.fn((key: string) => key),
     } as any;
 
     const buffer = await generateCreditNotePdf(
@@ -35,7 +35,7 @@ describe('generateCreditNotePdf', () => {
 
   it('uses default reason when credit note reason is missing', async () => {
     const i18n = {
-      t: jest.fn(async (key: string) => key),
+      t: jest.fn((key: string) => key),
     } as any;
 
     const buffer = await generateCreditNotePdf(
@@ -66,7 +66,7 @@ describe('generateCreditNotePdf', () => {
 
   it('rejects when translation lookup fails', async () => {
     const i18n = {
-      t: jest.fn(async () => {
+      t: jest.fn(() => {
         throw new Error('i18n failure');
       }),
     } as any;

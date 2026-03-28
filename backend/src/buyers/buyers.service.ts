@@ -78,9 +78,18 @@ export class BuyersService {
     };
   }
 
-  async findOne(id: string, companyId: string): Promise<Buyer> {
+  async findOne(
+    id: string,
+    companyId: string,
+    userId?: string,
+  ): Promise<Buyer> {
     const buyer = await this.buyersRepository.findOne({
-      where: { id, companyId, deletedAt: IsNull() },
+      where: {
+        id,
+        companyId,
+        ...(userId ? { userId } : {}),
+        deletedAt: IsNull(),
+      },
       relations: ['user', 'interestedProfile'],
     });
 
@@ -92,10 +101,10 @@ export class BuyersService {
   }
 
   async create(dto: CreateBuyerDto, companyId: string): Promise<Buyer> {
-    const email = dto.email?.trim() || null;
+    const email = this.normalizeEmail(dto.email);
     if (email) {
       const existingUser = await this.usersRepository.findOne({
-        where: { email: email.toLowerCase() },
+        where: { email },
       });
       if (existingUser) {
         throw new ConflictException('A user with this email already exists');
@@ -165,7 +174,8 @@ export class BuyersService {
     companyId: string,
   ): Promise<Buyer> {
     const buyer = await this.findOne(id, companyId);
-    const nextEmail = dto.email?.trim();
+    const nextEmail =
+      dto.email === undefined ? undefined : this.normalizeEmail(dto.email);
     const previousInterestedProfileId = buyer.interestedProfileId;
     const nextInterestedProfile = await this.resolveNextInterestedProfile(
       dto.interestedProfileId,
@@ -175,7 +185,7 @@ export class BuyersService {
 
     if (nextEmail) {
       const existingUser = await this.usersRepository.findOne({
-        where: { email: nextEmail.toLowerCase() },
+        where: { email: nextEmail },
       });
       if (existingUser && existingUser.id !== buyer.userId) {
         throw new ConflictException('A user with this email already exists');
@@ -189,7 +199,7 @@ export class BuyersService {
       buyer.user.lastName = dto.lastName.trim();
     }
     if (dto.email !== undefined) {
-      buyer.user.email = nextEmail || null;
+      buyer.user.email = nextEmail ?? null;
     }
     if (dto.phone !== undefined) {
       buyer.user.phone = dto.phone?.trim() || null;
@@ -333,5 +343,10 @@ export class BuyersService {
     }
 
     return InterestedStatus.INTERESTED;
+  }
+
+  private normalizeEmail(email: string | null | undefined): string | null {
+    const normalized = email?.trim().toLowerCase() ?? '';
+    return normalized || null;
   }
 }

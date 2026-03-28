@@ -8,6 +8,7 @@ import { Tenant } from './entities/tenant.entity';
 import { TenantActivity } from './entities/tenant-activity.entity';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { TenantActivityStatus } from './entities/tenant-activity.entity';
 
 jest.mock('bcrypt');
 
@@ -356,6 +357,222 @@ describe('TenantsService', () => {
       await expect(service.getLeaseHistory('missing')).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe('listActivities', () => {
+    it('returns activities for a tenant', async () => {
+      const activities = [{ id: 'act-1', subject: 'Call' }];
+      _tenantRepository.findOne!.mockResolvedValue({
+        id: 'tenant-1',
+        userId: 'user-1',
+        companyId: 'company-1',
+      });
+      _tenantActivityRepository.find!.mockResolvedValue(activities);
+
+      const result = await service.listActivities('user-1', 'company-1');
+
+      expect(result).toEqual(activities);
+      expect(_tenantActivityRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenantId: 'tenant-1',
+            companyId: 'company-1',
+          }),
+        }),
+      );
+    });
+
+    it('throws NotFoundException when tenant not found', async () => {
+      _tenantRepository.findOne!.mockResolvedValue(null);
+      await expect(
+        service.listActivities('missing', 'company-1'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('createActivity', () => {
+    it('creates activity with auto completedAt when status is completed', async () => {
+      _tenantRepository.findOne!.mockResolvedValue({
+        id: 'tenant-1',
+        userId: 'user-1',
+        companyId: 'company-1',
+      });
+      _tenantActivityRepository.create!.mockReturnValue({
+        companyId: 'company-1',
+        tenantId: 'tenant-1',
+        type: 'call',
+        status: TenantActivityStatus.COMPLETED,
+        subject: 'Follow up',
+        completedAt: null,
+      });
+      _tenantActivityRepository.save!.mockImplementation((e: any) => e);
+
+      const result = await service.createActivity(
+        'user-1',
+        {
+          type: 'call',
+          status: TenantActivityStatus.COMPLETED,
+          subject: 'Follow up',
+        } as any,
+        { id: 'admin-1', companyId: 'company-1' } as any,
+      );
+
+      expect(result.completedAt).toBeInstanceOf(Date);
+    });
+
+    it('creates activity with explicit dueAt and completedAt', async () => {
+      _tenantRepository.findOne!.mockResolvedValue({
+        id: 'tenant-1',
+        userId: 'user-1',
+        companyId: 'company-1',
+      });
+      _tenantActivityRepository.create!.mockReturnValue({
+        companyId: 'company-1',
+        tenantId: 'tenant-1',
+        type: 'task',
+        status: TenantActivityStatus.PENDING,
+        subject: 'Review docs',
+        dueAt: new Date('2026-04-01'),
+        completedAt: null,
+      });
+      _tenantActivityRepository.save!.mockImplementation((e: any) => e);
+
+      await service.createActivity(
+        'user-1',
+        {
+          type: 'task',
+          subject: 'Review docs',
+          dueAt: '2026-04-01',
+        } as any,
+        { id: 'admin-1', companyId: 'company-1' } as any,
+      );
+
+      expect(_tenantActivityRepository.save).toHaveBeenCalled();
+    });
+  });
+
+  describe('updateActivity', () => {
+    it('updates activity fields', async () => {
+      _tenantRepository.findOne!.mockResolvedValue({
+        id: 'tenant-1',
+        userId: 'user-1',
+        companyId: 'company-1',
+      });
+      _tenantActivityRepository.findOne!.mockResolvedValue({
+        id: 'act-1',
+        tenantId: 'tenant-1',
+        companyId: 'company-1',
+        subject: 'Old',
+        status: TenantActivityStatus.PENDING,
+        completedAt: null,
+        dueAt: null,
+      });
+      _tenantActivityRepository.save!.mockImplementation((e: any) => e);
+
+      const result = await service.updateActivity(
+        'user-1',
+        'act-1',
+        { subject: 'Updated', dueAt: '2026-05-01' } as any,
+        'company-1',
+      );
+
+      expect(result.subject).toBe('Updated');
+    });
+
+    it('throws NotFoundException when activity not found', async () => {
+      _tenantRepository.findOne!.mockResolvedValue({
+        id: 'tenant-1',
+        userId: 'user-1',
+        companyId: 'company-1',
+      });
+      _tenantActivityRepository.findOne!.mockResolvedValue(null);
+
+      await expect(
+        service.updateActivity('user-1', 'missing', {} as any, 'company-1'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('sets completedAt when status changes to completed', async () => {
+      _tenantRepository.findOne!.mockResolvedValue({
+        id: 'tenant-1',
+        userId: 'user-1',
+        companyId: 'company-1',
+      });
+      _tenantActivityRepository.findOne!.mockResolvedValue({
+        id: 'act-1',
+        tenantId: 'tenant-1',
+        companyId: 'company-1',
+        subject: 'Task',
+        status: TenantActivityStatus.PENDING,
+        completedAt: null,
+        dueAt: null,
+      });
+      _tenantActivityRepository.save!.mockImplementation((e: any) => e);
+
+      const result = await service.updateActivity(
+        'user-1',
+        'act-1',
+        { status: TenantActivityStatus.COMPLETED } as any,
+        'company-1',
+      );
+
+      expect(result.completedAt).toBeInstanceOf(Date);
+    });
+
+    it('clears completedAt when explicitly set to null', async () => {
+      _tenantRepository.findOne!.mockResolvedValue({
+        id: 'tenant-1',
+        userId: 'user-1',
+        companyId: 'company-1',
+      });
+      _tenantActivityRepository.findOne!.mockResolvedValue({
+        id: 'act-1',
+        tenantId: 'tenant-1',
+        companyId: 'company-1',
+        subject: 'Task',
+        status: TenantActivityStatus.COMPLETED,
+        completedAt: new Date('2026-01-01'),
+        dueAt: null,
+      });
+      _tenantActivityRepository.save!.mockImplementation((e: any) => e);
+
+      const result = await service.updateActivity(
+        'user-1',
+        'act-1',
+        { completedAt: null } as any,
+        'company-1',
+      );
+
+      expect(result.completedAt).toBeNull();
+    });
+
+    it('preserves completedAt when not specified in dto', async () => {
+      const existingDate = new Date('2026-01-15');
+      _tenantRepository.findOne!.mockResolvedValue({
+        id: 'tenant-1',
+        userId: 'user-1',
+        companyId: 'company-1',
+      });
+      _tenantActivityRepository.findOne!.mockResolvedValue({
+        id: 'act-1',
+        tenantId: 'tenant-1',
+        companyId: 'company-1',
+        subject: 'Task',
+        status: TenantActivityStatus.COMPLETED,
+        completedAt: existingDate,
+        dueAt: null,
+      });
+      _tenantActivityRepository.save!.mockImplementation((e: any) => e);
+
+      const result = await service.updateActivity(
+        'user-1',
+        'act-1',
+        { subject: 'Renamed' } as any,
+        'company-1',
+      );
+
+      expect(result.completedAt).toEqual(existingDate);
     });
   });
 });
