@@ -73,7 +73,10 @@ export class Company {
   @Column({ name: 'max_users', default: 3 })
   maxUsers: number;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({
+    type: 'jsonb',
+    default: { timezone: 'America/Argentina/Buenos_Aires' },
+  })
   settings: Record<string, any>;
 
   @Column({ name: 'arca_enabled', default: false })

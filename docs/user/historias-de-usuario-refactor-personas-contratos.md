@@ -42,6 +42,27 @@
 - Desde un interesado se puede ejecutar conversión a inquilino o comprador.
 - Se conserva historial de etapa y fecha de conversión.
 
+**ID: US-MOD-06 - Propietarios con Alta Minima**
+*Como* usuario administrativo,
+*quiero* poder crear propietarios con solo nombre y apellido,
+*para* cargar rapido a un locador o vendedor aunque todavia no tenga email o acceso al sistema.
+
+**Criterios de aceptación**
+- En base de datos, backend y frontend el alta de propietario exige solo `firstName` y `lastName`.
+- El email pasa a ser opcional.
+- Si el propietario no tiene email, puede existir igual como persona operativa sin acceso autenticado.
+
+**ID: US-MOD-07 - Roles y Permisos por Modulo**
+*Como* administrador,
+*quiero* administrar roles internos y permisos por modulo,
+*para* definir que puede usar cada integrante de la inmobiliaria.
+
+**Criterios de aceptación**
+- Existen los roles `admin`, `staff`, `owner`, `tenant` y `buyer`.
+- `admin` accede a todo.
+- `staff` accede segun permisos por modulo.
+- Los perfiles externos (`owner`, `tenant`, `buyer`) solo ven lo basico vinculado a su relacion con la inmobiliaria.
+
 **ID: US-MOD-05 - Reserva de Propiedad Vinculada a Persona**
 *Como* agente,
 *quiero* marcar una propiedad como reservada desde actividades de inquilino o comprador,
@@ -74,6 +95,37 @@
 - Se muestran primero actividades vencidas no finalizadas.
 - Debajo se muestran actividades del día actual.
 - Cada actividad puede marcarse como finalizada o editarse para agregar comentario.
+
+**ID: US-ACT-03 - Dashboards Separados para Ventas y Alquileres**
+*Como* usuario operativo,
+*quiero* contar con dashboards distintos para ventas y alquileres,
+*para* ordenar la gestion diaria segun el tipo de operacion.
+
+**Criterios de aceptación**
+- Existe un dashboard principal que deriva a `Ventas` y `Alquileres`.
+- Cada dashboard muestra indicadores y listados propios de su circuito.
+- El acceso a cada dashboard respeta permisos por modulo.
+
+**ID: US-ACT-04 - Dashboard Operativo de Alquileres**
+*Como* secretaria de una inmobiliaria pequeña,
+*quiero* ver alquileres vigentes, vencidos y por vencer este mes con acceso rapido a la ficha y al cobro,
+*para* resolver renovaciones y cobranzas desde una sola vista.
+
+**Criterios de aceptación**
+- La clasificacion del dashboard duplica la vista operativa de contratos.
+- `vigente`, `vencido` y `por vencer` se calculan por estado y fecha usando la zona horaria configurada para la empresa.
+- Un contrato finalizado con fecha futura no cuenta como vigente ni vencido.
+- Desde un resultado se puede abrir la ficha completa o iniciar el cobro directo.
+
+**ID: US-ACT-05 - Dashboard Operativo de Ventas**
+*Como* usuario operativo,
+*quiero* ver carpetas, acuerdos, cuotas vencidas, cuotas por vencer y cobranzas recientes,
+*para* seguir ventas con el mismo nivel de control que alquileres.
+
+**Criterios de aceptación**
+- El dashboard de ventas muestra carpetas, acuerdos activos, cuotas vencidas y cuotas del mes.
+- La busqueda por comprador es parcial, ignora tildes y no distingue mayusculas.
+- Cada resultado permite ir al modulo de ventas para continuar la gestion.
 
 ## 3. Contratos
 
@@ -116,6 +168,40 @@
 - Contrato de compra/venta: incluye valor fiscal.
 - Contrato de alquiler: no incluye valor fiscal.
 
+**ID: US-CON-05 - Alta de Contrato desde Interesado con Reutilizacion**
+*Como* usuario operativo,
+*quiero* crear contratos de alquiler o venta tomando una persona desde interesados, desde su conversion o desde un contrato ya existente,
+*para* evitar carga duplicada y no salir del flujo.
+
+**Criterios de aceptación**
+- En alquiler se listan solo interesados con marca de operacion `rent`.
+- En venta se listan solo interesados con marca de operacion `sale`.
+- Si el interesado no existe, puede crearse desde el mismo formulario.
+- Si el interesado de alquiler aun no fue convertido, el sistema puede convertirlo automaticamente al guardar.
+- Si ya existe un contrato abierto para la misma propiedad y parte, el sistema permite abrirlo en lugar de duplicarlo.
+
+**ID: US-CON-06 - Carga de Contratos Actuales**
+*Como* administrador,
+*quiero* cargar contratos vigentes que ya existen fuera del sistema,
+*para* empezar a operar pagos, vencimientos y seguimiento sin rearmarlos a mano.
+
+**Criterios de aceptación**
+- Existe una pantalla de carga de contrato actual.
+- Se puede elegir `locador/locatario` para alquiler o `vendedor/comprador` para venta.
+- Se puede adjuntar PDF, DOC, DOCX o TXT.
+- El contrato creado queda operativo y enlazado al archivo cargado.
+
+**ID: US-CON-07 - Plantillas Enriquecidas e Importacion DOCX**
+*Como* administrador,
+*quiero* editar plantillas en formato enriquecido e importar DOCX,
+*para* reutilizar contratos reales sin perder estructura.
+
+**Criterios de aceptación**
+- Las plantillas soportan `plain_text` y `html`.
+- Se puede importar un archivo `.docx` y convertirlo en plantilla editable.
+- El editor de plantillas permite formato enriquecido, preview y variables reutilizables.
+- Se conserva el nombre y tipo del archivo origen cuando la plantilla proviene de importacion.
+
 ## 4. Inquilinos, Pagos y Cuenta Corriente
 
 **ID: US-PAY-01 - Acciones de Contrato y Cobro en Inquilinos**
@@ -127,6 +213,16 @@
 - En inquilinos existe acceso a ver contrato.
 - Se puede registrar pago desde la ficha del inquilino.
 - Se muestra listado de pagos ordenado por fecha descendente.
+
+**ID: US-PAY-04 - Cobro Directo con Minimos Pasos**
+*Como* secretaria,
+*quiero* registrar un pago desde la busqueda o la ficha del contrato con la menor cantidad de pasos posibles,
+*para* cobrar rapido sin completar datos innecesarios.
+
+**Criterios de aceptación**
+- Desde pagos y desde la ficha del contrato existe acceso directo a `Registrar pago`.
+- El formulario llega con contrato y monto sugerido precargados cuando sea posible.
+- Solo se exige la informacion minima para registrar el cobro.
 
 **ID: US-PAY-02 - Cálculo de Deuda y Mora al Registrar Pago**
 *Como* sistema,

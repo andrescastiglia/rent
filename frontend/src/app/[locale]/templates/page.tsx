@@ -31,6 +31,13 @@ function TemplatesList({
   t: (key: string) => string;
   tc: (key: string) => string;
 }>) {
+  const getPreview = (template: EditableTemplate): string => {
+    if (template.templateFormat === "html") {
+      return template.templateBody.replaceAll(/<[^>]+>/g, " ").trim();
+    }
+    return template.templateBody;
+  };
+
   if (templates.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center">
@@ -55,6 +62,11 @@ function TemplatesList({
                 <span className="text-gray-500 dark:text-gray-400">
                   {template.isActive ? t("active") : t("inactive")}
                 </span>
+                {template.templateFormat === "html" ? (
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                    HTML
+                  </span>
+                ) : null}
                 {isPaymentScope && template.isDefault ? (
                   <span className="rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-0.5">
                     {t("defaultLabel")}
@@ -71,7 +83,7 @@ function TemplatesList({
             </Link>
           </div>
           <p className="mt-3 text-xs text-gray-600 dark:text-gray-300 whitespace-pre-line">
-            {template.templateBody}
+            {getPreview(template)}
           </p>
         </div>
       ))}
@@ -103,6 +115,7 @@ export default function TemplatesPage() {
               id: item.id,
               name: item.name,
               templateBody: item.templateBody,
+              templateFormat: item.templateFormat,
               isActive: item.isActive,
             }),
           )
@@ -184,6 +197,9 @@ export default function TemplatesPage() {
             className="btn btn-primary"
           >
             {t("newTemplate")}
+          </Link>
+          <Link href={`/${locale}/leases/import`} className="btn btn-secondary">
+            Cargar contrato actual
           </Link>
         </div>
       </div>

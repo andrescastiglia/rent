@@ -35,14 +35,14 @@ const schema = z.object({
 
 type FormValues = z.input<typeof schema>;
 
-type TemplateFormProps = {
+type TemplateFormProps = Readonly<{
   mode: 'create' | 'edit';
   initial?: TemplateFormInitial;
   submitting?: boolean;
   onSubmit: (payload: TemplateFormInput) => Promise<void>;
   submitLabel: string;
   testIDPrefix?: string;
-};
+}>;
 
 const kindOptions = [
   { label: 'Contrato', value: 'lease' as const },
@@ -67,6 +67,19 @@ const boolOptions = [
   { label: 'Sí', value: 'yes' as const },
   { label: 'No', value: 'no' as const },
 ];
+
+const getPaymentTypeLabel = (
+  value: PaymentDocumentTemplateType,
+  t: (key: string) => string,
+): string => {
+  if (value === 'receipt') {
+    return t('templatesHub.scopes.receipt');
+  }
+  if (value === 'invoice') {
+    return t('templatesHub.scopes.invoice');
+  }
+  return t('templatesHub.scopes.creditNote');
+};
 
 export function TemplateForm({
   mode,
@@ -167,12 +180,7 @@ export function TemplateForm({
               onChange={field.onChange}
               options={paymentTypeOptions.map((option) => ({
                 value: option.value,
-                label:
-                  option.value === 'receipt'
-                    ? t('templatesHub.scopes.receipt')
-                    : option.value === 'invoice'
-                      ? t('templatesHub.scopes.invoice')
-                      : t('templatesHub.scopes.creditNote'),
+                label: getPaymentTypeLabel(option.value, t),
               }))}
               testID={`${testIDPrefix}.paymentType`}
             />

@@ -37,16 +37,17 @@ export function TurnstileCaptcha({ onTokenChange }: Readonly<Props>) {
 
   useEffect(() => {
     if (!siteKey) return;
-    if (window.turnstile) {
+    const browserWindow = globalThis.window;
+    if (browserWindow.turnstile) {
       queueMicrotask(() => setReady(true));
       return;
     }
 
-    window.__turnstileOnLoad = window.__turnstileOnLoad ?? [];
-    window.__turnstileOnLoad.push(() => setReady(true));
+    browserWindow.__turnstileOnLoad = browserWindow.__turnstileOnLoad ?? [];
+    browserWindow.__turnstileOnLoad.push(() => setReady(true));
 
-    const existing = document.getElementById(SCRIPT_ID) as HTMLScriptElement;
-    if (existing) return;
+    const existing = document.getElementById(SCRIPT_ID);
+    if (existing instanceof HTMLScriptElement) return;
 
     const script = document.createElement("script");
     script.id = SCRIPT_ID;
@@ -54,22 +55,28 @@ export function TurnstileCaptcha({ onTokenChange }: Readonly<Props>) {
     script.async = true;
     script.defer = true;
     script.onload = () => {
-      const callbacks = window.__turnstileOnLoad ?? [];
+      const callbacks = browserWindow.__turnstileOnLoad ?? [];
       callbacks.forEach((callback) => callback());
-      window.__turnstileOnLoad = [];
+      browserWindow.__turnstileOnLoad = [];
     };
     document.head.appendChild(script);
   }, [siteKey]);
 
   useEffect(() => {
-    if (!ready || !siteKey || !containerRef.current || !window.turnstile) {
+    const browserWindow = globalThis.window;
+    if (
+      !ready ||
+      !siteKey ||
+      !containerRef.current ||
+      !browserWindow.turnstile
+    ) {
       return;
     }
     if (widgetIdRef.current) {
       return;
     }
 
-    const widgetId = window.turnstile.render(containerRef.current, {
+    const widgetId = browserWindow.turnstile.render(containerRef.current, {
       sitekey: siteKey,
       callback: (token) => onTokenChange(token),
       "expired-callback": () => onTokenChange(null),
@@ -78,8 +85,8 @@ export function TurnstileCaptcha({ onTokenChange }: Readonly<Props>) {
     widgetIdRef.current = widgetId;
 
     return () => {
-      if (widgetIdRef.current && window.turnstile) {
-        window.turnstile.remove(widgetIdRef.current);
+      if (widgetIdRef.current && browserWindow.turnstile) {
+        browserWindow.turnstile.remove(widgetIdRef.current);
         widgetIdRef.current = null;
       }
     };

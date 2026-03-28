@@ -5,12 +5,22 @@ import { useTranslation } from 'react-i18next';
 import { Screen } from '@/components/screen';
 import { H1 } from '@/components/ui';
 
-type ModuleListProps<T> = {
+type ModuleListProps<T> = Readonly<{
   title: string;
   subtitle?: string;
-  queryKey: string[];
+  queryKey: readonly string[];
   queryFn: () => Promise<T[]>;
   renderItem: (item: T) => React.ReactNode;
+}>;
+
+const getItemKey = <T,>(item: T): string => {
+  if (typeof item === 'object' && item !== null && 'id' in item) {
+    const candidate = item.id;
+    if (typeof candidate === 'string' || typeof candidate === 'number') {
+      return String(candidate);
+    }
+  }
+  return JSON.stringify(item);
 };
 
 export function ModuleListScreen<T>({
@@ -37,7 +47,7 @@ export function ModuleListScreen<T>({
     return (
       <Screen>
         <H1>{title}</H1>
-        <Text style={styles.error}>{(query.error as Error).message}</Text>
+        <Text style={styles.error}>{query.error.message}</Text>
       </Screen>
     );
   }
@@ -52,8 +62,8 @@ export function ModuleListScreen<T>({
         <Text style={styles.empty}>{t('common.noDataAvailable')}</Text>
       ) : null}
       <View style={styles.list}>
-        {items.map((item, index) => (
-          <View key={index}>{renderItem(item)}</View>
+        {items.map((item) => (
+          <View key={getItemKey(item)}>{renderItem(item)}</View>
         ))}
       </View>
     </Screen>

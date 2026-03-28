@@ -13,7 +13,7 @@ import type {
 } from '@/api/users';
 
 const createSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   password: z.string().min(8),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
@@ -29,7 +29,7 @@ type CreateFormValues = z.infer<typeof createSchema>;
 type EditFormValues = z.infer<typeof editSchema>;
 type FormValues = CreateFormValues | EditFormValues;
 
-type UserFormProps = {
+type UserFormProps = Readonly<{
   mode: 'create' | 'edit';
   initial?: User;
   submitting?: boolean;
@@ -38,7 +38,7 @@ type UserFormProps = {
   ) => Promise<void>;
   submitLabel: string;
   testIDPrefix?: string;
-};
+}>;
 
 const roleOptions: Array<{ label: string; value: User['role'] }> = [
   { label: 'admin', value: 'admin' },
@@ -46,6 +46,16 @@ const roleOptions: Array<{ label: string; value: User['role'] }> = [
   { label: 'tenant', value: 'tenant' },
   { label: 'staff', value: 'staff' },
 ];
+
+const getRoleLabel = (value: User['role'], t: (key: string) => string) => {
+  if (value === 'owner') {
+    return t('auth.roles.owner');
+  }
+  if (value === 'tenant') {
+    return t('auth.roles.tenant');
+  }
+  return value;
+};
 
 export function UserForm({
   mode,
@@ -178,12 +188,7 @@ export function UserForm({
               onChange={field.onChange}
               options={roleOptions.map((option) => ({
                 value: option.value,
-                label:
-                  option.value === 'owner'
-                    ? t('auth.roles.owner')
-                    : option.value === 'tenant'
-                      ? t('auth.roles.tenant')
-                      : option.value,
+                label: getRoleLabel(option.value, t),
               }))}
               testID={`${testIDPrefix}.role`}
             />

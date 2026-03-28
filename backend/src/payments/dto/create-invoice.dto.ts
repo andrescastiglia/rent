@@ -11,15 +11,9 @@ import { z } from 'zod';
 
 const createInvoiceZodSchema = z
   .object({
-    leaseId: z
-      .string()
-      .uuid()
-      .describe('UUID of the lease this invoice belongs to'),
-    periodStart: z
-      .string()
-      .date()
-      .describe('Billing period start (YYYY-MM-DD)'),
-    periodEnd: z.string().date().describe('Billing period end (YYYY-MM-DD)'),
+    leaseId: z.uuid().describe('UUID of the lease this invoice belongs to'),
+    periodStart: z.iso.date().describe('Billing period start (YYYY-MM-DD)'),
+    periodEnd: z.iso.date().describe('Billing period end (YYYY-MM-DD)'),
     subtotal: z.coerce
       .number()
       .min(0)
@@ -35,7 +29,7 @@ const createInvoiceZodSchema = z
       .optional()
       .default(0)
       .describe('Adjustment amount (default: 0)'),
-    dueDate: z.string().date().describe('Invoice due date (YYYY-MM-DD)'),
+    dueDate: z.iso.date().describe('Invoice due date (YYYY-MM-DD)'),
     invoiceNumber: z.string().min(1).optional(),
     notes: z.string().min(1).optional(),
   })

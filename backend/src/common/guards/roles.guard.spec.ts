@@ -62,7 +62,7 @@ describe('RolesGuard', () => {
       guard.canActivate(
         makeContext({
           path: '/dashboard/stats',
-          user: { role: UserRole.STAFF },
+          user: { role: UserRole.STAFF, permissions: { dashboard: true } },
         }),
       ),
     ).toBe(true);
@@ -75,7 +75,52 @@ describe('RolesGuard', () => {
       guard.canActivate(
         makeContext({
           path: '/users',
-          user: { role: UserRole.STAFF },
+          user: { role: UserRole.STAFF, permissions: { users: false } },
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it('restricts staff access by module permissions', () => {
+    const guard = new RolesGuard(reflector);
+    reflector.getAllAndOverride = jest
+      .fn()
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce([UserRole.ADMIN, UserRole.STAFF]);
+
+    expect(
+      guard.canActivate(
+        makeContext({
+          path: '/payments',
+          user: { role: UserRole.STAFF, permissions: { payments: false } },
+        }),
+      ),
+    ).toBe(false);
+
+    reflector.getAllAndOverride = jest
+      .fn()
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce([UserRole.ADMIN, UserRole.STAFF]);
+
+    expect(
+      guard.canActivate(
+        makeContext({
+          path: '/leases',
+          user: { role: UserRole.STAFF, permissions: { leases: true } },
+        }),
+      ),
+    ).toBe(true);
+
+    reflector.getAllAndOverride = jest
+      .fn()
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce([UserRole.ADMIN, UserRole.STAFF]);
+
+    expect(
+      guard.canActivate(
+        makeContext({
+          path: '/buyers',
+          user: { role: UserRole.STAFF, permissions: { sales: false } },
         }),
       ),
     ).toBe(false);

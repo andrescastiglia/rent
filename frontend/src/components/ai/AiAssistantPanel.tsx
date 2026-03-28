@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  FormEvent,
+  SyntheticEvent,
   Fragment,
   KeyboardEvent,
   useEffect,
@@ -68,9 +68,10 @@ const getPreview = (value: unknown): string => {
   if (isNestedValue(value)) return `{${Object.keys(value).length}}`;
   // Prevent '[object Object]' for objects; show type instead
   if (typeof value === "object") return "{object}";
+  if (typeof value === "bigint") return value.toString();
   if (typeof value === "function") return "[function]";
   if (typeof value === "symbol") return "[symbol]";
-  return String(value);
+  return "";
 };
 
 function JsonResponseTable({ value, path = "root" }: JsonTableProps) {
@@ -216,7 +217,7 @@ export default function AiAssistantPanel({
   useEffect(() => {
     if (!isOpen || hydrated) return;
 
-    const savedConversationId = window.localStorage.getItem(
+    const savedConversationId = globalThis.localStorage.getItem(
       AI_CONVERSATION_STORAGE_KEY,
     );
     if (!savedConversationId) {
@@ -242,7 +243,7 @@ export default function AiAssistantPanel({
         );
       })
       .catch(() => {
-        window.localStorage.removeItem(AI_CONVERSATION_STORAGE_KEY);
+        globalThis.localStorage.removeItem(AI_CONVERSATION_STORAGE_KEY);
         setConversationId(null);
         setMessages([]);
       })
@@ -251,7 +252,7 @@ export default function AiAssistantPanel({
 
   if (!isOpen) return null;
 
-  const submitPrompt = async (event?: FormEvent) => {
+  const submitPrompt = async (event?: SyntheticEvent) => {
     event?.preventDefault();
     const trimmed = prompt.trim();
     if (!trimmed || sending) return;
@@ -274,7 +275,7 @@ export default function AiAssistantPanel({
 
       if (response.conversationId) {
         setConversationId(response.conversationId);
-        window.localStorage.setItem(
+        globalThis.localStorage.setItem(
           AI_CONVERSATION_STORAGE_KEY,
           response.conversationId,
         );

@@ -11,10 +11,9 @@ import { z } from 'zod';
 
 const createPropertyVisitZodSchema = z
   .object({
-    visitedAt: z.string().date().optional().describe('Visit date (YYYY-MM-DD)'),
+    visitedAt: z.iso.date().optional().describe('Visit date (YYYY-MM-DD)'),
     interestedName: z.string().min(1).optional(),
     interestedProfileId: z
-      .string()
       .uuid()
       .optional()
       .describe('UUID of the interested profile who visited'),

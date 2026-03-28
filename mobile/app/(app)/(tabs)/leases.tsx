@@ -207,10 +207,10 @@ export default function LeasesScreen() {
 
       {leasesQuery.isLoading ? <ActivityIndicator /> : null}
       {leasesQuery.error ? (
-        <Text style={styles.error}>{(leasesQuery.error as Error).message}</Text>
+        <Text style={styles.error}>{leasesQuery.error.message}</Text>
       ) : null}
 
-      {!leasesQuery.isLoading ? (
+      {leasesQuery.isLoading ? null : (
         <>
           <LeaseSection
             title="Alquileres vigentes"
@@ -245,7 +245,7 @@ export default function LeasesScreen() {
             }
           />
         </>
-      ) : null}
+      )}
     </Screen>
   );
 }

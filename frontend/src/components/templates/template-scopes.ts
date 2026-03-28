@@ -12,6 +12,7 @@ export type EditableTemplate = {
   id: string;
   name: string;
   templateBody: string;
+  templateFormat?: "plain_text" | "html";
   isActive: boolean;
   isDefault?: boolean;
 };
@@ -19,6 +20,7 @@ export type EditableTemplate = {
 export const emptyTemplateForm = {
   name: "",
   templateBody: "",
+  templateFormat: "plain_text" as const,
   isActive: true,
   isDefault: false,
 };

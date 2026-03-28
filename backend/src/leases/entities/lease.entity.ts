@@ -15,8 +15,8 @@ import { Owner } from '../../owners/entities/owner.entity';
 import { Company } from '../../companies/entities/company.entity';
 import { LeaseAmendment } from './lease-amendment.entity';
 import { Currency } from '../../currencies/entities/currency.entity';
-import { InterestedProfile } from '../../interested/entities/interested-profile.entity';
 import { LeaseContractTemplate } from './lease-contract-template.entity';
+import { Buyer } from '../../buyers/entities/buyer.entity';
 
 export enum PaymentFrequency {
   MONTHLY = 'monthly',
@@ -119,12 +119,12 @@ export class Lease {
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant | null;
 
-  @Column({ name: 'buyer_profile_id', type: 'uuid', nullable: true })
-  buyerProfileId: string | null;
+  @Column({ name: 'buyer_id', type: 'uuid', nullable: true })
+  buyerId: string | null;
 
-  @ManyToOne(() => InterestedProfile, { nullable: true })
-  @JoinColumn({ name: 'buyer_profile_id' })
-  buyerProfile: InterestedProfile | null;
+  @ManyToOne(() => Buyer, { nullable: true })
+  @JoinColumn({ name: 'buyer_id' })
+  buyer: Buyer | null;
 
   @Column({ name: 'owner_id' })
   ownerId: string;
@@ -379,8 +379,24 @@ export class Lease {
   @Column({ name: 'draft_contract_text', type: 'text', nullable: true })
   draftContractText: string | null;
 
+  @Column({
+    name: 'draft_contract_format',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  draftContractFormat: 'plain_text' | 'html' | null;
+
   @Column({ name: 'confirmed_contract_text', type: 'text', nullable: true })
   confirmedContractText: string | null;
+
+  @Column({
+    name: 'confirmed_contract_format',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  confirmedContractFormat: 'plain_text' | 'html' | null;
 
   @Column({ name: 'confirmed_at', type: 'timestamptz', nullable: true })
   confirmedAt: Date | null;

@@ -58,7 +58,7 @@ export default function OwnerSettlementPaymentPage() {
     [settlements, settlementId],
   );
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.SyntheticEvent) => {
     event.preventDefault();
     if (!ownerId || !selectedSettlement) return;
 

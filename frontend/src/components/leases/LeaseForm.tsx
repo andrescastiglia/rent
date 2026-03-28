@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   useForm,
   Resolver,
@@ -15,11 +15,14 @@ import { leasesApi } from "@/lib/api/leases";
 import { propertiesApi } from "@/lib/api/properties";
 import { ownersApi } from "@/lib/api/owners";
 import { interestedApi } from "@/lib/api/interested";
+import { buyersApi } from "@/lib/api/buyers";
 import { InterestedProfile } from "@/types/interested";
+import { Buyer } from "@/types/buyer";
 import { Property } from "@/types/property";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { createLeaseSchema, LeaseFormData } from "@/lib/validation-schemas";
 import { CurrencySelect } from "@/components/common/CurrencySelect";
 import { useSearchParams } from "next/navigation";
@@ -31,25 +34,47 @@ interface LeaseFormProps {
 
 interface LeaseTenantOption {
   id: string;
+  profileId: string;
+  tenantId?: string;
   label: string;
   firstName?: string;
   lastName?: string;
   email?: string;
   phone?: string;
+  isConverted: boolean;
 }
 
 interface LeaseBuyerOption {
   id: string;
+  buyerId?: string;
+  profileId: string;
+  source: "buyer" | "interested";
   label: string;
   firstName?: string;
   lastName?: string;
   email?: string;
   phone?: string;
+  isConverted: boolean;
 }
+
+type QuickInterestedFormState = {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+};
 
 type TemplateContext = Record<string, unknown>;
 const TEMPLATE_PLACEHOLDER_REGEX =
   /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}|\{([a-zA-Z0-9_.]+)\}/g;
+const INTERESTED_TENANT_PREFIX = "interested:";
+const INTERESTED_BUYER_PREFIX = "interested-buyer:";
+const EMPTY_QUICK_INTERESTED_FORM: QuickInterestedFormState = {
+  firstName: "",
+  lastName: "",
+  phone: "",
+  email: "",
+};
 
 const toDateString = (value: string | Date | undefined): string | undefined => {
   if (!value) return undefined;
@@ -77,6 +102,18 @@ const resolveTemplateValue = (
   return current;
 };
 
+const stringifyTemplatePrimitive = (value: unknown): string | undefined => {
+  switch (typeof value) {
+    case "string":
+    case "number":
+    case "boolean":
+    case "bigint":
+      return String(value);
+    default:
+      return undefined;
+  }
+};
+
 const renderTemplate = (
   templateBody: string,
   context: TemplateContext,
@@ -97,16 +134,12 @@ const renderTemplate = (
           hasMissingValue = true;
           return "";
         }
-        // Only allow primitives (string, number, boolean); objects/arrays output empty string
-        if (
-          typeof value === "object" ||
-          typeof value === "function" ||
-          typeof value === "symbol"
-        ) {
+        const printableValue = stringifyTemplatePrimitive(value);
+        if (!printableValue) {
           hasMissingValue = true;
           return "";
         }
-        return String(value);
+        return printableValue;
       },
     );
 
@@ -141,19 +174,28 @@ function formatProfileLabel(profile: InterestedProfile): string {
 function buildTenantOptions(
   profiles: InterestedProfile[],
 ): LeaseTenantOption[] {
-  const tenantProfiles = profiles.filter((profile) => {
-    const ops = getProfileOperations(profile);
-    return !!profile.convertedToTenantId && ops.includes("rent");
-  });
+  const tenantProfiles = profiles.filter((profile) =>
+    getProfileOperations(profile).includes("rent"),
+  );
 
-  const mapped = tenantProfiles.map((profile) => ({
-    id: profile.convertedToTenantId as string,
-    label: formatProfileLabel(profile),
-    firstName: profile.firstName,
-    lastName: profile.lastName,
-    email: profile.email,
-    phone: profile.phone,
-  }));
+  const mapped = tenantProfiles.map((profile) => {
+    const isConverted = Boolean(profile.convertedToTenantId);
+    return {
+      id: isConverted
+        ? (profile.convertedToTenantId as string)
+        : `${INTERESTED_TENANT_PREFIX}${profile.id}`,
+      profileId: profile.id,
+      tenantId: profile.convertedToTenantId,
+      label: isConverted
+        ? formatProfileLabel(profile)
+        : `${formatProfileLabel(profile)} · interesado`,
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      email: profile.email,
+      phone: profile.phone,
+      isConverted,
+    };
+  });
 
   return mapped.filter(
     (option, index, all) =>
@@ -161,17 +203,67 @@ function buildTenantOptions(
   );
 }
 
-function buildBuyerOptions(profiles: InterestedProfile[]): LeaseBuyerOption[] {
-  return profiles
-    .filter((profile) => getProfileOperations(profile).includes("sale"))
+function buildBuyerOptions(
+  profiles: InterestedProfile[],
+  buyers: Buyer[],
+): LeaseBuyerOption[] {
+  const mappedBuyers = buyers.map((buyer) => ({
+    id: buyer.id,
+    buyerId: buyer.id,
+    profileId: buyer.interestedProfileId ?? buyer.id,
+    source: "buyer" as const,
+    label:
+      `${buyer.firstName ?? ""} ${buyer.lastName ?? ""}`.trim() ||
+      buyer.phone ||
+      buyer.email ||
+      buyer.id,
+    firstName: buyer.firstName,
+    lastName: buyer.lastName,
+    email: buyer.email ?? undefined,
+    phone: buyer.phone ?? undefined,
+    isConverted: true,
+  }));
+  const knownBuyerIds = new Set(mappedBuyers.map((buyer) => buyer.id));
+
+  const convertedProfiles = profiles
+    .filter(
+      (profile) =>
+        getProfileOperations(profile).includes("sale") &&
+        Boolean(profile.convertedToBuyerId) &&
+        !knownBuyerIds.has(profile.convertedToBuyerId as string),
+    )
     .map((profile) => ({
-      id: profile.id,
+      id: profile.convertedToBuyerId as string,
+      buyerId: profile.convertedToBuyerId as string,
+      profileId: profile.id,
+      source: "buyer" as const,
       label: formatProfileLabel(profile),
       firstName: profile.firstName,
       lastName: profile.lastName,
       email: profile.email,
       phone: profile.phone,
+      isConverted: true,
     }));
+
+  const interestedOnly = profiles
+    .filter(
+      (profile) =>
+        getProfileOperations(profile).includes("sale") &&
+        !profile.convertedToBuyerId,
+    )
+    .map((profile) => ({
+      id: `${INTERESTED_BUYER_PREFIX}${profile.id}`,
+      profileId: profile.id,
+      source: "interested" as const,
+      label: `${formatProfileLabel(profile)} · interesado`,
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      email: profile.email,
+      phone: profile.phone,
+      isConverted: false,
+    }));
+
+  return [...mappedBuyers, ...convertedProfiles, ...interestedOnly];
 }
 
 async function ensurePropertyLoaded(
@@ -241,7 +333,7 @@ function syncContractType(
 
   if (supportsRent && !supportsSale) {
     setContractTypeIfNeeded(contractType, "rental", setValue);
-    setValue("buyerProfileId", undefined, { shouldValidate: true });
+    setValue("buyerId", undefined, { shouldValidate: true });
     return;
   }
 
@@ -325,10 +417,167 @@ async function saveLease(
   return newLease.id;
 }
 
+function getDefaultLeaseFormValues(
+  initialData?: Lease,
+): Partial<LeaseFormData> {
+  if (initialData) {
+    return initialData;
+  }
+
+  return {
+    contractType: "rental",
+    status: "DRAFT",
+    rentAmount: 0,
+    depositAmount: 0,
+    currency: "ARS",
+    paymentFrequency: "monthly",
+    renewalAlertEnabled: true,
+    renewalAlertPeriodicity: "monthly",
+    billingFrequency: "first_of_month",
+    lateFeeType: "none",
+    adjustmentType: "fixed",
+    autoGenerateInvoices: true,
+  };
+}
+
+const resolveQuickInterestedOperation = (
+  contractType: string,
+): "rent" | "sale" => (contractType === "sale" ? "sale" : "rent");
+
+async function resolveTenantSelection(
+  data: LeaseFormData,
+  resolvedContractType: "rental" | "sale",
+  selectedTenantOption: LeaseTenantOption | undefined,
+): Promise<string | undefined> {
+  if (resolvedContractType !== "rental") {
+    return undefined;
+  }
+  if (selectedTenantOption?.tenantId) {
+    return selectedTenantOption.tenantId;
+  }
+  if (selectedTenantOption?.profileId) {
+    const conversion = await interestedApi.convertToTenant(
+      selectedTenantOption.profileId,
+      {
+        email: selectedTenantOption.email,
+      },
+    );
+    return conversion.tenant.id;
+  }
+  return data.tenantId;
+}
+
+function updateProfilesWithBuyerConversion(
+  interestedProfiles: InterestedProfile[],
+  profileId: string,
+  buyerId: string,
+): InterestedProfile[] {
+  return interestedProfiles.map((profile) =>
+    profile.id === profileId
+      ? {
+          ...profile,
+          status: "buyer" as const,
+          convertedToBuyerId: buyerId,
+        }
+      : profile,
+  );
+}
+
+function prependBuyer(buyers: Buyer[], buyer: Buyer): Buyer[] {
+  return [buyer, ...buyers.filter((item) => item.id !== buyer.id)];
+}
+
+type ResolveBuyerSelectionParams = Readonly<{
+  buyers: Buyer[];
+  data: LeaseFormData;
+  hydrateInterestedOptions: (
+    profiles: InterestedProfile[],
+    nextBuyers?: Buyer[],
+  ) => void;
+  interestedProfiles: InterestedProfile[];
+  resolvedContractType: "rental" | "sale";
+  selectedBuyerOption: LeaseBuyerOption | undefined;
+  setBuyers: React.Dispatch<React.SetStateAction<Buyer[]>>;
+  setValue: UseFormSetValue<LeaseFormData>;
+}>;
+
+async function resolveBuyerSelection({
+  buyers,
+  data,
+  hydrateInterestedOptions,
+  interestedProfiles,
+  resolvedContractType,
+  selectedBuyerOption,
+  setBuyers,
+  setValue,
+}: ResolveBuyerSelectionParams): Promise<string | undefined> {
+  if (resolvedContractType !== "sale") {
+    return undefined;
+  }
+  if (selectedBuyerOption?.buyerId) {
+    return selectedBuyerOption.buyerId;
+  }
+  if (selectedBuyerOption?.profileId) {
+    const conversion = await interestedApi.convertToBuyer(
+      selectedBuyerOption.profileId,
+      {
+        email: selectedBuyerOption.email,
+      },
+    );
+    const buyerId = conversion.buyer.id;
+    const updatedProfiles = updateProfilesWithBuyerConversion(
+      interestedProfiles,
+      selectedBuyerOption.profileId,
+      buyerId,
+    );
+    const updatedBuyers = prependBuyer(buyers, conversion.buyer as Buyer);
+    setBuyers(updatedBuyers);
+    hydrateInterestedOptions(updatedProfiles, updatedBuyers);
+    setValue("buyerId", buyerId, { shouldValidate: true });
+    return buyerId;
+  }
+  if (data.buyerId && !data.buyerId.startsWith(INTERESTED_BUYER_PREFIX)) {
+    return data.buyerId;
+  }
+  return undefined;
+}
+
+function buildSubmitPayload(
+  data: LeaseFormData,
+  options: {
+    readonly resolvedBuyerId: string | undefined;
+    readonly resolvedContractType: "rental" | "sale";
+    readonly resolvedOwnerId: string | undefined;
+    readonly resolvedTenantId: string | undefined;
+    readonly renderedTemplateTerms: string;
+    readonly selectedTemplate: LeaseTemplate | undefined;
+  },
+): LeaseFormData {
+  const {
+    resolvedBuyerId,
+    resolvedContractType,
+    resolvedOwnerId,
+    resolvedTenantId,
+    renderedTemplateTerms,
+    selectedTemplate,
+  } = options;
+
+  return {
+    ...data,
+    tenantId: resolvedContractType === "rental" ? resolvedTenantId : undefined,
+    buyerId: resolvedContractType === "sale" ? resolvedBuyerId : undefined,
+    ownerId: resolvedOwnerId,
+    contractType: resolvedContractType,
+    terms: selectedTemplate ? renderedTemplateTerms : data.terms,
+  };
+}
+
 function applyPreselectedValues(
   isEditing: boolean,
   preselectedPropertyId: string | null,
   preselectedTenantId: string | null,
+  preselectedInterestedProfileId: string | null,
+  preselectedBuyerId: string | null,
   preselectedBuyerProfileId: string | null,
   setValue: UseFormSetValue<LeaseFormData>,
 ): void {
@@ -340,8 +589,22 @@ function applyPreselectedValues(
     setValue("tenantId", preselectedTenantId);
     setValue("contractType", "rental");
   }
-  if (preselectedBuyerProfileId) {
-    setValue("buyerProfileId", preselectedBuyerProfileId);
+  if (!preselectedTenantId && preselectedInterestedProfileId) {
+    setValue(
+      "tenantId",
+      `${INTERESTED_TENANT_PREFIX}${preselectedInterestedProfileId}`,
+    );
+    setValue("contractType", "rental");
+  }
+  if (preselectedBuyerId) {
+    setValue("buyerId", preselectedBuyerId);
+    setValue("contractType", "sale");
+  }
+  if (!preselectedBuyerId && preselectedBuyerProfileId) {
+    setValue(
+      "buyerId",
+      `${INTERESTED_BUYER_PREFIX}${preselectedBuyerProfileId}`,
+    );
     setValue("contractType", "sale");
   }
 }
@@ -623,6 +886,7 @@ interface ContractPartyFieldsProps {
   readonly register: UseFormRegister<LeaseFormData>;
   readonly selectedTenantOption: LeaseTenantOption | undefined;
   readonly preselectedTenantId: string | null;
+  readonly preselectedBuyerId: string | null;
   readonly preselectedBuyerProfileId: string | null;
   readonly selectedBuyerOption: LeaseBuyerOption | undefined;
   readonly tenantOptions: readonly LeaseTenantOption[];
@@ -641,6 +905,7 @@ function ContractPartyFields({
   register,
   selectedTenantOption,
   preselectedTenantId,
+  preselectedBuyerId,
   preselectedBuyerProfileId,
   selectedBuyerOption,
   tenantOptions,
@@ -719,10 +984,12 @@ function ContractPartyFields({
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {hasPreselectedBuyer ? (
         <div>
-          <input type="hidden" {...register("buyerProfileId")} />
+          <input type="hidden" {...register("buyerId")} />
           <label className={labelClass}>{t("fields.buyer")}</label>
           <p className={readOnlyInputClass}>
-            {selectedBuyerOption?.label ?? preselectedBuyerProfileId}
+            {selectedBuyerOption?.label ??
+              preselectedBuyerId ??
+              preselectedBuyerProfileId}
           </p>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
             {t("prefilledFieldHint")}
@@ -730,14 +997,10 @@ function ContractPartyFields({
         </div>
       ) : (
         <div>
-          <label htmlFor="buyerProfileId" className={labelClass}>
+          <label htmlFor="buyerId" className={labelClass}>
             {t("fields.buyer")}
           </label>
-          <select
-            id="buyerProfileId"
-            {...register("buyerProfileId")}
-            className={inputClass}
-          >
+          <select id="buyerId" {...register("buyerId")} className={inputClass}>
             <option value="">{t("selectBuyer")}</option>
             {buyerOptions.map((buyer) => (
               <option key={buyer.id} value={buyer.id}>
@@ -745,7 +1008,7 @@ function ContractPartyFields({
               </option>
             ))}
           </select>
-          <ErrorMessage message={errors.buyerProfileId?.message} />
+          <ErrorMessage message={errors.buyerId?.message} />
         </div>
       )}
       <div>
@@ -981,19 +1244,279 @@ function TermsSection({
   );
 }
 
+function ExistingLeaseNotice({
+  locale,
+  selectedExistingLease,
+}: Readonly<{
+  locale: string;
+  selectedExistingLease?: Lease;
+}>) {
+  if (!selectedExistingLease) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
+      <p className="font-medium">
+        Ya existe un contrato para esta propiedad y esta parte.
+      </p>
+      <p className="mt-1">
+        Si continuas, te voy a llevar a ese contrato para evitar un duplicado.
+      </p>
+      <Link
+        href={`/${locale}/leases/${selectedExistingLease.id}`}
+        className="mt-3 inline-flex rounded-full border border-amber-300 px-3 py-1.5 text-xs font-medium hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900/40"
+      >
+        Abrir contrato existente
+      </Link>
+    </div>
+  );
+}
+
+function TenantConversionNotice({
+  contractType,
+  selectedTenantOption,
+}: Readonly<{
+  contractType: string;
+  selectedTenantOption?: LeaseTenantOption;
+}>) {
+  if (contractType !== "rental" || !selectedTenantOption) {
+    return null;
+  }
+  if (selectedTenantOption.isConverted) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-100">
+      El perfil seleccionado todavia no esta convertido en inquilino. Se
+      convertira automaticamente al guardar el contrato.
+    </div>
+  );
+}
+
+type QuickInterestedCardProps = Readonly<{
+  contractType: string;
+  creatingInterested: boolean;
+  handleCreateInterested: () => Promise<void>;
+  handleQuickInterestedInputChange: (
+    field: keyof QuickInterestedFormState,
+    value: string,
+  ) => void;
+  inputClass: string;
+  labelClass: string;
+  quickInterestedForm: QuickInterestedFormState;
+  setShowQuickInterestedForm: React.Dispatch<React.SetStateAction<boolean>>;
+  showQuickInterestedForm: boolean;
+}>;
+
+function QuickInterestedCard({
+  contractType,
+  creatingInterested,
+  handleCreateInterested,
+  handleQuickInterestedInputChange,
+  inputClass,
+  labelClass,
+  quickInterestedForm,
+  setShowQuickInterestedForm,
+  showQuickInterestedForm,
+}: QuickInterestedCardProps) {
+  const heading =
+    contractType === "sale"
+      ? "No encontras al comprador en la lista?"
+      : "No encontras al interesado de alquiler en la lista?";
+
+  return (
+    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/40">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-sm font-medium text-slate-900 dark:text-white">
+            {heading}
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Podes crearlo desde este mismo flujo y queda seleccionado.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowQuickInterestedForm((prev) => !prev)}
+          className="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-white dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-900"
+        >
+          {showQuickInterestedForm ? "Ocultar formulario" : "Crear interesado"}
+        </button>
+      </div>
+
+      {showQuickInterestedForm ? (
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div>
+            <label htmlFor="quickInterestedFirstName" className={labelClass}>
+              Nombre
+            </label>
+            <input
+              id="quickInterestedFirstName"
+              type="text"
+              value={quickInterestedForm.firstName}
+              onChange={(event) =>
+                handleQuickInterestedInputChange(
+                  "firstName",
+                  event.target.value,
+                )
+              }
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label htmlFor="quickInterestedLastName" className={labelClass}>
+              Apellido
+            </label>
+            <input
+              id="quickInterestedLastName"
+              type="text"
+              value={quickInterestedForm.lastName}
+              onChange={(event) =>
+                handleQuickInterestedInputChange("lastName", event.target.value)
+              }
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label htmlFor="quickInterestedPhone" className={labelClass}>
+              Telefono
+            </label>
+            <input
+              id="quickInterestedPhone"
+              type="text"
+              value={quickInterestedForm.phone}
+              onChange={(event) =>
+                handleQuickInterestedInputChange("phone", event.target.value)
+              }
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label htmlFor="quickInterestedEmail" className={labelClass}>
+              Email
+            </label>
+            <input
+              id="quickInterestedEmail"
+              type="email"
+              value={quickInterestedForm.email}
+              onChange={(event) =>
+                handleQuickInterestedInputChange("email", event.target.value)
+              }
+              className={inputClass}
+            />
+          </div>
+          <div className="md:col-span-2 flex justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                void handleCreateInterested();
+              }}
+              disabled={creatingInterested}
+              className="inline-flex items-center rounded-full bg-slate-950 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60 dark:bg-white dark:text-slate-950"
+            >
+              {creatingInterested ? "Creando..." : "Crear y seleccionar"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function RenewalAlertCustomDaysField({
+  inputClass,
+  labelClass,
+  register,
+  renewalAlertPeriodicity,
+}: Readonly<{
+  inputClass: string;
+  labelClass: string;
+  register: UseFormRegister<LeaseFormData>;
+  renewalAlertPeriodicity?: string;
+}>) {
+  if (renewalAlertPeriodicity !== "custom") {
+    return null;
+  }
+
+  return (
+    <div>
+      <label htmlFor="renewalAlertCustomDays" className={labelClass}>
+        Dias previos para alertar
+      </label>
+      <input
+        id="renewalAlertCustomDays"
+        type="number"
+        min="1"
+        {...register("renewalAlertCustomDays")}
+        className={inputClass}
+      />
+    </div>
+  );
+}
+
+function SubmitActions({
+  isSubmitting,
+  onCancel,
+  t,
+  tCommon,
+}: Readonly<{
+  isSubmitting: boolean;
+  onCancel: () => void;
+  t: (key: string) => string;
+  tCommon: (key: string) => string;
+}>) {
+  return (
+    <div className="flex justify-end pt-4 border-t dark:border-gray-700">
+      <button
+        type="button"
+        onClick={onCancel}
+        className="mr-3 px-4 py-2 border border-gray-300 dark:border-gray-600 shadow-xs text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+      >
+        {tCommon("cancel")}
+      </button>
+      <button
+        type="submit"
+        disabled={isSubmitting}
+        className="inline-flex justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {isSubmitting ? (
+          <>
+            <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
+            {tCommon("saving")}
+          </>
+        ) : (
+          t("saveLease")
+        )}
+      </button>
+    </div>
+  );
+}
+
 export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const router = useLocalizedRouter();
   const searchParams = useSearchParams();
+  const locale = useLocale();
   const t = useTranslations("leases");
   const tCommon = useTranslations("common");
   const tValidation = useTranslations("validation");
   const tCurrencies = useTranslations("currencies");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
+  const [interestedProfiles, setInterestedProfiles] = useState<
+    InterestedProfile[]
+  >([]);
+  const [buyers, setBuyers] = useState<Buyer[]>([]);
   const [tenantOptions, setTenantOptions] = useState<LeaseTenantOption[]>([]);
   const [buyerOptions, setBuyerOptions] = useState<LeaseBuyerOption[]>([]);
   const [owners, setOwners] = useState<Owner[]>([]);
   const [templates, setTemplates] = useState<LeaseTemplate[]>([]);
+  const [allLeases, setAllLeases] = useState<Lease[]>([]);
+  const [showQuickInterestedForm, setShowQuickInterestedForm] = useState(false);
+  const [creatingInterested, setCreatingInterested] = useState(false);
+  const [quickInterestedForm, setQuickInterestedForm] =
+    useState<QuickInterestedFormState>(EMPTY_QUICK_INTERESTED_FORM);
 
   // Crear schema con mensajes traducidos
   const leaseSchema = useMemo(
@@ -1009,20 +1532,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     formState: { errors },
   } = useForm<LeaseFormData>({
     resolver: zodResolver(leaseSchema) as Resolver<LeaseFormData>,
-    defaultValues: initialData || {
-      contractType: "rental",
-      status: "DRAFT",
-      rentAmount: 0,
-      depositAmount: 0,
-      currency: "ARS",
-      paymentFrequency: "monthly",
-      renewalAlertEnabled: true,
-      renewalAlertPeriodicity: "monthly",
-      billingFrequency: "first_of_month",
-      lateFeeType: "none",
-      adjustmentType: "fixed",
-      autoGenerateInvoices: true,
-    },
+    defaultValues: getDefaultLeaseFormValues(initialData),
   });
 
   const formValues = watch();
@@ -1039,10 +1549,18 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const preselectedPropertyOperationsRaw =
     searchParams.get("propertyOperations");
   const preselectedTenantId = searchParams.get("tenantId");
+  const preselectedInterestedProfileId = searchParams.get(
+    "interestedProfileId",
+  );
+  const preselectedBuyerId = searchParams.get("buyerId");
   const preselectedBuyerProfileId = searchParams.get("buyerProfileId");
   const hasPreselectedProperty = !isEditing && !!preselectedPropertyId;
-  const hasPreselectedTenant = !isEditing && !!preselectedTenantId;
-  const hasPreselectedBuyer = !isEditing && !!preselectedBuyerProfileId;
+  const hasPreselectedTenant =
+    !isEditing &&
+    (Boolean(preselectedTenantId) || Boolean(preselectedInterestedProfileId));
+  const hasPreselectedBuyer =
+    !isEditing &&
+    (Boolean(preselectedBuyerId) || Boolean(preselectedBuyerProfileId));
   const selectedProperty = useMemo(
     () => properties.find((property) => property.id === selectedPropertyId),
     [properties, selectedPropertyId],
@@ -1075,8 +1593,8 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     [formValues.tenantId, tenantOptions],
   );
   const selectedBuyerOption = useMemo(
-    () => buyerOptions.find((item) => item.id === formValues.buyerProfileId),
-    [buyerOptions, formValues.buyerProfileId],
+    () => buyerOptions.find((item) => item.id === formValues.buyerId),
+    [buyerOptions, formValues.buyerId],
   );
   const shouldLockContractTypeByInterested =
     !isEditing && (hasPreselectedTenant || hasPreselectedBuyer);
@@ -1097,17 +1615,73 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     hasResolvableContractTypeFromProperty,
     t as (key: string) => string,
   );
+  const hydrateInterestedOptions = useCallback(
+    (profiles: InterestedProfile[], nextBuyers: Buyer[] = buyers) => {
+      setInterestedProfiles(profiles);
+      setTenantOptions(buildTenantOptions(profiles));
+      setBuyerOptions(buildBuyerOptions(profiles, nextBuyers));
+    },
+    [buyers],
+  );
+  const selectedExistingLease = useMemo(() => {
+    if (isEditing || !selectedPropertyId) return undefined;
+
+    return allLeases
+      .filter((lease) => {
+        if (lease.status === "FINALIZED") {
+          return false;
+        }
+
+        if (lease.propertyId !== selectedPropertyId) {
+          return false;
+        }
+
+        if (contractType === "rental") {
+          return (
+            Boolean(selectedTenantOption?.tenantId) &&
+            lease.contractType === "rental" &&
+            lease.tenantId === selectedTenantOption?.tenantId
+          );
+        }
+
+        return (
+          Boolean(selectedBuyerOption?.buyerId) &&
+          lease.contractType === "sale" &&
+          lease.buyerId === selectedBuyerOption?.buyerId
+        );
+      })
+      .sort(
+        (left, right) =>
+          new Date(right.updatedAt).getTime() -
+          new Date(left.updatedAt).getTime(),
+      )[0];
+  }, [
+    allLeases,
+    contractType,
+    isEditing,
+    selectedPropertyId,
+    selectedBuyerOption?.buyerId,
+    selectedTenantOption?.tenantId,
+  ]);
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [props, interestedResponse, owns, leaseTemplates] =
-          await Promise.all([
-            propertiesApi.getAll(),
-            interestedApi.getAll({ limit: 100 }),
-            ownersApi.getAll(),
-            leasesApi.getTemplates(),
-          ]);
+        const [
+          props,
+          interestedResponse,
+          buyerResponse,
+          owns,
+          leaseTemplates,
+          existingLeases,
+        ] = await Promise.all([
+          propertiesApi.getAll(),
+          interestedApi.getAll({ limit: 100 }),
+          buyersApi.getAll({ limit: 100 }),
+          ownersApi.getAll(),
+          leasesApi.getTemplates(),
+          leasesApi.getAll({ includeFinalized: true }),
+        ]);
 
         const resolvedProperties = await ensurePropertyLoaded(
           preselectedPropertyId,
@@ -1122,19 +1696,18 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           owns,
         );
 
-        const profiles = interestedResponse.data;
-
         setProperties(resolvedProperties);
-        setTenantOptions(buildTenantOptions(profiles));
-        setBuyerOptions(buildBuyerOptions(profiles));
+        setBuyers(buyerResponse);
+        hydrateInterestedOptions(interestedResponse.data, buyerResponse);
         setOwners(resolvedOwners);
         setTemplates(leaseTemplates);
+        setAllLeases(existingLeases);
       } catch (error) {
         console.error("Failed to load form data", error);
       }
     };
     loadData();
-  }, [preselectedPropertyId]);
+  }, [hydrateInterestedOptions, preselectedPropertyId]);
 
   useEffect(() => {
     const ownerIdToFetch = findOwnerIdToFetch(selectedProperty, owners);
@@ -1152,6 +1725,8 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
       isEditing,
       preselectedPropertyId,
       preselectedTenantId,
+      preselectedInterestedProfileId,
+      preselectedBuyerId,
       preselectedBuyerProfileId,
       setValue,
     );
@@ -1159,6 +1734,8 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     isEditing,
     preselectedPropertyId,
     preselectedTenantId,
+    preselectedInterestedProfileId,
+    preselectedBuyerId,
     preselectedBuyerProfileId,
     setValue,
   ]);
@@ -1369,6 +1946,71 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     }
   }, [formValues.terms, renderedTemplateTerms, selectedTemplate, setValue]);
 
+  const handleQuickInterestedInputChange = useCallback(
+    (field: keyof QuickInterestedFormState, value: string) => {
+      setQuickInterestedForm((prev) => ({ ...prev, [field]: value }));
+    },
+    [],
+  );
+
+  const handleCreateInterested = useCallback(async () => {
+    const firstName = quickInterestedForm.firstName.trim();
+    const lastName = quickInterestedForm.lastName.trim();
+    const phone = quickInterestedForm.phone.trim();
+    const email = quickInterestedForm.email.trim();
+
+    if (!firstName || !lastName || !phone) {
+      alert(
+        "Nombre, apellido y telefono son obligatorios para crear el interesado.",
+      );
+      return;
+    }
+
+    try {
+      setCreatingInterested(true);
+      const created = await interestedApi.create({
+        firstName,
+        lastName,
+        phone,
+        email: email || undefined,
+        operation: resolveQuickInterestedOperation(contractType),
+        operations: [resolveQuickInterestedOperation(contractType)],
+        status: "interested",
+      });
+
+      const updatedProfiles = [created, ...interestedProfiles];
+      hydrateInterestedOptions(updatedProfiles);
+
+      if (contractType === "sale") {
+        setValue("buyerId", `${INTERESTED_BUYER_PREFIX}${created.id}`, {
+          shouldValidate: true,
+        });
+      } else {
+        setValue("tenantId", `${INTERESTED_TENANT_PREFIX}${created.id}`, {
+          shouldValidate: true,
+        });
+      }
+
+      setQuickInterestedForm(EMPTY_QUICK_INTERESTED_FORM);
+      setShowQuickInterestedForm(false);
+    } catch (error) {
+      console.error("Failed to create interested profile", error);
+      alert(tCommon("error"));
+    } finally {
+      setCreatingInterested(false);
+    }
+  }, [
+    contractType,
+    hydrateInterestedOptions,
+    interestedProfiles,
+    quickInterestedForm.email,
+    quickInterestedForm.firstName,
+    quickInterestedForm.lastName,
+    quickInterestedForm.phone,
+    setValue,
+    tCommon,
+  ]);
+
   const onSubmit = async (data: LeaseFormData) => {
     if (hasPreselectedProperty && !selectedProperty) {
       alert(t("unknownProperty"));
@@ -1385,13 +2027,36 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
         selectedPropertySupportsSale,
         data.contractType,
       );
+      const resolvedTenantId = await resolveTenantSelection(
+        data,
+        resolvedContractType,
+        selectedTenantOption,
+      );
+      const resolvedBuyerId = await resolveBuyerSelection({
+        buyers,
+        data,
+        hydrateInterestedOptions,
+        interestedProfiles,
+        resolvedContractType,
+        selectedBuyerOption,
+        setBuyers,
+        setValue,
+      });
 
-      const payload: LeaseFormData = {
-        ...data,
-        ownerId: resolvedOwnerId,
-        contractType: resolvedContractType,
-        terms: selectedTemplate ? renderedTemplateTerms : data.terms,
-      };
+      if (!isEditing && selectedExistingLease) {
+        router.push(`/leases/${selectedExistingLease.id}`);
+        router.refresh();
+        return;
+      }
+
+      const payload = buildSubmitPayload(data, {
+        resolvedBuyerId,
+        resolvedContractType,
+        resolvedOwnerId,
+        resolvedTenantId,
+        renderedTemplateTerms,
+        selectedTemplate,
+      });
 
       const leaseId = await saveLease(isEditing, initialData, payload);
       router.push(`/leases/${leaseId}`);
@@ -1488,6 +2153,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           register={register}
           selectedTenantOption={selectedTenantOption}
           preselectedTenantId={preselectedTenantId}
+          preselectedBuyerId={preselectedBuyerId}
           preselectedBuyerProfileId={preselectedBuyerProfileId}
           selectedBuyerOption={selectedBuyerOption}
           tenantOptions={tenantOptions}
@@ -1497,6 +2163,28 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           labelClass={labelClass}
           errors={errors}
           t={t as (key: string) => string}
+        />
+
+        <ExistingLeaseNotice
+          locale={locale}
+          selectedExistingLease={selectedExistingLease}
+        />
+
+        <TenantConversionNotice
+          contractType={contractType}
+          selectedTenantOption={selectedTenantOption}
+        />
+
+        <QuickInterestedCard
+          contractType={contractType}
+          creatingInterested={creatingInterested}
+          handleCreateInterested={handleCreateInterested}
+          handleQuickInterestedInputChange={handleQuickInterestedInputChange}
+          inputClass={inputClass}
+          labelClass={labelClass}
+          quickInterestedForm={quickInterestedForm}
+          setShowQuickInterestedForm={setShowQuickInterestedForm}
+          showQuickInterestedForm={showQuickInterestedForm}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1675,23 +2363,12 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
                 </select>
               </div>
 
-              {renewalAlertPeriodicity === "custom" ? (
-                <div>
-                  <label
-                    htmlFor="renewalAlertCustomDays"
-                    className={labelClass}
-                  >
-                    Días previos para alertar
-                  </label>
-                  <input
-                    id="renewalAlertCustomDays"
-                    type="number"
-                    min="1"
-                    {...register("renewalAlertCustomDays")}
-                    className={inputClass}
-                  />
-                </div>
-              ) : null}
+              <RenewalAlertCustomDaysField
+                inputClass={inputClass}
+                labelClass={labelClass}
+                register={register}
+                renewalAlertPeriodicity={renewalAlertPeriodicity}
+              />
             </div>
           </div>
 
@@ -1729,29 +2406,12 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
       />
 
       {/* Form Actions */}
-      <div className="flex justify-end pt-4 border-t dark:border-gray-700">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="mr-3 px-4 py-2 border border-gray-300 dark:border-gray-600 shadow-xs text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          {tCommon("cancel")}
-        </button>
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="inline-flex justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
-              {tCommon("saving")}
-            </>
-          ) : (
-            t("saveLease")
-          )}
-        </button>
-      </div>
+      <SubmitActions
+        isSubmitting={isSubmitting}
+        onCancel={() => router.back()}
+        t={t as (key: string) => string}
+        tCommon={tCommon as (key: string) => string}
+      />
     </form>
   );
 }

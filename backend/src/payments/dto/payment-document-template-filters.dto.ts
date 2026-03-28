@@ -5,7 +5,7 @@ import { z } from 'zod';
 const paymentDocumentTemplateFiltersZodSchema = z
   .object({
     type: z
-      .nativeEnum(PaymentDocumentTemplateType)
+      .enum(PaymentDocumentTemplateType)
       .optional()
       .describe('receipt|invoice|credit_note'),
   })

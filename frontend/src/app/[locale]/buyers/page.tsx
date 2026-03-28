@@ -2,8 +2,8 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { InterestedProfile } from "@/types/interested";
-import { interestedApi } from "@/lib/api/interested";
+import type { Buyer } from "@/types/buyer";
+import { buyersApi } from "@/lib/api/buyers";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
 import { Loader2, Mail, Phone, Search, UserRound } from "lucide-react";
@@ -14,7 +14,7 @@ function BuyersList({
   t,
   tCommon,
 }: Readonly<{
-  buyers: InterestedProfile[];
+  buyers: Buyer[];
   locale: string;
   t: (key: string) => string;
   tCommon: (key: string) => string;
@@ -72,7 +72,7 @@ function BuyersList({
 
           <div className="mt-4 flex items-center justify-end">
             <Link
-              href={`/${locale}/interested`}
+              href={`/${locale}/sales`}
               className="action-link action-link-primary"
             >
               {tCommon("view")}
@@ -90,19 +90,18 @@ export default function BuyersPage() {
   const tCommon = useTranslations("common");
   const locale = useLocale();
 
-  const [buyers, setBuyers] = useState<InterestedProfile[]>([]);
+  const [buyers, setBuyers] = useState<Buyer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
   const loadBuyers = useCallback(async (name?: string) => {
     try {
       setLoading(true);
-      const result = await interestedApi.getAll({
-        status: "buyer",
+      const result = await buyersApi.getAll({
         name: name?.trim() || undefined,
         limit: 100,
       });
-      setBuyers(result.data);
+      setBuyers(result);
     } catch (error) {
       console.error("Failed to load buyers", error);
     } finally {

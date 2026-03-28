@@ -14,17 +14,17 @@ import { z } from 'zod';
 
 const propertyFiltersZodSchema = z
   .object({
-    ownerId: z.string().uuid().optional().describe('Filter by owner UUID'),
+    ownerId: z.uuid().optional().describe('Filter by owner UUID'),
     addressCity: z.string().min(1).optional(),
     addressState: z.string().min(1).optional(),
     propertyType: z
-      .nativeEnum(PropertyType)
+      .enum(PropertyType)
       .optional()
       .describe(
         'apartment|house|commercial|office|warehouse|land|parking|other',
       ),
     status: z
-      .nativeEnum(PropertyStatus)
+      .enum(PropertyStatus)
       .optional()
       .describe('active|inactive|under_maintenance|pending_approval'),
     minRent: z.coerce

@@ -54,9 +54,7 @@ export default function TemplatesScreen() {
       </View>
 
       {isLoading ? <ActivityIndicator /> : null}
-      {error ? (
-        <Text style={styles.error}>{(error as Error).message}</Text>
-      ) : null}
+      {error ? <Text style={styles.error}>{error.message}</Text> : null}
 
       <View style={styles.list}>
         {filteredTemplates.map((template) => (

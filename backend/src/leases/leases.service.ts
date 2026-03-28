@@ -4,13 +4,23 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { promisify } from 'node:util';
+import { execFile as execFileCallback } from 'node:child_process';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository, SelectQueryBuilder } from 'typeorm';
+import * as mammoth from 'mammoth';
+import { parse as parseHtml } from 'node-html-parser';
 import {
+  BillingFrequency,
   ContractType,
   LateFeeType,
   Lease,
+  LeaseRenewalAlertPeriodicity,
   LeaseStatus,
+  PaymentFrequency,
 } from './entities/lease.entity';
 import {
   Property,
@@ -26,6 +36,14 @@ import { CreateLeaseContractTemplateDto } from './dto/create-lease-contract-temp
 import { UpdateLeaseContractTemplateDto } from './dto/update-lease-contract-template.dto';
 import { TenantAccountsService } from '../payments/tenant-accounts.service';
 import { UserRole } from '../users/entities/user.entity';
+import {
+  Document,
+  DocumentStatus,
+  DocumentType,
+} from '../documents/entities/document.entity';
+import { ImportLeaseTemplateDocxDto } from './dto/import-lease-template-docx.dto';
+import { ImportCurrentLeaseDto } from './dto/import-current-lease.dto';
+import { Buyer } from '../buyers/entities/buyer.entity';
 
 type RequestUser = {
   id: string;
@@ -33,6 +51,17 @@ type RequestUser = {
   email?: string | null;
   phone?: string | null;
 };
+
+type UploadedLeaseFile = {
+  buffer: Buffer;
+  mimetype: string;
+  originalname: string;
+  size: number;
+};
+
+type LeaseContentFormat = 'plain_text' | 'html';
+
+const execFile = promisify(execFileCallback);
 
 @Injectable()
 export class LeasesService {
@@ -45,6 +74,10 @@ export class LeasesService {
     private readonly propertiesRepository: Repository<Property>,
     @InjectRepository(InterestedProfile)
     private readonly interestedProfilesRepository: Repository<InterestedProfile>,
+    @InjectRepository(Buyer)
+    private readonly buyersRepository: Repository<Buyer>,
+    @InjectRepository(Document)
+    private readonly documentsRepository: Repository<Document>,
     private readonly pdfService: PdfService,
     private readonly tenantAccountsService: TenantAccountsService,
   ) {}
@@ -156,7 +189,7 @@ export class LeasesService {
       previousLeaseId: null,
       versionNumber: 1,
       tenantId: isRental ? (createLeaseDto.tenantId ?? null) : null,
-      buyerProfileId: isRental ? null : (createLeaseDto.buyerProfileId ?? null),
+      buyerId: isRental ? null : (createLeaseDto.buyerId ?? null),
       monthlyRent: isRental ? Number(createLeaseDto.monthlyRent ?? 0) : null,
       startDate,
       endDate,
@@ -172,7 +205,9 @@ export class LeasesService {
       adjustmentValue: isRental ? createLeaseDto.adjustmentValue : 0,
       nextAdjustmentDate,
       draftContractText: null,
+      draftContractFormat: null,
       confirmedContractText: null,
+      confirmedContractFormat: null,
       confirmedAt: null,
       contractPdfUrl: null,
     };
@@ -185,6 +220,7 @@ export class LeasesService {
     const {
       propertyId,
       tenantId,
+      buyerId,
       buyerProfileId,
       status,
       contractType,
@@ -201,7 +237,8 @@ export class LeasesService {
       .leftJoinAndSelect('owner.user', 'ownerUser')
       .leftJoinAndSelect('lease.tenant', 'tenant')
       .leftJoinAndSelect('tenant.user', 'tenantUser')
-      .leftJoinAndSelect('lease.buyerProfile', 'buyerProfile')
+      .leftJoinAndSelect('lease.buyer', 'buyer')
+      .leftJoinAndSelect('buyer.user', 'buyerUser')
       .where('lease.deleted_at IS NULL');
 
     if (propertyId) {
@@ -212,8 +249,12 @@ export class LeasesService {
       query.andWhere('lease.tenant_id = :tenantId', { tenantId });
     }
 
+    if (buyerId) {
+      query.andWhere('lease.buyer_id = :buyerId', { buyerId });
+    }
+
     if (buyerProfileId) {
-      query.andWhere('lease.buyer_profile_id = :buyerProfileId', {
+      query.andWhere('buyer.interested_profile_id = :buyerProfileId', {
         buyerProfileId,
       });
     }
@@ -276,7 +317,8 @@ export class LeasesService {
         'property.owner.user',
         'tenant',
         'tenant.user',
-        'buyerProfile',
+        'buyer',
+        'buyer.user',
         'template',
         'previousLease',
         'amendments',
@@ -298,7 +340,8 @@ export class LeasesService {
       .leftJoinAndSelect('owner.user', 'ownerUser')
       .leftJoinAndSelect('lease.tenant', 'tenant')
       .leftJoinAndSelect('tenant.user', 'tenantUser')
-      .leftJoinAndSelect('lease.buyerProfile', 'buyerProfile')
+      .leftJoinAndSelect('lease.buyer', 'buyer')
+      .leftJoinAndSelect('buyer.user', 'buyerUser')
       .leftJoinAndSelect('lease.template', 'template')
       .leftJoinAndSelect('lease.previousLease', 'previousLease')
       .leftJoinAndSelect('lease.amendments', 'amendments')
@@ -350,21 +393,32 @@ export class LeasesService {
       throw new NotFoundException('Template not found');
     }
 
-    const rendered = this.renderTemplateBody(template.templateBody, lease);
+    const { content, format } = this.renderTemplateBody(
+      template.templateBody,
+      lease,
+      template.templateFormat,
+    );
     lease.templateId = template.id;
     lease.templateName = template.name;
-    lease.draftContractText = rendered;
+    lease.draftContractText = content;
+    lease.draftContractFormat = format;
     await this.leasesRepository.save(lease);
     return this.findOne(lease.id);
   }
 
-  async updateDraftText(id: string, draftText: string): Promise<Lease> {
+  async updateDraftText(
+    id: string,
+    draftText: string,
+    draftFormat?: LeaseContentFormat,
+  ): Promise<Lease> {
     const lease = await this.findOne(id);
     if (lease.status !== LeaseStatus.DRAFT) {
       throw new BadRequestException('Only draft contracts can be edited');
     }
 
-    lease.draftContractText = draftText;
+    const nextFormat = draftFormat ?? lease.draftContractFormat ?? 'plain_text';
+    lease.draftContractText = this.normalizeContractBody(draftText, nextFormat);
+    lease.draftContractFormat = nextFormat;
     await this.leasesRepository.save(lease);
     return this.findOne(id);
   }
@@ -373,23 +427,29 @@ export class LeasesService {
     id: string,
     userId: string,
     finalText?: string,
+    finalFormat?: LeaseContentFormat,
   ): Promise<Lease> {
     const lease = await this.findOne(id);
     if (lease.status !== LeaseStatus.DRAFT) {
       throw new BadRequestException('Only draft contracts can be confirmed');
     }
 
-    const textToConfirm = (finalText ?? lease.draftContractText ?? '').trim();
-    if (!textToConfirm) {
+    const formatToConfirm =
+      finalFormat ?? lease.draftContractFormat ?? 'plain_text';
+    const contentToConfirm = this.normalizeContractBody(
+      finalText ?? lease.draftContractText ?? '',
+      formatToConfirm,
+    );
+    if (!contentToConfirm) {
       throw new BadRequestException('Contract draft text is required');
     }
 
-    const resolvedText = this.replaceTemplateVariables(
-      textToConfirm,
+    const resolvedContent = this.resolveContractContent(
+      contentToConfirm,
       this.buildTemplateContext(lease),
-      false,
-    ).trim();
-    if (!resolvedText) {
+      formatToConfirm,
+    );
+    if (!resolvedContent) {
       throw new BadRequestException('Contract draft text is required');
     }
 
@@ -410,8 +470,10 @@ export class LeasesService {
 
     lease.status = LeaseStatus.ACTIVE;
     lease.confirmedAt = new Date();
-    lease.confirmedContractText = resolvedText;
-    lease.draftContractText = resolvedText;
+    lease.confirmedContractText = resolvedContent;
+    lease.confirmedContractFormat = formatToConfirm;
+    lease.draftContractText = resolvedContent;
+    lease.draftContractFormat = formatToConfirm;
 
     if (lease.contractType === ContractType.RENTAL && lease.propertyId) {
       await this.propertiesRepository.update(lease.propertyId, {
@@ -435,7 +497,8 @@ export class LeasesService {
       const document = await this.pdfService.generateContract(
         savedLease,
         userId,
-        resolvedText,
+        resolvedContent,
+        formatToConfirm,
       );
       savedLease.contractPdfUrl = document.fileUrl;
       await this.leasesRepository.save(savedLease);
@@ -502,7 +565,7 @@ export class LeasesService {
       companyId: oldLease.companyId,
       propertyId: oldLease.propertyId as string,
       tenantId: oldLease.tenantId ?? undefined,
-      buyerProfileId: oldLease.buyerProfileId ?? undefined,
+      buyerId: oldLease.buyerId ?? undefined,
       ownerId: oldLease.ownerId,
       contractType: oldLease.contractType,
       startDate: resolvedStartDate,
@@ -597,14 +660,53 @@ export class LeasesService {
     dto: CreateLeaseContractTemplateDto,
     companyId: string,
   ): Promise<LeaseContractTemplate> {
+    const templateFormat = dto.templateFormat ?? 'plain_text';
     const template = this.templatesRepository.create({
       companyId,
       name: dto.name.trim(),
       contractType: dto.contractType,
-      templateBody: dto.templateBody,
+      templateBody: this.normalizeContractBody(
+        dto.templateBody,
+        templateFormat,
+      ),
+      templateFormat,
+      sourceFileName: null,
+      sourceMimeType: null,
       isActive: dto.isActive ?? true,
     });
     return this.templatesRepository.save(template);
+  }
+
+  async importTemplateFromDocx(
+    file: UploadedLeaseFile,
+    dto: ImportLeaseTemplateDocxDto,
+    _companyId: string,
+  ): Promise<Partial<LeaseContractTemplate>> {
+    if (!file) {
+      throw new BadRequestException('DOCX file is required');
+    }
+    if (
+      file.mimetype !==
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ) {
+      throw new BadRequestException('Only .docx files are supported');
+    }
+
+    const converted = await mammoth.convertToHtml({
+      buffer: file.buffer,
+    });
+
+    return {
+      name:
+        dto.name?.trim() ||
+        file.originalname.replace(/\.docx$/i, '').slice(0, 120),
+      contractType: dto.contractType,
+      templateBody: this.normalizeContractBody(converted.value, 'html'),
+      templateFormat: 'html',
+      sourceFileName: file.originalname,
+      sourceMimeType: file.mimetype,
+      isActive: true,
+    };
   }
 
   async updateTemplate(
@@ -622,11 +724,52 @@ export class LeasesService {
     if (dto.name !== undefined) template.name = dto.name.trim();
     if (dto.contractType !== undefined)
       template.contractType = dto.contractType;
+    if (dto.templateFormat !== undefined)
+      template.templateFormat = dto.templateFormat;
     if (dto.templateBody !== undefined)
-      template.templateBody = dto.templateBody;
+      template.templateBody = this.normalizeContractBody(
+        dto.templateBody,
+        dto.templateFormat ?? template.templateFormat,
+      );
     if (dto.isActive !== undefined) template.isActive = dto.isActive;
 
     return this.templatesRepository.save(template);
+  }
+
+  async importCurrentContract(
+    file: UploadedLeaseFile,
+    dto: ImportCurrentLeaseDto,
+    companyId: string,
+  ): Promise<Lease> {
+    if (!file) {
+      throw new BadRequestException('Contract file is required');
+    }
+
+    const contractType = dto.contractType ?? ContractType.RENTAL;
+    const property = await this.findPropertyOrThrow(dto.propertyId);
+    await this.ensureImportContractParty(dto, property.id, contractType);
+
+    const extractedContract = await this.extractTextFromUploadedContract(file);
+    const lease = this.buildImportedLeaseEntity(
+      dto,
+      companyId,
+      property,
+      contractType,
+      extractedContract,
+    );
+
+    const savedLease = await this.leasesRepository.save(lease);
+    const document = await this.createUploadedContractDocument(
+      savedLease,
+      file,
+      companyId,
+    );
+
+    savedLease.contractPdfUrl = document.fileUrl;
+    await this.leasesRepository.save(savedLease);
+    await this.syncImportedLeasePropertyState(savedLease);
+
+    return this.findOne(savedLease.id);
   }
 
   async remove(id: string): Promise<void> {
@@ -650,7 +793,7 @@ export class LeasesService {
       companyId: original.companyId,
       propertyId: original.propertyId,
       tenantId: original.tenantId,
-      buyerProfileId: original.buyerProfileId,
+      buyerId: original.buyerId,
       ownerId: original.ownerId,
       leaseNumber: original.leaseNumber,
       contractType: original.contractType,
@@ -693,12 +836,17 @@ export class LeasesService {
       templateName: original.templateName,
       draftContractText:
         original.confirmedContractText ?? original.draftContractText ?? null,
+      draftContractFormat:
+        original.confirmedContractFormat ??
+        original.draftContractFormat ??
+        null,
       notes: original.notes,
       status: LeaseStatus.DRAFT,
       previousLeaseId: original.id,
       versionNumber: Number(original.versionNumber ?? 1) + 1,
       confirmedAt: null,
       confirmedContractText: null,
+      confirmedContractFormat: null,
       contractPdfUrl: null,
     });
 
@@ -711,6 +859,10 @@ export class LeasesService {
 
     if (!saved.draftContractText && original.confirmedContractText) {
       saved.draftContractText = original.confirmedContractText;
+      saved.draftContractFormat =
+        original.confirmedContractFormat ??
+        original.draftContractFormat ??
+        null;
       await this.leasesRepository.save(saved);
     }
 
@@ -722,6 +874,7 @@ export class LeasesService {
     dto: UpdateLeaseDto,
     effectiveType: ContractType,
   ): Promise<void> {
+    await this.normalizeBuyerInputs(dto);
     const previousContractType = lease.contractType;
     this.validateContractTypeTransition(lease, dto, effectiveType);
     await this.applyPropertyUpdate(lease, dto);
@@ -743,10 +896,22 @@ export class LeasesService {
     if (contractType === ContractType.RENTAL) {
       this.validateRentalCreate(dto);
       await this.ensureNoActiveRentalLease(propertyId);
+      await this.ensureNoOpenLeaseForParty(
+        propertyId,
+        contractType,
+        dto.tenantId ?? undefined,
+      );
       return;
     }
 
+    await this.normalizeBuyerInputs(dto);
     await this.validateSaleCreate(dto);
+    await this.ensureNoOpenLeaseForParty(
+      propertyId,
+      contractType,
+      undefined,
+      dto.buyerId ?? undefined,
+    );
   }
 
   private async ensureNoActiveRentalLease(propertyId: string): Promise<void> {
@@ -764,6 +929,47 @@ export class LeasesService {
     }
   }
 
+  private async ensureNoOpenLeaseForParty(
+    propertyId: string,
+    contractType: ContractType,
+    tenantId?: string,
+    buyerId?: string,
+  ): Promise<void> {
+    if (contractType === ContractType.RENTAL && !tenantId) {
+      return;
+    }
+
+    if (contractType === ContractType.SALE && !buyerId) {
+      return;
+    }
+
+    const existingLeaseQuery = this.leasesRepository
+      .createQueryBuilder('lease')
+      .where('lease.property_id = :propertyId', { propertyId })
+      .andWhere('lease.contract_type = :contractType', { contractType })
+      .andWhere('lease.status IN (:...statuses)', {
+        statuses: [LeaseStatus.DRAFT, LeaseStatus.ACTIVE],
+      })
+      .andWhere('lease.deleted_at IS NULL')
+      .orderBy('lease.updated_at', 'DESC');
+
+    if (contractType === ContractType.RENTAL) {
+      existingLeaseQuery.andWhere('lease.tenant_id = :tenantId', { tenantId });
+    } else {
+      existingLeaseQuery.andWhere('lease.buyer_id = :buyerId', {
+        buyerId,
+      });
+    }
+
+    const existingLease = await existingLeaseQuery.getOne();
+
+    if (existingLease) {
+      throw new ConflictException(
+        'An open contract already exists for this property and party',
+      );
+    }
+  }
+
   private validateContractTypeTransition(
     lease: Lease,
     dto: UpdateLeaseDto,
@@ -777,8 +983,8 @@ export class LeasesService {
       return;
     }
 
-    if (!dto.buyerProfileId && !lease.buyerProfileId) {
-      throw new BadRequestException('Sale contracts require buyerProfileId');
+    if (!dto.buyerId && !lease.buyerId) {
+      throw new BadRequestException('Sale contracts require buyerId');
     }
     if (
       dto.fiscalValue === undefined &&
@@ -878,6 +1084,7 @@ export class LeasesService {
     effectiveType: ContractType,
   ): void {
     if (effectiveType !== ContractType.SALE) {
+      lease.buyerId = null;
       return;
     }
 
@@ -941,12 +1148,42 @@ export class LeasesService {
     return candidates.length === 1 ? candidates[0] : null;
   }
 
-  private renderTemplateBody(templateBody: string, lease: Lease): string {
-    return this.replaceTemplateVariables(
-      templateBody,
-      this.buildTemplateContext(lease),
-      true,
-    );
+  private renderTemplateBody(
+    templateBody: string,
+    lease: Lease,
+    templateFormat: LeaseContentFormat = 'plain_text',
+  ): { content: string; format: LeaseContentFormat } {
+    const context = this.buildTemplateContext(lease);
+
+    if (templateFormat === 'html') {
+      return {
+        content: this.normalizeContractBody(
+          this.replaceTemplateTokens(templateBody, context, undefined, true),
+          'html',
+        ),
+        format: 'html',
+      };
+    }
+
+    return {
+      content: this.replaceTemplateVariables(templateBody, context, true),
+      format: 'plain_text',
+    };
+  }
+
+  private resolveContractContent(
+    contractBody: string,
+    context: Record<string, unknown>,
+    format: LeaseContentFormat,
+  ): string {
+    if (format === 'html') {
+      return this.normalizeContractBody(
+        this.replaceTemplateTokens(contractBody, context, undefined, true),
+        'html',
+      );
+    }
+
+    return this.replaceTemplateVariables(contractBody, context, false);
   }
 
   private buildTemplateContext(lease: Lease): Record<string, unknown> {
@@ -1016,13 +1253,13 @@ export class LeasesService {
         phone: lease.tenant?.user?.phone,
       },
       buyer: {
-        firstName: lease.buyerProfile?.firstName,
-        lastName: lease.buyerProfile?.lastName,
+        firstName: lease.buyer?.user?.firstName,
+        lastName: lease.buyer?.user?.lastName,
         fullName:
-          `${lease.buyerProfile?.firstName ?? ''} ${lease.buyerProfile?.lastName ?? ''}`.trim() ||
+          `${lease.buyer?.user?.firstName ?? ''} ${lease.buyer?.user?.lastName ?? ''}`.trim() ||
           null,
-        email: lease.buyerProfile?.email,
-        phone: lease.buyerProfile?.phone,
+        email: lease.buyer?.user?.email,
+        phone: lease.buyer?.user?.phone,
       },
     };
 
@@ -1039,31 +1276,9 @@ export class LeasesService {
 
     for (const paragraph of paragraphs) {
       let hasMissingValue = false;
-      const rendered = paragraph.replaceAll(
-        /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}|\{([a-zA-Z0-9_.]+)\}/g,
-        (_full, keyWithDoubleBraces?: string, keyWithSingleBraces?: string) => {
-          const key = keyWithDoubleBraces ?? keyWithSingleBraces;
-          if (!key) {
-            return '';
-          }
-          const value = this.resolveTemplateValue(context, key);
-          if (
-            value === null ||
-            value === undefined ||
-            value === '' ||
-            typeof value === 'function' ||
-            typeof value === 'symbol'
-          ) {
-            hasMissingValue = true;
-            return '';
-          }
-          if (typeof value === 'object') {
-            hasMissingValue = true;
-            return '';
-          }
-          return String(value);
-        },
-      );
+      const rendered = this.replaceTemplateTokens(paragraph, context, () => {
+        hasMissingValue = true;
+      });
 
       if (
         (!dropParagraphsWithMissingValues || !hasMissingValue) &&
@@ -1074,6 +1289,423 @@ export class LeasesService {
     }
 
     return renderedParagraphs.join('\n\n');
+  }
+
+  private replaceTemplateTokens(
+    templateBody: string,
+    context: Record<string, unknown>,
+    onMissingValue?: () => void,
+    escapeForHtml: boolean = false,
+  ): string {
+    return templateBody.replaceAll(
+      /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}|\{([a-zA-Z0-9_.]+)\}/g,
+      (_full, keyWithDoubleBraces?: string, keyWithSingleBraces?: string) => {
+        const key = keyWithDoubleBraces ?? keyWithSingleBraces;
+        if (!key) {
+          return '';
+        }
+        const value = this.resolveTemplateValue(context, key);
+        if (!this.isTemplateRenderableValue(value)) {
+          onMissingValue?.();
+          return '';
+        }
+
+        const stringValue = String(value);
+        return escapeForHtml ? this.escapeHtml(stringValue) : stringValue;
+      },
+    );
+  }
+
+  private async ensureImportContractParty(
+    dto: ImportCurrentLeaseDto,
+    propertyId: string,
+    contractType: ContractType,
+  ): Promise<void> {
+    if (contractType === ContractType.RENTAL) {
+      if (!dto.tenantId) {
+        throw new BadRequestException('Rental imports require tenantId');
+      }
+
+      await this.ensureNoActiveRentalLease(propertyId);
+      await this.ensureNoOpenLeaseForParty(
+        propertyId,
+        contractType,
+        dto.tenantId,
+      );
+      return;
+    }
+
+    await this.normalizeBuyerInputs(dto);
+    if (!dto.buyerId) {
+      throw new BadRequestException('Sale imports require buyerId');
+    }
+
+    const buyer = await this.buyersRepository.findOne({
+      where: { id: dto.buyerId, deletedAt: IsNull() },
+      relations: ['user'],
+    });
+    if (!buyer) {
+      throw new NotFoundException('Buyer not found');
+    }
+
+    await this.ensureNoOpenLeaseForParty(
+      propertyId,
+      contractType,
+      undefined,
+      dto.buyerId,
+    );
+  }
+
+  private buildImportedLeaseEntity(
+    dto: ImportCurrentLeaseDto,
+    companyId: string,
+    property: Property,
+    contractType: ContractType,
+    extractedContract: { content: string; format: LeaseContentFormat },
+  ): Lease {
+    const currency = dto.currency?.trim() || 'ARS';
+
+    return this.leasesRepository.create({
+      companyId,
+      propertyId: property.id,
+      ownerId: dto.ownerId || property.ownerId,
+      tenantId:
+        contractType === ContractType.RENTAL ? (dto.tenantId ?? null) : null,
+      buyerId:
+        contractType === ContractType.SALE ? (dto.buyerId ?? null) : null,
+      contractType,
+      status: LeaseStatus.ACTIVE,
+      startDate:
+        contractType === ContractType.RENTAL && dto.startDate
+          ? new Date(dto.startDate)
+          : null,
+      endDate:
+        contractType === ContractType.RENTAL && dto.endDate
+          ? new Date(dto.endDate)
+          : null,
+      monthlyRent:
+        contractType === ContractType.RENTAL
+          ? this.parseOptionalNumber(dto.monthlyRent)
+          : null,
+      fiscalValue:
+        contractType === ContractType.SALE
+          ? this.parseOptionalNumber(dto.fiscalValue)
+          : null,
+      securityDeposit: this.parseOptionalNumber(dto.securityDeposit),
+      currency,
+      depositCurrency: currency,
+      paymentFrequency: PaymentFrequency.MONTHLY,
+      paymentDueDay: 10,
+      renewalAlertEnabled: true,
+      renewalAlertPeriodicity: LeaseRenewalAlertPeriodicity.MONTHLY,
+      billingFrequency: BillingFrequency.FIRST_OF_MONTH,
+      autoGenerateInvoices: contractType === ContractType.RENTAL,
+      lateFeeType: LateFeeType.NONE,
+      lateFeeValue: 0,
+      draftContractText: extractedContract.content,
+      draftContractFormat: extractedContract.format,
+      confirmedContractText: extractedContract.content,
+      confirmedContractFormat: extractedContract.format,
+      confirmedAt: new Date(),
+      templateId: null,
+      templateName: null,
+      previousLeaseId: null,
+      versionNumber: 1,
+      contractPdfUrl: null,
+      notes: dto.notes?.trim() || null,
+    } as Partial<Lease>);
+  }
+
+  private async syncImportedLeasePropertyState(lease: Lease): Promise<void> {
+    if (!lease.propertyId) {
+      return;
+    }
+
+    if (lease.contractType === ContractType.RENTAL) {
+      await this.propertiesRepository.update(lease.propertyId, {
+        operationState: PropertyOperationState.RENTED,
+      });
+      await this.tenantAccountsService.createForLease(lease.id);
+      return;
+    }
+
+    if (lease.contractType === ContractType.SALE) {
+      await this.propertiesRepository.update(lease.propertyId, {
+        operationState: PropertyOperationState.SOLD,
+      });
+    }
+  }
+
+  private parseOptionalNumber(value?: string): number | null {
+    if (value === undefined || value === null || value === '') {
+      return null;
+    }
+
+    const parsed = Number(value);
+    if (Number.isNaN(parsed)) {
+      throw new BadRequestException('Invalid numeric value');
+    }
+
+    return parsed;
+  }
+
+  private async extractTextFromUploadedContract(
+    file: UploadedLeaseFile,
+  ): Promise<{ content: string; format: LeaseContentFormat }> {
+    const extension = this.getUploadedFileExtension(file.originalname);
+    this.ensureSupportedContractFile(file, extension);
+
+    if (extension === 'docx') {
+      const extracted = await mammoth.convertToHtml({
+        buffer: file.buffer,
+      });
+
+      return {
+        content: this.normalizeContractBody(extracted.value, 'html'),
+        format: 'html',
+      };
+    }
+
+    if (extension === 'md') {
+      return {
+        content: this.normalizeContractBody(
+          await this.renderMarkdownAsHtml(file.buffer.toString('utf-8')),
+          'html',
+        ),
+        format: 'html',
+      };
+    }
+
+    if (extension === 'txt') {
+      return {
+        content: this.normalizeContractBody(
+          this.plainTextToHtml(file.buffer.toString('utf-8')),
+          'html',
+        ),
+        format: 'html',
+      };
+    }
+
+    if (extension === 'doc') {
+      const html = await this.convertLegacyWordDocumentToHtml(file);
+      return {
+        content: this.normalizeContractBody(html, 'html'),
+        format: 'html',
+      };
+    }
+
+    if (extension === 'pdf') {
+      return {
+        content: this.normalizeContractBody(
+          await this.convertPdfDocumentToHtml(file),
+          'html',
+        ),
+        format: 'html',
+      };
+    }
+
+    throw new BadRequestException(
+      'Only md, doc, docx, txt and pdf contracts are accepted',
+    );
+  }
+
+  private ensureSupportedContractFile(
+    file: UploadedLeaseFile,
+    extension: string,
+  ): void {
+    const supportedExtensions = new Set(['md', 'doc', 'docx', 'txt', 'pdf']);
+    if (!supportedExtensions.has(extension)) {
+      throw new BadRequestException(
+        'Only md, doc, docx, txt and pdf contracts are accepted',
+      );
+    }
+
+    if (file.mimetype?.startsWith('image/')) {
+      throw new BadRequestException(
+        'Image-based contracts are not supported because OCR is not allowed for this flow',
+      );
+    }
+  }
+
+  private async convertLegacyWordDocumentToHtml(
+    file: UploadedLeaseFile,
+  ): Promise<string> {
+    const tempDir = await mkdtemp(join(tmpdir(), 'rent-legacy-doc-'));
+    const sourcePath = join(tempDir, 'contract.doc');
+    const expectedHtmlPath = join(tempDir, 'contract.html');
+
+    try {
+      await writeFile(sourcePath, file.buffer);
+      await execFile(
+        'soffice',
+        [
+          '--headless',
+          '--convert-to',
+          'html:HTML',
+          '--outdir',
+          tempDir,
+          sourcePath,
+        ],
+        {
+          timeout: 30_000,
+          maxBuffer: 10 * 1024 * 1024,
+        },
+      );
+
+      const html = await readFile(expectedHtmlPath, 'utf-8');
+      return this.extractHtmlBody(html);
+    } catch {
+      throw new BadRequestException(
+        'The .doc contract could not be interpreted as rich text',
+      );
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  }
+
+  private async convertPdfDocumentToHtml(
+    file: UploadedLeaseFile,
+  ): Promise<string> {
+    const tempDir = await mkdtemp(join(tmpdir(), 'rent-pdf-html-'));
+    const sourcePath = join(tempDir, 'contract.pdf');
+
+    try {
+      await writeFile(sourcePath, file.buffer);
+      const { stdout } = await execFile(
+        'pdftohtml',
+        ['-s', '-noframes', '-i', '-stdout', sourcePath],
+        {
+          timeout: 30_000,
+          maxBuffer: 20 * 1024 * 1024,
+        },
+      );
+
+      const html = this.extractHtmlBody(stdout);
+      if (!html.trim()) {
+        throw new BadRequestException(
+          'The PDF contract could not be interpreted as rich text',
+        );
+      }
+
+      return html;
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new BadRequestException(
+        'The PDF contract could not be interpreted as rich text',
+      );
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  }
+
+  private extractHtmlBody(value: string): string {
+    const root = parseHtml(value);
+    const body = root.querySelector('body');
+    return (body?.innerHTML ?? value).trim();
+  }
+
+  private async createUploadedContractDocument(
+    lease: Lease,
+    file: UploadedLeaseFile,
+    companyId: string,
+  ): Promise<Document> {
+    const document = await this.documentsRepository.save(
+      this.documentsRepository.create({
+        companyId,
+        entityType: 'lease',
+        entityId: lease.id,
+        documentType: DocumentType.LEASE_CONTRACT,
+        name: file.originalname,
+        description: 'Contrato importado manualmente',
+        fileUrl: 'db://document/pending',
+        fileData: file.buffer,
+        fileSize: file.size,
+        fileMimeType: file.mimetype,
+        status: DocumentStatus.APPROVED,
+        metadata: {
+          imported: true,
+          contractType: lease.contractType,
+          draftContractFormat: lease.draftContractFormat,
+        },
+      }),
+    );
+
+    document.fileUrl = `db://document/${document.id}`;
+    return this.documentsRepository.save(document);
+  }
+
+  private normalizeContractBody(
+    value: string,
+    format: LeaseContentFormat,
+  ): string {
+    const normalized = value.trim();
+    if (!normalized) {
+      throw new BadRequestException(
+        'The contract content could not be interpreted',
+      );
+    }
+
+    if (format === 'html') {
+      const root = parseHtml(normalized);
+      const textContent = root.text.trim();
+      if (!textContent) {
+        throw new BadRequestException(
+          'The contract content could not be interpreted',
+        );
+      }
+      return normalized;
+    }
+
+    return normalized;
+  }
+
+  private async renderMarkdownAsHtml(markdown: string): Promise<string> {
+    const { marked } = await import('marked');
+    const rendered = await marked.parse(markdown);
+
+    if (typeof rendered !== 'string') {
+      throw new BadRequestException(
+        'Unable to interpret markdown contract contents',
+      );
+    }
+
+    return rendered;
+  }
+
+  private getUploadedFileExtension(filename: string): string {
+    const normalized = filename.trim().toLowerCase();
+    const parts = normalized.split('.');
+    return parts.length > 1 ? parts[parts.length - 1] : '';
+  }
+
+  private plainTextToHtml(value: string): string {
+    const normalized = value.replaceAll('\r\n', '\n').trim();
+    if (!normalized) {
+      return '';
+    }
+
+    return normalized
+      .split(/\n{2,}/)
+      .map((paragraph) => {
+        const escaped = this.escapeHtml(paragraph.trim()).replaceAll(
+          '\n',
+          '<br />',
+        );
+        return `<p>${escaped}</p>`;
+      })
+      .join('');
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
   }
 
   private resolveTemplateValue(
@@ -1091,6 +1723,19 @@ export class LeasesService {
     }
 
     return current;
+  }
+
+  private isTemplateRenderableValue(
+    value: unknown,
+  ): value is string | number | boolean | bigint {
+    return !(
+      value === null ||
+      value === undefined ||
+      value === '' ||
+      typeof value === 'function' ||
+      typeof value === 'symbol' ||
+      typeof value === 'object'
+    );
   }
 
   private validateRentalDates(startDate?: string, endDate?: string): void {
@@ -1121,19 +1766,47 @@ export class LeasesService {
   }
 
   private async validateSaleCreate(dto: CreateLeaseDto): Promise<void> {
-    if (!dto.buyerProfileId) {
-      throw new BadRequestException('Sale contracts require buyerProfileId');
+    if (!dto.buyerId) {
+      throw new BadRequestException('Sale contracts require buyerId');
     }
     if (dto.fiscalValue === undefined || dto.fiscalValue === null) {
       throw new BadRequestException('Sale contracts require fiscalValue');
     }
 
-    const buyer = await this.interestedProfilesRepository.findOne({
-      where: { id: dto.buyerProfileId, deletedAt: IsNull() },
+    const buyer = await this.buyersRepository.findOne({
+      where: { id: dto.buyerId, deletedAt: IsNull() },
     });
     if (!buyer) {
-      throw new NotFoundException('Buyer profile not found');
+      throw new NotFoundException('Buyer not found');
     }
+  }
+
+  private async normalizeBuyerInputs(
+    dto: Pick<CreateLeaseDto, 'buyerId' | 'buyerProfileId'>,
+  ): Promise<void> {
+    if (dto.buyerId) {
+      return;
+    }
+
+    if (!dto.buyerProfileId) {
+      return;
+    }
+
+    const interestedProfile = await this.interestedProfilesRepository.findOne({
+      where: { id: dto.buyerProfileId, deletedAt: IsNull() },
+    });
+
+    if (!interestedProfile) {
+      throw new NotFoundException('Interested buyer profile not found');
+    }
+
+    if (!interestedProfile.convertedToBuyerId) {
+      throw new BadRequestException(
+        'Interested buyer profile must be converted before creating a sale contract',
+      );
+    }
+
+    dto.buyerId = interestedProfile.convertedToBuyerId;
   }
 
   private applyVisibilityScope(
@@ -1162,6 +1835,18 @@ export class LeasesService {
     if (user.role === UserRole.TENANT) {
       query.andWhere(
         `(tenant.user_id = :scopeUserId OR LOWER(tenantUser.email) = :scopeEmail OR (:scopePhone <> '' AND tenantUser.phone = :scopePhone))`,
+        {
+          scopeUserId: user.id,
+          scopeEmail: email,
+          scopePhone: phone,
+        },
+      );
+      return;
+    }
+
+    if (user.role === UserRole.BUYER) {
+      query.andWhere(
+        `(buyer.user_id = :scopeUserId OR LOWER(buyerUser.email) = :scopeEmail OR (:scopePhone <> '' AND buyerUser.phone = :scopePhone))`,
         {
           scopeUserId: user.id,
           scopeEmail: email,

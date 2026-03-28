@@ -1,6 +1,6 @@
 import { apiClient, IS_MOCK_MODE } from "../api";
 import { getToken, getUser, setUser } from "../auth";
-import type { User } from "@/types/auth";
+import type { User, UserModulePermissions } from "@/types/auth";
 
 const DELAY = 250;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -16,7 +16,7 @@ export type UpdateMyProfileInput = {
 
 type BackendUser = {
   id: string;
-  email: string;
+  email: string | null;
   firstName: string;
   lastName: string;
   phone?: string | null;
@@ -25,6 +25,7 @@ type BackendUser = {
   role: User["role"];
   isActive?: boolean;
   companyId?: string;
+  permissions?: UserModulePermissions;
 };
 
 type ChangePasswordInput = {
@@ -53,6 +54,7 @@ export type CreateManagedUserInput = {
   lastName: string;
   role: User["role"];
   phone?: string;
+  permissions?: UserModulePermissions;
 };
 
 export type UpdateManagedUserInput = {
@@ -60,6 +62,7 @@ export type UpdateManagedUserInput = {
   firstName?: string;
   lastName?: string;
   phone?: string;
+  permissions?: UserModulePermissions;
 };
 
 export type ResetUserPasswordResult = {
@@ -87,6 +90,7 @@ const mapUser = (raw: BackendUser): User => ({
   role: raw.role,
   isActive: raw.isActive,
   companyId: raw.companyId,
+  permissions: raw.permissions ?? {},
 });
 
 let MOCK_MANAGED_USERS: User[] = [
@@ -100,6 +104,7 @@ let MOCK_MANAGED_USERS: User[] = [
     language: "es",
     role: "admin",
     isActive: true,
+    permissions: {},
   },
 ];
 
@@ -124,6 +129,7 @@ const getMockUser = (): User => {
     language: "es",
     role: "admin",
     isActive: true,
+    permissions: {},
   };
 };
 
@@ -219,6 +225,7 @@ export const usersApi = {
         language: "es",
         role: payload.role,
         isActive: true,
+        permissions: payload.permissions ?? {},
       };
       MOCK_MANAGED_USERS = [created, ...MOCK_MANAGED_USERS];
       return created;
@@ -252,6 +259,7 @@ export const usersApi = {
         lastName: payload.lastName?.trim() ?? current.lastName,
         phone:
           payload.phone === undefined ? current.phone : payload.phone || null,
+        permissions: payload.permissions ?? current.permissions,
       };
       MOCK_MANAGED_USERS[index] = next;
       return next;

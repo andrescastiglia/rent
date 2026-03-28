@@ -963,6 +963,7 @@
     "notFound": "Payment not found",
     "amount": "Amount",
     "date": "Date",
+    "paymentStatus": "Payment Status",
     "lateFee": "Late fee",
     "reference": "Reference",
     "referencePlaceholder": "e.g. TRF-12345",

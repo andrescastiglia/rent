@@ -105,7 +105,7 @@ export class AiOpenAiService {
 
     const conversationHistory: OpenAI.Chat.Completions.ChatCompletionMessageParam[] =
       (history ?? []).map((m) => ({
-        role: m.role as 'user' | 'assistant',
+        role: m.role,
         content: m.content,
       }));
 

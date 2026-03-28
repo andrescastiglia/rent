@@ -10,7 +10,9 @@ export default function TemplatesLayout({
 }) {
   return (
     <MainLayout>
-      <RoleGuard allowedRoles={["admin", "staff"]}>{children}</RoleGuard>
+      <RoleGuard allowedRoles={["admin", "staff"]} requiredModule="templates">
+        {children}
+      </RoleGuard>
     </MainLayout>
   );
 }

@@ -2,8 +2,11 @@ import {
   Lease,
   LeaseTemplate,
   CreateLeaseInput,
+  ImportCurrentLeaseInput,
+  LeaseTemplateFormat,
   UpdateLeaseInput,
 } from "@/types/lease";
+import type { Buyer } from "@/types/buyer";
 import type { Property } from "@/types/property";
 import type { Tenant } from "@/types/tenant";
 import { apiClient } from "../api";
@@ -33,19 +36,21 @@ type BackendTenant = {
   user?: BackendUser | null;
 };
 
-type BackendBuyerProfile = {
+type BackendBuyer = {
   id: string;
-  firstName?: string | null;
-  lastName?: string | null;
-  phone?: string | null;
-  email?: string | null;
+  userId?: string | null;
+  companyId?: string | null;
+  interestedProfileId?: string | null;
+  dni?: string | null;
+  notes?: string | null;
+  user?: BackendUser | null;
 };
 
 type BackendLease = {
   id: string;
   propertyId?: string | null;
   tenantId?: string | null;
-  buyerProfileId?: string | null;
+  buyerId?: string | null;
   ownerId: string;
   templateId?: string | null;
   templateName?: string | null;
@@ -80,14 +85,16 @@ type BackendLease = {
   lastAdjustmentDate?: string | Date | null;
   termsAndConditions?: string | null;
   draftContractText?: string | null;
+  draftContractFormat?: LeaseTemplateFormat | null;
   confirmedContractText?: string | null;
+  confirmedContractFormat?: LeaseTemplateFormat | null;
   confirmedAt?: string | Date | null;
   previousLeaseId?: string | null;
   versionNumber?: number | null;
   documents?: any[] | null;
   property?: any;
   tenant?: BackendTenant | null;
-  buyerProfile?: BackendBuyerProfile | null;
+  buyer?: BackendBuyer | null;
 };
 
 type BackendLeaseTemplate = {
@@ -95,6 +102,9 @@ type BackendLeaseTemplate = {
   name: string;
   contractType: "rental" | "sale";
   templateBody: string;
+  templateFormat?: LeaseTemplateFormat | null;
+  sourceFileName?: string | null;
+  sourceMimeType?: string | null;
   isActive: boolean;
   createdAt?: string | Date;
   updatedAt?: string | Date;
@@ -104,7 +114,7 @@ type BackendLeasePayload = {
   companyId?: string;
   propertyId?: string;
   tenantId?: string;
-  buyerProfileId?: string;
+  buyerId?: string;
   ownerId?: string;
   templateId?: string;
   contractType?: "rental" | "sale";
@@ -133,6 +143,7 @@ type BackendLeasePayload = {
   nextAdjustmentDate?: string;
   termsAndConditions?: string;
   draftContractText?: string;
+  draftFormat?: LeaseTemplateFormat;
 };
 
 type LeaseListFilters = {
@@ -187,7 +198,7 @@ const getLeasePayloadMappedFields = (
 > => [
   ["propertyId", data.propertyId],
   ["tenantId", data.tenantId],
-  ["buyerProfileId", data.buyerProfileId],
+  ["buyerId", data.buyerId],
   ["ownerId", data.ownerId],
   ["templateId", data.templateId],
   ["contractType", data.contractType],
@@ -318,23 +329,24 @@ const mapPropertyFromBackendLease = (
   };
 };
 
-const mapBuyerProfileFromBackend = (
-  raw: BackendLease,
-): Lease["buyerProfile"] | undefined => {
-  if (!raw.buyerProfile) {
+const mapBuyerFromBackend = (raw: BackendLease): Buyer | undefined => {
+  if (!raw.buyer) {
     return undefined;
   }
 
   return {
-    id: raw.buyerProfile.id,
-    firstName: raw.buyerProfile.firstName ?? undefined,
-    lastName: raw.buyerProfile.lastName ?? undefined,
-    phone: raw.buyerProfile.phone ?? "",
-    email: raw.buyerProfile.email ?? undefined,
-    operations: ["sale" as const],
-    status: "interested" as const,
-    createdAt: toIsoOrNow(),
-    updatedAt: toIsoOrNow(),
+    id: raw.buyer.id,
+    userId: raw.buyer.userId ?? undefined,
+    companyId: raw.buyer.companyId ?? undefined,
+    interestedProfileId: raw.buyer.interestedProfileId ?? null,
+    firstName: raw.buyer.user?.firstName ?? "",
+    lastName: raw.buyer.user?.lastName ?? "",
+    phone: raw.buyer.user?.phone ?? null,
+    email: raw.buyer.user?.email ?? null,
+    dni: raw.buyer.dni ?? null,
+    notes: raw.buyer.notes ?? null,
+    createdAt: toIsoOrNow(raw.createdAt),
+    updatedAt: toIsoOrNow(raw.updatedAt),
   };
 };
 
@@ -399,7 +411,7 @@ const mapBackendLeaseToLease = (raw: BackendLease): Lease => {
   const propertyId = raw.propertyId ?? propertyRef?.id ?? "";
   const tenant = mapTenantFromBackend(raw);
   const property = mapPropertyFromBackendLease(raw);
-  const buyerProfile = mapBuyerProfileFromBackend(raw);
+  const buyer = mapBuyerFromBackend(raw);
   const financial = mapLeaseFinancialFields(raw);
   const datesAndDocs = mapLeaseDatesAndDocs(raw);
   const rules = mapLeaseRules(raw);
@@ -408,7 +420,7 @@ const mapBackendLeaseToLease = (raw: BackendLease): Lease => {
     id: raw.id,
     propertyId,
     tenantId: raw.tenantId ?? undefined,
-    buyerProfileId: raw.buyerProfileId ?? undefined,
+    buyerId: raw.buyerId ?? undefined,
     ownerId: raw.ownerId,
     templateId: raw.templateId ?? undefined,
     templateName: raw.templateName ?? undefined,
@@ -417,14 +429,16 @@ const mapBackendLeaseToLease = (raw: BackendLease): Lease => {
     status: mapLeaseStatus(raw.status),
     terms: raw.termsAndConditions ?? undefined,
     draftContractText: raw.draftContractText ?? undefined,
+    draftContractFormat: raw.draftContractFormat ?? undefined,
     confirmedContractText: raw.confirmedContractText ?? undefined,
+    confirmedContractFormat: raw.confirmedContractFormat ?? undefined,
     previousLeaseId: raw.previousLeaseId ?? undefined,
     versionNumber: raw.versionNumber ?? undefined,
     ...datesAndDocs,
     ...rules,
     property,
     tenant,
-    buyerProfile,
+    buyer,
   };
 };
 
@@ -435,6 +449,9 @@ const mapBackendTemplateToTemplate = (
   name: raw.name,
   contractType: raw.contractType,
   templateBody: raw.templateBody,
+  templateFormat: raw.templateFormat ?? "plain_text",
+  sourceFileName: raw.sourceFileName ?? null,
+  sourceMimeType: raw.sourceMimeType ?? null,
   isActive: raw.isActive,
   createdAt: raw.createdAt
     ? normalizeDate(raw.createdAt)
@@ -486,6 +503,7 @@ const MOCK_LEASES: Lease[] = [
       isActive: true,
     },
     status: "DRAFT",
+    draftContractFormat: "plain_text",
     documents: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -499,6 +517,7 @@ const MOCK_TEMPLATES: LeaseTemplate[] = [
     contractType: "rental",
     templateBody:
       "Contrato de alquiler para {{tenant.fullName}}.\n\nLa propiedad ubicada en {{property.addressStreet}} {{property.addressNumber}} se alquila por {{lease.monthlyRent}} {{lease.currency}}.",
+    templateFormat: "plain_text",
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -509,6 +528,7 @@ const MOCK_TEMPLATES: LeaseTemplate[] = [
     contractType: "sale",
     templateBody:
       "Contrato de compraventa para {{buyer.fullName}}.\n\nLa operación sobre {{property.name}} se pacta por {{lease.fiscalValue}} {{lease.currency}}.",
+    templateFormat: "plain_text",
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -736,6 +756,7 @@ export const leasesApi = {
       lease.templateId = template.id;
       lease.templateName = template.name;
       lease.draftContractText = template.templateBody;
+      lease.draftContractFormat = template.templateFormat;
       lease.updatedAt = new Date().toISOString();
       return lease;
     }
@@ -749,12 +770,17 @@ export const leasesApi = {
     return mapBackendLeaseToLease(result);
   },
 
-  updateDraftText: async (id: string, draftText: string): Promise<Lease> => {
+  updateDraftText: async (
+    id: string,
+    draftText: string,
+    draftFormat: LeaseTemplateFormat = "plain_text",
+  ): Promise<Lease> => {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
       const lease = MOCK_LEASES.find((item) => item.id === id);
       if (!lease) throw new Error("Lease not found");
       lease.draftContractText = draftText;
+      lease.draftContractFormat = draftFormat;
       lease.updatedAt = new Date().toISOString();
       return lease;
     }
@@ -762,13 +788,17 @@ export const leasesApi = {
     const token = getToken();
     const result = await apiClient.patch<BackendLease>(
       `/leases/${id}/draft-text`,
-      { draftText },
+      { draftText, draftFormat },
       token ?? undefined,
     );
     return mapBackendLeaseToLease(result);
   },
 
-  confirmDraft: async (id: string, finalText?: string): Promise<Lease> => {
+  confirmDraft: async (
+    id: string,
+    finalText?: string,
+    finalFormat: LeaseTemplateFormat = "plain_text",
+  ): Promise<Lease> => {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
       const lease = MOCK_LEASES.find((item) => item.id === id);
@@ -776,6 +806,8 @@ export const leasesApi = {
       lease.status = "ACTIVE";
       lease.confirmedAt = new Date().toISOString();
       lease.confirmedContractText = finalText ?? lease.draftContractText;
+      lease.draftContractFormat = finalFormat;
+      lease.confirmedContractFormat = finalFormat;
       lease.updatedAt = new Date().toISOString();
       return lease;
     }
@@ -783,7 +815,7 @@ export const leasesApi = {
     const token = getToken();
     const result = await apiClient.post<BackendLease>(
       `/leases/${id}/confirm`,
-      { finalText },
+      { finalText, finalFormat },
       token ?? undefined,
     );
     return mapBackendLeaseToLease(result);
@@ -812,6 +844,7 @@ export const leasesApi = {
     name: string;
     contractType: Lease["contractType"];
     templateBody: string;
+    templateFormat?: LeaseTemplateFormat;
     isActive?: boolean;
   }): Promise<LeaseTemplate> => {
     if (IS_MOCK_MODE) {
@@ -821,6 +854,7 @@ export const leasesApi = {
         name: data.name,
         contractType: data.contractType,
         templateBody: data.templateBody,
+        templateFormat: data.templateFormat ?? "plain_text",
         isActive: data.isActive ?? true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -844,6 +878,7 @@ export const leasesApi = {
       name: string;
       contractType: Lease["contractType"];
       templateBody: string;
+      templateFormat: LeaseTemplateFormat;
       isActive: boolean;
     }>,
   ): Promise<LeaseTemplate> => {
@@ -867,6 +902,56 @@ export const leasesApi = {
       token ?? undefined,
     );
     return mapBackendTemplateToTemplate(result);
+  },
+
+  importTemplateDocx: async (
+    file: File,
+    contractType: Lease["contractType"],
+    name?: string,
+  ): Promise<Partial<LeaseTemplate>> => {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("contractType", contractType);
+    if (name?.trim()) {
+      formData.append("name", name.trim());
+    }
+
+    return apiClient.post<Partial<LeaseTemplate>>(
+      "/leases/templates/import-docx",
+      formData,
+      token ?? undefined,
+    );
+  },
+
+  importCurrentContract: async (
+    data: ImportCurrentLeaseInput,
+  ): Promise<Lease> => {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append("file", data.file);
+    formData.append("propertyId", data.propertyId);
+    formData.append("contractType", data.contractType);
+    if (data.ownerId) formData.append("ownerId", data.ownerId);
+    if (data.tenantId) formData.append("tenantId", data.tenantId);
+    if (data.buyerId) formData.append("buyerId", data.buyerId);
+    if (data.startDate) formData.append("startDate", data.startDate);
+    if (data.endDate) formData.append("endDate", data.endDate);
+    if (data.rentAmount !== undefined)
+      formData.append("monthlyRent", String(data.rentAmount));
+    if (data.depositAmount !== undefined)
+      formData.append("securityDeposit", String(data.depositAmount));
+    if (data.fiscalValue !== undefined)
+      formData.append("fiscalValue", String(data.fiscalValue));
+    if (data.currency) formData.append("currency", data.currency);
+    if (data.notes) formData.append("notes", data.notes);
+
+    const result = await apiClient.post<BackendLease>(
+      "/leases/import-current",
+      formData,
+      token ?? undefined,
+    );
+    return mapBackendLeaseToLease(result);
   },
 
   delete: async (id: string): Promise<void> => {

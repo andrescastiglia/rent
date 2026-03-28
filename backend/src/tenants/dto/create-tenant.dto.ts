@@ -10,11 +10,8 @@ import { z } from 'zod';
 
 export const createTenantZodSchema = z
   .object({
-    companyId: z
-      .string()
-      .uuid()
-      .describe('UUID of the company this tenant belongs to'),
-    email: z.string().email(),
+    companyId: z.uuid().describe('UUID of the company this tenant belongs to'),
+    email: z.email(),
     password: z.string().min(8),
     firstName: z.string().min(1),
     lastName: z.string().min(1),

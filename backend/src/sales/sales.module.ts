@@ -8,6 +8,7 @@ import { SalesController } from './sales.controller';
 import { SaleReceiptPdfService } from './sale-receipt-pdf.service';
 import { DocumentsModule } from '../documents/documents.module';
 import { Document } from '../documents/entities/document.entity';
+import { Buyer } from '../buyers/entities/buyer.entity';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { Document } from '../documents/entities/document.entity';
       SaleFolder,
       SaleAgreement,
       SaleReceipt,
+      Buyer,
       Document,
     ]),
     DocumentsModule,

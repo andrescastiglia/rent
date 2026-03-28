@@ -4,10 +4,11 @@ import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import {
-  SEMRESATTRS_DEPLOYMENT_ENVIRONMENT,
-  SEMRESATTRS_SERVICE_NAME,
-  SEMRESATTRS_SERVICE_VERSION,
+  ATTR_SERVICE_NAME,
+  ATTR_SERVICE_VERSION,
 } from '@opentelemetry/semantic-conventions';
+
+const ATTR_DEPLOYMENT_ENVIRONMENT_NAME = 'deployment.environment';
 
 let sdk: NodeSDK | null = null;
 let started = false;
@@ -63,12 +64,12 @@ export async function startTracing(): Promise<void> {
 
   sdk = new NodeSDK({
     resource: resourceFromAttributes({
-      [SEMRESATTRS_SERVICE_NAME]:
+      [ATTR_SERVICE_NAME]:
         process.env.OTEL_SERVICE_NAME_BACKEND ||
         process.env.OTEL_SERVICE_NAME ||
         'rent-backend',
-      [SEMRESATTRS_SERVICE_VERSION]: process.env.npm_package_version || '0.0.0',
-      [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]:
+      [ATTR_SERVICE_VERSION]: process.env.npm_package_version || '0.0.0',
+      [ATTR_DEPLOYMENT_ENVIRONMENT_NAME]:
         process.env.OTEL_ENVIRONMENT || process.env.NODE_ENV || 'development',
     }),
     traceExporter: new OTLPTraceExporter({
@@ -82,7 +83,7 @@ export async function startTracing(): Promise<void> {
     ],
   });
 
-  await sdk.start();
+  sdk.start();
   started = true;
 }
 

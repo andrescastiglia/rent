@@ -15,7 +15,7 @@ export default function NewLeaseScreen() {
     propertyId?: string;
     ownerId?: string;
     tenantId?: string;
-    buyerProfileId?: string;
+    buyerId?: string;
     propertyOperations?: string;
     propertyName?: string;
     ownerName?: string;
@@ -46,7 +46,7 @@ export default function NewLeaseScreen() {
         defaultPropertyId={params.propertyId}
         defaultOwnerId={params.ownerId}
         preselectedTenantId={params.tenantId}
-        preselectedBuyerProfileId={params.buyerProfileId}
+        preselectedBuyerId={params.buyerId}
         preselectedPropertyOperations={params.propertyOperations}
         preselectedPropertyName={params.propertyName}
         preselectedOwnerName={params.ownerName}

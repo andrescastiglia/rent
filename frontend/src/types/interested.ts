@@ -61,6 +61,7 @@ export interface InterestedProfile {
   consentContact?: boolean;
   consentRecordedAt?: string;
   convertedToTenantId?: string;
+  convertedToBuyerId?: string;
   convertedToSaleAgreementId?: string;
   notes?: string;
   createdAt: string;

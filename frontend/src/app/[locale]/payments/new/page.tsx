@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   CreatePaymentInput,
@@ -13,7 +13,7 @@ import {
 import { Lease } from "@/types/lease";
 import { paymentsApi, tenantAccountsApi } from "@/lib/api/payments";
 import { leasesApi } from "@/lib/api/leases";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { CurrencySelect } from "@/components/common/CurrencySelect";
@@ -351,9 +351,12 @@ function PaymentDetailsCard({
 export default function NewPaymentPage() {
   const { loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const locale = useLocale();
   const t = useTranslations("payments");
   const tCommon = useTranslations("common");
   const tCurrencies = useTranslations("currencies");
+  const preselectedLeaseId = searchParams.get("leaseId") ?? "";
 
   const [leases, setLeases] = useState<Lease[]>([]);
   const [selectedLeaseId, setSelectedLeaseId] = useState("");
@@ -366,6 +369,7 @@ export default function NewPaymentPage() {
   const [applyLateFee, setApplyLateFee] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingLeases, setLoadingLeases] = useState(true);
+  const [showItemEditor, setShowItemEditor] = useState(false);
 
   const [formData, setFormData] = useState<Partial<CreatePaymentInput>>({
     amount: 0,
@@ -402,9 +406,9 @@ export default function NewPaymentPage() {
       : formData.amount || 0;
 
   useEffect(() => {
-    if (authLoading) return;
-    loadLeases();
-  }, [authLoading]);
+    if (!preselectedLeaseId) return;
+    setSelectedLeaseId(preselectedLeaseId);
+  }, [preselectedLeaseId]);
 
   useEffect(() => {
     if (selectedLeaseId) {
@@ -420,16 +424,47 @@ export default function NewPaymentPage() {
       .catch(() => setBalanceInfo(null));
   }, [account]);
 
-  const loadLeases = async () => {
+  useEffect(() => {
+    if (!balanceInfo) return;
+    setFormData((prev) => {
+      if ((prev.amount ?? 0) > 0) {
+        return prev;
+      }
+
+      const suggestedAmount =
+        balanceInfo.total > 0 ? balanceInfo.total : balanceInfo.balance;
+
+      return {
+        ...prev,
+        amount: Math.max(suggestedAmount, 0),
+      };
+    });
+  }, [balanceInfo]);
+
+  const loadLeases = useCallback(async () => {
     try {
       const data = await leasesApi.getAll();
-      setLeases(data.filter((l) => l.status === "ACTIVE"));
+      const activeLeases = data.filter((lease) => lease.status === "ACTIVE");
+      setLeases(activeLeases);
+      if (preselectedLeaseId) {
+        const matchedLease = activeLeases.find(
+          (lease) => lease.id === preselectedLeaseId,
+        );
+        if (matchedLease) {
+          setSelectedLeaseId(matchedLease.id);
+        }
+      }
     } catch (error) {
       console.error("Failed to load leases", error);
     } finally {
       setLoadingLeases(false);
     }
-  };
+  }, [preselectedLeaseId]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    loadLeases();
+  }, [authLoading, loadLeases]);
 
   const loadAccount = async (leaseId: string) => {
     try {
@@ -443,7 +478,7 @@ export default function NewPaymentPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     if (!account) return;
 
@@ -460,7 +495,7 @@ export default function NewPaymentPage() {
         notes: formData.notes,
         items: effectiveItems.length > 0 ? effectiveItems : undefined,
       });
-      router.push(`/payments/${payment.id}`);
+      router.push(`/${locale}/payments/${payment.id}`);
     } catch (error) {
       console.error("Failed to create payment", error);
     } finally {
@@ -583,7 +618,7 @@ export default function NewPaymentPage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       <Link
-        href="/payments"
+        href={`/${locale}/payments`}
         className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-4"
       >
         <ArrowLeft size={16} className="mr-1" />
@@ -613,7 +648,7 @@ export default function NewPaymentPage() {
           totalFromItems={totalFromItems}
           itemsLength={items.length}
           paymentDate={formData.paymentDate}
-          method={formData.method as PaymentMethod | undefined}
+          method={formData.method}
           currencyCode={formData.currencyCode}
           reference={formData.reference}
           notes={formData.notes}
@@ -629,38 +664,62 @@ export default function NewPaymentPage() {
         {/* Variable Items */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              {t("items.title")}
-            </h2>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {t("items.title")}
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Opcional. Si no necesitas desglose, con monto, fecha y medio de
+                pago alcanza.
+              </p>
+            </div>
             <button
               type="button"
-              onClick={addItem}
+              onClick={() => setShowItemEditor((prev) => !prev)}
               className="px-3 py-1 text-sm rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
             >
-              {t("items.add")}
+              {showItemEditor ? "Ocultar detalle" : "Agregar detalle"}
             </button>
           </div>
 
-          {items.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {t("items.empty")}
-            </p>
+          {showItemEditor ? (
+            <>
+              <div className="mb-4">
+                <button
+                  type="button"
+                  onClick={addItem}
+                  className="px-3 py-1 text-sm rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-900 dark:text-slate-200"
+                >
+                  {t("items.add")}
+                </button>
+              </div>
+
+              {items.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {t("items.empty")}
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {items.map((item, index) => (
+                    <PaymentItemRow
+                      key={`${item.description}-${item.amount}-${item.quantity}-${item.type}`}
+                      index={index}
+                      item={item}
+                      t={t}
+                      onDescriptionChange={handleItemDescriptionChange}
+                      onAmountChange={handleItemAmountChange}
+                      onQuantityChange={handleItemQuantityChange}
+                      onTypeChange={handleItemTypeChange}
+                      onRemove={removeItem}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           ) : (
-            <div className="space-y-3">
-              {items.map((item, index) => (
-                <PaymentItemRow
-                  key={`${item.description}-${item.amount}-${item.quantity}-${item.type}`}
-                  index={index}
-                  item={item}
-                  t={t}
-                  onDescriptionChange={handleItemDescriptionChange}
-                  onAmountChange={handleItemAmountChange}
-                  onQuantityChange={handleItemQuantityChange}
-                  onTypeChange={handleItemTypeChange}
-                  onRemove={removeItem}
-                />
-              ))}
-            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              El pago se puede registrar sin desglosar items adicionales.
+            </p>
           )}
 
           {lateFeeItem && (
@@ -678,7 +737,7 @@ export default function NewPaymentPage() {
         {/* Actions */}
         <div className="flex justify-end space-x-4">
           <Link
-            href="/payments"
+            href={`/${locale}/payments`}
             className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
           >
             {tCommon("cancel")}

@@ -303,7 +303,7 @@ export class PaymentsService {
     const month = String(date.getMonth() + 1).padStart(2, '0');
 
     let sequence = 1;
-    const numberMatch = (lastReceipt?.receiptNumber ?? '').match(/-(\d+)$/);
+    const numberMatch = /-(\d+)$/.exec(lastReceipt?.receiptNumber ?? '');
     if (numberMatch?.[1]) {
       sequence = Number.parseInt(numberMatch[1], 10) + 1;
     }
@@ -639,7 +639,7 @@ export class PaymentsService {
     const month = String(date.getMonth() + 1).padStart(2, '0');
 
     let sequence = 1;
-    const numberMatch = (lastNote?.noteNumber ?? '').match(/-(\d+)$/);
+    const numberMatch = /-(\d+)$/.exec(lastNote?.noteNumber ?? '');
     if (numberMatch?.[1]) {
       sequence = Number.parseInt(numberMatch[1], 10) + 1;
     }

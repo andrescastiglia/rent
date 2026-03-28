@@ -58,7 +58,7 @@ class ApiClient {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...(options.headers ?? {}),
+      ...(options.headers ?? undefined),
     };
 
     if (token) {
@@ -69,7 +69,7 @@ class ApiClient {
       method,
       headers,
       body:
-        options.body !== undefined ? JSON.stringify(options.body) : undefined,
+        options.body === undefined ? undefined : JSON.stringify(options.body),
     });
 
     if (response.status === 401 && token) {

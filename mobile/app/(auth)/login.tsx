@@ -12,7 +12,7 @@ import { AppButton, Field, H1 } from '@/components/ui';
 import { useAuth } from '@/contexts/auth-context';
 
 const schema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   password: z.string().min(6),
 });
 

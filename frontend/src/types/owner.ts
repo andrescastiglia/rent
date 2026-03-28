@@ -10,7 +10,7 @@ export interface Owner {
   companyId: string;
   firstName: string;
   lastName: string;
-  email: string;
+  email?: string | null;
   phone?: string;
   taxId?: string;
   taxIdType?: string;
@@ -87,7 +87,7 @@ export interface OwnerActivity {
 export interface CreateOwnerInput {
   firstName: string;
   lastName: string;
-  email: string;
+  email?: string;
   phone?: string;
   taxId?: string;
   taxIdType?: string;

@@ -69,6 +69,37 @@ type PropertyFormProps = {
   testIDPrefix?: string;
 };
 
+type FeatureRow = {
+  id: string;
+  name: string;
+  value: string;
+};
+
+const createFeatureRow = (row?: Partial<FeatureRow>): FeatureRow => ({
+  id: row?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+  name: row?.name ?? '',
+  value: row?.value ?? '',
+});
+
+const updateFeatureRow = (
+  rows: FeatureRow[],
+  index: number,
+  key: 'name' | 'value',
+  next: string,
+): FeatureRow[] =>
+  rows.map((item, itemIndex) =>
+    itemIndex === index ? { ...item, [key]: next } : item,
+  );
+
+const removeAtIndex = <T,>(items: T[], index: number): T[] =>
+  items.filter((_, itemIndex) => itemIndex !== index);
+
+const mergeUploadedImageUrls = (
+  current: string[],
+  uploaded: Array<{ url: string }>,
+): string[] =>
+  Array.from(new Set([...current, ...uploaded.map((item) => item.url)]));
+
 const typeOptions: Array<{ label: string; value: PropertyType }> = [
   { label: 'Depto', value: 'APARTMENT' },
   { label: 'Casa', value: 'HOUSE' },
@@ -113,6 +144,28 @@ const parseOperations = (value?: string): PropertyOperation[] =>
     (item): item is PropertyOperation => item === 'rent' || item === 'sale',
   );
 
+const getAllowsPetsValue = (
+  value: boolean | undefined,
+): 'yes' | 'no' | 'unspecified' => {
+  if (value === undefined) {
+    return 'yes';
+  }
+  return value ? 'yes' : 'no';
+};
+
+const getAllowsPetsLabel = (
+  value: 'yes' | 'no' | 'unspecified',
+  t: (key: string) => string,
+): string => {
+  if (value === 'yes') {
+    return t('common.yes');
+  }
+  if (value === 'no') {
+    return t('common.no');
+  }
+  return '-';
+};
+
 export function PropertyForm({
   mode,
   initial,
@@ -121,22 +174,25 @@ export function PropertyForm({
   onSubmit,
   submitLabel,
   testIDPrefix = 'propertyForm',
-}: PropertyFormProps) {
+}: Readonly<PropertyFormProps>) {
   const { t } = useTranslation();
   const [uploadingImages, setUploadingImages] = useState(false);
   const [showCurrencyOptions, setShowCurrencyOptions] = useState(false);
   const isOwnerLocked = mode === 'edit' || Boolean(defaultOwnerId);
   const initialFeatureRows = useMemo(
     () =>
-      (initial?.features ?? []).map((item) => ({
-        name: item.name ?? '',
-        value: item.value ?? '',
-      })),
+      (initial?.features ?? []).map((item) =>
+        createFeatureRow({
+          id: item.id,
+          name: item.name,
+          value: item.value ?? '',
+        }),
+      ),
     [initial],
   );
   const initialImageUrls = useMemo(() => initial?.images ?? [], [initial]);
   const [featureRows, setFeatureRows] =
-    useState<Array<{ name: string; value: string }>>(initialFeatureRows);
+    useState<FeatureRow[]>(initialFeatureRows);
   const [imageUrls, setImageUrls] = useState<string[]>(initialImageUrls);
 
   const defaults: FormValues = useMemo(
@@ -156,12 +212,7 @@ export function PropertyForm({
       country: initial?.address.country ?? 'Argentina',
       operationsCsv: initial?.operations?.join(', ') ?? 'rent',
       operationState: initial?.operationState ?? 'available',
-      allowsPets:
-        initial?.allowsPets === undefined
-          ? 'yes'
-          : initial.allowsPets
-            ? 'yes'
-            : 'no',
+      allowsPets: getAllowsPetsValue(initial?.allowsPets),
       acceptedGuaranteeTypesCsv:
         initial?.acceptedGuaranteeTypes?.join(', ') ?? '',
       maxOccupants: initial?.maxOccupants?.toString() ?? '',
@@ -595,12 +646,7 @@ export function PropertyForm({
             onChange={field.onChange}
             options={allowsPetsOptions.map((option) => ({
               value: option.value,
-              label:
-                option.value === 'yes'
-                  ? t('common.yes')
-                  : option.value === 'no'
-                    ? t('common.no')
-                    : '-',
+              label: getAllowsPetsLabel(option.value, t),
             }))}
             testID={`${testIDPrefix}.allowsPets`}
           />
@@ -637,7 +683,7 @@ export function PropertyForm({
           <Text style={styles.sectionTitle}>{t('properties.features')}</Text>
           <Pressable
             onPress={() =>
-              setFeatureRows((current) => [...current, { name: '', value: '' }])
+              setFeatureRows((current) => [...current, createFeatureRow()])
             }
             style={styles.inlineAction}
             testID={`${testIDPrefix}.features.add`}
@@ -652,15 +698,13 @@ export function PropertyForm({
           <Text style={styles.muted}>{t('properties.noFeatures')}</Text>
         ) : null}
         {featureRows.map((row, index) => (
-          <View key={`feature-${index}`} style={styles.featureRow}>
+          <View key={row.id} style={styles.featureRow}>
             <Field
               label={`Nombre #${index + 1}`}
               value={row.name}
               onChangeText={(next) =>
                 setFeatureRows((current) =>
-                  current.map((item, itemIndex) =>
-                    itemIndex === index ? { ...item, name: next } : item,
-                  ),
+                  updateFeatureRow(current, index, 'name', next),
                 )
               }
               testID={`${testIDPrefix}.feature.${index}.name`}
@@ -670,18 +714,14 @@ export function PropertyForm({
               value={row.value}
               onChangeText={(next) =>
                 setFeatureRows((current) =>
-                  current.map((item, itemIndex) =>
-                    itemIndex === index ? { ...item, value: next } : item,
-                  ),
+                  updateFeatureRow(current, index, 'value', next),
                 )
               }
               testID={`${testIDPrefix}.feature.${index}.value`}
             />
             <Pressable
               onPress={() =>
-                setFeatureRows((current) =>
-                  current.filter((_, itemIndex) => itemIndex !== index),
-                )
+                setFeatureRows((current) => removeAtIndex(current, index))
               }
               style={styles.removeAction}
               testID={`${testIDPrefix}.feature.${index}.remove`}
@@ -705,9 +745,7 @@ export function PropertyForm({
               .then((uploaded) => {
                 if (uploaded.length === 0) return;
                 setImageUrls((current) =>
-                  Array.from(
-                    new Set([...current, ...uploaded.map((item) => item.url)]),
-                  ),
+                  mergeUploadedImageUrls(current, uploaded),
                 );
               })
               .catch((error) => {
@@ -730,9 +768,7 @@ export function PropertyForm({
               <Image source={{ uri }} style={styles.imagePreview} />
               <Pressable
                 onPress={() =>
-                  setImageUrls((current) =>
-                    current.filter((_, imageIndex) => imageIndex !== index),
-                  )
+                  setImageUrls((current) => removeAtIndex(current, index))
                 }
                 style={styles.removeImageButton}
                 testID={`${testIDPrefix}.image.${index}.remove`}

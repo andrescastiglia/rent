@@ -31,7 +31,7 @@ export function OwnerForm({ initialData, isEditing = false }: OwnerFormProps) {
       ? {
           firstName: initialData.firstName,
           lastName: initialData.lastName,
-          email: initialData.email,
+          email: initialData.email ?? "",
           phone: initialData.phone ?? "",
           taxId: initialData.taxId ?? "",
           notes: initialData.notes ?? "",
@@ -40,14 +40,11 @@ export function OwnerForm({ initialData, isEditing = false }: OwnerFormProps) {
   );
 
   const canSubmit = useMemo(
-    () =>
-      Boolean(
-        form.firstName?.trim() && form.lastName?.trim() && form.email?.trim(),
-      ),
-    [form.email, form.firstName, form.lastName],
+    () => Boolean(form.firstName?.trim() && form.lastName?.trim()),
+    [form.firstName, form.lastName],
   );
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.SyntheticEvent) => {
     event.preventDefault();
     if (!canSubmit) return;
 
@@ -56,7 +53,7 @@ export function OwnerForm({ initialData, isEditing = false }: OwnerFormProps) {
       const payload: CreateOwnerInput = {
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
-        email: form.email.trim(),
+        email: form.email?.trim() || undefined,
         phone: form.phone?.trim() || undefined,
         taxId: form.taxId?.trim() || undefined,
         notes: form.notes?.trim() || undefined,

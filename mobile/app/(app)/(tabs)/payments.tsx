@@ -347,11 +347,9 @@ export default function PaymentsScreen() {
       />
 
       {loading ? <ActivityIndicator /> : null}
-      {error ? (
-        <Text style={styles.error}>{(error as Error).message}</Text>
-      ) : null}
+      {error ? <Text style={styles.error}>{error.message}</Text> : null}
 
-      {!loading ? (
+      {loading ? null : (
         <>
           <View style={styles.summaryGrid}>
             <SummaryCard label="Listados" value={filteredPayments.length} />
@@ -444,7 +442,7 @@ export default function PaymentsScreen() {
             ) : null}
           </View>
         </>
-      ) : null}
+      )}
     </Screen>
   );
 }

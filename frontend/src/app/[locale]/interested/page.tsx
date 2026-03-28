@@ -582,11 +582,10 @@ export default function InterestedPage() {
 
       if (
         profileOperations.includes("rent") &&
-        propertyOperations.includes("rent") &&
-        profile.convertedToTenantId
+        propertyOperations.includes("rent")
       ) {
         const rentQuery = new URLSearchParams(baseQuery);
-        rentQuery.set("tenantId", profile.convertedToTenantId);
+        rentQuery.set("interestedProfileId", profile.id);
         rentQuery.set("contractType", "rental");
         links.push({
           href: `/${locale}/leases/new?${rentQuery.toString()}`,
@@ -599,7 +598,11 @@ export default function InterestedPage() {
         propertyOperations.includes("sale")
       ) {
         const saleQuery = new URLSearchParams(baseQuery);
-        saleQuery.set("buyerProfileId", profile.id);
+        if (profile.convertedToBuyerId) {
+          saleQuery.set("buyerId", profile.convertedToBuyerId);
+        } else {
+          saleQuery.set("buyerProfileId", profile.id);
+        }
         saleQuery.set("contractType", "sale");
         links.push({
           href: `/${locale}/leases/new?${saleQuery.toString()}`,
@@ -675,14 +678,12 @@ export default function InterestedPage() {
           if (!currentProfile.convertedToTenantId) {
             await interestedApi.convertToTenant(currentProfile.id, {});
           }
-        } else {
-          await interestedApi.changeStage(
-            currentProfile.id,
-            "buyer",
-            t("actions.purchaseConfirmedReason", {
+        } else if (!currentProfile.convertedToBuyerId) {
+          await interestedApi.convertToBuyer(currentProfile.id, {
+            notes: t("actions.purchaseConfirmedReason", {
               property: match.property?.name ?? match.propertyId,
             }),
-          );
+          });
         }
 
         if (match.status !== "accepted") {

@@ -1,12 +1,12 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { SyntheticEvent, useCallback, useEffect, useState } from "react";
 import {
   usersApi,
   type CreateManagedUserInput,
   type UpdateManagedUserInput,
 } from "@/lib/api/users";
-import type { User } from "@/types/auth";
+import type { User, UserModulePermissions } from "@/types/auth";
 import { useTranslations } from "next-intl";
 import {
   Loader2,
@@ -24,6 +24,7 @@ type FormState = {
   phone: string;
   role: User["role"];
   password: string;
+  permissions: UserModulePermissions;
 };
 
 const INITIAL_FORM: FormState = {
@@ -33,7 +34,26 @@ const INITIAL_FORM: FormState = {
   phone: "",
   role: "owner",
   password: "",
+  permissions: {},
 };
+
+const STAFF_PERMISSION_OPTIONS: Array<{
+  key: keyof UserModulePermissions;
+  label: string;
+}> = [
+  { key: "dashboard", label: "Dashboard" },
+  { key: "properties", label: "Propiedades" },
+  { key: "owners", label: "Propietarios" },
+  { key: "interested", label: "Interesados" },
+  { key: "tenants", label: "Inquilinos" },
+  { key: "leases", label: "Contratos" },
+  { key: "templates", label: "Plantillas" },
+  { key: "payments", label: "Pagos" },
+  { key: "invoices", label: "Facturas" },
+  { key: "sales", label: "Ventas" },
+  { key: "reports", label: "Reportes" },
+  { key: "users", label: "Usuarios" },
+];
 
 async function submitUserForm(
   editingUser: User | null,
@@ -46,6 +66,7 @@ async function submitUserForm(
       firstName: form.firstName,
       lastName: form.lastName,
       phone: form.phone,
+      permissions: form.role === "staff" ? form.permissions : {},
     };
     const updated = await usersApi.update(editingUser.id, payload);
     setUsers((prev) =>
@@ -61,6 +82,7 @@ async function submitUserForm(
     lastName: form.lastName,
     phone: form.phone || undefined,
     role: form.role,
+    permissions: form.role === "staff" ? form.permissions : {},
   };
   const created = await usersApi.create(payload);
   setUsers((prev) => [created, ...prev]);
@@ -95,7 +117,7 @@ function resetUsersPageMessages(
   setSuccess(null);
 }
 
-const ROLE_OPTIONS = ["admin", "staff", "owner", "tenant"] as const;
+const ROLE_OPTIONS = ["admin", "staff", "owner", "tenant", "buyer"] as const;
 
 function UserFormPanel({
   form,
@@ -109,7 +131,7 @@ function UserFormPanel({
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
   editingUser: User | null;
   saving: boolean;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSubmit: (event: SyntheticEvent<HTMLFormElement>) => void;
   onClose: () => void;
 }>) {
   const tAuth = useTranslations("auth");
@@ -217,6 +239,35 @@ function UserFormPanel({
         </label>
       )}
 
+      {form.role === "staff" ? (
+        <div className="md:col-span-2 rounded-md border border-gray-200 bg-gray-50 p-3">
+          <p className="text-sm font-medium text-gray-800">Permisos de staff</p>
+          <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
+            {STAFF_PERMISSION_OPTIONS.map((permission) => (
+              <label
+                key={permission.key}
+                className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700"
+              >
+                <input
+                  type="checkbox"
+                  checked={form.permissions?.[permission.key] === true}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      permissions: {
+                        ...(prev.permissions ?? undefined),
+                        [permission.key]: event.target.checked,
+                      },
+                    }))
+                  }
+                />
+                {permission.label}
+              </label>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <div className="md:col-span-2 flex items-center justify-end gap-2">
         <button
           type="button"
@@ -260,7 +311,7 @@ function UserList({
             <article key={user.id} className="space-y-3 p-4">
               <div>
                 <p className="text-sm font-medium text-gray-900 break-all">
-                  {user.email}
+                  {user.email || "Sin email"}
                 </p>
                 <p className="text-xs text-gray-500">
                   {user.firstName} {user.lastName}
@@ -315,7 +366,9 @@ function UserList({
           <tbody className="divide-y divide-gray-100">
             {users.map((user) => (
               <tr key={user.id}>
-                <td className="px-4 py-2 text-gray-700">{user.email}</td>
+                <td className="px-4 py-2 text-gray-700">
+                  {user.email || "Sin email"}
+                </td>
                 <td className="px-4 py-2 text-gray-700">{user.firstName}</td>
                 <td className="px-4 py-2 text-gray-700">{user.lastName}</td>
                 <td className="px-4 py-2 text-gray-700">{user.role}</td>
@@ -355,7 +408,7 @@ function ResetPasswordDialog({
 }: Readonly<{
   user: User;
   onClose: () => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSubmit: (event: SyntheticEvent<HTMLFormElement>) => void;
   value: string;
   setValue: (value: string) => void;
   error: string | null;
@@ -486,7 +539,8 @@ export default function UsersPage() {
   const openEdit = (user: User) => {
     setEditingUser(user);
     setForm({
-      email: user.email,
+      email: user.email ?? "",
+      permissions: user.permissions ?? {},
       firstName: user.firstName,
       lastName: user.lastName,
       phone: user.phone ?? "",
@@ -504,7 +558,7 @@ export default function UsersPage() {
     setForm(INITIAL_FORM);
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSaving(true);
     resetUsersPageMessages(setError, setSuccess);
@@ -561,7 +615,7 @@ export default function UsersPage() {
   };
 
   const handleResetPasswordSubmit = async (
-    event: FormEvent<HTMLFormElement>,
+    event: SyntheticEvent<HTMLFormElement>,
   ) => {
     event.preventDefault();
     if (!resetPasswordUser) return;

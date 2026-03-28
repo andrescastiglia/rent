@@ -92,7 +92,7 @@ function withNullable(schema: any): any {
   }
 
   if (schema instanceof z.ZodUnion) {
-    const options = schema._def.options;
+    const options = schema.def.options;
     const hasNull = options.some((option: any) => option instanceof z.ZodNull);
     if (hasNull) {
       return schema;
@@ -104,8 +104,8 @@ function withNullable(schema: any): any {
 }
 
 function transformPipeSchema(schema: z.ZodPipe<any, any>): any {
-  const rawIn = (schema as any)._def.in;
-  const rawOut = (schema as any)._def.out;
+  const rawIn = (schema as any).def.in;
+  const rawOut = (schema as any).def.out;
   const inSchema = toOpenAiCompatibleSchema(rawIn);
   const outSchema = toOpenAiCompatibleSchema(rawOut);
 
@@ -123,7 +123,7 @@ function transformPipeSchema(schema: z.ZodPipe<any, any>): any {
 }
 
 function transformUnionSchema(schema: z.ZodUnion<any>): any {
-  const options = (schema as any)._def.options.map((option: any) =>
+  const options = (schema as any).def.options.map((option: any) =>
     toOpenAiCompatibleSchema(option),
   );
   if (options.length === 0) {
@@ -136,11 +136,11 @@ function transformUnionSchema(schema: z.ZodUnion<any>): any {
 }
 
 function transformTupleSchema(schema: z.ZodTuple<any, any>): any {
-  const items = (schema as any)._def.items.map((item: any) =>
+  const items = (schema as any).def.items.map((item: any) =>
     toOpenAiCompatibleSchema(item),
   );
-  const rest = (schema as any)._def.rest
-    ? toOpenAiCompatibleSchema((schema as any)._def.rest)
+  const rest = (schema as any).def.rest
+    ? toOpenAiCompatibleSchema((schema as any).def.rest)
     : null;
   return rest ? z.tuple(items, rest) : z.tuple(items);
 }
@@ -153,7 +153,7 @@ function transformObjectSchema(schema: z.ZodObject<any>): any {
     ]),
   );
   const transformedObject = z.object(transformedShape);
-  const catchall = (schema as any)._def.catchall;
+  const catchall = (schema as any).def.catchall;
   if (!catchall) {
     return transformedObject;
   }
@@ -181,22 +181,22 @@ function toOpenAiCompatibleSchema(schema: any): any {
     return withNullable(toOpenAiCompatibleSchema(schema.unwrap()));
   }
   if (schema instanceof z.ZodDefault) {
-    return toOpenAiCompatibleSchema(schema._def.innerType);
+    return toOpenAiCompatibleSchema(schema.def.innerType);
   }
   if (schema instanceof z.ZodReadonly) {
-    return toOpenAiCompatibleSchema(schema._def.innerType).readonly();
+    return toOpenAiCompatibleSchema(schema.def.innerType).readonly();
   }
   if (schema instanceof z.ZodCatch) {
-    return toOpenAiCompatibleSchema(schema._def.innerType).catch(
-      schema._def.catchValue,
+    return toOpenAiCompatibleSchema(schema.def.innerType).catch(
+      schema.def.catchValue,
     );
   }
   if (schema instanceof z.ZodArray) {
     return z.array(toOpenAiCompatibleSchema(schema.element));
   }
   if (schema instanceof z.ZodRecord) {
-    const keyType = toOpenAiCompatibleSchema(schema._def.keyType);
-    const valueType = toOpenAiCompatibleSchema(schema._def.valueType);
+    const keyType = toOpenAiCompatibleSchema(schema.def.keyType);
+    const valueType = toOpenAiCompatibleSchema(schema.def.valueType);
     return z.record(keyType, valueType);
   }
   if (schema instanceof z.ZodUnion) {
@@ -207,12 +207,12 @@ function toOpenAiCompatibleSchema(schema: any): any {
   }
   if (schema instanceof z.ZodIntersection) {
     return z.intersection(
-      toOpenAiCompatibleSchema(schema._def.left),
-      toOpenAiCompatibleSchema(schema._def.right),
+      toOpenAiCompatibleSchema(schema.def.left),
+      toOpenAiCompatibleSchema(schema.def.right),
     );
   }
   if (schema instanceof z.ZodLazy) {
-    return z.lazy(() => toOpenAiCompatibleSchema(schema._def.getter()));
+    return z.lazy(() => toOpenAiCompatibleSchema(schema.def.getter()));
   }
   if (schema instanceof z.ZodObject) {
     return transformObjectSchema(schema);
@@ -238,7 +238,7 @@ function toRootObjectSchema(schema: any): z.ZodObject<any> | null {
       current instanceof z.ZodReadonly ||
       current instanceof z.ZodCatch
     ) {
-      current = current._def.innerType;
+      current = current.def.innerType;
       continue;
     }
 
@@ -291,50 +291,87 @@ function inferTypeFromEnum(values: unknown[]): string | null {
   return inferTypeFromConst(values[0]);
 }
 
+function inferBranchType(branch: Record<string, unknown>): string | null {
+  if (Array.isArray(branch.enum)) {
+    return inferTypeFromEnum(branch.enum);
+  }
+
+  if ('const' in branch) {
+    return inferTypeFromConst(branch.const);
+  }
+
+  if ('items' in branch) {
+    return 'array';
+  }
+
+  if ('properties' in branch || 'additionalProperties' in branch) {
+    return 'object';
+  }
+
+  if (Object.keys(branch).length === 0) {
+    return 'object';
+  }
+
+  return null;
+}
+
+function normalizeAdditionalProperties(
+  value: unknown,
+): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+
+  const additional = value as Record<string, unknown>;
+  if (Object.keys(additional).length === 0) {
+    return {};
+  }
+
+  if (typeof additional.type !== 'string') {
+    sanitizeAnyOfBranch(additional);
+  }
+
+  return additional;
+}
+
 function sanitizeAnyOfBranch(branch: Record<string, unknown>): void {
   if (typeof branch.type === 'string') {
     return;
   }
 
-  if (Array.isArray(branch.enum)) {
-    const inferred = inferTypeFromEnum(branch.enum);
-    if (inferred) {
-      branch.type = inferred;
-      return;
-    }
-  }
-
-  if ('const' in branch) {
-    const inferred = inferTypeFromConst(branch.const);
-    if (inferred) {
-      branch.type = inferred;
-      return;
-    }
-  }
-
-  if ('items' in branch) {
-    branch.type = 'array';
+  const inferredType = inferBranchType(branch);
+  if (!inferredType) {
     return;
   }
 
-  if ('properties' in branch || 'additionalProperties' in branch) {
-    branch.type = 'object';
-    if (
-      branch.additionalProperties &&
-      typeof branch.additionalProperties === 'object'
-    ) {
-      const nested = branch.additionalProperties as Record<string, unknown>;
-      if (Object.keys(nested).length === 0) {
-        branch.additionalProperties = true;
-      }
-    }
+  branch.type = inferredType;
+  if (inferredType !== 'object') {
     return;
   }
 
-  if (Object.keys(branch).length === 0) {
-    branch.type = 'object';
+  const normalizedAdditionalProperties = normalizeAdditionalProperties(
+    branch.additionalProperties,
+  );
+  if (
+    normalizedAdditionalProperties &&
+    Object.keys(normalizedAdditionalProperties).length === 0
+  ) {
     branch.additionalProperties = true;
   }
+}
+
+function sanitizeAnyOfBranches(anyOf: unknown[]): unknown[] {
+  const flattenedAnyOf = flattenNestedAnyOf(anyOf);
+
+  for (const branch of flattenedAnyOf) {
+    if (!branch || typeof branch !== 'object' || Array.isArray(branch)) {
+      continue;
+    }
+
+    sanitizeAnyOfBranch(branch as Record<string, unknown>);
+  }
+
+  return flattenedAnyOf;
 }
 
 function sanitizeOpenAiSchemaNode(schema: unknown): void {
@@ -354,27 +391,17 @@ function sanitizeOpenAiSchemaNode(schema: unknown): void {
   }
 
   if (Array.isArray(node.anyOf)) {
-    const flattenedAnyOf = flattenNestedAnyOf(node.anyOf);
-    node.anyOf = flattenedAnyOf;
-    for (const branch of flattenedAnyOf) {
-      if (!branch || typeof branch !== 'object' || Array.isArray(branch)) {
-        continue;
-      }
-      sanitizeAnyOfBranch(branch as Record<string, unknown>);
-    }
+    node.anyOf = sanitizeAnyOfBranches(node.anyOf);
   }
 
+  const normalizedAdditionalProperties = normalizeAdditionalProperties(
+    node.additionalProperties,
+  );
   if (
-    node.additionalProperties &&
-    typeof node.additionalProperties === 'object' &&
-    !Array.isArray(node.additionalProperties)
+    normalizedAdditionalProperties &&
+    Object.keys(normalizedAdditionalProperties).length === 0
   ) {
-    const additional = node.additionalProperties as Record<string, unknown>;
-    if (Object.keys(additional).length === 0) {
-      node.additionalProperties = true;
-    } else if (typeof additional.type !== 'string') {
-      sanitizeAnyOfBranch(additional);
-    }
+    node.additionalProperties = true;
   }
 
   for (const value of Object.values(node)) {
@@ -468,27 +495,25 @@ export class AiToolsRegistryService {
       function: async (args: unknown) =>
         this.executor.execute(tool.name, args, context),
     });
-    return this.sanitizeBuiltToolSchema(built);
+    this.sanitizeBuiltToolSchema(built);
+    return built;
   }
 
-  private sanitizeBuiltToolSchema<T>(toolConfig: T): T {
+  private sanitizeBuiltToolSchema(toolConfig: unknown): void {
     if (!toolConfig || typeof toolConfig !== 'object') {
-      return toolConfig;
+      return;
     }
+
     const candidate = toolConfig as Record<string, unknown>;
     const fnNode =
       candidate.function && typeof candidate.function === 'object'
         ? (candidate.function as Record<string, unknown>)
         : null;
-    if (
-      !fnNode ||
-      !fnNode.parameters ||
-      typeof fnNode.parameters !== 'object'
-    ) {
-      return toolConfig;
+    if (typeof fnNode?.parameters !== 'object' || fnNode.parameters === null) {
+      return;
     }
+
     sanitizeOpenAiSchemaNode(fnNode.parameters);
-    return toolConfig;
   }
 
   private resolveParametersSchema(tool: AiToolDefinition): z.ZodObject<any> {
@@ -539,12 +564,12 @@ export class AiToolsRegistryService {
   }
 
   private hasInvalidAnyOfSchema(toolConfig: unknown): boolean {
-    const sanitized = this.sanitizeBuiltToolSchema(toolConfig);
-    if (!sanitized || typeof sanitized !== 'object') {
+    this.sanitizeBuiltToolSchema(toolConfig);
+    if (!toolConfig || typeof toolConfig !== 'object') {
       return true;
     }
 
-    const candidate = sanitized as Record<string, unknown>;
+    const candidate = toolConfig as Record<string, unknown>;
     const fnNode =
       candidate.function && typeof candidate.function === 'object'
         ? (candidate.function as Record<string, unknown>)

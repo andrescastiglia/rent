@@ -10,7 +10,10 @@ export default function PaymentsLayout({
 }) {
   return (
     <MainLayout>
-      <RoleGuard allowedRoles={["admin", "owner", "tenant", "staff"]}>
+      <RoleGuard
+        allowedRoles={["admin", "owner", "tenant", "staff"]}
+        requiredModule="payments"
+      >
         {children}
       </RoleGuard>
     </MainLayout>

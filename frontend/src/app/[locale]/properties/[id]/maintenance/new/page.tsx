@@ -59,7 +59,7 @@ export default function CreatePropertyMaintenanceTaskPage() {
     });
   }, [authLoading, propertyId]);
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.SyntheticEvent) => {
     event.preventDefault();
     if (!propertyId) return;
 

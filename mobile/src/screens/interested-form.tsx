@@ -28,7 +28,7 @@ type FormValues = {
   notes: string;
 };
 
-type InterestedFormProps = {
+type InterestedFormProps = Readonly<{
   mode: 'create' | 'edit';
   initial?: InterestedProfile;
   submitting?: boolean;
@@ -37,7 +37,7 @@ type InterestedFormProps = {
   ) => Promise<void>;
   submitLabel: string;
   testIDPrefix?: string;
-};
+}>;
 
 const emptyForm: FormValues = {
   firstName: '',

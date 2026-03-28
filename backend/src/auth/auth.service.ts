@@ -59,6 +59,7 @@ export class AuthService {
         language: user.language,
         isActive: user.isActive,
         companyId: user.companyId,
+        permissions: user.permissions ?? {},
       },
     };
   }

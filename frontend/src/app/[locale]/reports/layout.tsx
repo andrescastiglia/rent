@@ -10,7 +10,9 @@ export default function ReportsLayout({
 }) {
   return (
     <MainLayout>
-      <RoleGuard allowedRoles={["admin", "staff"]}>{children}</RoleGuard>
+      <RoleGuard allowedRoles={["admin", "staff"]} requiredModule="reports">
+        {children}
+      </RoleGuard>
     </MainLayout>
   );
 }

@@ -202,26 +202,21 @@ const applyMockPaymentFilters = (
   }
 
   return payments.filter((item) => {
-    if (filters.status && item.status !== filters.status) return false;
-    if (filters.method && item.method !== filters.method) return false;
-    if (filters.activityType && item.activityType !== filters.activityType)
-      return false;
-    if (filters.tenantId && item.tenantId !== filters.tenantId) return false;
-    if (
-      filters.tenantAccountId &&
-      item.tenantAccountId !== filters.tenantAccountId
-    )
-      return false;
-    if (filters.leaseId && item.tenantAccount?.leaseId !== filters.leaseId)
-      return false;
-    if (
-      filters.propertyId &&
-      item.tenantAccount?.lease?.propertyId !== filters.propertyId
-    )
-      return false;
-    if (filters.fromDate && item.paymentDate < filters.fromDate) return false;
-    if (filters.toDate && item.paymentDate > filters.toDate) return false;
-    return true;
+    const matches = [
+      !filters.status || item.status === filters.status,
+      !filters.method || item.method === filters.method,
+      !filters.activityType || item.activityType === filters.activityType,
+      !filters.tenantId || item.tenantId === filters.tenantId,
+      !filters.tenantAccountId ||
+        item.tenantAccountId === filters.tenantAccountId,
+      !filters.leaseId || item.tenantAccount?.leaseId === filters.leaseId,
+      !filters.propertyId ||
+        item.tenantAccount?.lease?.propertyId === filters.propertyId,
+      !filters.fromDate || item.paymentDate >= filters.fromDate,
+      !filters.toDate || item.paymentDate <= filters.toDate,
+    ];
+
+    return matches.every(Boolean);
   });
 };
 

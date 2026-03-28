@@ -31,6 +31,7 @@ const MOCK_AGREEMENTS: SaleAgreement[] = [
   {
     id: "agr-1",
     folderId: "folder-1",
+    buyerId: "buyer-1",
     buyerName: "Carlos López",
     buyerPhone: "+54 9 11 4444-1234",
     totalAmount: 100000,
@@ -120,6 +121,8 @@ export const salesApi = {
         paidAmount: 0,
         dueDay: data.dueDay ?? 10,
         currency: data.currency ?? "ARS",
+        buyerName: `Comprador ${data.buyerId.slice(0, 8)}`,
+        buyerPhone: "",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         ...data,

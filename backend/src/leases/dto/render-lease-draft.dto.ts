@@ -4,7 +4,6 @@ import { z } from 'zod';
 const renderLeaseDraftZodSchema = z
   .object({
     templateId: z
-      .string()
       .uuid()
       .optional()
       .describe('UUID of template to render (uses lease default if omitted)'),

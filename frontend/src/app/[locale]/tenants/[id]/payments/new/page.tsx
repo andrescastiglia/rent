@@ -219,7 +219,7 @@ export default function TenantPaymentRegistrationPage() {
     });
   }, [authLoading, tenantId, loadData]);
 
-  const handleRegisterPayment = async (event: React.FormEvent) => {
+  const handleRegisterPayment = async (event: React.SyntheticEvent) => {
     event.preventDefault();
     if (!tenantAccount || !tenant) return;
 

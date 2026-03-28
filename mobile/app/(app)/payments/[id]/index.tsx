@@ -58,7 +58,7 @@ export default function PaymentDetailScreen() {
       <H1>{t('payments.paymentDetails')}</H1>
       {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
       {query.error ? (
-        <Text style={styles.error}>{(query.error as Error).message}</Text>
+        <Text style={styles.error}>{query.error.message}</Text>
       ) : null}
       {!query.isLoading && !payment ? (
         <Text>{t('payments.notFound')}</Text>

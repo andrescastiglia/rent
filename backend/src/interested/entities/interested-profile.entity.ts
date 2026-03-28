@@ -8,11 +8,13 @@ import {
   ManyToOne,
   JoinColumn,
   OneToMany,
+  OneToOne,
 } from 'typeorm';
 import { Company } from '../../companies/entities/company.entity';
 import { User } from '../../users/entities/user.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { SaleAgreement } from '../../sales/entities/sale-agreement.entity';
+import { Buyer } from '../../buyers/entities/buyer.entity';
 import { InterestedActivity } from './interested-activity.entity';
 import { InterestedStageHistory } from './interested-stage-history.entity';
 import { InterestedPropertyMatch } from './interested-property-match.entity';
@@ -204,12 +206,19 @@ export class InterestedProfile {
   @JoinColumn({ name: 'converted_to_tenant_id' })
   convertedToTenant: Tenant;
 
+  @Column({ name: 'converted_to_buyer_id', nullable: true })
+  convertedToBuyerId: string | null;
+
+  @OneToOne(() => Buyer, { nullable: true })
+  @JoinColumn({ name: 'converted_to_buyer_id' })
+  convertedToBuyer: Buyer | null;
+
   @Column({ name: 'converted_to_sale_agreement_id', nullable: true })
-  convertedToSaleAgreementId: string;
+  convertedToSaleAgreementId: string | null;
 
   @ManyToOne(() => SaleAgreement, { nullable: true })
   @JoinColumn({ name: 'converted_to_sale_agreement_id' })
-  convertedToSaleAgreement: SaleAgreement;
+  convertedToSaleAgreement: SaleAgreement | null;
 
   @Column({ type: 'text', nullable: true })
   notes: string;

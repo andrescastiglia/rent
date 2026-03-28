@@ -142,7 +142,12 @@ async function ensureCompany(queryRunner: QueryRunner): Promise<Company> {
   const company = queryRunner.manager.create(Company, {
     name: 'My Rental Company',
     taxId: '20-12345678-9',
+    city: 'Buenos Aires',
+    state: 'CABA',
     plan: PlanType.BASIC,
+    settings: {
+      timezone: 'America/Argentina/Buenos_Aires',
+    },
     isActive: true,
   });
   const saved = await queryRunner.manager.save(company);
@@ -371,4 +376,9 @@ async function seed() {
   }
 }
 
-void seed();
+process.nextTick(() => {
+  void seed().catch((error) => {
+    console.error('Seed failed:', error);
+    process.exitCode = 1;
+  });
+});

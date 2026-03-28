@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 const createPropertyReservationZodSchema = z
   .object({
-    propertyId: z.string().uuid().describe('UUID of the property to reserve'),
+    propertyId: z.uuid().describe('UUID of the property to reserve'),
     notes: z.string().optional(),
     activitySource: z
       .string()

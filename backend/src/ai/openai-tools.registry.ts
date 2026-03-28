@@ -129,7 +129,7 @@ export type AiToolRegistryDeps = {
 
 const emptyObjectSchema = z.object({}).strict();
 const idSchema = z.string().min(1);
-const uuidSchema = z.string().uuid();
+const uuidSchema = z.uuid();
 const localeSchema = z.string().min(2);
 const codeSchema = z.string().min(1);
 const githubIssueStateSchema = z.enum(['open', 'closed', 'all']);
@@ -2696,7 +2696,7 @@ export function buildAiToolDefinitions(
       allowedRoles: ADMIN_STAFF,
       parameters: z
         .object({
-          previewId: z.string().uuid().optional(),
+          previewId: z.uuid().optional(),
           action: githubCommitActionSchema.default('auto'),
           targetIssueNumber: z.coerce.number().int().min(1).optional(),
           confirm: z.coerce.boolean().default(false),
@@ -2708,7 +2708,7 @@ export function buildAiToolDefinitions(
       execute: async (args, context) => {
         const parsed = z
           .object({
-            previewId: z.string().uuid().optional(),
+            previewId: z.uuid().optional(),
             action: githubCommitActionSchema.default('auto'),
             targetIssueNumber: z.coerce.number().int().min(1).optional(),
             confirm: z.coerce.boolean().default(false),

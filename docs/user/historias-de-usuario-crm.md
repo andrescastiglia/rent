@@ -14,6 +14,12 @@ Convertir "Interesados" en un CRM integrado a la aplicación, con:
 - Comunicaciones y tareas con trazabilidad.
 - Automatizaciones mínimas (recordatorios, estados y alertas).
 
+### Decisiones operativas vigentes
+- Los interesados de alquiler son solamente los perfiles con marca de operacion `rent`.
+- Los interesados de venta son solamente los perfiles con marca de operacion `sale`.
+- La busqueda comercial es parcial, ignora tildes y no distingue mayusculas.
+- Desde el flujo contractual se puede crear el interesado, convertirlo cuando aplique o reutilizar un contrato abierto ya existente.
+
 ### Alcance funcional propuesto
 - Contactos y cuentas (interesados individuales y grupos familiares/empresas).
 - Embudo comercial configurable con estados y probabilidades.
@@ -112,10 +118,20 @@ Convertir "Interesados" en un CRM integrado a la aplicación, con:
 *quiero* convertir un interesado en inquilino y crear el contrato desde su ficha,
 *para* evitar duplicar datos.
 
+**Criterios de aceptación**
+- Desde un interesado con operacion `rent` se puede iniciar contrato de alquiler.
+- Si el perfil aun no fue convertido a inquilino, el sistema puede hacerlo dentro del mismo flujo.
+- Si ya existe un contrato abierto para esa propiedad y esa parte, se ofrece reutilizarlo.
+
 **ID: US-CRM-16 - Conversión a Comprador**
 *Como* agente,
 *quiero* convertir un interesado en comprador y vincular la venta/carpeta,
 *para* registrar el cierre en el CRM.
+
+**Criterios de aceptación**
+- Desde un interesado con operacion `sale` se puede iniciar una venta.
+- El contrato o acuerdo puede vincularse directamente al interesado comercial y seguir mostrando su contexto CRM.
+- Si ya existe un contrato abierto para esa propiedad y esa parte, se ofrece abrirlo en vez de duplicar.
 
 **ID: US-CRM-17 - Cierre Automático por Contrato/Firma**
 *Como* sistema,
@@ -152,6 +168,11 @@ Convertir "Interesados" en un CRM integrado a la aplicación, con:
 *Como* administrador,
 *quiero* controlar qué usuarios pueden ver o editar leads y actividades,
 *para* proteger la información sensible.
+
+**Criterios de aceptación**
+- `admin` tiene acceso total al CRM.
+- `staff` accede segun permisos modulares configurables.
+- Los perfiles externos no pueden navegar el CRM completo ni ver informacion comercial que no les corresponde.
 
 **ID: US-CRM-23 - Auditoría de Cambios**
 *Como* administrador,

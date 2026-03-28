@@ -71,7 +71,7 @@ export class InvoicePdfService {
     invoice: Invoice,
     lang: string,
   ): Promise<Buffer> {
-    const title = await this.i18n.t('invoice.title', { lang });
+    const title = this.i18n.t('invoice.title', { lang });
     const context = this.buildTemplateContext(invoice);
     const rendered = renderDocumentTemplate(templateBody, context);
     return generateCustomDocumentPdf(

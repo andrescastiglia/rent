@@ -22,10 +22,7 @@ export const paymentItemZodSchema = z
       .optional()
       .default(1)
       .describe('Quantity (default: 1)'),
-    type: z
-      .nativeEnum(PaymentItemType)
-      .optional()
-      .default(PaymentItemType.CHARGE),
+    type: z.enum(PaymentItemType).optional().default(PaymentItemType.CHARGE),
   })
   .strict();
 

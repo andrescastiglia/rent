@@ -13,7 +13,7 @@ export class UpdatePropertyDto extends PartialType(CreatePropertyDto) {
     .partial()
     .extend({
       status: z
-        .nativeEnum(PropertyStatus)
+        .enum(PropertyStatus)
         .optional()
         .describe('active|inactive|under_maintenance|pending_approval'),
     })

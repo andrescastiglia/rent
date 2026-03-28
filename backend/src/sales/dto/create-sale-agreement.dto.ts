@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -13,8 +14,10 @@ import { z } from 'zod';
 const createSaleAgreementZodSchema = z
   .object({
     folderId: z.string().min(1).describe('UUID of the sale folder'),
-    buyerName: z.string().min(1),
-    buyerPhone: z.string().min(1),
+    buyerId: z.uuid().describe('UUID of the buyer entity'),
+    buyerName: z.string().min(1).optional(),
+    buyerPhone: z.string().min(1).optional(),
+    buyerEmail: z.email().optional(),
     totalAmount: z.coerce.number().min(0).describe('Total sale amount'),
     currency: z.string().optional().describe('Currency code'),
     installmentAmount: z.coerce
@@ -26,10 +29,7 @@ const createSaleAgreementZodSchema = z
       .int()
       .min(1)
       .describe('Number of installments'),
-    startDate: z
-      .string()
-      .date()
-      .describe('First installment date (YYYY-MM-DD)'),
+    startDate: z.iso.date().describe('First installment date (YYYY-MM-DD)'),
     dueDay: z.coerce
       .number()
       .int()
@@ -47,13 +47,20 @@ export class CreateSaleAgreementDto {
   @IsNotEmpty()
   folderId: string;
 
-  @IsString()
-  @IsNotEmpty()
-  buyerName: string;
+  @IsUUID()
+  buyerId: string;
 
   @IsString()
-  @IsNotEmpty()
-  buyerPhone: string;
+  @IsOptional()
+  buyerName?: string;
+
+  @IsString()
+  @IsOptional()
+  buyerPhone?: string;
+
+  @IsString()
+  @IsOptional()
+  buyerEmail?: string;
 
   @IsNumber()
   @Min(0)

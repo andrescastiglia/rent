@@ -29,14 +29,14 @@ export function generateInvoicePdf(
       doc
         .fontSize(20)
         .font('Helvetica-Bold')
-        .text(await i18n.t('invoice.title', { lang }), { align: 'center' })
+        .text(i18n.t('invoice.title', { lang }), { align: 'center' })
         .moveDown();
 
       doc
         .fontSize(12)
         .font('Helvetica')
         .text(
-          `${await i18n.t('invoice.invoiceNumber', { lang })} ${invoice.invoiceNumber}`,
+          `${i18n.t('invoice.invoiceNumber', { lang })} ${invoice.invoiceNumber}`,
           { align: 'right' },
         )
         .moveDown(0.5);
@@ -44,7 +44,7 @@ export function generateInvoicePdf(
       doc
         .fontSize(10)
         .text(
-          `${await i18n.t('invoice.issueDate', { lang })}: ${invoice.issuedAt ? new Date(invoice.issuedAt).toLocaleDateString(lang) : await i18n.t('invoice.draft', { lang })}`,
+          `${i18n.t('invoice.issueDate', { lang })}: ${invoice.issuedAt ? new Date(invoice.issuedAt).toLocaleDateString(lang) : i18n.t('invoice.draft', { lang })}`,
           { align: 'right' },
         )
         .moveDown(2);
@@ -55,18 +55,16 @@ export function generateInvoicePdf(
       doc
         .fontSize(14)
         .font('Helvetica-Bold')
-        .text(await i18n.t('invoice.issuer', { lang }))
+        .text(i18n.t('invoice.issuer', { lang }))
         .moveDown(0.5);
 
       doc
         .fontSize(11)
         .font('Helvetica')
         .text(
-          `${await i18n.t('invoice.name', { lang })}: ${ownerUser?.firstName || ''} ${ownerUser?.lastName || ''}`,
+          `${i18n.t('invoice.name', { lang })}: ${ownerUser?.firstName || ''} ${ownerUser?.lastName || ''}`,
         )
-        .text(
-          `${await i18n.t('invoice.email', { lang })}: ${ownerUser?.email || ''}`,
-        )
+        .text(`${i18n.t('invoice.email', { lang })}: ${ownerUser?.email || ''}`)
         .moveDown(1.5);
 
       // Tenant (multilingual)
@@ -75,17 +73,17 @@ export function generateInvoicePdf(
       doc
         .fontSize(14)
         .font('Helvetica-Bold')
-        .text(await i18n.t('invoice.client', { lang }))
+        .text(i18n.t('invoice.client', { lang }))
         .moveDown(0.5);
 
       doc
         .fontSize(11)
         .font('Helvetica')
         .text(
-          `${await i18n.t('invoice.name', { lang })}: ${tenantUser?.firstName || ''} ${tenantUser?.lastName || ''}`,
+          `${i18n.t('invoice.name', { lang })}: ${tenantUser?.firstName || ''} ${tenantUser?.lastName || ''}`,
         )
         .text(
-          `${await i18n.t('invoice.email', { lang })}: ${tenantUser?.email || ''}`,
+          `${i18n.t('invoice.email', { lang })}: ${tenantUser?.email || ''}`,
         )
         .moveDown(1.5);
 

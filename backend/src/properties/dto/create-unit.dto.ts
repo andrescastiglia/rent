@@ -14,8 +14,8 @@ import { z } from 'zod';
 
 export const createUnitZodSchema = z
   .object({
-    propertyId: z.string().uuid().describe('UUID of the parent property'),
-    companyId: z.string().uuid().optional().describe('UUID of the company'),
+    propertyId: z.uuid().describe('UUID of the parent property'),
+    companyId: z.uuid().optional().describe('UUID of the company'),
     unitNumber: z.string().min(1),
     floor: z.string().optional(),
     bedrooms: z.coerce.number().int().min(0).optional().default(0),
@@ -41,7 +41,7 @@ export const createUnitZodSchema = z
       .optional()
       .describe('Monthly expenses/common charges amount'),
     status: z
-      .nativeEnum(UnitStatus)
+      .enum(UnitStatus)
       .optional()
       .default(UnitStatus.AVAILABLE)
       .describe('available|occupied|maintenance|reserved'),

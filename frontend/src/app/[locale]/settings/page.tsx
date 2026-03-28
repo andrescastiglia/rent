@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { SyntheticEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Lock, Save } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
@@ -109,7 +109,7 @@ export default function SettingsPage() {
     return `/${nextLocale}/settings`;
   };
 
-  const handleSaveProfile = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSaveProfile = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
     setProfileError(null);
     setProfileSuccess(null);
@@ -153,7 +153,9 @@ export default function SettingsPage() {
     }
   };
 
-  const handleChangePassword = async (event: FormEvent<HTMLFormElement>) => {
+  const handleChangePassword = async (
+    event: SyntheticEvent<HTMLFormElement>,
+  ) => {
     event.preventDefault();
     setPasswordError(null);
     setPasswordSuccess(null);

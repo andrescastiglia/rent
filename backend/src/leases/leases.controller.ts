@@ -11,8 +11,11 @@ import {
   UseGuards,
   Request,
   ParseUUIDPipe,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { LeasesService } from './leases.service';
 import { CreateLeaseDto } from './dto/create-lease.dto';
 import { UpdateLeaseDto } from './dto/update-lease.dto';
@@ -28,6 +31,8 @@ import { ConfirmLeaseDraftDto } from './dto/confirm-lease-draft.dto';
 import { LeaseTemplateFiltersDto } from './dto/lease-template-filters.dto';
 import { LeaseStatusReasonDto } from './dto/lease-status-reason.dto';
 import { RenewLeaseDto } from './dto/renew-lease.dto';
+import { ImportLeaseTemplateDocxDto } from './dto/import-lease-template-docx.dto';
+import { ImportCurrentLeaseDto } from './dto/import-current-lease.dto';
 
 interface AuthenticatedRequest {
   user: {
@@ -38,6 +43,13 @@ interface AuthenticatedRequest {
     phone?: string | null;
   };
 }
+
+type UploadedLeaseFile = {
+  buffer: Buffer;
+  mimetype: string;
+  originalname: string;
+  size: number;
+};
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('leases')
@@ -80,6 +92,21 @@ export class LeasesController {
     return this.leasesService.createTemplate(dto, req.user.companyId);
   }
 
+  @Post('templates/import-docx')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @UseInterceptors(FileInterceptor('file'))
+  importTemplateDocx(
+    @UploadedFile() file: UploadedLeaseFile,
+    @Body() dto: ImportLeaseTemplateDocxDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.leasesService.importTemplateFromDocx(
+      file,
+      dto,
+      req.user.companyId,
+    );
+  }
+
   @Patch('templates/:templateId')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   updateTemplate(
@@ -120,7 +147,11 @@ export class LeasesController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateLeaseDraftTextDto,
   ) {
-    return this.leasesService.updateDraftText(id, dto.draftText);
+    return this.leasesService.updateDraftText(
+      id,
+      dto.draftText,
+      dto.draftFormat,
+    );
   }
 
   @Post(':id/confirm')
@@ -130,7 +161,12 @@ export class LeasesController {
     @Body() dto: ConfirmLeaseDraftDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.leasesService.confirmDraft(id, req.user.id, dto.finalText);
+    return this.leasesService.confirmDraft(
+      id,
+      req.user.id,
+      dto.finalText,
+      dto.finalFormat,
+    );
   }
 
   @Patch(':id/activate')
@@ -155,6 +191,21 @@ export class LeasesController {
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   renew(@Param('id') id: string, @Body() newTerms: RenewLeaseDto) {
     return this.leasesService.renew(id, newTerms);
+  }
+
+  @Post('import-current')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @UseInterceptors(FileInterceptor('file'))
+  importCurrentContract(
+    @UploadedFile() file: UploadedLeaseFile,
+    @Body() dto: ImportCurrentLeaseDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.leasesService.importCurrentContract(
+      file,
+      dto,
+      req.user.companyId,
+    );
   }
 
   @Delete(':id')

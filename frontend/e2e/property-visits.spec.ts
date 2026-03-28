@@ -10,26 +10,46 @@ test.describe('Property Maintenance Log', () => {
     });
 
     test('should add a maintenance task and show it in history', async ({ page }) => {
-        await page.locator(ownerButtonSelector).first().click();
-        await page.waitForSelector(propertyDetailLinkSelector, { timeout: 10000 });
-        await page.locator(propertyDetailLinkSelector).first().click({
-            noWaitAfter: true,
-        });
-        await page.waitForURL(/\/es\/properties\/[^/]+$/, {
-            timeout: 30000,
-            waitUntil: 'commit',
-        });
+        const ownerButton = page.locator(ownerButtonSelector).first();
+        await expect(ownerButton).toBeVisible({ timeout: 15000 });
+        await ownerButton.click();
 
-        await page.locator('a[href*="/maintenance/new"]').first().click();
-        await expect(page).toHaveURL(/\/es\/properties\/[^/]+\/maintenance\/new$/);
+        const propertyDetailLink = page.locator(propertyDetailLinkSelector).first();
+        await expect(propertyDetailLink).toBeVisible({ timeout: 30000 });
+        await Promise.all([
+            page.waitForURL(/\/es\/properties\/[^/]+$/, {
+                timeout: 30000,
+                waitUntil: 'commit',
+            }),
+            propertyDetailLink.click(),
+        ]);
 
-        await page.locator('#maintenanceTitle').fill('Mantenimiento E2E');
+        const maintenanceLink = page.locator('a[href*="/maintenance/new"]').first();
+        await expect(maintenanceLink).toBeVisible({ timeout: 15000 });
+        await Promise.all([
+            page.waitForURL(/\/es\/properties\/[^/]+\/maintenance\/new$/, {
+                timeout: 30000,
+                waitUntil: 'commit',
+            }),
+            maintenanceLink.click(),
+        ]);
+
+        const titleInput = page.locator('#maintenanceTitle');
+        await expect(titleInput).toBeVisible({ timeout: 15000 });
+        await titleInput.fill('Mantenimiento E2E');
         await page.locator('#maintenanceNotes').fill('Cambiar luminarias del pasillo');
-        await page.locator('button[type="submit"]').click();
 
-        await expect(page).toHaveURL(/\/es\/properties\/[^/]+$/);
+        const submitButton = page.locator('button[type="submit"]');
+        await expect(submitButton).toBeEnabled({ timeout: 15000 });
+        await Promise.all([
+            page.waitForURL(/\/es\/properties\/[^/]+$/, {
+                timeout: 30000,
+                waitUntil: 'commit',
+            }),
+            submitButton.click(),
+        ]);
 
-        await expect(page.getByText('Mantenimiento E2E')).toBeVisible();
-        await expect(page.getByText(/cambiar luminarias/i)).toBeVisible();
+        await expect(page.getByText('Mantenimiento E2E')).toBeVisible({ timeout: 15000 });
+        await expect(page.getByText(/cambiar luminarias/i)).toBeVisible({ timeout: 15000 });
     });
 });

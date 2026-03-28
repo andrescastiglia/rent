@@ -30,29 +30,24 @@ const paymentFiltersZodSchema = z
       .regex(UUID_CANONICAL_REGEX, 'propertyId must be a UUID')
       .optional(),
     status: z
-      .nativeEnum(PaymentStatus)
+      .enum(PaymentStatus)
       .optional()
       .describe('pending|processing|completed|failed|refunded|cancelled'),
     method: z
-      .nativeEnum(PaymentMethod)
+      .enum(PaymentMethod)
       .optional()
       .describe(
         'cash|bank_transfer|credit_card|debit_card|check|digital_wallet|crypto|other',
       ),
     activityType: z
-      .nativeEnum(PaymentActivityType)
+      .enum(PaymentActivityType)
       .optional()
       .describe('monthly|annual|adjustment|late_fee|extraordinary'),
-    fromDate: z
-      .string()
+    fromDate: z.iso
       .date()
       .optional()
       .describe('Start date filter (YYYY-MM-DD)'),
-    toDate: z
-      .string()
-      .date()
-      .optional()
-      .describe('End date filter (YYYY-MM-DD)'),
+    toDate: z.iso.date().optional().describe('End date filter (YYYY-MM-DD)'),
     page: optionalPositiveInt,
     limit: optionalPositiveInt,
   })

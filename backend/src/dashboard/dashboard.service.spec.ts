@@ -3,6 +3,7 @@ import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { DashboardService } from './dashboard.service';
 import { Property } from '../properties/entities/property.entity';
+import { Company } from '../companies/entities/company.entity';
 import { Lease } from '../leases/entities/lease.entity';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Payment } from '../payments/entities/payment.entity';
@@ -41,6 +42,7 @@ const makeQb = () => {
 const makeRepo = () => ({
   createQueryBuilder: jest.fn(),
   find: jest.fn(),
+  findOne: jest.fn(),
 });
 
 describe('DashboardService', () => {
@@ -70,6 +72,7 @@ describe('DashboardService', () => {
           provide: getRepositoryToken(Property),
           useValue: propertiesRepository,
         },
+        { provide: getRepositoryToken(Company), useValue: makeRepo() },
         { provide: getRepositoryToken(Lease), useValue: leasesRepository },
         { provide: getRepositoryToken(User), useValue: usersRepository },
         { provide: getRepositoryToken(Payment), useValue: paymentsRepository },
@@ -256,6 +259,8 @@ describe('DashboardService', () => {
   });
 
   it('getOperationsOverview classifies sales, rentals, expirations and payments', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-03-10T12:00:00.000Z'));
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const inFiveDays = new Date(today);
@@ -482,6 +487,8 @@ describe('DashboardService', () => {
         reference: 'TRX-1',
       }),
     );
+
+    jest.useRealTimers();
   });
 
   it('getRecentActivity maps and sorts overdue/today rows with pending approvals', async () => {

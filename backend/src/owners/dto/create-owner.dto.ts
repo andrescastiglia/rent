@@ -14,7 +14,14 @@ export const createOwnerZodSchema = z
   .object({
     firstName: z.string().min(1).max(100),
     lastName: z.string().min(1).max(100),
-    email: z.string().email(),
+    email: z
+      .union([z.email(), z.literal('')])
+      .optional()
+      .transform((value) => {
+        if (!value) return undefined;
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? trimmed : undefined;
+      }),
     phone: z.string().optional(),
     taxId: z
       .string()
@@ -32,7 +39,7 @@ export const createOwnerZodSchema = z
     bankCbu: z.string().optional().describe('Bank CBU/CBU Alias for transfers'),
     bankAlias: z.string().optional(),
     paymentMethod: z
-      .nativeEnum(PaymentMethod)
+      .enum(PaymentMethod)
       .optional()
       .describe(
         'cash|bank_transfer|credit_card|debit_card|check|digital_wallet|crypto|other',
@@ -60,7 +67,8 @@ export class CreateOwnerDto {
   lastName: string;
 
   @IsEmail()
-  email: string;
+  @IsOptional()
+  email?: string;
 
   @IsString()
   @IsOptional()

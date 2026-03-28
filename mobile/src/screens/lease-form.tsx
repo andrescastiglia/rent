@@ -1,7 +1,13 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState, useEffect } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import {
+  Controller,
+  useForm,
+  type Control,
+  type FieldErrors,
+  type UseFormSetValue,
+} from 'react-hook-form';
 import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
@@ -9,6 +15,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
+import { buyersApi } from '@/api/buyers';
 import { currenciesApi } from '@/api/currencies';
 import { interestedApi } from '@/api/interested';
 import { leasesApi } from '@/api/leases';
@@ -21,15 +28,71 @@ import type {
   CreateLeaseInput,
   Lease,
   LeaseRenewalAlertPeriodicity,
+  LeaseTemplate,
   UpdateLeaseInput,
 } from '@/types/lease';
 import type { InterestedProfile } from '@/types/interested';
+import type { Owner } from '@/types/owner';
+import type { Property } from '@/types/property';
+
+const isBlank = (value?: string | null): boolean =>
+  value === undefined || value === null || value.trim().length === 0;
+
+const addLeaseIssue = (
+  ctx: z.RefinementCtx,
+  path: keyof FormValues,
+  message: string,
+): void => {
+  ctx.addIssue({
+    code: 'custom',
+    path: [path],
+    message,
+  });
+};
+
+const validateRentalValues = (
+  values: FormValues,
+  ctx: z.RefinementCtx,
+): void => {
+  if (isBlank(values.tenantId)) {
+    addLeaseIssue(ctx, 'tenantId', 'lease.tenant.required');
+  }
+  if (isBlank(values.startDate)) {
+    addLeaseIssue(ctx, 'startDate', 'lease.startDate.required');
+  }
+  if (isBlank(values.endDate)) {
+    addLeaseIssue(ctx, 'endDate', 'lease.endDate.required');
+  }
+  if (isBlank(values.rentAmount)) {
+    addLeaseIssue(ctx, 'rentAmount', 'lease.rentAmount.required');
+  }
+  if (
+    values.renewalAlertEnabled === 'yes' &&
+    values.renewalAlertPeriodicity === 'custom' &&
+    isBlank(values.renewalAlertCustomDays)
+  ) {
+    addLeaseIssue(
+      ctx,
+      'renewalAlertCustomDays',
+      'lease.renewalAlertCustomDays.required',
+    );
+  }
+};
+
+const validateSaleValues = (values: FormValues, ctx: z.RefinementCtx): void => {
+  if (isBlank(values.buyerId)) {
+    addLeaseIssue(ctx, 'buyerId', 'lease.buyer.required');
+  }
+  if (isBlank(values.fiscalValue)) {
+    addLeaseIssue(ctx, 'fiscalValue', 'lease.fiscalValue.required');
+  }
+};
 
 const schema = z
   .object({
     propertyId: z.string().min(1, 'lease.property.required'),
     tenantId: z.string().optional(),
-    buyerProfileId: z.string().optional(),
+    buyerId: z.string().optional(),
     ownerId: z.string().min(1, 'lease.owner.required'),
     templateId: z.string().optional(),
     contractType: z.enum(['rental', 'sale']),
@@ -71,62 +134,11 @@ const schema = z
   })
   .superRefine((values, ctx) => {
     if (values.contractType === 'rental') {
-      if (!values.tenantId) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['tenantId'],
-          message: 'lease.tenant.required',
-        });
-      }
-      if (!values.startDate) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['startDate'],
-          message: 'lease.startDate.required',
-        });
-      }
-      if (!values.endDate) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['endDate'],
-          message: 'lease.endDate.required',
-        });
-      }
-      if (!values.rentAmount) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['rentAmount'],
-          message: 'lease.rentAmount.required',
-        });
-      }
-      if (
-        values.renewalAlertEnabled === 'yes' &&
-        values.renewalAlertPeriodicity === 'custom' &&
-        !values.renewalAlertCustomDays
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['renewalAlertCustomDays'],
-          message: 'lease.renewalAlertCustomDays.required',
-        });
-      }
+      validateRentalValues(values, ctx);
     }
 
     if (values.contractType === 'sale') {
-      if (!values.buyerProfileId) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['buyerProfileId'],
-          message: 'lease.buyer.required',
-        });
-      }
-      if (!values.fiscalValue) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['fiscalValue'],
-          message: 'lease.fiscalValue.required',
-        });
-      }
+      validateSaleValues(values, ctx);
     }
   });
 
@@ -138,7 +150,7 @@ type LeaseFormProps = {
   defaultPropertyId?: string;
   defaultOwnerId?: string;
   preselectedTenantId?: string;
-  preselectedBuyerProfileId?: string;
+  preselectedBuyerId?: string;
   preselectedPropertyOperations?: string;
   preselectedPropertyName?: string;
   preselectedOwnerName?: string;
@@ -162,6 +174,1059 @@ type SelectFieldProps = {
   testID?: string;
 };
 
+const numberFieldToString = (
+  value: number | null | undefined,
+  fallback = '',
+): string => (value === undefined || value === null ? fallback : String(value));
+
+const booleanToYesNo = (value: boolean | undefined, fallback: 'yes' | 'no') => {
+  if (value === undefined) {
+    return fallback;
+  }
+  return value ? 'yes' : 'no';
+};
+
+const buildDefaultValues = ({
+  defaultOwnerId,
+  defaultPropertyId,
+  initial,
+  preselectedBuyerId,
+  preselectedContractType,
+  preselectedTenantId,
+}: Pick<
+  LeaseFormProps,
+  'defaultOwnerId' | 'defaultPropertyId' | 'preselectedContractType'
+> & {
+  initial?: Lease;
+  preselectedBuyerId?: string;
+  preselectedTenantId?: string;
+}): FormValues => ({
+  propertyId: initial?.propertyId ?? defaultPropertyId ?? '',
+  tenantId: initial?.tenantId ?? preselectedTenantId ?? '',
+  buyerId: initial?.buyerId ?? preselectedBuyerId ?? '',
+  ownerId: initial?.ownerId ?? defaultOwnerId ?? '',
+  templateId: initial?.templateId ?? '',
+  contractType: initial?.contractType ?? preselectedContractType ?? 'rental',
+  status: initial?.status ?? 'DRAFT',
+  startDate: initial?.startDate?.slice(0, 10) ?? '',
+  endDate: initial?.endDate?.slice(0, 10) ?? '',
+  rentAmount: numberFieldToString(initial?.rentAmount, '0'),
+  depositAmount: numberFieldToString(initial?.depositAmount, '0'),
+  fiscalValue: numberFieldToString(initial?.fiscalValue),
+  currency: initial?.currency ?? 'ARS',
+  terms: initial?.terms ?? '',
+  paymentFrequency: initial?.paymentFrequency ?? 'monthly',
+  paymentDueDay: numberFieldToString(initial?.paymentDueDay),
+  renewalAlertEnabled: booleanToYesNo(initial?.renewalAlertEnabled, 'yes'),
+  renewalAlertPeriodicity: initial?.renewalAlertPeriodicity ?? 'monthly',
+  renewalAlertCustomDays: numberFieldToString(initial?.renewalAlertCustomDays),
+  billingFrequency: initial?.billingFrequency ?? 'first_of_month',
+  billingDay: numberFieldToString(initial?.billingDay),
+  autoGenerateInvoices: booleanToYesNo(initial?.autoGenerateInvoices, 'yes'),
+  lateFeeType: initial?.lateFeeType ?? 'none',
+  lateFeeValue: numberFieldToString(initial?.lateFeeValue),
+  lateFeeGraceDays: numberFieldToString(initial?.lateFeeGraceDays),
+  lateFeeMax: numberFieldToString(initial?.lateFeeMax),
+  adjustmentType: initial?.adjustmentType ?? 'fixed',
+  adjustmentValue: numberFieldToString(initial?.adjustmentValue),
+  adjustmentFrequencyMonths: numberFieldToString(
+    initial?.adjustmentFrequencyMonths,
+  ),
+  inflationIndexType: initial?.inflationIndexType ?? 'icl',
+  nextAdjustmentDate: initial?.nextAdjustmentDate?.slice(0, 10) ?? '',
+});
+
+const buildPropertyOptions = ({
+  properties,
+  shouldLockContractTypeByInterested,
+  hasPreselectedBuyer,
+  selectedProperty,
+}: {
+  properties: Property[];
+  shouldLockContractTypeByInterested: boolean;
+  hasPreselectedBuyer: boolean;
+  selectedProperty?: Property;
+}): Property[] => {
+  const base = properties.filter((property) => {
+    if (!shouldLockContractTypeByInterested) {
+      return true;
+    }
+
+    const requiredOp = hasPreselectedBuyer ? 'sale' : 'rent';
+    const ops = property.operations ?? [];
+    return ops.length === 0 || ops.includes(requiredOp);
+  });
+
+  if (
+    selectedProperty &&
+    !base.some((item) => item.id === selectedProperty.id)
+  ) {
+    return [selectedProperty, ...base];
+  }
+
+  return base;
+};
+
+const applyCreateDefaults = ({
+  mode,
+  defaultPropertyId,
+  preselectedTenantId,
+  preselectedBuyerId,
+  setValue,
+}: {
+  mode: LeaseFormProps['mode'];
+  defaultPropertyId?: string;
+  preselectedTenantId?: string;
+  preselectedBuyerId?: string;
+  setValue: UseFormSetValue<FormValues>;
+}): void => {
+  if (mode !== 'create') {
+    return;
+  }
+  if (defaultPropertyId) {
+    setValue('propertyId', defaultPropertyId, { shouldValidate: true });
+  }
+  if (preselectedTenantId) {
+    setValue('tenantId', preselectedTenantId, { shouldValidate: true });
+    setValue('contractType', 'rental', { shouldValidate: true });
+  }
+  if (preselectedBuyerId) {
+    setValue('buyerId', preselectedBuyerId, { shouldValidate: true });
+    setValue('contractType', 'sale', { shouldValidate: true });
+  }
+};
+
+const syncSelectedPropertyOwner = ({
+  selectedProperty,
+  ownerId,
+  setValue,
+}: {
+  selectedProperty?: Property;
+  ownerId: string;
+  setValue: UseFormSetValue<FormValues>;
+}): void => {
+  if (!selectedProperty?.ownerId || ownerId === selectedProperty.ownerId) {
+    return;
+  }
+
+  setValue('ownerId', selectedProperty.ownerId, { shouldValidate: true });
+};
+
+const syncContractTypeFromSelectedProperty = ({
+  selectedProperty,
+  shouldLockContractTypeByInterested,
+  hasPreselectedTenant,
+  hasPreselectedBuyer,
+  selectedPropertySupportsRent,
+  selectedPropertySupportsSale,
+  setValue,
+}: {
+  selectedProperty?: Property;
+  shouldLockContractTypeByInterested: boolean;
+  hasPreselectedTenant: boolean;
+  hasPreselectedBuyer: boolean;
+  selectedPropertySupportsRent: boolean;
+  selectedPropertySupportsSale: boolean;
+  setValue: UseFormSetValue<FormValues>;
+}): void => {
+  if (!selectedProperty) {
+    return;
+  }
+
+  if (shouldLockContractTypeByInterested) {
+    if (hasPreselectedTenant) {
+      setValue('contractType', 'rental', { shouldValidate: true });
+    }
+    if (hasPreselectedBuyer) {
+      setValue('contractType', 'sale', { shouldValidate: true });
+    }
+    return;
+  }
+
+  if (selectedPropertySupportsRent && !selectedPropertySupportsSale) {
+    setValue('contractType', 'rental', { shouldValidate: true });
+    setValue('buyerId', '', { shouldValidate: true });
+    return;
+  }
+
+  if (!selectedPropertySupportsRent && selectedPropertySupportsSale) {
+    setValue('contractType', 'sale', { shouldValidate: true });
+    setValue('tenantId', '', { shouldValidate: true });
+  }
+};
+
+const syncTemplateSelection = ({
+  mode,
+  singleTemplate,
+  templatesForType,
+  templateId,
+  setValue,
+}: {
+  mode: LeaseFormProps['mode'];
+  singleTemplate: LeaseTemplate | null;
+  templatesForType: LeaseTemplate[];
+  templateId?: string;
+  setValue: UseFormSetValue<FormValues>;
+}): void => {
+  if (singleTemplate) {
+    if (templateId !== singleTemplate.id) {
+      setValue('templateId', singleTemplate.id, { shouldValidate: true });
+    }
+    return;
+  }
+
+  if (mode !== 'edit') {
+    const valid = templatesForType.some(
+      (template) => template.id === templateId,
+    );
+    if (!valid && templatesForType[0]) {
+      setValue('templateId', templatesForType[0].id, { shouldValidate: true });
+    }
+  }
+};
+
+const resolveOwnerDisplayName = (
+  selectedOwner: Owner | undefined,
+  preselectedOwnerName?: string,
+): string =>
+  selectedOwner
+    ? `${selectedOwner.firstName ?? ''} ${selectedOwner.lastName ?? ''}`.trim()
+    : (preselectedOwnerName ?? '');
+
+const syncRenderedTemplateTerms = ({
+  selectedTemplate,
+  selectedProperty,
+  preselectedPropertyName,
+  selectedOwner,
+  preselectedOwnerName,
+  tenantOptions,
+  buyerOptions,
+  tenantId,
+  buyerId,
+  terms,
+  setValue,
+}: {
+  selectedTemplate?: LeaseTemplate | null;
+  selectedProperty?: Property;
+  preselectedPropertyName?: string;
+  selectedOwner?: Owner;
+  preselectedOwnerName?: string;
+  tenantOptions: SelectOption[];
+  buyerOptions: SelectOption[];
+  tenantId?: string;
+  buyerId?: string;
+  terms?: string;
+  setValue: UseFormSetValue<FormValues>;
+}): void => {
+  if (!selectedTemplate) {
+    return;
+  }
+
+  const rendered = renderTemplateText(selectedTemplate.templateBody, {
+    'property.name': selectedProperty?.name ?? preselectedPropertyName,
+    'owner.fullName': resolveOwnerDisplayName(
+      selectedOwner,
+      preselectedOwnerName,
+    ),
+    'tenant.fullName':
+      tenantOptions.find((item) => item.value === tenantId)?.label ?? '',
+    'buyer.fullName':
+      buyerOptions.find((item) => item.value === buyerId)?.label ?? '',
+  });
+
+  if ((terms ?? '').trim() !== rendered.trim()) {
+    setValue('terms', rendered, { shouldValidate: true, shouldDirty: true });
+  }
+};
+
+const buildLeasePayload = ({
+  data,
+  selectedPropertyOwnerId,
+  documents,
+}: {
+  data: FormValues;
+  selectedPropertyOwnerId?: string;
+  documents: string[];
+}): CreateLeaseInput => {
+  const basePayload: CreateLeaseInput = {
+    propertyId: data.propertyId,
+    ownerId: selectedPropertyOwnerId ?? data.ownerId,
+    templateId: data.templateId || undefined,
+    contractType: data.contractType,
+    status: data.status,
+    depositAmount: Number(data.depositAmount),
+    currency: data.currency,
+    terms: data.terms || undefined,
+    documents,
+  };
+
+  if (data.contractType === 'sale') {
+    return {
+      ...basePayload,
+      buyerId: data.buyerId || undefined,
+      fiscalValue: toNumberOrUndefined(data.fiscalValue),
+    };
+  }
+
+  const hasRenewalAlert = data.renewalAlertEnabled === 'yes';
+  const hasLateFee = Boolean(data.lateFeeType) && data.lateFeeType !== 'none';
+  const hasAdjustments =
+    Boolean(data.adjustmentType) && data.adjustmentType !== 'fixed';
+  const usesInflationIndex = data.adjustmentType === 'inflation_index';
+
+  return {
+    ...basePayload,
+    tenantId: data.tenantId || undefined,
+    startDate: data.startDate || undefined,
+    endDate: data.endDate || undefined,
+    rentAmount: toNumberOrUndefined(data.rentAmount),
+    paymentFrequency: data.paymentFrequency || undefined,
+    paymentDueDay: toNumberOrUndefined(data.paymentDueDay),
+    renewalAlertEnabled: hasRenewalAlert,
+    renewalAlertPeriodicity: hasRenewalAlert
+      ? data.renewalAlertPeriodicity || undefined
+      : undefined,
+    renewalAlertCustomDays:
+      hasRenewalAlert && data.renewalAlertPeriodicity === 'custom'
+        ? toNumberOrUndefined(data.renewalAlertCustomDays)
+        : undefined,
+    billingFrequency: data.billingFrequency || undefined,
+    billingDay: toNumberOrUndefined(data.billingDay),
+    autoGenerateInvoices: data.autoGenerateInvoices === 'yes',
+    lateFeeType: data.lateFeeType || undefined,
+    lateFeeValue: hasLateFee
+      ? toNumberOrUndefined(data.lateFeeValue)
+      : undefined,
+    lateFeeGraceDays: hasLateFee
+      ? toNumberOrUndefined(data.lateFeeGraceDays)
+      : undefined,
+    lateFeeMax: hasLateFee ? toNumberOrUndefined(data.lateFeeMax) : undefined,
+    adjustmentType: data.adjustmentType || undefined,
+    adjustmentValue: hasAdjustments
+      ? toNumberOrUndefined(data.adjustmentValue)
+      : undefined,
+    adjustmentFrequencyMonths: hasAdjustments
+      ? toNumberOrUndefined(data.adjustmentFrequencyMonths)
+      : undefined,
+    inflationIndexType: usesInflationIndex
+      ? data.inflationIndexType || undefined
+      : undefined,
+    nextAdjustmentDate: hasAdjustments
+      ? data.nextAdjustmentDate || undefined
+      : undefined,
+  };
+};
+
+const getContractTypeHelperText = ({
+  shouldLockContractTypeByInterested,
+  shouldShowContractTypeSelect,
+  t,
+}: {
+  shouldLockContractTypeByInterested: boolean;
+  shouldShowContractTypeSelect: boolean;
+  t: (key: string, options?: Record<string, unknown>) => string;
+}): string | undefined => {
+  if (shouldLockContractTypeByInterested) {
+    return t('leases.contractTypeFixedByInterested');
+  }
+  if (!shouldShowContractTypeSelect) {
+    return t('leases.contractTypeFixedByProperty');
+  }
+  return undefined;
+};
+
+function ReadOnlyValueField({
+  helperText,
+  label,
+  value,
+}: Readonly<{
+  helperText?: string;
+  label: string;
+  value: string;
+}>) {
+  return (
+    <View style={styles.fieldContainer}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <Text style={styles.readOnlyValue}>{value}</Text>
+      {helperText ? <Text style={styles.helper}>{helperText}</Text> : null}
+    </View>
+  );
+}
+
+type LeaseHeaderFieldsProps = Readonly<{
+  control: Control<FormValues>;
+  hasPreselectedProperty: boolean;
+  ownerDisplay: string;
+  propertyDisplay: string;
+  propertyOptions: Property[];
+  shouldLockContractTypeByInterested: boolean;
+  shouldShowContractTypeSelect: boolean;
+  singleTemplate: LeaseTemplate | null;
+  t: (key: string, options?: Record<string, unknown>) => string;
+  templatesForType: LeaseTemplate[];
+  testIDPrefix: string;
+}>;
+
+function LeaseHeaderFields({
+  control,
+  hasPreselectedProperty,
+  ownerDisplay,
+  propertyDisplay,
+  propertyOptions,
+  shouldLockContractTypeByInterested,
+  shouldShowContractTypeSelect,
+  singleTemplate,
+  t,
+  templatesForType,
+  testIDPrefix,
+}: LeaseHeaderFieldsProps) {
+  const contractTypeHelperText = getContractTypeHelperText({
+    shouldLockContractTypeByInterested,
+    shouldShowContractTypeSelect,
+    t,
+  });
+  const templateHelperText = singleTemplate
+    ? t('leases.templateLockedHint')
+    : t('leases.templateAutofillHint');
+
+  return (
+    <>
+      <Text style={styles.sectionTitle}>{t('leases.leaseDetails')}</Text>
+      {hasPreselectedProperty ? (
+        <ReadOnlyValueField
+          helperText={t('leases.prefilledFieldHint')}
+          label={t('leases.fields.property')}
+          value={propertyDisplay}
+        />
+      ) : (
+        <Controller
+          control={control}
+          name="propertyId"
+          render={({ field }) => (
+            <SelectField
+              label={t('leases.fields.property')}
+              value={field.value}
+              onChange={field.onChange}
+              options={propertyOptions.map((item) => ({
+                value: item.id,
+                label: item.name,
+              }))}
+              placeholder={t('leases.selectProperty')}
+              testID={`${testIDPrefix}.propertyId`}
+            />
+          )}
+        />
+      )}
+
+      <Controller
+        control={control}
+        name="contractType"
+        render={({ field }) => (
+          <SelectField
+            label={t('leases.fields.contractType')}
+            value={field.value}
+            onChange={field.onChange}
+            options={contractTypeOptions.map((option) => ({
+              value: option.value,
+              label: t(`leases.contractTypes.${option.value}`),
+            }))}
+            disabled={!shouldShowContractTypeSelect}
+            helperText={contractTypeHelperText}
+            testID={`${testIDPrefix}.contractType`}
+          />
+        )}
+      />
+
+      <Controller
+        control={control}
+        name="templateId"
+        render={({ field }) => (
+          <SelectField
+            label={t('leases.fields.template')}
+            value={field.value ?? ''}
+            onChange={field.onChange}
+            options={templatesForType.map((item) => ({
+              value: item.id,
+              label: item.name,
+            }))}
+            placeholder={t('leases.templates.none')}
+            disabled={Boolean(singleTemplate)}
+            helperText={templateHelperText}
+            testID={`${testIDPrefix}.templateId`}
+          />
+        )}
+      />
+
+      <ReadOnlyValueField
+        helperText={t('leases.ownerFromPropertyHint')}
+        label={t('leases.fields.owner')}
+        value={ownerDisplay}
+      />
+
+      <Controller
+        control={control}
+        name="status"
+        render={({ field }) => (
+          <SelectField
+            label={t('leases.fields.status')}
+            value={field.value}
+            onChange={field.onChange}
+            options={statusOptions.map((option) => ({
+              value: option.value,
+              label: t(`leases.status.${option.value}`),
+            }))}
+            testID={`${testIDPrefix}.status`}
+          />
+        )}
+      />
+    </>
+  );
+}
+
+type LeasePartyFieldsProps = Readonly<{
+  buyerOptions: SelectOption[];
+  contractType: FormValues['contractType'];
+  control: Control<FormValues>;
+  currencyOptions: SelectOption[];
+  hasPreselectedBuyer: boolean;
+  hasPreselectedTenant: boolean;
+  onOpenDatePicker: (target: 'startDate' | 'endDate') => void;
+  preselectedBuyerId?: string;
+  preselectedTenantId?: string;
+  t: (key: string, options?: Record<string, unknown>) => string;
+  tenantOptions: SelectOption[];
+  testIDPrefix: string;
+  values: FormValues;
+}>;
+
+function DatePickerField({
+  label,
+  onPress,
+  testID,
+  value,
+}: Readonly<{
+  label: string;
+  onPress: () => void;
+  testID: string;
+  value: string;
+}>) {
+  return (
+    <View style={styles.fieldContainer}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <Pressable onPress={onPress} style={styles.selectTrigger} testID={testID}>
+        <Text style={styles.selectTriggerText}>{value || label}</Text>
+        <Text style={styles.selectIndicator}>▾</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function LeasePartyFields({
+  buyerOptions,
+  contractType,
+  control,
+  currencyOptions,
+  hasPreselectedBuyer,
+  hasPreselectedTenant,
+  onOpenDatePicker,
+  preselectedBuyerId,
+  preselectedTenantId,
+  t,
+  tenantOptions,
+  testIDPrefix,
+  values,
+}: LeasePartyFieldsProps) {
+  const selectedTenantLabel =
+    tenantOptions.find((item) => item.value === values.tenantId)?.label ??
+    preselectedTenantId ??
+    '';
+  const selectedBuyerLabel =
+    buyerOptions.find((item) => item.value === values.buyerId)?.label ??
+    preselectedBuyerId ??
+    '';
+
+  return (
+    <>
+      {contractType === 'rental' ? (
+        <>
+          {hasPreselectedTenant ? (
+            <ReadOnlyValueField
+              helperText={t('leases.prefilledFieldHint')}
+              label={t('leases.fields.tenant')}
+              value={selectedTenantLabel}
+            />
+          ) : (
+            <Controller
+              control={control}
+              name="tenantId"
+              render={({ field }) => (
+                <SelectField
+                  label={t('leases.fields.tenant')}
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  options={tenantOptions}
+                  placeholder={t('leases.selectTenant')}
+                  testID={`${testIDPrefix}.tenantId`}
+                />
+              )}
+            />
+          )}
+
+          <Controller
+            control={control}
+            name="startDate"
+            render={({ field }) => (
+              <DatePickerField
+                label={t('leases.startDate')}
+                onPress={() => onOpenDatePicker('startDate')}
+                testID={`${testIDPrefix}.startDate`}
+                value={field.value ?? ''}
+              />
+            )}
+          />
+          <Controller
+            control={control}
+            name="endDate"
+            render={({ field }) => (
+              <DatePickerField
+                label={t('leases.endDate')}
+                onPress={() => onOpenDatePicker('endDate')}
+                testID={`${testIDPrefix}.endDate`}
+                value={field.value ?? ''}
+              />
+            )}
+          />
+        </>
+      ) : (
+        <>
+          {hasPreselectedBuyer ? (
+            <ReadOnlyValueField
+              helperText={t('leases.prefilledFieldHint')}
+              label={t('leases.fields.buyer')}
+              value={selectedBuyerLabel}
+            />
+          ) : (
+            <Controller
+              control={control}
+              name="buyerId"
+              render={({ field }) => (
+                <SelectField
+                  label={t('leases.fields.buyer')}
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  options={buyerOptions}
+                  placeholder={t('leases.selectBuyer')}
+                  testID={`${testIDPrefix}.buyerId`}
+                />
+              )}
+            />
+          )}
+          <Controller
+            control={control}
+            name="fiscalValue"
+            render={({ field }) => (
+              <Field
+                label={t('leases.fields.fiscalValue')}
+                value={field.value ?? ''}
+                onChangeText={field.onChange}
+                keyboardType="numeric"
+                testID={`${testIDPrefix}.fiscalValue`}
+              />
+            )}
+          />
+        </>
+      )}
+
+      {contractType === 'rental' ? (
+        <Controller
+          control={control}
+          name="rentAmount"
+          render={({ field }) => (
+            <Field
+              label={t('leases.fields.rentAmount')}
+              value={field.value ?? ''}
+              onChangeText={field.onChange}
+              keyboardType="numeric"
+              testID={`${testIDPrefix}.rentAmount`}
+            />
+          )}
+        />
+      ) : null}
+
+      <Controller
+        control={control}
+        name="depositAmount"
+        render={({ field }) => (
+          <Field
+            label={t('leases.fields.depositAmount')}
+            value={field.value ?? ''}
+            onChangeText={field.onChange}
+            keyboardType="numeric"
+            testID={`${testIDPrefix}.depositAmount`}
+          />
+        )}
+      />
+
+      <Controller
+        control={control}
+        name="currency"
+        render={({ field }) => (
+          <SelectField
+            label={t('properties.fields.saleCurrency')}
+            value={field.value}
+            onChange={field.onChange}
+            options={currencyOptions}
+            testID={`${testIDPrefix}.currency`}
+          />
+        )}
+      />
+    </>
+  );
+}
+
+type RentalSettingsFieldsProps = Readonly<{
+  control: Control<FormValues>;
+  contractType: FormValues['contractType'];
+  t: (key: string, options?: Record<string, unknown>) => string;
+  testIDPrefix: string;
+  values: FormValues;
+}>;
+
+function RentalSettingsFields({
+  control,
+  contractType,
+  t,
+  testIDPrefix,
+  values,
+}: RentalSettingsFieldsProps) {
+  if (contractType !== 'rental') {
+    return null;
+  }
+
+  const hasRenewalAlerts = values.renewalAlertEnabled === 'yes';
+  const hasLateFee = (values.lateFeeType ?? 'none') !== 'none';
+  const hasAdjustments = (values.adjustmentType ?? 'fixed') !== 'fixed';
+  const showPercentageAdjustment = values.adjustmentType === 'percentage';
+  const showInflationIndex = values.adjustmentType === 'inflation_index';
+
+  return (
+    <>
+      <Text style={styles.sectionTitle}>{t('leases.billing.title')}</Text>
+      <Controller
+        control={control}
+        name="paymentFrequency"
+        render={({ field }) => (
+          <SelectField
+            label={t('leases.fields.paymentFrequency')}
+            value={field.value ?? 'monthly'}
+            onChange={field.onChange}
+            options={paymentFrequencyOptions.map((option) => ({
+              value: option.value,
+              label: t(`leases.paymentFrequencies.${option.value}`),
+            }))}
+            testID={`${testIDPrefix}.paymentFrequency`}
+          />
+        )}
+      />
+      <Controller
+        control={control}
+        name="billingFrequency"
+        render={({ field }) => (
+          <SelectField
+            label={t('leases.fields.billingFrequency')}
+            value={field.value ?? 'first_of_month'}
+            onChange={field.onChange}
+            options={billingFrequencyOptions.map((option) => ({
+              value: option.value,
+              label: t(`leases.billingFrequencies.${option.value}`),
+            }))}
+            testID={`${testIDPrefix}.billingFrequency`}
+          />
+        )}
+      />
+      <Controller
+        control={control}
+        name="billingDay"
+        render={({ field }) => (
+          <Field
+            label={t('leases.fields.billingDay')}
+            value={field.value ?? ''}
+            onChangeText={field.onChange}
+            keyboardType="numeric"
+            testID={`${testIDPrefix}.billingDay`}
+          />
+        )}
+      />
+      <Controller
+        control={control}
+        name="paymentDueDay"
+        render={({ field }) => (
+          <Field
+            label={t('leases.fields.paymentDueDay')}
+            value={field.value ?? ''}
+            onChangeText={field.onChange}
+            keyboardType="numeric"
+            testID={`${testIDPrefix}.paymentDueDay`}
+          />
+        )}
+      />
+      <Controller
+        control={control}
+        name="autoGenerateInvoices"
+        render={({ field }) => (
+          <SelectField
+            label={t('leases.fields.autoGenerateInvoices')}
+            value={field.value ?? 'yes'}
+            onChange={field.onChange}
+            options={autoGenerateOptions.map((option) => ({
+              value: option.value,
+              label: option.value === 'yes' ? t('common.yes') : t('common.no'),
+            }))}
+            testID={`${testIDPrefix}.autoGenerateInvoices`}
+          />
+        )}
+      />
+
+      <Text style={styles.sectionTitle}>
+        {t('leases.renewalAlerts.title', {
+          defaultValue: 'Alertas de renovacion',
+        })}
+      </Text>
+      <Controller
+        control={control}
+        name="renewalAlertEnabled"
+        render={({ field }) => (
+          <SelectField
+            label={t('leases.fields.renewalAlertEnabled', {
+              defaultValue: 'Alertas automaticas',
+            })}
+            value={field.value ?? 'yes'}
+            onChange={field.onChange}
+            options={renewalAlertEnabledOptions.map((option) => ({
+              value: option.value,
+              label: option.value === 'yes' ? t('common.yes') : t('common.no'),
+            }))}
+            helperText={t('leases.renewalAlerts.helper', {
+              defaultValue:
+                'Permite anticipar vencimientos para hablar con propietarios y renovar.',
+            })}
+            testID={`${testIDPrefix}.renewalAlertEnabled`}
+          />
+        )}
+      />
+      {hasRenewalAlerts ? (
+        <>
+          <Controller
+            control={control}
+            name="renewalAlertPeriodicity"
+            render={({ field }) => (
+              <SelectField
+                label={t('leases.fields.renewalAlertPeriodicity', {
+                  defaultValue: 'Periodicidad',
+                })}
+                value={field.value ?? 'monthly'}
+                onChange={field.onChange}
+                options={renewalAlertPeriodicityOptions.map((option) => ({
+                  value: option.value,
+                  label: t(`leases.renewalAlertPeriodicity.${option.value}`, {
+                    defaultValue: option.label,
+                  }),
+                }))}
+                testID={`${testIDPrefix}.renewalAlertPeriodicity`}
+              />
+            )}
+          />
+          {values.renewalAlertPeriodicity === 'custom' ? (
+            <Controller
+              control={control}
+              name="renewalAlertCustomDays"
+              render={({ field }) => (
+                <Field
+                  label={t('leases.fields.renewalAlertCustomDays', {
+                    defaultValue: 'Dias de anticipacion',
+                  })}
+                  value={field.value ?? ''}
+                  onChangeText={field.onChange}
+                  keyboardType="numeric"
+                  testID={`${testIDPrefix}.renewalAlertCustomDays`}
+                />
+              )}
+            />
+          ) : null}
+        </>
+      ) : null}
+
+      <Text style={styles.sectionTitle}>{t('leases.lateFees.title')}</Text>
+      <Controller
+        control={control}
+        name="lateFeeType"
+        render={({ field }) => (
+          <SelectField
+            label={t('leases.fields.lateFeeType')}
+            value={field.value ?? 'none'}
+            onChange={field.onChange}
+            options={lateFeeTypeOptions.map((option) => ({
+              value: option.value,
+              label: t(`leases.lateFeeTypes.${option.value}`),
+            }))}
+            testID={`${testIDPrefix}.lateFeeType`}
+          />
+        )}
+      />
+      {hasLateFee ? (
+        <>
+          <Controller
+            control={control}
+            name="lateFeeValue"
+            render={({ field }) => (
+              <Field
+                label={t('leases.fields.lateFeeValue')}
+                value={field.value ?? ''}
+                onChangeText={field.onChange}
+                keyboardType="numeric"
+                testID={`${testIDPrefix}.lateFeeValue`}
+              />
+            )}
+          />
+          <Controller
+            control={control}
+            name="lateFeeGraceDays"
+            render={({ field }) => (
+              <Field
+                label={t('leases.fields.lateFeeGraceDays')}
+                value={field.value ?? ''}
+                onChangeText={field.onChange}
+                keyboardType="numeric"
+                testID={`${testIDPrefix}.lateFeeGraceDays`}
+              />
+            )}
+          />
+          <Controller
+            control={control}
+            name="lateFeeMax"
+            render={({ field }) => (
+              <Field
+                label={t('leases.fields.lateFeeMax')}
+                value={field.value ?? ''}
+                onChangeText={field.onChange}
+                keyboardType="numeric"
+                testID={`${testIDPrefix}.lateFeeMax`}
+              />
+            )}
+          />
+        </>
+      ) : null}
+
+      <Text style={styles.sectionTitle}>{t('leases.adjustments.title')}</Text>
+      <Controller
+        control={control}
+        name="adjustmentType"
+        render={({ field }) => (
+          <SelectField
+            label={t('leases.fields.adjustmentType')}
+            value={field.value ?? 'fixed'}
+            onChange={field.onChange}
+            options={adjustmentTypeOptions.map((option) => ({
+              value: option.value,
+              label: t(`leases.adjustmentTypes.${option.value}`),
+            }))}
+            testID={`${testIDPrefix}.adjustmentType`}
+          />
+        )}
+      />
+
+      {hasAdjustments ? (
+        <>
+          {showPercentageAdjustment ? (
+            <Controller
+              control={control}
+              name="adjustmentValue"
+              render={({ field }) => (
+                <Field
+                  label={t('leases.fields.adjustmentValue')}
+                  value={field.value ?? ''}
+                  onChangeText={field.onChange}
+                  keyboardType="numeric"
+                  testID={`${testIDPrefix}.adjustmentValue`}
+                />
+              )}
+            />
+          ) : null}
+
+          {showInflationIndex ? (
+            <Controller
+              control={control}
+              name="inflationIndexType"
+              render={({ field }) => (
+                <SelectField
+                  label={t('leases.fields.inflationIndexType')}
+                  value={field.value ?? 'icl'}
+                  onChange={field.onChange}
+                  options={inflationIndexOptions.map((option) => ({
+                    value: option.value,
+                    label: t(`leases.inflationIndexTypes.${option.value}`),
+                  }))}
+                  testID={`${testIDPrefix}.inflationIndexType`}
+                />
+              )}
+            />
+          ) : null}
+
+          <Controller
+            control={control}
+            name="adjustmentFrequencyMonths"
+            render={({ field }) => (
+              <Field
+                label={t('leases.fields.adjustmentFrequencyMonths')}
+                value={field.value ?? ''}
+                onChangeText={field.onChange}
+                keyboardType="numeric"
+                testID={`${testIDPrefix}.adjustmentFrequencyMonths`}
+              />
+            )}
+          />
+          <Controller
+            control={control}
+            name="nextAdjustmentDate"
+            render={({ field }) => (
+              <Field
+                label={t('leases.fields.nextAdjustmentDate')}
+                value={field.value ?? ''}
+                onChangeText={field.onChange}
+                testID={`${testIDPrefix}.nextAdjustmentDate`}
+              />
+            )}
+          />
+        </>
+      ) : null}
+    </>
+  );
+}
+
+function FormErrorsList({
+  errors,
+  resolveErrorMessage,
+}: Readonly<{
+  errors: FieldErrors<FormValues>;
+  resolveErrorMessage: (message: string) => string;
+}>) {
+  return (
+    <>
+      {Object.values(errors).map((item) => {
+        if (!item?.message) {
+          return null;
+        }
+        const message = resolveErrorMessage(item.message);
+        return (
+          <Text key={`${item.message}-${message}`} style={styles.error}>
+            {message}
+          </Text>
+        );
+      })}
+    </>
+  );
+}
+
 function SelectField({
   label,
   value,
@@ -171,7 +1236,7 @@ function SelectField({
   disabled,
   helperText,
   testID,
-}: SelectFieldProps) {
+}: Readonly<SelectFieldProps>) {
   const [open, setOpen] = useState(false);
   const selectedLabel =
     options.find((item) => item.value === value)?.label ??
@@ -197,9 +1262,9 @@ function SelectField({
         >
           {selectedLabel || placeholder}
         </Text>
-        {!disabled ? (
+        {disabled ? null : (
           <Text style={styles.selectIndicator}>{open ? '▴' : '▾'}</Text>
-        ) : null}
+        )}
       </Pressable>
       {helperText ? <Text style={styles.helper}>{helperText}</Text> : null}
       {open && !disabled ? (
@@ -333,11 +1398,10 @@ const parseDateOrToday = (value?: string): Date => {
 };
 
 const profileOps = (profile: InterestedProfile): Array<'rent' | 'sale'> => {
-  const source = profile.operations?.length
-    ? profile.operations
-    : profile.operation
-      ? [profile.operation]
-      : [];
+  let source = profile.operations ?? [];
+  if (source.length === 0 && profile.operation) {
+    source = [profile.operation];
+  }
   return source.filter(
     (item): item is 'rent' | 'sale' => item === 'rent' || item === 'sale',
   );
@@ -352,7 +1416,7 @@ const renderTemplateText = (
   templateBody: string,
   context: Record<string, string | undefined>,
 ): string => {
-  return templateBody.replace(
+  return templateBody.replaceAll(
     /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}|\{([a-zA-Z0-9_.]+)\}/g,
     (_full, keyA, keyB) => {
       const key = (keyA ?? keyB) as string;
@@ -367,7 +1431,7 @@ export function LeaseForm({
   defaultPropertyId,
   defaultOwnerId,
   preselectedTenantId,
-  preselectedBuyerProfileId,
+  preselectedBuyerId,
   preselectedPropertyOperations,
   preselectedPropertyName,
   preselectedOwnerName,
@@ -376,78 +1440,27 @@ export function LeaseForm({
   onSubmit,
   submitLabel,
   testIDPrefix = 'leaseForm',
-}: LeaseFormProps) {
+}: Readonly<LeaseFormProps>) {
   const { t } = useTranslation();
   const [datePickerTarget, setDatePickerTarget] = useState<
     'startDate' | 'endDate' | null
   >(null);
   const [datePickerValue, setDatePickerValue] = useState<Date>(new Date());
   const defaults: FormValues = useMemo(
-    () => ({
-      propertyId: initial?.propertyId ?? defaultPropertyId ?? '',
-      tenantId: initial?.tenantId ?? preselectedTenantId ?? '',
-      buyerProfileId:
-        initial?.buyerProfileId ?? preselectedBuyerProfileId ?? '',
-      ownerId: initial?.ownerId ?? defaultOwnerId ?? '',
-      templateId: initial?.templateId ?? '',
-      contractType:
-        initial?.contractType ?? preselectedContractType ?? 'rental',
-      status: initial?.status ?? 'DRAFT',
-      startDate: initial?.startDate?.slice(0, 10) ?? '',
-      endDate: initial?.endDate?.slice(0, 10) ?? '',
-      rentAmount:
-        initial?.rentAmount !== undefined ? String(initial.rentAmount) : '0',
-      depositAmount:
-        initial?.depositAmount !== undefined
-          ? String(initial.depositAmount)
-          : '0',
-      fiscalValue:
-        initial?.fiscalValue !== undefined ? String(initial.fiscalValue) : '',
-      currency: initial?.currency ?? 'ARS',
-      terms: initial?.terms ?? '',
-      paymentFrequency: initial?.paymentFrequency ?? 'monthly',
-      paymentDueDay:
-        initial?.paymentDueDay !== undefined
-          ? String(initial.paymentDueDay)
-          : '',
-      renewalAlertEnabled:
-        initial?.renewalAlertEnabled === false ? 'no' : 'yes',
-      renewalAlertPeriodicity: initial?.renewalAlertPeriodicity ?? 'monthly',
-      renewalAlertCustomDays:
-        initial?.renewalAlertCustomDays !== undefined
-          ? String(initial.renewalAlertCustomDays)
-          : '',
-      billingFrequency: initial?.billingFrequency ?? 'first_of_month',
-      billingDay:
-        initial?.billingDay !== undefined ? String(initial.billingDay) : '',
-      autoGenerateInvoices:
-        initial?.autoGenerateInvoices === false ? 'no' : 'yes',
-      lateFeeType: initial?.lateFeeType ?? 'none',
-      lateFeeValue:
-        initial?.lateFeeValue !== undefined ? String(initial.lateFeeValue) : '',
-      lateFeeGraceDays:
-        initial?.lateFeeGraceDays !== undefined
-          ? String(initial.lateFeeGraceDays)
-          : '',
-      lateFeeMax:
-        initial?.lateFeeMax !== undefined ? String(initial.lateFeeMax) : '',
-      adjustmentType: initial?.adjustmentType ?? 'fixed',
-      adjustmentValue:
-        initial?.adjustmentValue !== undefined
-          ? String(initial.adjustmentValue)
-          : '',
-      adjustmentFrequencyMonths:
-        initial?.adjustmentFrequencyMonths !== undefined
-          ? String(initial.adjustmentFrequencyMonths)
-          : '',
-      inflationIndexType: initial?.inflationIndexType ?? 'icl',
-      nextAdjustmentDate: initial?.nextAdjustmentDate?.slice(0, 10) ?? '',
-    }),
+    () =>
+      buildDefaultValues({
+        defaultOwnerId,
+        defaultPropertyId,
+        initial,
+        preselectedBuyerId,
+        preselectedContractType,
+        preselectedTenantId,
+      }),
     [
       defaultOwnerId,
       defaultPropertyId,
       initial,
-      preselectedBuyerProfileId,
+      preselectedBuyerId,
       preselectedContractType,
       preselectedTenantId,
     ],
@@ -466,6 +1479,10 @@ export function LeaseForm({
   const interestedQuery = useQuery({
     queryKey: ['interested'],
     queryFn: interestedApi.getAll,
+  });
+  const buyersQuery = useQuery({
+    queryKey: ['buyers'],
+    queryFn: () => buyersApi.getAll({ limit: 100 }),
   });
   const ownersQuery = useQuery({
     queryKey: ['owners'],
@@ -486,8 +1503,7 @@ export function LeaseForm({
     mode === 'create' && Boolean(defaultPropertyId);
   const hasPreselectedTenant =
     mode === 'create' && Boolean(preselectedTenantId);
-  const hasPreselectedBuyer =
-    mode === 'create' && Boolean(preselectedBuyerProfileId);
+  const hasPreselectedBuyer = mode === 'create' && Boolean(preselectedBuyerId);
   const shouldLockContractTypeByInterested =
     mode === 'create' && (hasPreselectedTenant || hasPreselectedBuyer);
 
@@ -518,23 +1534,12 @@ export function LeaseForm({
     selectedPropertySupportsSale;
 
   const propertyOptions = useMemo(() => {
-    const base = (propertiesQuery.data ?? []).filter((property) => {
-      if (!shouldLockContractTypeByInterested) {
-        return true;
-      }
-      const requiredOp = hasPreselectedBuyer ? 'sale' : 'rent';
-      const ops = property.operations ?? [];
-      return ops.length === 0 || ops.includes(requiredOp);
+    return buildPropertyOptions({
+      properties: propertiesQuery.data ?? [],
+      shouldLockContractTypeByInterested,
+      hasPreselectedBuyer,
+      selectedProperty,
     });
-
-    if (
-      selectedProperty &&
-      !base.some((item) => item.id === selectedProperty.id)
-    ) {
-      return [selectedProperty, ...base];
-    }
-
-    return base;
   }, [
     hasPreselectedBuyer,
     selectedProperty,
@@ -568,13 +1573,15 @@ export function LeaseForm({
 
   const buyerOptions = useMemo(
     () =>
-      interestedProfiles
-        .filter((profile) => profileOps(profile).includes('sale'))
-        .map((profile) => ({
-          value: profile.id,
-          label: profileLabel(profile),
-        })),
-    [interestedProfiles],
+      (buyersQuery.data ?? []).map((buyer) => ({
+        value: buyer.id,
+        label:
+          `${buyer.firstName ?? ''} ${buyer.lastName ?? ''}`.trim() ||
+          buyer.email ||
+          buyer.phone ||
+          buyer.id,
+      })),
+    [buyersQuery.data],
   );
 
   const templatesForType = useMemo(
@@ -594,60 +1601,39 @@ export function LeaseForm({
   );
 
   useEffect(() => {
-    if (mode !== 'create') return;
-    if (defaultPropertyId) {
-      setValue('propertyId', defaultPropertyId, { shouldValidate: true });
-    }
-    if (preselectedTenantId) {
-      setValue('tenantId', preselectedTenantId, { shouldValidate: true });
-      setValue('contractType', 'rental', { shouldValidate: true });
-    }
-    if (preselectedBuyerProfileId) {
-      setValue('buyerProfileId', preselectedBuyerProfileId, {
-        shouldValidate: true,
-      });
-      setValue('contractType', 'sale', { shouldValidate: true });
-    }
+    applyCreateDefaults({
+      mode,
+      defaultPropertyId,
+      preselectedTenantId,
+      preselectedBuyerId,
+      setValue,
+    });
   }, [
     defaultPropertyId,
     mode,
-    preselectedBuyerProfileId,
+    preselectedBuyerId,
     preselectedTenantId,
     setValue,
   ]);
 
   useEffect(() => {
-    if (!selectedProperty?.ownerId) return;
-    if (values.ownerId === selectedProperty.ownerId) return;
-    setValue('ownerId', selectedProperty.ownerId, { shouldValidate: true });
+    syncSelectedPropertyOwner({
+      selectedProperty,
+      ownerId: values.ownerId,
+      setValue,
+    });
   }, [selectedProperty, setValue, values.ownerId]);
 
   useEffect(() => {
-    if (!selectedProperty) {
-      return;
-    }
-
-    if (shouldLockContractTypeByInterested) {
-      if (hasPreselectedTenant) {
-        setValue('contractType', 'rental', { shouldValidate: true });
-      }
-      if (hasPreselectedBuyer) {
-        setValue('contractType', 'sale', { shouldValidate: true });
-      }
-      return;
-    }
-
-    if (selectedPropertySupportsRent && !selectedPropertySupportsSale) {
-      setValue('contractType', 'rental', { shouldValidate: true });
-      setValue('buyerProfileId', '', { shouldValidate: true });
-      return;
-    }
-
-    if (!selectedPropertySupportsRent && selectedPropertySupportsSale) {
-      setValue('contractType', 'sale', { shouldValidate: true });
-      setValue('tenantId', '', { shouldValidate: true });
-      return;
-    }
+    syncContractTypeFromSelectedProperty({
+      selectedProperty,
+      shouldLockContractTypeByInterested,
+      hasPreselectedTenant,
+      hasPreselectedBuyer,
+      selectedPropertySupportsRent,
+      selectedPropertySupportsSale,
+      setValue,
+    });
   }, [
     hasPreselectedBuyer,
     hasPreselectedTenant,
@@ -659,49 +1645,29 @@ export function LeaseForm({
   ]);
 
   useEffect(() => {
-    if (singleTemplate) {
-      if (values.templateId !== singleTemplate.id) {
-        setValue('templateId', singleTemplate.id, { shouldValidate: true });
-      }
-      return;
-    }
-
-    if (mode !== 'edit') {
-      const valid = templatesForType.some(
-        (template) => template.id === values.templateId,
-      );
-      if (!valid && templatesForType[0]) {
-        setValue('templateId', templatesForType[0].id, {
-          shouldValidate: true,
-        });
-      }
-    }
+    syncTemplateSelection({
+      mode,
+      singleTemplate,
+      templatesForType,
+      templateId: values.templateId,
+      setValue,
+    });
   }, [mode, setValue, singleTemplate, templatesForType, values.templateId]);
 
   useEffect(() => {
-    if (!selectedTemplate) {
-      return;
-    }
-
-    const ownerName = selectedOwner
-      ? `${selectedOwner.firstName ?? ''} ${selectedOwner.lastName ?? ''}`.trim()
-      : (preselectedOwnerName ?? '');
-    const tenantName =
-      tenantOptions.find((item) => item.value === values.tenantId)?.label ?? '';
-    const buyerName =
-      buyerOptions.find((item) => item.value === values.buyerProfileId)
-        ?.label ?? '';
-
-    const rendered = renderTemplateText(selectedTemplate.templateBody, {
-      'property.name': selectedProperty?.name ?? preselectedPropertyName,
-      'owner.fullName': ownerName,
-      'tenant.fullName': tenantName,
-      'buyer.fullName': buyerName,
+    syncRenderedTemplateTerms({
+      selectedTemplate,
+      selectedProperty,
+      preselectedPropertyName,
+      selectedOwner,
+      preselectedOwnerName,
+      tenantOptions,
+      buyerOptions,
+      tenantId: values.tenantId,
+      buyerId: values.buyerId,
+      terms: values.terms,
+      setValue,
     });
-
-    if ((values.terms ?? '').trim() !== rendered.trim()) {
-      setValue('terms', rendered, { shouldValidate: true, shouldDirty: true });
-    }
   }, [
     buyerOptions,
     preselectedOwnerName,
@@ -711,7 +1677,7 @@ export function LeaseForm({
     selectedTemplate,
     setValue,
     tenantOptions,
-    values.buyerProfileId,
+    values.buyerId,
     values.tenantId,
     values.terms,
   ]);
@@ -744,122 +1710,13 @@ export function LeaseForm({
     selectedProperty?.name || preselectedPropertyName || '-';
 
   const submit = handleSubmit(async (data) => {
-    const payload: CreateLeaseInput = {
-      propertyId: data.propertyId,
-      tenantId:
-        data.contractType === 'rental' ? data.tenantId || undefined : undefined,
-      buyerProfileId:
-        data.contractType === 'sale'
-          ? data.buyerProfileId || undefined
-          : undefined,
-      ownerId: selectedProperty?.ownerId ?? data.ownerId,
-      templateId: data.templateId || undefined,
-      contractType: data.contractType,
-      status: data.status,
-      startDate:
-        data.contractType === 'rental'
-          ? data.startDate || undefined
-          : undefined,
-      endDate:
-        data.contractType === 'rental' ? data.endDate || undefined : undefined,
-      rentAmount:
-        data.contractType === 'rental'
-          ? toNumberOrUndefined(data.rentAmount)
-          : undefined,
-      depositAmount: Number(data.depositAmount),
-      fiscalValue:
-        data.contractType === 'sale'
-          ? toNumberOrUndefined(data.fiscalValue)
-          : undefined,
-      currency: data.currency,
-      terms: data.terms || undefined,
-      paymentFrequency:
-        data.contractType === 'rental'
-          ? data.paymentFrequency || undefined
-          : undefined,
-      paymentDueDay:
-        data.contractType === 'rental'
-          ? toNumberOrUndefined(data.paymentDueDay)
-          : undefined,
-      renewalAlertEnabled:
-        data.contractType === 'rental'
-          ? data.renewalAlertEnabled === 'yes'
-          : undefined,
-      renewalAlertPeriodicity:
-        data.contractType === 'rental' && data.renewalAlertEnabled === 'yes'
-          ? data.renewalAlertPeriodicity || undefined
-          : undefined,
-      renewalAlertCustomDays:
-        data.contractType === 'rental' &&
-        data.renewalAlertEnabled === 'yes' &&
-        data.renewalAlertPeriodicity === 'custom'
-          ? toNumberOrUndefined(data.renewalAlertCustomDays)
-          : undefined,
-      billingFrequency:
-        data.contractType === 'rental'
-          ? data.billingFrequency || undefined
-          : undefined,
-      billingDay:
-        data.contractType === 'rental'
-          ? toNumberOrUndefined(data.billingDay)
-          : undefined,
-      autoGenerateInvoices:
-        data.contractType === 'rental'
-          ? data.autoGenerateInvoices === 'yes'
-          : undefined,
-      lateFeeType:
-        data.contractType === 'rental'
-          ? data.lateFeeType || undefined
-          : undefined,
-      lateFeeValue:
-        data.contractType === 'rental' &&
-        data.lateFeeType &&
-        data.lateFeeType !== 'none'
-          ? toNumberOrUndefined(data.lateFeeValue)
-          : undefined,
-      lateFeeGraceDays:
-        data.contractType === 'rental' &&
-        data.lateFeeType &&
-        data.lateFeeType !== 'none'
-          ? toNumberOrUndefined(data.lateFeeGraceDays)
-          : undefined,
-      lateFeeMax:
-        data.contractType === 'rental' &&
-        data.lateFeeType &&
-        data.lateFeeType !== 'none'
-          ? toNumberOrUndefined(data.lateFeeMax)
-          : undefined,
-      adjustmentType:
-        data.contractType === 'rental'
-          ? data.adjustmentType || undefined
-          : undefined,
-      adjustmentValue:
-        data.contractType === 'rental' &&
-        data.adjustmentType &&
-        data.adjustmentType !== 'fixed'
-          ? toNumberOrUndefined(data.adjustmentValue)
-          : undefined,
-      adjustmentFrequencyMonths:
-        data.contractType === 'rental' &&
-        data.adjustmentType &&
-        data.adjustmentType !== 'fixed'
-          ? toNumberOrUndefined(data.adjustmentFrequencyMonths)
-          : undefined,
-      inflationIndexType:
-        data.contractType === 'rental' &&
-        data.adjustmentType === 'inflation_index'
-          ? data.inflationIndexType || undefined
-          : undefined,
-      nextAdjustmentDate:
-        data.contractType === 'rental' &&
-        data.adjustmentType &&
-        data.adjustmentType !== 'fixed'
-          ? data.nextAdjustmentDate || undefined
-          : undefined,
-      documents: initial?.documents ?? [],
-    };
-
-    await onSubmit(payload);
+    await onSubmit(
+      buildLeasePayload({
+        data,
+        selectedPropertyOwnerId: selectedProperty?.ownerId,
+        documents: initial?.documents ?? [],
+      }),
+    );
   });
 
   const handleOpenDatePicker = (target: 'startDate' | 'endDate') => {
@@ -919,561 +1776,43 @@ export function LeaseForm({
 
   return (
     <View>
-      <Text style={styles.sectionTitle}>{t('leases.leaseDetails')}</Text>
-      {hasPreselectedProperty ? (
-        <View style={styles.fieldContainer}>
-          <Text style={styles.fieldLabel}>{t('leases.fields.property')}</Text>
-          <Text style={styles.readOnlyValue}>{propertyDisplay}</Text>
-          <Text style={styles.helper}>{t('leases.prefilledFieldHint')}</Text>
-        </View>
-      ) : (
-        <Controller
-          control={control}
-          name="propertyId"
-          render={({ field }) => (
-            <SelectField
-              label={t('leases.fields.property')}
-              value={field.value}
-              onChange={field.onChange}
-              options={propertyOptions.map((item) => ({
-                value: item.id,
-                label: item.name,
-              }))}
-              placeholder={t('leases.selectProperty')}
-              testID={`${testIDPrefix}.propertyId`}
-            />
-          )}
-        />
-      )}
-
-      <Controller
+      <LeaseHeaderFields
         control={control}
-        name="contractType"
-        render={({ field }) => (
-          <SelectField
-            label={t('leases.fields.contractType')}
-            value={field.value}
-            onChange={field.onChange}
-            options={contractTypeOptions.map((option) => ({
-              value: option.value,
-              label: t(`leases.contractTypes.${option.value}`),
-            }))}
-            disabled={!shouldShowContractTypeSelect}
-            helperText={
-              shouldLockContractTypeByInterested
-                ? t('leases.contractTypeFixedByInterested')
-                : !shouldShowContractTypeSelect
-                  ? t('leases.contractTypeFixedByProperty')
-                  : undefined
-            }
-            testID={`${testIDPrefix}.contractType`}
-          />
-        )}
+        hasPreselectedProperty={hasPreselectedProperty}
+        ownerDisplay={ownerDisplay}
+        propertyDisplay={propertyDisplay}
+        propertyOptions={propertyOptions}
+        shouldLockContractTypeByInterested={shouldLockContractTypeByInterested}
+        shouldShowContractTypeSelect={shouldShowContractTypeSelect}
+        singleTemplate={singleTemplate}
+        t={t}
+        templatesForType={templatesForType}
+        testIDPrefix={testIDPrefix}
       />
 
-      <Controller
+      <LeasePartyFields
+        buyerOptions={buyerOptions}
+        contractType={contractType}
         control={control}
-        name="templateId"
-        render={({ field }) => (
-          <SelectField
-            label={t('leases.fields.template')}
-            value={field.value ?? ''}
-            onChange={field.onChange}
-            options={templatesForType.map((item) => ({
-              value: item.id,
-              label: item.name,
-            }))}
-            placeholder={t('leases.templates.none')}
-            disabled={Boolean(singleTemplate)}
-            helperText={
-              singleTemplate
-                ? t('leases.templateLockedHint')
-                : t('leases.templateAutofillHint')
-            }
-            testID={`${testIDPrefix}.templateId`}
-          />
-        )}
+        currencyOptions={currencyOptions}
+        hasPreselectedBuyer={hasPreselectedBuyer}
+        hasPreselectedTenant={hasPreselectedTenant}
+        onOpenDatePicker={handleOpenDatePicker}
+        preselectedBuyerId={preselectedBuyerId}
+        preselectedTenantId={preselectedTenantId}
+        t={t}
+        tenantOptions={tenantOptions}
+        testIDPrefix={testIDPrefix}
+        values={values}
       />
 
-      <View style={styles.fieldContainer}>
-        <Text style={styles.fieldLabel}>{t('leases.fields.owner')}</Text>
-        <Text style={styles.readOnlyValue}>{ownerDisplay}</Text>
-        <Text style={styles.helper}>{t('leases.ownerFromPropertyHint')}</Text>
-      </View>
-
-      <Controller
+      <RentalSettingsFields
+        contractType={contractType}
         control={control}
-        name="status"
-        render={({ field }) => (
-          <SelectField
-            label={t('leases.fields.status')}
-            value={field.value}
-            onChange={field.onChange}
-            options={statusOptions.map((option) => ({
-              value: option.value,
-              label: t(`leases.status.${option.value}`),
-            }))}
-            testID={`${testIDPrefix}.status`}
-          />
-        )}
+        t={t}
+        testIDPrefix={testIDPrefix}
+        values={values}
       />
-
-      {contractType === 'rental' ? (
-        <>
-          {hasPreselectedTenant ? (
-            <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>{t('leases.fields.tenant')}</Text>
-              <Text style={styles.readOnlyValue}>
-                {tenantOptions.find((item) => item.value === values.tenantId)
-                  ?.label ?? preselectedTenantId}
-              </Text>
-              <Text style={styles.helper}>
-                {t('leases.prefilledFieldHint')}
-              </Text>
-            </View>
-          ) : (
-            <Controller
-              control={control}
-              name="tenantId"
-              render={({ field }) => (
-                <SelectField
-                  label={t('leases.fields.tenant')}
-                  value={field.value ?? ''}
-                  onChange={field.onChange}
-                  options={tenantOptions}
-                  placeholder={t('leases.selectTenant')}
-                  testID={`${testIDPrefix}.tenantId`}
-                />
-              )}
-            />
-          )}
-
-          <Controller
-            control={control}
-            name="startDate"
-            render={({ field }) => (
-              <View style={styles.fieldContainer}>
-                <Text style={styles.fieldLabel}>{t('leases.startDate')}</Text>
-                <Pressable
-                  onPress={() => handleOpenDatePicker('startDate')}
-                  style={styles.selectTrigger}
-                  testID={`${testIDPrefix}.startDate`}
-                >
-                  <Text style={styles.selectTriggerText}>
-                    {field.value || t('leases.startDate')}
-                  </Text>
-                  <Text style={styles.selectIndicator}>▾</Text>
-                </Pressable>
-              </View>
-            )}
-          />
-          <Controller
-            control={control}
-            name="endDate"
-            render={({ field }) => (
-              <View style={styles.fieldContainer}>
-                <Text style={styles.fieldLabel}>{t('leases.endDate')}</Text>
-                <Pressable
-                  onPress={() => handleOpenDatePicker('endDate')}
-                  style={styles.selectTrigger}
-                  testID={`${testIDPrefix}.endDate`}
-                >
-                  <Text style={styles.selectTriggerText}>
-                    {field.value || t('leases.endDate')}
-                  </Text>
-                  <Text style={styles.selectIndicator}>▾</Text>
-                </Pressable>
-              </View>
-            )}
-          />
-        </>
-      ) : (
-        <>
-          {hasPreselectedBuyer ? (
-            <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>{t('leases.fields.buyer')}</Text>
-              <Text style={styles.readOnlyValue}>
-                {buyerOptions.find(
-                  (item) => item.value === values.buyerProfileId,
-                )?.label ?? preselectedBuyerProfileId}
-              </Text>
-              <Text style={styles.helper}>
-                {t('leases.prefilledFieldHint')}
-              </Text>
-            </View>
-          ) : (
-            <Controller
-              control={control}
-              name="buyerProfileId"
-              render={({ field }) => (
-                <SelectField
-                  label={t('leases.fields.buyer')}
-                  value={field.value ?? ''}
-                  onChange={field.onChange}
-                  options={buyerOptions}
-                  placeholder={t('leases.selectBuyer')}
-                  testID={`${testIDPrefix}.buyerProfileId`}
-                />
-              )}
-            />
-          )}
-          <Controller
-            control={control}
-            name="fiscalValue"
-            render={({ field }) => (
-              <Field
-                label={t('leases.fields.fiscalValue')}
-                value={field.value ?? ''}
-                onChangeText={field.onChange}
-                keyboardType="numeric"
-                testID={`${testIDPrefix}.fiscalValue`}
-              />
-            )}
-          />
-        </>
-      )}
-
-      {contractType === 'rental' ? (
-        <Controller
-          control={control}
-          name="rentAmount"
-          render={({ field }) => (
-            <Field
-              label={t('leases.fields.rentAmount')}
-              value={field.value ?? ''}
-              onChangeText={field.onChange}
-              keyboardType="numeric"
-              testID={`${testIDPrefix}.rentAmount`}
-            />
-          )}
-        />
-      ) : null}
-
-      <Controller
-        control={control}
-        name="depositAmount"
-        render={({ field }) => (
-          <Field
-            label={t('leases.fields.depositAmount')}
-            value={field.value ?? ''}
-            onChangeText={field.onChange}
-            keyboardType="numeric"
-            testID={`${testIDPrefix}.depositAmount`}
-          />
-        )}
-      />
-
-      <Controller
-        control={control}
-        name="currency"
-        render={({ field }) => (
-          <SelectField
-            label={t('properties.fields.saleCurrency')}
-            value={field.value}
-            onChange={field.onChange}
-            options={currencyOptions}
-            testID={`${testIDPrefix}.currency`}
-          />
-        )}
-      />
-
-      {contractType === 'rental' ? (
-        <>
-          <Text style={styles.sectionTitle}>{t('leases.billing.title')}</Text>
-          <Controller
-            control={control}
-            name="paymentFrequency"
-            render={({ field }) => (
-              <SelectField
-                label={t('leases.fields.paymentFrequency')}
-                value={field.value ?? 'monthly'}
-                onChange={field.onChange}
-                options={paymentFrequencyOptions.map((option) => ({
-                  value: option.value,
-                  label: t(`leases.paymentFrequencies.${option.value}`),
-                }))}
-                testID={`${testIDPrefix}.paymentFrequency`}
-              />
-            )}
-          />
-          <Controller
-            control={control}
-            name="billingFrequency"
-            render={({ field }) => (
-              <SelectField
-                label={t('leases.fields.billingFrequency')}
-                value={field.value ?? 'first_of_month'}
-                onChange={field.onChange}
-                options={billingFrequencyOptions.map((option) => ({
-                  value: option.value,
-                  label: t(`leases.billingFrequencies.${option.value}`),
-                }))}
-                testID={`${testIDPrefix}.billingFrequency`}
-              />
-            )}
-          />
-          <Controller
-            control={control}
-            name="billingDay"
-            render={({ field }) => (
-              <Field
-                label={t('leases.fields.billingDay')}
-                value={field.value ?? ''}
-                onChangeText={field.onChange}
-                keyboardType="numeric"
-                testID={`${testIDPrefix}.billingDay`}
-              />
-            )}
-          />
-          <Controller
-            control={control}
-            name="paymentDueDay"
-            render={({ field }) => (
-              <Field
-                label={t('leases.fields.paymentDueDay')}
-                value={field.value ?? ''}
-                onChangeText={field.onChange}
-                keyboardType="numeric"
-                testID={`${testIDPrefix}.paymentDueDay`}
-              />
-            )}
-          />
-          <Controller
-            control={control}
-            name="autoGenerateInvoices"
-            render={({ field }) => (
-              <SelectField
-                label={t('leases.fields.autoGenerateInvoices')}
-                value={field.value ?? 'yes'}
-                onChange={field.onChange}
-                options={autoGenerateOptions.map((option) => ({
-                  value: option.value,
-                  label:
-                    option.value === 'yes' ? t('common.yes') : t('common.no'),
-                }))}
-                testID={`${testIDPrefix}.autoGenerateInvoices`}
-              />
-            )}
-          />
-
-          <Text style={styles.sectionTitle}>
-            {t('leases.renewalAlerts.title', {
-              defaultValue: 'Alertas de renovación',
-            })}
-          </Text>
-          <Controller
-            control={control}
-            name="renewalAlertEnabled"
-            render={({ field }) => (
-              <SelectField
-                label={t('leases.fields.renewalAlertEnabled', {
-                  defaultValue: 'Alertas automáticas',
-                })}
-                value={field.value ?? 'yes'}
-                onChange={field.onChange}
-                options={renewalAlertEnabledOptions.map((option) => ({
-                  value: option.value,
-                  label:
-                    option.value === 'yes' ? t('common.yes') : t('common.no'),
-                }))}
-                helperText={t('leases.renewalAlerts.helper', {
-                  defaultValue:
-                    'Permite anticipar vencimientos para hablar con propietarios y renovar.',
-                })}
-                testID={`${testIDPrefix}.renewalAlertEnabled`}
-              />
-            )}
-          />
-          {values.renewalAlertEnabled === 'yes' ? (
-            <>
-              <Controller
-                control={control}
-                name="renewalAlertPeriodicity"
-                render={({ field }) => (
-                  <SelectField
-                    label={t('leases.fields.renewalAlertPeriodicity', {
-                      defaultValue: 'Periodicidad',
-                    })}
-                    value={field.value ?? 'monthly'}
-                    onChange={field.onChange}
-                    options={renewalAlertPeriodicityOptions.map((option) => ({
-                      value: option.value,
-                      label: t(
-                        `leases.renewalAlertPeriodicity.${option.value}`,
-                        { defaultValue: option.label },
-                      ),
-                    }))}
-                    testID={`${testIDPrefix}.renewalAlertPeriodicity`}
-                  />
-                )}
-              />
-              {values.renewalAlertPeriodicity === 'custom' ? (
-                <Controller
-                  control={control}
-                  name="renewalAlertCustomDays"
-                  render={({ field }) => (
-                    <Field
-                      label={t('leases.fields.renewalAlertCustomDays', {
-                        defaultValue: 'Días de anticipación',
-                      })}
-                      value={field.value ?? ''}
-                      onChangeText={field.onChange}
-                      keyboardType="numeric"
-                      testID={`${testIDPrefix}.renewalAlertCustomDays`}
-                    />
-                  )}
-                />
-              ) : null}
-            </>
-          ) : null}
-
-          <Text style={styles.sectionTitle}>{t('leases.lateFees.title')}</Text>
-          <Controller
-            control={control}
-            name="lateFeeType"
-            render={({ field }) => (
-              <SelectField
-                label={t('leases.fields.lateFeeType')}
-                value={field.value ?? 'none'}
-                onChange={field.onChange}
-                options={lateFeeTypeOptions.map((option) => ({
-                  value: option.value,
-                  label: t(`leases.lateFeeTypes.${option.value}`),
-                }))}
-                testID={`${testIDPrefix}.lateFeeType`}
-              />
-            )}
-          />
-          {(values.lateFeeType ?? 'none') !== 'none' ? (
-            <>
-              <Controller
-                control={control}
-                name="lateFeeValue"
-                render={({ field }) => (
-                  <Field
-                    label={t('leases.fields.lateFeeValue')}
-                    value={field.value ?? ''}
-                    onChangeText={field.onChange}
-                    keyboardType="numeric"
-                    testID={`${testIDPrefix}.lateFeeValue`}
-                  />
-                )}
-              />
-              <Controller
-                control={control}
-                name="lateFeeGraceDays"
-                render={({ field }) => (
-                  <Field
-                    label={t('leases.fields.lateFeeGraceDays')}
-                    value={field.value ?? ''}
-                    onChangeText={field.onChange}
-                    keyboardType="numeric"
-                    testID={`${testIDPrefix}.lateFeeGraceDays`}
-                  />
-                )}
-              />
-              <Controller
-                control={control}
-                name="lateFeeMax"
-                render={({ field }) => (
-                  <Field
-                    label={t('leases.fields.lateFeeMax')}
-                    value={field.value ?? ''}
-                    onChangeText={field.onChange}
-                    keyboardType="numeric"
-                    testID={`${testIDPrefix}.lateFeeMax`}
-                  />
-                )}
-              />
-            </>
-          ) : null}
-
-          <Text style={styles.sectionTitle}>
-            {t('leases.adjustments.title')}
-          </Text>
-          <Controller
-            control={control}
-            name="adjustmentType"
-            render={({ field }) => (
-              <SelectField
-                label={t('leases.fields.adjustmentType')}
-                value={field.value ?? 'fixed'}
-                onChange={field.onChange}
-                options={adjustmentTypeOptions.map((option) => ({
-                  value: option.value,
-                  label: t(`leases.adjustmentTypes.${option.value}`),
-                }))}
-                testID={`${testIDPrefix}.adjustmentType`}
-              />
-            )}
-          />
-
-          {(values.adjustmentType ?? 'fixed') !== 'fixed' ? (
-            <>
-              {(values.adjustmentType ?? 'fixed') === 'percentage' ? (
-                <Controller
-                  control={control}
-                  name="adjustmentValue"
-                  render={({ field }) => (
-                    <Field
-                      label={t('leases.fields.adjustmentValue')}
-                      value={field.value ?? ''}
-                      onChangeText={field.onChange}
-                      keyboardType="numeric"
-                      testID={`${testIDPrefix}.adjustmentValue`}
-                    />
-                  )}
-                />
-              ) : null}
-
-              {(values.adjustmentType ?? 'fixed') === 'inflation_index' ? (
-                <Controller
-                  control={control}
-                  name="inflationIndexType"
-                  render={({ field }) => (
-                    <SelectField
-                      label={t('leases.fields.inflationIndexType')}
-                      value={field.value ?? 'icl'}
-                      onChange={field.onChange}
-                      options={inflationIndexOptions.map((option) => ({
-                        value: option.value,
-                        label: t(`leases.inflationIndexTypes.${option.value}`),
-                      }))}
-                      testID={`${testIDPrefix}.inflationIndexType`}
-                    />
-                  )}
-                />
-              ) : null}
-
-              <Controller
-                control={control}
-                name="adjustmentFrequencyMonths"
-                render={({ field }) => (
-                  <Field
-                    label={t('leases.fields.adjustmentFrequencyMonths')}
-                    value={field.value ?? ''}
-                    onChangeText={field.onChange}
-                    keyboardType="numeric"
-                    testID={`${testIDPrefix}.adjustmentFrequencyMonths`}
-                  />
-                )}
-              />
-              <Controller
-                control={control}
-                name="nextAdjustmentDate"
-                render={({ field }) => (
-                  <Field
-                    label={t('leases.fields.nextAdjustmentDate')}
-                    value={field.value ?? ''}
-                    onChangeText={field.onChange}
-                    testID={`${testIDPrefix}.nextAdjustmentDate`}
-                  />
-                )}
-              />
-            </>
-          ) : null}
-        </>
-      ) : null}
 
       <Controller
         control={control}
@@ -1489,15 +1828,10 @@ export function LeaseForm({
         )}
       />
 
-      {Object.values(formState.errors).map((item) => {
-        if (!item?.message) return null;
-        const message = resolveErrorMessage(item.message);
-        return (
-          <Text key={`${item.message}-${message}`} style={styles.error}>
-            {message}
-          </Text>
-        );
-      })}
+      <FormErrorsList
+        errors={formState.errors}
+        resolveErrorMessage={resolveErrorMessage}
+      />
 
       <AppButton
         title={submitLabel}

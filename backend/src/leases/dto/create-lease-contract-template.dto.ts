@@ -12,7 +12,12 @@ import { z } from 'zod';
 export const createLeaseContractTemplateZodSchema = z
   .object({
     name: z.string().min(1).max(120),
-    contractType: z.nativeEnum(ContractType).describe('rental|sale'),
+    contractType: z.enum(ContractType).describe('rental|sale'),
+    templateFormat: z
+      .enum(['plain_text', 'html'])
+      .optional()
+      .default('plain_text')
+      .describe('plain_text|html'),
     templateBody: z
       .string()
       .min(1)
@@ -31,6 +36,10 @@ export class CreateLeaseContractTemplateDto {
 
   @IsEnum(ContractType)
   contractType: ContractType;
+
+  @IsString()
+  @IsOptional()
+  templateFormat?: 'plain_text' | 'html';
 
   @IsString()
   @IsNotEmpty()

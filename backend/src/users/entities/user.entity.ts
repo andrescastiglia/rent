@@ -15,7 +15,26 @@ export enum UserRole {
   OWNER = 'owner',
   TENANT = 'tenant',
   STAFF = 'staff',
+  BUYER = 'buyer',
 }
+
+export type UserModulePermissionKey =
+  | 'dashboard'
+  | 'properties'
+  | 'owners'
+  | 'interested'
+  | 'tenants'
+  | 'leases'
+  | 'templates'
+  | 'payments'
+  | 'invoices'
+  | 'sales'
+  | 'reports'
+  | 'users';
+
+export type UserModulePermissions = Partial<
+  Record<UserModulePermissionKey, boolean>
+>;
 
 // Default company ID for new users
 export const DEFAULT_COMPANY_ID = '00000000-0000-0000-0000-000000000001';
@@ -32,8 +51,8 @@ export class User {
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
-  @Column({ unique: true })
-  email: string;
+  @Column({ unique: true, nullable: true })
+  email: string | null;
 
   @Column({ name: 'password_hash' })
   passwordHash: string;
@@ -49,6 +68,9 @@ export class User {
 
   @Column({ name: 'avatar_url', type: 'text', nullable: true })
   avatarUrl: string | null;
+
+  @Column({ type: 'jsonb', default: () => "'{}'" })
+  permissions: UserModulePermissions;
 
   @Column({
     type: 'enum',

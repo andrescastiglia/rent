@@ -168,8 +168,8 @@ export class SettlementService {
     // Get withholdings (if owner is retention agent)
     const withholdings: Array<{ type: string; amount: number }> = [];
 
-    // TODO: In future, fetch actual withholding configurations from company settings
-    // For now, no additional withholdings beyond commission
+    // Company-level withholding settings are not wired into this flow yet,
+    // so this calculation currently applies only the commission deduction.
 
     const totalDeductions =
       commissionAmount + withholdings.reduce((sum, w) => sum + w.amount, 0);
@@ -425,8 +425,8 @@ export class SettlementService {
     settlementId: string,
     calculation: SettlementCalculation,
   ): Promise<{ success: boolean; reference?: string; error?: string }> {
-    // TODO: Integrate with bank transfer service (Bind, Pomelo, etc.)
-    // For now, simulate successful transfer
+    // Bank transfer integration is still pending, so this simulates a
+    // successful transfer until the external provider is connected.
 
     logger.info("Initiating transfer", {
       settlementId,
@@ -479,7 +479,7 @@ export class SettlementService {
    * Notifies owner about the settlement.
    */
   private async notifyOwner(calculation: SettlementCalculation): Promise<void> {
-    // TODO: Integrate with WhatsappService/notification gateway to send notification
+    // Owner notifications are logged here until the notification gateway is connected.
     logger.info("Owner notification sent", {
       ownerId: calculation.ownerId,
       ownerName: calculation.ownerName,

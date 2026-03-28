@@ -50,7 +50,12 @@ async function bootstrap() {
   await app.listen(port, host);
   console.log(`Backend running on http://${host}:${port}`);
 }
-void bootstrap();
+process.nextTick(() => {
+  void bootstrap().catch((error) => {
+    console.error('Failed to bootstrap backend:', error);
+    process.exit(1);
+  });
+});
 
 const shutdownSignals = ['SIGTERM', 'SIGINT'] as const;
 for (const signal of shutdownSignals) {

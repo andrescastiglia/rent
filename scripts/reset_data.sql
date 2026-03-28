@@ -83,7 +83,7 @@ SET
 -- Company
 -- -----------------------------------------------------------------------------
 INSERT INTO companies (
-    id, name, legal_name, tax_id, email, phone, country, plan, is_active, created_at, updated_at
+    id, name, legal_name, tax_id, email, phone, city, state, country, plan, settings, is_active, created_at, updated_at
 )
 VALUES (
     '10000000-0000-0000-0000-000000000001',
@@ -92,8 +92,11 @@ VALUES (
     '30-00000001-9',
     'admin@rent.demo',
     '+54 11 4000-0000',
+    'Buenos Aires',
+    'CABA',
     'Argentina',
     'premium',
+    '{"timezone": "America/Argentina/Buenos_Aires"}'::jsonb,
     TRUE,
     NOW(),
     NOW()
@@ -105,8 +108,11 @@ SET
     tax_id = EXCLUDED.tax_id,
     email = EXCLUDED.email,
     phone = EXCLUDED.phone,
+    city = EXCLUDED.city,
+    state = EXCLUDED.state,
     country = EXCLUDED.country,
     plan = EXCLUDED.plan,
+    settings = EXCLUDED.settings,
     is_active = EXCLUDED.is_active,
     updated_at = NOW();
 
@@ -114,14 +120,15 @@ SET
 -- Users
 -- -----------------------------------------------------------------------------
 INSERT INTO users (
-    id, company_id, email, password_hash, role, language, first_name, last_name, phone, is_active, created_at, updated_at
+    id, company_id, email, password_hash, role, language, first_name, last_name, phone, is_active, permissions, created_at, updated_at
 )
 VALUES
-    ('10000000-0000-0000-0000-000000000101', '10000000-0000-0000-0000-000000000001', 'admin@rent.demo', (SELECT password_hash FROM _reset_data_password_hash LIMIT 1), 'admin', 'es', 'Admin', 'Demo', '+54 11 4000-0001', TRUE, NOW(), NOW()),
-    ('10000000-0000-0000-0000-000000000102', '10000000-0000-0000-0000-000000000001', 'staff@rent.demo', (SELECT password_hash FROM _reset_data_password_hash LIMIT 1), 'staff', 'es', 'Sofia', 'Staff', '+54 11 4000-0002', TRUE, NOW(), NOW()),
-    ('10000000-0000-0000-0000-000000000201', '10000000-0000-0000-0000-000000000001', 'ana.owner@rent.demo', (SELECT password_hash FROM _reset_data_password_hash LIMIT 1), 'owner', 'es', 'Ana', 'Gomez', '+54 11 4000-0003', TRUE, NOW(), NOW()),
-    ('10000000-0000-0000-0000-000000000202', '10000000-0000-0000-0000-000000000001', 'bruno.owner@rent.demo', (SELECT password_hash FROM _reset_data_password_hash LIMIT 1), 'owner', 'es', 'Bruno', 'Diaz', '+54 11 4000-0004', TRUE, NOW(), NOW()),
-    ('10000000-0000-0000-0000-000000000401', '10000000-0000-0000-0000-000000000001', 'tenant.demo@rent.demo', (SELECT password_hash FROM _reset_data_password_hash LIMIT 1), 'tenant', 'es', 'Lucas', 'Perez', '+54 11 4000-0005', TRUE, NOW(), NOW())
+    ('10000000-0000-0000-0000-000000000101', '10000000-0000-0000-0000-000000000001', 'admin@rent.demo', (SELECT password_hash FROM _reset_data_password_hash LIMIT 1), 'admin', 'es', 'Admin', 'Demo', '+54 11 4000-0001', TRUE, '{}'::jsonb, NOW(), NOW()),
+    ('10000000-0000-0000-0000-000000000102', '10000000-0000-0000-0000-000000000001', 'staff@rent.demo', (SELECT password_hash FROM _reset_data_password_hash LIMIT 1), 'staff', 'es', 'Sofia', 'Staff', '+54 11 4000-0002', TRUE, '{"dashboard": true, "interested": true, "leases": true, "templates": true, "payments": true, "sales": true, "reports": true}'::jsonb, NOW(), NOW()),
+    ('10000000-0000-0000-0000-000000000201', '10000000-0000-0000-0000-000000000001', 'ana.owner@rent.demo', (SELECT password_hash FROM _reset_data_password_hash LIMIT 1), 'owner', 'es', 'Ana', 'Gomez', '+54 11 4000-0003', TRUE, '{}'::jsonb, NOW(), NOW()),
+    ('10000000-0000-0000-0000-000000000202', '10000000-0000-0000-0000-000000000001', 'bruno.owner@rent.demo', (SELECT password_hash FROM _reset_data_password_hash LIMIT 1), 'owner', 'es', 'Bruno', 'Diaz', '+54 11 4000-0004', TRUE, '{}'::jsonb, NOW(), NOW()),
+    ('10000000-0000-0000-0000-000000000401', '10000000-0000-0000-0000-000000000001', 'tenant.demo@rent.demo', (SELECT password_hash FROM _reset_data_password_hash LIMIT 1), 'tenant', 'es', 'Lucas', 'Perez', '+54 11 4000-0005', TRUE, '{}'::jsonb, NOW(), NOW()),
+    ('10000000-0000-0000-0000-000000000402', '10000000-0000-0000-0000-000000000001', 'buyer.demo@rent.demo', (SELECT password_hash FROM _reset_data_password_hash LIMIT 1), 'buyer', 'es', 'Rocio', 'Buy', '+54 11 7000-0005', TRUE, '{}'::jsonb, NOW(), NOW())
 ON CONFLICT (id) DO UPDATE
 SET
     company_id = EXCLUDED.company_id,
@@ -133,6 +140,7 @@ SET
     last_name = EXCLUDED.last_name,
     phone = EXCLUDED.phone,
     is_active = EXCLUDED.is_active,
+    permissions = EXCLUDED.permissions,
     updated_at = NOW();
 
 -- -----------------------------------------------------------------------------
@@ -168,6 +176,29 @@ SET
     nationality = EXCLUDED.nationality,
     emergency_contact_name = EXCLUDED.emergency_contact_name,
     emergency_contact_phone = EXCLUDED.emergency_contact_phone,
+    updated_at = NOW();
+
+INSERT INTO buyers (
+    id, user_id, company_id, interested_profile_id, dni, notes, created_at, updated_at
+)
+VALUES
+    (
+      '10000000-0000-0000-0000-000000000803',
+      '10000000-0000-0000-0000-000000000402',
+      '10000000-0000-0000-0000-000000000001',
+      NULL,
+      '31234567',
+      'Compradora demo para pruebas de ventas y contratos',
+      NOW(),
+      NOW()
+    )
+ON CONFLICT (id) DO UPDATE
+SET
+    user_id = EXCLUDED.user_id,
+    company_id = EXCLUDED.company_id,
+    interested_profile_id = EXCLUDED.interested_profile_id,
+    dni = EXCLUDED.dni,
+    notes = EXCLUDED.notes,
     updated_at = NOW();
 
 -- -----------------------------------------------------------------------------
@@ -329,13 +360,14 @@ SET
     updated_at = NOW();
 
 INSERT INTO sale_agreements (
-    id, company_id, folder_id, buyer_name, buyer_phone, total_amount, currency,
+    id, company_id, folder_id, buyer_id, buyer_name, buyer_phone, total_amount, currency,
     installment_amount, installment_count, start_date, due_day, paid_amount, notes, created_at, updated_at
 )
 VALUES (
     '10000000-0000-0000-0000-000000000802',
     '10000000-0000-0000-0000-000000000001',
     '10000000-0000-0000-0000-000000000801',
+    '10000000-0000-0000-0000-000000000803',
     'Rocio Buy',
     '+54 11 7000-0005',
     60000000.00,
@@ -353,6 +385,7 @@ ON CONFLICT (id) DO UPDATE
 SET
     company_id = EXCLUDED.company_id,
     folder_id = EXCLUDED.folder_id,
+    buyer_id = EXCLUDED.buyer_id,
     buyer_name = EXCLUDED.buyer_name,
     buyer_phone = EXCLUDED.buyer_phone,
     total_amount = EXCLUDED.total_amount,
@@ -374,7 +407,7 @@ INSERT INTO interested_profiles (
     preferred_city, property_type_preference,
     operation, operations, status, qualification_level,
     source, assigned_to_user_id, consent_contact, notes,
-    converted_to_tenant_id, converted_to_sale_agreement_id,
+    converted_to_tenant_id, converted_to_buyer_id, converted_to_sale_agreement_id,
     created_at, updated_at
 )
 VALUES
@@ -399,6 +432,7 @@ VALUES
       '10000000-0000-0000-0000-000000000102',
       TRUE,
       'Caso: interesada solo en alquiler',
+      NULL,
       NULL,
       NULL,
       NOW(),
@@ -427,6 +461,7 @@ VALUES
       'Caso: interesado solo en compra',
       NULL,
       NULL,
+      NULL,
       NOW(),
       NOW()
     ),
@@ -451,6 +486,7 @@ VALUES
       '10000000-0000-0000-0000-000000000102',
       TRUE,
       'Caso: perfil mixto alquiler/compra',
+      NULL,
       NULL,
       NULL,
       NOW(),
@@ -479,6 +515,7 @@ VALUES
       'Caso: interesada convertida a inquilina',
       '10000000-0000-0000-0000-000000000501',
       NULL,
+      NULL,
       NOW(),
       NOW()
     ),
@@ -504,6 +541,7 @@ VALUES
       TRUE,
       'Caso: interesada convertida a compradora',
       NULL,
+      '10000000-0000-0000-0000-000000000803',
       '10000000-0000-0000-0000-000000000802',
       NOW(),
       NOW()
@@ -530,14 +568,20 @@ SET
     consent_contact = EXCLUDED.consent_contact,
     notes = EXCLUDED.notes,
     converted_to_tenant_id = EXCLUDED.converted_to_tenant_id,
+    converted_to_buyer_id = EXCLUDED.converted_to_buyer_id,
     converted_to_sale_agreement_id = EXCLUDED.converted_to_sale_agreement_id,
     updated_at = NOW();
+
+UPDATE buyers
+SET interested_profile_id = '10000000-0000-0000-0000-000000000905',
+    updated_at = NOW()
+WHERE id = '10000000-0000-0000-0000-000000000803';
 
 -- -----------------------------------------------------------------------------
 -- Lease contract templates (rental + sale)
 -- -----------------------------------------------------------------------------
 INSERT INTO lease_contract_templates (
-    id, company_id, name, contract_type, template_body, is_active, created_at, updated_at
+    id, company_id, name, contract_type, template_body, template_format, source_file_name, source_mime_type, is_active, created_at, updated_at
 )
 VALUES
     (
@@ -545,8 +589,10 @@ VALUES
       '10000000-0000-0000-0000-000000000001',
       'Alquiler Estandar',
       'rental',
-      'Contrato de alquiler firmado el {{today}} entre {{owner.fullName}} y {{tenant.fullName}} para {{property.name}}.' || E'\n\n' ||
-      'Inicio: {{lease.startDate}} - Fin: {{lease.endDate}}. Canon mensual: {{lease.monthlyRent}} {{lease.currency}}.',
+      '<p><strong>Contrato de alquiler</strong> firmado el {{today}} entre {{owner.fullName}} y {{tenant.fullName}} para {{property.name}}.</p><p>Inicio: {{lease.startDate}}. Fin: {{lease.endDate}}. Canon mensual: {{lease.monthlyRent}} {{lease.currency}}.</p>',
+      'html',
+      NULL,
+      NULL,
       TRUE,
       NOW(),
       NOW()
@@ -558,6 +604,9 @@ VALUES
       'rental',
       'Las partes acuerdan ajuste {{lease.adjustmentType}} cada {{lease.adjustmentFrequencyMonths}} meses.' || E'\n\n' ||
       'Mora: tipo {{lease.lateFeeType}} valor {{lease.lateFeeValue}}.',
+      'plain_text',
+      NULL,
+      NULL,
       TRUE,
       NOW(),
       NOW()
@@ -569,6 +618,9 @@ VALUES
       'sale',
       'Boleto de compra/venta de {{property.name}} entre {{owner.fullName}} y {{buyer.fullName}}.' || E'\n\n' ||
       'Valor fiscal: {{lease.fiscalValue}} {{lease.currency}}. Fecha: {{today}}.',
+      'plain_text',
+      NULL,
+      NULL,
       TRUE,
       NOW(),
       NOW()
@@ -579,6 +631,9 @@ SET
     name = EXCLUDED.name,
     contract_type = EXCLUDED.contract_type,
     template_body = EXCLUDED.template_body,
+    template_format = EXCLUDED.template_format,
+    source_file_name = EXCLUDED.source_file_name,
+    source_mime_type = EXCLUDED.source_mime_type,
     is_active = EXCLUDED.is_active,
     updated_at = NOW();
 
@@ -649,19 +704,21 @@ SET
 -- Active rental lease and tenant account (dependency complete scenario)
 -- -----------------------------------------------------------------------------
 INSERT INTO leases (
-    id, company_id, property_id, tenant_id, owner_id, contract_type, status,
+    id, company_id, property_id, tenant_id, buyer_id, owner_id, contract_type, status,
     start_date, end_date, monthly_rent, currency,
     payment_frequency, payment_due_day, billing_frequency, billing_day,
-    template_id, template_name, draft_contract_text, confirmed_contract_text, confirmed_at,
+    template_id, template_name, draft_contract_text, draft_contract_format, confirmed_contract_text, confirmed_contract_format, confirmed_at,
     adjustment_type, adjustment_frequency_months, inflation_index_type,
     late_fee_type, late_fee_value, auto_generate_invoices,
     created_at, updated_at
 )
-VALUES (
+VALUES
+(
     '10000000-0000-0000-0000-000000001201',
     '10000000-0000-0000-0000-000000000001',
     '10000000-0000-0000-0000-000000000602',
     '10000000-0000-0000-0000-000000000501',
+    NULL,
     '10000000-0000-0000-0000-000000000301',
     'rental',
     'active',
@@ -675,8 +732,10 @@ VALUES (
     NULL,
     '10000000-0000-0000-0000-000000001101',
     'Alquiler Estandar',
-    'Borrador base para caso de uso de alquiler.',
-    'Contrato confirmado para caso de uso de alquiler.',
+    '<p>Borrador base para caso de uso de alquiler.</p>',
+    'html',
+    '<p>Contrato confirmado para caso de uso de alquiler.</p>',
+    'html',
     NOW(),
     'inflation_index',
     6,
@@ -686,12 +745,46 @@ VALUES (
     TRUE,
     NOW(),
     NOW()
+),
+(
+    '10000000-0000-0000-0000-000000001202',
+    '10000000-0000-0000-0000-000000000001',
+    '10000000-0000-0000-0000-000000000603',
+    NULL,
+    '10000000-0000-0000-0000-000000000803',
+    '10000000-0000-0000-0000-000000000302',
+    'sale',
+    'active',
+    NULL,
+    NULL,
+    NULL,
+    'ARS',
+    'monthly',
+    10,
+    'first_of_month',
+    NULL,
+    '10000000-0000-0000-0000-000000001103',
+    'Compra Venta Estandar',
+    'Borrador base para caso de uso de venta.',
+    'plain_text',
+    'Contrato confirmado para caso de uso de venta.',
+    'plain_text',
+    NOW(),
+    'fixed',
+    12,
+    NULL,
+    'none',
+    0,
+    FALSE,
+    NOW(),
+    NOW()
 )
 ON CONFLICT (id) DO UPDATE
 SET
     company_id = EXCLUDED.company_id,
     property_id = EXCLUDED.property_id,
     tenant_id = EXCLUDED.tenant_id,
+    buyer_id = EXCLUDED.buyer_id,
     owner_id = EXCLUDED.owner_id,
     contract_type = EXCLUDED.contract_type,
     status = EXCLUDED.status,
@@ -706,7 +799,9 @@ SET
     template_id = EXCLUDED.template_id,
     template_name = EXCLUDED.template_name,
     draft_contract_text = EXCLUDED.draft_contract_text,
+    draft_contract_format = EXCLUDED.draft_contract_format,
     confirmed_contract_text = EXCLUDED.confirmed_contract_text,
+    confirmed_contract_format = EXCLUDED.confirmed_contract_format,
     confirmed_at = EXCLUDED.confirmed_at,
     adjustment_type = EXCLUDED.adjustment_type,
     adjustment_frequency_months = EXCLUDED.adjustment_frequency_months,

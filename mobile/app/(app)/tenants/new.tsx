@@ -32,7 +32,6 @@ export default function NewTenantScreen() {
     <Screen scrollViewTestID="tenantCreate.scroll">
       <H1>{t('tenants.newTenant')}</H1>
       <TenantForm
-        mode="create"
         submitLabel={t('tenants.addTenant')}
         submitting={mutation.isPending}
         testIDPrefix="tenantCreate"

@@ -152,7 +152,7 @@ export class AiConversationsService {
     });
 
     conversation.toolState = this.deepMerge(
-      (conversation.toolState ?? {}) as Record<string, unknown>,
+      conversation.toolState ?? {},
       params.patch,
     );
     conversation.lastActivityAt = new Date();
@@ -170,10 +170,7 @@ export class AiConversationsService {
       userId: params.userId,
     });
 
-    const next = { ...(conversation.toolState ?? {}) } as Record<
-      string,
-      unknown
-    >;
+    const next: Record<string, unknown> = { ...conversation.toolState };
     for (const key of params.keys) {
       delete next[key];
     }
@@ -206,11 +203,9 @@ export class AiConversationsService {
   ): Record<string, unknown> {
     const output: Record<string, unknown> = { ...target };
     for (const [key, value] of Object.entries(source)) {
-      if (this.isPlainObject(output[key]) && this.isPlainObject(value)) {
-        output[key] = this.deepMerge(
-          output[key] as Record<string, unknown>,
-          value as Record<string, unknown>,
-        );
+      const currentValue = output[key];
+      if (this.isPlainObject(currentValue) && this.isPlainObject(value)) {
+        output[key] = this.deepMerge(currentValue, value);
         continue;
       }
       output[key] = value;

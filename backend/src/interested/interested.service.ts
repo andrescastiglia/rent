@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -7,6 +8,7 @@ import {
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, IsNull, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'node:crypto';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import {
   InterestedProfile,
@@ -52,6 +54,7 @@ import { ConvertInterestedToBuyerDto } from './dto/convert-interested-to-buyer.d
 import { SaleAgreement } from '../sales/entities/sale-agreement.entity';
 import { SaleFolder } from '../sales/entities/sale-folder.entity';
 import { CreatePropertyReservationDto } from './dto/create-property-reservation.dto';
+import { Buyer } from '../buyers/entities/buyer.entity';
 
 interface UserContext {
   id: string;
@@ -101,6 +104,8 @@ export class InterestedService {
     private readonly usersRepository: Repository<User>,
     @InjectRepository(Tenant)
     private readonly tenantsRepository: Repository<Tenant>,
+    @InjectRepository(Buyer)
+    private readonly buyersRepository: Repository<Buyer>,
     @InjectRepository(SaleAgreement)
     private readonly saleAgreementsRepository: Repository<SaleAgreement>,
     @InjectRepository(SaleFolder)
@@ -180,13 +185,17 @@ export class InterestedService {
 
     if (name) {
       query.andWhere(
-        '(interested.first_name ILIKE :name OR interested.last_name ILIKE :name)',
+        `unaccent(lower(
+          coalesce(interested.first_name, '') || ' ' || coalesce(interested.last_name, '')
+        )) LIKE unaccent(lower(:name))`,
         { name: `%${name}%` },
       );
     }
 
     if (phone) {
-      query.andWhere('interested.phone ILIKE :phone', { phone: `%${phone}%` });
+      query.andWhere('lower(interested.phone) LIKE lower(:phone)', {
+        phone: `%${phone}%`,
+      });
     }
 
     if (operation) {
@@ -977,61 +986,144 @@ export class InterestedService {
     id: string,
     dto: ConvertInterestedToBuyerDto,
     user: UserContext,
-  ): Promise<{ profile: InterestedProfile; agreement: SaleAgreement }> {
+  ): Promise<{
+    profile: InterestedProfile;
+    buyer: Buyer;
+    user: User;
+    agreement: SaleAgreement | null;
+  }> {
     const profile = await this.findOne(id, user);
 
-    if (profile.convertedToSaleAgreementId) {
+    if (profile.convertedToBuyerId || profile.convertedToSaleAgreementId) {
       throw new ConflictException(
-        'Interested profile already converted to sale agreement',
+        'Interested profile already converted to buyer',
       );
     }
 
-    const folder = await this.saleFoldersRepository.findOne({
-      where: {
-        id: dto.folderId,
-        companyId: profile.companyId,
-        deletedAt: IsNull(),
-      },
-    });
-
-    if (!folder) {
-      throw new NotFoundException('Sale folder not found');
+    const hasAgreementData = this.hasBuyerAgreementData(dto);
+    if (hasAgreementData) {
+      this.ensureCompleteBuyerAgreementData(dto);
     }
 
-    const agreement = this.saleAgreementsRepository.create({
-      companyId: profile.companyId,
-      folderId: dto.folderId,
-      buyerName: this.resolveName(profile).fullName,
-      buyerPhone: profile.phone,
-      totalAmount: dto.totalAmount,
-      currency: dto.currency ?? 'ARS',
-      installmentAmount: dto.installmentAmount,
-      installmentCount: dto.installmentCount,
-      startDate: dto.startDate,
-      dueDay: 10,
-      notes: dto.notes ?? profile.notes,
+    const email = (
+      dto.email?.trim() ||
+      profile.email?.trim() ||
+      ''
+    ).toLowerCase();
+    const fallbackEmail = this.buildFallbackEmail(profile);
+    const resolvedEmail = email || fallbackEmail;
+    const existingUser = await this.usersRepository.findOne({
+      where: { email: resolvedEmail },
+    });
+    if (existingUser) {
+      throw new ConflictException('A user with this email already exists');
+    }
+
+    const password =
+      dto.password?.trim() ||
+      profile.phone?.replaceAll(/\D+/g, '').slice(-8) ||
+      randomBytes(8).toString('hex');
+    const salt = await bcrypt.genSalt();
+    const passwordHash = await bcrypt.hash(password, salt);
+    const fullName = this.resolveName(profile);
+    const previousStatus = profile.status;
+    const created = await this.dataSource.transaction(async (manager) => {
+      const createdUser = await manager.getRepository(User).save(
+        manager.getRepository(User).create({
+          companyId: profile.companyId,
+          email: resolvedEmail,
+          passwordHash,
+          firstName: fullName.firstName,
+          lastName: fullName.lastName,
+          phone: profile.phone,
+          role: UserRole.BUYER,
+          isActive: true,
+        }),
+      );
+
+      const createdBuyer = await manager.getRepository(Buyer).save(
+        manager.getRepository(Buyer).create({
+          userId: createdUser.id,
+          companyId: profile.companyId,
+          interestedProfileId: profile.id,
+          dni: dto.dni?.trim() || null,
+          notes: dto.notes?.trim() || profile.notes || null,
+        }),
+      );
+
+      let createdAgreement: SaleAgreement | null = null;
+      if (hasAgreementData) {
+        const folder = await manager.getRepository(SaleFolder).findOne({
+          where: {
+            id: dto.folderId,
+            companyId: profile.companyId,
+            deletedAt: IsNull(),
+          },
+        });
+
+        if (!folder) {
+          throw new NotFoundException('Sale folder not found');
+        }
+
+        createdAgreement = await manager.getRepository(SaleAgreement).save(
+          manager.getRepository(SaleAgreement).create({
+            companyId: profile.companyId,
+            folderId: folder.id,
+            buyerId: createdBuyer.id,
+            buyerName: fullName.fullName,
+            buyerPhone: profile.phone,
+            totalAmount: dto.totalAmount,
+            currency: dto.currency ?? 'ARS',
+            installmentAmount: dto.installmentAmount,
+            installmentCount: dto.installmentCount,
+            startDate: dto.startDate,
+            dueDay: 10,
+            notes: dto.notes ?? profile.notes,
+          }),
+        );
+      }
+
+      profile.convertedToBuyerId = createdBuyer.id;
+      profile.convertedToSaleAgreementId = createdAgreement?.id ?? null;
+      profile.status = InterestedStatus.BUYER;
+      await manager.getRepository(InterestedProfile).save(profile);
+
+      await manager.getRepository(InterestedStageHistory).save(
+        manager.getRepository(InterestedStageHistory).create({
+          interestedProfileId: profile.id,
+          fromStatus: previousStatus,
+          toStatus: InterestedStatus.BUYER,
+          reason: this.t('interested.reasons.convertedToBuyer'),
+          changedByUserId: user.id,
+        }),
+      );
+
+      await manager.getRepository(InterestedActivity).save(
+        manager.getRepository(InterestedActivity).create({
+          interestedProfileId: profile.id,
+          type: InterestedActivityType.NOTE,
+          status: InterestedActivityStatus.COMPLETED,
+          subject: 'Interesado convertido a comprador',
+          body: createdAgreement
+            ? `Comprador ${fullName.fullName} convertido y vinculado al acuerdo ${createdAgreement.id}.`
+            : `Comprador ${fullName.fullName} convertido sin acuerdo comercial inicial.`,
+          createdByUserId: user.id,
+          completedAt: new Date(),
+        } as Partial<InterestedActivity>),
+      );
+
+      return {
+        createdUser,
+        createdBuyer,
+        createdAgreement,
+      };
     });
 
-    const savedAgreement = await this.saleAgreementsRepository.save(agreement);
-
-    const previousStatus = profile.status;
-    profile.convertedToSaleAgreementId = savedAgreement.id;
-    profile.status = InterestedStatus.BUYER;
-    await this.interestedRepository.save(profile);
-
-    await this.stageHistoryRepository.save(
-      this.stageHistoryRepository.create({
-        interestedProfileId: profile.id,
-        fromStatus: previousStatus,
-        toStatus: InterestedStatus.BUYER,
-        reason: this.t('interested.reasons.convertedToBuyer'),
-        changedByUserId: user.id,
-      }),
-    );
-
     return {
-      profile,
-      agreement: savedAgreement,
+      profile: await this.findOne(id, user),
+      buyer: created.createdBuyer,
+      user: created.createdUser,
+      agreement: created.createdAgreement,
     };
   }
 
@@ -1531,6 +1623,32 @@ export class InterestedService {
 
   private generateRandomPassword(): string {
     return `Tmp!${Math.random().toString(36).slice(2, 10)}1`;
+  }
+
+  private hasBuyerAgreementData(dto: ConvertInterestedToBuyerDto): boolean {
+    return Boolean(
+      dto.folderId ||
+      dto.totalAmount !== undefined ||
+      dto.installmentAmount !== undefined ||
+      dto.installmentCount !== undefined ||
+      dto.startDate,
+    );
+  }
+
+  private ensureCompleteBuyerAgreementData(
+    dto: ConvertInterestedToBuyerDto,
+  ): void {
+    if (
+      !dto.folderId ||
+      dto.totalAmount === undefined ||
+      dto.installmentAmount === undefined ||
+      dto.installmentCount === undefined ||
+      !dto.startDate
+    ) {
+      throw new BadRequestException(
+        'Sale agreement conversion requires folderId, totalAmount, installmentAmount, installmentCount and startDate',
+      );
+    }
   }
 
   private isPriceInRange(

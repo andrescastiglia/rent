@@ -1,6 +1,7 @@
 import { test, expect, gotoWithRetry, login, localePath } from './fixtures/auth';
 
-const leaseDetailLinkSelector = 'a[href*="/leases/"]:not([href*="/leases/new"]):not([href*="/leases/templates"]):not([href*="/edit"])';
+const leaseDetailLinkSelector =
+  'section a[href*="/leases/"]:not([href*="/leases/new"]):not([href*="/leases/templates"]):not([href*="/leases/import"]):not([href*="/edit"])';
 
 test.describe('Lease Creation Flow', () => {
     test.beforeEach(async ({ page }) => {

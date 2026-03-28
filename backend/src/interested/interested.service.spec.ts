@@ -25,8 +25,9 @@ import { User } from '../users/entities/user.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { SaleAgreement } from '../sales/entities/sale-agreement.entity';
 import { SaleFolder } from '../sales/entities/sale-folder.entity';
-import { I18nService } from 'nestjs-i18n';
+import { I18nContext, I18nService } from 'nestjs-i18n';
 import { PropertyOperationState } from '../properties/entities/property.entity';
+import { Buyer } from '../buyers/entities/buyer.entity';
 import * as bcrypt from 'bcrypt';
 
 describe('InterestedService', () => {
@@ -91,6 +92,10 @@ describe('InterestedService', () => {
         },
         {
           provide: getRepositoryToken(Tenant),
+          useValue: createMockRepository(),
+        },
+        {
+          provide: getRepositoryToken(Buyer),
           useValue: createMockRepository(),
         },
         {
@@ -777,18 +782,53 @@ describe('InterestedService', () => {
       firstName: 'Ana',
       lastName: 'Diaz',
     });
-    const folderRepo = (service as any).saleFoldersRepository as MockRepository;
-    folderRepo.findOne!.mockResolvedValue({
-      id: 'folder-1',
-      companyId: 'company-1',
-    });
-    const agreementsRepo = (service as any)
-      .saleAgreementsRepository as MockRepository;
-    agreementsRepo.create!.mockImplementation((data) => data);
-    agreementsRepo.save!.mockResolvedValue({ id: 'agr-1' });
-    interestedRepository.save!.mockResolvedValue({ id: 'int-1' });
-    stageHistoryRepository.create!.mockImplementation((data) => data);
-    stageHistoryRepository.save!.mockResolvedValue({ id: 'hist-1' } as any);
+    const usersRepo = (service as any).usersRepository as MockRepository;
+    usersRepo.findOne!.mockResolvedValue(null);
+
+    jest.spyOn(bcrypt, 'genSalt').mockResolvedValue('salt' as never);
+    jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashed' as never);
+
+    const userRepo = {
+      create: jest.fn((data) => data),
+      save: jest.fn().mockResolvedValue({ id: 'user-1' }),
+    };
+    const buyerRepo = {
+      create: jest.fn((data) => data),
+      save: jest.fn().mockResolvedValue({ id: 'buyer-1' }),
+    };
+    const folderRepo = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'folder-1',
+        companyId: 'company-1',
+      }),
+    };
+    const agreementsRepo = {
+      create: jest.fn((data) => data),
+      save: jest.fn().mockResolvedValue({ id: 'agr-1' }),
+    };
+    const profileRepo = { save: jest.fn().mockResolvedValue({ id: 'int-1' }) };
+    const historyRepo = {
+      create: jest.fn((data) => data),
+      save: jest.fn().mockResolvedValue({ id: 'hist-1' }),
+    };
+    const activityRepo = {
+      create: jest.fn((data) => data),
+      save: jest.fn().mockResolvedValue({ id: 'activity-1' }),
+    };
+    dataSource.transaction.mockImplementation(async (cb) =>
+      cb({
+        getRepository: (entity: any) => {
+          if (entity === User) return userRepo;
+          if (entity === Buyer) return buyerRepo;
+          if (entity === SaleFolder) return folderRepo;
+          if (entity === SaleAgreement) return agreementsRepo;
+          if (entity === InterestedProfile) return profileRepo;
+          if (entity === InterestedStageHistory) return historyRepo;
+          if (entity === InterestedActivity) return activityRepo;
+          return { create: jest.fn(), save: jest.fn(), findOne: jest.fn() };
+        },
+      }),
+    );
 
     const result = await service.convertToBuyer(
       'int-1',
@@ -802,8 +842,9 @@ describe('InterestedService', () => {
       { id: 'user-1', role: 'admin', companyId: 'company-1' },
     );
 
+    expect(result.buyer).toEqual({ id: 'buyer-1' });
     expect(result.agreement).toEqual({ id: 'agr-1' });
-    expect(stageHistoryRepository.save).toHaveBeenCalled();
+    expect(historyRepo.save).toHaveBeenCalled();
   });
 
   it('should compute metrics summary and activity by agent', async () => {
@@ -980,12 +1021,46 @@ describe('InterestedService', () => {
       convertedToSaleAgreementId: null,
       phone: '1',
     });
-    const folderRepo = (service as any).saleFoldersRepository as MockRepository;
-    folderRepo.findOne!.mockResolvedValue(null);
+    const usersRepo = (service as any).usersRepository as MockRepository;
+    usersRepo.findOne!.mockResolvedValue(null);
+    jest.spyOn(bcrypt, 'genSalt').mockResolvedValue('salt' as never);
+    jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashed' as never);
+
+    dataSource.transaction.mockImplementation(async (cb) =>
+      cb({
+        getRepository: (entity: any) => {
+          if (entity === User) {
+            return {
+              create: jest.fn((data) => data),
+              save: jest.fn().mockResolvedValue({ id: 'user-2' }),
+            };
+          }
+          if (entity === Buyer) {
+            return {
+              create: jest.fn((data) => data),
+              save: jest.fn().mockResolvedValue({ id: 'buyer-2' }),
+            };
+          }
+          if (entity === SaleFolder) {
+            return {
+              findOne: jest.fn().mockResolvedValue(null),
+            };
+          }
+          return { create: jest.fn(), save: jest.fn(), findOne: jest.fn() };
+        },
+      }),
+    );
+
     await expect(
       service.convertToBuyer(
         'int-2',
-        { folderId: 'missing', totalAmount: 1 } as any,
+        {
+          folderId: 'missing',
+          totalAmount: 1,
+          installmentAmount: 1,
+          installmentCount: 1,
+          startDate: '2025-01-01',
+        } as any,
         { id: 'admin-1', role: 'admin', companyId: 'company-1' },
       ),
     ).rejects.toThrow('Sale folder not found');
@@ -1092,5 +1167,537 @@ describe('InterestedService', () => {
     expect(serviceAny.resolveSupportedLang('en-US')).toBe('en');
     expect(serviceAny.resolveSupportedLang('pt-BR')).toBe('pt');
     expect(serviceAny.resolveSupportedLang('fr-FR')).toBe('es');
+  });
+
+  it('should apply propertyTypePreference and qualificationLevel filters in findAll', async () => {
+    const qb = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    };
+    interestedRepository.createQueryBuilder!.mockReturnValue(qb as any);
+
+    await service.findAll(
+      {
+        propertyTypePreference: InterestedPropertyType.HOUSE,
+        qualificationLevel: 'mql',
+        page: 1,
+        limit: 10,
+      } as any,
+      { id: 'user-1', role: 'admin', companyId: 'company-1' },
+    );
+
+    const andWhereCalls = qb.andWhere.mock.calls.map((c: any) => c[0]);
+    expect(andWhereCalls).toContain(
+      'interested.property_type_preference = :propertyTypePreference',
+    );
+    expect(andWhereCalls).toContain(
+      'interested.qualification_level = :qualificationLevel',
+    );
+  });
+
+  it('should mapPreferenceToPropertyType for all types', () => {
+    const serviceAny = service as any;
+    expect(
+      serviceAny.mapPreferenceToPropertyType(InterestedPropertyType.HOUSE),
+    ).toBe('house');
+    expect(
+      serviceAny.mapPreferenceToPropertyType(InterestedPropertyType.COMMERCIAL),
+    ).toBe('commercial');
+    expect(
+      serviceAny.mapPreferenceToPropertyType(InterestedPropertyType.OFFICE),
+    ).toBe('office');
+    expect(
+      serviceAny.mapPreferenceToPropertyType(InterestedPropertyType.WAREHOUSE),
+    ).toBe('warehouse');
+    expect(
+      serviceAny.mapPreferenceToPropertyType(InterestedPropertyType.LAND),
+    ).toBe('land');
+    expect(
+      serviceAny.mapPreferenceToPropertyType(InterestedPropertyType.PARKING),
+    ).toBe('parking');
+    expect(
+      serviceAny.mapPreferenceToPropertyType(InterestedPropertyType.OTHER),
+    ).toBe('other');
+  });
+
+  it('should validateDuplicates with phone-only, email-only, excludeId, and no-data', async () => {
+    const serviceAny = service as any;
+
+    // no phone & no email → early return
+    await expect(
+      serviceAny.validateDuplicates('company-1'),
+    ).resolves.toBeUndefined();
+
+    // phone only
+    const qb1 = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    };
+    interestedRepository.createQueryBuilder!.mockReturnValue(qb1 as any);
+    await serviceAny.validateDuplicates('company-1', '+54111111', undefined);
+    const andWheres1 = qb1.andWhere.mock.calls.map((c: any) => c[0]);
+    expect(andWheres1).toContain('interested.phone = :phone');
+
+    // email only
+    const qb2 = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    };
+    interestedRepository.createQueryBuilder!.mockReturnValue(qb2 as any);
+    await serviceAny.validateDuplicates('company-1', undefined, 'a@b.com');
+    const andWheres2 = qb2.andWhere.mock.calls.map((c: any) => c[0]);
+    expect(andWheres2).toContain('interested.email = :email');
+
+    // with excludeId
+    const qb3 = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    };
+    interestedRepository.createQueryBuilder!.mockReturnValue(qb3 as any);
+    await serviceAny.validateDuplicates(
+      'company-1',
+      '+54111111',
+      'a@b.com',
+      'id-1',
+    );
+    const andWheres3 = qb3.andWhere.mock.calls.map((c: any) => c[0]);
+    expect(andWheres3).toContain('interested.id != :excludeId');
+
+    // duplicate found → ConflictException
+    const qb4 = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue({ id: 'dup-1' }),
+    };
+    interestedRepository.createQueryBuilder!.mockReturnValue(qb4 as any);
+    await expect(
+      serviceAny.validateDuplicates('company-1', '+54111111'),
+    ).rejects.toThrow('Potential duplicate detected');
+  });
+
+  it('should resolvePropertyOperations fallback when no operations array', () => {
+    const serviceAny = service as any;
+
+    // has both rent and sale prices
+    expect(
+      serviceAny.resolvePropertyOperations({
+        operations: null,
+        units: [{ status: 'available', baseRent: 100 }],
+        salePrice: 5000,
+      }),
+    ).toEqual(['rent', 'sale']);
+
+    // sale only
+    expect(
+      serviceAny.resolvePropertyOperations({
+        operations: null,
+        units: [],
+        salePrice: 5000,
+        rentPrice: null,
+      }),
+    ).toEqual(['sale']);
+
+    // rent only via rentPrice
+    expect(
+      serviceAny.resolvePropertyOperations({
+        operations: null,
+        units: [],
+        salePrice: null,
+        rentPrice: 1000,
+      }),
+    ).toEqual(['rent']);
+
+    // no prices → default rent
+    expect(
+      serviceAny.resolvePropertyOperations({
+        operations: null,
+        units: [],
+        salePrice: null,
+        rentPrice: null,
+      }),
+    ).toEqual(['rent']);
+
+    // explicit operations array
+    expect(
+      serviceAny.resolvePropertyOperations({
+        operations: ['sale'],
+        units: [],
+        salePrice: 5000,
+      }),
+    ).toEqual(['sale']);
+  });
+
+  it('should isOperationCompatible handle SALE operation', () => {
+    const serviceAny = service as any;
+    const saleProfile = {
+      operations: [InterestedOperation.SALE],
+      operation: InterestedOperation.SALE,
+    };
+    const saleProperty = {
+      operations: ['sale'],
+      salePrice: 100000,
+      units: [],
+      rentPrice: null,
+    };
+    expect(serviceAny.isOperationCompatible(saleProfile, saleProperty)).toBe(
+      true,
+    );
+
+    // SALE profile but property has no sale price
+    const noSaleProperty = {
+      operations: ['sale'],
+      salePrice: null,
+      units: [],
+      rentPrice: null,
+    };
+    expect(serviceAny.isOperationCompatible(saleProfile, noSaleProperty)).toBe(
+      false,
+    );
+  });
+
+  it('should getComparablePrices include sale prices', () => {
+    const serviceAny = service as any;
+    const profile = {
+      operations: [InterestedOperation.SALE],
+      operation: InterestedOperation.SALE,
+    };
+    const property = {
+      operations: ['sale'],
+      salePrice: 50000,
+      units: [],
+      rentPrice: null,
+    };
+    expect(serviceAny.getComparablePrices(profile, property)).toEqual([50000]);
+
+    // both operations
+    const bothProfile = {
+      operations: [InterestedOperation.RENT, InterestedOperation.SALE],
+      operation: InterestedOperation.RENT,
+    };
+    const bothProperty = {
+      operations: ['rent', 'sale'],
+      salePrice: 50000,
+      units: [{ status: 'available', baseRent: 1000 }],
+      rentPrice: null,
+    };
+    expect(serviceAny.getComparablePrices(bothProfile, bothProperty)).toEqual([
+      1000, 50000,
+    ]);
+  });
+
+  it('should ensureCompleteBuyerAgreementData throw on incomplete data', () => {
+    const serviceAny = service as any;
+    expect(() =>
+      serviceAny.ensureCompleteBuyerAgreementData({
+        folderId: 'f-1',
+        totalAmount: 100,
+        // missing installmentAmount, installmentCount, startDate
+      }),
+    ).toThrow('Sale agreement conversion requires');
+  });
+
+  it('should changeStage INTERESTED → TENANT without existing convertedToTenantId', async () => {
+    const profile = {
+      id: 'int-1',
+      companyId: 'company-1',
+      status: InterestedStatus.INTERESTED,
+      convertedToTenantId: null,
+      firstName: 'Juan',
+      lastName: 'Perez',
+      phone: '+54 9 11 5555-5555',
+      qualificationLevel: null,
+    } as any;
+
+    interestedRepository
+      .findOne!.mockResolvedValueOnce(profile) // changeStage → findOne
+      .mockResolvedValueOnce(profile) // convertToTenant → findOne
+      .mockResolvedValueOnce({ ...profile, status: InterestedStatus.TENANT }) // convertToTenant → final findOne
+      .mockResolvedValueOnce({ ...profile, status: InterestedStatus.TENANT }); // createActivity → findOne
+
+    const usersRepo = (service as any).usersRepository;
+    usersRepo.findOne!.mockResolvedValue(null);
+
+    jest.spyOn(bcrypt, 'genSalt').mockResolvedValue('salt' as never);
+    jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashed' as never);
+
+    const userRepo = {
+      create: jest.fn((d: any) => d),
+      save: jest.fn().mockResolvedValue({ id: 'user-1', email: 'a@b.com' }),
+    };
+    const tenantRepo = {
+      create: jest.fn((d: any) => d),
+      save: jest.fn().mockResolvedValue({ id: 'tenant-1' }),
+    };
+    const profileRepo = { save: jest.fn().mockResolvedValue({}) };
+    const historyRepo = {
+      create: jest.fn((d: any) => d),
+      save: jest.fn().mockResolvedValue({}),
+    };
+    const activityRepoTx = {
+      create: jest.fn((d: any) => d),
+      save: jest.fn().mockResolvedValue({}),
+    };
+    dataSource.transaction.mockImplementation(async (cb: any) =>
+      cb({
+        getRepository: (entity: any) => {
+          if (entity === User) return userRepo;
+          if (entity === Tenant) return tenantRepo;
+          if (entity === InterestedProfile) return profileRepo;
+          if (entity === InterestedStageHistory) return historyRepo;
+          if (entity === InterestedActivity) return activityRepoTx;
+          return { create: jest.fn(), save: jest.fn() };
+        },
+      }),
+    );
+
+    const result = await service.changeStage(
+      'int-1',
+      {
+        toStatus: InterestedStatus.TENANT,
+        reason: 'approved with note',
+      } as any,
+      { id: 'user-1', role: 'admin', companyId: 'company-1' },
+    );
+
+    expect(result.status).toBe(InterestedStatus.TENANT);
+    // reason provided → should create an activity
+    const activityRepo = (service as any).activityRepository;
+    expect(activityRepo.save).toHaveBeenCalled();
+  });
+
+  it('should changeStage INTERESTED → BUYER', async () => {
+    const profile = {
+      id: 'int-1',
+      companyId: 'company-1',
+      status: InterestedStatus.INTERESTED,
+    } as any;
+    interestedRepository.findOne!.mockResolvedValue(profile);
+    interestedRepository.save!.mockResolvedValue({
+      ...profile,
+      status: InterestedStatus.BUYER,
+    });
+    stageHistoryRepository.create!.mockImplementation((d: any) => d);
+    stageHistoryRepository.save!.mockResolvedValue({});
+
+    const result = await service.changeStage(
+      'int-1',
+      { toStatus: InterestedStatus.BUYER } as any,
+      { id: 'user-1', role: 'admin', companyId: 'company-1' },
+    );
+
+    expect(result.status).toBe(InterestedStatus.BUYER);
+    expect(stageHistoryRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toStatus: InterestedStatus.BUYER,
+      }),
+    );
+  });
+
+  it('should convertToBuyer without agreement data', async () => {
+    interestedRepository
+      .findOne!.mockResolvedValueOnce({
+        id: 'int-1',
+        companyId: 'company-1',
+        status: InterestedStatus.INTERESTED,
+        convertedToBuyerId: null,
+        convertedToSaleAgreementId: null,
+        phone: '+5491112345678',
+        firstName: 'Ana',
+        lastName: 'Diaz',
+        notes: 'notes',
+      })
+      .mockResolvedValueOnce({
+        id: 'int-1',
+        status: InterestedStatus.BUYER,
+      });
+
+    const usersRepo = (service as any).usersRepository;
+    usersRepo.findOne!.mockResolvedValue(null);
+
+    jest.spyOn(bcrypt, 'genSalt').mockResolvedValue('salt' as never);
+    jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashed' as never);
+
+    const userRepo = {
+      create: jest.fn((d: any) => d),
+      save: jest.fn().mockResolvedValue({ id: 'user-1' }),
+    };
+    const buyerRepo = {
+      create: jest.fn((d: any) => d),
+      save: jest.fn().mockResolvedValue({ id: 'buyer-1' }),
+    };
+    const profileRepo = { save: jest.fn().mockResolvedValue({}) };
+    const historyRepo = {
+      create: jest.fn((d: any) => d),
+      save: jest.fn().mockResolvedValue({}),
+    };
+    const activityRepoTx = {
+      create: jest.fn((d: any) => d),
+      save: jest.fn().mockResolvedValue({}),
+    };
+    dataSource.transaction.mockImplementation(async (cb: any) =>
+      cb({
+        getRepository: (entity: any) => {
+          if (entity === User) return userRepo;
+          if (entity === Buyer) return buyerRepo;
+          if (entity === InterestedProfile) return profileRepo;
+          if (entity === InterestedStageHistory) return historyRepo;
+          if (entity === InterestedActivity) return activityRepoTx;
+          return { create: jest.fn(), save: jest.fn(), findOne: jest.fn() };
+        },
+      }),
+    );
+
+    const result = await service.convertToBuyer('int-1', {} as any, {
+      id: 'user-1',
+      role: 'admin',
+      companyId: 'company-1',
+    });
+
+    expect(result.buyer).toEqual({ id: 'buyer-1' });
+    expect(result.agreement).toBeNull();
+  });
+
+  it('should calculateMatchScore consider zones and occupants', () => {
+    const serviceAny = service as any;
+    const profile = {
+      operations: [InterestedOperation.RENT],
+      operation: InterestedOperation.RENT,
+      propertyTypePreference: InterestedPropertyType.APARTMENT,
+      preferredCity: 'caba',
+      preferredZones: ['Palermo'],
+      minAmount: null,
+      maxAmount: null,
+      peopleCount: 2,
+      hasPets: false,
+      guaranteeTypes: [],
+      desiredFeatures: [],
+    };
+    const property = {
+      propertyType: 'apartment',
+      operations: ['rent'],
+      addressCity: 'CABA',
+      addressState: 'BA',
+      addressStreet: 'Palermo Street',
+      addressPostalCode: '1000',
+      rentPrice: 1000,
+      salePrice: null,
+      units: [],
+      maxOccupants: 3,
+      allowsPets: false,
+      acceptedGuaranteeTypes: [],
+      amenities: [],
+      features: [],
+    };
+    const score = serviceAny.calculateMatchScore(profile, property);
+    expect(score).toBeGreaterThan(0);
+
+    // not enough occupants
+    const smallProperty = { ...property, maxOccupants: 1 };
+    const score2 = serviceAny.calculateMatchScore(profile, smallProperty);
+    expect(score2).toBeLessThan(score);
+  });
+
+  it('should changeStage return same profile when toStatus equals current status', async () => {
+    const profile = {
+      id: 'int-1',
+      companyId: 'company-1',
+      status: InterestedStatus.INTERESTED,
+    };
+    interestedRepository.findOne!.mockResolvedValue(profile);
+
+    const result = await service.changeStage(
+      'int-1',
+      { toStatus: InterestedStatus.INTERESTED } as any,
+      { id: 'user-1', role: 'admin', companyId: 'company-1' },
+    );
+
+    expect(result).toEqual(profile);
+    expect(interestedRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('should t() fallback to es when non-es translation returns the key', () => {
+    const serviceAny = service as any;
+    const i18nService = serviceAny.i18n;
+    // Mock t returning key for 'en', then returning translation for 'es'
+    i18nService.t
+      .mockReturnValueOnce('some.key') // same as key → fallback
+      .mockReturnValueOnce('traducción');
+
+    jest
+      .spyOn(I18nContext, 'current')
+      .mockReturnValue({ lang: 'en' } as unknown as I18nContext<unknown>);
+
+    const result = serviceAny.t('some.key');
+    expect(result).toBe('traducción');
+    expect(i18nService.t).toHaveBeenCalledWith(
+      'some.key',
+      expect.objectContaining({ lang: 'es' }),
+    );
+
+    jest.restoreAllMocks();
+  });
+
+  it('should getAvailableRentPrice use rentPrice when set', () => {
+    const serviceAny = service as any;
+    expect(
+      serviceAny.getAvailableRentPrice({ rentPrice: 500, units: [] }),
+    ).toBe(500);
+    expect(
+      serviceAny.getAvailableRentPrice({ rentPrice: null, units: [] }),
+    ).toBeNull();
+  });
+
+  it('should hasEnoughOccupants handle null values', () => {
+    const serviceAny = service as any;
+    expect(serviceAny.hasEnoughOccupants({ peopleCount: null }, {})).toBe(true);
+    expect(
+      serviceAny.hasEnoughOccupants({ peopleCount: 2 }, { maxOccupants: null }),
+    ).toBe(true);
+    expect(
+      serviceAny.hasEnoughOccupants({ peopleCount: 5 }, { maxOccupants: 3 }),
+    ).toBe(false);
+  });
+
+  it('should isPriceInRange return false when no prices available', () => {
+    const serviceAny = service as any;
+    const profile = {
+      operations: [InterestedOperation.SALE],
+      operation: InterestedOperation.SALE,
+      minAmount: 100,
+      maxAmount: 200,
+    };
+    // no sale price set, so no comparable prices
+    const property = {
+      operations: ['sale'],
+      salePrice: null,
+      units: [],
+      rentPrice: null,
+    };
+    expect(serviceAny.isPriceInRange(profile, property)).toBe(false);
+
+    // price below min
+    const propertyLow = {
+      operations: ['sale'],
+      salePrice: 50,
+      units: [],
+      rentPrice: null,
+    };
+    expect(serviceAny.isPriceInRange(profile, propertyLow)).toBe(false);
+
+    // price above max
+    const propertyHigh = {
+      operations: ['sale'],
+      salePrice: 300,
+      units: [],
+      rentPrice: null,
+    };
+    expect(serviceAny.isPriceInRange(profile, propertyHigh)).toBe(false);
   });
 });

@@ -26,6 +26,12 @@ type LeaseAction =
   | { type: 'create' }
   | { type: 'none' };
 
+type ActionChipProps = {
+  title: string;
+  onPress: () => void;
+  testID?: string;
+};
+
 const formatAmount = (amount: number, currencyCode = 'ARS') => {
   return new Intl.NumberFormat(i18n.language || 'es', {
     style: 'currency',
@@ -101,15 +107,7 @@ const resolveLeaseAction = (
 const ownerSearchHaystack = (owner: Owner): string =>
   `${owner.firstName} ${owner.lastName} ${owner.email ?? ''} ${owner.phone ?? ''}`.toLowerCase();
 
-function ActionChip({
-  title,
-  onPress,
-  testID,
-}: {
-  title: string;
-  onPress: () => void;
-  testID?: string;
-}) {
+function ActionChip({ title, onPress, testID }: Readonly<ActionChipProps>) {
   return (
     <Pressable style={styles.actionChip} onPress={onPress} testID={testID}>
       <Text style={styles.actionChipText}>{title}</Text>
@@ -142,7 +140,7 @@ export default function PropertiesScreen() {
     () =>
       (ownersQuery.data ?? [])
         .map((owner) => owner.id)
-        .sort()
+        .sort((left, right) => left.localeCompare(right))
         .join(','),
     [ownersQuery.data],
   );

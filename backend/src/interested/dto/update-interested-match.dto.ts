@@ -5,7 +5,7 @@ import { z } from 'zod';
 const updateInterestedMatchZodSchema = z
   .object({
     status: z
-      .nativeEnum(InterestedMatchStatus)
+      .enum(InterestedMatchStatus)
       .describe(
         'suggested|contacted|visit_scheduled|accepted|rejected|expired',
       ),

@@ -29,5 +29,5 @@ export const config = {
   // Matcher that ignores internal Next.js routes and static files (we handle /health in code)
   // Must use a plain string literal. Next.js extracts matchers via static AST
   // analysis and does not support tagged template expressions (e.g. String.raw).
-  matcher: ["/((?!api|_next|_vercel|.*\\..*).*)"],
+  matcher: ["/((?!api|_next|_vercel|.*[.].*).*)"],
 };

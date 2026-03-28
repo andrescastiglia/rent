@@ -3,10 +3,9 @@
 import React, {
   createContext,
   useContext,
-  useState,
-  useEffect,
   useCallback,
   useMemo,
+  useSyncExternalStore,
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { apiClient } from "@/lib/api";
@@ -37,12 +36,88 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+type AuthSnapshot = {
+  user: User | null;
+  token: string | null;
+};
+
+const EMPTY_AUTH_SNAPSHOT: AuthSnapshot = {
+  user: null,
+  token: null,
+};
+
+const authStoreListeners = new Set<() => void>();
+
+let cachedAuthSnapshot = EMPTY_AUTH_SNAPSHOT;
+let cachedAuthToken: string | null = null;
+let cachedAuthUserJson: string | null = null;
+
+function emitAuthStoreChange() {
+  for (const listener of authStoreListeners) {
+    listener();
+  }
+}
+
+function subscribeToAuthStore(listener: () => void) {
+  authStoreListeners.add(listener);
+
+  const handleStorage = () => {
+    listener();
+  };
+
+  globalThis.addEventListener("storage", handleStorage);
+
+  return () => {
+    authStoreListeners.delete(listener);
+    globalThis.removeEventListener("storage", handleStorage);
+  };
+}
+
+function getAuthSnapshot(): AuthSnapshot {
+  const token = getToken();
+  const user = getUser() as User | null;
+  const userJson = user ? JSON.stringify(user) : null;
+
+  if (cachedAuthToken === token && cachedAuthUserJson === userJson) {
+    return cachedAuthSnapshot;
+  }
+
+  cachedAuthToken = token;
+  cachedAuthUserJson = userJson;
+  cachedAuthSnapshot = { user, token };
+
+  return cachedAuthSnapshot;
+}
+
+function getServerAuthSnapshot(): AuthSnapshot {
+  return EMPTY_AUTH_SNAPSHOT;
+}
+
+function subscribeToHydration() {
+  return () => {};
+}
+
+function getHydratedSnapshot() {
+  return true;
+}
+
+function getServerHydratedSnapshot() {
+  return false;
+}
+
 export function AuthProvider({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const [user, setUser] = useState<User | null>(() => getUser() as User | null);
-  const [token, setToken] = useState<string | null>(() => getToken());
-  const [loading] = useState(false);
+  const { user, token } = useSyncExternalStore(
+    subscribeToAuthStore,
+    getAuthSnapshot,
+    getServerAuthSnapshot,
+  );
+  const loading = !useSyncExternalStore(
+    subscribeToHydration,
+    getHydratedSnapshot,
+    getServerHydratedSnapshot,
+  );
   const router = useRouter();
   const pathname = usePathname();
 
@@ -56,17 +131,6 @@ export function AuthProvider({
     return "es"; // fallback
   }, [pathname]);
 
-  useEffect(() => {
-    // Keep state in sync if auth is updated elsewhere (e.g. login/logout in another tab).
-    const handleStorage = () => {
-      setToken(getToken());
-      setUser(getUser() as User | null);
-    };
-
-    globalThis.addEventListener("storage", handleStorage);
-    return () => globalThis.removeEventListener("storage", handleStorage);
-  }, []);
-
   const login = useCallback(
     async (credentials: LoginRequest) => {
       const response = await apiClient.post<AuthResponse>(
@@ -76,8 +140,7 @@ export function AuthProvider({
 
       saveToken(response.accessToken);
       saveUser(response.user as unknown as Record<string, unknown>);
-      setToken(response.accessToken);
-      setUser(response.user);
+      emitAuthStoreChange();
 
       const locale = getLocaleFromPath();
       router.push(`/${locale}/dashboard`);
@@ -95,15 +158,14 @@ export function AuthProvider({
 
   const logout = useCallback(() => {
     clearAuth();
-    setToken(null);
-    setUser(null);
+    emitAuthStoreChange();
     const locale = getLocaleFromPath();
     router.push(`/${locale}/login`);
   }, [getLocaleFromPath, router]);
 
   const updateUser = useCallback((nextUser: User) => {
     saveUser(nextUser as unknown as Record<string, unknown>);
-    setUser(nextUser);
+    emitAuthStoreChange();
   }, []);
 
   const contextValue = useMemo(

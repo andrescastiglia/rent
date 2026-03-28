@@ -121,17 +121,26 @@ export class TenantsService {
 
     if (name) {
       query.andWhere(
-        '(user.first_name ILIKE :name OR user.last_name ILIKE :name)',
+        `unaccent(lower(
+          coalesce(user.first_name, '') || ' ' || coalesce(user.last_name, '')
+        )) LIKE unaccent(lower(:name))`,
         { name: `%${name}%` },
       );
     }
 
     if (dni) {
-      query.andWhere('tenant.dni ILIKE :dni', { dni: `%${dni}%` });
+      query.andWhere('lower(tenant.dni) LIKE lower(:dni)', {
+        dni: `%${dni}%`,
+      });
     }
 
     if (email) {
-      query.andWhere('user.email ILIKE :email', { email: `%${email}%` });
+      query.andWhere(
+        "unaccent(lower(coalesce(user.email, ''))) LIKE unaccent(lower(:email))",
+        {
+          email: `%${email}%`,
+        },
+      );
     }
 
     query.skip((page - 1) * limit).take(limit);

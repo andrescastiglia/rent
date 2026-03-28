@@ -4,6 +4,7 @@ import { z } from 'zod';
 const updateLeaseDraftTextZodSchema = z
   .object({
     draftText: z.string(),
+    draftFormat: z.enum(['plain_text', 'html']).optional(),
   })
   .strict();
 
@@ -12,4 +13,7 @@ export class UpdateLeaseDraftTextDto {
 
   @IsString()
   draftText: string;
+
+  @IsString()
+  draftFormat?: 'plain_text' | 'html';
 }

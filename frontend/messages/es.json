@@ -963,6 +963,7 @@
     "notFound": "Pago no encontrado",
     "amount": "Monto",
     "date": "Fecha",
+    "paymentStatus": "Estado del Pago",
     "lateFee": "Mora",
     "reference": "Referencia",
     "referencePlaceholder": "ej. TRF-12345",

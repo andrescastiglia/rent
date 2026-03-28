@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { salesApi } from "@/lib/api/sales";
+import { buyersApi } from "@/lib/api/buyers";
 import {
   SaleFolder,
   SaleAgreement,
@@ -11,6 +12,7 @@ import {
   CreateSaleAgreementInput,
   CreateSaleReceiptInput,
 } from "@/types/sales";
+import type { Buyer } from "@/types/buyer";
 import { Download, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { CurrencySelect } from "@/components/common/CurrencySelect";
@@ -23,6 +25,7 @@ export default function SalesPage() {
   const tCurrencies = useTranslations("currencies");
 
   const [folders, setFolders] = useState<SaleFolder[]>([]);
+  const [buyers, setBuyers] = useState<Buyer[]>([]);
   const [agreements, setAgreements] = useState<SaleAgreement[]>([]);
   const [receipts, setReceipts] = useState<Record<string, SaleReceipt[]>>({});
   const [loading, setLoading] = useState(true);
@@ -34,8 +37,7 @@ export default function SalesPage() {
 
   const [agreementForm, setAgreementForm] = useState<CreateSaleAgreementInput>({
     folderId: "",
-    buyerName: "",
-    buyerPhone: "",
+    buyerId: "",
     totalAmount: 0,
     currency: "ARS",
     installmentAmount: 0,
@@ -56,11 +58,13 @@ export default function SalesPage() {
 
   const loadData = async () => {
     try {
-      const [foldersData, agreementsData] = await Promise.all([
+      const [foldersData, buyersData, agreementsData] = await Promise.all([
         salesApi.getFolders(),
+        buyersApi.getAll({ limit: 100 }),
         salesApi.getAgreements(),
       ]);
       setFolders(foldersData);
+      setBuyers(buyersData);
       setAgreements(agreementsData);
       const receiptsMap: Record<string, SaleReceipt[]> = {};
       await Promise.all(
@@ -77,7 +81,7 @@ export default function SalesPage() {
     }
   };
 
-  const handleCreateFolder = async (event: React.FormEvent) => {
+  const handleCreateFolder = async (event: React.SyntheticEvent) => {
     event.preventDefault();
     if (!folderForm.name.trim()) return;
     try {
@@ -92,22 +96,19 @@ export default function SalesPage() {
     }
   };
 
-  const handleCreateAgreement = async (event: React.FormEvent) => {
+  const handleCreateAgreement = async (event: React.SyntheticEvent) => {
     event.preventDefault();
-    if (!agreementForm.folderId) return;
+    if (!agreementForm.folderId || !agreementForm.buyerId) return;
     try {
       const created = await salesApi.createAgreement({
         ...agreementForm,
-        buyerName: agreementForm.buyerName.trim(),
-        buyerPhone: agreementForm.buyerPhone.trim(),
         notes: agreementForm.notes?.trim() || undefined,
         currency: agreementForm.currency || "ARS",
       });
       setAgreements((prev) => [created, ...prev]);
       setAgreementForm({
         folderId: agreementForm.folderId,
-        buyerName: "",
-        buyerPhone: "",
+        buyerId: "",
         totalAmount: 0,
         currency: "ARS",
         installmentAmount: 0,
@@ -250,30 +251,26 @@ export default function SalesPage() {
               ))}
             </select>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <input
-                type="text"
-                placeholder={t("agreements.buyerName")}
-                value={agreementForm.buyerName}
+              <select
+                value={agreementForm.buyerId}
                 onChange={(e) =>
                   setAgreementForm((prev) => ({
                     ...prev,
-                    buyerName: e.target.value,
+                    buyerId: e.target.value,
                   }))
                 }
                 className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-              />
-              <input
-                type="text"
-                placeholder={t("agreements.buyerPhone")}
-                value={agreementForm.buyerPhone}
-                onChange={(e) =>
-                  setAgreementForm((prev) => ({
-                    ...prev,
-                    buyerPhone: e.target.value,
-                  }))
-                }
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-              />
+              >
+                <option value="">{t("agreements.buyerName")}</option>
+                {buyers.map((buyer) => (
+                  <option key={buyer.id} value={buyer.id}>
+                    {`${buyer.firstName ?? ""} ${buyer.lastName ?? ""}`.trim() ||
+                      buyer.email ||
+                      buyer.phone ||
+                      buyer.id}
+                  </option>
+                ))}
+              </select>
               <input
                 type="number"
                 min="0"

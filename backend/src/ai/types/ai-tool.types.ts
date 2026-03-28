@@ -1,4 +1,4 @@
-import { ZodTypeAny } from 'zod';
+import type { ZodType } from 'zod';
 import { UserRole } from '../../users/entities/user.entity';
 
 export type AiToolsMode = 'NONE' | 'READONLY' | 'FULL';
@@ -11,7 +11,7 @@ export interface AiExecutionContext {
   role: UserRole;
 }
 
-export interface AiToolDefinition<TSchema extends ZodTypeAny = ZodTypeAny> {
+export interface AiToolDefinition<TSchema extends ZodType = ZodType> {
   name: string;
   description: string;
   responseDescription?: string;

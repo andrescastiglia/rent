@@ -5,6 +5,8 @@ import { useAuth } from "@/contexts/auth-context";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { ShieldX, Loader2 } from "lucide-react";
+import type { UserModulePermissionKey } from "@/types/auth";
+import { hasModuleAccess } from "@/lib/permissions";
 
 /**
  * Props for the RoleGuard component.
@@ -12,6 +14,8 @@ import { ShieldX, Loader2 } from "lucide-react";
 interface RoleGuardProps {
   /** List of roles that are allowed to access the content */
   readonly allowedRoles: string[];
+  /** Optional module permission required for staff users */
+  readonly requiredModule?: UserModulePermissionKey;
   /** Content to render if access is granted */
   readonly children: React.ReactNode;
   /** Optional: redirect to this path if access denied (defaults to showing message) */
@@ -27,6 +31,7 @@ interface RoleGuardProps {
  */
 export function RoleGuard({
   allowedRoles,
+  requiredModule,
   children,
   redirectTo,
 }: RoleGuardProps) {
@@ -50,7 +55,9 @@ export function RoleGuard({
   }
 
   // Check if user's role is allowed
-  const hasAccess = allowedRoles.includes(user.role);
+  const hasAccess =
+    allowedRoles.includes(user.role) &&
+    hasModuleAccess(user.role, user.permissions, requiredModule);
 
   if (!hasAccess) {
     // If redirectTo is specified, redirect

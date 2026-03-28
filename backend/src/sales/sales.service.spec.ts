@@ -5,6 +5,7 @@ import { SalesService } from './sales.service';
 import { SaleFolder } from './entities/sale-folder.entity';
 import { SaleAgreement } from './entities/sale-agreement.entity';
 import { SaleReceipt } from './entities/sale-receipt.entity';
+import { Buyer } from '../buyers/entities/buyer.entity';
 import { SaleReceiptPdfService } from './sale-receipt-pdf.service';
 import {
   BadRequestException,
@@ -17,6 +18,7 @@ describe('SalesService', () => {
   let foldersRepository: MockRepository<SaleFolder>;
   let agreementsRepository: MockRepository<SaleAgreement>;
   let receiptsRepository: MockRepository<SaleReceipt>;
+  let buyersRepository: MockRepository<Buyer>;
   let receiptPdfService: Partial<SaleReceiptPdfService>;
 
   type MockRepository<T extends Record<string, any> = any> = Partial<
@@ -52,6 +54,10 @@ describe('SalesService', () => {
           provide: getRepositoryToken(SaleReceipt),
           useValue: createMockRepository(),
         },
+        {
+          provide: getRepositoryToken(Buyer),
+          useValue: createMockRepository(),
+        },
         { provide: SaleReceiptPdfService, useValue: receiptPdfService },
       ],
     }).compile();
@@ -60,6 +66,7 @@ describe('SalesService', () => {
     foldersRepository = module.get(getRepositoryToken(SaleFolder));
     agreementsRepository = module.get(getRepositoryToken(SaleAgreement));
     receiptsRepository = module.get(getRepositoryToken(SaleReceipt));
+    buyersRepository = module.get(getRepositoryToken(Buyer));
   });
 
   it('createFolder requires company scope', async () => {
@@ -113,6 +120,14 @@ describe('SalesService', () => {
 
   it('createAgreement saves entity with default due day and currency', async () => {
     foldersRepository.findOne!.mockResolvedValue({ id: 'f1' });
+    buyersRepository.findOne!.mockResolvedValue({
+      id: 'buyer-1',
+      user: {
+        firstName: 'Ana',
+        lastName: 'Buyer',
+        phone: '123',
+      },
+    });
     agreementsRepository.create!.mockReturnValue({ id: 'a1' });
     agreementsRepository.save!.mockResolvedValue({ id: 'a1' });
 
@@ -120,8 +135,7 @@ describe('SalesService', () => {
       service.createAgreement(
         {
           folderId: 'f1',
-          buyerName: 'Ana',
-          buyerPhone: '123',
+          buyerId: 'buyer-1',
           totalAmount: 1000,
           installmentAmount: 100,
           installmentCount: 10,
@@ -134,10 +148,32 @@ describe('SalesService', () => {
     expect(agreementsRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         companyId: 'c1',
+        buyerId: 'buyer-1',
+        buyerName: 'Ana Buyer',
+        buyerPhone: '123',
         currency: 'ARS',
         dueDay: 10,
       }),
     );
+  });
+
+  it('createAgreement rejects when buyer does not exist', async () => {
+    foldersRepository.findOne!.mockResolvedValue({ id: 'f1' });
+    buyersRepository.findOne!.mockResolvedValue(null);
+
+    await expect(
+      service.createAgreement(
+        {
+          folderId: 'f1',
+          buyerId: 'missing-buyer',
+          totalAmount: 1000,
+          installmentAmount: 100,
+          installmentCount: 10,
+          startDate: '2024-01-01',
+        } as any,
+        { companyId: 'c1' },
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('listAgreements builds query and supports folder filter', async () => {
@@ -189,6 +225,7 @@ describe('SalesService', () => {
       id: 'agr-1',
       companyId: 'company-1',
       folderId: 'folder-1',
+      buyerId: 'buyer-1',
       buyerName: 'Ana',
       buyerPhone: '123',
       totalAmount: 1000,
@@ -248,6 +285,7 @@ describe('SalesService', () => {
   it('createReceipt keeps flow when pdf generation fails', async () => {
     const agreement = {
       id: 'agr-2',
+      buyerId: 'buyer-2',
       totalAmount: 500,
       installmentAmount: 100,
       installmentCount: 5,

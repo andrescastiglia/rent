@@ -1,6 +1,7 @@
 import { apiClient } from '@/api/client';
 import { IS_MOCK_MODE } from '@/api/env';
 import { createAndShareMockPdf, downloadAndSharePdf } from '@/api/pdf';
+import type { Buyer } from '@/types/buyer';
 import type {
   CreateLeaseInput,
   Lease,
@@ -26,6 +27,7 @@ type BackendLease = {
   id: string;
   propertyId?: string | null;
   tenantId?: string | null;
+  buyerId?: string | null;
   ownerId: string;
   contractType?: 'rental' | 'sale' | null;
   startDate?: string | Date | null;
@@ -37,7 +39,9 @@ type BackendLease = {
   status?: string | null;
   termsAndConditions?: string | null;
   draftContractText?: string | null;
+  draftContractFormat?: 'plain_text' | 'html' | null;
   confirmedContractText?: string | null;
+  confirmedContractFormat?: 'plain_text' | 'html' | null;
   confirmedAt?: string | Date | null;
   templateId?: string | null;
   templateName?: string | null;
@@ -46,6 +50,20 @@ type BackendLease = {
   renewalAlertCustomDays?: number | null;
   renewalAlertLastSentAt?: string | Date | null;
   documents?: string[] | null;
+  buyer?: {
+    id: string;
+    userId?: string | null;
+    companyId?: string | null;
+    interestedProfileId?: string | null;
+    dni?: string | null;
+    notes?: string | null;
+    user?: {
+      firstName?: string | null;
+      lastName?: string | null;
+      email?: string | null;
+      phone?: string | null;
+    } | null;
+  } | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;
 };
@@ -55,6 +73,7 @@ type BackendTemplate = {
   name: string;
   contractType: 'rental' | 'sale';
   templateBody: string;
+  templateFormat?: 'plain_text' | 'html' | null;
   isActive: boolean;
   createdAt?: string | Date;
   updatedAt?: string | Date;
@@ -91,6 +110,7 @@ let MOCK_TEMPLATES: LeaseTemplate[] = [
     contractType: 'rental',
     templateBody:
       'Contrato de alquiler de {{property.name}} para {{tenant.fullName}}',
+    templateFormat: 'plain_text',
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -101,6 +121,7 @@ let MOCK_TEMPLATES: LeaseTemplate[] = [
     contractType: 'sale',
     templateBody:
       'Contrato de compraventa de {{property.name}} para {{buyer.fullName}}',
+    templateFormat: 'plain_text',
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -121,10 +142,32 @@ const mapStatus = (value?: string | null): LeaseStatus => {
   }
 };
 
+const mapBuyer = (raw: BackendLease): Buyer | undefined => {
+  if (!raw.buyer) {
+    return undefined;
+  }
+
+  return {
+    id: raw.buyer.id,
+    userId: raw.buyer.userId ?? undefined,
+    companyId: raw.buyer.companyId ?? undefined,
+    interestedProfileId: raw.buyer.interestedProfileId ?? null,
+    firstName: raw.buyer.user?.firstName ?? '',
+    lastName: raw.buyer.user?.lastName ?? '',
+    email: raw.buyer.user?.email ?? null,
+    phone: raw.buyer.user?.phone ?? null,
+    dni: raw.buyer.dni ?? null,
+    notes: raw.buyer.notes ?? null,
+    createdAt: toIso(raw.createdAt),
+    updatedAt: toIso(raw.updatedAt),
+  };
+};
+
 const mapLease = (raw: BackendLease): Lease => ({
   id: raw.id,
   propertyId: raw.propertyId ?? '',
   tenantId: raw.tenantId ?? undefined,
+  buyerId: raw.buyerId ?? undefined,
   ownerId: raw.ownerId,
   contractType: raw.contractType ?? 'rental',
   startDate: raw.startDate ? toIso(raw.startDate) : undefined,
@@ -136,7 +179,9 @@ const mapLease = (raw: BackendLease): Lease => ({
   status: mapStatus(raw.status),
   terms: raw.termsAndConditions ?? undefined,
   draftContractText: raw.draftContractText ?? undefined,
+  draftContractFormat: raw.draftContractFormat ?? undefined,
   confirmedContractText: raw.confirmedContractText ?? undefined,
+  confirmedContractFormat: raw.confirmedContractFormat ?? undefined,
   confirmedAt: raw.confirmedAt ? toIso(raw.confirmedAt) : undefined,
   templateId: raw.templateId ?? undefined,
   templateName: raw.templateName ?? undefined,
@@ -148,6 +193,7 @@ const mapLease = (raw: BackendLease): Lease => ({
   renewalAlertLastSentAt: raw.renewalAlertLastSentAt
     ? toIso(raw.renewalAlertLastSentAt)
     : null,
+  buyer: mapBuyer(raw),
   documents: Array.isArray(raw.documents) ? raw.documents : [],
   createdAt: toIso(raw.createdAt),
   updatedAt: toIso(raw.updatedAt),
@@ -158,6 +204,7 @@ const mapTemplate = (raw: BackendTemplate): LeaseTemplate => ({
   name: raw.name,
   contractType: raw.contractType,
   templateBody: raw.templateBody,
+  templateFormat: raw.templateFormat ?? 'plain_text',
   isActive: raw.isActive,
   createdAt: toIso(raw.createdAt),
   updatedAt: toIso(raw.updatedAt),
@@ -166,7 +213,7 @@ const mapTemplate = (raw: BackendTemplate): LeaseTemplate => ({
 const toCreatePayload = (value: CreateLeaseInput) => ({
   propertyId: value.propertyId,
   tenantId: value.tenantId,
-  buyerProfileId: value.buyerProfileId,
+  buyerId: value.buyerId,
   ownerId: value.ownerId,
   templateId: value.templateId,
   contractType: value.contractType,
@@ -202,7 +249,7 @@ const toUpdatePayload = (value: UpdateLeaseInput) => ({
   ...toCreatePayload({
     propertyId: value.propertyId ?? '',
     tenantId: value.tenantId,
-    buyerProfileId: value.buyerProfileId,
+    buyerId: value.buyerId,
     ownerId: value.ownerId,
     templateId: value.templateId,
     contractType: value.contractType ?? 'rental',
@@ -289,7 +336,7 @@ export const leasesApi = {
         id: `lease-${Date.now()}`,
         propertyId: payload.propertyId,
         tenantId: payload.tenantId,
-        buyerProfileId: payload.buyerProfileId,
+        buyerId: payload.buyerId,
         ownerId: payload.ownerId ?? 'owner-1',
         templateId: payload.templateId,
         contractType: payload.contractType,
@@ -386,6 +433,7 @@ export const leasesApi = {
     name: string;
     contractType: Lease['contractType'];
     templateBody: string;
+    templateFormat?: LeaseTemplate['templateFormat'];
     isActive?: boolean;
   }): Promise<LeaseTemplate> {
     if (IS_MOCK_MODE) {
@@ -394,6 +442,7 @@ export const leasesApi = {
         name: data.name,
         contractType: data.contractType,
         templateBody: data.templateBody,
+        templateFormat: data.templateFormat ?? 'plain_text',
         isActive: data.isActive ?? true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -466,6 +515,7 @@ export const leasesApi = {
       lease.templateId = template.id;
       lease.templateName = template.name;
       lease.draftContractText = template.templateBody;
+      lease.draftContractFormat = template.templateFormat;
       lease.updatedAt = new Date().toISOString();
       return lease;
     }
@@ -477,7 +527,11 @@ export const leasesApi = {
     return mapLease(result);
   },
 
-  async updateDraftText(id: string, draftText: string): Promise<Lease> {
+  async updateDraftText(
+    id: string,
+    draftText: string,
+    draftFormat: Lease['draftContractFormat'] = 'plain_text',
+  ): Promise<Lease> {
     if (IS_MOCK_MODE) {
       const lease = MOCK_LEASES.find((item) => item.id === id);
       if (!lease) {
@@ -485,18 +539,23 @@ export const leasesApi = {
       }
 
       lease.draftContractText = draftText;
+      lease.draftContractFormat = draftFormat;
       lease.updatedAt = new Date().toISOString();
       return lease;
     }
 
     const result = await apiClient.patch<BackendLease>(
       `/leases/${id}/draft-text`,
-      { draftText },
+      { draftText, draftFormat },
     );
     return mapLease(result);
   },
 
-  async confirmDraft(id: string, finalText?: string): Promise<Lease> {
+  async confirmDraft(
+    id: string,
+    finalText?: string,
+    finalFormat: Lease['draftContractFormat'] = 'plain_text',
+  ): Promise<Lease> {
     if (IS_MOCK_MODE) {
       const lease = MOCK_LEASES.find((item) => item.id === id);
       if (!lease) {
@@ -506,12 +565,15 @@ export const leasesApi = {
       lease.status = 'ACTIVE';
       lease.confirmedAt = new Date().toISOString();
       lease.confirmedContractText = finalText ?? lease.draftContractText;
+      lease.draftContractFormat = finalFormat;
+      lease.confirmedContractFormat = finalFormat;
       lease.updatedAt = new Date().toISOString();
       return lease;
     }
 
     const result = await apiClient.post<BackendLease>(`/leases/${id}/confirm`, {
       finalText,
+      finalFormat,
     });
     return mapLease(result);
   },

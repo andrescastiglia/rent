@@ -26,6 +26,13 @@ import type {
 
 type OperationFilter = 'all' | InterestedOperation;
 type StatusFilter = 'all' | InterestedStatus;
+type ActionChipProps = Readonly<{
+  title: string;
+  onPress: () => void;
+  variant?: 'primary' | 'secondary';
+  disabled?: boolean;
+  testID?: string;
+}>;
 
 const getDisplayName = (profile: InterestedProfile) => {
   const fullName =
@@ -57,19 +64,32 @@ const formatDate = (value: string) => {
   return parsed.toLocaleString(i18n.language || 'es');
 };
 
+const getMatchSummary = (match: InterestedMatch, t: (key: string) => string) =>
+  `${t('interested.operations.rent')}: ${formatMoney(match.property?.rentPrice)} · ${t('interested.operations.sale')}: ${formatMoney(match.property?.salePrice)}`;
+
+const getMatchStatusLabel = (
+  match: InterestedMatch,
+  t: (key: string) => string,
+) => {
+  const statusKey = `interested.matchStatus.${match.status}`;
+  return `${t('dashboard.activity.columns.status')}: ${t(statusKey)}`;
+};
+
+const getActivitySummary = (
+  activity: InterestedSummary['activities'][number],
+  t: (key: string) => string,
+) => {
+  const activityKey = `interested.activityTypes.${activity.type}`;
+  return `${t(activityKey)} · ${formatDate(activity.createdAt)}`;
+};
+
 function ActionChip({
   title,
   onPress,
   variant = 'primary',
   disabled,
   testID,
-}: {
-  title: string;
-  onPress: () => void;
-  variant?: 'primary' | 'secondary';
-  disabled?: boolean;
-  testID?: string;
-}) {
+}: ActionChipProps) {
   return (
     <Pressable
       style={[
@@ -264,9 +284,7 @@ export default function InterestedScreen() {
 
       {interestedQuery.isLoading ? <ActivityIndicator /> : null}
       {interestedQuery.error ? (
-        <Text style={styles.error}>
-          {(interestedQuery.error as Error).message}
-        </Text>
+        <Text style={styles.error}>{interestedQuery.error.message}</Text>
       ) : null}
 
       <View style={styles.list}>
@@ -365,11 +383,11 @@ export default function InterestedScreen() {
                                   </Text>
                                 ) : null}
                                 <Text style={styles.detail}>
-                                  {`${t('interested.operations.rent')}: ${formatMoney(match.property?.rentPrice)} · ${t('interested.operations.sale')}: ${formatMoney(match.property?.salePrice)}`}
+                                  {getMatchSummary(match, t)}
                                 </Text>
-                                <Text
-                                  style={styles.detail}
-                                >{`${t('dashboard.activity.columns.status')}: ${t(`interested.matchStatus.${match.status}`)}`}</Text>
+                                <Text style={styles.detail}>
+                                  {getMatchStatusLabel(match, t)}
+                                </Text>
                                 <View style={styles.actionsRow}>
                                   <ActionChip
                                     title={
@@ -418,9 +436,9 @@ export default function InterestedScreen() {
                                   )}
                                 </Text>
                               </View>
-                              <Text
-                                style={styles.detail}
-                              >{`${t(`interested.activityTypes.${activity.type}`)} · ${formatDate(activity.createdAt)}`}</Text>
+                              <Text style={styles.detail}>
+                                {getActivitySummary(activity, t)}
+                              </Text>
                               {activity.body ? (
                                 <Text style={styles.detail}>
                                   {activity.body}

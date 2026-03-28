@@ -80,7 +80,7 @@ export class UsersController {
       changePasswordDto.currentPassword,
       changePasswordDto.newPassword,
     );
-    return { message: await i18n.t('user.passwordChanged') };
+    return { message: i18n.t('user.passwordChanged') };
   }
 
   @Get(':id')
@@ -123,7 +123,7 @@ export class UsersController {
   ) {
     const result = await this.usersService.resetPassword(id, dto.newPassword);
     return {
-      message: await i18n.t('user.passwordChanged'),
+      message: i18n.t('user.passwordChanged'),
       temporaryPassword: result.temporaryPassword,
     };
   }
@@ -132,6 +132,6 @@ export class UsersController {
   @Roles(UserRole.ADMIN)
   async remove(@Param('id') id: string, @I18n() i18n: I18nContext) {
     await this.usersService.remove(id);
-    return { message: await i18n.t('user.deleted') };
+    return { message: i18n.t('user.deleted') };
   }
 }

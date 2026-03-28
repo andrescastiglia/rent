@@ -10,7 +10,10 @@ export default function LeasesLayout({
 }) {
   return (
     <MainLayout>
-      <RoleGuard allowedRoles={["admin", "owner", "tenant", "staff"]}>
+      <RoleGuard
+        allowedRoles={["admin", "owner", "tenant", "staff"]}
+        requiredModule="leases"
+      >
         {children}
       </RoleGuard>
     </MainLayout>

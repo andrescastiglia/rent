@@ -15,15 +15,13 @@ import { tenantsApi } from '@/api/tenants';
 import { Screen } from '@/components/screen';
 import { H1 } from '@/components/ui';
 
-function ActionChip({
-  title,
-  onPress,
-  testID,
-}: {
+type ActionChipProps = Readonly<{
   title: string;
   onPress: () => void;
   testID?: string;
-}) {
+}>;
+
+function ActionChip({ title, onPress, testID }: ActionChipProps) {
   return (
     <Pressable style={styles.actionChip} onPress={onPress} testID={testID}>
       <Text style={styles.actionChipText}>{title}</Text>
@@ -92,9 +90,7 @@ export default function TenantsScreen() {
 
       {tenantsQuery.isLoading ? <ActivityIndicator /> : null}
       {tenantsQuery.error ? (
-        <Text style={styles.error}>
-          {(tenantsQuery.error as Error).message}
-        </Text>
+        <Text style={styles.error}>{tenantsQuery.error.message}</Text>
       ) : null}
 
       <View style={styles.list}>

@@ -65,7 +65,7 @@ export class CreditNotePdfService {
     invoice: Invoice,
     lang: string,
   ): Promise<Buffer> {
-    const title = await this.i18n.t('creditNote.header', { lang });
+    const title = this.i18n.t('creditNote.header', { lang });
     const context = this.buildTemplateContext(creditNote, invoice);
     const rendered = renderDocumentTemplate(templateBody, context);
     return generateCustomDocumentPdf(

@@ -6,10 +6,11 @@ import { resourceFromAttributes } from "@opentelemetry/resources";
 import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
 import { WebTracerProvider } from "@opentelemetry/sdk-trace-web";
 import {
-  SEMRESATTRS_DEPLOYMENT_ENVIRONMENT,
-  SEMRESATTRS_SERVICE_NAME,
-  SEMRESATTRS_SERVICE_VERSION,
+  ATTR_SERVICE_NAME,
+  ATTR_SERVICE_VERSION,
 } from "@opentelemetry/semantic-conventions";
+
+const ATTR_DEPLOYMENT_ENVIRONMENT_NAME = "deployment.environment.name";
 
 declare global {
   interface Window {
@@ -50,11 +51,11 @@ function resolveTraceExporterUrl(): string | undefined {
     return undefined;
   }
 
-  return `${endpoint.replace(/\/$/, "")}/v1/traces`;
+  return `${endpoint.replaceAll(/\/$/, "")}/v1/traces`;
 }
 
 function resolvePropagationTargets(): Array<string | RegExp> {
-  const targets = [window.location.origin];
+  const targets = [globalThis.location.origin];
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   if (apiUrl) {
     try {
@@ -67,7 +68,10 @@ function resolvePropagationTargets(): Array<string | RegExp> {
 }
 
 export function initOtel(): void {
-  if (typeof window === "undefined" || window.__rentOtelInitialized) {
+  if (
+    globalThis.window === undefined ||
+    globalThis.window.__rentOtelInitialized
+  ) {
     return;
   }
 
@@ -86,13 +90,13 @@ export function initOtel(): void {
 
   const provider = new WebTracerProvider({
     resource: resourceFromAttributes({
-      [SEMRESATTRS_SERVICE_NAME]:
+      [ATTR_SERVICE_NAME]:
         process.env.NEXT_PUBLIC_OTEL_SERVICE_NAME || "rent-frontend-web",
-      [SEMRESATTRS_SERVICE_VERSION]:
+      [ATTR_SERVICE_VERSION]:
         process.env.NEXT_PUBLIC_APP_VERSION ||
         process.env.npm_package_version ||
         "0.1.0",
-      [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]:
+      [ATTR_DEPLOYMENT_ENVIRONMENT_NAME]:
         process.env.NEXT_PUBLIC_OTEL_ENVIRONMENT ||
         process.env.NODE_ENV ||
         "development",
@@ -122,5 +126,5 @@ export function initOtel(): void {
     ],
   });
 
-  window.__rentOtelInitialized = true;
+  globalThis.window.__rentOtelInitialized = true;
 }

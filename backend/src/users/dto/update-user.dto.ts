@@ -1,9 +1,10 @@
-import { IsEmail, IsIn, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsIn, IsObject, IsOptional, IsString } from 'class-validator';
+import { UserModulePermissions } from '../entities/user.entity';
 import { z } from 'zod';
 
 const updateUserZodSchema = z
   .object({
-    email: z.string().email().optional(),
+    email: z.email().optional(),
     firstName: z.string().min(1).optional(),
     lastName: z.string().min(1).optional(),
     phone: z.string().min(1).optional(),
@@ -12,6 +13,7 @@ const updateUserZodSchema = z
       .enum(['es', 'en', 'pt'])
       .optional()
       .describe('User interface language: es|en|pt'),
+    permissions: z.record(z.string(), z.boolean()).optional(),
   })
   .strict();
 
@@ -42,4 +44,8 @@ export class UpdateUserDto {
   @IsIn(['es', 'en', 'pt'])
   @IsOptional()
   language?: string;
+
+  @IsObject()
+  @IsOptional()
+  permissions?: UserModulePermissions;
 }

@@ -158,7 +158,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit.logs(created_at DESC)
 CREATE TYPE plan_type AS ENUM ('free', 'basic', 'premium', 'enterprise');
 
 -- User roles
-CREATE TYPE user_role AS ENUM ('admin', 'owner', 'tenant', 'staff');
+CREATE TYPE user_role AS ENUM ('admin', 'owner', 'tenant', 'staff', 'buyer');
 
 -- Tenant employment status
 CREATE TYPE employment_status AS ENUM (
@@ -424,7 +424,7 @@ COMMENT ON TABLE currencies IS 'Supported currencies for multi-currency support'
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     company_id UUID REFERENCES companies(id) ON DELETE CASCADE DEFAULT '00000000-0000-0000-0000-000000000001',
-    email VARCHAR(255) NOT NULL,
+    email VARCHAR(255),
     password_hash VARCHAR(255) NOT NULL,
     role user_role NOT NULL,
     language VARCHAR(8) DEFAULT 'es',
@@ -433,6 +433,7 @@ CREATE TABLE users (
     phone VARCHAR(50),
     avatar_url VARCHAR(500),
     is_active BOOLEAN DEFAULT TRUE,
+    permissions JSONB DEFAULT '{}',
     email_verified BOOLEAN DEFAULT FALSE,
     email_verified_at TIMESTAMPTZ,
     last_login_at TIMESTAMPTZ,
@@ -608,6 +609,7 @@ CREATE TABLE interested_profiles (
     consent_contact BOOLEAN NOT NULL DEFAULT FALSE,
     consent_recorded_at TIMESTAMPTZ,
     converted_to_tenant_id UUID REFERENCES tenants(id),
+    converted_to_buyer_id UUID,
     converted_to_sale_agreement_id UUID,
     notes TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -636,6 +638,39 @@ CREATE TRIGGER update_interested_profiles_updated_at
     BEFORE UPDATE ON interested_profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 COMMENT ON TABLE interested_profiles IS 'Interested profiles for matching properties';
+
+-- -----------------------------------------------------------------------------
+-- Buyers
+-- -----------------------------------------------------------------------------
+CREATE TABLE buyers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    interested_profile_id UUID REFERENCES interested_profiles(id) ON DELETE SET NULL,
+    dni VARCHAR(50),
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ,
+    CONSTRAINT buyers_user_unique UNIQUE (user_id),
+    CONSTRAINT buyers_interested_profile_unique UNIQUE (interested_profile_id)
+);
+
+CREATE INDEX idx_buyers_company ON buyers(company_id);
+CREATE INDEX idx_buyers_user ON buyers(user_id);
+CREATE INDEX idx_buyers_interested_profile ON buyers(interested_profile_id);
+CREATE INDEX idx_buyers_deleted ON buyers(deleted_at) WHERE deleted_at IS NULL;
+
+CREATE TRIGGER update_buyers_updated_at
+    BEFORE UPDATE ON buyers FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE buyers IS 'Buyers with dedicated external access and CRM linkage';
+
+ALTER TABLE interested_profiles
+    ADD CONSTRAINT interested_profiles_converted_to_buyer_fk
+    FOREIGN KEY (converted_to_buyer_id)
+    REFERENCES buyers(id)
+    ON DELETE SET NULL;
 
 -- -----------------------------------------------------------------------------
 -- Staff (Maintenance and support staff)
@@ -1158,6 +1193,9 @@ CREATE TABLE lease_contract_templates (
     name VARCHAR(120) NOT NULL,
     contract_type contract_type NOT NULL,
     template_body TEXT NOT NULL,
+    template_format VARCHAR(20) NOT NULL DEFAULT 'plain_text',
+    source_file_name VARCHAR(255),
+    source_mime_type VARCHAR(120),
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1177,7 +1215,7 @@ CREATE TABLE leases (
     company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
     property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-    buyer_profile_id UUID REFERENCES interested_profiles(id) ON DELETE SET NULL,
+    buyer_id UUID REFERENCES buyers(id) ON DELETE SET NULL,
     owner_id UUID NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
     lease_number VARCHAR(50),
     contract_type contract_type NOT NULL DEFAULT 'rental',
@@ -1216,7 +1254,9 @@ CREATE TABLE leases (
     template_id UUID REFERENCES lease_contract_templates(id),
     template_name VARCHAR(120),
     draft_contract_text TEXT,
+    draft_contract_format VARCHAR(20),
     confirmed_contract_text TEXT,
+    confirmed_contract_format VARCHAR(20),
     confirmed_at TIMESTAMPTZ,
     previous_lease_id UUID REFERENCES leases(id),
     version_number INTEGER NOT NULL DEFAULT 1,
@@ -1244,7 +1284,7 @@ CREATE TABLE leases (
          AND monthly_rent IS NOT NULL)
         OR
         (contract_type = 'sale'
-         AND buyer_profile_id IS NOT NULL
+         AND buyer_id IS NOT NULL
          AND fiscal_value IS NOT NULL)
     ),
     CONSTRAINT leases_sale_specific_fields_chk CHECK (
@@ -1263,7 +1303,7 @@ CREATE TABLE leases (
 CREATE INDEX idx_leases_company ON leases(company_id);
 CREATE INDEX idx_leases_property_id ON leases(property_id);
 CREATE INDEX idx_leases_tenant ON leases(tenant_id);
-CREATE INDEX idx_leases_buyer_profile_id ON leases(buyer_profile_id);
+CREATE INDEX idx_leases_buyer_id ON leases(buyer_id);
 CREATE INDEX idx_leases_owner ON leases(owner_id);
 CREATE INDEX idx_leases_contract_type ON leases(contract_type);
 CREATE INDEX idx_leases_status ON leases(status);
@@ -1676,6 +1716,7 @@ CREATE TABLE sale_agreements (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
     folder_id UUID NOT NULL REFERENCES sale_folders(id) ON DELETE CASCADE,
+    buyer_id UUID REFERENCES buyers(id) ON DELETE SET NULL,
     buyer_name VARCHAR(200) NOT NULL,
     buyer_phone VARCHAR(50) NOT NULL,
     total_amount DECIMAL(14, 2) NOT NULL,
@@ -1693,6 +1734,7 @@ CREATE TABLE sale_agreements (
 
 CREATE INDEX idx_sale_agreements_company ON sale_agreements(company_id);
 CREATE INDEX idx_sale_agreements_folder ON sale_agreements(folder_id);
+CREATE INDEX idx_sale_agreements_buyer ON sale_agreements(buyer_id);
 CREATE INDEX idx_sale_agreements_deleted ON sale_agreements(deleted_at) WHERE deleted_at IS NULL;
 
 CREATE TRIGGER update_sale_agreements_updated_at
@@ -2200,7 +2242,20 @@ ON CONFLICT (code) DO NOTHING;
 -- =============================================================================
 
 -- Sample Company
-INSERT INTO companies (id, name, legal_name, tax_id, email, phone, country, created_at, updated_at)
+INSERT INTO companies (
+    id,
+    name,
+    legal_name,
+    tax_id,
+    email,
+    phone,
+    city,
+    state,
+    country,
+    settings,
+    created_at,
+    updated_at
+)
 VALUES (
     '11111111-1111-1111-1111-111111111111',
     'RentFlow Demo',
@@ -2208,7 +2263,10 @@ VALUES (
     '30-12345678-9',
     'admin@rentflow.demo',
     '+54 11 1234-5678',
+    'Buenos Aires',
+    'CABA',
     'Argentina',
+    '{"timezone":"America/Argentina/Buenos_Aires"}'::jsonb,
     NOW(),
     NOW()
 ) ON CONFLICT (id) DO NOTHING;
