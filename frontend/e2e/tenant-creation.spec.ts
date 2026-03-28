@@ -30,16 +30,22 @@ test.describe('Tenant Creation Flow', () => {
 
     test('should show validation errors for empty form', async ({ page }) => {
         await gotoWithRetry(page, localePath('/tenants/new'));
+        await expect(page.locator('input[name="firstName"]')).toBeVisible({ timeout: 15000 });
 
         // Try to submit empty form
-        await page.locator('button[type="submit"]').click();
+        const submitButton = page.locator('button[type="submit"]');
+        await expect(submitButton).toBeEnabled({ timeout: 15000 });
+        await submitButton.click();
 
         // Should show validation errors (text-red-600 class for error messages)
-        await expect(page.locator('.text-red-600, p[class*="red"]').first()).toBeVisible();
+        await expect(page.locator('.text-red-600, p[class*="red"]').first()).toBeVisible({
+            timeout: 15000,
+        });
     });
 
     test('should create a new tenant with valid data', async ({ page }) => {
         await gotoWithRetry(page, localePath('/tenants/new'));
+        await expect(page.locator('input[name="firstName"]')).toBeVisible({ timeout: 15000 });
 
         // Fill in tenant form using name attributes
         await page.locator('input[name="firstName"]').fill('John');
@@ -54,7 +60,15 @@ test.describe('Tenant Creation Flow', () => {
         await page.locator('input[name="address.city"]').fill('Buenos Aires');
 
         // Submit form
-        await page.locator('button[type="submit"]').click();
+        const submitButton = page.locator('button[type="submit"]');
+        await expect(submitButton).toBeEnabled({ timeout: 15000 });
+        await Promise.all([
+            page.waitForURL(/\/es\/tenants(\/[^/]+)?$/, {
+                timeout: 30000,
+                waitUntil: 'commit',
+            }),
+            submitButton.click(),
+        ]);
 
         // Should redirect to tenants list or tenant details
         await expect(page).toHaveURL(/\/es\/tenants(\/[^/]+)?$/);

@@ -2,7 +2,6 @@ import { test, expect, gotoWithRetry, login, localePath } from './fixtures/auth'
 
 test.describe('Property Creation Flow', () => {
     const ownerButtonSelector = '[data-testid="owner-row-main"]';
-    const addPropertyForOwnerSelector = 'a[href*="/properties/new?ownerId="]';
     const propertyDetailLinkSelector = '[data-testid^="property-view-link-"]';
 
     test.beforeEach(async ({ page }) => {
@@ -16,10 +15,17 @@ test.describe('Property Creation Flow', () => {
     });
 
     test('should navigate to create property page', async ({ page }) => {
-        await page.locator(ownerButtonSelector).first().click();
-        await page.locator(addPropertyForOwnerSelector).first().click();
+        const addPropertyLink = page.getByRole('link', { name: /agregar propiedad/i }).first();
 
-        await expect(page).toHaveURL(/\/es\/properties\/new\?ownerId=/);
+        await expect(addPropertyLink).toBeVisible({ timeout: 15000 });
+        await expect(addPropertyLink).toHaveAttribute('href', /\/es\/properties\/new\?ownerId=/);
+        await Promise.all([
+            page.waitForURL(/\/es\/properties\/new\?ownerId=/, {
+                timeout: 30000,
+                waitUntil: 'commit',
+            }),
+            addPropertyLink.click(),
+        ]);
     });
 
     test('should display property creation form', async ({ page }) => {

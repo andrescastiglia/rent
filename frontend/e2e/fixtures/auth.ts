@@ -187,7 +187,10 @@ export async function gotoWithRetry(
     const maxAttempts = 3;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
         try {
-            await page.goto(path, { waitUntil: 'domcontentloaded', ...(options ?? {}) });
+            await page.goto(path, {
+                waitUntil: options?.waitUntil ?? 'load',
+                ...(options ?? {}),
+            });
             return;
         } catch (error) {
             const retriable = RETRIABLE_NAVIGATION_ERROR_PATTERN.test(String(error));

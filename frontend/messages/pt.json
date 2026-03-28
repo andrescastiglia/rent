@@ -963,6 +963,7 @@
     "notFound": "Pagamento não encontrado",
     "amount": "Valor",
     "date": "Data",
+    "paymentStatus": "Status do Pagamento",
     "lateFee": "Multa",
     "reference": "Referência",
     "referencePlaceholder": "ex. TRF-12345",
