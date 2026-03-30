@@ -43,7 +43,7 @@ export default function ResetUserPasswordScreen() {
       return;
     }
     setError(null);
-    void mutation.mutateAsync(normalizedPassword);
+    mutation.mutate(normalizedPassword);
   };
 
   return (

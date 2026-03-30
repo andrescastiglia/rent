@@ -967,7 +967,7 @@ export class LeasesService {
         statuses: [LeaseStatus.DRAFT, LeaseStatus.ACTIVE],
       })
       .andWhere('lease.deleted_at IS NULL')
-      .orderBy('lease.updated_at', 'DESC');
+      .orderBy('lease.updatedAt', 'DESC');
 
     if (contractType === ContractType.RENTAL) {
       existingLeaseQuery.andWhere('lease.tenant_id = :tenantId', { tenantId });
@@ -1694,7 +1694,7 @@ export class LeasesService {
   private getUploadedFileExtension(filename: string): string {
     const normalized = filename.trim().toLowerCase();
     const parts = normalized.split('.');
-    return parts.length > 1 ? parts[parts.length - 1] : '';
+    return parts.length > 1 ? (parts[parts.length - 1] ?? '') : '';
   }
 
   private plainTextToHtml(value: string): string {

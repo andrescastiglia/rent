@@ -7,6 +7,7 @@
     timestamp: "{{ ansible_date_time.epoch }}"
     current_path: "{{ deploy_path }}/current"
     ecosystem_path: "{{ deploy_path }}/../ecosystem.config.js"
+    force_migration_baseline_all_if_missing: "{{ migration_force_baseline_all_if_missing | default(false) | bool }}"
 
   tasks:
     # ─────────────────────────────────────────────────────────────
@@ -50,6 +51,13 @@
         version: "{{ deploy_branch }}"
         force: true
       when: current_git.stat.exists
+
+    - name: Link shared .env to repository root
+      ansible.builtin.file:
+        src: "{{ deploy_path }}/shared/.env"
+        dest: "{{ current_path }}/.env"
+        state: link
+        force: true
 
     # ─────────────────────────────────────────────────────────────
     # BACKEND BUILD
@@ -213,6 +221,13 @@
       ansible.builtin.command:
         cmd: pm2 delete rent-frontend
       ignore_errors: true
+
+    - name: Run database migrations
+      ansible.builtin.command:
+        cmd: >-
+          ./migrations/run-migrations.sh{% if force_migration_baseline_all_if_missing %}
+          --baseline-all-if-missing --force-baseline-all-if-missing{% endif %}
+        chdir: "{{ current_path }}"
 
     - name: Start rent-backend
       ansible.builtin.command:

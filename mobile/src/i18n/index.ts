@@ -17,19 +17,22 @@ const initialLocale = normalizeLocale(
 );
 
 if (!i18n.isInitialized) {
-  void i18n.use(initReactI18next).init({
-    compatibilityJSON: 'v4',
-    lng: initialLocale,
-    fallbackLng: 'es',
-    resources: {
-      en: { translation: en },
-      es: { translation: es },
-      pt: { translation: pt },
-    },
-    interpolation: {
-      escapeValue: false,
-    },
-  });
+  i18n.use(initReactI18next);
+  i18n
+    .init({
+      compatibilityJSON: 'v4',
+      lng: initialLocale,
+      fallbackLng: 'es',
+      resources: {
+        en: { translation: en },
+        es: { translation: es },
+        pt: { translation: pt },
+      },
+      interpolation: {
+        escapeValue: false,
+      },
+    })
+    .catch(() => undefined);
 }
 
 export { i18n };

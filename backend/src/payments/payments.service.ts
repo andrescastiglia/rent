@@ -381,7 +381,7 @@ export class PaymentsService {
         tenantId,
       })
       .andWhere('payment.deleted_at IS NULL')
-      .orderBy('receipt.issue_date', 'DESC');
+      .orderBy('receipt.issuedAt', 'DESC');
 
     this.applyVisibilityScope(query, user);
     return query.getMany();

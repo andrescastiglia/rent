@@ -14,6 +14,8 @@ const entities = [
 ];
 
 const databaseUrl = process.env.DATABASE_URL;
+const databasePassword =
+  process.env.POSTGRES_PASSWORD || process.env.PGPASSWORD || "rent_password";
 
 const ssl =
   process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false;
@@ -26,7 +28,7 @@ const dataSourceOptions: PostgresConnectionOptions = {
         host: process.env.POSTGRES_HOST || "localhost",
         port: Number.parseInt(process.env.POSTGRES_PORT || "5432", 10),
         username: process.env.POSTGRES_USER || "rent_user",
-        password: process.env.POSTGRES_PASSWORD || "rent_password",
+        password: databasePassword,
         database: process.env.POSTGRES_DB || "rent_db",
       }),
   entities,

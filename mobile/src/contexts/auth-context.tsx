@@ -109,7 +109,7 @@ export function AuthProvider({
 
   useEffect(() => {
     const unsubscribe = setSessionExpiredHandler(() => {
-      void logout();
+      logout().catch(() => undefined);
     });
 
     return unsubscribe;
