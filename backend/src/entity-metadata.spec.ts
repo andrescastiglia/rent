@@ -21,9 +21,10 @@ describe('Entity metadata', () => {
     expect(column?.options.type).toBe(expectedType);
   };
 
-  it('defines explicit runtime-safe types for nullable string unions', () => {
+  it('defines explicit runtime-safe types for nullable string and UUID unions', () => {
     expectColumnType(User, 'email', 'varchar');
     expectColumnType(Buyer, 'dni', 'varchar');
+    expectColumnType(InterestedProfile, 'convertedToTenantId', 'uuid');
     expectColumnType(InterestedProfile, 'convertedToBuyerId', 'uuid');
     expectColumnType(InterestedProfile, 'convertedToSaleAgreementId', 'uuid');
     expectColumnType(LeaseContractTemplate, 'sourceFileName', 'varchar');

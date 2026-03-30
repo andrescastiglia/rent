@@ -13,6 +13,8 @@ import { Company } from '../../companies/entities/company.entity';
 import { User } from '../../users/entities/user.entity';
 import { InterestedProfile } from '../../interested/entities/interested-profile.entity';
 
+export const BUYER_DNI_MAX_LENGTH = 50;
+
 @Entity('buyers')
 export class Buyer {
   @PrimaryGeneratedColumn('uuid')
@@ -39,7 +41,7 @@ export class Buyer {
   @JoinColumn({ name: 'interested_profile_id' })
   interestedProfile: InterestedProfile | null;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: 'varchar', length: BUYER_DNI_MAX_LENGTH, nullable: true })
   dni: string | null;
 
   @Column({ type: 'text', nullable: true })

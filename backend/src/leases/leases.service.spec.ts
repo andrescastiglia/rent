@@ -6,6 +6,7 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
+import * as mammoth from 'mammoth';
 import { LeasesService } from './leases.service';
 import { ContractType, Lease, LeaseStatus } from './entities/lease.entity';
 import {
@@ -1138,6 +1139,29 @@ describe('LeasesService', () => {
           'c1',
         ),
       ).rejects.toThrow('Only .docx files are supported');
+    });
+
+    it('truncates imported source metadata to fit persisted column limits', async () => {
+      jest.spyOn(mammoth, 'convertToHtml').mockResolvedValue({
+        value: '<p>Template</p>',
+        messages: [],
+      });
+      const mimetype =
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+      const result = await service.importTemplateFromDocx(
+        {
+          buffer: Buffer.from('x'),
+          mimetype,
+          originalname: `${'a'.repeat(300)}.docx`,
+          size: 1,
+        },
+        { contractType: ContractType.RENTAL } as any,
+        'c1',
+      );
+
+      expect(result.sourceFileName).toHaveLength(255);
+      expect(result.sourceMimeType).toBe(mimetype);
     });
   });
 

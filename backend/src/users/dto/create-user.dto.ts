@@ -5,14 +5,19 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  MaxLength,
   MinLength,
 } from 'class-validator';
-import { UserModulePermissions, UserRole } from '../entities/user.entity';
+import {
+  UserModulePermissions,
+  UserRole,
+  USER_EMAIL_MAX_LENGTH,
+} from '../entities/user.entity';
 import { z } from 'zod';
 
 const createUserZodSchema = z
   .object({
-    email: z.email(),
+    email: z.string().email().max(USER_EMAIL_MAX_LENGTH),
     password: z.string().min(8),
     firstName: z.string().min(1),
     lastName: z.string().min(1),
@@ -26,6 +31,7 @@ export class CreateUserDto {
   static readonly zodSchema = createUserZodSchema;
 
   @IsEmail()
+  @MaxLength(USER_EMAIL_MAX_LENGTH)
   @IsNotEmpty()
   email: string;
 

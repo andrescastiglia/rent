@@ -1,9 +1,16 @@
-import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { z } from 'zod';
+import { USER_EMAIL_MAX_LENGTH } from '../../users/entities/user.entity';
 
 const convertInterestedToTenantZodSchema = z
   .object({
-    email: z.email().optional(),
+    email: z.string().email().max(USER_EMAIL_MAX_LENGTH).optional(),
     password: z.string().min(8).optional(),
     dni: z
       .string()
@@ -18,6 +25,7 @@ export class ConvertInterestedToTenantDto {
   static readonly zodSchema = convertInterestedToTenantZodSchema;
 
   @IsEmail()
+  @MaxLength(USER_EMAIL_MAX_LENGTH)
   @IsOptional()
   email?: string;
 
