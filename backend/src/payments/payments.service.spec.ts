@@ -187,7 +187,7 @@ describe('PaymentsService', () => {
       { tenantId: 'tenant-1' },
     );
     expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith(
-      'receipt.issue_date',
+      'receipt.issuedAt',
       'DESC',
     );
     expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(

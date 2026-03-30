@@ -51,6 +51,13 @@
         force: true
       when: current_git.stat.exists
 
+    - name: Link shared .env to repository root
+      ansible.builtin.file:
+        src: "{{ deploy_path }}/shared/.env"
+        dest: "{{ current_path }}/.env"
+        state: link
+        force: true
+
     # ─────────────────────────────────────────────────────────────
     # BACKEND BUILD
     # ─────────────────────────────────────────────────────────────
@@ -213,6 +220,11 @@
       ansible.builtin.command:
         cmd: pm2 delete rent-frontend
       ignore_errors: true
+
+    - name: Run database migrations
+      ansible.builtin.command:
+        cmd: ./migrations/run-migrations.sh --baseline-all-if-missing
+        chdir: "{{ current_path }}"
 
     - name: Start rent-backend
       ansible.builtin.command:

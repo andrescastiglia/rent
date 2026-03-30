@@ -112,7 +112,7 @@ export class SalesService {
       query.andWhere('agreement.folder_id = :folderId', { folderId });
     }
 
-    return query.orderBy('agreement.created_at', 'DESC').getMany();
+    return query.orderBy('agreement.createdAt', 'DESC').getMany();
   }
 
   async getAgreement(id: string, user: UserContext) {

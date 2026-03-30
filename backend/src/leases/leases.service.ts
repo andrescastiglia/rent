@@ -967,7 +967,7 @@ export class LeasesService {
         statuses: [LeaseStatus.DRAFT, LeaseStatus.ACTIVE],
       })
       .andWhere('lease.deleted_at IS NULL')
-      .orderBy('lease.updated_at', 'DESC');
+      .orderBy('lease.updatedAt', 'DESC');
 
     if (contractType === ContractType.RENTAL) {
       existingLeaseQuery.andWhere('lease.tenant_id = :tenantId', { tenantId });

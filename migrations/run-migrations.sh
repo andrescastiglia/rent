@@ -4,7 +4,7 @@
 # MIGRATION RUNNER - Execute PostgreSQL Migrations
 # =============================================================================
 # This script runs all SQL migration files in sequence
-# Usage: ./run-migrations.sh [--dry-run]
+# Usage: ./run-migrations.sh [--dry-run] [--baseline-all-if-missing] [--status]
 # =============================================================================
 
 # Colores para output
@@ -31,6 +31,7 @@ POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-rent_password}
 POSTGRES_DB=${POSTGRES_DB:-rent_db}
 
 DRY_RUN=false
+BASELINE_ALL_IF_MISSING=false
 
 # =============================================================================
 # FUNCIONES
@@ -104,6 +105,30 @@ create_migration_table() {
 );" | $EXEC_CMD &> /dev/null
     
     print_success "Migration tracking table ready"
+}
+
+migration_table_exists() {
+    echo "SELECT to_regclass('public.schema_migrations') IS NOT NULL;" | $EXEC_CMD -t | tr -d ' \r'
+}
+
+database_has_existing_schema() {
+    echo "SELECT COUNT(*) > 0 FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('companies', 'users');" | $EXEC_CMD -t | tr -d ' \r'
+}
+
+baseline_all_migrations() {
+    local baseline_count=0
+
+    echo ""
+    print_warning "schema_migrations was missing on an initialized database"
+    print_info "Baselining current migration files as already executed"
+
+    for migration_file in $(ls -1 "$SCRIPT_DIR"/*.sql 2>/dev/null | sort -V); do
+        local migration_name=$(basename "$migration_file")
+        echo "INSERT INTO schema_migrations (migration_name) VALUES ('$migration_name') ON CONFLICT (migration_name) DO NOTHING;" | $EXEC_CMD &> /dev/null
+        ((baseline_count++))
+    done
+
+    print_success "Baselined $baseline_count migration(s)"
 }
 
 get_executed_migrations() {
@@ -204,6 +229,10 @@ main() {
                 DRY_RUN=true
                 shift
                 ;;
+            --baseline-all-if-missing)
+                BASELINE_ALL_IF_MISSING=true
+                shift
+                ;;
             --status)
                 determine_exec_method
                 check_connection
@@ -215,6 +244,9 @@ main() {
                 echo ""
                 echo "Options:"
                 echo "  --dry-run    Show what would be executed without running"
+                echo "  --baseline-all-if-missing"
+                echo "               Mark current migration files as executed when"
+                echo "               schema_migrations is missing on an initialized DB"
                 echo "  --status     Show migration execution history"
                 echo "  --help       Show this help message"
                 echo ""
@@ -237,8 +269,19 @@ main() {
     
     determine_exec_method
     check_connection
+
+    local had_migration_table
+    had_migration_table=$(migration_table_exists)
     create_migration_table
-    
+
+    if [ "$had_migration_table" != "t" ] && [ "$BASELINE_ALL_IF_MISSING" = true ]; then
+        local has_existing_schema
+        has_existing_schema=$(database_has_existing_schema)
+        if [ "$has_existing_schema" = "t" ]; then
+            baseline_all_migrations
+        fi
+    fi
+
     # Run migrations
     local executed_migrations=$(get_executed_migrations)
     local migration_count=0

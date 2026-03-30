@@ -225,7 +225,7 @@ export class InterestedService {
     }
 
     query
-      .orderBy('interested.created_at', 'DESC')
+      .orderBy('interested.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 

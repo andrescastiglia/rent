@@ -64,7 +64,7 @@ export class BuyersService {
     }
 
     query
-      .orderBy('buyer.created_at', 'DESC')
+      .orderBy('buyer.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 

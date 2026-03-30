@@ -293,7 +293,7 @@ export class DashboardService {
       .andWhere(':saleOperation = ANY(property.operations)', {
         saleOperation: PropertyOperation.SALE,
       })
-      .orderBy('property.updated_at', 'DESC')
+      .orderBy('property.updatedAt', 'DESC')
       .take(6)
       .getMany();
 
@@ -328,8 +328,8 @@ export class DashboardService {
     });
 
     const rentalLeases = await rentalLeasesQuery
-      .orderBy('lease.end_date', 'ASC', 'NULLS LAST')
-      .addOrderBy('lease.updated_at', 'DESC')
+      .orderBy('lease.endDate', 'ASC', 'NULLS LAST')
+      .addOrderBy('lease.updatedAt', 'DESC')
       .getMany();
 
     const currentRentals = rentalLeases.filter(
@@ -392,8 +392,8 @@ export class DashboardService {
 
     const recentPayments = await paymentsScopeQuery
       .clone()
-      .orderBy('payment.payment_date', 'DESC')
-      .addOrderBy('payment.created_at', 'DESC')
+      .orderBy('payment.paymentDate', 'DESC')
+      .addOrderBy('payment.createdAt', 'DESC')
       .take(8)
       .getMany();
 
@@ -603,8 +603,8 @@ export class DashboardService {
           .andWhere('activity.completed_at IS NULL')
           .andWhere('activity.due_at IS NOT NULL')
           .andWhere('activity.due_at < :startOfToday', { startOfToday })
-          .orderBy('activity.due_at', 'ASC')
-          .addOrderBy('activity.created_at', 'ASC')
+          .orderBy('activity.dueAt', 'ASC')
+          .addOrderBy('activity.createdAt', 'ASC')
           .take(effectiveLimit)
           .select([
             'activity.id AS id',
@@ -641,8 +641,8 @@ export class DashboardService {
           .andWhere('activity.completed_at IS NULL')
           .andWhere('activity.due_at >= :startOfToday', { startOfToday })
           .andWhere('activity.due_at < :startOfTomorrow', { startOfTomorrow })
-          .orderBy('activity.due_at', 'ASC')
-          .addOrderBy('activity.created_at', 'ASC')
+          .orderBy('activity.dueAt', 'ASC')
+          .addOrderBy('activity.createdAt', 'ASC')
           .take(effectiveLimit)
           .select([
             'activity.id AS id',
@@ -839,8 +839,8 @@ export class DashboardService {
         "(job.parameters ->> 'type') AS report_type",
         "NULLIF(job.parameters ->> 'month', '') AS report_month",
       ])
-      .orderBy('job.created_at', 'DESC')
-      .addOrderBy('job.started_at', 'DESC')
+      .orderBy('job.createdAt', 'DESC')
+      .addOrderBy('job.startedAt', 'DESC')
       .offset((pageNumber - 1) * pageLimit)
       .limit(pageLimit)
       .getRawMany<ReportJobRow>();
@@ -1132,8 +1132,8 @@ export class DashboardService {
     }
 
     return query
-      .orderBy('activity.due_at', 'ASC')
-      .addOrderBy('activity.created_at', 'ASC')
+      .orderBy('activity.dueAt', 'ASC')
+      .addOrderBy('activity.createdAt', 'ASC')
       .take(limit)
       .select([
         'activity.id AS id',
