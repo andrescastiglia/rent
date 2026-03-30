@@ -38,6 +38,7 @@ export type UserModulePermissions = Partial<
 
 // Default company ID for new users
 export const DEFAULT_COMPANY_ID = '00000000-0000-0000-0000-000000000001';
+export const USER_EMAIL_MAX_LENGTH = 255;
 
 @Entity('users')
 export class User {
@@ -51,7 +52,12 @@ export class User {
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
-  @Column({ unique: true, nullable: true })
+  @Column({
+    type: 'varchar',
+    length: USER_EMAIL_MAX_LENGTH,
+    unique: true,
+    nullable: true,
+  })
   email: string | null;
 
   @Column({ name: 'password_hash' })

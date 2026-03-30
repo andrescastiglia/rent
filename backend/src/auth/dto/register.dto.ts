@@ -4,14 +4,18 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  MaxLength,
   MinLength,
 } from 'class-validator';
-import { UserRole } from '../../users/entities/user.entity';
+import {
+  UserRole,
+  USER_EMAIL_MAX_LENGTH,
+} from '../../users/entities/user.entity';
 import { z } from 'zod';
 
 const registerZodSchema = z
   .object({
-    email: z.email(),
+    email: z.string().email().max(USER_EMAIL_MAX_LENGTH),
     password: z.string().min(8),
     firstName: z.string().min(1),
     lastName: z.string().min(1),
@@ -29,6 +33,7 @@ export class RegisterDto {
   static readonly zodSchema = registerZodSchema;
 
   @IsEmail()
+  @MaxLength(USER_EMAIL_MAX_LENGTH)
   @IsNotEmpty()
   email: string;
 

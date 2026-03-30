@@ -31,7 +31,11 @@ import { CreateLeaseDto } from './dto/create-lease.dto';
 import { LeaseFiltersDto } from './dto/lease-filters.dto';
 import { UpdateLeaseDto } from './dto/update-lease.dto';
 import { PdfService } from './pdf.service';
-import { LeaseContractTemplate } from './entities/lease-contract-template.entity';
+import {
+  LEASE_TEMPLATE_SOURCE_FILE_NAME_MAX_LENGTH,
+  LEASE_TEMPLATE_SOURCE_MIME_TYPE_MAX_LENGTH,
+  LeaseContractTemplate,
+} from './entities/lease-contract-template.entity';
 import { CreateLeaseContractTemplateDto } from './dto/create-lease-contract-template.dto';
 import { UpdateLeaseContractTemplateDto } from './dto/update-lease-contract-template.dto';
 import { TenantAccountsService } from '../payments/tenant-accounts.service';
@@ -637,6 +641,10 @@ export class LeasesService {
     return date.toISOString().slice(0, 10);
   }
 
+  private truncateText(value: string, maxLength: number): string {
+    return value.length > maxLength ? value.slice(0, maxLength) : value;
+  }
+
   async listTemplates(
     companyId: string,
     contractType?: ContractType,
@@ -695,6 +703,14 @@ export class LeasesService {
     const converted = await mammoth.convertToHtml({
       buffer: file.buffer,
     });
+    const sourceFileName = this.truncateText(
+      file.originalname,
+      LEASE_TEMPLATE_SOURCE_FILE_NAME_MAX_LENGTH,
+    );
+    const sourceMimeType = this.truncateText(
+      file.mimetype,
+      LEASE_TEMPLATE_SOURCE_MIME_TYPE_MAX_LENGTH,
+    );
 
     return {
       name:
@@ -703,8 +719,8 @@ export class LeasesService {
       contractType: dto.contractType,
       templateBody: this.normalizeContractBody(converted.value, 'html'),
       templateFormat: 'html',
-      sourceFileName: file.originalname,
-      sourceMimeType: file.mimetype,
+      sourceFileName,
+      sourceMimeType,
       isActive: true,
     };
   }

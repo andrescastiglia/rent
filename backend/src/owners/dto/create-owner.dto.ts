@@ -9,13 +9,14 @@ import {
 } from 'class-validator';
 import { PaymentMethod } from '../entities/owner.entity';
 import { z } from 'zod';
+import { USER_EMAIL_MAX_LENGTH } from '../../users/entities/user.entity';
 
 export const createOwnerZodSchema = z
   .object({
     firstName: z.string().min(1).max(100),
     lastName: z.string().min(1).max(100),
     email: z
-      .union([z.email(), z.literal('')])
+      .union([z.string().email().max(USER_EMAIL_MAX_LENGTH), z.literal('')])
       .optional()
       .transform((value) => {
         if (!value) return undefined;
@@ -67,6 +68,7 @@ export class CreateOwnerDto {
   lastName: string;
 
   @IsEmail()
+  @MaxLength(USER_EMAIL_MAX_LENGTH)
   @IsOptional()
   email?: string;
 

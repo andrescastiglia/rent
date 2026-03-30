@@ -11,6 +11,9 @@ import {
 import { Company } from '../../companies/entities/company.entity';
 import { ContractType } from './lease.entity';
 
+export const LEASE_TEMPLATE_SOURCE_FILE_NAME_MAX_LENGTH = 255;
+export const LEASE_TEMPLATE_SOURCE_MIME_TYPE_MAX_LENGTH = 120;
+
 @Entity('lease_contract_templates')
 export class LeaseContractTemplate {
   @PrimaryGeneratedColumn('uuid')
@@ -45,10 +48,20 @@ export class LeaseContractTemplate {
   })
   templateFormat: 'plain_text' | 'html';
 
-  @Column({ name: 'source_file_name', length: 255, nullable: true })
+  @Column({
+    name: 'source_file_name',
+    type: 'varchar',
+    length: LEASE_TEMPLATE_SOURCE_FILE_NAME_MAX_LENGTH,
+    nullable: true,
+  })
   sourceFileName: string | null;
 
-  @Column({ name: 'source_mime_type', length: 120, nullable: true })
+  @Column({
+    name: 'source_mime_type',
+    type: 'varchar',
+    length: LEASE_TEMPLATE_SOURCE_MIME_TYPE_MAX_LENGTH,
+    nullable: true,
+  })
   sourceMimeType: string | null;
 
   @Column({ name: 'is_active', type: 'boolean', default: true })

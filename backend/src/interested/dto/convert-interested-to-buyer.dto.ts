@@ -6,15 +6,18 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   Min,
 } from 'class-validator';
 import { z } from 'zod';
+import { BUYER_DNI_MAX_LENGTH } from '../../buyers/entities/buyer.entity';
+import { USER_EMAIL_MAX_LENGTH } from '../../users/entities/user.entity';
 
 const convertInterestedToBuyerZodSchema = z
   .object({
-    email: z.email().optional(),
+    email: z.string().email().max(USER_EMAIL_MAX_LENGTH).optional(),
     password: z.string().min(8).optional(),
-    dni: z.string().optional(),
+    dni: z.string().max(BUYER_DNI_MAX_LENGTH).optional(),
     folderId: z.uuid().optional().describe('UUID of the sale folder'),
     totalAmount: z.coerce
       .number()
@@ -96,6 +99,7 @@ export class ConvertInterestedToBuyerDto {
   static readonly zodSchema = convertInterestedToBuyerZodSchema;
 
   @IsEmail()
+  @MaxLength(USER_EMAIL_MAX_LENGTH)
   @IsOptional()
   email?: string;
 
@@ -104,6 +108,7 @@ export class ConvertInterestedToBuyerDto {
   password?: string;
 
   @IsString()
+  @MaxLength(BUYER_DNI_MAX_LENGTH)
   @IsOptional()
   dni?: string;
 

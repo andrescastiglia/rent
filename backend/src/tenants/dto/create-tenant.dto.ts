@@ -4,14 +4,16 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   MinLength,
 } from 'class-validator';
 import { z } from 'zod';
+import { USER_EMAIL_MAX_LENGTH } from '../../users/entities/user.entity';
 
 export const createTenantZodSchema = z
   .object({
     companyId: z.uuid().describe('UUID of the company this tenant belongs to'),
-    email: z.email(),
+    email: z.string().email().max(USER_EMAIL_MAX_LENGTH),
     password: z.string().min(8),
     firstName: z.string().min(1),
     lastName: z.string().min(1),
@@ -35,6 +37,7 @@ export class CreateTenantDto {
 
   // User fields
   @IsEmail()
+  @MaxLength(USER_EMAIL_MAX_LENGTH)
   @IsNotEmpty()
   email: string;
 
