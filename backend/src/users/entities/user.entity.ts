@@ -51,7 +51,7 @@ export class User {
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
-  @Column({ unique: true, nullable: true })
+  @Column({ type: 'varchar', length: 255, unique: true, nullable: true })
   email: string | null;
 
   @Column({ name: 'password_hash' })

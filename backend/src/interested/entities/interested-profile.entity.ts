@@ -206,14 +206,18 @@ export class InterestedProfile {
   @JoinColumn({ name: 'converted_to_tenant_id' })
   convertedToTenant: Tenant;
 
-  @Column({ name: 'converted_to_buyer_id', nullable: true })
+  @Column({ name: 'converted_to_buyer_id', type: 'uuid', nullable: true })
   convertedToBuyerId: string | null;
 
   @OneToOne(() => Buyer, { nullable: true })
   @JoinColumn({ name: 'converted_to_buyer_id' })
   convertedToBuyer: Buyer | null;
 
-  @Column({ name: 'converted_to_sale_agreement_id', nullable: true })
+  @Column({
+    name: 'converted_to_sale_agreement_id',
+    type: 'uuid',
+    nullable: true,
+  })
   convertedToSaleAgreementId: string | null;
 
   @ManyToOne(() => SaleAgreement, { nullable: true })

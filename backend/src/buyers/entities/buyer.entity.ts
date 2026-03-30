@@ -39,7 +39,7 @@ export class Buyer {
   @JoinColumn({ name: 'interested_profile_id' })
   interestedProfile: InterestedProfile | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', length: 50, nullable: true })
   dni: string | null;
 
   @Column({ type: 'text', nullable: true })
