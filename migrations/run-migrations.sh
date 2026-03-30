@@ -4,7 +4,7 @@
 # MIGRATION RUNNER - Execute PostgreSQL Migrations
 # =============================================================================
 # This script runs all SQL migration files in sequence
-# Usage: ./run-migrations.sh [--dry-run] [--baseline-all-if-missing] [--status]
+# Usage: ./run-migrations.sh [--dry-run] [--baseline-all-if-missing --force-baseline-all-if-missing] [--status]
 # =============================================================================
 
 # Colores para output
@@ -19,9 +19,24 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Cargar variables de entorno
-if [ -f "$PROJECT_ROOT/.env" ]; then
-    export $(cat "$PROJECT_ROOT/.env" | grep -v '^#' | xargs)
-fi
+load_env_file() {
+    local env_file="$PROJECT_ROOT/.env"
+
+    if [ ! -f "$env_file" ]; then
+        return 0
+    fi
+
+    set -a
+    # shellcheck disable=SC1090
+    if ! . "$env_file"; then
+        set +a
+        echo "Failed to load environment file: $env_file" >&2
+        exit 1
+    fi
+    set +a
+}
+
+load_env_file
 
 # Valores por defecto
 POSTGRES_HOST=${POSTGRES_HOST:-localhost}
@@ -29,9 +44,12 @@ POSTGRES_PORT=${POSTGRES_PORT:-5432}
 POSTGRES_USER=${POSTGRES_USER:-rent_user}
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-rent_password}
 POSTGRES_DB=${POSTGRES_DB:-rent_db}
+PGPASSWORD=${PGPASSWORD:-$POSTGRES_PASSWORD}
+export PGPASSWORD
 
 DRY_RUN=false
 BASELINE_ALL_IF_MISSING=false
+FORCE_BASELINE_ALL_IF_MISSING=false
 
 # =============================================================================
 # FUNCIONES
@@ -61,15 +79,22 @@ print_info() {
 }
 
 # Determine execution method
-EXEC_CMD=""
+declare -a EXEC_CMD=()
 CONTAINER_NAME="rent-postgres"
+
+run_query() {
+    local sql="$1"
+    shift
+
+    printf '%s\n' "$sql" | "${EXEC_CMD[@]}" "$@"
+}
 
 determine_exec_method() {
     if command -v psql &> /dev/null; then
-        EXEC_CMD="psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER -d $POSTGRES_DB"
+        EXEC_CMD=(psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB")
         print_info "Using local psql client"
-    elif command -v docker &> /dev/null && docker ps | grep -q "$CONTAINER_NAME"; then
-        EXEC_CMD="docker exec -i $CONTAINER_NAME psql -U $POSTGRES_USER -d $POSTGRES_DB"
+    elif command -v docker &> /dev/null && docker ps --format '{{.Names}}' | grep -qx "$CONTAINER_NAME"; then
+        EXEC_CMD=(docker exec -i -e "PGPASSWORD=$PGPASSWORD" "$CONTAINER_NAME" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB")
         print_info "Using Docker container ($CONTAINER_NAME)"
     else
         print_error "Neither 'psql' nor running Docker container '$CONTAINER_NAME' found."
@@ -80,7 +105,7 @@ determine_exec_method() {
 check_connection() {
     print_info "Checking database connection..."
     
-    if ! echo "SELECT 1;" | $EXEC_CMD &> /dev/null; then
+    if ! run_query "SELECT 1;" &> /dev/null; then
         print_error "Cannot connect to PostgreSQL database"
         print_info "Connection details:"
         echo "  Host: $POSTGRES_HOST"
@@ -98,21 +123,21 @@ check_connection() {
 create_migration_table() {
     print_info "Checking migrations tracking table..."
     
-    echo "CREATE TABLE IF NOT EXISTS schema_migrations (
+    run_query "CREATE TABLE IF NOT EXISTS schema_migrations (
     id SERIAL PRIMARY KEY,
     migration_name VARCHAR(255) NOT NULL UNIQUE,
     executed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);" | $EXEC_CMD &> /dev/null
+);" &> /dev/null
     
     print_success "Migration tracking table ready"
 }
 
 migration_table_exists() {
-    echo "SELECT to_regclass('public.schema_migrations') IS NOT NULL;" | $EXEC_CMD -t | tr -d ' \r'
+    run_query "SELECT to_regclass('public.schema_migrations') IS NOT NULL;" -t | tr -d ' \r'
 }
 
 database_has_existing_schema() {
-    echo "SELECT COUNT(*) > 0 FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('companies', 'users');" | $EXEC_CMD -t | tr -d ' \r'
+    run_query "SELECT COUNT(*) > 0 FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('companies', 'users');" -t | tr -d ' \r'
 }
 
 baseline_all_migrations() {
@@ -124,7 +149,7 @@ baseline_all_migrations() {
 
     for migration_file in $(ls -1 "$SCRIPT_DIR"/*.sql 2>/dev/null | sort -V); do
         local migration_name=$(basename "$migration_file")
-        echo "INSERT INTO schema_migrations (migration_name) VALUES ('$migration_name') ON CONFLICT (migration_name) DO NOTHING;" | $EXEC_CMD &> /dev/null
+        run_query "INSERT INTO schema_migrations (migration_name) VALUES ('$migration_name') ON CONFLICT (migration_name) DO NOTHING;" &> /dev/null
         ((baseline_count++))
     done
 
@@ -132,7 +157,32 @@ baseline_all_migrations() {
 }
 
 get_executed_migrations() {
-    echo "SELECT migration_name FROM schema_migrations ORDER BY migration_name;" | $EXEC_CMD -t | tr -d ' \r'
+    run_query "SELECT migration_name FROM schema_migrations ORDER BY migration_name;" -t | tr -d ' \r'
+}
+
+handle_missing_migration_table() {
+    local has_existing_schema="$1"
+
+    if [ "$has_existing_schema" != "t" ]; then
+        return 0
+    fi
+
+    echo ""
+    print_warning "Detected an initialized database without schema_migrations"
+
+    if [ "$BASELINE_ALL_IF_MISSING" != true ]; then
+        print_error "Refusing to auto-baseline because pending migrations cannot be verified safely"
+        print_info "Recover schema_migrations manually, or rerun with:"
+        echo "  $0 --baseline-all-if-missing --force-baseline-all-if-missing"
+        print_info "Use the force flag only after confirming every migration file has already been applied."
+        exit 1
+    fi
+
+    if [ "$FORCE_BASELINE_ALL_IF_MISSING" != true ]; then
+        print_error "--baseline-all-if-missing requires --force-baseline-all-if-missing on initialized databases"
+        print_info "This prevents silently marking unapplied migrations as executed."
+        exit 1
+    fi
 }
 
 run_migration() {
@@ -150,16 +200,16 @@ run_migration() {
     
     # Execute migration
     # We pipe the file content to the execution command
-    if cat "$migration_file" | $EXEC_CMD &> /dev/null; then
+    if "${EXEC_CMD[@]}" < "$migration_file" &> /dev/null; then
         
         # Record migration
-        echo "INSERT INTO schema_migrations (migration_name) VALUES ('$migration_name') ON CONFLICT (migration_name) DO NOTHING;" | $EXEC_CMD &> /dev/null
+        run_query "INSERT INTO schema_migrations (migration_name) VALUES ('$migration_name') ON CONFLICT (migration_name) DO NOTHING;" &> /dev/null
         
         print_success "Migration completed: $migration_name"
     else
         print_error "Migration failed: $migration_name"
         # Try to get error output
-        cat "$migration_file" | $EXEC_CMD
+        "${EXEC_CMD[@]}" < "$migration_file"
         exit 1
     fi
 }
@@ -207,12 +257,12 @@ show_migration_status() {
     print_info "Migration Status:"
     echo ""
     
-    echo "SELECT 
+    run_query "SELECT 
             migration_name,
             executed_at,
             EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - executed_at)) / 3600 as hours_ago
         FROM schema_migrations 
-        ORDER BY executed_at DESC;" | $EXEC_CMD 2>/dev/null || print_warning "No migrations executed yet"
+        ORDER BY executed_at DESC;" 2>/dev/null || print_warning "No migrations executed yet"
     
     echo ""
 }
@@ -233,6 +283,10 @@ main() {
                 BASELINE_ALL_IF_MISSING=true
                 shift
                 ;;
+            --force-baseline-all-if-missing)
+                FORCE_BASELINE_ALL_IF_MISSING=true
+                shift
+                ;;
             --status)
                 determine_exec_method
                 check_connection
@@ -245,8 +299,11 @@ main() {
                 echo "Options:"
                 echo "  --dry-run    Show what would be executed without running"
                 echo "  --baseline-all-if-missing"
-                echo "               Mark current migration files as executed when"
+                echo "               Prepare to baseline current migration files when"
                 echo "               schema_migrations is missing on an initialized DB"
+                echo "  --force-baseline-all-if-missing"
+                echo "               Required together with --baseline-all-if-missing"
+                echo "               after manually verifying the schema is up to date"
                 echo "  --status     Show migration execution history"
                 echo "  --help       Show this help message"
                 echo ""
@@ -271,15 +328,18 @@ main() {
     check_connection
 
     local had_migration_table
+    local has_existing_schema="f"
     had_migration_table=$(migration_table_exists)
+
+    if [ "$had_migration_table" != "t" ]; then
+        has_existing_schema=$(database_has_existing_schema)
+        handle_missing_migration_table "$has_existing_schema"
+    fi
+
     create_migration_table
 
-    if [ "$had_migration_table" != "t" ] && [ "$BASELINE_ALL_IF_MISSING" = true ]; then
-        local has_existing_schema
-        has_existing_schema=$(database_has_existing_schema)
-        if [ "$has_existing_schema" = "t" ]; then
-            baseline_all_migrations
-        fi
+    if [ "$had_migration_table" != "t" ] && [ "$has_existing_schema" = "t" ] && [ "$BASELINE_ALL_IF_MISSING" = true ] && [ "$FORCE_BASELINE_ALL_IF_MISSING" = true ]; then
+        baseline_all_migrations
     fi
 
     # Run migrations

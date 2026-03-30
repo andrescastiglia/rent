@@ -15,7 +15,7 @@ const entities = [
 
 const databaseUrl = process.env.DATABASE_URL;
 const databasePassword =
-  process.env.POSTGRES_PASSWORD ?? process.env.PGPASSWORD ?? "";
+  process.env.POSTGRES_PASSWORD || process.env.PGPASSWORD || "rent_password";
 
 const ssl =
   process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false;

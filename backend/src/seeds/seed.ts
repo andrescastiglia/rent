@@ -29,7 +29,7 @@ import { join } from 'node:path';
 // Load env vars from root .env
 dotenv.config({ path: join(__dirname, '../../../.env') });
 const databasePassword =
-  process.env.POSTGRES_PASSWORD ?? process.env.PGPASSWORD ?? '';
+  process.env.POSTGRES_PASSWORD || process.env.PGPASSWORD || 'rent_password';
 
 const AppDataSource = new DataSource({
   type: 'postgres',

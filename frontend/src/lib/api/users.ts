@@ -4,8 +4,9 @@ import type { User, UserModulePermissions } from "@/types/auth";
 
 const DELAY = 250;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+let mockTemporaryCredentialCounter = 0;
 const createMockTemporaryCredential = () =>
-  `tmp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  `tmp-${Date.now().toString(36)}-${(++mockTemporaryCredentialCounter).toString(36).padStart(4, "0")}`;
 
 export type UpdateMyProfileInput = {
   email?: string;

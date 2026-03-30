@@ -1694,7 +1694,7 @@ export class LeasesService {
   private getUploadedFileExtension(filename: string): string {
     const normalized = filename.trim().toLowerCase();
     const parts = normalized.split('.');
-    return parts.length > 1 ? (parts.slice(-1)[0] ?? '') : '';
+    return parts.length > 1 ? (parts[parts.length - 1] ?? '') : '';
   }
 
   private plainTextToHtml(value: string): string {

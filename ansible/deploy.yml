@@ -7,6 +7,7 @@
     timestamp: "{{ ansible_date_time.epoch }}"
     current_path: "{{ deploy_path }}/current"
     ecosystem_path: "{{ deploy_path }}/../ecosystem.config.js"
+    force_migration_baseline_all_if_missing: "{{ migration_force_baseline_all_if_missing | default(false) | bool }}"
 
   tasks:
     # ─────────────────────────────────────────────────────────────
@@ -223,7 +224,9 @@
 
     - name: Run database migrations
       ansible.builtin.command:
-        cmd: ./migrations/run-migrations.sh --baseline-all-if-missing
+        cmd: >-
+          ./migrations/run-migrations.sh{% if force_migration_baseline_all_if_missing %}
+          --baseline-all-if-missing --force-baseline-all-if-missing{% endif %}
         chdir: "{{ current_path }}"
 
     - name: Start rent-backend

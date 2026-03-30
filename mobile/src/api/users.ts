@@ -9,8 +9,9 @@ type UsersPage = {
   limit: number;
 };
 
+let mockTemporaryCredentialCounter = 0;
 const createMockTemporaryCredential = () =>
-  `tmp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  `tmp-${Date.now().toString(36)}-${(++mockTemporaryCredentialCounter).toString(36).padStart(4, '0')}`;
 
 let MOCK_USERS: User[] = [
   {

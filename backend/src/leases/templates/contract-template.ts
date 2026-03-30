@@ -333,7 +333,7 @@ function normalizeInlineSegments(segments: InlineSegment[]): InlineSegment[] {
       continue;
     }
 
-    const previous = normalized.slice(-1)[0];
+    const previous = normalized[normalized.length - 1];
     if (previous && haveSameInlineStyle(previous.style, segment.style)) {
       previous.text += segment.text;
       continue;
