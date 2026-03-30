@@ -107,12 +107,15 @@ export default function UsersScreen() {
                   disabled={Boolean(togglingUserId)}
                   onPress={() => {
                     setTogglingUserId(user.id);
-                    void toggleMutation
-                      .mutateAsync({
+                    toggleMutation.mutate(
+                      {
                         id: user.id,
                         isActive: !user.isActive,
-                      })
-                      .finally(() => setTogglingUserId(null));
+                      },
+                      {
+                        onSettled: () => setTogglingUserId(null),
+                      },
+                    );
                   }}
                 >
                   <Text style={styles.actionChipText}>

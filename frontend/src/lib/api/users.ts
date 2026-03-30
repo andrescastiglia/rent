@@ -4,6 +4,8 @@ import type { User, UserModulePermissions } from "@/types/auth";
 
 const DELAY = 250;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const createMockTemporaryCredential = () =>
+  `tmp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 export type UpdateMyProfileInput = {
   email?: string;
@@ -305,7 +307,8 @@ export const usersApi = {
       await delay(DELAY);
       return {
         message: "Password changed successfully",
-        temporaryPassword: newPassword?.trim() || "temp-pass-1234",
+        temporaryPassword:
+          newPassword?.trim() || createMockTemporaryCredential(),
       };
     }
 

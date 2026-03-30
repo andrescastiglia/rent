@@ -9,6 +9,9 @@ type UsersPage = {
   limit: number;
 };
 
+const createMockTemporaryCredential = () =>
+  `tmp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
 let MOCK_USERS: User[] = [
   {
     id: '1',
@@ -135,7 +138,8 @@ export const usersApi = {
     if (IS_MOCK_MODE) {
       return {
         message: 'Password changed successfully',
-        temporaryPassword: newPassword?.trim() || 'temp-pass-1234',
+        temporaryPassword:
+          newPassword?.trim() || createMockTemporaryCredential(),
       };
     }
 
