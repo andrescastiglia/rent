@@ -134,12 +134,15 @@ export const staffApi = {
     if (IS_MOCK_MODE) {
       let result = [...MOCK_STAFF];
       if (params?.specialization) {
-        result = result.filter((s) => s.specialization === params.specialization);
+        result = result.filter(
+          (s) => s.specialization === params.specialization,
+        );
       }
       if (params?.search) {
         const term = params.search.toLowerCase();
         result = result.filter((s) => {
-          const fullName = `${s.user.firstName ?? ''} ${s.user.lastName ?? ''}`.toLowerCase();
+          const fullName =
+            `${s.user.firstName ?? ''} ${s.user.lastName ?? ''}`.toLowerCase();
           return (
             fullName.includes(term) ||
             (s.user.email ?? '').toLowerCase().includes(term)
@@ -150,12 +153,19 @@ export const staffApi = {
     }
 
     const queryParams = new URLSearchParams();
-    if (params?.specialization) queryParams.append('specialization', params.specialization);
+    if (params?.specialization)
+      queryParams.append('specialization', params.specialization);
     if (params?.search) queryParams.append('search', params.search);
 
-    const endpoint = queryParams.toString() ? `/staff?${queryParams.toString()}` : '/staff';
-    const result = await apiClient.get<BackendStaff[] | { data: BackendStaff[] }>(endpoint);
-    return Array.isArray(result) ? result.map(mapStaff) : result.data.map(mapStaff);
+    const endpoint = queryParams.toString()
+      ? `/staff?${queryParams.toString()}`
+      : '/staff';
+    const result = await apiClient.get<
+      BackendStaff[] | { data: BackendStaff[] }
+    >(endpoint);
+    return Array.isArray(result)
+      ? result.map(mapStaff)
+      : result.data.map(mapStaff);
   },
 
   async getOne(id: string): Promise<Staff> {
@@ -260,7 +270,10 @@ export const staffApi = {
       return MOCK_STAFF[index];
     }
 
-    const result = await apiClient.patch<BackendStaff>(`/staff/${id}/activate`, {});
+    const result = await apiClient.patch<BackendStaff>(
+      `/staff/${id}/activate`,
+      {},
+    );
     return mapStaff(result);
   },
 };
