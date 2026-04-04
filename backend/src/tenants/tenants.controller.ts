@@ -64,16 +64,13 @@ export class TenantsController {
 
   @Get(':id')
   @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.OWNER)
-  findOne(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+  findOne(@Param('id') id: string) {
     return this.tenantsService.findOne(id);
   }
 
   @Get(':id/leases')
   @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.OWNER)
-  getLeaseHistory(
-    @Param('id') id: string,
-    @Request() req: AuthenticatedRequest,
-  ) {
+  getLeaseHistory(@Param('id') id: string) {
     return this.tenantsService.getLeaseHistory(id);
   }
 
