@@ -37,7 +37,9 @@ const createMockRepository = () => {
   return repo;
 };
 
-const mockTicket = (overrides: Partial<MaintenanceTicket> = {}): MaintenanceTicket =>
+const mockTicket = (
+  overrides: Partial<MaintenanceTicket> = {},
+): MaintenanceTicket =>
   ({
     id: 'ticket-uuid-1',
     companyId: 'company-uuid-1',
@@ -69,7 +71,9 @@ const mockTicket = (overrides: Partial<MaintenanceTicket> = {}): MaintenanceTick
     ...overrides,
   }) as MaintenanceTicket;
 
-const mockComment = (overrides: Partial<MaintenanceTicketComment> = {}): MaintenanceTicketComment =>
+const mockComment = (
+  overrides: Partial<MaintenanceTicketComment> = {},
+): MaintenanceTicketComment =>
   ({
     id: 'comment-uuid-1',
     ticketId: 'ticket-uuid-1',
@@ -105,7 +109,9 @@ describe('MaintenanceService', () => {
 
     service = module.get(MaintenanceService);
     ticketRepository = module.get(getRepositoryToken(MaintenanceTicket));
-    commentRepository = module.get(getRepositoryToken(MaintenanceTicketComment));
+    commentRepository = module.get(
+      getRepositoryToken(MaintenanceTicketComment),
+    );
   });
 
   it('should be defined', () => {
@@ -131,10 +137,9 @@ describe('MaintenanceService', () => {
         status: MaintenanceTicketStatus.OPEN,
       });
 
-      expect(qb.andWhere).toHaveBeenCalledWith(
-        'ticket.status = :status',
-        { status: MaintenanceTicketStatus.OPEN },
-      );
+      expect(qb.andWhere).toHaveBeenCalledWith('ticket.status = :status', {
+        status: MaintenanceTicketStatus.OPEN,
+      });
     });
 
     it('applies priority filter', async () => {
@@ -145,10 +150,9 @@ describe('MaintenanceService', () => {
         priority: MaintenanceTicketPriority.HIGH,
       });
 
-      expect(qb.andWhere).toHaveBeenCalledWith(
-        'ticket.priority = :priority',
-        { priority: MaintenanceTicketPriority.HIGH },
-      );
+      expect(qb.andWhere).toHaveBeenCalledWith('ticket.priority = :priority', {
+        priority: MaintenanceTicketPriority.HIGH,
+      });
     });
 
     it('applies propertyId filter', async () => {

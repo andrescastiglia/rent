@@ -61,11 +61,7 @@ export class MaintenanceController {
     @Body() dto: CreateMaintenanceTicketDto,
     @Request() req: AuthenticatedRequest,
   ): Promise<MaintenanceTicket> {
-    return this.maintenanceService.create(
-      req.user.companyId,
-      req.user.id,
-      dto,
-    );
+    return this.maintenanceService.create(req.user.companyId, req.user.id, dto);
   }
 
   @Patch(':id')

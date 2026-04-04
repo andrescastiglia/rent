@@ -29,6 +29,7 @@ import { BankAccountsModule } from './bank-accounts/bank-accounts.module';
 import { SettlementsModule } from './settlements/settlements.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { PaymentGatewayModule } from './payment-gateway/payment-gateway.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -79,6 +80,7 @@ import * as path from 'node:path';
     BankAccountsModule,
     SettlementsModule,
     MaintenanceModule,
+    PaymentGatewayModule,
   ],
   controllers: [AppController],
   providers: [

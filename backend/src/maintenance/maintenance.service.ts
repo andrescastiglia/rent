@@ -130,7 +130,8 @@ export class MaintenanceService {
       ticket.externalRef = dto.externalRef ?? null;
     if (dto.resolutionNotes !== undefined)
       ticket.resolutionNotes = dto.resolutionNotes ?? null;
-    if (dto.actualCost !== undefined) ticket.actualCost = dto.actualCost ?? null;
+    if (dto.actualCost !== undefined)
+      ticket.actualCost = dto.actualCost ?? null;
 
     if (dto.assignedToStaffId !== undefined) {
       ticket.assignedToStaffId = dto.assignedToStaffId ?? null;
@@ -144,7 +145,10 @@ export class MaintenanceService {
 
     if (dto.status !== undefined) {
       ticket.status = dto.status;
-      if (dto.status === MaintenanceTicketStatus.RESOLVED && !ticket.resolvedAt) {
+      if (
+        dto.status === MaintenanceTicketStatus.RESOLVED &&
+        !ticket.resolvedAt
+      ) {
         ticket.resolvedAt = new Date();
       }
     }
