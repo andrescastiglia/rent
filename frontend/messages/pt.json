@@ -52,7 +52,8 @@
     "users": "Usuários",
     "templates": "Modelos",
     "reports": "Relatórios",
-    "staff": "Funcionários"
+    "staff": "Funcionários",
+    "maintenance": "Manutenção"
   },
   "breadcrumbs": {
     "home": "Início",
@@ -1263,6 +1264,81 @@
       "updated": "Funcionário atualizado com sucesso.",
       "activated": "Funcionário ativado com sucesso.",
       "deactivated": "Funcionário desativado com sucesso."
+    }
+  },
+  "maintenance": {
+    "title": "Manutenção",
+    "newTicket": "Novo Ticket",
+    "editTicket": "Editar Ticket",
+    "noTickets": "Sem tickets de manutenção",
+    "noTicketsDescription": "Crie um ticket para reportar um problema",
+    "ticketDetails": "Detalhes do Ticket",
+    "comments": "Comentários",
+    "addComment": "Adicionar comentário",
+    "internalComment": "Comentário interno",
+    "submitComment": "Enviar",
+    "updateStatus": "Atualizar estado",
+    "assignStaff": "Atribuir funcionário",
+    "area": "Área",
+    "priority": "Prioridade",
+    "status": "Estado",
+    "source": "Origem",
+    "assignedTo": "Atribuído a",
+    "scheduledAt": "Data agendada",
+    "resolvedAt": "Data de resolução",
+    "resolutionNotes": "Notas de resolução",
+    "estimatedCost": "Custo estimado",
+    "actualCost": "Custo real",
+    "externalRef": "Referência externa",
+    "reportedBy": "Reportado por",
+    "property": "Imóvel",
+    "description": "Descrição",
+    "createdAt": "Criado",
+    "statuses": {
+      "open": "Aberto",
+      "assigned": "Atribuído",
+      "in_progress": "Em andamento",
+      "pending_parts": "Aguardando peças",
+      "resolved": "Resolvido",
+      "closed": "Fechado",
+      "cancelled": "Cancelado"
+    },
+    "priorities": {
+      "low": "Baixa",
+      "medium": "Média",
+      "high": "Alta",
+      "urgent": "Urgente"
+    },
+    "areas": {
+      "kitchen": "Cozinha",
+      "bathroom": "Banheiro",
+      "bedroom": "Quarto",
+      "living_room": "Sala de estar",
+      "electrical": "Elétrico",
+      "plumbing": "Encanamento",
+      "heating_cooling": "Aquecimento/Resfriamento",
+      "exterior": "Exterior",
+      "common_area": "Área comum",
+      "other": "Outro"
+    },
+    "sources": {
+      "tenant": "Inquilino",
+      "owner": "Proprietário",
+      "staff": "Funcionário",
+      "admin": "Administrador",
+      "inspection": "Inspeção"
+    },
+    "errors": {
+      "load": "Não foi possível carregar os tickets.",
+      "save": "Não foi possível salvar o ticket.",
+      "loadComments": "Não foi possível carregar os comentários.",
+      "addComment": "Não foi possível adicionar o comentário."
+    },
+    "messages": {
+      "created": "Ticket criado com sucesso.",
+      "updated": "Ticket atualizado com sucesso.",
+      "deleted": "Ticket excluído com sucesso.",
+      "commentAdded": "Comentário adicionado com sucesso."
     }
   },
   "ownerPortal": {

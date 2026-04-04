@@ -52,7 +52,8 @@
     "users": "Usuarios",
     "templates": "Plantillas",
     "reports": "Reportes",
-    "staff": "Personal"
+    "staff": "Personal",
+    "maintenance": "Mantenimiento"
   },
   "breadcrumbs": {
     "home": "Inicio",
@@ -1263,6 +1264,81 @@
       "updated": "Personal actualizado correctamente.",
       "activated": "Personal activado correctamente.",
       "deactivated": "Personal desactivado correctamente."
+    }
+  },
+  "maintenance": {
+    "title": "Mantenimiento",
+    "newTicket": "Nuevo Ticket",
+    "editTicket": "Editar Ticket",
+    "noTickets": "No hay tickets de mantenimiento",
+    "noTicketsDescription": "Crea un ticket para reportar un problema",
+    "ticketDetails": "Detalles del Ticket",
+    "comments": "Comentarios",
+    "addComment": "Agregar comentario",
+    "internalComment": "Comentario interno",
+    "submitComment": "Enviar",
+    "updateStatus": "Actualizar estado",
+    "assignStaff": "Asignar personal",
+    "area": "Área",
+    "priority": "Prioridad",
+    "status": "Estado",
+    "source": "Origen",
+    "assignedTo": "Asignado a",
+    "scheduledAt": "Fecha programada",
+    "resolvedAt": "Fecha de resolución",
+    "resolutionNotes": "Notas de resolución",
+    "estimatedCost": "Costo estimado",
+    "actualCost": "Costo real",
+    "externalRef": "Referencia externa",
+    "reportedBy": "Reportado por",
+    "property": "Propiedad",
+    "description": "Descripción",
+    "createdAt": "Creado",
+    "statuses": {
+      "open": "Abierto",
+      "assigned": "Asignado",
+      "in_progress": "En progreso",
+      "pending_parts": "Esperando piezas",
+      "resolved": "Resuelto",
+      "closed": "Cerrado",
+      "cancelled": "Cancelado"
+    },
+    "priorities": {
+      "low": "Baja",
+      "medium": "Media",
+      "high": "Alta",
+      "urgent": "Urgente"
+    },
+    "areas": {
+      "kitchen": "Cocina",
+      "bathroom": "Baño",
+      "bedroom": "Dormitorio",
+      "living_room": "Sala de estar",
+      "electrical": "Eléctrico",
+      "plumbing": "Plomería",
+      "heating_cooling": "Calefacción/Refrigeración",
+      "exterior": "Exterior",
+      "common_area": "Área común",
+      "other": "Otro"
+    },
+    "sources": {
+      "tenant": "Inquilino",
+      "owner": "Propietario",
+      "staff": "Personal",
+      "admin": "Administrador",
+      "inspection": "Inspección"
+    },
+    "errors": {
+      "load": "No se pudieron cargar los tickets.",
+      "save": "No se pudo guardar el ticket.",
+      "loadComments": "No se pudieron cargar los comentarios.",
+      "addComment": "No se pudo agregar el comentario."
+    },
+    "messages": {
+      "created": "Ticket creado correctamente.",
+      "updated": "Ticket actualizado correctamente.",
+      "deleted": "Ticket eliminado correctamente.",
+      "commentAdded": "Comentario agregado correctamente."
     }
   },
   "ownerPortal": {

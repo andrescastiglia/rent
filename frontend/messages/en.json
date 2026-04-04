@@ -52,7 +52,8 @@
     "users": "Users",
     "templates": "Templates",
     "reports": "Reports",
-    "staff": "Staff"
+    "staff": "Staff",
+    "maintenance": "Maintenance"
   },
   "breadcrumbs": {
     "home": "Home",
@@ -1263,6 +1264,81 @@
       "updated": "Staff updated successfully.",
       "activated": "Staff activated successfully.",
       "deactivated": "Staff deactivated successfully."
+    }
+  },
+  "maintenance": {
+    "title": "Maintenance",
+    "newTicket": "New Ticket",
+    "editTicket": "Edit Ticket",
+    "noTickets": "No maintenance tickets",
+    "noTicketsDescription": "Create a ticket to report an issue",
+    "ticketDetails": "Ticket Details",
+    "comments": "Comments",
+    "addComment": "Add comment",
+    "internalComment": "Internal comment",
+    "submitComment": "Submit",
+    "updateStatus": "Update status",
+    "assignStaff": "Assign staff",
+    "area": "Area",
+    "priority": "Priority",
+    "status": "Status",
+    "source": "Source",
+    "assignedTo": "Assigned to",
+    "scheduledAt": "Scheduled date",
+    "resolvedAt": "Resolution date",
+    "resolutionNotes": "Resolution notes",
+    "estimatedCost": "Estimated cost",
+    "actualCost": "Actual cost",
+    "externalRef": "External reference",
+    "reportedBy": "Reported by",
+    "property": "Property",
+    "description": "Description",
+    "createdAt": "Created",
+    "statuses": {
+      "open": "Open",
+      "assigned": "Assigned",
+      "in_progress": "In progress",
+      "pending_parts": "Pending parts",
+      "resolved": "Resolved",
+      "closed": "Closed",
+      "cancelled": "Cancelled"
+    },
+    "priorities": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "urgent": "Urgent"
+    },
+    "areas": {
+      "kitchen": "Kitchen",
+      "bathroom": "Bathroom",
+      "bedroom": "Bedroom",
+      "living_room": "Living room",
+      "electrical": "Electrical",
+      "plumbing": "Plumbing",
+      "heating_cooling": "Heating/Cooling",
+      "exterior": "Exterior",
+      "common_area": "Common area",
+      "other": "Other"
+    },
+    "sources": {
+      "tenant": "Tenant",
+      "owner": "Owner",
+      "staff": "Staff",
+      "admin": "Admin",
+      "inspection": "Inspection"
+    },
+    "errors": {
+      "load": "Failed to load tickets.",
+      "save": "Failed to save ticket.",
+      "loadComments": "Failed to load comments.",
+      "addComment": "Failed to add comment."
+    },
+    "messages": {
+      "created": "Ticket created successfully.",
+      "updated": "Ticket updated successfully.",
+      "deleted": "Ticket deleted successfully.",
+      "commentAdded": "Comment added successfully."
     }
   },
   "ownerPortal": {
