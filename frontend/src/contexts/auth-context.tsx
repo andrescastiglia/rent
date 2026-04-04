@@ -143,7 +143,14 @@ export function AuthProvider({
       emitAuthStoreChange();
 
       const locale = getLocaleFromPath();
-      router.push(`/${locale}/dashboard`);
+      const role = (response.user as unknown as { role?: string }).role;
+      if (role === "tenant") {
+        router.push(`/${locale}/portal/tenant`);
+      } else if (role === "owner") {
+        router.push(`/${locale}/portal/owner`);
+      } else {
+        router.push(`/${locale}/dashboard`);
+      }
     },
     [getLocaleFromPath, router],
   );

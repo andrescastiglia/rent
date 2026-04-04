@@ -5,6 +5,14 @@ import {
   CreateOwnerInput,
   UpdateOwnerInput,
 } from "@/types/owner";
+
+export interface OwnerSummary {
+  propertiesCount: number;
+  activeLeases: number;
+  pendingSettlements: number;
+  totalIncomeCurrentMonth: number;
+  currencyCode: string;
+}
 import { apiClient } from "../api";
 import { getToken } from "../auth";
 
@@ -364,5 +372,36 @@ export const ownersApi = {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+  },
+
+  getMyProfile: async (): Promise<Owner> => {
+    if (IS_MOCK_MODE) {
+      await delay(DELAY);
+      return MOCK_OWNERS[0];
+    }
+    const token = getToken();
+    const result = await apiClient.get<BackendOwner>(
+      "/owners/me",
+      token ?? undefined,
+    );
+    return mapOwner(result);
+  },
+
+  getMySummary: async (): Promise<OwnerSummary> => {
+    if (IS_MOCK_MODE) {
+      await delay(DELAY);
+      return {
+        propertiesCount: 3,
+        activeLeases: 2,
+        pendingSettlements: 1,
+        totalIncomeCurrentMonth: 150000,
+        currencyCode: "ARS",
+      };
+    }
+    const token = getToken();
+    return apiClient.get<OwnerSummary>(
+      "/owners/me/summary",
+      token ?? undefined,
+    );
   },
 };

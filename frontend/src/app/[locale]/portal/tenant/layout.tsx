@@ -6,7 +6,14 @@ import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
-import { Home, FileText, CreditCard, Wrench, LogOut, Loader2 } from "lucide-react";
+import {
+  Home,
+  FileText,
+  CreditCard,
+  Wrench,
+  LogOut,
+  Loader2,
+} from "lucide-react";
 
 export default function TenantPortalLayout({
   children,

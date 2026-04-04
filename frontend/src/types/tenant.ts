@@ -82,6 +82,13 @@ export interface CreateTenantInput {
 
 export type UpdateTenantInput = Partial<CreateTenantInput>;
 
+export interface TenantSummary {
+  activeLease: import("./lease").Lease | null;
+  accountBalance: number;
+  pendingInvoicesCount: number;
+  nextPaymentDue: string | null;
+}
+
 export interface TenantActivity {
   id: string;
   tenantId: string;

@@ -71,6 +71,11 @@ export const navigationItems: NavItem[] = [
     roles: ["admin"],
     moduleKey: "users",
   },
+  {
+    labelKey: "staff",
+    href: "/staff",
+    roles: ["admin"],
+  },
 ];
 
 export function getNavigationForRole(role: string): NavItem[] {

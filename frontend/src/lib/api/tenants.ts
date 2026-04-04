@@ -3,6 +3,7 @@ import {
   TenantActivity,
   TenantActivityStatus,
   TenantActivityType,
+  TenantSummary,
   CreateTenantInput,
   UpdateTenantInput,
 } from "@/types/tenant";
@@ -518,6 +519,36 @@ export const tenantsApi = {
       token ?? undefined,
     );
     return mapBackendTenantActivity(result);
+  },
+
+  getMyProfile: async (): Promise<Tenant> => {
+    if (shouldUseMock()) {
+      await delay(DELAY);
+      return MOCK_TENANTS[0];
+    }
+    const token = getToken();
+    const result = await apiClient.get<BackendTenantLike>(
+      "/tenants/me",
+      token ?? undefined,
+    );
+    return mapBackendTenantToTenant(result);
+  },
+
+  getMySummary: async (): Promise<TenantSummary> => {
+    if (shouldUseMock()) {
+      await delay(DELAY);
+      return {
+        activeLease: null,
+        accountBalance: 0,
+        pendingInvoicesCount: 0,
+        nextPaymentDue: null,
+      };
+    }
+    const token = getToken();
+    return apiClient.get<TenantSummary>(
+      "/tenants/me/summary",
+      token ?? undefined,
+    );
   },
 
   updateActivity: async (

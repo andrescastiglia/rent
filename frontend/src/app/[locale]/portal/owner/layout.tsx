@@ -31,8 +31,18 @@ export default function OwnerPortalLayout({
 
   const tabs = [
     { href: ownerBase, label: "Inicio", icon: LayoutDashboard, exact: true },
-    { href: `${ownerBase}/properties`, label: "Propiedades", icon: Building2, exact: false },
-    { href: `${ownerBase}/settlements`, label: "Liquidaciones", icon: FileText, exact: false },
+    {
+      href: `${ownerBase}/properties`,
+      label: "Propiedades",
+      icon: Building2,
+      exact: false,
+    },
+    {
+      href: `${ownerBase}/settlements`,
+      label: "Liquidaciones",
+      icon: FileText,
+      exact: false,
+    },
   ];
 
   const isActive = (href: string, exact: boolean) =>
@@ -69,7 +79,9 @@ export default function OwnerPortalLayout({
                     : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                 }`}
               >
-                <Icon className={`h-5 w-5 ${active ? "text-blue-600 dark:text-blue-400" : ""}`} />
+                <Icon
+                  className={`h-5 w-5 ${active ? "text-blue-600 dark:text-blue-400" : ""}`}
+                />
                 {label}
               </Link>
             );
