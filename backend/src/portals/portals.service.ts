@@ -36,8 +36,7 @@ interface PortalAdapter {
 class MockPortalAdapter implements PortalAdapter {
   constructor(private readonly portal: PortalName) {}
 
-  async publish(payload: ListingPayload): Promise<AdapterResult> {
-    void payload;
+  async publish(_payload: ListingPayload): Promise<AdapterResult> {
     return {
       externalId: `mock-${Date.now()}`,
       externalUrl: `https://${this.portal}.com.ar/listings/mock`,

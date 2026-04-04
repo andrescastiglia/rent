@@ -545,10 +545,20 @@ export const tenantsApi = {
       };
     }
     const token = getToken();
-    return apiClient.get<TenantSummary>(
-      "/tenants/me/summary",
-      token ?? undefined,
-    );
+    const raw = await apiClient.get<{
+      tenant: unknown;
+      activeLease: TenantSummary["activeLease"];
+      currentBalance?: number;
+      currencyCode?: string;
+      pendingInvoicesCount?: number;
+      nextPaymentDueDate?: string | null;
+    }>("/tenants/me/summary", token ?? undefined);
+    return {
+      activeLease: raw.activeLease ?? null,
+      accountBalance: raw.currentBalance ?? 0,
+      pendingInvoicesCount: raw.pendingInvoicesCount ?? 0,
+      nextPaymentDue: raw.nextPaymentDueDate ?? null,
+    };
   },
 
   updateActivity: async (

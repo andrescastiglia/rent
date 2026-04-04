@@ -57,6 +57,7 @@ export class MaintenanceController {
   }
 
   @Post()
+  @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.TENANT, UserRole.OWNER)
   async create(
     @Body() dto: CreateMaintenanceTicketDto,
     @Request() req: AuthenticatedRequest,
@@ -100,16 +101,23 @@ export class MaintenanceController {
   }
 
   @Post(':id/comments')
+  @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.TENANT, UserRole.OWNER)
   async addComment(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateCommentDto,
     @Request() req: AuthenticatedRequest,
   ): Promise<MaintenanceTicketComment> {
+    const isAdminOrStaff =
+      req.user.role === UserRole.ADMIN || req.user.role === UserRole.STAFF;
+    const safeDto = {
+      ...dto,
+      isInternal: isAdminOrStaff ? dto.isInternal : false,
+    };
     return this.maintenanceService.addComment(
       id,
       req.user.companyId,
       req.user.id,
-      dto,
+      safeDto,
     );
   }
 }

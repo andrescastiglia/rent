@@ -10,7 +10,6 @@ import {
   Query,
   UseGuards,
   Request,
-  ForbiddenException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { TenantsService } from './tenants.service';
@@ -64,21 +63,17 @@ export class TenantsController {
   }
 
   @Get(':id')
+  @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.OWNER)
   findOne(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
-    if (req.user.role === UserRole.TENANT && req.user.id !== id) {
-      throw new ForbiddenException('Access denied');
-    }
     return this.tenantsService.findOne(id);
   }
 
   @Get(':id/leases')
+  @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.OWNER)
   getLeaseHistory(
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    if (req.user.role === UserRole.TENANT && req.user.id !== id) {
-      throw new ForbiddenException('Access denied');
-    }
     return this.tenantsService.getLeaseHistory(id);
   }
 

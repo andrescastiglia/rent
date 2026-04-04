@@ -190,49 +190,59 @@ const mapBackendComment = (
     : new Date().toISOString(),
 });
 
+function applyMockFilters(
+  tickets: MaintenanceTicket[],
+  filters?: MaintenanceFilters,
+): MaintenanceTicket[] {
+  let result = tickets;
+  if (filters?.status) {
+    result = result.filter((t) => t.status === filters.status);
+  }
+  if (filters?.priority) {
+    result = result.filter((t) => t.priority === filters.priority);
+  }
+  if (filters?.propertyId) {
+    result = result.filter((t) => t.propertyId === filters.propertyId);
+  }
+  if (filters?.assignedToStaffId) {
+    result = result.filter(
+      (t) => t.assignedToStaffId === filters.assignedToStaffId,
+    );
+  }
+  if (filters?.search) {
+    const term = filters.search.toLowerCase();
+    result = result.filter(
+      (t) =>
+        t.title.toLowerCase().includes(term) ||
+        (t.property?.address ?? "").toLowerCase().includes(term) ||
+        (t.description ?? "").toLowerCase().includes(term),
+    );
+  }
+  return result;
+}
+
+function buildFilterParams(filters?: MaintenanceFilters): URLSearchParams {
+  const params = new URLSearchParams();
+  if (filters?.status) params.append("status", filters.status);
+  if (filters?.priority) params.append("priority", filters.priority);
+  if (filters?.propertyId) params.append("propertyId", filters.propertyId);
+  if (filters?.assignedToStaffId)
+    params.append("assignedToStaffId", filters.assignedToStaffId);
+  if (filters?.search) params.append("search", filters.search);
+  return params;
+}
+
 export const maintenanceApi = {
   getAll: async (
     filters?: MaintenanceFilters,
   ): Promise<MaintenanceTicket[]> => {
     if (shouldUseMock()) {
       await delay(DELAY);
-      let result = [...MOCK_TICKETS];
-      if (filters?.status) {
-        result = result.filter((t) => t.status === filters.status);
-      }
-      if (filters?.priority) {
-        result = result.filter((t) => t.priority === filters.priority);
-      }
-      if (filters?.propertyId) {
-        result = result.filter((t) => t.propertyId === filters.propertyId);
-      }
-      if (filters?.assignedToStaffId) {
-        result = result.filter(
-          (t) => t.assignedToStaffId === filters.assignedToStaffId,
-        );
-      }
-      if (filters?.search) {
-        const term = filters.search.toLowerCase();
-        result = result.filter(
-          (t) =>
-            t.title.toLowerCase().includes(term) ||
-            (t.property?.address ?? "").toLowerCase().includes(term) ||
-            (t.description ?? "").toLowerCase().includes(term),
-        );
-      }
-      return result;
+      return applyMockFilters([...MOCK_TICKETS], filters);
     }
 
     const token = getToken();
-    const queryParams = new URLSearchParams();
-    if (filters?.status) queryParams.append("status", filters.status);
-    if (filters?.priority) queryParams.append("priority", filters.priority);
-    if (filters?.propertyId)
-      queryParams.append("propertyId", filters.propertyId);
-    if (filters?.assignedToStaffId)
-      queryParams.append("assignedToStaffId", filters.assignedToStaffId);
-    if (filters?.search) queryParams.append("search", filters.search);
-
+    const queryParams = buildFilterParams(filters);
     const endpoint =
       queryParams.toString().length > 0
         ? `/maintenance/tickets?${queryParams.toString()}`

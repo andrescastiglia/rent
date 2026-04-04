@@ -1,12 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
-import { useEffect } from "react";
 import { Building2, FileText, LayoutDashboard } from "lucide-react";
 
 export default function OwnerPortalLayout({
@@ -18,6 +17,7 @@ export default function OwnerPortalLayout({
   const router = useLocalizedRouter();
   const locale = useLocale();
   const pathname = usePathname();
+  const t = useTranslations("ownerPortal");
 
   useEffect(() => {
     if (user && user.role !== "owner" && user.role !== "admin") {
@@ -30,16 +30,21 @@ export default function OwnerPortalLayout({
   const ownerBase = `/${locale}/portal/owner`;
 
   const tabs = [
-    { href: ownerBase, label: "Inicio", icon: LayoutDashboard, exact: true },
+    {
+      href: ownerBase,
+      label: t("nav.home"),
+      icon: LayoutDashboard,
+      exact: true,
+    },
     {
       href: `${ownerBase}/properties`,
-      label: "Propiedades",
+      label: t("nav.properties"),
       icon: Building2,
       exact: false,
     },
     {
       href: `${ownerBase}/settlements`,
-      label: "Liquidaciones",
+      label: t("nav.settlements"),
       icon: FileText,
       exact: false,
     },
@@ -53,7 +58,7 @@ export default function OwnerPortalLayout({
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <span className="text-lg font-semibold text-gray-900 dark:text-white">
-            Portal Propietario
+            {t("title")}
           </span>
           <span className="text-sm text-gray-500 dark:text-gray-400">
             {user.firstName} {user.lastName}

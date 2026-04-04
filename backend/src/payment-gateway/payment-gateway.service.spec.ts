@@ -15,6 +15,7 @@ import {
   PaymentGatewayTransactionStatus,
 } from './entities/payment-gateway-transaction.entity';
 import { Invoice, InvoiceStatus } from '../payments/entities/invoice.entity';
+import { Tenant } from '../tenants/entities/tenant.entity';
 import { CreatePaymentPreferenceDto } from './dto/create-payment-preference.dto';
 import { WebhookNotificationDto } from './dto/webhook-notification.dto';
 
@@ -34,6 +35,7 @@ describe('PaymentGatewayService', () => {
   let service: PaymentGatewayService;
   let txRepo: MockRepository<PaymentGatewayTransaction>;
   let invoiceRepo: MockRepository<Invoice>;
+  let tenantRepo: MockRepository<Tenant>;
   let dataSource: { query: jest.Mock };
   let configService: { get: jest.Mock };
   let httpService: { post: jest.Mock; get: jest.Mock };
@@ -66,6 +68,7 @@ describe('PaymentGatewayService', () => {
   beforeEach(async () => {
     txRepo = createMockRepository();
     invoiceRepo = createMockRepository();
+    tenantRepo = createMockRepository();
     dataSource = { query: jest.fn().mockResolvedValue([]) };
     configService = { get: jest.fn() };
     httpService = { post: jest.fn(), get: jest.fn() };
@@ -78,6 +81,7 @@ describe('PaymentGatewayService', () => {
           useValue: txRepo,
         },
         { provide: getRepositoryToken(Invoice), useValue: invoiceRepo },
+        { provide: getRepositoryToken(Tenant), useValue: tenantRepo },
         { provide: DataSource, useValue: dataSource },
         { provide: ConfigService, useValue: configService },
         { provide: HttpService, useValue: httpService },
@@ -212,7 +216,11 @@ describe('PaymentGatewayService', () => {
 
       expect(dataSource.query).toHaveBeenCalledWith(
         expect.stringContaining('UPDATE invoices'),
-        [InvoiceStatus.PAID, mpPayment.external_reference],
+        [
+          InvoiceStatus.PAID,
+          mpPayment.external_reference,
+          mockTransaction.companyId,
+        ],
       );
     });
 

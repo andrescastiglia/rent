@@ -50,7 +50,7 @@ export class BankAccountsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.bankAccountsService.findOne(id, req.user.companyId);
+    return this.bankAccountsService.findOne(id, req.user.companyId, req.user);
   }
 
   @Post()
@@ -58,7 +58,7 @@ export class BankAccountsController {
     @Body() dto: CreateBankAccountDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.bankAccountsService.create(dto, req.user.companyId);
+    return this.bankAccountsService.create(dto, req.user.companyId, req.user);
   }
 
   @Patch(':id')
@@ -67,7 +67,12 @@ export class BankAccountsController {
     @Body() dto: UpdateBankAccountDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.bankAccountsService.update(id, dto, req.user.companyId);
+    return this.bankAccountsService.update(
+      id,
+      dto,
+      req.user.companyId,
+      req.user,
+    );
   }
 
   @Delete(':id')

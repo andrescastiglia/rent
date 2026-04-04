@@ -16,6 +16,12 @@ const PAYMENT_METHODS: PaymentMethod[] = [
   "other",
 ];
 
+function getLocaleCode(loc: string): string {
+  if (loc === "en") return "en-US";
+  if (loc === "pt") return "pt-BR";
+  return "es-AR";
+}
+
 export default function TenantPaymentsPage() {
   const t = useTranslations("tenantPortal");
   const locale = useLocale();
@@ -54,21 +60,19 @@ export default function TenantPaymentsPage() {
   };
 
   useEffect(() => {
-    void loadData();
+    loadData();
   }, []);
 
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return "—";
-    return new Date(dateStr).toLocaleDateString(
-      locale === "en" ? "en-US" : locale === "pt" ? "pt-BR" : "es-AR",
-    );
+    return new Date(dateStr).toLocaleDateString(getLocaleCode(locale));
   };
 
   const formatCurrency = (amount: number, currency = "ARS") =>
-    new Intl.NumberFormat(
-      locale === "en" ? "en-US" : locale === "pt" ? "pt-BR" : "es-AR",
-      { style: "currency", currency },
-    ).format(amount);
+    new Intl.NumberFormat(getLocaleCode(locale), {
+      style: "currency",
+      currency,
+    }).format(amount);
 
   const getInvoiceStatusClass = (status: Invoice["status"]) => {
     switch (status) {
@@ -90,7 +94,7 @@ export default function TenantPaymentsPage() {
     try {
       await paymentsApi.create({
         tenantAccountId,
-        amount: parseFloat(form.amount),
+        amount: Number.parseFloat(form.amount),
         paymentDate: form.date,
         method: form.method,
         reference: form.reference || undefined,
@@ -103,7 +107,7 @@ export default function TenantPaymentsPage() {
         method: "bank_transfer",
         reference: "",
       });
-      void loadData();
+      await loadData();
     } catch {
       // fail silently
     } finally {

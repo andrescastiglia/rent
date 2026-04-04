@@ -37,20 +37,24 @@ export class PaymentGatewayTransaction {
   @JoinColumn({ name: 'invoice_id' })
   invoice: Invoice;
 
-  @Column({ name: 'tenant_id' })
-  tenantId: string;
+  @Column({ name: 'tenant_id', nullable: true })
+  tenantId: string | null;
 
   @Column({ length: 50, default: 'mercadopago' })
   gateway: string;
 
   @Column({ name: 'external_id', length: 255, nullable: true })
-  externalId: string;
+  externalId: string | null;
 
   @Column({ name: 'external_payment_id', length: 255, nullable: true })
-  externalPaymentId: string;
+  externalPaymentId: string | null;
 
-  @Column({ length: 50, default: PaymentGatewayTransactionStatus.PENDING })
-  status: string;
+  @Column({
+    type: 'enum',
+    enum: PaymentGatewayTransactionStatus,
+    default: PaymentGatewayTransactionStatus.PENDING,
+  })
+  status: PaymentGatewayTransactionStatus;
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   amount: number;
@@ -59,16 +63,16 @@ export class PaymentGatewayTransaction {
   currency: string;
 
   @Column({ name: 'payment_method', length: 100, nullable: true })
-  paymentMethod: string;
+  paymentMethod: string | null;
 
   @Column({ type: 'integer', default: 1 })
   installments: number;
 
   @Column({ name: 'init_point', type: 'text', nullable: true })
-  initPoint: string;
+  initPoint: string | null;
 
   @Column({ name: 'sandbox_init_point', type: 'text', nullable: true })
-  sandboxInitPoint: string;
+  sandboxInitPoint: string | null;
 
   @Column({ type: 'jsonb', default: {} })
   metadata: Record<string, any>;

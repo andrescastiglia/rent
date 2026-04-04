@@ -1,9 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
-import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
 export default function PortalLayout({

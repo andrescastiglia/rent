@@ -404,7 +404,7 @@ function TicketDetailPanel({
             </dd>
           </div>
         ) : null}
-        {ticket.estimatedCost != null ? (
+        {ticket.estimatedCost != null && (
           <div>
             <dt className="font-medium text-gray-500 dark:text-gray-400">
               {t("estimatedCost")}
@@ -413,8 +413,8 @@ function TicketDetailPanel({
               {ticket.estimatedCost} {ticket.costCurrency}
             </dd>
           </div>
-        ) : null}
-        {ticket.actualCost != null ? (
+        )}
+        {ticket.actualCost != null && (
           <div>
             <dt className="font-medium text-gray-500 dark:text-gray-400">
               {t("actualCost")}
@@ -423,7 +423,7 @@ function TicketDetailPanel({
               {ticket.actualCost} {ticket.costCurrency}
             </dd>
           </div>
-        ) : null}
+        )}
         {ticket.externalRef ? (
           <div>
             <dt className="font-medium text-gray-500 dark:text-gray-400">
@@ -644,7 +644,7 @@ export default function MaintenancePage() {
       priority: form.priority,
       description: form.description || undefined,
       estimatedCost: form.estimatedCost
-        ? parseFloat(form.estimatedCost)
+        ? Number.parseFloat(form.estimatedCost)
         : undefined,
       scheduledAt: form.scheduledAt || undefined,
       source: MaintenanceTicketSource.ADMIN,

@@ -399,9 +399,29 @@ export const ownersApi = {
       };
     }
     const token = getToken();
-    return apiClient.get<OwnerSummary>(
-      "/owners/me/summary",
-      token ?? undefined,
-    );
+    const raw = await apiClient.get<{
+      activeLeaseCount?: number | string;
+      activeLeases?: number | string;
+      pendingSettlementsCount?: number | string;
+      pendingSettlements?: number | string;
+      totalIncomeCurrentMonth?: number | string;
+      totalIncome?: number | string;
+      properties?: unknown[];
+      propertiesCount?: number | string;
+      currencyCode?: string;
+    }>("/owners/me/summary", token ?? undefined);
+    return {
+      propertiesCount: Number(
+        raw.propertiesCount ?? raw.properties?.length ?? 0,
+      ),
+      activeLeases: Number(raw.activeLeaseCount ?? raw.activeLeases ?? 0),
+      pendingSettlements: Number(
+        raw.pendingSettlementsCount ?? raw.pendingSettlements ?? 0,
+      ),
+      totalIncomeCurrentMonth: Number(
+        raw.totalIncomeCurrentMonth ?? raw.totalIncome ?? 0,
+      ),
+      currencyCode: raw.currencyCode ?? "ARS",
+    };
   },
 };

@@ -1342,6 +1342,12 @@
     }
   },
   "ownerPortal": {
+    "title": "Owner Portal",
+    "nav": {
+      "home": "Home",
+      "properties": "Properties",
+      "settlements": "Settlements"
+    },
     "welcome": "Welcome",
     "myProperties": "My Properties",
     "settlements": "Settlements",

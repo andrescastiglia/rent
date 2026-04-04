@@ -1342,6 +1342,12 @@
     }
   },
   "ownerPortal": {
+    "title": "Portal Propietario",
+    "nav": {
+      "home": "Inicio",
+      "properties": "Propiedades",
+      "settlements": "Liquidaciones"
+    },
     "welcome": "Bienvenido/a",
     "myProperties": "Mis Propiedades",
     "settlements": "Liquidaciones",

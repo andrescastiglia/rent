@@ -1,6 +1,7 @@
 import {
   Injectable,
   NotFoundException,
+  ForbiddenException,
   InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -13,8 +14,16 @@ import {
   PaymentGatewayTransactionStatus,
 } from './entities/payment-gateway-transaction.entity';
 import { Invoice, InvoiceStatus } from '../payments/entities/invoice.entity';
+import { Tenant } from '../tenants/entities/tenant.entity';
+import { UserRole } from '../users/entities/user.entity';
 import { CreatePaymentPreferenceDto } from './dto/create-payment-preference.dto';
 import { WebhookNotificationDto } from './dto/webhook-notification.dto';
+
+interface UserContext {
+  id: string;
+  companyId: string;
+  role: UserRole;
+}
 
 @Injectable()
 export class PaymentGatewayService {
@@ -23,6 +32,8 @@ export class PaymentGatewayService {
     private readonly txRepo: Repository<PaymentGatewayTransaction>,
     @InjectRepository(Invoice)
     private readonly invoiceRepo: Repository<Invoice>,
+    @InjectRepository(Tenant)
+    private readonly tenantRepo: Repository<Tenant>,
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
@@ -30,8 +41,9 @@ export class PaymentGatewayService {
 
   async createPreference(
     companyId: string,
-    _userId: string,
+    userId: string,
     dto: CreatePaymentPreferenceDto,
+    userRole?: UserRole,
   ): Promise<{
     initPoint: string;
     sandboxInitPoint: string;
@@ -44,6 +56,15 @@ export class PaymentGatewayService {
 
     if (!invoice) {
       throw new NotFoundException(`Invoice with ID ${dto.invoiceId} not found`);
+    }
+
+    if (userRole === UserRole.TENANT && invoice.tenantAccount?.tenantId) {
+      const tenant = await this.tenantRepo.findOne({
+        where: { userId, companyId },
+      });
+      if (!tenant || tenant.id !== invoice.tenantAccount.tenantId) {
+        throw new ForbiddenException('Invoice does not belong to your account');
+      }
     }
 
     const accessToken = this.configService.get<string>(
@@ -98,7 +119,7 @@ export class PaymentGatewayService {
       sandbox_init_point: string;
     };
 
-    const tenantId = invoice.tenantAccount?.tenantId ?? '';
+    const tenantId = invoice.tenantAccount?.tenantId ?? null;
 
     const tx = this.txRepo.create({
       companyId,
@@ -182,8 +203,8 @@ export class PaymentGatewayService {
 
     if (newStatus === PaymentGatewayTransactionStatus.APPROVED) {
       await this.dataSource.query(
-        `UPDATE invoices SET status = $1, updated_at = NOW() WHERE id = $2`,
-        [InvoiceStatus.PAID, invoiceId],
+        `UPDATE invoices SET status = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3`,
+        [InvoiceStatus.PAID, invoiceId, tx.companyId],
       );
     }
   }
@@ -205,12 +226,23 @@ export class PaymentGatewayService {
   async findOne(
     id: string,
     companyId: string,
+    user?: UserContext,
   ): Promise<PaymentGatewayTransaction> {
     const tx = await this.txRepo.findOne({ where: { id, companyId } });
     if (!tx) {
       throw new NotFoundException(
         `Payment gateway transaction with ID ${id} not found`,
       );
+    }
+    if (user?.role === UserRole.TENANT && tx.tenantId) {
+      const tenant = await this.tenantRepo.findOne({
+        where: { userId: user.id, companyId },
+      });
+      if (!tenant || tenant.id !== tx.tenantId) {
+        throw new ForbiddenException(
+          'Transaction does not belong to your account',
+        );
+      }
     }
     return tx;
   }

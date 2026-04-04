@@ -420,16 +420,19 @@ export class TenantsService {
         where: [
           {
             leaseId: activeLease.id,
+            companyId,
             status: InvoiceStatus.PENDING,
             deletedAt: IsNull(),
           },
           {
             leaseId: activeLease.id,
+            companyId,
             status: InvoiceStatus.OVERDUE,
             deletedAt: IsNull(),
           },
           {
             leaseId: activeLease.id,
+            companyId,
             status: InvoiceStatus.SENT,
             deletedAt: IsNull(),
           },

@@ -48,6 +48,7 @@ export class PaymentGatewayController {
       req.user.companyId,
       req.user.id,
       dto,
+      req.user.role,
     );
   }
 
@@ -66,7 +67,7 @@ export class PaymentGatewayController {
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
   ): Promise<PaymentGatewayTransaction> {
-    return this.paymentGatewayService.findOne(id, req.user.companyId);
+    return this.paymentGatewayService.findOne(id, req.user.companyId, req.user);
   }
 
   @Post('webhook')

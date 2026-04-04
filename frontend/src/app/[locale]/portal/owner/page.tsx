@@ -23,10 +23,10 @@ function SummaryCard({
   icon: Icon,
   colorClass,
 }: {
-  label: string;
-  value: string | number;
-  icon: React.ElementType;
-  colorClass: string;
+  readonly label: string;
+  readonly value: string | number;
+  readonly icon: React.ElementType;
+  readonly colorClass: string;
 }) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm flex items-center gap-3">
@@ -79,7 +79,7 @@ export default function OwnerDashboardPage() {
 
   useEffect(() => {
     if (!authLoading && user?.role === "owner") {
-      void fetchData();
+      fetchData();
     }
   }, [authLoading, user, fetchData]);
 
@@ -91,7 +91,7 @@ export default function OwnerDashboardPage() {
     );
   }
 
-  if (!user || user.role !== "owner") return null;
+  if (user?.role !== "owner") return null;
 
   const ownerBase = `/${locale}/portal/owner`;
 

@@ -64,7 +64,7 @@ export default function OwnerSettlementsPage() {
 
   useEffect(() => {
     if (!authLoading && user?.role === "owner") {
-      void fetchSettlements();
+      fetchSettlements();
     }
   }, [authLoading, user, fetchSettlements]);
 
@@ -94,7 +94,7 @@ export default function OwnerSettlementsPage() {
     );
   }
 
-  if (!user || user.role !== "owner") return null;
+  if (user?.role !== "owner") return null;
 
   return (
     <div className="space-y-4">
@@ -173,7 +173,9 @@ export default function OwnerSettlementsPage() {
                 {isCompleted && settlement.receiptPdfUrl && (
                   <button
                     type="button"
-                    onClick={() => void handleDownload(settlement)}
+                    onClick={() => {
+                      handleDownload(settlement).catch(console.error);
+                    }}
                     disabled={isDownloading}
                     className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >

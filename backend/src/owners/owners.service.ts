@@ -825,8 +825,9 @@ export class OwnersService {
         )::text AS active_leases,
         (
           SELECT COUNT(*)
-          FROM owner_settlements s
+          FROM settlements s
           WHERE s.owner_id = $1
+            AND s.company_id = $2
             AND s.status NOT IN ('completed', 'failed')
         )::text AS pending_settlements,
         (
@@ -849,9 +850,9 @@ export class OwnersService {
     return {
       owner,
       properties,
-      activeLeaseCount: parseInt(row.active_leases, 10),
-      pendingSettlementsCount: parseInt(row.pending_settlements, 10),
-      totalIncomeCurrentMonth: parseFloat(row.total_income),
+      activeLeaseCount: Number.parseInt(row.active_leases, 10),
+      pendingSettlementsCount: Number.parseInt(row.pending_settlements, 10),
+      totalIncomeCurrentMonth: Number.parseFloat(row.total_income),
       currencyCode: 'ARS',
     };
   }

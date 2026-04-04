@@ -80,7 +80,25 @@ export class SettlementsService {
     }
 
     const rows = await this.dataSource.query<Settlement[]>(
-      `SELECT s.*
+      `SELECT
+           s.id,
+           s.company_id AS "companyId",
+           s.owner_id AS "ownerId",
+           s.period,
+           s.gross_amount AS "grossAmount",
+           s.commission_rate AS "commissionRate",
+           s.commission_amount AS "commissionAmount",
+           s.net_amount AS "netAmount",
+           s.status,
+           s.scheduled_date AS "scheduledDate",
+           s.processed_at AS "processedAt",
+           s.transfer_reference AS "transferReference",
+           s.notes,
+           s.receipt_pdf_url AS "receiptPdfUrl",
+           s.receipt_name AS "receiptName",
+           s.currency_code AS "currencyCode",
+           s.created_at AS "createdAt",
+           s.updated_at AS "updatedAt"
          FROM settlements s
          INNER JOIN owners owner_entity
            ON owner_entity.id = s.owner_id
@@ -94,7 +112,25 @@ export class SettlementsService {
 
   async findOne(id: string, companyId: string): Promise<Settlement> {
     const rows = await this.dataSource.query<Settlement[]>(
-      `SELECT s.*
+      `SELECT
+           s.id,
+           s.company_id AS "companyId",
+           s.owner_id AS "ownerId",
+           s.period,
+           s.gross_amount AS "grossAmount",
+           s.commission_rate AS "commissionRate",
+           s.commission_amount AS "commissionAmount",
+           s.net_amount AS "netAmount",
+           s.status,
+           s.scheduled_date AS "scheduledDate",
+           s.processed_at AS "processedAt",
+           s.transfer_reference AS "transferReference",
+           s.notes,
+           s.receipt_pdf_url AS "receiptPdfUrl",
+           s.receipt_name AS "receiptName",
+           s.currency_code AS "currencyCode",
+           s.created_at AS "createdAt",
+           s.updated_at AS "updatedAt"
          FROM settlements s
          INNER JOIN owners owner_entity
            ON owner_entity.id = s.owner_id

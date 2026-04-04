@@ -113,33 +113,46 @@ export class StaffService {
   ): Promise<Staff> {
     const staff = await this.findOne(id, companyId);
 
-    if (dto.email !== undefined) {
-      const normalizedEmail = dto.email?.trim().toLowerCase() || null;
-      const nextEmail =
-        normalizedEmail && normalizedEmail.length > 0 ? normalizedEmail : null;
+    await this.updateStaffEmail(staff, dto);
+    this.applyUserProfileFields(staff, dto);
+    await this.usersRepository.save(staff.user);
 
-      if (nextEmail !== staff.user.email) {
-        if (nextEmail) {
-          const existingUser = await this.usersRepository.findOne({
-            where: { email: nextEmail, deletedAt: IsNull() },
-          });
-          if (existingUser && existingUser.id !== staff.userId) {
-            throw new ConflictException(
-              'A user with this email already exists',
-            );
-          }
-        }
-        staff.user.email = nextEmail;
+    this.applyStaffFields(staff, dto);
+    await this.staffRepository.save(staff);
+    return this.findOne(id, companyId);
+  }
+
+  private async updateStaffEmail(
+    staff: Staff,
+    dto: UpdateStaffDto,
+  ): Promise<void> {
+    if (dto.email === undefined) return;
+
+    const normalizedEmail = dto.email?.trim().toLowerCase() || null;
+    const nextEmail =
+      normalizedEmail && normalizedEmail.length > 0 ? normalizedEmail : null;
+
+    if (nextEmail === staff.user.email) return;
+
+    if (nextEmail) {
+      const existingUser = await this.usersRepository.findOne({
+        where: { email: nextEmail, deletedAt: IsNull() },
+      });
+      if (existingUser && existingUser.id !== staff.userId) {
+        throw new ConflictException('A user with this email already exists');
       }
     }
+    staff.user.email = nextEmail;
+  }
 
+  private applyUserProfileFields(staff: Staff, dto: UpdateStaffDto): void {
     if (dto.firstName !== undefined)
       staff.user.firstName = dto.firstName.trim();
     if (dto.lastName !== undefined) staff.user.lastName = dto.lastName.trim();
     if (dto.phone !== undefined) staff.user.phone = dto.phone?.trim() || null;
+  }
 
-    await this.usersRepository.save(staff.user);
-
+  private applyStaffFields(staff: Staff, dto: UpdateStaffDto): void {
     if (dto.specialization !== undefined)
       staff.specialization = dto.specialization;
     if (dto.hourlyRate !== undefined) staff.hourlyRate = dto.hourlyRate;
@@ -148,9 +161,6 @@ export class StaffService {
     if (dto.certifications !== undefined)
       staff.certifications = dto.certifications;
     if (dto.notes !== undefined) staff.notes = dto.notes?.trim();
-
-    await this.staffRepository.save(staff);
-    return this.findOne(id, companyId);
   }
 
   async remove(id: string, companyId: string): Promise<void> {

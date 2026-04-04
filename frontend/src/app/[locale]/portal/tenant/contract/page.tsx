@@ -15,6 +15,12 @@ import {
   RefreshCw,
 } from "lucide-react";
 
+function getLocaleCode(loc: string): string {
+  if (loc === "en") return "en-US";
+  if (loc === "pt") return "pt-BR";
+  return "es-AR";
+}
+
 export default function TenantContractPage() {
   const t = useTranslations("tenantPortal");
   const locale = useLocale();
@@ -41,22 +47,20 @@ export default function TenantContractPage() {
         setLoading(false);
       }
     };
-    void load();
+    load();
   }, []);
 
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return "—";
-    return new Date(dateStr).toLocaleDateString(
-      locale === "en" ? "en-US" : locale === "pt" ? "pt-BR" : "es-AR",
-    );
+    return new Date(dateStr).toLocaleDateString(getLocaleCode(locale));
   };
 
   const formatCurrency = (amount?: number | null, currency = "ARS") => {
     if (amount == null) return "—";
-    return new Intl.NumberFormat(
-      locale === "en" ? "en-US" : locale === "pt" ? "pt-BR" : "es-AR",
-      { style: "currency", currency },
-    ).format(amount);
+    return new Intl.NumberFormat(getLocaleCode(locale), {
+      style: "currency",
+      currency,
+    }).format(amount);
   };
 
   const getStatusBadgeClass = (status: Lease["status"]) => {
@@ -89,8 +93,9 @@ export default function TenantContractPage() {
   }
 
   const address = lease.property?.address;
+  const unitStr = address?.unit ? ` ${address.unit}` : "";
   const addressStr = address
-    ? `${address.street} ${address.number}${address.unit ? ` ${address.unit}` : ""}, ${address.city}`
+    ? `${address.street} ${address.number}${unitStr}, ${address.city}`
     : "—";
 
   return (
@@ -183,7 +188,27 @@ export default function TenantContractPage() {
         className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors"
         onClick={() => {
           if (lease.id) {
-            window.open(`/api/leases/${lease.id}/pdf`, "_blank");
+            const baseUrl =
+              process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+            const token =
+              typeof window !== "undefined"
+                ? localStorage.getItem("token")
+                : null;
+            fetch(`${baseUrl}/leases/${lease.id}/contract`, {
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+            })
+              .then((r) => r.blob())
+              .then((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `contrato-${lease.id}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+              })
+              .catch(console.error);
           }
         }}
       >

@@ -114,6 +114,21 @@ export class MaintenanceService {
   ): Promise<MaintenanceTicket> {
     const ticket = await this.findOne(id, companyId);
 
+    this.applyScalarFields(ticket, dto);
+    this.applyAssignmentUpdate(ticket, dto);
+    this.applyStatusUpdate(ticket, dto);
+
+    if (dto.resolvedAt !== undefined)
+      ticket.resolvedAt = dto.resolvedAt ? new Date(dto.resolvedAt) : null;
+
+    await this.ticketRepository.save(ticket);
+    return this.findOne(id, companyId);
+  }
+
+  private applyScalarFields(
+    ticket: MaintenanceTicket,
+    dto: UpdateMaintenanceTicketDto,
+  ): void {
     if (dto.title !== undefined) ticket.title = dto.title;
     if (dto.description !== undefined)
       ticket.description = dto.description ?? null;
@@ -132,32 +147,31 @@ export class MaintenanceService {
       ticket.resolutionNotes = dto.resolutionNotes ?? null;
     if (dto.actualCost !== undefined)
       ticket.actualCost = dto.actualCost ?? null;
+  }
 
-    if (dto.assignedToStaffId !== undefined) {
-      ticket.assignedToStaffId = dto.assignedToStaffId ?? null;
-      if (dto.assignedToStaffId) {
-        ticket.assignedAt = new Date();
-        if (ticket.status === MaintenanceTicketStatus.OPEN) {
-          ticket.status = MaintenanceTicketStatus.ASSIGNED;
-        }
+  private applyAssignmentUpdate(
+    ticket: MaintenanceTicket,
+    dto: UpdateMaintenanceTicketDto,
+  ): void {
+    if (dto.assignedToStaffId === undefined) return;
+    ticket.assignedToStaffId = dto.assignedToStaffId ?? null;
+    if (dto.assignedToStaffId) {
+      ticket.assignedAt = new Date();
+      if (ticket.status === MaintenanceTicketStatus.OPEN) {
+        ticket.status = MaintenanceTicketStatus.ASSIGNED;
       }
     }
+  }
 
-    if (dto.status !== undefined) {
-      ticket.status = dto.status;
-      if (
-        dto.status === MaintenanceTicketStatus.RESOLVED &&
-        !ticket.resolvedAt
-      ) {
-        ticket.resolvedAt = new Date();
-      }
+  private applyStatusUpdate(
+    ticket: MaintenanceTicket,
+    dto: UpdateMaintenanceTicketDto,
+  ): void {
+    if (dto.status === undefined) return;
+    ticket.status = dto.status;
+    if (dto.status === MaintenanceTicketStatus.RESOLVED && !ticket.resolvedAt) {
+      ticket.resolvedAt = new Date();
     }
-
-    if (dto.resolvedAt !== undefined)
-      ticket.resolvedAt = dto.resolvedAt ? new Date(dto.resolvedAt) : null;
-
-    await this.ticketRepository.save(ticket);
-    return this.findOne(id, companyId);
   }
 
   async remove(id: string, companyId: string): Promise<void> {

@@ -39,7 +39,7 @@ export default function OwnerPropertiesPage() {
 
   useEffect(() => {
     if (!authLoading && user?.role === "owner") {
-      void fetchProperties();
+      fetchProperties();
     }
   }, [authLoading, user, fetchProperties]);
 
@@ -51,7 +51,7 @@ export default function OwnerPropertiesPage() {
     );
   }
 
-  if (!user || user.role !== "owner") return null;
+  if (user?.role !== "owner") return null;
 
   return (
     <div className="space-y-4">

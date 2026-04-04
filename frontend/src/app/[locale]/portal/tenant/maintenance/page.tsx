@@ -8,6 +8,12 @@ import { Lease } from "@/types/lease";
 import { PropertyMaintenanceTask } from "@/types/property";
 import { Loader2, CheckCircle2 } from "lucide-react";
 
+function getLocaleCode(loc: string): string {
+  if (loc === "en") return "en-US";
+  if (loc === "pt") return "pt-BR";
+  return "es-AR";
+}
+
 type MaintenanceArea =
   | "kitchen"
   | "bathroom"
@@ -56,7 +62,7 @@ export default function TenantMaintenancePage() {
         setLoading(false);
       }
     };
-    void load();
+    load();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -85,9 +91,7 @@ export default function TenantMaintenancePage() {
 
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return "—";
-    return new Date(dateStr).toLocaleDateString(
-      locale === "en" ? "en-US" : locale === "pt" ? "pt-BR" : "es-AR",
-    );
+    return new Date(dateStr).toLocaleDateString(getLocaleCode(locale));
   };
 
   if (loading) {

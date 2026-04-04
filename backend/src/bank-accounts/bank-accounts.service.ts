@@ -52,12 +52,33 @@ export class BankAccountsService {
     });
   }
 
-  async findOne(id: string, companyId: string): Promise<BankAccount> {
+  private async resolveOwnerForUser(
+    user: UserContext,
+    companyId: string,
+  ): Promise<Owner | null> {
+    return this.ownersRepository.findOne({
+      where: { userId: user.id, companyId },
+    });
+  }
+
+  async findOne(
+    id: string,
+    companyId: string,
+    user?: UserContext,
+  ): Promise<BankAccount> {
     const account = await this.bankAccountsRepository.findOne({
       where: { id, companyId, deletedAt: IsNull() },
     });
     if (!account) {
       throw new NotFoundException(`BankAccount ${id} not found`);
+    }
+    if (user?.role === UserRole.OWNER) {
+      const owner = await this.resolveOwnerForUser(user, companyId);
+      if (!owner || account.ownerId !== owner.id) {
+        throw new ForbiddenException(
+          'You can only access your own bank accounts',
+        );
+      }
     }
     return account;
   }
@@ -65,10 +86,21 @@ export class BankAccountsService {
   async create(
     dto: CreateBankAccountDto,
     companyId: string,
+    user?: UserContext,
   ): Promise<BankAccount> {
+    let ownerId = dto.ownerId ?? null;
+
+    if (user?.role === UserRole.OWNER) {
+      const owner = await this.resolveOwnerForUser(user, companyId);
+      if (!owner) {
+        throw new ForbiddenException('Owner profile not found');
+      }
+      ownerId = owner.id;
+    }
+
     if (dto.isDefault) {
       await this.bankAccountsRepository.update(
-        { companyId, ownerId: dto.ownerId ?? (IsNull() as any) },
+        { companyId, ownerId: ownerId ?? (IsNull() as any) },
         { isDefault: false },
       );
     }
@@ -76,7 +108,7 @@ export class BankAccountsService {
       ...dto,
       companyId,
       currency: dto.currency ?? 'ARS',
-      ownerId: dto.ownerId ?? null,
+      ownerId,
     });
     return this.bankAccountsRepository.save(account);
   }
@@ -85,8 +117,9 @@ export class BankAccountsService {
     id: string,
     dto: UpdateBankAccountDto,
     companyId: string,
+    user?: UserContext,
   ): Promise<BankAccount> {
-    const account = await this.findOne(id, companyId);
+    const account = await this.findOne(id, companyId, user);
 
     if (dto.isDefault) {
       await this.bankAccountsRepository.update(

@@ -171,7 +171,7 @@ export const settlementsApi = {
     const token = getToken();
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
     const response = await fetch(
-      `${baseUrl}/settlements/${settlementId}/receipt`,
+      `${baseUrl}/owners/settlements/${settlementId}/receipt`,
       {
         method: "GET",
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
