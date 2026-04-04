@@ -22,10 +22,21 @@ import {
 } from './entities/tenant-activity.entity';
 import { CreateTenantActivityDto } from './dto/create-tenant-activity.dto';
 import { UpdateTenantActivityDto } from './dto/update-tenant-activity.dto';
+import { Invoice, InvoiceStatus } from '../payments/entities/invoice.entity';
+import { TenantAccount } from '../payments/entities/tenant-account.entity';
 
 interface UserContext {
   id: string;
   companyId: string;
+}
+
+export interface TenantSummary {
+  tenant: Tenant;
+  activeLease: Lease | null;
+  currentBalance: number;
+  currencyCode: string;
+  pendingInvoicesCount: number;
+  nextPaymentDueDate: Date | null;
 }
 
 @Injectable()
@@ -39,6 +50,10 @@ export class TenantsService {
     private readonly usersRepository: Repository<User>,
     @InjectRepository(Lease)
     private readonly leasesRepository: Repository<Lease>,
+    @InjectRepository(Invoice)
+    private readonly invoicesRepository: Repository<Invoice>,
+    @InjectRepository(TenantAccount)
+    private readonly tenantAccountsRepository: Repository<TenantAccount>,
   ) {}
 
   async create(createTenantDto: CreateTenantDto): Promise<User> {
@@ -362,5 +377,81 @@ export class TenantsService {
     }
 
     return this.tenantActivitiesRepository.save(activity);
+  }
+
+  async findByUserId(userId: string, companyId: string): Promise<Tenant> {
+    return this.findTenantByUserId(userId, companyId);
+  }
+
+  async getTenantSummary(
+    userId: string,
+    companyId: string,
+  ): Promise<TenantSummary> {
+    const tenant = await this.findTenantByUserId(userId, companyId);
+
+    const activeLease = await this.leasesRepository.findOne({
+      where: {
+        tenantId: tenant.id,
+        contractType: ContractType.RENTAL,
+        status: LeaseStatus.ACTIVE,
+        companyId,
+        deletedAt: IsNull(),
+      },
+      relations: ['property'],
+      order: { createdAt: 'DESC' },
+    });
+
+    let currentBalance = 0;
+    let currencyCode = 'ARS';
+    let pendingInvoicesCount = 0;
+    let nextPaymentDueDate: Date | null = null;
+
+    if (activeLease) {
+      const account = await this.tenantAccountsRepository.findOne({
+        where: { leaseId: activeLease.id, deletedAt: IsNull() },
+      });
+
+      if (account) {
+        currentBalance = Number(account.balance);
+        currencyCode = account.currencyCode;
+      }
+
+      const pendingInvoices = await this.invoicesRepository.find({
+        where: [
+          {
+            leaseId: activeLease.id,
+            status: InvoiceStatus.PENDING,
+            deletedAt: IsNull(),
+          },
+          {
+            leaseId: activeLease.id,
+            status: InvoiceStatus.OVERDUE,
+            deletedAt: IsNull(),
+          },
+          {
+            leaseId: activeLease.id,
+            status: InvoiceStatus.SENT,
+            deletedAt: IsNull(),
+          },
+        ],
+        order: { dueDate: 'ASC' },
+        select: ['id', 'dueDate', 'status'],
+      });
+
+      pendingInvoicesCount = pendingInvoices.length;
+
+      if (pendingInvoices.length > 0) {
+        nextPaymentDueDate = pendingInvoices[0].dueDate;
+      }
+    }
+
+    return {
+      tenant,
+      activeLease,
+      currentBalance,
+      currencyCode,
+      pendingInvoicesCount,
+      nextPaymentDueDate,
+    };
   }
 }

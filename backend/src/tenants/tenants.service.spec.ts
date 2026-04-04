@@ -3,9 +3,15 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TenantsService } from './tenants.service';
 import { User, UserRole } from '../users/entities/user.entity';
-import { Lease } from '../leases/entities/lease.entity';
+import {
+  Lease,
+  ContractType,
+  LeaseStatus,
+} from '../leases/entities/lease.entity';
 import { Tenant } from './entities/tenant.entity';
 import { TenantActivity } from './entities/tenant-activity.entity';
+import { Invoice, InvoiceStatus } from '../payments/entities/invoice.entity';
+import { TenantAccount } from '../payments/entities/tenant-account.entity';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { TenantActivityStatus } from './entities/tenant-activity.entity';
@@ -18,6 +24,8 @@ describe('TenantsService', () => {
   let _tenantActivityRepository: MockRepository<TenantActivity>;
   let userRepository: MockRepository<User>;
   let leaseRepository: MockRepository<Lease>;
+  let invoiceRepository: MockRepository<Invoice>;
+  let tenantAccountRepository: MockRepository<TenantAccount>;
 
   type MockRepository<T extends Record<string, any> = any> = Partial<
     Record<keyof Repository<T>, jest.Mock>
@@ -75,6 +83,14 @@ describe('TenantsService', () => {
           provide: getRepositoryToken(Lease),
           useValue: createMockRepository(),
         },
+        {
+          provide: getRepositoryToken(Invoice),
+          useValue: createMockRepository(),
+        },
+        {
+          provide: getRepositoryToken(TenantAccount),
+          useValue: createMockRepository(),
+        },
       ],
     }).compile();
 
@@ -83,6 +99,8 @@ describe('TenantsService', () => {
     _tenantActivityRepository = module.get(getRepositoryToken(TenantActivity));
     userRepository = module.get(getRepositoryToken(User));
     leaseRepository = module.get(getRepositoryToken(Lease));
+    invoiceRepository = module.get(getRepositoryToken(Invoice));
+    tenantAccountRepository = module.get(getRepositoryToken(TenantAccount));
   });
 
   it('should be defined', () => {
@@ -573,6 +591,103 @@ describe('TenantsService', () => {
       );
 
       expect(result.completedAt).toEqual(existingDate);
+    });
+  });
+
+  describe('findByUserId', () => {
+    it('returns the tenant for the given user and company', async () => {
+      const mockTenant = {
+        id: 'tenant-1',
+        userId: 'user-1',
+        companyId: 'company-1',
+      };
+      _tenantRepository.findOne!.mockResolvedValue(mockTenant);
+
+      const result = await service.findByUserId('user-1', 'company-1');
+
+      expect(result).toEqual(mockTenant);
+      expect(_tenantRepository.findOne).toHaveBeenCalledWith({
+        where: {
+          userId: 'user-1',
+          companyId: 'company-1',
+          deletedAt: expect.anything(),
+        },
+      });
+    });
+
+    it('throws NotFoundException when tenant not found', async () => {
+      _tenantRepository.findOne!.mockResolvedValue(null);
+
+      await expect(
+        service.findByUserId('user-99', 'company-1'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('getTenantSummary', () => {
+    const mockTenant = {
+      id: 'tenant-1',
+      userId: 'user-1',
+      companyId: 'company-1',
+    };
+    const mockActiveLease = {
+      id: 'lease-1',
+      tenantId: 'tenant-1',
+      companyId: 'company-1',
+      contractType: ContractType.RENTAL,
+      status: LeaseStatus.ACTIVE,
+    };
+
+    it('returns summary with active lease, balance and pending invoices', async () => {
+      _tenantRepository.findOne!.mockResolvedValue(mockTenant);
+      leaseRepository.findOne!.mockResolvedValue(mockActiveLease);
+      tenantAccountRepository.findOne!.mockResolvedValue({
+        id: 'account-1',
+        leaseId: 'lease-1',
+        balance: '-500.00',
+        currencyCode: 'ARS',
+      });
+      invoiceRepository.find!.mockResolvedValue([
+        {
+          id: 'inv-1',
+          dueDate: new Date('2025-02-10'),
+          status: InvoiceStatus.PENDING,
+        },
+        {
+          id: 'inv-2',
+          dueDate: new Date('2025-03-10'),
+          status: InvoiceStatus.OVERDUE,
+        },
+      ]);
+
+      const summary = await service.getTenantSummary('user-1', 'company-1');
+
+      expect(summary.tenant).toEqual(mockTenant);
+      expect(summary.activeLease).toEqual(mockActiveLease);
+      expect(summary.currentBalance).toBe(-500);
+      expect(summary.currencyCode).toBe('ARS');
+      expect(summary.pendingInvoicesCount).toBe(2);
+      expect(summary.nextPaymentDueDate).toEqual(new Date('2025-02-10'));
+    });
+
+    it('returns summary with zeroed values when no active lease', async () => {
+      _tenantRepository.findOne!.mockResolvedValue(mockTenant);
+      leaseRepository.findOne!.mockResolvedValue(null);
+
+      const summary = await service.getTenantSummary('user-1', 'company-1');
+
+      expect(summary.activeLease).toBeNull();
+      expect(summary.currentBalance).toBe(0);
+      expect(summary.pendingInvoicesCount).toBe(0);
+      expect(summary.nextPaymentDueDate).toBeNull();
+    });
+
+    it('throws NotFoundException when tenant not found', async () => {
+      _tenantRepository.findOne!.mockResolvedValue(null);
+
+      await expect(
+        service.getTenantSummary('user-99', 'company-1'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

@@ -25,6 +25,9 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { AiModule } from './ai/ai.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { BuyersModule } from './buyers/buyers.module';
+import { BankAccountsModule } from './bank-accounts/bank-accounts.module';
+import { SettlementsModule } from './settlements/settlements.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -71,6 +74,9 @@ import * as path from 'node:path';
     AiModule,
     MetricsModule,
     BuyersModule,
+    NotificationsModule,
+    BankAccountsModule,
+    SettlementsModule,
   ],
   controllers: [AppController],
   providers: [
