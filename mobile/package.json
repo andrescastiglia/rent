@@ -15,7 +15,8 @@
     "test:cov": "jest --config jest.config.js --coverage",
     "e2e:build:android": "EXPO_PUBLIC_MOCK_MODE=true EXPO_PUBLIC_E2E_MODE=true detox build -c android.emu.debug",
     "e2e:test:android": "EXPO_PUBLIC_MOCK_MODE=true EXPO_PUBLIC_E2E_MODE=true detox test -c android.emu.debug --cleanup",
-    "e2e:android": "npm run e2e:build:android && npm run e2e:test:android"
+    "e2e:android": "npm run e2e:build:android && npm run e2e:test:android",
+    "format:check": "prettier --check \"{app,src}/**/*.{ts,tsx}\" \"*.{js,json}\""
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

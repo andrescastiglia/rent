@@ -2,9 +2,9 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, preview]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, preview]
 
 env:
   NODE_VERSION: '20.x'
@@ -42,6 +42,12 @@ jobs:
 
       - name: Run ESLint
         run: npm run lint
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Format check
+        run: npm run format:check
 
   backend-test:
     name: Backend Tests
@@ -205,6 +211,12 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
+      - name: Type check
+        run: npm run type-check
+
+      - name: Format check
+        run: npm run format:check
+
   batch-test:
     name: Batch Tests
     runs-on: ubuntu-latest
@@ -285,6 +297,9 @@ jobs:
 
       - name: Type check
         run: npm run type-check
+
+      - name: Format check
+        run: npm run format:check
 
   # ─────────────────────────────────────────────────────────────
   # FRONTEND TESTS (Frontend only - uses mock data)
@@ -412,6 +427,9 @@ jobs:
 
       - name: Type check
         run: npm run typecheck
+
+      - name: Format check
+        run: npm run format:check
 
   mobile-test:
     name: Mobile Tests
