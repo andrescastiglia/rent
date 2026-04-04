@@ -28,6 +28,8 @@ export enum PaymentFrequency {
 
 export enum LeaseStatus {
   DRAFT = 'draft',
+  PENDING_SIGNATURE = 'pending_signature',
+  SIGNED = 'signed',
   ACTIVE = 'active',
   FINALIZED = 'finalized',
 }
