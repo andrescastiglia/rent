@@ -27,6 +27,7 @@ import { MetricsModule } from './metrics/metrics.module';
 import { BuyersModule } from './buyers/buyers.module';
 import { BankAccountsModule } from './bank-accounts/bank-accounts.module';
 import { SettlementsModule } from './settlements/settlements.module';
+import { MaintenanceModule } from './maintenance/maintenance.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -77,6 +78,7 @@ import * as path from 'node:path';
     NotificationsModule,
     BankAccountsModule,
     SettlementsModule,
+    MaintenanceModule,
   ],
   controllers: [AppController],
   providers: [
