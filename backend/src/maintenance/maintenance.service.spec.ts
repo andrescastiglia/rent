@@ -169,15 +169,17 @@ describe('MaintenanceService', () => {
       );
     });
 
-    it('applies search filter on title', async () => {
+    it('applies assignedToStaffId filter', async () => {
       const qb = ticketRepository.createQueryBuilder!();
       qb.getMany.mockResolvedValue([]);
 
-      await service.findAll('company-uuid-1', { search: 'Leak' });
+      await service.findAll('company-uuid-1', {
+        assignedToStaffId: 'staff-uuid-1',
+      });
 
       expect(qb.andWhere).toHaveBeenCalledWith(
-        'LOWER(ticket.title) LIKE :search',
-        { search: '%leak%' },
+        'ticket.assigned_to_staff_id = :assignedToStaffId',
+        { assignedToStaffId: 'staff-uuid-1' },
       );
     });
   });
@@ -224,6 +226,62 @@ describe('MaintenanceService', () => {
   });
 
   describe('update', () => {
+    it('updates scalar fields via applyScalarFields', async () => {
+      const ticket = mockTicket();
+      ticketRepository.findOne!.mockResolvedValueOnce(ticket);
+      const updated = mockTicket({
+        description: 'Fixed',
+        scheduledAt: new Date('2025-01-01'),
+        estimatedCost: 500,
+        costCurrency: 'USD',
+        externalRef: 'REF-123',
+        resolutionNotes: 'All done',
+        actualCost: 450,
+      });
+      ticketRepository.save!.mockResolvedValue(updated);
+      ticketRepository.findOne!.mockResolvedValueOnce(updated);
+
+      const result = await service.update('ticket-uuid-1', 'company-uuid-1', {
+        description: 'Fixed',
+        scheduledAt: new Date('2025-01-01'),
+        estimatedCost: 500,
+        costCurrency: 'USD',
+        externalRef: 'REF-123',
+        resolutionNotes: 'All done',
+        actualCost: 450,
+      });
+
+      expect(ticketRepository.save).toHaveBeenCalled();
+      expect(result.actualCost).toBe(450);
+    });
+
+    it('sets resolvedAt from dto when provided', async () => {
+      const ticket = mockTicket({ status: MaintenanceTicketStatus.IN_PROGRESS });
+      ticketRepository.findOne!.mockResolvedValueOnce(ticket);
+      const resolved = mockTicket({ resolvedAt: new Date('2025-06-01') });
+      ticketRepository.save!.mockResolvedValue(resolved);
+      ticketRepository.findOne!.mockResolvedValueOnce(resolved);
+
+      await service.update('ticket-uuid-1', 'company-uuid-1', {
+        resolvedAt: new Date('2025-06-01'),
+      });
+
+      expect(ticketRepository.save).toHaveBeenCalled();
+    });
+
+    it('sets resolvedAt to null when dto.resolvedAt is falsy', async () => {
+      const ticket = mockTicket({ resolvedAt: new Date() });
+      ticketRepository.findOne!.mockResolvedValueOnce(ticket);
+      ticketRepository.save!.mockResolvedValue(ticket);
+      ticketRepository.findOne!.mockResolvedValueOnce(ticket);
+
+      await service.update('ticket-uuid-1', 'company-uuid-1', {
+        resolvedAt: undefined,
+      });
+
+      expect(ticketRepository.save).toHaveBeenCalled();
+    });
+
     it('transitions status to assigned when assignedToStaffId is set', async () => {
       const ticket = mockTicket({ status: MaintenanceTicketStatus.OPEN });
       ticketRepository.findOne!.mockResolvedValueOnce(ticket);

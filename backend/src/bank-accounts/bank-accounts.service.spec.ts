@@ -48,6 +48,16 @@ describe('BankAccountsService', () => {
       );
     });
 
+    it('filters by ownerId param when role is not OWNER', async () => {
+      bankAccountsRepository.find.mockResolvedValue([{ id: 'ba1' }]);
+      await service.findAll('c1', adminUser, 'o99');
+      expect(bankAccountsRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ ownerId: 'o99' }),
+        }),
+      );
+    });
+
     it('scopes to owner record when role=OWNER', async () => {
       ownersRepository.findOne.mockResolvedValue({ id: 'o1' });
       bankAccountsRepository.find.mockResolvedValue([{ id: 'ba2' }]);
@@ -80,6 +90,38 @@ describe('BankAccountsService', () => {
         NotFoundException,
       );
     });
+
+    it('allows OWNER to access their own bank account', async () => {
+      bankAccountsRepository.findOne.mockResolvedValue({
+        id: 'ba1',
+        ownerId: 'o1',
+      });
+      ownersRepository.findOne.mockResolvedValue({ id: 'o1' });
+      const result = await service.findOne('ba1', 'c1', ownerUser);
+      expect(result).toEqual({ id: 'ba1', ownerId: 'o1' });
+    });
+
+    it('throws ForbiddenException when OWNER tries to access another owner account', async () => {
+      bankAccountsRepository.findOne.mockResolvedValue({
+        id: 'ba1',
+        ownerId: 'other-owner',
+      });
+      ownersRepository.findOne.mockResolvedValue({ id: 'o1' });
+      await expect(service.findOne('ba1', 'c1', ownerUser)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('throws ForbiddenException when OWNER has no owner record', async () => {
+      bankAccountsRepository.findOne.mockResolvedValue({
+        id: 'ba1',
+        ownerId: 'o1',
+      });
+      ownersRepository.findOne.mockResolvedValue(null);
+      await expect(service.findOne('ba1', 'c1', ownerUser)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
   });
 
   describe('create', () => {
@@ -94,6 +136,31 @@ describe('BankAccountsService', () => {
       bankAccountsRepository.save.mockResolvedValue({ id: 'ba1', ...dto });
       const result = await service.create(dto as any, 'c1');
       expect(result.id).toBe('ba1');
+    });
+
+    it('creates with isDefault clears other defaults', async () => {
+      const dto = { bankName: 'B', accountNumber: '1', isDefault: true };
+      bankAccountsRepository.update.mockResolvedValue({});
+      bankAccountsRepository.create.mockReturnValue({ id: 'ba2', ...dto });
+      bankAccountsRepository.save.mockResolvedValue({ id: 'ba2', ...dto });
+      await service.create(dto as any, 'c1');
+      expect(bankAccountsRepository.update).toHaveBeenCalled();
+    });
+
+    it('creates for OWNER using resolved owner id', async () => {
+      ownersRepository.findOne.mockResolvedValue({ id: 'o1' });
+      const dto = { bankName: 'B', accountNumber: '1' };
+      bankAccountsRepository.create.mockReturnValue({ id: 'ba3', ownerId: 'o1' });
+      bankAccountsRepository.save.mockResolvedValue({ id: 'ba3', ownerId: 'o1' });
+      const result = await service.create(dto as any, 'c1', ownerUser);
+      expect(result.ownerId).toBe('o1');
+    });
+
+    it('throws ForbiddenException when OWNER has no owner profile on create', async () => {
+      ownersRepository.findOne.mockResolvedValue(null);
+      await expect(
+        service.create({ bankName: 'B' } as any, 'c1', ownerUser),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -114,6 +181,17 @@ describe('BankAccountsService', () => {
         'c1',
       );
       expect(result.bankName).toBe('New');
+    });
+
+    it('clears other defaults when isDefault is true on update', async () => {
+      bankAccountsRepository.findOne.mockResolvedValue({
+        id: 'ba1',
+        ownerId: 'o1',
+      });
+      bankAccountsRepository.update.mockResolvedValue({});
+      bankAccountsRepository.save.mockResolvedValue({ id: 'ba1', isDefault: true });
+      await service.update('ba1', { isDefault: true } as any, 'c1');
+      expect(bankAccountsRepository.update).toHaveBeenCalled();
     });
   });
 
