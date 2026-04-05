@@ -182,6 +182,18 @@ describe('MaintenanceService', () => {
         { assignedToStaffId: 'staff-uuid-1' },
       );
     });
+
+    it('applies search filter', async () => {
+      const qb = ticketRepository.createQueryBuilder!();
+      qb.getMany.mockResolvedValue([]);
+
+      await service.findAll('company-uuid-1', { search: 'Leak' });
+
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'LOWER(ticket.title) LIKE :search',
+        { search: '%leak%' },
+      );
+    });
   });
 
   describe('findOne', () => {
