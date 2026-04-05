@@ -921,7 +921,7 @@ export const paymentDocumentTemplatesApi = {
       );
       const isDefault = data.isDefault ?? isFirstForType;
       const created: PaymentDocumentTemplate = {
-        id: `tpl-${Math.random().toString(36).slice(2, 10)}`,
+        id: `tpl-${crypto.randomUUID().substring(0, 8)}`,
         type: data.type,
         name: data.name,
         templateBody: data.templateBody,

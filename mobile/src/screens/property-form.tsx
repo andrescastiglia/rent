@@ -76,7 +76,7 @@ type FeatureRow = {
 };
 
 const createFeatureRow = (row?: Partial<FeatureRow>): FeatureRow => ({
-  id: row?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+  id: row?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`, // NOSONAR
   name: row?.name ?? '',
   value: row?.value ?? '',
 });

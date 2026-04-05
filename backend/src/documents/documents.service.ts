@@ -4,6 +4,7 @@ import {
   BadRequestException,
   OnModuleInit,
 } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -122,7 +123,7 @@ export class DocumentsService implements OnModuleInit {
 
     // Generate unique file URL (S3 key)
     const timestamp = Date.now();
-    const randomString = Math.random().toString(36).substring(7);
+    const randomString = randomBytes(4).toString('hex');
     const fileUrl = `${dto.entityType}/${dto.entityId}/${timestamp}-${randomString}-${dto.fileName}`;
 
     // Create document record

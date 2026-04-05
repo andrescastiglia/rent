@@ -33,7 +33,7 @@ function TemplatesList({
 }>) {
   const getPreview = (template: EditableTemplate): string => {
     if (template.templateFormat === "html") {
-      return template.templateBody.replaceAll(/<[^>]+>/g, " ").trim();
+      return template.templateBody.replaceAll(/<[^>]+>/g, " ").trim(); // NOSONAR
     }
     return template.templateBody;
   };

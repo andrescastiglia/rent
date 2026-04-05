@@ -645,7 +645,7 @@ export const leasesApi = {
       const newLease: Lease = {
         ...data,
         ownerId: data.ownerId ?? "owner-mock",
-        id: Math.random().toString(36).substring(2, 11),
+        id: crypto.randomUUID().substring(2, 11),
         documents: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -722,7 +722,7 @@ export const leasesApi = {
       const renewed: Lease = {
         ...original,
         ...data,
-        id: `lease-${Math.random().toString(36).slice(2, 10)}`,
+        id: `lease-${crypto.randomUUID().substring(0, 8)}`,
         status: "DRAFT",
         previousLeaseId: original.id,
         startDate,
@@ -850,7 +850,7 @@ export const leasesApi = {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
       const created: LeaseTemplate = {
-        id: `template-${Math.random().toString(36).slice(2, 10)}`,
+        id: `template-${crypto.randomUUID().substring(0, 8)}`,
         name: data.name,
         contractType: data.contractType,
         templateBody: data.templateBody,
