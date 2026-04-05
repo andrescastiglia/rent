@@ -42,7 +42,7 @@ export class Owner {
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
-  @Column({ name: 'tax_id', nullable: true })
+  @Column({ name: 'tax_id', type: 'varchar', nullable: true })
   taxId: string;
 
   @Column({ name: 'tax_id_type', default: 'CUIT' })
@@ -51,31 +51,31 @@ export class Owner {
   @Column({ type: 'text', nullable: true })
   address: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   city: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   state: string;
 
   @Column({ default: 'Argentina' })
   country: string;
 
-  @Column({ name: 'postal_code', nullable: true })
+  @Column({ name: 'postal_code', type: 'varchar', nullable: true })
   postalCode: string;
 
-  @Column({ name: 'bank_name', nullable: true })
+  @Column({ name: 'bank_name', type: 'varchar', nullable: true })
   bankName: string;
 
-  @Column({ name: 'bank_account_type', nullable: true })
+  @Column({ name: 'bank_account_type', type: 'varchar', nullable: true })
   bankAccountType: string;
 
-  @Column({ name: 'bank_account_number', nullable: true })
+  @Column({ name: 'bank_account_number', type: 'varchar', nullable: true })
   bankAccountNumber: string;
 
-  @Column({ name: 'bank_cbu', nullable: true })
+  @Column({ name: 'bank_cbu', type: 'varchar', nullable: true })
   bankCbu: string;
 
-  @Column({ name: 'bank_alias', nullable: true })
+  @Column({ name: 'bank_alias', type: 'varchar', nullable: true })
   bankAlias: string;
 
   @Column({

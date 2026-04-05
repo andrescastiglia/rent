@@ -63,7 +63,7 @@ export class Property {
   @JoinColumn({ name: 'owner_id' })
   owner: Owner;
 
-  @Column({ name: 'owner_whatsapp', nullable: true })
+  @Column({ name: 'owner_whatsapp', type: 'varchar', nullable: true })
   ownerWhatsapp: string;
 
   @Column()
@@ -88,13 +88,13 @@ export class Property {
   @Column({ name: 'address_street' })
   addressStreet: string;
 
-  @Column({ name: 'address_number', nullable: true })
+  @Column({ name: 'address_number', type: 'varchar', nullable: true })
   addressNumber: string;
 
-  @Column({ name: 'address_floor', nullable: true })
+  @Column({ name: 'address_floor', type: 'varchar', nullable: true })
   addressFloor: string;
 
-  @Column({ name: 'address_apartment', nullable: true })
+  @Column({ name: 'address_apartment', type: 'varchar', nullable: true })
   addressApartment: string;
 
   @Column({ name: 'address_city' })
@@ -106,7 +106,7 @@ export class Property {
   @Column({ name: 'address_country', default: 'Argentina' })
   addressCountry: string;
 
-  @Column({ name: 'address_postal_code', nullable: true })
+  @Column({ name: 'address_postal_code', type: 'varchar', nullable: true })
   addressPostalCode: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 8, nullable: true })
@@ -133,7 +133,7 @@ export class Property {
   })
   builtArea: number;
 
-  @Column({ name: 'year_built', nullable: true })
+  @Column({ name: 'year_built', type: 'int', nullable: true })
   yearBuilt: number;
 
   @Column({ name: 'total_units', default: 1 })

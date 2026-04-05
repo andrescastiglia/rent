@@ -43,7 +43,7 @@ export class InterestedStageHistory {
   @Column({ type: 'text', nullable: true })
   reason: string;
 
-  @Column({ name: 'changed_by_user_id', nullable: true })
+  @Column({ name: 'changed_by_user_id', type: 'varchar', nullable: true })
   changedByUserId: string;
 
   @ManyToOne(() => User)

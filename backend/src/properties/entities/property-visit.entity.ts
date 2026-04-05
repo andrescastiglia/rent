@@ -40,10 +40,10 @@ export class PropertyVisit {
   @Column({ name: 'visited_at', type: 'timestamptz' })
   visitedAt: Date;
 
-  @Column({ name: 'interested_name', nullable: true })
+  @Column({ name: 'interested_name', type: 'varchar', nullable: true })
   interestedName: string;
 
-  @Column({ name: 'interested_profile_id', nullable: true })
+  @Column({ name: 'interested_profile_id', type: 'varchar', nullable: true })
   interestedProfileId: string;
 
   @ManyToOne(() => InterestedProfile, { nullable: true })
@@ -68,7 +68,7 @@ export class PropertyVisit {
   @Column({ name: 'offer_currency', default: 'ARS' })
   offerCurrency: string;
 
-  @Column({ name: 'created_by_user_id', nullable: true })
+  @Column({ name: 'created_by_user_id', type: 'varchar', nullable: true })
   createdByUserId: string;
 
   @OneToMany(

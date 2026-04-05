@@ -85,7 +85,7 @@ export class Admin {
   })
   allowedModules: string[];
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   department: string;
 
   @Column({ type: 'text', nullable: true })

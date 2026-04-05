@@ -67,14 +67,14 @@ export class Payment {
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
-  @Column({ name: 'invoice_id', nullable: true })
+  @Column({ name: 'invoice_id', type: 'varchar', nullable: true })
   invoiceId: string;
 
   @ManyToOne(() => Invoice, { nullable: true })
   @JoinColumn({ name: 'invoice_id' })
   invoice: Invoice;
 
-  @Column({ name: 'tenant_account_id', nullable: true })
+  @Column({ name: 'tenant_account_id', type: 'varchar', nullable: true })
   tenantAccountId: string;
 
   @ManyToOne(() => TenantAccount, (account) => account.payments, {
@@ -90,7 +90,7 @@ export class Payment {
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
 
-  @Column({ name: 'payment_number', nullable: true })
+  @Column({ name: 'payment_number', type: 'varchar', nullable: true })
   paymentNumber: string;
 
   @Column({ type: 'decimal', precision: 14, scale: 2 })
@@ -121,19 +121,19 @@ export class Payment {
   })
   activityType: PaymentActivityType;
 
-  @Column({ name: 'reference_number', nullable: true })
+  @Column({ name: 'reference_number', type: 'varchar', nullable: true })
   reference: string;
 
-  @Column({ name: 'bank_name', nullable: true })
+  @Column({ name: 'bank_name', type: 'varchar', nullable: true })
   bankName: string;
 
-  @Column({ name: 'account_last_digits', length: 4, nullable: true })
+  @Column({ name: 'account_last_digits', length: 4, type: 'varchar', nullable: true })
   accountLastDigits: string;
 
-  @Column({ name: 'authorization_code', nullable: true })
+  @Column({ name: 'authorization_code', type: 'varchar', nullable: true })
   authorizationCode: string;
 
-  @Column({ name: 'external_transaction_id', nullable: true })
+  @Column({ name: 'external_transaction_id', type: 'varchar', nullable: true })
   externalTransactionId: string;
 
   @Column({ name: 'gateway_response', type: 'jsonb', default: {} })

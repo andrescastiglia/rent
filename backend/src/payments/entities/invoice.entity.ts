@@ -76,7 +76,7 @@ export class Invoice {
   @JoinColumn({ name: 'owner_id' })
   owner: Owner;
 
-  @Column({ name: 'tenant_account_id', nullable: true })
+  @Column({ name: 'tenant_account_id', type: 'varchar', nullable: true })
   tenantAccountId: string;
 
   @ManyToOne(() => TenantAccount, (account) => account.invoices, {
@@ -175,7 +175,7 @@ export class Invoice {
 
   @Column({
     name: 'pdf_url',
-    nullable: true,
+    type: 'varchar', nullable: true,
   })
   pdfUrl: string;
 
@@ -187,7 +187,7 @@ export class Invoice {
 
   // ARCA Electronic Invoicing fields
 
-  @Column({ name: 'arca_cae', length: 14, nullable: true })
+  @Column({ name: 'arca_cae', length: 14, type: 'varchar', nullable: true })
   arcaCae: string;
 
   @Column({ name: 'arca_cae_vencimiento', type: 'date', nullable: true })
@@ -241,7 +241,7 @@ export class Invoice {
   })
   originalAmount: number;
 
-  @Column({ name: 'original_currency', length: 3, nullable: true })
+  @Column({ name: 'original_currency', length: 3, type: 'varchar', nullable: true })
   originalCurrency: string;
 
   @Column({
@@ -308,7 +308,7 @@ export class Invoice {
   @Column({
     name: 'adjustment_index_type',
     length: 10,
-    nullable: true,
+    type: 'varchar', nullable: true,
   })
   adjustmentIndexType: string;
 

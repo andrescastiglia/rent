@@ -80,14 +80,14 @@ export class LeaseAmendment {
   @Column({ name: 'new_values', type: 'jsonb', default: '{}' })
   newValues: Record<string, any>;
 
-  @Column({ name: 'requested_by', nullable: true })
+  @Column({ name: 'requested_by', type: 'varchar', nullable: true })
   requestedBy: string;
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'requested_by' })
   requester: User;
 
-  @Column({ name: 'approved_by', nullable: true })
+  @Column({ name: 'approved_by', type: 'varchar', nullable: true })
   approvedBy: string;
 
   @ManyToOne(() => User, { nullable: true })
@@ -100,7 +100,7 @@ export class LeaseAmendment {
   @Column({ name: 'rejection_reason', type: 'text', nullable: true })
   rejectionReason: string;
 
-  @Column({ name: 'document_url', nullable: true })
+  @Column({ name: 'document_url', type: 'varchar', nullable: true })
   documentUrl: string;
 
   @Column({ name: 'signed_by_tenant', default: false })

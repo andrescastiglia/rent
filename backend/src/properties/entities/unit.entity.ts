@@ -40,7 +40,7 @@ export class Unit {
   @Column({ name: 'unit_number' })
   unitNumber: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   floor: string;
 
   @Column({
@@ -51,7 +51,7 @@ export class Unit {
   })
   status: UnitStatus;
 
-  @Column({ name: 'unit_type', nullable: true })
+  @Column({ name: 'unit_type', type: 'varchar', nullable: true })
   unitType: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })

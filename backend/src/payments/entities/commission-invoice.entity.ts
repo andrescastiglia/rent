@@ -111,7 +111,7 @@ export class CommissionInvoice {
   @Column({ name: 'paid_at', type: 'timestamptz', nullable: true })
   paidAt: Date;
 
-  @Column({ name: 'payment_reference', nullable: true })
+  @Column({ name: 'payment_reference', type: 'varchar', nullable: true })
   paymentReference: string;
 
   @Column({ type: 'text', nullable: true })

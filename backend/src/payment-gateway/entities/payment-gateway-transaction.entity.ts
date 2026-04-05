@@ -37,16 +37,16 @@ export class PaymentGatewayTransaction {
   @JoinColumn({ name: 'invoice_id' })
   invoice: Invoice;
 
-  @Column({ name: 'tenant_id', nullable: true })
+  @Column({ name: 'tenant_id', type: 'varchar', nullable: true })
   tenantId: string | null;
 
   @Column({ length: 50, default: 'mercadopago' })
   gateway: string;
 
-  @Column({ name: 'external_id', length: 255, nullable: true })
+  @Column({ name: 'external_id', length: 255, type: 'varchar', nullable: true })
   externalId: string | null;
 
-  @Column({ name: 'external_payment_id', length: 255, nullable: true })
+  @Column({ name: 'external_payment_id', length: 255, type: 'varchar', nullable: true })
   externalPaymentId: string | null;
 
   @Column({
@@ -62,7 +62,7 @@ export class PaymentGatewayTransaction {
   @Column({ length: 3, default: 'ARS' })
   currency: string;
 
-  @Column({ name: 'payment_method', length: 100, nullable: true })
+  @Column({ name: 'payment_method', length: 100, type: 'varchar', nullable: true })
   paymentMethod: string | null;
 
   @Column({ type: 'integer', default: 1 })

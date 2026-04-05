@@ -58,7 +58,7 @@ export class InflationIndex {
   @Column({ nullable: false })
   source: string;
 
-  @Column({ name: 'source_url', nullable: true })
+  @Column({ name: 'source_url', type: 'varchar', nullable: true })
   sourceUrl: string;
 
   @Column({ name: 'published_at', type: 'date', nullable: true })
