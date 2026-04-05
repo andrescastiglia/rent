@@ -276,7 +276,7 @@ export const maintenanceApi = {
     if (shouldUseMock()) {
       await delay(DELAY);
       const newTicket: MaintenanceTicket = {
-        id: `mock-ticket-${Math.random().toString(36).substring(2, 10)}`,
+        id: `mock-ticket-${crypto.randomUUID().substring(0, 8)}`,
         companyId: "mock-company-1",
         propertyId: data.propertyId,
         property: { id: data.propertyId, address: data.propertyId },
@@ -369,7 +369,7 @@ export const maintenanceApi = {
     if (shouldUseMock()) {
       await delay(DELAY);
       const newComment: MaintenanceTicketComment = {
-        id: `mock-comment-${Math.random().toString(36).substring(2, 10)}`,
+        id: `mock-comment-${crypto.randomUUID().substring(0, 8)}`,
         ticketId,
         body,
         isInternal,

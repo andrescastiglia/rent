@@ -180,8 +180,8 @@ export const staffApi = {
     if (shouldUseMock()) {
       await delay(DELAY);
       const newStaff: Staff = {
-        id: `mock-staff-${Math.random().toString(36).substring(2, 10)}`,
-        userId: `mock-user-${Math.random().toString(36).substring(2, 10)}`,
+        id: `mock-staff-${crypto.randomUUID().substring(0, 8)}`,
+        userId: `mock-user-${crypto.randomUUID().substring(0, 8)}`,
         companyId: "mock-company-1",
         specialization: data.specialization,
         hourlyRate: data.hourlyRate,
@@ -194,7 +194,7 @@ export const staffApi = {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         user: {
-          id: `mock-user-${Math.random().toString(36).substring(2, 10)}`,
+          id: `mock-user-${crypto.randomUUID().substring(0, 8)}`,
           firstName: data.firstName,
           lastName: data.lastName,
           email: data.email,

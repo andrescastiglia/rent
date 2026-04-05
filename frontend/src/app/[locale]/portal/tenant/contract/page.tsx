@@ -191,7 +191,7 @@ export default function TenantContractPage() {
             const baseUrl =
               process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
             const token =
-              typeof globalThis.window === "undefined"
+              globalThis.window === undefined
                 ? null
                 : localStorage.getItem("token");
             fetch(`${baseUrl}/leases/${lease.id}/contract`, {

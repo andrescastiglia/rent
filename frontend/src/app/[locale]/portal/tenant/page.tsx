@@ -55,8 +55,11 @@ export default function TenantPortalDashboard() {
     }
   };
 
-  const localeCode =
-    locale === "en" ? "en-US" : locale === "pt" ? "pt-BR" : "es-AR";
+  const LOCALE_CODES: Record<string, string> = {
+    en: "en-US",
+    pt: "pt-BR",
+  };
+  const localeCode = LOCALE_CODES[locale] ?? "es-AR";
 
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return "—";
