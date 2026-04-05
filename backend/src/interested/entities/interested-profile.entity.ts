@@ -59,16 +59,16 @@ export class InterestedProfile {
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
-  @Column({ name: 'first_name', nullable: true })
+  @Column({ name: 'first_name', type: 'varchar', nullable: true })
   firstName: string;
 
-  @Column({ name: 'last_name', nullable: true })
+  @Column({ name: 'last_name', type: 'varchar', nullable: true })
   lastName: string;
 
   @Column()
   phone: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   email: string;
 
   @Column({ name: 'people_count', type: 'int', nullable: true })
@@ -111,7 +111,7 @@ export class InterestedProfile {
   })
   preferredZones: string[];
 
-  @Column({ name: 'preferred_city', nullable: true })
+  @Column({ name: 'preferred_city', type: 'varchar', nullable: true })
   preferredCity: string;
 
   @Column({
@@ -168,17 +168,17 @@ export class InterestedProfile {
   @Column({ name: 'qualification_notes', type: 'text', nullable: true })
   qualificationNotes: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   source: string;
 
-  @Column({ name: 'assigned_to_user_id', nullable: true })
+  @Column({ name: 'assigned_to_user_id', type: 'varchar', nullable: true })
   assignedToUserId: string;
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'assigned_to_user_id' })
   assignedToUser: User;
 
-  @Column({ name: 'organization_name', nullable: true })
+  @Column({ name: 'organization_name', type: 'varchar', nullable: true })
   organizationName: string;
 
   @Column({ name: 'custom_fields', type: 'jsonb', default: () => "'{}'" })

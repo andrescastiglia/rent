@@ -395,7 +395,7 @@ export const interestedApi = {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
       const newProfile: InterestedProfile = {
-        id: `int-${Math.random().toString(36).slice(2)}`,
+        id: `int-${crypto.randomUUID().substring(0, 8)}`,
         firstName: data.firstName,
         lastName: data.lastName,
         phone: data.phone,
@@ -636,7 +636,7 @@ export const interestedApi = {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
       return {
-        id: `act-${Math.random().toString(36).slice(2)}`,
+        id: `act-${crypto.randomUUID().substring(0, 8)}`,
         interestedProfileId: id,
         createdByUserId: "mock-user",
         createdAt: new Date().toISOString(),

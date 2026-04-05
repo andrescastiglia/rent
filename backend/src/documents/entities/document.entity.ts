@@ -65,10 +65,10 @@ export class Document {
   @Column({ name: 'file_data', type: 'bytea', nullable: true })
   fileData: Buffer | null;
 
-  @Column({ name: 'file_size', nullable: true })
+  @Column({ name: 'file_size', type: 'int', nullable: true })
   fileSize: number;
 
-  @Column({ name: 'file_mime_type', length: 100, nullable: true })
+  @Column({ name: 'file_mime_type', length: 100, type: 'varchar', nullable: true })
   fileMimeType: string;
 
   @Column({ name: 'expires_at', type: 'date', nullable: true })
@@ -80,7 +80,7 @@ export class Document {
   @Column({ name: 'entity_id' })
   entityId: string;
 
-  @Column({ name: 'verified_by', nullable: true })
+  @Column({ name: 'verified_by', type: 'varchar', nullable: true })
   verifiedBy: string;
 
   @ManyToOne(() => User, { nullable: true })

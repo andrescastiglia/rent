@@ -50,7 +50,7 @@ export class TenantAccountMovement {
   @Column({ name: 'balance_after', type: 'decimal', precision: 14, scale: 2 })
   balanceAfter: number;
 
-  @Column({ name: 'reference_type', nullable: true })
+  @Column({ name: 'reference_type', type: 'varchar', nullable: true })
   referenceType: string;
 
   @Column({ name: 'reference_id', type: 'uuid', nullable: true })

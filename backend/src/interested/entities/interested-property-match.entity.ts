@@ -73,7 +73,7 @@ export class InterestedPropertyMatch {
   @Column({ type: 'text', nullable: true })
   notes: string;
 
-  @Column({ name: 'created_by_user_id', nullable: true })
+  @Column({ name: 'created_by_user_id', type: 'varchar', nullable: true })
   createdByUserId: string;
 
   @ManyToOne(() => User)

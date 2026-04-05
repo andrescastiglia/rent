@@ -47,7 +47,7 @@ export class BankAccount {
   @Column({ name: 'account_number' })
   accountNumber: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   cbu: string | null;
 
   @Column({ default: 'ARS' })

@@ -67,7 +67,7 @@ export class Settlement {
   @Column({ name: 'processed_at', type: 'timestamptz', nullable: true })
   processedAt: Date | null;
 
-  @Column({ name: 'transfer_reference', nullable: true })
+  @Column({ name: 'transfer_reference', type: 'varchar', nullable: true })
   transferReference: string | null;
 
   @Column({ type: 'text', nullable: true })

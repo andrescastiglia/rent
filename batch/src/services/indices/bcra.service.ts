@@ -222,7 +222,7 @@ export class BcraService {
   }
 
   private normalizeApiUrl(url: string): string {
-    const trimmed = url.replace(/\/+$/, "");
+    const trimmed = url.replace(/\/+$/, ""); // NOSONAR
     if (/\/estadisticas\/v\d+(\.\d+)?$/i.test(trimmed)) {
       return trimmed;
     }

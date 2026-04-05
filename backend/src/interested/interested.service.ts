@@ -1622,7 +1622,7 @@ export class InterestedService {
   }
 
   private generateRandomPassword(): string {
-    return `Tmp!${Math.random().toString(36).slice(2, 10)}1`;
+    return `Tmp!${randomBytes(4).toString('hex')}1`;
   }
 
   private hasBuyerAgreementData(dto: ConvertInterestedToBuyerDto): boolean {

@@ -22,37 +22,37 @@ export class Company {
   @Column()
   name: string;
 
-  @Column({ name: 'legal_name', nullable: true })
+  @Column({ name: 'legal_name', type: 'varchar', nullable: true })
   legalName: string;
 
-  @Column({ name: 'tax_id', nullable: true })
+  @Column({ name: 'tax_id', type: 'varchar', nullable: true })
   taxId: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   email: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   phone: string;
 
   @Column({ type: 'text', nullable: true })
   address: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   city: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   state: string;
 
   @Column({ default: 'Argentina' })
   country: string;
 
-  @Column({ name: 'postal_code', nullable: true })
+  @Column({ name: 'postal_code', type: 'varchar', nullable: true })
   postalCode: string;
 
-  @Column({ name: 'logo_url', nullable: true })
+  @Column({ name: 'logo_url', type: 'varchar', nullable: true })
   logoUrl: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   website: string;
 
   @Column({
@@ -82,22 +82,22 @@ export class Company {
   @Column({ name: 'arca_enabled', default: false })
   arcaEnabled: boolean;
 
-  @Column({ name: 'arca_cuit', nullable: true })
+  @Column({ name: 'arca_cuit', type: 'varchar', nullable: true })
   arcaCuit: string;
 
-  @Column({ name: 'arca_razon_social', nullable: true })
+  @Column({ name: 'arca_razon_social', type: 'varchar', nullable: true })
   arcaRazonSocial: string;
 
-  @Column({ name: 'arca_condicion_iva', nullable: true })
+  @Column({ name: 'arca_condicion_iva', type: 'varchar', nullable: true })
   arcaCondicionIva: string;
 
   @Column({ name: 'arca_punto_venta', type: 'integer', nullable: true })
   arcaPuntoVenta: number;
 
-  @Column({ name: 'arca_certificate_path', nullable: true })
+  @Column({ name: 'arca_certificate_path', type: 'varchar', nullable: true })
   arcaCertificatePath: string;
 
-  @Column({ name: 'arca_certificate_password_hash', nullable: true })
+  @Column({ name: 'arca_certificate_password_hash', type: 'varchar', nullable: true })
   arcaCertificatePasswordHash: string;
 
   @Column({

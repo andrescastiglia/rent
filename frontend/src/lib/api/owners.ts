@@ -160,8 +160,8 @@ export const ownersApi = {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
       const created: Owner = {
-        id: Math.random().toString(36).slice(2, 11),
-        userId: `user-${Math.random().toString(36).slice(2, 8)}`,
+        id: crypto.randomUUID().substring(0, 9),
+        userId: `user-${crypto.randomUUID().substring(0, 6)}`,
         companyId: "company-1",
         firstName: data.firstName,
         lastName: data.lastName,

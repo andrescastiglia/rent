@@ -47,7 +47,7 @@ export class Receipt {
   @JoinColumn({ name: 'currency', referencedColumnName: 'code' })
   currency: Currency;
 
-  @Column({ name: 'pdf_url', nullable: true })
+  @Column({ name: 'pdf_url', type: 'varchar', nullable: true })
   pdfUrl: string;
 
   @Column({ type: 'text', nullable: true })
@@ -56,7 +56,7 @@ export class Receipt {
   @Column({ name: 'pdf_generated_at', type: 'timestamptz', nullable: true })
   pdfGeneratedAt: Date;
 
-  @Column({ name: 'sent_to_email', nullable: true })
+  @Column({ name: 'sent_to_email', type: 'varchar', nullable: true })
   sentToEmail: string;
 
   @Column({ name: 'sent_at', type: 'timestamptz', nullable: true })

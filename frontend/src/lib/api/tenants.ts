@@ -397,7 +397,7 @@ export const tenantsApi = {
       await delay(DELAY);
       const newTenant: Tenant = {
         ...data,
-        id: Math.random().toString(36).substring(2, 11),
+        id: crypto.randomUUID().substring(2, 11),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -493,7 +493,7 @@ export const tenantsApi = {
       await delay(DELAY);
       const normalizedId = decodeURIComponent(tenantId).split("?")[0];
       const item: TenantActivity = {
-        id: `tenant-activity-${Math.random().toString(36).slice(2, 10)}`,
+        id: `tenant-activity-${crypto.randomUUID().substring(0, 8)}`,
         tenantId: normalizedId,
         type: data.type,
         status: data.status ?? "pending",

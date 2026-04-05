@@ -48,7 +48,7 @@ export class DigitalSignatureRequest {
   @Column({ length: 50, default: SignatureProvider.DOCUSIGN })
   provider: string;
 
-  @Column({ name: 'external_envelope_id', length: 255, nullable: true })
+  @Column({ name: 'external_envelope_id', length: 255, type: 'varchar', nullable: true })
   externalEnvelopeId: string | null;
 
   @Column({ length: 50, default: SignatureStatus.PENDING })
@@ -60,10 +60,10 @@ export class DigitalSignatureRequest {
   @Column({ name: 'tenant_name', length: 255 })
   tenantName: string;
 
-  @Column({ name: 'owner_email', length: 255, nullable: true })
+  @Column({ name: 'owner_email', length: 255, type: 'varchar', nullable: true })
   ownerEmail: string | null;
 
-  @Column({ name: 'owner_name', length: 255, nullable: true })
+  @Column({ name: 'owner_name', length: 255, type: 'varchar', nullable: true })
   ownerName: string | null;
 
   @Column({ name: 'sent_at', type: 'timestamptz', nullable: true })

@@ -41,7 +41,7 @@ export class ExchangeRate {
   @Column()
   source: string;
 
-  @Column({ name: 'source_url', nullable: true })
+  @Column({ name: 'source_url', type: 'varchar', nullable: true })
   sourceUrl: string;
 
   @Column({ name: 'fetched_at', type: 'timestamptz' })

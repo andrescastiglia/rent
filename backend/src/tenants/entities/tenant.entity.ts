@@ -39,22 +39,22 @@ export class Tenant {
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   dni: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   cuil: string;
 
   @Column({ name: 'date_of_birth', type: 'date', nullable: true })
   dateOfBirth: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   nationality: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   occupation: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   employer: string;
 
   @Column({
@@ -74,19 +74,19 @@ export class Tenant {
   })
   employmentStatus: EmploymentStatus;
 
-  @Column({ name: 'emergency_contact_name', nullable: true })
+  @Column({ name: 'emergency_contact_name', type: 'varchar', nullable: true })
   emergencyContactName: string;
 
-  @Column({ name: 'emergency_contact_phone', nullable: true })
+  @Column({ name: 'emergency_contact_phone', type: 'varchar', nullable: true })
   emergencyContactPhone: string;
 
-  @Column({ name: 'emergency_contact_relationship', nullable: true })
+  @Column({ name: 'emergency_contact_relationship', type: 'varchar', nullable: true })
   emergencyContactRelationship: string;
 
   @Column({ type: 'text', nullable: true })
   notes: string;
 
-  @Column({ name: 'credit_score', nullable: true })
+  @Column({ name: 'credit_score', type: 'int', nullable: true })
   creditScore: number;
 
   @Column({ name: 'credit_score_date', type: 'date', nullable: true })

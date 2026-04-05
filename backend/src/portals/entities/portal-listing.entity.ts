@@ -55,7 +55,7 @@ export class PortalListing {
   })
   status: PortalListingStatus;
 
-  @Column({ name: 'external_id', nullable: true })
+  @Column({ name: 'external_id', type: 'varchar', nullable: true })
   externalId: string | null;
 
   @Column({ name: 'external_url', type: 'text', nullable: true })

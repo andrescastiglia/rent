@@ -27,7 +27,7 @@ export class PropertyFeature {
   @Column()
   name: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   value: string;
 
   @Column({ name: 'is_highlighted', default: false })

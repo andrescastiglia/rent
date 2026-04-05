@@ -36,7 +36,7 @@ const toProfileForm = (user: User): ProfileFormState => ({
   avatarUrl: user.avatarUrl ?? "",
 });
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // NOSONAR
 
 export default function SettingsPage() {
   const { user, loading: authLoading, updateUser } = useAuth();

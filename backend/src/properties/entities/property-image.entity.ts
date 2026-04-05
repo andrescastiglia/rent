@@ -23,21 +23,21 @@ export class PropertyImage {
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
-  @Column({ name: 'property_id', nullable: true })
+  @Column({ name: 'property_id', type: 'varchar', nullable: true })
   propertyId: string;
 
   @ManyToOne(() => Property, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'property_id' })
   property: Property;
 
-  @Column({ name: 'uploaded_by_user_id', nullable: true })
+  @Column({ name: 'uploaded_by_user_id', type: 'varchar', nullable: true })
   uploadedByUserId: string;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'uploaded_by_user_id' })
   uploadedByUser: User;
 
-  @Column({ name: 'original_name', length: 255, nullable: true })
+  @Column({ name: 'original_name', length: 255, type: 'varchar', nullable: true })
   originalName: string;
 
   @Column({ name: 'mime_type', length: 120 })

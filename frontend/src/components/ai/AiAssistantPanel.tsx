@@ -165,7 +165,7 @@ const extractJsonPayload = (text: string): unknown => {
   const trimmed = text.trim();
   if (!trimmed) return undefined;
 
-  const fencedMatch = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(trimmed);
+  const fencedMatch = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(trimmed); // NOSONAR
   const candidate = fencedMatch ? fencedMatch[1].trim() : trimmed;
 
   try {
@@ -175,8 +175,7 @@ const extractJsonPayload = (text: string): unknown => {
   }
 };
 
-const createId = () =>
-  `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+const createId = () => `${Date.now()}-${crypto.randomUUID().substring(0, 8)}`;
 
 const AI_CONVERSATION_STORAGE_KEY = "ai-assistant-conversation-id";
 

@@ -64,13 +64,13 @@ export class InterestedActivity {
   @Column({ name: 'completed_at', type: 'timestamptz', nullable: true })
   completedAt: Date;
 
-  @Column({ name: 'template_name', length: 120, nullable: true })
+  @Column({ name: 'template_name', length: 120, type: 'varchar', nullable: true })
   templateName: string;
 
   @Column({ type: 'jsonb', default: () => "'{}'" })
   metadata: Record<string, unknown>;
 
-  @Column({ name: 'created_by_user_id', nullable: true })
+  @Column({ name: 'created_by_user_id', type: 'varchar', nullable: true })
   createdByUserId: string;
 
   @ManyToOne(() => User)

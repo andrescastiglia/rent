@@ -45,7 +45,7 @@ export class SaleReceipt {
   @Column({ name: 'copy_count', type: 'integer', default: 2 })
   copyCount: number;
 
-  @Column({ name: 'pdf_url', nullable: true })
+  @Column({ name: 'pdf_url', type: 'varchar', nullable: true })
   pdfUrl: string;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

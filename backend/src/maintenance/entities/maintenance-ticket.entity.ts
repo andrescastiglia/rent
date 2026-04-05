@@ -152,7 +152,7 @@ export class MaintenanceTicket {
   @Column({ name: 'cost_currency', default: 'ARS' })
   costCurrency: string;
 
-  @Column({ name: 'external_ref', nullable: true })
+  @Column({ name: 'external_ref', type: 'varchar', nullable: true })
   externalRef: string | null;
 
   @Column({ type: 'jsonb', nullable: true })
