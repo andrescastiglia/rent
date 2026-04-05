@@ -2,9 +2,9 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [main, develop, preview]
+    branches: [main]
   pull_request:
-    branches: [main, develop, preview]
+    branches: [preview]
 
 env:
   NODE_VERSION: '20.x'
@@ -131,7 +131,7 @@ jobs:
     name: SonarQube Analysis
     runs-on: ubuntu-latest
     needs: [backend-test, batch-test, frontend-test, mobile-test]
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+
 
     steps:
       - name: Checkout code
