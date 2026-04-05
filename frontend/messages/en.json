@@ -1264,7 +1264,8 @@
       "updated": "Staff updated successfully.",
       "activated": "Staff activated successfully.",
       "deactivated": "Staff deactivated successfully."
-    }
+    },
+    "currency": "Currency"
   },
   "maintenance": {
     "title": "Maintenance",

@@ -1264,7 +1264,8 @@
       "updated": "Funcionário atualizado com sucesso.",
       "activated": "Funcionário ativado com sucesso.",
       "deactivated": "Funcionário desativado com sucesso."
-    }
+    },
+    "currency": "Moeda"
   },
   "maintenance": {
     "title": "Manutenção",

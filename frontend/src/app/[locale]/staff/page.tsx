@@ -61,7 +61,7 @@ function staffToForm(staff: Staff): FormState {
     email: staff.user.email ?? "",
     phone: staff.user.phone ?? "",
     specialization: staff.specialization,
-    hourlyRate: staff.hourlyRate != null ? String(staff.hourlyRate) : "",
+    hourlyRate: staff.hourlyRate == null ? "" : String(staff.hourlyRate),
     currency: staff.currency,
     notes: staff.notes ?? "",
   };
@@ -184,8 +184,9 @@ function StaffFormPanel({
           />
         </label>
         <label className="w-24 text-sm text-gray-700 dark:text-gray-300">
-          &nbsp;
+          {tStaff("currency")}
           <input
+            aria-label={tStaff("currency")}
             type="text"
             value={form.currency}
             onChange={(e) =>
@@ -282,7 +283,7 @@ function StaffList({
           {staff.map((s) => {
             const isActive = s.user.isActive !== false && !s.deletedAt;
             return (
-              <tr key={s.id} className={!isActive ? "opacity-60" : ""}>
+              <tr key={s.id} className={isActive ? "" : "opacity-60"}>
                 <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
                   {[s.user.firstName, s.user.lastName]
                     .filter(Boolean)
@@ -299,7 +300,7 @@ function StaffList({
                   </span>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                  {s.hourlyRate != null ? `${s.hourlyRate} ${s.currency}` : "—"}
+                  {s.hourlyRate == null ? "—" : `${s.hourlyRate} ${s.currency}`}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                   {s.totalJobs}
@@ -406,7 +407,9 @@ export default function StaffPage() {
       email: form.email || undefined,
       phone: form.phone || undefined,
       specialization: form.specialization,
-      hourlyRate: form.hourlyRate ? parseFloat(form.hourlyRate) : undefined,
+      hourlyRate: form.hourlyRate
+        ? Number.parseFloat(form.hourlyRate)
+        : undefined,
       currency: form.currency || "USD",
       notes: form.notes || undefined,
     };

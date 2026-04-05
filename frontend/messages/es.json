@@ -1264,7 +1264,8 @@
       "updated": "Personal actualizado correctamente.",
       "activated": "Personal activado correctamente.",
       "deactivated": "Personal desactivado correctamente."
-    }
+    },
+    "currency": "Moneda"
   },
   "maintenance": {
     "title": "Mantenimiento",

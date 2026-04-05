@@ -162,7 +162,7 @@ export default function TenantContractPage() {
                   {t("billingFrequency")}
                 </p>
                 <p className="text-sm font-medium text-gray-900 dark:text-white capitalize">
-                  {lease.billingFrequency.replace(/_/g, " ")}
+                  {lease.billingFrequency.replaceAll("_", " ")}
                 </p>
               </div>
             </div>
@@ -191,9 +191,9 @@ export default function TenantContractPage() {
             const baseUrl =
               process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
             const token =
-              typeof window !== "undefined"
-                ? localStorage.getItem("token")
-                : null;
+              typeof globalThis.window === "undefined"
+                ? null
+                : localStorage.getItem("token");
             fetch(`${baseUrl}/leases/${lease.id}/contract`, {
               headers: token ? { Authorization: `Bearer ${token}` } : {},
             })

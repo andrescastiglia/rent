@@ -122,8 +122,9 @@ export const settlementsApi = {
       params.set("limit", String(filters.limit));
     }
     const query = params.toString();
+    const endpoint = query ? `/settlements?${query}` : "/settlements";
     const data = await apiClient.get<BackendSettlement[]>(
-      `/settlements${query ? `?${query}` : ""}`,
+      endpoint,
       token ?? undefined,
     );
     return data.map(mapSettlement);

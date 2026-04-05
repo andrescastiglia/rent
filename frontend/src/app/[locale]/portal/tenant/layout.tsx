@@ -45,7 +45,7 @@ export default function TenantPortalLayout({
     );
   }
 
-  if (!user || user.role !== "tenant") {
+  if (user?.role !== "tenant") {
     return null;
   }
 

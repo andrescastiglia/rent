@@ -55,18 +55,19 @@ export default function TenantPortalDashboard() {
     }
   };
 
+  const localeCode =
+    locale === "en" ? "en-US" : locale === "pt" ? "pt-BR" : "es-AR";
+
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return "—";
-    return new Date(dateStr).toLocaleDateString(
-      locale === "en" ? "en-US" : locale === "pt" ? "pt-BR" : "es-AR",
-    );
+    return new Date(dateStr).toLocaleDateString(localeCode);
   };
 
   const formatCurrency = (amount: number, currency = "ARS") => {
-    return new Intl.NumberFormat(
-      locale === "en" ? "en-US" : locale === "pt" ? "pt-BR" : "es-AR",
-      { style: "currency", currency },
-    ).format(amount);
+    return new Intl.NumberFormat(localeCode, {
+      style: "currency",
+      currency,
+    }).format(amount);
   };
 
   if (loading) {
