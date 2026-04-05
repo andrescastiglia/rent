@@ -5,6 +5,14 @@ import {
   CreateOwnerInput,
   UpdateOwnerInput,
 } from "@/types/owner";
+
+export interface OwnerSummary {
+  propertiesCount: number;
+  activeLeases: number;
+  pendingSettlements: number;
+  totalIncomeCurrentMonth: number;
+  currencyCode: string;
+}
 import { apiClient } from "../api";
 import { getToken } from "../auth";
 
@@ -364,5 +372,56 @@ export const ownersApi = {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+  },
+
+  getMyProfile: async (): Promise<Owner> => {
+    if (IS_MOCK_MODE) {
+      await delay(DELAY);
+      return MOCK_OWNERS[0];
+    }
+    const token = getToken();
+    const result = await apiClient.get<BackendOwner>(
+      "/owners/me",
+      token ?? undefined,
+    );
+    return mapOwner(result);
+  },
+
+  getMySummary: async (): Promise<OwnerSummary> => {
+    if (IS_MOCK_MODE) {
+      await delay(DELAY);
+      return {
+        propertiesCount: 3,
+        activeLeases: 2,
+        pendingSettlements: 1,
+        totalIncomeCurrentMonth: 150000,
+        currencyCode: "ARS",
+      };
+    }
+    const token = getToken();
+    const raw = await apiClient.get<{
+      activeLeaseCount?: number | string;
+      activeLeases?: number | string;
+      pendingSettlementsCount?: number | string;
+      pendingSettlements?: number | string;
+      totalIncomeCurrentMonth?: number | string;
+      totalIncome?: number | string;
+      properties?: unknown[];
+      propertiesCount?: number | string;
+      currencyCode?: string;
+    }>("/owners/me/summary", token ?? undefined);
+    return {
+      propertiesCount: Number(
+        raw.propertiesCount ?? raw.properties?.length ?? 0,
+      ),
+      activeLeases: Number(raw.activeLeaseCount ?? raw.activeLeases ?? 0),
+      pendingSettlements: Number(
+        raw.pendingSettlementsCount ?? raw.pendingSettlements ?? 0,
+      ),
+      totalIncomeCurrentMonth: Number(
+        raw.totalIncomeCurrentMonth ?? raw.totalIncome ?? 0,
+      ),
+      currencyCode: raw.currencyCode ?? "ARS",
+    };
   },
 };

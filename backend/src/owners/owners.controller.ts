@@ -10,6 +10,7 @@ import {
   Request,
   ParseUUIDPipe,
   Res,
+  NotFoundException,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -88,6 +89,32 @@ export class OwnersController {
     @Request() req: AuthenticatedRequest,
   ): Promise<Owner> {
     return this.ownersService.create(dto, req.user.companyId);
+  }
+
+  /**
+   * Get the owner profile for the authenticated user (role=OWNER).
+   */
+  @Get('me')
+  @Roles(UserRole.OWNER)
+  async getMyProfile(@Request() req: AuthenticatedRequest): Promise<Owner> {
+    const owner = await this.ownersService.findByUserId(
+      req.user.id,
+      req.user.companyId,
+    );
+    if (!owner) {
+      throw new NotFoundException('Owner profile not found');
+    }
+    return owner;
+  }
+
+  /**
+   * Get owner summary for the authenticated user (role=OWNER).
+   * Returns: properties list, active leases, pending settlements, total income current month.
+   */
+  @Get('me/summary')
+  @Roles(UserRole.OWNER)
+  async getMyProfileSummary(@Request() req: AuthenticatedRequest) {
+    return this.ownersService.getOwnerSummary(req.user.id, req.user.companyId);
   }
 
   /**

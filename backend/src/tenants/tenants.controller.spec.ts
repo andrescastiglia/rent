@@ -14,7 +14,7 @@ describe('TenantsController', () => {
   };
 
   let controller: TenantsController;
-  const req = { user: { id: 'u1', companyId: 'c1' } } as any;
+  const req = { user: { id: 'u1', companyId: 'c1', role: 'admin' } } as any;
 
   beforeEach(() => {
     jest.clearAllMocks();

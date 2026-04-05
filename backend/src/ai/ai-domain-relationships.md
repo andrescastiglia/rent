@@ -326,6 +326,7 @@ The tenant account is the double-entry ledger for each tenant-lease pair:
 ## 9) Batch automation (billing jobs)
 
 Job types:
+
 - `billing`: generate periodic invoices for active leases.
 - `overdue`: mark invoices past due date as overdue.
 - `reminders`: send payment reminders.
@@ -368,15 +369,18 @@ Tools: `get_dashboard_reports` lists recent job executions.
 ## 12) Dashboard and reporting
 
 `get_dashboard_stats` returns:
+
 - `totalProperties`, `totalTenants`, `activeLeases`.
 - `monthlyIncome` (sum of active lease monthly rents), `monthlyExpenses`.
 - `currencyCode`, `totalPayments`, `totalInvoices`, `monthlyCommissions`.
 
 `get_dashboard_recent_activity` returns:
+
 - Combined feed of interested activities + owner activities.
 - Accepts `limit` filter.
 
 `get_dashboard_reports` returns:
+
 - Batch billing job execution history.
 - Useful for checking automation status.
 

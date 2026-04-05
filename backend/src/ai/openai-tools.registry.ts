@@ -100,6 +100,26 @@ import { WhatsappWebhookPayloadDto } from '../whatsapp/dto/whatsapp-webhook-payl
 import { WhatsappWebhookQueryDto } from '../whatsapp/dto/whatsapp-webhook-query.dto';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { GithubIssuesService } from './github-issues.service';
+import { StaffService } from '../staff/staff.service';
+import { StaffSpecialization } from '../staff/entities/staff.entity';
+import { CreateStaffDto } from '../staff/dto/create-staff.dto';
+import { UpdateStaffDto } from '../staff/dto/update-staff.dto';
+import { StaffFiltersDto } from '../staff/dto/staff-filters.dto';
+import { MaintenanceService } from '../maintenance/maintenance.service';
+import {
+  MaintenanceTicketArea,
+  MaintenanceTicketPriority,
+  MaintenanceTicketSource,
+  MaintenanceTicketStatus,
+} from '../maintenance/entities/maintenance-ticket.entity';
+import { BankAccountsService } from '../bank-accounts/bank-accounts.service';
+import { SettlementsService } from '../settlements/settlements.service';
+import { SettlementStatus } from '../settlements/entities/settlement.entity';
+import { NotificationsService } from '../notifications/notifications.service';
+import {
+  NotificationFrequency,
+  NotificationType,
+} from '../notifications/entities/notification-preference.entity';
 import { AiExecutionContext, AiToolDefinition } from './types/ai-tool.types';
 
 export type AiToolRegistryDeps = {
@@ -125,6 +145,11 @@ export type AiToolRegistryDeps = {
   tenantsService: TenantsService;
   whatsappService: WhatsappService;
   githubIssuesService: GithubIssuesService;
+  staffService: StaffService;
+  maintenanceService: MaintenanceService;
+  bankAccountsService: BankAccountsService;
+  settlementsService: SettlementsService;
+  notificationsService: NotificationsService;
 };
 
 const emptyObjectSchema = z.object({}).strict();
@@ -2862,5 +2887,510 @@ export function buildAiToolDefinitions(
         );
       },
     },
+
+    // ── Staff ────────────────────────────────────────────────────────────
+    {
+      name: 'get_staff',
+      description:
+        'Lists all staff members for the company with optional filters: specialization, search.',
+      responseDescription: 'Array of staff records with linked user accounts.',
+      mutability: 'readonly',
+      allowedRoles: ADMIN_STAFF,
+      parameters: staffFiltersSchema,
+      execute: async (args, context) => {
+        const filters = staffFiltersSchema.parse(args) as StaffFiltersDto;
+        return deps.staffService.findAll(context.companyId ?? '', filters);
+      },
+    },
+    {
+      name: 'get_staff_by_id',
+      description:
+        'Retrieves a staff member by UUID including linked user account details.',
+      responseDescription: 'Full staff record with user profile.',
+      mutability: 'readonly',
+      allowedRoles: ADMIN_STAFF,
+      parameters: z.object({ id: uuidSchema }).strict(),
+      execute: async (args, context) => {
+        const { id } = z.object({ id: uuidSchema }).parse(args) as any;
+        return deps.staffService.findOne(id, context.companyId ?? '');
+      },
+    },
+    {
+      name: 'post_staff',
+      description:
+        'Creates a new staff member with a linked user account. Requires firstName, lastName, and specialization.',
+      responseDescription:
+        'The newly created staff record with UUID and linked user.',
+      mutability: 'mutable',
+      allowedRoles: ADMIN,
+      parameters: CreateStaffDto.zodSchema,
+      execute: async (args, context) => {
+        const dto = CreateStaffDto.zodSchema.parse(args) as CreateStaffDto;
+        return deps.staffService.create(dto, context.companyId ?? '');
+      },
+    },
+    {
+      name: 'patch_staff',
+      description:
+        "Updates an existing staff member's profile and user account fields by UUID.",
+      responseDescription: 'The updated staff record.',
+      mutability: 'mutable',
+      allowedRoles: ADMIN,
+      parameters: withParams(UpdateStaffDto.zodSchema, { id: uuidSchema }),
+      execute: async (args, context) => {
+        const parsed = withParams(UpdateStaffDto.zodSchema, {
+          id: uuidSchema,
+        }).parse(args) as any;
+        const { id, ...dto } = parsed;
+        return deps.staffService.update(
+          id,
+          dto as UpdateStaffDto,
+          context.companyId ?? '',
+        );
+      },
+    },
+    {
+      name: 'delete_staff',
+      description:
+        'Soft-deletes a staff member and deactivates their user account by UUID.',
+      responseDescription: 'Confirmation that the staff member was deleted.',
+      mutability: 'mutable',
+      allowedRoles: ADMIN,
+      parameters: z.object({ id: uuidSchema }).strict(),
+      execute: async (args, context) => {
+        const { id } = z.object({ id: uuidSchema }).parse(args) as any;
+        await deps.staffService.remove(id, context.companyId ?? '');
+        return { message: 'Staff member deleted successfully' };
+      },
+    },
+
+    // ── Maintenance ──────────────────────────────────────────────────────
+    {
+      name: 'get_maintenance_tickets',
+      description:
+        'Lists maintenance tickets with optional filters: propertyId, status, priority, assignedToStaffId, search.',
+      responseDescription: 'Array of maintenance ticket records.',
+      mutability: 'readonly',
+      allowedRoles: ADMIN_OWNER_STAFF,
+      parameters: maintenanceFiltersSchema,
+      execute: async (args, context) => {
+        const filters = maintenanceFiltersSchema.parse(args) as any;
+        return deps.maintenanceService.findAll(
+          context.companyId ?? '',
+          filters,
+        );
+      },
+    },
+    {
+      name: 'get_maintenance_ticket_by_id',
+      description:
+        'Retrieves a maintenance ticket by UUID including property, assigned staff, and comments.',
+      responseDescription:
+        'Full maintenance ticket record with nested relations.',
+      mutability: 'readonly',
+      allowedRoles: ALL_ROLES,
+      parameters: z.object({ id: uuidSchema }).strict(),
+      execute: async (args, context) => {
+        const { id } = z.object({ id: uuidSchema }).parse(args) as any;
+        return deps.maintenanceService.findOne(id, context.companyId ?? '');
+      },
+    },
+    {
+      name: 'post_maintenance_ticket',
+      description:
+        'Creates a new maintenance ticket. Requires title and propertyId. Optional: description, area, priority, source, scheduledAt, estimatedCost.',
+      responseDescription:
+        'The newly created maintenance ticket record with UUID.',
+      mutability: 'mutable',
+      allowedRoles: ALL_ROLES,
+      parameters: createMaintenanceTicketSchema,
+      execute: async (args, context) => {
+        const dto = createMaintenanceTicketSchema.parse(args) as any;
+        return deps.maintenanceService.create(
+          context.companyId ?? '',
+          context.userId ?? '',
+          dto,
+        );
+      },
+    },
+    {
+      name: 'patch_maintenance_ticket',
+      description:
+        'Updates a maintenance ticket by UUID. Can update status, assignment, resolution notes, and costs.',
+      responseDescription: 'The updated maintenance ticket record.',
+      mutability: 'mutable',
+      allowedRoles: ADMIN_STAFF,
+      parameters: withParams(updateMaintenanceTicketSchema, { id: uuidSchema }),
+      execute: async (args, context) => {
+        const parsed = withParams(updateMaintenanceTicketSchema, {
+          id: uuidSchema,
+        }).parse(args) as any;
+        const { id, ...dto } = parsed;
+        return deps.maintenanceService.update(id, context.companyId ?? '', dto);
+      },
+    },
+    {
+      name: 'delete_maintenance_ticket',
+      description: 'Soft-deletes a maintenance ticket by UUID.',
+      responseDescription: 'Confirmation that the ticket was deleted.',
+      mutability: 'mutable',
+      allowedRoles: ADMIN,
+      parameters: z.object({ id: uuidSchema }).strict(),
+      execute: async (args, context) => {
+        const { id } = z.object({ id: uuidSchema }).parse(args) as any;
+        await deps.maintenanceService.remove(id, context.companyId ?? '');
+        return { message: 'Maintenance ticket deleted successfully' };
+      },
+    },
+    {
+      name: 'get_maintenance_ticket_comments',
+      description:
+        'Returns all comments (including internal ones) for a maintenance ticket by ticketId.',
+      responseDescription: 'Array of comment records with author info.',
+      mutability: 'readonly',
+      allowedRoles: ADMIN_STAFF,
+      parameters: z.object({ ticketId: uuidSchema }).strict(),
+      execute: async (args, context) => {
+        const { ticketId } = z
+          .object({ ticketId: uuidSchema })
+          .parse(args) as any;
+        return deps.maintenanceService.getComments(
+          ticketId,
+          context.companyId ?? '',
+          true,
+        );
+      },
+    },
+
+    // ── Bank Accounts ────────────────────────────────────────────────────
+    {
+      name: 'get_bank_accounts',
+      description:
+        'Lists bank accounts for the company. Owners see only their own accounts. Optional ownerId filter for admins.',
+      responseDescription: 'Array of bank account records.',
+      mutability: 'readonly',
+      allowedRoles: ADMIN_OWNER,
+      parameters: z.object({ ownerId: z.uuid().optional() }).strict(),
+      execute: async (args, context) => {
+        const { ownerId } = z
+          .object({ ownerId: z.uuid().optional() })
+          .parse(args) as any;
+        return deps.bankAccountsService.findAll(
+          context.companyId ?? '',
+          toScopedUser(context) as any,
+          ownerId,
+        );
+      },
+    },
+    {
+      name: 'get_bank_account_by_id',
+      description: 'Retrieves a bank account by UUID.',
+      responseDescription: 'Full bank account record.',
+      mutability: 'readonly',
+      allowedRoles: ADMIN_OWNER,
+      parameters: z.object({ id: uuidSchema }).strict(),
+      execute: async (args, context) => {
+        const { id } = z.object({ id: uuidSchema }).parse(args) as any;
+        return deps.bankAccountsService.findOne(id, context.companyId ?? '');
+      },
+    },
+    {
+      name: 'post_bank_account',
+      description:
+        'Creates a new bank account. Requires bankName, accountType, accountNumber, userId. Optional: cbu, currency, isDefault, ownerId.',
+      responseDescription: 'The newly created bank account record with UUID.',
+      mutability: 'mutable',
+      allowedRoles: ADMIN_OWNER,
+      parameters: createBankAccountSchema,
+      execute: async (args, context) => {
+        const dto = createBankAccountSchema.parse(args) as any;
+        return deps.bankAccountsService.create(dto, context.companyId ?? '');
+      },
+    },
+    {
+      name: 'patch_bank_account',
+      description: 'Updates an existing bank account by UUID.',
+      responseDescription: 'The updated bank account record.',
+      mutability: 'mutable',
+      allowedRoles: ADMIN_OWNER,
+      parameters: withParams(updateBankAccountSchema, { id: uuidSchema }),
+      execute: async (args, context) => {
+        const parsed = withParams(updateBankAccountSchema, {
+          id: uuidSchema,
+        }).parse(args) as any;
+        const { id, ...dto } = parsed;
+        return deps.bankAccountsService.update(
+          id,
+          dto,
+          context.companyId ?? '',
+        );
+      },
+    },
+    {
+      name: 'delete_bank_account',
+      description:
+        'Soft-deletes a bank account by UUID. Only admins can delete.',
+      responseDescription: 'Confirmation that the bank account was deleted.',
+      mutability: 'mutable',
+      allowedRoles: ADMIN,
+      parameters: z.object({ id: uuidSchema }).strict(),
+      execute: async (args, context) => {
+        const { id } = z.object({ id: uuidSchema }).parse(args) as any;
+        await deps.bankAccountsService.remove(
+          id,
+          context.companyId ?? '',
+          toScopedUser(context) as any,
+        );
+        return { message: 'Bank account deleted successfully' };
+      },
+    },
+
+    // ── Settlements ──────────────────────────────────────────────────────
+    {
+      name: 'get_settlements',
+      description:
+        'Lists settlements with optional filters: ownerId, status, periodStart, periodEnd. Owners see only their own settlements.',
+      responseDescription: 'Array of settlement records.',
+      mutability: 'readonly',
+      allowedRoles: ADMIN_OWNER,
+      parameters: settlementFiltersSchema,
+      execute: async (args, context) => {
+        const filters = settlementFiltersSchema.parse(args) as any;
+        return deps.settlementsService.findAll(
+          context.companyId ?? '',
+          filters,
+          toScopedUser(context) as any,
+        );
+      },
+    },
+    {
+      name: 'get_settlement_by_id',
+      description: 'Retrieves a settlement by UUID.',
+      responseDescription: 'Full settlement record.',
+      mutability: 'readonly',
+      allowedRoles: ADMIN_OWNER,
+      parameters: z.object({ id: uuidSchema }).strict(),
+      execute: async (args, context) => {
+        const { id } = z.object({ id: uuidSchema }).parse(args) as any;
+        return deps.settlementsService.findOne(id, context.companyId ?? '');
+      },
+    },
+    {
+      name: 'get_settlements_summary',
+      description:
+        'Returns a summary of settlements: totals pending/completed, counts, and last settlement date. Optional ownerId filter for admins.',
+      responseDescription:
+        'Settlement summary with totalPending, totalCompleted, pendingCount, completedCount, lastSettlementDate.',
+      mutability: 'readonly',
+      allowedRoles: ADMIN_OWNER,
+      parameters: z.object({ ownerId: z.uuid().optional() }).strict(),
+      execute: async (args, context) => {
+        const { ownerId } = z
+          .object({ ownerId: z.uuid().optional() })
+          .parse(args) as any;
+        return deps.settlementsService.getSummary(
+          context.companyId ?? '',
+          toScopedUser(context) as any,
+          ownerId,
+        );
+      },
+    },
+
+    // ── Notifications ────────────────────────────────────────────────────
+    {
+      name: 'get_notification_preferences',
+      description:
+        'Returns notification preferences for the current user. Creates defaults if none exist.',
+      responseDescription:
+        'Array of notification preference records per type and channel.',
+      mutability: 'readonly',
+      allowedRoles: ALL_ROLES,
+      parameters: emptyObjectSchema,
+      execute: async (_args, context) =>
+        deps.notificationsService.getPreferences(
+          context.userId ?? '',
+          context.companyId ?? '',
+        ),
+    },
+    {
+      name: 'patch_notification_preferences',
+      description:
+        'Updates notification preferences for the current user. Accepts an array of preferences with notificationType, channel, frequency, and isEnabled.',
+      responseDescription: 'The full updated list of notification preferences.',
+      mutability: 'mutable',
+      allowedRoles: ALL_ROLES,
+      parameters: updateNotificationPreferencesSchema,
+      execute: async (args, context) => {
+        const dto = updateNotificationPreferencesSchema.parse(args) as any;
+        return deps.notificationsService.updatePreferences(
+          context.userId ?? '',
+          context.companyId ?? '',
+          dto,
+        );
+      },
+    },
   ];
 }
+
+// ---- inline Zod schemas for new modules ----
+
+const staffFiltersSchema = z
+  .object({
+    specialization: z
+      .enum([
+        StaffSpecialization.MAINTENANCE,
+        StaffSpecialization.CLEANING,
+        StaffSpecialization.SECURITY,
+        StaffSpecialization.ADMINISTRATION,
+        StaffSpecialization.ACCOUNTING,
+        StaffSpecialization.LEGAL,
+        StaffSpecialization.OTHER,
+      ])
+      .optional(),
+    search: z.string().optional(),
+  })
+  .strict();
+
+const maintenanceStatusEnum = z.enum([
+  MaintenanceTicketStatus.OPEN,
+  MaintenanceTicketStatus.ASSIGNED,
+  MaintenanceTicketStatus.IN_PROGRESS,
+  MaintenanceTicketStatus.PENDING_PARTS,
+  MaintenanceTicketStatus.RESOLVED,
+  MaintenanceTicketStatus.CLOSED,
+  MaintenanceTicketStatus.CANCELLED,
+]);
+
+const maintenancePriorityEnum = z.enum([
+  MaintenanceTicketPriority.LOW,
+  MaintenanceTicketPriority.MEDIUM,
+  MaintenanceTicketPriority.HIGH,
+  MaintenanceTicketPriority.URGENT,
+]);
+
+const maintenanceAreaEnum = z.enum([
+  MaintenanceTicketArea.KITCHEN,
+  MaintenanceTicketArea.BATHROOM,
+  MaintenanceTicketArea.BEDROOM,
+  MaintenanceTicketArea.LIVING_ROOM,
+  MaintenanceTicketArea.ELECTRICAL,
+  MaintenanceTicketArea.PLUMBING,
+  MaintenanceTicketArea.HEATING_COOLING,
+  MaintenanceTicketArea.EXTERIOR,
+  MaintenanceTicketArea.COMMON_AREA,
+  MaintenanceTicketArea.OTHER,
+]);
+
+const maintenanceSourceEnum = z.enum([
+  MaintenanceTicketSource.TENANT,
+  MaintenanceTicketSource.OWNER,
+  MaintenanceTicketSource.STAFF,
+  MaintenanceTicketSource.ADMIN,
+  MaintenanceTicketSource.INSPECTION,
+]);
+
+const maintenanceFiltersSchema = z
+  .object({
+    propertyId: z.uuid().optional(),
+    status: maintenanceStatusEnum.optional(),
+    priority: maintenancePriorityEnum.optional(),
+    assignedToStaffId: z.uuid().optional(),
+    search: z.string().optional(),
+  })
+  .strict();
+
+const createMaintenanceTicketSchema = z
+  .object({
+    title: z.string().min(1),
+    description: z.string().optional(),
+    propertyId: z.uuid(),
+    area: maintenanceAreaEnum.optional(),
+    priority: maintenancePriorityEnum.optional(),
+    source: maintenanceSourceEnum.optional(),
+    scheduledAt: z.string().optional(),
+    estimatedCost: z.number().min(0).optional(),
+    costCurrency: z.string().optional(),
+  })
+  .strict();
+
+const updateMaintenanceTicketSchema = z
+  .object({
+    title: z.string().min(1).optional(),
+    description: z.string().optional(),
+    area: maintenanceAreaEnum.optional(),
+    priority: maintenancePriorityEnum.optional(),
+    source: maintenanceSourceEnum.optional(),
+    scheduledAt: z.string().optional(),
+    estimatedCost: z.number().min(0).optional(),
+    costCurrency: z.string().optional(),
+    status: maintenanceStatusEnum.optional(),
+    assignedToStaffId: z.uuid().optional(),
+    resolvedAt: z.string().optional(),
+    resolutionNotes: z.string().optional(),
+    actualCost: z.number().min(0).optional(),
+    externalRef: z.string().optional(),
+  })
+  .strict();
+
+const createBankAccountSchema = z
+  .object({
+    bankName: z.string().max(200),
+    accountType: z.string().max(100),
+    accountNumber: z.string().max(50),
+    cbu: z.string().max(100).optional(),
+    currency: z.string().max(10).optional(),
+    isDefault: z.boolean().optional(),
+    notes: z.string().optional(),
+    ownerId: z.uuid().optional(),
+    userId: z.uuid(),
+  })
+  .strict();
+
+const updateBankAccountSchema = createBankAccountSchema.partial().strict();
+
+const settlementFiltersSchema = z
+  .object({
+    ownerId: z.uuid().optional(),
+    status: z
+      .enum([
+        SettlementStatus.PENDING,
+        SettlementStatus.PROCESSING,
+        SettlementStatus.COMPLETED,
+        SettlementStatus.FAILED,
+      ])
+      .optional(),
+    periodStart: z.string().optional(),
+    periodEnd: z.string().optional(),
+  })
+  .strict();
+
+const notificationTypeEnum = z.enum([
+  NotificationType.INVOICE_ISSUED,
+  NotificationType.PAYMENT_REMINDER,
+  NotificationType.PAYMENT_RECEIVED,
+  NotificationType.OVERDUE_NOTICE,
+  NotificationType.LATE_FEE_APPLIED,
+  NotificationType.MONTHLY_REPORT,
+  NotificationType.LEASE_EXPIRING,
+  NotificationType.RENT_ADJUSTMENT,
+]);
+
+const notificationFrequencyEnum = z.enum([
+  NotificationFrequency.IMMEDIATE,
+  NotificationFrequency.DAILY_DIGEST,
+  NotificationFrequency.WEEKLY_DIGEST,
+  NotificationFrequency.DISABLED,
+]);
+
+const updateNotificationPreferencesSchema = z
+  .object({
+    preferences: z.array(
+      z.object({
+        notificationType: notificationTypeEnum,
+        channel: z.string(),
+        frequency: notificationFrequencyEnum,
+        isEnabled: z.boolean(),
+      }),
+    ),
+  })
+  .strict();

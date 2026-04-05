@@ -26,6 +26,7 @@ interface AuthenticatedRequest {
   user: {
     id: string;
     companyId: string;
+    role: UserRole;
   };
 }
 
@@ -46,12 +47,29 @@ export class TenantsController {
     return this.tenantsService.findAll(filters);
   }
 
+  @Get('me')
+  @Roles(UserRole.TENANT)
+  getMyProfile(@Request() req: AuthenticatedRequest) {
+    return this.tenantsService.findByUserId(req.user.id, req.user.companyId);
+  }
+
+  @Get('me/summary')
+  @Roles(UserRole.TENANT)
+  getMyProfileSummary(@Request() req: AuthenticatedRequest) {
+    return this.tenantsService.getTenantSummary(
+      req.user.id,
+      req.user.companyId,
+    );
+  }
+
   @Get(':id')
+  @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.OWNER)
   findOne(@Param('id') id: string) {
     return this.tenantsService.findOne(id);
   }
 
   @Get(':id/leases')
+  @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.OWNER)
   getLeaseHistory(@Param('id') id: string) {
     return this.tenantsService.getLeaseHistory(id);
   }

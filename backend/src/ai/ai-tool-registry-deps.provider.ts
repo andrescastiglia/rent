@@ -20,6 +20,11 @@ import { SalesService } from '../sales/sales.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { UsersService } from '../users/users.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
+import { StaffService } from '../staff/staff.service';
+import { MaintenanceService } from '../maintenance/maintenance.service';
+import { BankAccountsService } from '../bank-accounts/bank-accounts.service';
+import { SettlementsService } from '../settlements/settlements.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AiToolRegistryDeps } from './openai-tools.registry';
 import { GithubIssuesService } from './github-issues.service';
 
@@ -48,5 +53,10 @@ export class AiToolRegistryDepsProvider implements AiToolRegistryDeps {
     readonly tenantsService: TenantsService,
     readonly whatsappService: WhatsappService,
     readonly githubIssuesService: GithubIssuesService,
+    readonly staffService: StaffService,
+    readonly maintenanceService: MaintenanceService,
+    readonly bankAccountsService: BankAccountsService,
+    readonly settlementsService: SettlementsService,
+    readonly notificationsService: NotificationsService,
   ) {}
 }

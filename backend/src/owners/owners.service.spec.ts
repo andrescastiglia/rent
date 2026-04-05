@@ -21,6 +21,7 @@ describe('OwnersService', () => {
   };
   const propertiesRepository = {
     findOne: jest.fn(),
+    find: jest.fn(),
   };
   const usersRepository = {
     findOne: jest.fn(),
@@ -623,5 +624,60 @@ describe('OwnersService', () => {
         role: UserRole.ADMIN,
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  describe('findByUserId', () => {
+    it('returns the owner for the given user and company', async () => {
+      const mockOwner = { id: 'o1', userId: 'u1', companyId: 'co1' };
+      ownersRepository.findOne.mockResolvedValue(mockOwner);
+
+      const result = await service.findByUserId('u1', 'co1');
+
+      expect(result).toEqual(mockOwner);
+      expect(ownersRepository.findOne).toHaveBeenCalledWith({
+        where: { userId: 'u1', companyId: 'co1', deletedAt: expect.anything() },
+        relations: ['user'],
+      });
+    });
+
+    it('returns null when owner not found', async () => {
+      ownersRepository.findOne.mockResolvedValue(null);
+
+      const result = await service.findByUserId('u-missing', 'co1');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('getOwnerSummary', () => {
+    it('returns summary with properties and aggregated counts', async () => {
+      const mockOwner = { id: 'o1', userId: 'u1', companyId: 'co1', user: {} };
+      ownersRepository.findOne.mockResolvedValue(mockOwner);
+      propertiesRepository.find.mockResolvedValue([{ id: 'p1' }, { id: 'p2' }]);
+      dataSource.query.mockResolvedValue([
+        {
+          active_leases: '3',
+          pending_settlements: '1',
+          total_income: '15000.00',
+        },
+      ]);
+
+      const result = await service.getOwnerSummary('u1', 'co1');
+
+      expect(result.owner).toEqual(mockOwner);
+      expect(result.properties).toHaveLength(2);
+      expect(result.activeLeaseCount).toBe(3);
+      expect(result.pendingSettlementsCount).toBe(1);
+      expect(result.totalIncomeCurrentMonth).toBe(15000);
+      expect(result.currencyCode).toBe('ARS');
+    });
+
+    it('throws NotFoundException when owner not found', async () => {
+      ownersRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.getOwnerSummary('u-missing', 'co1')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
   });
 });

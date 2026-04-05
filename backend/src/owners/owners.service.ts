@@ -29,6 +29,15 @@ import { CreateOwnerDto } from './dto/create-owner.dto';
 import { UpdateOwnerDto } from './dto/update-owner.dto';
 import { RegisterOwnerSettlementPaymentDto } from './dto/register-owner-settlement-payment.dto';
 
+export interface OwnerSummary {
+  owner: Owner;
+  properties: Property[];
+  activeLeaseCount: number;
+  pendingSettlementsCount: number;
+  totalIncomeCurrentMonth: number;
+  currencyCode: string;
+}
+
 interface UserContext {
   id: string;
   companyId: string;
@@ -774,6 +783,77 @@ export class OwnersService {
       currencyCode: 'ARS',
       createdAt: new Date(row.created_at).toISOString(),
       updatedAt: new Date(row.updated_at).toISOString(),
+    };
+  }
+
+  async getOwnerSummary(
+    userId: string,
+    companyId: string,
+  ): Promise<OwnerSummary> {
+    const owner = await this.ownersRepository.findOne({
+      where: { userId, companyId, deletedAt: IsNull() },
+      relations: ['user'],
+    });
+
+    if (!owner) {
+      throw new NotFoundException(`Owner profile not found for user ${userId}`);
+    }
+
+    const properties = await this.propertiesRepository.find({
+      where: { ownerId: owner.id, companyId, deletedAt: IsNull() },
+      order: { createdAt: 'DESC' },
+    });
+
+    const now = new Date();
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const firstOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    const summaryRows: Array<{
+      active_leases: string;
+      pending_settlements: string;
+      total_income: string;
+    }> = await this.dataSource.query(
+      `
+      SELECT
+        (
+          SELECT COUNT(*)
+          FROM leases l
+          WHERE l.owner_id = $1
+            AND l.company_id = $2
+            AND l.status = 'active'
+            AND l.deleted_at IS NULL
+        )::text AS active_leases,
+        (
+          SELECT COUNT(*)
+          FROM settlements s
+          WHERE s.owner_id = $1
+            AND s.company_id = $2
+            AND s.status NOT IN ('completed', 'failed')
+        )::text AS pending_settlements,
+        (
+          SELECT COALESCE(SUM(p.amount), 0)
+          FROM payments p
+          INNER JOIN leases l ON l.id = p.lease_id
+          WHERE l.owner_id = $1
+            AND l.company_id = $2
+            AND p.status = 'completed'
+            AND p.paid_at >= $3
+            AND p.paid_at < $4
+            AND p.deleted_at IS NULL
+        )::text AS total_income
+      `,
+      [owner.id, companyId, firstOfMonth, firstOfNextMonth],
+    );
+
+    const row = summaryRows[0];
+
+    return {
+      owner,
+      properties,
+      activeLeaseCount: Number.parseInt(row.active_leases, 10),
+      pendingSettlementsCount: Number.parseInt(row.pending_settlements, 10),
+      totalIncomeCurrentMonth: Number.parseFloat(row.total_income),
+      currencyCode: 'ARS',
     };
   }
 

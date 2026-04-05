@@ -20,11 +20,13 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed": "ts-node -r tsconfig-paths/register src/seeds/seed.ts",
-    "tunnel": "bash scripts/db-tunnel.sh"
+    "tunnel": "bash scripts/db-tunnel.sh",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.982.0",
     "@aws-sdk/s3-request-presigner": "^3.982.0",
+    "@nestjs/axios": "^4.0.1",
     "@nestjs/common": "^11.1.13",
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^11.1.13",
@@ -44,6 +46,7 @@
     "@types/bcrypt": "^6.0.0",
     "@types/passport-jwt": "^4.0.1",
     "@types/pdfkit": "^0.17.4",
+    "axios": "^1.14.0",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
