@@ -33,8 +33,8 @@ describe('TenantsController', () => {
 
     await expect(controller.create({} as any)).resolves.toEqual({ id: 't1' });
     await expect(controller.findAll({} as any)).resolves.toEqual({ data: [] });
-    await expect(controller.findOne('t1', req)).resolves.toEqual({ id: 't1' });
-    await expect(controller.getLeaseHistory('t1', req)).resolves.toEqual([]);
+    await expect(controller.findOne('t1')).resolves.toEqual({ id: 't1' });
+    await expect(controller.getLeaseHistory('t1')).resolves.toEqual([]);
     await expect(controller.listActivities('t1', req)).resolves.toEqual([]);
     await expect(
       controller.createActivity('t1', {} as any, req),
