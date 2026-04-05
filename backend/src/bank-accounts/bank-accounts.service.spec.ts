@@ -150,8 +150,14 @@ describe('BankAccountsService', () => {
     it('creates for OWNER using resolved owner id', async () => {
       ownersRepository.findOne.mockResolvedValue({ id: 'o1' });
       const dto = { bankName: 'B', accountNumber: '1' };
-      bankAccountsRepository.create.mockReturnValue({ id: 'ba3', ownerId: 'o1' });
-      bankAccountsRepository.save.mockResolvedValue({ id: 'ba3', ownerId: 'o1' });
+      bankAccountsRepository.create.mockReturnValue({
+        id: 'ba3',
+        ownerId: 'o1',
+      });
+      bankAccountsRepository.save.mockResolvedValue({
+        id: 'ba3',
+        ownerId: 'o1',
+      });
       const result = await service.create(dto as any, 'c1', ownerUser);
       expect(result.ownerId).toBe('o1');
     });
@@ -189,7 +195,10 @@ describe('BankAccountsService', () => {
         ownerId: 'o1',
       });
       bankAccountsRepository.update.mockResolvedValue({});
-      bankAccountsRepository.save.mockResolvedValue({ id: 'ba1', isDefault: true });
+      bankAccountsRepository.save.mockResolvedValue({
+        id: 'ba1',
+        isDefault: true,
+      });
       await service.update('ba1', { isDefault: true } as any, 'c1');
       expect(bankAccountsRepository.update).toHaveBeenCalled();
     });

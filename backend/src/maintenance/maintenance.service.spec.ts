@@ -268,7 +268,9 @@ describe('MaintenanceService', () => {
     });
 
     it('sets resolvedAt from dto when provided', async () => {
-      const ticket = mockTicket({ status: MaintenanceTicketStatus.IN_PROGRESS });
+      const ticket = mockTicket({
+        status: MaintenanceTicketStatus.IN_PROGRESS,
+      });
       ticketRepository.findOne!.mockResolvedValueOnce(ticket);
       const resolved = mockTicket({ resolvedAt: new Date('2025-06-01') });
       ticketRepository.save!.mockResolvedValue(resolved);
