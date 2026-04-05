@@ -1,3 +1,5 @@
+export {};
+
 type MockedApiClient = {
   get: jest.Mock;
   post: jest.Mock;
@@ -17,7 +19,7 @@ async function loadOwnersApi(isMock: boolean): Promise<{
   jest.resetModules();
 
   if (!isMock) {
-    process.env.NODE_ENV = "production";
+    (process.env as Record<string, string>).NODE_ENV = "production";
     process.env.CI = "";
     process.env.NEXT_PUBLIC_MOCK_MODE = "";
   }
@@ -39,7 +41,7 @@ async function loadOwnersApi(isMock: boolean): Promise<{
   const { ownersApi } = await import("./owners");
 
   if (!isMock) {
-    process.env.NODE_ENV = "test";
+    (process.env as Record<string, string>).NODE_ENV = "test";
   }
 
   return { ownersApi, apiClient, auth };
@@ -167,14 +169,14 @@ describe("ownersApi", () => {
       const { ownersApi } = await loadOwnersApi(true);
       const result = await resolveMockDelay(
         ownersApi.updateActivity("owner1", "activity1", {
-          status: "done",
+          status: "completed",
           body: "completed task",
           completedAt: "2026-03-01T00:00:00.000Z",
         }),
       );
       expect(result.id).toBe("activity1");
       expect(result.ownerId).toBe("owner1");
-      expect(result.status).toBe("done");
+      expect(result.status).toBe("completed");
       expect(result.body).toBe("completed task");
       expect(result.completedAt).toBe("2026-03-01T00:00:00.000Z");
       expect(result.type).toBe("task");
@@ -427,7 +429,7 @@ describe("ownersApi", () => {
       };
       apiClient.patch.mockResolvedValue(mockActivity);
 
-      const data = { status: "done" as const, body: "done body" };
+      const data = { status: "completed" as const, body: "done body" };
       const result = await ownersApi.updateActivity("owner1", "act1", data);
 
       expect(apiClient.patch).toHaveBeenCalledWith(

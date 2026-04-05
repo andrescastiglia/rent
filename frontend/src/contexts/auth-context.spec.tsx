@@ -38,17 +38,10 @@ function renderWithAuth(ui?: React.ReactNode) {
 }
 
 function getAuthContext() {
-  let ctx: ReturnType<typeof useAuth> | null = null;
-  function Capture() {
-    ctx = useAuth();
-    return null;
-  }
-  render(
-    <AuthProvider>
-      <Capture />
-    </AuthProvider>,
-  );
-  return ctx!;
+  const { result } = renderHook(() => useAuth(), {
+    wrapper: ({ children }) => <AuthProvider>{children}</AuthProvider>,
+  });
+  return result.current;
 }
 
 beforeEach(() => {
