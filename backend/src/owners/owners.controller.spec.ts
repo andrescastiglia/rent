@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { OwnersController } from './owners.controller';
 
 describe('OwnersController', () => {
@@ -7,12 +8,14 @@ describe('OwnersController', () => {
     findAll: jest.fn(),
     create: jest.fn(),
     findOne: jest.fn(),
+    findByUserId: jest.fn(),
     update: jest.fn(),
     listSettlements: jest.fn(),
     registerSettlementPayment: jest.fn(),
     listActivities: jest.fn(),
     createActivity: jest.fn(),
     updateActivity: jest.fn(),
+    getOwnerSummary: jest.fn(),
   };
 
   let controller: OwnersController;
@@ -87,5 +90,26 @@ describe('OwnersController', () => {
       'Content-Disposition': 'attachment; filename="settlement.pdf"',
     });
     expect(res.send).toHaveBeenCalledWith(Buffer.from('pdf'));
+  });
+
+  it('getMyProfile returns owner when found', async () => {
+    ownersService.findByUserId.mockResolvedValue({ id: 'o1' });
+    await expect(controller.getMyProfile(req)).resolves.toEqual({ id: 'o1' });
+    expect(ownersService.findByUserId).toHaveBeenCalledWith('u1', 'c1');
+  });
+
+  it('getMyProfile throws NotFoundException when owner not found', async () => {
+    ownersService.findByUserId.mockResolvedValue(null);
+    await expect(controller.getMyProfile(req)).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('getMyProfileSummary delegates to getOwnerSummary', async () => {
+    ownersService.getOwnerSummary.mockResolvedValue({ propertiesCount: 2 });
+    await expect(controller.getMyProfileSummary(req)).resolves.toEqual({
+      propertiesCount: 2,
+    });
+    expect(ownersService.getOwnerSummary).toHaveBeenCalledWith('u1', 'c1');
   });
 });
