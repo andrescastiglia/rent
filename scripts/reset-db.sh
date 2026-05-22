@@ -23,7 +23,10 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Cargar variables de entorno si existe .env
 if [ -f "$PROJECT_ROOT/.env" ]; then
-    export $(cat "$PROJECT_ROOT/.env" | grep -v '^#' | xargs)
+    set -a
+    # shellcheck disable=SC1090
+    . "$PROJECT_ROOT/.env"
+    set +a
 fi
 
 # Valores por defecto
@@ -137,23 +140,16 @@ run_init_script() {
 }
 
 run_migrations() {
-    print_info "Buscando migraciones..."
-    
-    # Verificar si existe un directorio de migraciones
-    local migration_dirs=("$PROJECT_ROOT/migrations" "$PROJECT_ROOT/backend/migrations" "$PROJECT_ROOT/prisma/migrations")
-    local found=false
-    
-    for dir in "${migration_dirs[@]}"; do
-        if [ -d "$dir" ]; then
-            print_info "Directorio de migraciones encontrado: $dir"
-            print_warning "Ejecuta manualmente las migraciones de tu ORM (Prisma, TypeORM, etc.)"
-            found=true
-            break
-        fi
-    done
-    
-    if [ "$found" = false ]; then
-        print_info "No se encontraron migraciones, esto es normal en un proyecto nuevo"
+    print_info "Registrando estado de migraciones..."
+
+    if [ -x "$PROJECT_ROOT/migrations/run-migrations.sh" ]; then
+        (
+            cd "$PROJECT_ROOT"
+            ./migrations/run-migrations.sh --baseline-all-if-missing --force-baseline-all-if-missing
+        )
+        print_success "Migraciones registradas/verificadas"
+    else
+        print_warning "Runner de migraciones no encontrado, saltando..."
     fi
 }
 
@@ -212,7 +208,7 @@ main() {
     echo -e "${GREEN}✓ Base de datos reseteada exitosamente${NC}"
     echo -e "${BLUE}=========================================${NC}"
     echo ""
-    print_info "Siguiente paso: Ejecutar migraciones de la aplicación"
+    print_info "La base local quedó inicializada con el snapshot y schema_migrations actualizado"
     echo ""
 }
 
