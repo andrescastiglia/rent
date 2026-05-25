@@ -2378,7 +2378,7 @@ CREATE TABLE settlements (
     net_amount DECIMAL(15, 2) NOT NULL,
     currency VARCHAR(3) DEFAULT 'ARS',
     status settlement_status DEFAULT 'pending',
-    scheduled_date DATE NOT NULL,
+    scheduled_date DATE,
     processed_at TIMESTAMPTZ,
     transfer_reference VARCHAR(100),
     bank_account_id UUID REFERENCES bank_accounts(id),

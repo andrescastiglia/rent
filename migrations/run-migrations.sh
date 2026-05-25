@@ -26,24 +26,14 @@ load_env_file() {
         return 0
     fi
 
-    while IFS= read -r line || [ -n "$line" ]; do
-        line="${line%$'\r'}"
-
-        if [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]]; then
-            continue
-        fi
-
-        if [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
-            local key="${BASH_REMATCH[1]}"
-            local value="${BASH_REMATCH[2]}"
-
-            if [[ "$value" =~ ^\"(.*)\"$ || "$value" =~ ^\'(.*)\'$ ]]; then
-                value="${BASH_REMATCH[1]}"
-            fi
-
-            export "$key=$value"
-        fi
-    done < "$env_file"
+    set -a
+    # shellcheck disable=SC1090
+    if ! . "$env_file"; then
+        set +a
+        echo "Failed to load environment file: $env_file" >&2
+        exit 1
+    fi
+    set +a
 }
 
 load_env_file
