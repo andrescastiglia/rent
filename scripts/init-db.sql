@@ -213,13 +213,13 @@ CREATE TYPE contract_type AS ENUM ('rental', 'sale');
 
 -- Lease amendment change types
 CREATE TYPE amendment_change_type AS ENUM (
-    'rent_adjustment', 'term_extension', 'term_reduction', 
-    'tenant_addition', 'tenant_removal', 'clause_modification', 'other'
+    'rent_increase', 'rent_decrease', 'extension',
+    'early_termination', 'clause_modification', 'guarantor_change', 'other'
 );
 
 -- Amendment status
 CREATE TYPE amendment_status AS ENUM (
-    'draft', 'pending_approval', 'approved', 'rejected', 'superseded'
+    'draft', 'pending_approval', 'approved', 'rejected', 'cancelled'
 );
 
 -- Late fee types
