@@ -80,7 +80,11 @@ export class Tenant {
   @Column({ name: 'emergency_contact_phone', type: 'varchar', nullable: true })
   emergencyContactPhone: string;
 
-  @Column({ name: 'emergency_contact_relationship', type: 'varchar', nullable: true })
+  @Column({
+    name: 'emergency_contact_relationship',
+    type: 'varchar',
+    nullable: true,
+  })
   emergencyContactRelationship: string;
 
   @Column({ type: 'text', nullable: true })

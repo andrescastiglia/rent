@@ -68,7 +68,12 @@ export class Document {
   @Column({ name: 'file_size', type: 'int', nullable: true })
   fileSize: number;
 
-  @Column({ name: 'file_mime_type', length: 100, type: 'varchar', nullable: true })
+  @Column({
+    name: 'file_mime_type',
+    length: 100,
+    type: 'varchar',
+    nullable: true,
+  })
   fileMimeType: string;
 
   @Column({ name: 'expires_at', type: 'date', nullable: true })

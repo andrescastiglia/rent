@@ -46,7 +46,12 @@ export class PaymentGatewayTransaction {
   @Column({ name: 'external_id', length: 255, type: 'varchar', nullable: true })
   externalId: string | null;
 
-  @Column({ name: 'external_payment_id', length: 255, type: 'varchar', nullable: true })
+  @Column({
+    name: 'external_payment_id',
+    length: 255,
+    type: 'varchar',
+    nullable: true,
+  })
   externalPaymentId: string | null;
 
   @Column({
@@ -62,7 +67,12 @@ export class PaymentGatewayTransaction {
   @Column({ length: 3, default: 'ARS' })
   currency: string;
 
-  @Column({ name: 'payment_method', length: 100, type: 'varchar', nullable: true })
+  @Column({
+    name: 'payment_method',
+    length: 100,
+    type: 'varchar',
+    nullable: true,
+  })
   paymentMethod: string | null;
 
   @Column({ type: 'integer', default: 1 })

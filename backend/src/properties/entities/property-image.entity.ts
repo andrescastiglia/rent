@@ -37,7 +37,12 @@ export class PropertyImage {
   @JoinColumn({ name: 'uploaded_by_user_id' })
   uploadedByUser: User;
 
-  @Column({ name: 'original_name', length: 255, type: 'varchar', nullable: true })
+  @Column({
+    name: 'original_name',
+    length: 255,
+    type: 'varchar',
+    nullable: true,
+  })
   originalName: string;
 
   @Column({ name: 'mime_type', length: 120 })

@@ -64,7 +64,12 @@ export class InterestedActivity {
   @Column({ name: 'completed_at', type: 'timestamptz', nullable: true })
   completedAt: Date;
 
-  @Column({ name: 'template_name', length: 120, type: 'varchar', nullable: true })
+  @Column({
+    name: 'template_name',
+    length: 120,
+    type: 'varchar',
+    nullable: true,
+  })
   templateName: string;
 
   @Column({ type: 'jsonb', default: () => "'{}'" })

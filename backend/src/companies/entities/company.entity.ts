@@ -97,7 +97,11 @@ export class Company {
   @Column({ name: 'arca_certificate_path', type: 'varchar', nullable: true })
   arcaCertificatePath: string;
 
-  @Column({ name: 'arca_certificate_password_hash', type: 'varchar', nullable: true })
+  @Column({
+    name: 'arca_certificate_password_hash',
+    type: 'varchar',
+    nullable: true,
+  })
   arcaCertificatePasswordHash: string;
 
   @Column({
