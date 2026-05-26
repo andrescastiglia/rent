@@ -48,7 +48,12 @@ export class DigitalSignatureRequest {
   @Column({ length: 50, default: SignatureProvider.DOCUSIGN })
   provider: string;
 
-  @Column({ name: 'external_envelope_id', length: 255, type: 'varchar', nullable: true })
+  @Column({
+    name: 'external_envelope_id',
+    length: 255,
+    type: 'varchar',
+    nullable: true,
+  })
   externalEnvelopeId: string | null;
 
   @Column({ length: 50, default: SignatureStatus.PENDING })

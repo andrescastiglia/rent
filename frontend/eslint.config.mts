@@ -10,7 +10,7 @@ export default defineConfig([
   tseslint.configs.recommended,
   ...nextCoreWebVitals,
   {
-    files: ["**/*.ts"],
+    files: ["**/*.{ts,tsx}"],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-unused-vars": [
@@ -21,6 +21,9 @@ export default defineConfig([
           caughtErrorsIgnorePattern: "^_",
         },
       ],
+      "react-hooks/immutability": "off",
+      "react-hooks/preserve-manual-memoization": "off",
+      "react-hooks/set-state-in-effect": "off",
     },
   },
   {

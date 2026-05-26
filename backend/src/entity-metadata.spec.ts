@@ -4,6 +4,7 @@ import { Buyer } from './buyers/entities/buyer.entity';
 import { InterestedProfile } from './interested/entities/interested-profile.entity';
 import { LeaseContractTemplate } from './leases/entities/lease-contract-template.entity';
 import { User } from './users/entities/user.entity';
+import './app.module';
 
 describe('Entity metadata', () => {
   type EntityClass = abstract new (...args: never[]) => object;
@@ -29,5 +30,28 @@ describe('Entity metadata', () => {
     expectColumnType(InterestedProfile, 'convertedToSaleAgreementId', 'uuid');
     expectColumnType(LeaseContractTemplate, 'sourceFileName', 'varchar');
     expectColumnType(LeaseContractTemplate, 'sourceMimeType', 'varchar');
+  });
+
+  it('does not rely on reflected Object types for database columns', () => {
+    const unsafeColumns = getMetadataArgsStorage()
+      .columns.filter((column) => {
+        const reflectedType = Reflect.getMetadata(
+          'design:type',
+          column.target,
+          column.propertyName,
+        );
+
+        return reflectedType === Object && column.options.type === undefined;
+      })
+      .map((column) => {
+        const target =
+          typeof column.target === 'function'
+            ? column.target.name
+            : String(column.target);
+
+        return `${target}.${column.propertyName}`;
+      });
+
+    expect(unsafeColumns).toEqual([]);
   });
 });

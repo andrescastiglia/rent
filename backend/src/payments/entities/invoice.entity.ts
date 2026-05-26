@@ -175,7 +175,8 @@ export class Invoice {
 
   @Column({
     name: 'pdf_url',
-    type: 'varchar', nullable: true,
+    type: 'varchar',
+    nullable: true,
   })
   pdfUrl: string;
 
@@ -241,7 +242,12 @@ export class Invoice {
   })
   originalAmount: number;
 
-  @Column({ name: 'original_currency', length: 3, type: 'varchar', nullable: true })
+  @Column({
+    name: 'original_currency',
+    length: 3,
+    type: 'varchar',
+    nullable: true,
+  })
   originalCurrency: string;
 
   @Column({
@@ -308,7 +314,8 @@ export class Invoice {
   @Column({
     name: 'adjustment_index_type',
     length: 10,
-    type: 'varchar', nullable: true,
+    type: 'varchar',
+    nullable: true,
   })
   adjustmentIndexType: string;
 

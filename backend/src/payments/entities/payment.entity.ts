@@ -127,7 +127,12 @@ export class Payment {
   @Column({ name: 'bank_name', type: 'varchar', nullable: true })
   bankName: string;
 
-  @Column({ name: 'account_last_digits', length: 4, type: 'varchar', nullable: true })
+  @Column({
+    name: 'account_last_digits',
+    length: 4,
+    type: 'varchar',
+    nullable: true,
+  })
   accountLastDigits: string;
 
   @Column({ name: 'authorization_code', type: 'varchar', nullable: true })

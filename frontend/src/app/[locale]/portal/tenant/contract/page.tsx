@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { leasesApi } from "@/lib/api/leases";
 import { tenantsApi } from "@/lib/api/tenants";
+import { getToken } from "@/lib/auth";
 import { Lease } from "@/types/lease";
 import { TenantSummary } from "@/types/tenant";
 import {
@@ -190,10 +191,7 @@ export default function TenantContractPage() {
           if (lease.id) {
             const baseUrl =
               process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-            const token =
-              globalThis.window === undefined
-                ? null
-                : localStorage.getItem("token");
+            const token = getToken();
             fetch(`${baseUrl}/leases/${lease.id}/contract`, {
               headers: token ? { Authorization: `Bearer ${token}` } : {},
             })

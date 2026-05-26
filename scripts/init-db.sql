@@ -206,20 +206,20 @@ CREATE TYPE document_status AS ENUM ('pending', 'approved', 'rejected', 'expired
 CREATE TYPE payment_frequency AS ENUM ('monthly', 'bimonthly', 'quarterly', 'semiannual', 'annual');
 
 -- Lease status
-CREATE TYPE lease_status AS ENUM ('draft', 'active', 'finalized');
+CREATE TYPE lease_status AS ENUM ('draft', 'pending_signature', 'signed', 'active', 'finalized');
 
 -- Contract type
 CREATE TYPE contract_type AS ENUM ('rental', 'sale');
 
 -- Lease amendment change types
 CREATE TYPE amendment_change_type AS ENUM (
-    'rent_adjustment', 'term_extension', 'term_reduction', 
-    'tenant_addition', 'tenant_removal', 'clause_modification', 'other'
+    'rent_increase', 'rent_decrease', 'extension',
+    'early_termination', 'clause_modification', 'guarantor_change', 'other'
 );
 
 -- Amendment status
 CREATE TYPE amendment_status AS ENUM (
-    'draft', 'pending_approval', 'approved', 'rejected', 'superseded'
+    'draft', 'pending_approval', 'approved', 'rejected', 'cancelled'
 );
 
 -- Late fee types
@@ -336,6 +336,21 @@ CREATE TYPE billing_job_type AS ENUM (
 
 -- Billing job status
 CREATE TYPE billing_job_status AS ENUM ('pending', 'running', 'completed', 'failed', 'partial_failure');
+
+-- Maintenance tickets
+CREATE TYPE maintenance_ticket_status AS ENUM (
+    'open', 'assigned', 'in_progress', 'pending_parts', 'resolved', 'closed', 'cancelled'
+);
+CREATE TYPE maintenance_ticket_priority AS ENUM ('low', 'medium', 'high', 'urgent');
+CREATE TYPE maintenance_ticket_area AS ENUM (
+    'kitchen', 'bathroom', 'bedroom', 'living_room', 'electrical', 'plumbing',
+    'heating_cooling', 'exterior', 'common_area', 'other'
+);
+CREATE TYPE maintenance_ticket_source AS ENUM ('tenant', 'owner', 'staff', 'admin', 'inspection');
+
+-- Portal listings
+CREATE TYPE portal_name AS ENUM ('zonaprop', 'argenprop', 'mercadolibre', 'properati', 'navent');
+CREATE TYPE portal_listing_status AS ENUM ('draft', 'published', 'paused', 'removed', 'error');
 
 \echo '✓ Tipos ENUM creados'
 
@@ -1989,23 +2004,31 @@ COMMENT ON TABLE exchange_rates IS 'Historical exchange rates for multi-currency
 CREATE TABLE notification_preferences (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
     notification_type notification_type NOT NULL,
+    channel VARCHAR(50) NOT NULL DEFAULT 'whatsapp',
     email_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
     frequency notification_frequency NOT NULL DEFAULT 'immediate',
+    custom_data JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT notification_preferences_unique UNIQUE (user_id, notification_type)
+    CONSTRAINT notification_preferences_user_type_channel_unique
+        UNIQUE (user_id, company_id, notification_type, channel)
 );
 
 CREATE INDEX idx_notification_preferences_user ON notification_preferences(user_id);
+CREATE INDEX idx_notification_preferences_company ON notification_preferences(company_id);
 CREATE INDEX idx_notification_preferences_type ON notification_preferences(notification_type);
 CREATE INDEX idx_notification_preferences_email_enabled 
     ON notification_preferences(user_id, email_enabled) WHERE email_enabled = TRUE;
+CREATE INDEX idx_notification_preferences_enabled
+    ON notification_preferences(user_id, is_enabled) WHERE is_enabled = TRUE;
 
 CREATE TRIGGER update_notification_preferences_updated_at
     BEFORE UPDATE ON notification_preferences FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-COMMENT ON TABLE notification_preferences IS 'User preferences for email notifications';
+COMMENT ON TABLE notification_preferences IS 'User preferences for notification channels';
 
 -- -----------------------------------------------------------------------------
 -- Billing Jobs
@@ -2083,35 +2106,196 @@ CREATE INDEX idx_ai_github_issue_previews_user_expires
 COMMENT ON TABLE ai_github_issue_previews IS 'Persisted GitHub issue previews for AI-assisted reporting';
 
 -- -----------------------------------------------------------------------------
+-- Digital Signature Requests
+-- -----------------------------------------------------------------------------
+CREATE TABLE digital_signature_requests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    lease_id UUID NOT NULL REFERENCES leases(id) ON DELETE CASCADE,
+    provider VARCHAR(50) NOT NULL DEFAULT 'docusign',
+    external_envelope_id VARCHAR(255),
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    tenant_email VARCHAR(255) NOT NULL,
+    tenant_name VARCHAR(255) NOT NULL,
+    owner_email VARCHAR(255),
+    owner_name VARCHAR(255),
+    sent_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    voided_at TIMESTAMPTZ,
+    expiry_date TIMESTAMPTZ,
+    signing_url TEXT,
+    owner_signing_url TEXT,
+    certificate_url TEXT,
+    webhook_events JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_digital_signature_requests_company ON digital_signature_requests(company_id);
+CREATE INDEX idx_digital_signature_requests_lease ON digital_signature_requests(lease_id);
+CREATE INDEX idx_digital_signature_requests_external_envelope
+    ON digital_signature_requests(external_envelope_id)
+    WHERE external_envelope_id IS NOT NULL;
+
+CREATE TRIGGER update_digital_signature_requests_updated_at
+    BEFORE UPDATE ON digital_signature_requests
+    FOR EACH ROW EXECUTE FUNCTION functions.update_updated_at_column();
+
+COMMENT ON TABLE digital_signature_requests IS 'Digital signature envelopes for lease contracts';
+
+-- -----------------------------------------------------------------------------
+-- Maintenance Tickets
+-- -----------------------------------------------------------------------------
+CREATE TABLE maintenance_tickets (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
+    property_id UUID NOT NULL REFERENCES properties(id) ON DELETE RESTRICT,
+    reported_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    source maintenance_ticket_source NOT NULL DEFAULT 'admin',
+    assigned_to_staff_id UUID REFERENCES staff(id) ON DELETE SET NULL,
+    assigned_at TIMESTAMPTZ,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    area maintenance_ticket_area NOT NULL DEFAULT 'other',
+    priority maintenance_ticket_priority NOT NULL DEFAULT 'medium',
+    status maintenance_ticket_status NOT NULL DEFAULT 'open',
+    scheduled_at TIMESTAMPTZ,
+    resolved_at TIMESTAMPTZ,
+    resolution_notes TEXT,
+    estimated_cost DECIMAL(12, 2),
+    actual_cost DECIMAL(12, 2),
+    cost_currency VARCHAR(3) NOT NULL DEFAULT 'ARS',
+    external_ref VARCHAR(255),
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE TABLE maintenance_ticket_comments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    ticket_id UUID NOT NULL REFERENCES maintenance_tickets(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    body TEXT NOT NULL,
+    is_internal BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_maintenance_tickets_company_id ON maintenance_tickets(company_id);
+CREATE INDEX idx_maintenance_tickets_property_id ON maintenance_tickets(property_id);
+CREATE INDEX idx_maintenance_tickets_assigned_staff
+    ON maintenance_tickets(assigned_to_staff_id) WHERE assigned_to_staff_id IS NOT NULL;
+CREATE INDEX idx_maintenance_tickets_status
+    ON maintenance_tickets(company_id, status) WHERE deleted_at IS NULL;
+CREATE INDEX idx_maintenance_tickets_priority
+    ON maintenance_tickets(company_id, priority, status) WHERE deleted_at IS NULL;
+CREATE INDEX idx_maintenance_tickets_reported_by
+    ON maintenance_tickets(reported_by_user_id) WHERE reported_by_user_id IS NOT NULL;
+CREATE INDEX idx_maintenance_ticket_comments_ticket ON maintenance_ticket_comments(ticket_id);
+
+CREATE TRIGGER update_maintenance_tickets_updated_at
+    BEFORE UPDATE ON maintenance_tickets
+    FOR EACH ROW EXECUTE FUNCTION functions.update_updated_at_column();
+
+CREATE TRIGGER update_maintenance_ticket_comments_updated_at
+    BEFORE UPDATE ON maintenance_ticket_comments
+    FOR EACH ROW EXECUTE FUNCTION functions.update_updated_at_column();
+
+COMMENT ON TABLE maintenance_tickets IS 'Maintenance and repair tickets for properties';
+COMMENT ON TABLE maintenance_ticket_comments IS 'Comments and updates on maintenance tickets';
+
+-- -----------------------------------------------------------------------------
+-- Payment Gateway Transactions
+-- -----------------------------------------------------------------------------
+CREATE TABLE payment_gateway_transactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id),
+    invoice_id UUID NOT NULL REFERENCES invoices(id),
+    tenant_id UUID REFERENCES tenants(id),
+    gateway VARCHAR(50) NOT NULL DEFAULT 'mercadopago',
+    external_id VARCHAR(255),
+    external_payment_id VARCHAR(255),
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    amount DECIMAL(12,2) NOT NULL,
+    currency VARCHAR(3) NOT NULL DEFAULT 'ARS',
+    payment_method VARCHAR(100),
+    installments INTEGER DEFAULT 1,
+    init_point TEXT,
+    sandbox_init_point TEXT,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_pgt_company ON payment_gateway_transactions(company_id);
+CREATE INDEX idx_pgt_invoice ON payment_gateway_transactions(invoice_id);
+CREATE INDEX idx_pgt_external ON payment_gateway_transactions(external_id) WHERE external_id IS NOT NULL;
+
+CREATE TRIGGER update_pgt_updated_at
+    BEFORE UPDATE ON payment_gateway_transactions
+    FOR EACH ROW EXECUTE FUNCTION functions.update_updated_at_column();
+
+-- -----------------------------------------------------------------------------
+-- Portal Listings
+-- -----------------------------------------------------------------------------
+CREATE TABLE portal_listings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id),
+    property_id UUID NOT NULL REFERENCES properties(id),
+    portal portal_name NOT NULL,
+    status portal_listing_status NOT NULL DEFAULT 'draft',
+    external_id VARCHAR(255),
+    external_url TEXT,
+    published_at TIMESTAMPTZ,
+    last_synced_at TIMESTAMPTZ,
+    error_message TEXT,
+    listing_data JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(company_id, property_id, portal)
+);
+
+CREATE INDEX idx_portal_listings_company ON portal_listings(company_id);
+CREATE INDEX idx_portal_listings_property ON portal_listings(property_id);
+
+CREATE TRIGGER update_portal_listings_updated_at
+    BEFORE UPDATE ON portal_listings
+    FOR EACH ROW EXECUTE FUNCTION functions.update_updated_at_column();
+
+-- -----------------------------------------------------------------------------
 -- Bank Accounts (T811)
 -- -----------------------------------------------------------------------------
 CREATE TABLE bank_accounts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    owner_id UUID REFERENCES owners(user_id) ON DELETE CASCADE,
+    owner_id UUID REFERENCES owners(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
     property_id UUID REFERENCES properties(id) ON DELETE SET NULL,
-    account_type VARCHAR(20) NOT NULL CHECK (account_type IN ('cbu', 'cvu', 'alias')),
+    account_type VARCHAR(20) NOT NULL,
     bank_name VARCHAR(100),
     account_number VARCHAR(50) NOT NULL,
     cbu_cvu VARCHAR(22),
+    cbu VARCHAR(100),
     alias VARCHAR(50),
-    holder_name VARCHAR(200) NOT NULL,
+    holder_name VARCHAR(200),
     holder_cuit VARCHAR(20),
+    currency VARCHAR(10) DEFAULT 'ARS',
+    is_default BOOLEAN DEFAULT FALSE,
+    notes TEXT,
     is_virtual_alias BOOLEAN DEFAULT FALSE,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMPTZ,
-    
-    CONSTRAINT chk_bank_account_owner CHECK (
-        (owner_id IS NOT NULL AND company_id IS NULL) OR
-        (owner_id IS NULL AND company_id IS NOT NULL)
-    )
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_bank_accounts_owner ON bank_accounts(owner_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_bank_accounts_user ON bank_accounts(user_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_bank_accounts_company ON bank_accounts(company_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_bank_accounts_property ON bank_accounts(property_id) WHERE is_virtual_alias = TRUE;
+CREATE INDEX idx_bank_accounts_default
+    ON bank_accounts(company_id, owner_id, is_default) WHERE deleted_at IS NULL;
 
 CREATE TRIGGER update_bank_accounts_updated_at
     BEFORE UPDATE ON bank_accounts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -2186,7 +2370,7 @@ CREATE TYPE settlement_status AS ENUM ('pending', 'processing', 'completed', 'fa
 
 CREATE TABLE settlements (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    owner_id UUID NOT NULL REFERENCES owners(user_id) ON DELETE RESTRICT,
+    owner_id UUID NOT NULL REFERENCES owners(id) ON DELETE RESTRICT,
     period VARCHAR(7) NOT NULL, -- YYYY-MM
     gross_amount DECIMAL(15, 2) NOT NULL,
     commission_amount DECIMAL(15, 2) NOT NULL DEFAULT 0,
@@ -2194,7 +2378,7 @@ CREATE TABLE settlements (
     net_amount DECIMAL(15, 2) NOT NULL,
     currency VARCHAR(3) DEFAULT 'ARS',
     status settlement_status DEFAULT 'pending',
-    scheduled_date DATE NOT NULL,
+    scheduled_date DATE,
     processed_at TIMESTAMPTZ,
     transfer_reference VARCHAR(100),
     bank_account_id UUID REFERENCES bank_accounts(id),
@@ -2640,9 +2824,12 @@ SET TIME ZONE 'America/Argentina/Buenos_Aires';
 \echo '  - Documents: documents'
 \echo '  - Leases: leases, lease_amendments'
 \echo '  - Financial: tenant_accounts, movements, invoices,'
-\echo '               commission_invoices, payments, receipts, credit_notes, payment_document_templates'
+\echo '               commission_invoices, payments, receipts, credit_notes, payment_document_templates,'
+\echo '               payment_gateway_transactions'
 \echo '  - Banking: bank_accounts, crypto_wallets, lightning_invoices'
 \echo '  - Settlements: settlements'
+\echo '  - Operations: maintenance_tickets, maintenance_ticket_comments, portal_listings'
+\echo '  - Contracts: digital_signature_requests'
 \echo '  - Reference: currencies, inflation_indices, exchange_rates'
 \echo '  - AI: ai_conversations, ai_github_issue_previews'
 \echo '  - System: notification_preferences, billing_jobs'
