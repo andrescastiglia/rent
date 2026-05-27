@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 import {
   useForm,
   useFieldArray,
+  useWatch,
   Resolver,
   UseFormRegister,
 } from "react-hook-form";
@@ -133,7 +134,6 @@ export function PropertyForm({
     control,
     handleSubmit,
     setValue,
-    watch,
     clearErrors,
     formState: { errors },
   } = useForm<PropertyFormData>({
@@ -181,13 +181,15 @@ export function PropertyForm({
     name: "features",
   });
 
-  const images = watch("images") || [];
-  const selectedOperations = watch("operations") || [];
+  const images = useWatch({ control, name: "images" }) || [];
+  const selectedOperations = useWatch({ control, name: "operations" }) || [];
   const isRentOperationSelected = selectedOperations.includes("rent");
   const isSaleOperationSelected = selectedOperations.includes("sale");
-  const selectedGuaranteeType =
-    (watch("acceptedGuaranteeTypes") || [])[0] || "";
-  const selectedOwnerId = watch("ownerId");
+  const acceptedGuaranteeTypes =
+    useWatch({ control, name: "acceptedGuaranteeTypes" }) || [];
+  const selectedGuaranteeType = acceptedGuaranteeTypes[0] || "";
+  const selectedOwnerId = useWatch({ control, name: "ownerId" });
+  const saleCurrency = useWatch({ control, name: "saleCurrency" }) || "";
   const preselectedOwnerId = searchParams.get("ownerId");
   const isOwnerLocked = isEditing || Boolean(preselectedOwnerId);
   const activeOwnerId = isEditing
@@ -316,6 +318,10 @@ export function PropertyForm({
     setSubmitErrorMessage(tValidation("required"));
   };
 
+  const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    void handleSubmit(onSubmit, onInvalid)(event);
+  };
+
   const handleImageUpload = async (file: File) => {
     const url = await propertiesApi.uploadImage(file);
     setUploadedSessionImages((prev) =>
@@ -341,7 +347,7 @@ export function PropertyForm({
 
   return (
     <form
-      onSubmit={handleSubmit(onSubmit, onInvalid)}
+      onSubmit={handleFormSubmit}
       className="space-y-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xs border border-gray-100 dark:border-gray-700"
     >
       {submitErrorMessage ? (
@@ -499,7 +505,7 @@ export function PropertyForm({
               <CurrencySelect
                 id="saleCurrency"
                 name="saleCurrency"
-                value={watch("saleCurrency") || ""}
+                value={saleCurrency}
                 onChange={(value) =>
                   setValue("saleCurrency", value, { shouldValidate: true })
                 }

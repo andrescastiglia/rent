@@ -734,7 +734,7 @@ export default function MaintenancePage() {
                 <option key={s} value={s}>
                   {t(`statuses.${s}`)}
                 </option>
-                ))}
+              ))}
             </select>
             <label htmlFor="maintenance-priority-filter" className="sr-only">
               {t("priority")}
@@ -754,7 +754,7 @@ export default function MaintenancePage() {
                 <option key={p} value={p}>
                   {t(`priorities.${p}`)}
                 </option>
-                ))}
+              ))}
             </select>
             <label htmlFor="maintenance-search" className="sr-only">
               {tCommon("search")}

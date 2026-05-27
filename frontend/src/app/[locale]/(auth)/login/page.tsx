@@ -19,7 +19,8 @@ export default function LoginPage() {
   const locale = useLocale();
   const bypassCaptcha =
     process.env.NEXT_PUBLIC_LOCAL_DEV_CAPTCHA_BYPASS === "true";
-  const requiresCaptcha = !bypassCaptcha && (forceCaptcha || loginFailures >= 1);
+  const requiresCaptcha =
+    !bypassCaptcha && (forceCaptcha || loginFailures >= 1);
 
   const getErrorMessage = (error: unknown): string => {
     if (!(error instanceof Error)) return t("errors.loginError");

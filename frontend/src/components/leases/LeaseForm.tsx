@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   useForm,
+  useWatch,
   Resolver,
   UseFormRegister,
   UseFormSetValue,
@@ -1526,8 +1527,8 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
 
   const {
     register,
+    control,
     handleSubmit,
-    watch,
     setValue,
     formState: { errors },
   } = useForm<LeaseFormData>({
@@ -1535,14 +1536,17 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     defaultValues: getDefaultLeaseFormValues(initialData),
   });
 
-  const formValues = watch();
-  const lateFeeType = formValues.lateFeeType;
-  const adjustmentType = formValues.adjustmentType;
-  const renewalAlertPeriodicity = formValues.renewalAlertPeriodicity;
-  const contractType = formValues.contractType ?? "rental";
-  const selectedPropertyId = formValues.propertyId;
-  const selectedOwnerId = formValues.ownerId;
-  const selectedTemplateId = formValues.templateId;
+  const formValues = useWatch({ control });
+  const lateFeeType = useWatch({ control, name: "lateFeeType" });
+  const adjustmentType = useWatch({ control, name: "adjustmentType" });
+  const renewalAlertPeriodicity = useWatch({
+    control,
+    name: "renewalAlertPeriodicity",
+  });
+  const contractType = useWatch({ control, name: "contractType" }) ?? "rental";
+  const selectedPropertyId = useWatch({ control, name: "propertyId" });
+  const selectedOwnerId = useWatch({ control, name: "ownerId" });
+  const selectedTemplateId = useWatch({ control, name: "templateId" });
   const preselectedPropertyId = searchParams.get("propertyId");
   const preselectedPropertyName = searchParams.get("propertyName");
   const preselectedOwnerName = searchParams.get("ownerName");
