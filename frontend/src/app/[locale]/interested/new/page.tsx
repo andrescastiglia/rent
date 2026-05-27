@@ -217,7 +217,7 @@ export default function NewInterestedPage() {
           </div>
 
           <label htmlFor="interested-property-type" className="sr-only">
-            Tipo de propiedad
+            {t("fields.propertyType")}
           </label>
           <select
             id="interested-property-type"
