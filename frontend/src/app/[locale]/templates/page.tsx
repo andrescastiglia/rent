@@ -181,7 +181,11 @@ export default function TemplatesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <label htmlFor="templates-scope" className="sr-only">
+            {t("title")}
+          </label>
           <select
+            id="templates-scope"
             value={scope}
             onChange={(e) => setScope(e.target.value as TemplateScope)}
             className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm"

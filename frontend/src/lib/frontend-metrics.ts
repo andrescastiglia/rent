@@ -40,6 +40,9 @@ function sendMetric(payload: FrontendMetricPayload): void {
   if (!isBrowserRuntime()) {
     return;
   }
+  if (process.env.NODE_ENV !== "production") {
+    return;
+  }
 
   const body = JSON.stringify(payload);
   void fetch(METRICS_URL, {

@@ -28,20 +28,25 @@ describe("BcraService", () => {
 
     expect(createMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        baseURL: "https://api.bcra.gob.ar/estadisticas/v3.0",
+        baseURL: "https://api.bcra.gob.ar/estadisticas/v4.0",
         timeout: 30000,
       }),
     );
   });
 
-  it("uses first endpoint when data is returned", async () => {
+  it("uses first endpoint when v4 data is returned", async () => {
     getMock.mockResolvedValue({
       data: {
-        results: [{ fecha: "2025-02-01", valor: 123.45 }],
+        results: [
+          {
+            idVariable: 40,
+            detalle: [{ fecha: "2025-02-01", valor: 123.45 }],
+          },
+        ],
       },
     });
 
-    const service = new BcraService("https://x/estadisticas/v3.0");
+    const service = new BcraService("https://x/estadisticas/v4.0");
     const result = await service.getIcl(
       new Date(Date.UTC(2025, 0, 1)),
       new Date(Date.UTC(2025, 1, 1)),
@@ -49,7 +54,7 @@ describe("BcraService", () => {
 
     expect(getMock).toHaveBeenCalledTimes(1);
     expect(getMock).toHaveBeenCalledWith("/monetarias/40", {
-      params: { desde: "2025-01-01", hasta: "2025-02-01", limit: 5000 },
+      params: { desde: "2025-01-01", hasta: "2025-02-01", limit: 3000 },
     });
     expect(result).toEqual([
       { date: new Date(Date.UTC(2025, 1, 1)), value: 123.45 },
@@ -147,7 +152,7 @@ describe("BcraService", () => {
       "https://x/estadisticas/v4.0",
     );
     expect(anyService.normalizeApiUrl("https://x")).toBe(
-      "https://x/estadisticas/v3.0",
+      "https://x/estadisticas/v4.0",
     );
     expect(anyService.extractStatus(new Error("x"))).toBeUndefined();
     expect(anyService.extractResponseData(new Error("x"))).toBeUndefined();

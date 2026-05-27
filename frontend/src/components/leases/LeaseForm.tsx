@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   useForm,
+  useWatch,
   Resolver,
   UseFormRegister,
   UseFormSetValue,
@@ -676,7 +677,7 @@ function LateFeeFields({
 }) {
   return (
     <div className={sectionClass}>
-      <h3 className={sectionTitleClass}>{t("lateFees.title")}</h3>
+      <h2 className={sectionTitleClass}>{t("lateFees.title")}</h2>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
         {t("lateFees.description")}
       </p>
@@ -767,7 +768,7 @@ function AdjustmentFields({
 }) {
   return (
     <div className={sectionClass}>
-      <h3 className={sectionTitleClass}>{t("adjustments.title")}</h3>
+      <h2 className={sectionTitleClass}>{t("adjustments.title")}</h2>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
         {t("adjustments.description")}
       </p>
@@ -1526,8 +1527,8 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
 
   const {
     register,
+    control,
     handleSubmit,
-    watch,
     setValue,
     formState: { errors },
   } = useForm<LeaseFormData>({
@@ -1535,14 +1536,17 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     defaultValues: getDefaultLeaseFormValues(initialData),
   });
 
-  const formValues = watch();
-  const lateFeeType = formValues.lateFeeType;
-  const adjustmentType = formValues.adjustmentType;
-  const renewalAlertPeriodicity = formValues.renewalAlertPeriodicity;
-  const contractType = formValues.contractType ?? "rental";
-  const selectedPropertyId = formValues.propertyId;
-  const selectedOwnerId = formValues.ownerId;
-  const selectedTemplateId = formValues.templateId;
+  const formValues = useWatch({ control });
+  const lateFeeType = useWatch({ control, name: "lateFeeType" });
+  const adjustmentType = useWatch({ control, name: "adjustmentType" });
+  const renewalAlertPeriodicity = useWatch({
+    control,
+    name: "renewalAlertPeriodicity",
+  });
+  const contractType = useWatch({ control, name: "contractType" }) ?? "rental";
+  const selectedPropertyId = useWatch({ control, name: "propertyId" });
+  const selectedOwnerId = useWatch({ control, name: "ownerId" });
+  const selectedTemplateId = useWatch({ control, name: "templateId" });
   const preselectedPropertyId = searchParams.get("propertyId");
   const preselectedPropertyName = searchParams.get("propertyName");
   const preselectedOwnerName = searchParams.get("ownerName");
@@ -2085,7 +2089,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     >
       {/* Basic Lease Details */}
       <div className={sectionClass}>
-        <h3 className={sectionTitleClass}>{t("leaseDetails")}</h3>
+        <h2 className={sectionTitleClass}>{t("leaseDetails")}</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <PropertyField
@@ -2233,7 +2237,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
       {contractType === "rental" && (
         <>
           <div className={sectionClass}>
-            <h3 className={sectionTitleClass}>{t("billing.title")}</h3>
+            <h2 className={sectionTitleClass}>{t("billing.title")}</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               {t("billing.description")}
             </p>

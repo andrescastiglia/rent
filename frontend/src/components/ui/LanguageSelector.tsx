@@ -3,7 +3,7 @@
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
 import { Globe } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useEffect, useId, useState, useTransition } from "react";
 
 type Locale = "es" | "pt" | "en";
 
@@ -19,6 +19,7 @@ export default function LanguageSelector() {
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
   const [isOpen, setIsOpen] = useState(false);
+  const menuId = useId();
   const t = useTranslations("common");
 
   const currentLanguage =
@@ -54,12 +55,28 @@ export default function LanguageSelector() {
     });
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
+
   return (
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-3 py-2 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
         aria-label={t("selectLanguage")}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        aria-controls={menuId}
         disabled={isPending}
       >
         <Globe className="w-5 h-5" />
@@ -79,7 +96,11 @@ export default function LanguageSelector() {
           />
 
           {/* Dropdown menu */}
-          <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-20">
+          <div
+            id={menuId}
+            role="menu"
+            className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-20"
+          >
             <div className="py-1">
               {languages.map((language) => (
                 <button
@@ -91,6 +112,8 @@ export default function LanguageSelector() {
                       : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                   }`}
                   disabled={isPending}
+                  role="menuitemradio"
+                  aria-checked={locale === language.code}
                 >
                   <span className="text-xl">{language.flag}</span>
                   <span className="font-medium">{language.name}</span>

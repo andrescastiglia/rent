@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 import {
   useForm,
   useFieldArray,
+  useWatch,
   Resolver,
   UseFormRegister,
 } from "react-hook-form";
@@ -133,7 +134,6 @@ export function PropertyForm({
     control,
     handleSubmit,
     setValue,
-    watch,
     clearErrors,
     formState: { errors },
   } = useForm<PropertyFormData>({
@@ -181,13 +181,15 @@ export function PropertyForm({
     name: "features",
   });
 
-  const images = watch("images") || [];
-  const selectedOperations = watch("operations") || [];
+  const images = useWatch({ control, name: "images" }) || [];
+  const selectedOperations = useWatch({ control, name: "operations" }) || [];
   const isRentOperationSelected = selectedOperations.includes("rent");
   const isSaleOperationSelected = selectedOperations.includes("sale");
-  const selectedGuaranteeType =
-    (watch("acceptedGuaranteeTypes") || [])[0] || "";
-  const selectedOwnerId = watch("ownerId");
+  const acceptedGuaranteeTypes =
+    useWatch({ control, name: "acceptedGuaranteeTypes" }) || [];
+  const selectedGuaranteeType = acceptedGuaranteeTypes[0] || "";
+  const selectedOwnerId = useWatch({ control, name: "ownerId" });
+  const saleCurrency = useWatch({ control, name: "saleCurrency" }) || "";
   const preselectedOwnerId = searchParams.get("ownerId");
   const isOwnerLocked = isEditing || Boolean(preselectedOwnerId);
   const activeOwnerId = isEditing
@@ -316,6 +318,10 @@ export function PropertyForm({
     setSubmitErrorMessage(tValidation("required"));
   };
 
+  const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    void handleSubmit(onSubmit, onInvalid)(event);
+  };
+
   const handleImageUpload = async (file: File) => {
     const url = await propertiesApi.uploadImage(file);
     setUploadedSessionImages((prev) =>
@@ -341,7 +347,7 @@ export function PropertyForm({
 
   return (
     <form
-      onSubmit={handleSubmit(onSubmit, onInvalid)}
+      onSubmit={handleFormSubmit}
       className="space-y-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xs border border-gray-100 dark:border-gray-700"
     >
       {submitErrorMessage ? (
@@ -351,9 +357,9 @@ export function PropertyForm({
       ) : null}
       <input type="hidden" {...register("ownerId")} />
       <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2">
           {t("basicInfo")}
-        </h3>
+        </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label
@@ -499,7 +505,7 @@ export function PropertyForm({
               <CurrencySelect
                 id="saleCurrency"
                 name="saleCurrency"
-                value={watch("saleCurrency") || ""}
+                value={saleCurrency}
                 onChange={(value) =>
                   setValue("saleCurrency", value, { shouldValidate: true })
                 }
@@ -667,9 +673,9 @@ export function PropertyForm({
       </div>
 
       <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2">
           {t("location")}
-        </h3>
+        </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label
@@ -798,9 +804,9 @@ export function PropertyForm({
       </div>
 
       <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2">
           {t("fields.images")}
-        </h3>
+        </h2>
         <ImageUpload
           images={images}
           onChange={(newImages) => setValue("images", newImages)}
@@ -811,9 +817,9 @@ export function PropertyForm({
 
       <div className="space-y-4">
         <div className="flex items-center justify-between border-b dark:border-gray-700 pb-2">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white">
             {t("features")}
-          </h3>
+          </h2>
           <button
             type="button"
             onClick={() => append({ name: "", value: "" })}

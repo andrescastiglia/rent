@@ -11,12 +11,17 @@ interface BcraVariableData {
   valor: number;
 }
 
+interface BcraV4VariableData {
+  idVariable: number;
+  detalle: BcraVariableData[];
+}
+
 /**
  * Response structure from BCRA API.
  */
 interface BcraApiResponse {
   status: number;
-  results: BcraVariableData[];
+  results: Array<BcraVariableData | BcraV4VariableData>;
   metadata?: {
     resultset?: {
       count?: number;
@@ -100,7 +105,7 @@ export class BcraService {
     }> = [
       {
         endpoint: `/monetarias/${this.iclVariableId}`,
-        params: { desde: from, hasta: to, limit: 5000 },
+        params: { desde: from, hasta: to, limit: 3000 },
       },
       {
         endpoint: `/datosvariable/${this.iclVariableId}/${from}/${to}`,
@@ -122,7 +127,8 @@ export class BcraService {
           candidate.params ? { params: candidate.params } : undefined,
         );
 
-        if (!response.data.results || response.data.results.length === 0) {
+        const results = this.normalizeResults(response.data.results);
+        if (results.length === 0) {
           logger.warn("No ICL data returned from BCRA", {
             from,
             to,
@@ -131,7 +137,7 @@ export class BcraService {
           return [];
         }
 
-        const data = response.data.results.map((item) => ({
+        const data = results.map((item) => ({
           date: this.parseDate(item.fecha),
           value: item.valor,
         }));
@@ -226,11 +232,29 @@ export class BcraService {
     if (/\/estadisticas\/v\d+(\.\d+)?$/i.test(trimmed)) {
       return trimmed;
     }
-    return `${trimmed}/estadisticas/v3.0`;
+    return `${trimmed}/estadisticas/v4.0`;
+  }
+
+  private normalizeResults(
+    results: Array<BcraVariableData | BcraV4VariableData> | undefined,
+  ): BcraVariableData[] {
+    if (!Array.isArray(results)) {
+      return [];
+    }
+
+    return results.flatMap((item) => {
+      if ("detalle" in item) {
+        return item.detalle;
+      }
+      return item;
+    });
   }
 
   private isBadRequest(error: unknown): error is AxiosError {
-    return axios.isAxiosError(error) && error.response?.status === 400;
+    return (
+      axios.isAxiosError(error) &&
+      [400, 404, 410].includes(error.response?.status ?? 0)
+    );
   }
 
   private extractStatus(error: unknown): number | undefined {

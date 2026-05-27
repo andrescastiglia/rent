@@ -68,10 +68,31 @@ describe('main bootstrap', () => {
     expect(appMock.set).toHaveBeenCalledWith('trust proxy', 1);
     expect(appMock.enableCors).toHaveBeenCalledWith(
       expect.objectContaining({
-        origin: ['https://a.dev', 'https://b.dev'],
+        origin: expect.any(Function),
         credentials: true,
       }),
     );
+    const corsOptions = appMock.enableCors.mock.calls[0][0];
+    const originCallback = corsOptions.origin as (
+      origin: string | undefined,
+      callback: (error: Error | null, allowed?: boolean) => void,
+    ) => void;
+    const callback = jest.fn();
+    originCallback('https://a.dev', callback);
+    expect(callback).toHaveBeenLastCalledWith(null, true);
+    originCallback('http://localhost:3015', callback);
+    expect(callback).toHaveBeenLastCalledWith(null, true);
+    originCallback('http://127.0.0.1:5173', callback);
+    expect(callback).toHaveBeenLastCalledWith(null, true);
+    originCallback('http://[::1]:3000', callback);
+    expect(callback).toHaveBeenLastCalledWith(null, true);
+    originCallback(undefined, callback);
+    expect(callback).toHaveBeenLastCalledWith(null, true);
+    originCallback('https://blocked.dev', callback);
+    const blockedCall = callback.mock.calls[callback.mock.calls.length - 1];
+    expect(blockedCall?.[0]).toBeInstanceOf(Error);
+    expect(blockedCall?.[1]).toBeUndefined();
+
     expect(appMock.useGlobalPipes).toHaveBeenCalledTimes(1);
     expect(appMock.useStaticAssets).toHaveBeenCalledWith(
       expect.stringContaining('/uploads'),
@@ -112,8 +133,16 @@ describe('main bootstrap', () => {
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(appMock.enableCors).toHaveBeenCalledWith(
-      expect.objectContaining({ origin: ['http://localhost:3000'] }),
+      expect.objectContaining({ origin: expect.any(Function) }),
     );
+    const corsOptions = appMock.enableCors.mock.calls[0][0];
+    const originCallback = corsOptions.origin as (
+      origin: string | undefined,
+      callback: (error: Error | null, allowed?: boolean) => void,
+    ) => void;
+    const callback = jest.fn();
+    originCallback('http://localhost:3000', callback);
+    expect(callback).toHaveBeenLastCalledWith(null, true);
     expect(appMock.listen).toHaveBeenCalledWith(3001, '0.0.0.0');
 
     onceSpy.mockRestore();

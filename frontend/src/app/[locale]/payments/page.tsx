@@ -189,8 +189,12 @@ export default function PaymentsPage() {
       <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="grid gap-4 lg:grid-cols-[2fr_repeat(4,minmax(0,1fr))]">
           <div className="relative">
+            <label htmlFor="payments-search" className="sr-only">
+              Buscar pagos
+            </label>
             <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
+              id="payments-search"
               type="text"
               placeholder="Buscar por propiedad, inquilino, recibo o referencia"
               className="block w-full rounded-2xl border border-gray-300 bg-white py-3 pl-10 pr-3 text-sm text-gray-900 dark:border-gray-700 dark:bg-slate-950 dark:text-white"
@@ -199,7 +203,11 @@ export default function PaymentsPage() {
             />
           </div>
 
+          <label htmlFor="payments-property-filter" className="sr-only">
+            Filtrar por propiedad
+          </label>
           <select
+            id="payments-property-filter"
             value={propertyFilter}
             onChange={(e) => {
               setPropertyFilter(e.target.value);
@@ -215,7 +223,11 @@ export default function PaymentsPage() {
             ))}
           </select>
 
+          <label htmlFor="payments-lease-filter" className="sr-only">
+            Filtrar por contrato
+          </label>
           <select
+            id="payments-lease-filter"
             value={leaseFilter}
             onChange={(e) => setLeaseFilter(e.target.value)}
             className="rounded-2xl border border-gray-300 bg-white px-3 py-3 text-sm text-gray-900 dark:border-gray-700 dark:bg-slate-950 dark:text-white"
@@ -229,7 +241,11 @@ export default function PaymentsPage() {
             ))}
           </select>
 
+          <label htmlFor="payments-activity-filter" className="sr-only">
+            Filtrar por actividad
+          </label>
           <select
+            id="payments-activity-filter"
             value={activityTypeFilter}
             onChange={(e) => setActivityTypeFilter(e.target.value)}
             className="rounded-2xl border border-gray-300 bg-white px-3 py-3 text-sm text-gray-900 dark:border-gray-700 dark:bg-slate-950 dark:text-white"
@@ -242,7 +258,11 @@ export default function PaymentsPage() {
             ))}
           </select>
 
+          <label htmlFor="payments-status-filter" className="sr-only">
+            Filtrar por estado
+          </label>
           <select
+            id="payments-status-filter"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="rounded-2xl border border-gray-300 bg-white px-3 py-3 text-sm text-gray-900 dark:border-gray-700 dark:bg-slate-950 dark:text-white"

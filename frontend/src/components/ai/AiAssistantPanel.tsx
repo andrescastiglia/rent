@@ -315,6 +315,7 @@ export default function AiAssistantPanel({
 
   return (
     <section
+      id="ai-assistant-panel"
       className={`fixed z-30 flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900 ${
         isMaximized
           ? "top-20 right-4 bottom-4 left-4 lg:left-[calc(16rem+1rem)]"

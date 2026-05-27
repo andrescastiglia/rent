@@ -1559,6 +1559,7 @@ CREATE TABLE invoices (
     withholding_iva DECIMAL(14, 2) DEFAULT 0,
     withholding_ganancias DECIMAL(14, 2) DEFAULT 0,
     withholding_other DECIMAL(14, 2) DEFAULT 0,
+    withholdings_total NUMERIC(15, 2) NOT NULL DEFAULT 0,
     net_amount DECIMAL(14, 2),
     paid_amount DECIMAL(14, 2) DEFAULT 0,
     balance_due DECIMAL(14, 2),
