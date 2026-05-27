@@ -140,6 +140,15 @@ export function TenantForm({
   const sectionClass = "space-y-4";
   const sectionTitleClass =
     "text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2";
+  const errorClass = "mt-1 text-sm text-red-600";
+  const getErrorId = (id: string, hasError: boolean) =>
+    hasError ? `${id}-error` : undefined;
+  const renderError = (id: string, message?: React.ReactNode) =>
+    message ? (
+      <p id={`${id}-error`} className={errorClass}>
+        {message}
+      </p>
+    ) : null;
 
   return (
     <form
@@ -148,64 +157,98 @@ export function TenantForm({
     >
       {/* Personal Information */}
       <div className={sectionClass}>
-        <h3 className={sectionTitleClass}>{t("personalInfo")}</h3>
+        <h2 className={sectionTitleClass}>{t("personalInfo")}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className={labelClass}>{t("fields.firstName")}</label>
-            <input {...register("firstName")} className={inputClass} />
-            {errors.firstName && (
-              <p className="mt-1 text-sm text-red-600">
-                {errors.firstName.message}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className={labelClass}>{t("fields.lastName")}</label>
-            <input {...register("lastName")} className={inputClass} />
-            {errors.lastName && (
-              <p className="mt-1 text-sm text-red-600">
-                {errors.lastName.message}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className={labelClass}>{t("fields.email")}</label>
+            <label htmlFor="tenant-first-name" className={labelClass}>
+              {t("fields.firstName")}
+            </label>
             <input
+              id="tenant-first-name"
+              {...register("firstName")}
+              className={inputClass}
+              aria-invalid={Boolean(errors.firstName)}
+              aria-describedby={getErrorId(
+                "tenant-first-name",
+                Boolean(errors.firstName),
+              )}
+            />
+            {renderError("tenant-first-name", errors.firstName?.message)}
+          </div>
+
+          <div>
+            <label htmlFor="tenant-last-name" className={labelClass}>
+              {t("fields.lastName")}
+            </label>
+            <input
+              id="tenant-last-name"
+              {...register("lastName")}
+              className={inputClass}
+              aria-invalid={Boolean(errors.lastName)}
+              aria-describedby={getErrorId(
+                "tenant-last-name",
+                Boolean(errors.lastName),
+              )}
+            />
+            {renderError("tenant-last-name", errors.lastName?.message)}
+          </div>
+
+          <div>
+            <label htmlFor="tenant-email" className={labelClass}>
+              {t("fields.email")}
+            </label>
+            <input
+              id="tenant-email"
               {...register("email")}
               type="email"
               className={inputClass}
               disabled={isEditing}
+              aria-invalid={Boolean(errors.email)}
+              aria-describedby={getErrorId(
+                "tenant-email",
+                Boolean(errors.email),
+              )}
             />
-            {errors.email && (
-              <p className="mt-1 text-sm text-red-600">
-                {errors.email.message}
-              </p>
-            )}
+            {renderError("tenant-email", errors.email?.message)}
           </div>
 
           <div>
-            <label className={labelClass}>{t("fields.phone")}</label>
-            <input {...register("phone")} className={inputClass} />
-            {errors.phone && (
-              <p className="mt-1 text-sm text-red-600">
-                {errors.phone.message}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className={labelClass}>{t("fields.dni")}</label>
-            <input {...register("dni")} className={inputClass} />
-            {errors.dni && (
-              <p className="mt-1 text-sm text-red-600">{errors.dni.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label className={labelClass}>{t("fields.cuil")}</label>
+            <label htmlFor="tenant-phone" className={labelClass}>
+              {t("fields.phone")}
+            </label>
             <input
+              id="tenant-phone"
+              {...register("phone")}
+              className={inputClass}
+              aria-invalid={Boolean(errors.phone)}
+              aria-describedby={getErrorId(
+                "tenant-phone",
+                Boolean(errors.phone),
+              )}
+            />
+            {renderError("tenant-phone", errors.phone?.message)}
+          </div>
+
+          <div>
+            <label htmlFor="tenant-dni" className={labelClass}>
+              {t("fields.dni")}
+            </label>
+            <input
+              id="tenant-dni"
+              {...register("dni")}
+              className={inputClass}
+              aria-invalid={Boolean(errors.dni)}
+              aria-describedby={getErrorId("tenant-dni", Boolean(errors.dni))}
+            />
+            {renderError("tenant-dni", errors.dni?.message)}
+          </div>
+
+          <div>
+            <label htmlFor="tenant-cuil" className={labelClass}>
+              {t("fields.cuil")}
+            </label>
+            <input
+              id="tenant-cuil"
               {...register("cuil")}
               className={inputClass}
               placeholder="20-12345678-9"
@@ -213,8 +256,11 @@ export function TenantForm({
           </div>
 
           <div>
-            <label className={labelClass}>{t("fields.dateOfBirth")}</label>
+            <label htmlFor="tenant-date-of-birth" className={labelClass}>
+              {t("fields.dateOfBirth")}
+            </label>
             <input
+              id="tenant-date-of-birth"
               {...register("dateOfBirth")}
               type="date"
               className={inputClass}
@@ -222,13 +268,25 @@ export function TenantForm({
           </div>
 
           <div>
-            <label className={labelClass}>{t("fields.nationality")}</label>
-            <input {...register("nationality")} className={inputClass} />
+            <label htmlFor="tenant-nationality" className={labelClass}>
+              {t("fields.nationality")}
+            </label>
+            <input
+              id="tenant-nationality"
+              {...register("nationality")}
+              className={inputClass}
+            />
           </div>
 
           <div>
-            <label className={labelClass}>{t("fields.status")}</label>
-            <select {...register("status")} className={inputClass}>
+            <label htmlFor="tenant-status" className={labelClass}>
+              {t("fields.status")}
+            </label>
+            <select
+              id="tenant-status"
+              {...register("status")}
+              className={inputClass}
+            >
               <option value="PROSPECT">{t("status.PROSPECT")}</option>
               <option value="ACTIVE">{t("status.ACTIVE")}</option>
               <option value="INACTIVE">{t("status.INACTIVE")}</option>
@@ -239,11 +297,17 @@ export function TenantForm({
 
       {/* Employment Information */}
       <div className={sectionClass}>
-        <h3 className={sectionTitleClass}>{t("employmentInfo")}</h3>
+        <h2 className={sectionTitleClass}>{t("employmentInfo")}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className={labelClass}>{t("fields.employmentStatus")}</label>
-            <select {...register("employmentStatus")} className={inputClass}>
+            <label htmlFor="tenant-employment-status" className={labelClass}>
+              {t("fields.employmentStatus")}
+            </label>
+            <select
+              id="tenant-employment-status"
+              {...register("employmentStatus")}
+              className={inputClass}
+            >
               <option value="">-</option>
               <option value="employed">
                 {t("employmentStatuses.employed")}
@@ -260,18 +324,33 @@ export function TenantForm({
           </div>
 
           <div>
-            <label className={labelClass}>{t("fields.occupation")}</label>
-            <input {...register("occupation")} className={inputClass} />
-          </div>
-
-          <div>
-            <label className={labelClass}>{t("fields.employer")}</label>
-            <input {...register("employer")} className={inputClass} />
-          </div>
-
-          <div>
-            <label className={labelClass}>{t("fields.monthlyIncome")}</label>
+            <label htmlFor="tenant-occupation" className={labelClass}>
+              {t("fields.occupation")}
+            </label>
             <input
+              id="tenant-occupation"
+              {...register("occupation")}
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="tenant-employer" className={labelClass}>
+              {t("fields.employer")}
+            </label>
+            <input
+              id="tenant-employer"
+              {...register("employer")}
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="tenant-monthly-income" className={labelClass}>
+              {t("fields.monthlyIncome")}
+            </label>
+            <input
+              id="tenant-monthly-income"
               {...register("monthlyIncome")}
               type="number"
               min="0"
@@ -284,11 +363,14 @@ export function TenantForm({
 
       {/* Credit Information */}
       <div className={sectionClass}>
-        <h3 className={sectionTitleClass}>{t("creditInfo")}</h3>
+        <h2 className={sectionTitleClass}>{t("creditInfo")}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className={labelClass}>{t("fields.creditScore")}</label>
+            <label htmlFor="tenant-credit-score" className={labelClass}>
+              {t("fields.creditScore")}
+            </label>
             <input
+              id="tenant-credit-score"
               {...register("creditScore")}
               type="number"
               min="0"
@@ -301,58 +383,100 @@ export function TenantForm({
 
       {/* Address */}
       <div className={sectionClass}>
-        <h3 className={sectionTitleClass}>{t("addressOptional")}</h3>
+        <h2 className={sectionTitleClass}>{t("addressOptional")}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className={labelClass}>{t("fields.street")}</label>
-            <input {...register("address.street")} className={inputClass} />
+            <label htmlFor="tenant-address-street" className={labelClass}>
+              {t("fields.street")}
+            </label>
+            <input
+              id="tenant-address-street"
+              {...register("address.street")}
+              className={inputClass}
+            />
           </div>
           <div>
-            <label className={labelClass}>{t("fields.number")}</label>
-            <input {...register("address.number")} className={inputClass} />
+            <label htmlFor="tenant-address-number" className={labelClass}>
+              {t("fields.number")}
+            </label>
+            <input
+              id="tenant-address-number"
+              {...register("address.number")}
+              className={inputClass}
+            />
           </div>
           <div>
-            <label className={labelClass}>{t("fields.city")}</label>
-            <input {...register("address.city")} className={inputClass} />
+            <label htmlFor="tenant-address-city" className={labelClass}>
+              {t("fields.city")}
+            </label>
+            <input
+              id="tenant-address-city"
+              {...register("address.city")}
+              className={inputClass}
+            />
           </div>
           <div>
-            <label className={labelClass}>{t("fields.state")}</label>
-            <input {...register("address.state")} className={inputClass} />
+            <label htmlFor="tenant-address-state" className={labelClass}>
+              {t("fields.state")}
+            </label>
+            <input
+              id="tenant-address-state"
+              {...register("address.state")}
+              className={inputClass}
+            />
           </div>
           <div>
-            <label className={labelClass}>{t("fields.zipCode")}</label>
-            <input {...register("address.zipCode")} className={inputClass} />
+            <label htmlFor="tenant-address-zip-code" className={labelClass}>
+              {t("fields.zipCode")}
+            </label>
+            <input
+              id="tenant-address-zip-code"
+              {...register("address.zipCode")}
+              className={inputClass}
+            />
           </div>
         </div>
       </div>
 
       {/* Emergency Contact */}
       <div className={sectionClass}>
-        <h3 className={sectionTitleClass}>{t("emergencyContactSection")}</h3>
+        <h2 className={sectionTitleClass}>{t("emergencyContactSection")}</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className={labelClass}>
+            <label
+              htmlFor="tenant-emergency-contact-name"
+              className={labelClass}
+            >
               {t("fields.emergencyContactName")}
             </label>
             <input
+              id="tenant-emergency-contact-name"
               {...register("emergencyContactName")}
               className={inputClass}
             />
           </div>
           <div>
-            <label className={labelClass}>
+            <label
+              htmlFor="tenant-emergency-contact-phone"
+              className={labelClass}
+            >
               {t("fields.emergencyContactPhone")}
             </label>
             <input
+              id="tenant-emergency-contact-phone"
               {...register("emergencyContactPhone")}
               className={inputClass}
             />
           </div>
           <div>
-            <label className={labelClass}>
+            <label
+              htmlFor="tenant-emergency-contact-relationship"
+              className={labelClass}
+            >
               {t("fields.emergencyContactRelationship")}
             </label>
             <input
+              id="tenant-emergency-contact-relationship"
               {...register("emergencyContactRelationship")}
               className={inputClass}
             />
@@ -363,8 +487,15 @@ export function TenantForm({
       {/* Notes */}
       <div className={sectionClass}>
         <div>
-          <label className={labelClass}>{t("fields.notes")}</label>
-          <textarea {...register("notes")} rows={3} className={inputClass} />
+          <label htmlFor="tenant-notes" className={labelClass}>
+            {t("fields.notes")}
+          </label>
+          <textarea
+            id="tenant-notes"
+            {...register("notes")}
+            rows={3}
+            className={inputClass}
+          />
         </div>
       </div>
 

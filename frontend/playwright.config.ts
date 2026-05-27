@@ -1,8 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
+import { existsSync } from "node:fs";
 
 // Use mock mode by default unless explicitly disabled.
 const useMockMode = process.env.NEXT_PUBLIC_MOCK_MODE !== "false";
 const runSerial = !!process.env.CI || useMockMode;
+const localChromeExecutable =
+  process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ||
+  (existsSync("/usr/bin/google-chrome") ? "/usr/bin/google-chrome" : undefined);
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -25,6 +29,7 @@ export default defineConfig({
     : [["html", { open: "never" }]],
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000",
+    bypassCSP: true,
     navigationTimeout: 45000,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
@@ -40,6 +45,9 @@ export default defineConfig({
         ...devices["Desktop Chrome"],
         // Always run headless
         headless: true,
+        ...(localChromeExecutable
+          ? { launchOptions: { executablePath: localChromeExecutable } }
+          : {}),
       },
     },
   ],

@@ -676,7 +676,7 @@ function LateFeeFields({
 }) {
   return (
     <div className={sectionClass}>
-      <h3 className={sectionTitleClass}>{t("lateFees.title")}</h3>
+      <h2 className={sectionTitleClass}>{t("lateFees.title")}</h2>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
         {t("lateFees.description")}
       </p>
@@ -767,7 +767,7 @@ function AdjustmentFields({
 }) {
   return (
     <div className={sectionClass}>
-      <h3 className={sectionTitleClass}>{t("adjustments.title")}</h3>
+      <h2 className={sectionTitleClass}>{t("adjustments.title")}</h2>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
         {t("adjustments.description")}
       </p>
@@ -2085,7 +2085,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     >
       {/* Basic Lease Details */}
       <div className={sectionClass}>
-        <h3 className={sectionTitleClass}>{t("leaseDetails")}</h3>
+        <h2 className={sectionTitleClass}>{t("leaseDetails")}</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <PropertyField
@@ -2233,7 +2233,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
       {contractType === "rental" && (
         <>
           <div className={sectionClass}>
-            <h3 className={sectionTitleClass}>{t("billing.title")}</h3>
+            <h2 className={sectionTitleClass}>{t("billing.title")}</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               {t("billing.description")}
             </p>

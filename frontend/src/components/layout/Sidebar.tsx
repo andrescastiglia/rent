@@ -52,6 +52,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
       {/* Sidebar */}
       <aside
+        id="app-sidebar"
         className={`
           fixed lg:static inset-y-0 left-0 z-40
           w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700

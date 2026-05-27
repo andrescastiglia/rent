@@ -351,9 +351,9 @@ export function PropertyForm({
       ) : null}
       <input type="hidden" {...register("ownerId")} />
       <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2">
           {t("basicInfo")}
-        </h3>
+        </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label
@@ -667,9 +667,9 @@ export function PropertyForm({
       </div>
 
       <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2">
           {t("location")}
-        </h3>
+        </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label
@@ -798,9 +798,9 @@ export function PropertyForm({
       </div>
 
       <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2">
           {t("fields.images")}
-        </h3>
+        </h2>
         <ImageUpload
           images={images}
           onChange={(newImages) => setValue("images", newImages)}
@@ -811,9 +811,9 @@ export function PropertyForm({
 
       <div className="space-y-4">
         <div className="flex items-center justify-between border-b dark:border-gray-700 pb-2">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white">
             {t("features")}
-          </h3>
+          </h2>
           <button
             type="button"
             onClick={() => append({ name: "", value: "" })}

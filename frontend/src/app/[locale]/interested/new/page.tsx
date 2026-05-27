@@ -139,7 +139,11 @@ export default function NewInterestedPage() {
         </h1>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <label htmlFor="interested-first-name" className="sr-only">
+            {t("fields.firstName")}
+          </label>
           <input
+            id="interested-first-name"
             type="text"
             placeholder={t("fields.firstName")}
             value={form.firstName ?? ""}
@@ -148,7 +152,11 @@ export default function NewInterestedPage() {
             }
             className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           />
+          <label htmlFor="interested-last-name" className="sr-only">
+            {t("fields.lastName")}
+          </label>
           <input
+            id="interested-last-name"
             type="text"
             placeholder={t("fields.lastName")}
             value={form.lastName ?? ""}
@@ -157,7 +165,11 @@ export default function NewInterestedPage() {
             }
             className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           />
+          <label htmlFor="interested-phone" className="sr-only">
+            {t("fields.phone")}
+          </label>
           <input
+            id="interested-phone"
             type="text"
             placeholder={t("fields.phone")}
             value={form.phone ?? ""}
@@ -166,7 +178,11 @@ export default function NewInterestedPage() {
             }
             className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           />
+          <label htmlFor="interested-email" className="sr-only">
+            {t("fields.email")}
+          </label>
           <input
+            id="interested-email"
             type="email"
             placeholder={t("fields.email")}
             value={form.email ?? ""}
@@ -200,7 +216,11 @@ export default function NewInterestedPage() {
             </div>
           </div>
 
+          <label htmlFor="interested-property-type" className="sr-only">
+            Tipo de propiedad
+          </label>
           <select
+            id="interested-property-type"
             value={form.propertyTypePreference}
             onChange={(e) =>
               setForm((prev) => ({
@@ -221,7 +241,11 @@ export default function NewInterestedPage() {
             <option value="other">{t("propertyTypes.other")}</option>
           </select>
 
+          <label htmlFor="interested-people-count" className="sr-only">
+            {t("fields.peopleCount")}
+          </label>
           <input
+            id="interested-people-count"
             type="number"
             min={1}
             placeholder={t("fields.peopleCount")}
@@ -236,7 +260,11 @@ export default function NewInterestedPage() {
             }
             className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           />
+          <label htmlFor="interested-min-amount" className="sr-only">
+            {t("fields.minAmount")}
+          </label>
           <input
+            id="interested-min-amount"
             type="number"
             min={0}
             step="0.01"
@@ -250,7 +278,11 @@ export default function NewInterestedPage() {
             }
             className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           />
+          <label htmlFor="interested-max-amount" className="sr-only">
+            {t("fields.maxAmount")}
+          </label>
           <input
+            id="interested-max-amount"
             type="number"
             min={0}
             step="0.01"
@@ -264,7 +296,11 @@ export default function NewInterestedPage() {
             }
             className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           />
+          <label htmlFor="interested-preferred-city" className="sr-only">
+            {t("fields.preferredCity")}
+          </label>
           <input
+            id="interested-preferred-city"
             type="text"
             placeholder={t("fields.preferredCity")}
             value={form.preferredCity ?? ""}
@@ -273,7 +309,11 @@ export default function NewInterestedPage() {
             }
             className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           />
+          <label htmlFor="interested-desired-features" className="sr-only">
+            {t("fields.desiredFeatures")}
+          </label>
           <input
+            id="interested-desired-features"
             type="text"
             placeholder={t("fields.desiredFeatures")}
             value={(form.desiredFeatures ?? []).join(", ")}
@@ -301,7 +341,11 @@ export default function NewInterestedPage() {
             {t("fields.hasPets")}
           </label>
 
+          <label htmlFor="interested-notes" className="sr-only">
+            {t("fields.notes")}
+          </label>
           <textarea
+            id="interested-notes"
             placeholder={t("fields.notes")}
             value={form.notes ?? ""}
             onChange={(e) =>

@@ -19,9 +19,9 @@ function InvoicesList({
     return (
       <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">
         <FileText className="mx-auto h-12 w-12 text-gray-400" />
-        <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+        <p className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
           {t("noInvoices")}
-        </h3>
+        </p>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           {t("noInvoicesDescription")}
         </p>
@@ -88,10 +88,14 @@ export default function InvoicesPage() {
       {/* Filters */}
       <div className="flex flex-col md:flex-row gap-4 mb-8">
         <div className="relative flex-1">
+          <label htmlFor="invoices-search" className="sr-only">
+            {t("searchPlaceholder")}
+          </label>
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-5 w-5 text-gray-400" />
           </div>
           <input
+            id="invoices-search"
             type="text"
             placeholder={t("searchPlaceholder")}
             className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
@@ -100,8 +104,12 @@ export default function InvoicesPage() {
           />
         </div>
         <div className="relative">
+          <label htmlFor="invoices-status-filter" className="sr-only">
+            {t("allStatuses")}
+          </label>
           <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
           <select
+            id="invoices-status-filter"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="block w-full pl-10 pr-8 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"

@@ -17,7 +17,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const t = useTranslations("auth");
   const locale = useLocale();
-  const requiresCaptcha = forceCaptcha || loginFailures >= 1;
+  const bypassCaptcha =
+    process.env.NEXT_PUBLIC_LOCAL_DEV_CAPTCHA_BYPASS === "true";
+  const requiresCaptcha = !bypassCaptcha && (forceCaptcha || loginFailures >= 1);
 
   const getErrorMessage = (error: unknown): string => {
     if (!(error instanceof Error)) return t("errors.loginError");
@@ -69,9 +71,9 @@ export default function LoginPage() {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8">
       <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
           {t("login")}
-        </h2>
+        </h1>
         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
           {t("systemTitle")}
         </p>

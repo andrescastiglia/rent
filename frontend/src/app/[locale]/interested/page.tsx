@@ -774,10 +774,14 @@ export default function InterestedPage() {
         </div>
 
         <div className="relative">
+          <label htmlFor="interested-search" className="sr-only">
+            {t("listSearchPlaceholder")}
+          </label>
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-5 w-5 text-gray-400" />
           </div>
           <input
+            id="interested-search"
             type="text"
             placeholder={t("listSearchPlaceholder")}
             value={searchTerm}
@@ -787,7 +791,11 @@ export default function InterestedPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <label htmlFor="interested-operation-filter" className="sr-only">
+            {t("filters.allOperations")}
+          </label>
           <select
+            id="interested-operation-filter"
             value={operationFilter}
             onChange={(e) =>
               setOperationFilter(e.target.value as "all" | InterestedOperation)
@@ -798,7 +806,11 @@ export default function InterestedPage() {
             <option value="rent">{t("operations.rent")}</option>
             <option value="sale">{t("operations.sale")}</option>
           </select>
+          <label htmlFor="interested-status-filter" className="sr-only">
+            {t("filters.allStages")}
+          </label>
           <select
+            id="interested-status-filter"
             value={statusFilter}
             onChange={(e) =>
               setStatusFilter(e.target.value as "all" | InterestedStatus)

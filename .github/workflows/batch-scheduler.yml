@@ -1,20 +1,8 @@
 name: Batch Scheduler
 
 on:
-  schedule:
-    # billing: día 1 de cada mes a las 06:00 UTC
-    - cron: '0 6 1 * *'
-    # overdue: todos los días a las 07:00 UTC
-    - cron: '0 7 * * *'
-    # reminders: todos los días a las 08:00 UTC
-    - cron: '0 8 * * *'
-    # lease-renewal-alerts: el día 1 de cada mes a las 09:00 UTC
-    - cron: '0 9 1 * *'
-    # sync-indices: todos los lunes a las 05:00 UTC
-    - cron: '0 5 * * 1'
-    # sync-rates: todos los días a las 05:30 UTC
-    - cron: '0 5 * * 1-5'
-  # Permite trigger manual para cualquier job
+  # Los schedules productivos corren en el crontab del usuario deploy en oracle.
+  # Este workflow queda solo para ejecuciones manuales desde GitHub Actions.
   workflow_dispatch:
     inputs:
       job:

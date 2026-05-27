@@ -458,7 +458,11 @@ function TicketDetailPanel({
 
       {canManage && (
         <div className="mt-4 flex items-center gap-2">
+          <label htmlFor="maintenance-ticket-status" className="sr-only">
+            {t("status")}
+          </label>
           <select
+            id="maintenance-ticket-status"
             value={selectedStatus}
             onChange={(e) =>
               setSelectedStatus(e.target.value as MaintenanceTicketStatus)
@@ -714,7 +718,11 @@ export default function MaintenancePage() {
           />
         ) : (
           <div className="flex flex-col gap-3 sm:flex-row">
+            <label htmlFor="maintenance-status-filter" className="sr-only">
+              {t("status")}
+            </label>
             <select
+              id="maintenance-status-filter"
               value={filterStatus}
               onChange={(e) =>
                 setFilterStatus(e.target.value as MaintenanceTicketStatus | "")
@@ -726,9 +734,13 @@ export default function MaintenancePage() {
                 <option key={s} value={s}>
                   {t(`statuses.${s}`)}
                 </option>
-              ))}
+                ))}
             </select>
+            <label htmlFor="maintenance-priority-filter" className="sr-only">
+              {t("priority")}
+            </label>
             <select
+              id="maintenance-priority-filter"
               value={filterPriority}
               onChange={(e) =>
                 setFilterPriority(
@@ -742,9 +754,13 @@ export default function MaintenancePage() {
                 <option key={p} value={p}>
                   {t(`priorities.${p}`)}
                 </option>
-              ))}
+                ))}
             </select>
+            <label htmlFor="maintenance-search" className="sr-only">
+              {tCommon("search")}
+            </label>
             <input
+              id="maintenance-search"
               type="search"
               placeholder={tCommon("search")}
               value={filterSearch}
