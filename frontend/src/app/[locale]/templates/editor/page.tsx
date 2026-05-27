@@ -333,6 +333,7 @@ function TemplateEditorContent({
           <div
             role="textbox"
             aria-label={t("bodyPlaceholder")}
+            aria-multiline={true}
             tabIndex={0}
             ref={editorRef}
             contentEditable
