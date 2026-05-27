@@ -32,11 +32,13 @@ export class AuthController {
       loginDto.email,
       ipAddress,
     );
+    const captchaRequired =
+      requiresCaptcha && !this.shouldBypassCaptchaForLocalDev(req);
 
     await this.captchaService.assertValidToken(
       loginDto.captchaToken,
       ipAddress,
-      requiresCaptcha,
+      captchaRequired,
     );
 
     const user = await this.authService.validateUser(
@@ -75,5 +77,20 @@ export class AuthController {
       return forwardedFor.split(',')[0]?.trim() || undefined;
     }
     return req?.ip;
+  }
+
+  private shouldBypassCaptchaForLocalDev(req: any): boolean {
+    if (process.env.ALLOW_LOCAL_DEV_CAPTCHA_BYPASS !== 'true') {
+      return false;
+    }
+
+    const origin = req?.headers?.origin;
+    if (typeof origin !== 'string') {
+      return false;
+    }
+
+    return /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(
+      origin,
+    );
   }
 }

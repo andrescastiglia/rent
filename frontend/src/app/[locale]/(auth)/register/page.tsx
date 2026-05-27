@@ -94,9 +94,9 @@ export default function RegisterPage() {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8">
       <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
           {t("createAccount")}
-        </h2>
+        </h1>
         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
           {t("systemTitle")}
         </p>

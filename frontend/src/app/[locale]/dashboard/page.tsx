@@ -599,7 +599,11 @@ export default function DashboardPage() {
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             {t("peopleActivity.title")}
           </h2>
+          <label htmlFor="dashboard-activity-limit" className="sr-only">
+            {t("peopleActivity.title")}
+          </label>
           <select
+            id="dashboard-activity-limit"
             value={activityLimit}
             onChange={(e) =>
               setActivityLimit(Number(e.target.value) as 10 | 25 | 50)
@@ -652,7 +656,11 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="p-4">
+              <label htmlFor="dashboard-activity-comment" className="sr-only">
+                {t("peopleActivity.editCommentTitle")}
+              </label>
               <textarea
+                id="dashboard-activity-comment"
                 value={editingComment}
                 onChange={(e) => setEditingComment(e.target.value)}
                 rows={5}

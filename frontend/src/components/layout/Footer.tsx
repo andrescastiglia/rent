@@ -12,9 +12,9 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* About */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
               {t("aboutUs")}
-            </h3>
+            </p>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               {t("description")}
             </p>
@@ -22,9 +22,9 @@ export default function Footer() {
 
           {/* Links */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
               {t("usefulLinks")}
-            </h3>
+            </p>
             <ul className="space-y-2">
               <li>
                 <a
@@ -61,9 +61,9 @@ export default function Footer() {
 
           {/* Contact */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
               {t("contact")}
-            </h3>
+            </p>
             <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
               <li>Email: acastiglia@gmail.com</li>
               <li>Tel: +54 9 2227 44-2981</li>

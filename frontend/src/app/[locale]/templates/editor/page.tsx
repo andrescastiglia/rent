@@ -228,7 +228,11 @@ function TemplateEditorContent({
 
   return (
     <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-4">
+      <label htmlFor="template-editor-name" className="sr-only">
+        {t("namePlaceholder")}
+      </label>
       <input
+        id="template-editor-name"
         type="text"
         value={form.name}
         onChange={(e) =>
@@ -327,6 +331,10 @@ function TemplateEditorContent({
           </div>
 
           <div
+            role="textbox"
+            aria-label={t("bodyPlaceholder")}
+            aria-multiline={true}
+            tabIndex={0}
             ref={editorRef}
             contentEditable
             suppressContentEditableWarning
@@ -352,15 +360,24 @@ function TemplateEditorContent({
           </div>
         </div>
       ) : (
-        <textarea
-          rows={16}
-          value={form.templateBody}
-          onChange={(e) =>
-            onFormChange((prev) => ({ ...prev, templateBody: e.target.value }))
-          }
-          placeholder={t("bodyPlaceholder")}
-          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm font-mono"
-        />
+        <>
+          <label htmlFor="template-editor-body" className="sr-only">
+            {t("bodyPlaceholder")}
+          </label>
+          <textarea
+            id="template-editor-body"
+            rows={16}
+            value={form.templateBody}
+            onChange={(e) =>
+              onFormChange((prev) => ({
+                ...prev,
+                templateBody: e.target.value,
+              }))
+            }
+            placeholder={t("bodyPlaceholder")}
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm font-mono"
+          />
+        </>
       )}
 
       <div className="rounded-md border border-blue-200 bg-blue-50/80 dark:border-blue-900 dark:bg-blue-900/20 p-3">
@@ -692,7 +709,11 @@ export default function TemplateEditorPage() {
           </p>
         </div>
         <div>
+          <label htmlFor="template-editor-scope" className="sr-only">
+            {t("title")}
+          </label>
           <select
+            id="template-editor-scope"
             value={scope}
             onChange={(e) => setScope(e.target.value as TemplateScope)}
             className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm"

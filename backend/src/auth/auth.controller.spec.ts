@@ -6,6 +6,7 @@ import { CaptchaService } from './services/captcha.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
+  const originalEnv = process.env;
 
   const mockAuthService = {
     validateUser: jest.fn(),
@@ -22,6 +23,7 @@ describe('AuthController', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    process.env = { ...originalEnv };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
@@ -38,6 +40,10 @@ describe('AuthController', () => {
     }).compile();
 
     controller = module.get<AuthController>(AuthController);
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
   });
 
   it('should be defined', () => {
@@ -75,6 +81,34 @@ describe('AuthController', () => {
       '1.1.1.1',
     );
     expect(result).toEqual({ access_token: 'jwt' });
+  });
+
+  it('login bypasses required captcha for explicit local development origins', async () => {
+    process.env.ALLOW_LOCAL_DEV_CAPTCHA_BYPASS = 'true';
+    const req = {
+      headers: {
+        origin: 'http://localhost:3000',
+        'x-forwarded-for': '1.1.1.1',
+      },
+    };
+    mockAuthService.requiresCaptchaForLogin.mockReturnValue(true);
+    mockCaptchaService.assertValidToken.mockResolvedValue(undefined);
+    mockAuthService.validateUser.mockResolvedValue({ id: 'u1' });
+    mockAuthService.login.mockResolvedValue({ access_token: 'jwt' });
+
+    await controller.login(
+      {
+        email: 'a@test.dev',
+        password: 'secret',
+      } as any,
+      req as any,
+    );
+
+    expect(mockCaptchaService.assertValidToken).toHaveBeenCalledWith(
+      undefined,
+      '1.1.1.1',
+      false,
+    );
   });
 
   it('login failure: registers failed login and throws UnauthorizedException', async () => {

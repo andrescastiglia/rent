@@ -65,4 +65,61 @@ describe("shared/database", () => {
       password: "rent_password",
     });
   });
+
+  it("initializes connection once and closes when initialized", async () => {
+    const { AppDataSource, initializeDatabase, closeDatabase } =
+      await import("./database");
+
+    Object.defineProperty(AppDataSource, "isInitialized", {
+      value: false,
+      writable: true,
+      configurable: true,
+    });
+
+    const initializeSpy = jest
+      .spyOn(AppDataSource, "initialize")
+      .mockResolvedValue(AppDataSource);
+    const destroySpy = jest
+      .spyOn(AppDataSource, "destroy")
+      .mockResolvedValue(undefined);
+
+    await initializeDatabase();
+    expect(initializeSpy).toHaveBeenCalledTimes(1);
+
+    Object.defineProperty(AppDataSource, "isInitialized", {
+      value: true,
+      writable: true,
+      configurable: true,
+    });
+
+    await closeDatabase();
+    expect(destroySpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("propagates initialize and close errors", async () => {
+    const { AppDataSource, initializeDatabase, closeDatabase } =
+      await import("./database");
+
+    Object.defineProperty(AppDataSource, "isInitialized", {
+      value: false,
+      writable: true,
+      configurable: true,
+    });
+    jest
+      .spyOn(AppDataSource, "initialize")
+      .mockRejectedValueOnce(new Error("connect failed"));
+
+    await expect(initializeDatabase()).rejects.toThrow("connect failed");
+
+    Object.defineProperty(AppDataSource, "isInitialized", {
+      value: true,
+      writable: true,
+      configurable: true,
+    });
+    jest
+      .spyOn(AppDataSource, "destroy")
+      .mockRejectedValueOnce(new Error("close failed"));
+
+    await expect(closeDatabase()).rejects.toThrow("close failed");
+  });
 });

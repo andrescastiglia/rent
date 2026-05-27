@@ -91,10 +91,10 @@ run_query() {
 
 determine_exec_method() {
     if command -v psql &> /dev/null; then
-        EXEC_CMD=(psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB")
+        EXEC_CMD=(psql -v ON_ERROR_STOP=1 -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB")
         print_info "Using local psql client"
     elif command -v docker &> /dev/null && docker ps --format '{{.Names}}' | grep -qx "$CONTAINER_NAME"; then
-        EXEC_CMD=(docker exec -i -e "PGPASSWORD=$PGPASSWORD" "$CONTAINER_NAME" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB")
+        EXEC_CMD=(docker exec -i -e "PGPASSWORD=$PGPASSWORD" "$CONTAINER_NAME" psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB")
         print_info "Using Docker container ($CONTAINER_NAME)"
     else
         print_error "Neither 'psql' nor running Docker container '$CONTAINER_NAME' found."

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/contexts/auth-context";
-import { useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Bot, Menu } from "lucide-react";
 import LanguageSelector from "@/components/ui/LanguageSelector";
 import { useLocale, useTranslations } from "next-intl";
@@ -13,6 +13,7 @@ interface HeaderProps {
   readonly onAiToggle?: () => void;
   readonly aiEnabled?: boolean;
   readonly aiPanelOpen?: boolean;
+  readonly sidebarOpen?: boolean;
 }
 
 export default function Header({
@@ -20,9 +21,12 @@ export default function Header({
   onAiToggle,
   aiEnabled = false,
   aiPanelOpen = false,
+  sidebarOpen = false,
 }: HeaderProps) {
   const { user, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const userMenuId = useId();
+  const aiPanelId = "ai-assistant-panel";
   const t = useTranslations("common");
   const tAuth = useTranslations("auth");
   const locale = useLocale();
@@ -34,6 +38,19 @@ export default function Header({
       : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700";
   }
 
+  useEffect(() => {
+    if (!isMenuOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isMenuOpen]);
+
   return (
     <header className="bg-white dark:bg-gray-800 shadow-xs border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
       <div className="w-full px-4 sm:px-6 lg:px-8">
@@ -43,7 +60,9 @@ export default function Header({
             <button
               onClick={onMenuToggle}
               className="lg:hidden p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700 mr-2"
-              aria-label={t("closeMenu")}
+              aria-label={sidebarOpen ? t("closeMenu") : t("openMenu")}
+              aria-expanded={sidebarOpen}
+              aria-controls="app-sidebar"
             >
               <Menu className="w-6 h-6" />
             </button>
@@ -72,6 +91,8 @@ export default function Header({
                 title={aiEnabled ? t("aiAssistant") : t("aiDisabled")}
                 className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${aiButtonClass}`}
                 aria-label={t("aiAssistant")}
+                aria-expanded={aiPanelOpen}
+                aria-controls={aiPanelId}
               >
                 <Bot className="h-5 w-5" />
                 <span className="hidden sm:inline font-medium">AI</span>
@@ -85,6 +106,10 @@ export default function Header({
                 <button
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
                   className="flex items-center space-x-3 text-sm focus:outline-hidden"
+                  aria-label={t("userMenu")}
+                  aria-haspopup="menu"
+                  aria-expanded={isMenuOpen}
+                  aria-controls={userMenuId}
                 >
                   <div className="flex items-center space-x-2">
                     <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium">
@@ -117,11 +142,16 @@ export default function Header({
 
                 {/* Dropdown Menu */}
                 {isMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-10 border border-gray-200 dark:border-gray-700">
+                  <div
+                    id={userMenuId}
+                    role="menu"
+                    className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-10 border border-gray-200 dark:border-gray-700"
+                  >
                     <Link
                       href={`/${locale}/settings`}
                       onClick={() => setIsMenuOpen(false)}
                       className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      role="menuitem"
                     >
                       {t("settings")}
                     </Link>
@@ -132,6 +162,7 @@ export default function Header({
                         logout();
                       }}
                       className="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      role="menuitem"
                     >
                       {tAuth("logout")}
                     </button>

@@ -69,6 +69,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
         aiEnabled={aiMode !== "NONE"}
         aiPanelOpen={isAiPanelOpen && aiMode !== "NONE"}
+        sidebarOpen={sidebarOpen}
         onAiToggle={() => {
           if (aiMode === "NONE") return;
           setIsAiPanelOpen((prev) => !prev);

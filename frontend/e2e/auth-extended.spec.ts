@@ -153,7 +153,7 @@ test.describe('Auth Extended', () => {
     await page.goto(localePath('/dashboard'));
 
     await openUserMenu(page);
-    const logoutButton = page.getByRole('button', {
+    const logoutButton = page.getByRole('menuitem', {
       name: /cerrar sesi[oó]n|log out|sair/i,
     });
     await expect(logoutButton).toBeVisible();
