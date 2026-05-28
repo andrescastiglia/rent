@@ -318,8 +318,8 @@ export function PropertyForm({
     setSubmitErrorMessage(tValidation("required"));
   };
 
-  const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    void handleSubmit(onSubmit, onInvalid)(event);
+  const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    await handleSubmit(onSubmit, onInvalid)(event);
   };
 
   const handleImageUpload = async (file: File) => {
