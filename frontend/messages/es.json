@@ -105,7 +105,9 @@
     },
     "messages": {
       "pendingApproval": "Registro enviado. Tu cuenta está pendiente de aprobación del administrador."
-    }
+    },
+    "showPassword": "Mostrar contraseña",
+    "hidePassword": "Ocultar contraseña"
   },
   "userSettings": {
     "title": "Configuración de usuario",
