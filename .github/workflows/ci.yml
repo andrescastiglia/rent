@@ -176,10 +176,12 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@v6
         with:
           args: >
+            -Dsonar.host.url=https://sonarcloud.io
             -Dsonar.qualitygate.wait=true
             -Dsonar.qualitygate.timeout=300
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
 
   # ─────────────────────────────────────────────────────────────
   # BATCH JOBS
