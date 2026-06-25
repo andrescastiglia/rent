@@ -7,9 +7,27 @@
     "prepare": "husky"
   },
   "lint-staged": {
-    "*.{js,jsx,ts,tsx}": [
-      "eslint --fix",
-      "prettier --write"
+    "backend/**/*.{js,jsx,ts,tsx}": [
+      "npm --prefix backend exec -- eslint --fix --config backend/eslint.config.mts",
+      "npm --prefix backend exec -- prettier --write"
+    ],
+    "frontend/src/**/*.{js,jsx,ts,tsx}": [
+      "npm --prefix frontend exec -- eslint --fix --config frontend/eslint.config.mts",
+      "npm --prefix frontend exec -- prettier --write"
+    ],
+    "frontend/newrelic.js": [
+      "npm --prefix frontend exec -- prettier --write"
+    ],
+    "mobile/**/*.{js,jsx,ts,tsx}": [
+      "npm --prefix mobile exec -- eslint --fix --config mobile/eslint.config.mts",
+      "npm --prefix mobile exec -- prettier --write"
+    ],
+    "batch/**/*.{js,jsx,ts,tsx}": [
+      "npm --prefix batch exec -- eslint --fix --config batch/eslint.config.mts",
+      "npm --prefix batch exec -- prettier --write"
     ]
+  },
+  "dependencies": {
+    "newrelic": "^14.1.1"
   }
 }

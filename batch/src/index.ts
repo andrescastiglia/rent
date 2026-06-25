@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+
+if (process.env.NODE_ENV === "production") {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require("newrelic");
+}
+
 import "reflect-metadata";
 import { config } from "dotenv";
 import { Command } from "commander";

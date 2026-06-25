@@ -1,0 +1,24 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - button "Seleccionar idioma" [ref=e6]:
+      - img [ref=e7]
+      - generic [ref=e10]: 🇪🇸 ES
+    - generic [ref=e11]:
+      - generic [ref=e12]:
+        - heading "Iniciar Sesión" [level=2] [ref=e13]
+        - paragraph [ref=e14]: Sistema de Gestión Inmobiliaria
+      - generic [ref=e15]:
+        - generic [ref=e16]:
+          - generic [ref=e17]: Email
+          - textbox "Email" [ref=e18]:
+            - /placeholder: tu@email.com
+        - generic [ref=e19]:
+          - generic [ref=e20]: Contraseña
+          - textbox "Contraseña" [ref=e21]:
+            - /placeholder: ••••••••
+        - button "Iniciar Sesión" [ref=e22]
+        - generic [ref=e23]:
+          - generic [ref=e24]: ¿No tienes cuenta?
+          - link "Registrarse" [ref=e25] [cursor=pointer]:
+            - /url: /es/register
+  - alert [ref=e26]
