@@ -77,13 +77,16 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             const isDisabled = item.disabled;
             const linkClassName = getLinkClassName(isActive, isDisabled);
 
+            const Icon = item.icon;
+
             const linkContent = (
               <span
                 className={`
-                  block px-4 py-2 rounded-md text-sm font-medium transition-colors
+                  flex items-center gap-3 px-4 py-2 rounded-md text-sm font-medium transition-colors
                   ${linkClassName}
                 `}
               >
+                {Icon && <Icon className="w-4 h-4 shrink-0" />}
                 {t(item.labelKey)}
               </span>
             );

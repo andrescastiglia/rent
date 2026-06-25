@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/contexts/auth-context";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Bot, Menu } from "lucide-react";
 import LanguageSelector from "@/components/ui/LanguageSelector";
 import { useLocale, useTranslations } from "next-intl";
@@ -26,6 +26,7 @@ export default function Header({
   const { user, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const userMenuId = useId();
+  const menuRef = useRef<HTMLDivElement>(null);
   const aiPanelId = "ai-assistant-panel";
   const t = useTranslations("common");
   const tAuth = useTranslations("auth");
@@ -49,6 +50,19 @@ export default function Header({
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isMenuOpen]);
+
+  useEffect(() => {
+    if (!isMenuOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isMenuOpen]);
 
   return (
@@ -102,7 +116,7 @@ export default function Header({
             <LanguageSelector />
 
             {user && (
-              <div className="relative">
+              <div className="relative" ref={menuRef}>
                 <button
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
                   className="flex items-center space-x-3 text-sm focus:outline-hidden"
