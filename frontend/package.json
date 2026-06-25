@@ -52,7 +52,7 @@
     "@types/react-dom": "^19.2.3",
     "axe-core": "^4.11.4",
     "cross-env": "^10.1.0",
-    "eslint": "^9.39.2",
+    "eslint": "^10.5.0",
     "eslint-config-next": "^16.1.6",
     "globals": "^17.3.0",
     "jest": "^30.2.0",
