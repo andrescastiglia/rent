@@ -105,7 +105,9 @@
     },
     "messages": {
       "pendingApproval": "Registration submitted. Your account is pending administrator approval."
-    }
+    },
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "userSettings": {
     "title": "User settings",
