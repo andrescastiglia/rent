@@ -14,6 +14,36 @@ env:
 
 jobs:
   # ─────────────────────────────────────────────────────────────
+  # CODEQL SECURITY ANALYSIS
+  # ─────────────────────────────────────────────────────────────
+  codeql-analysis:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['javascript-typescript']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-and-quality
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:${{ matrix.language }}
+
+  # ─────────────────────────────────────────────────────────────
   # BACKEND JOBS
   # ─────────────────────────────────────────────────────────────
   backend-lint:
@@ -130,6 +160,58 @@ jobs:
           path: backend/coverage
           retention-days: 1
 
+  backend-e2e:
+    name: Backend E2E
+    runs-on: ubuntu-latest
+    needs: backend-lint
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: rent_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-backend-${{ hashFiles('backend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-backend-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run backend E2E tests
+        run: npm run test:e2e
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
+          JWT_SECRET: test-secret
+          JWT_REFRESH_SECRET: test-refresh-secret
+          NODE_ENV: test
+          TYPEORM_SYNC: 'true'
+
   sonarqube:
     name: SonarQube Analysis
     runs-on: ubuntu-latest
@@ -176,10 +258,12 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@v6
         with:
           args: >
+            -Dsonar.host.url=https://sonarcloud.io
             -Dsonar.qualitygate.wait=true
             -Dsonar.qualitygate.timeout=300
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
 
   # ─────────────────────────────────────────────────────────────
   # BATCH JOBS
@@ -264,6 +348,69 @@ jobs:
           name: batch-coverage
           path: batch/coverage
           retention-days: 1
+
+  batch-e2e:
+    name: Batch E2E
+    runs-on: ubuntu-latest
+    needs: batch-lint
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: rent_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-batch-${{ hashFiles('batch/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-batch-
+
+      - name: Install dependencies
+        working-directory: batch
+        run: npm ci
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Run database migrations for E2E
+        run: bash migrations/run-migrations.sh
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: rent_test
+
+      - name: Run batch E2E commands (dry-run)
+        working-directory: batch
+        run: |
+          npm run dev -- billing --dry-run
+          npm run dev -- overdue --dry-run
+          npm run dev -- lease-renewal-alerts --dry-run
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
+          NODE_ENV: test
 
   # ─────────────────────────────────────────────────────────────
   # FRONTEND JOBS
@@ -474,13 +621,60 @@ jobs:
           path: mobile/coverage
           retention-days: 1
 
+  mobile-e2e:
+    name: Mobile E2E (Detox)
+    runs-on: ubuntu-latest
+    needs: mobile-lint
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-mobile-${{ hashFiles('mobile/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-mobile-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run mobile E2E tests on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          avd-name: Medium_Phone_API_36.1
+          arch: x86_64
+          profile: pixel_7
+          disable-animations: true
+          script: |
+            cd mobile
+            npm run e2e:android
+
   # ─────────────────────────────────────────────────────────────
   # DEPLOY TO PRODUCTION (only on main branch)
   # ─────────────────────────────────────────────────────────────
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [backend-test, batch-test, frontend-test, mobile-test]
+    needs: [backend-test, backend-e2e, batch-test, batch-e2e, frontend-test, mobile-test, mobile-e2e]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: production
 
