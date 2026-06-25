@@ -27,7 +27,7 @@
       "npm --prefix batch exec -- prettier --write"
     ]
   },
-  "dependencies": {
-    "newrelic": "^14.1.1"
-  }
+  "name": "rent",
+  "version": "1.0.0",
+  "private": true
 }
