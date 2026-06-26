@@ -30,6 +30,8 @@ import { PropertyOperationState } from '../properties/entities/property.entity';
 import { Buyer } from '../buyers/entities/buyer.entity';
 import * as bcrypt from 'bcrypt';
 
+jest.mock('bcrypt');
+
 describe('InterestedService', () => {
   let service: InterestedService;
   let interestedRepository: MockRepository<InterestedProfile>;
@@ -785,8 +787,8 @@ describe('InterestedService', () => {
     const usersRepo = (service as any).usersRepository as MockRepository;
     usersRepo.findOne!.mockResolvedValue(null);
 
-    jest.spyOn(bcrypt, 'genSalt').mockResolvedValue('salt' as never);
-    jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashed' as never);
+    (bcrypt.genSalt as jest.Mock).mockResolvedValue('salt' as never);
+    (bcrypt.hash as jest.Mock).mockResolvedValue('hashed' as never);
 
     const userRepo = {
       create: jest.fn((data) => data),
@@ -925,8 +927,8 @@ describe('InterestedService', () => {
     const usersRepo = (service as any).usersRepository as MockRepository;
     usersRepo.findOne!.mockResolvedValue(null);
 
-    jest.spyOn(bcrypt, 'genSalt').mockResolvedValue('salt' as never);
-    jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashed' as never);
+    (bcrypt.genSalt as jest.Mock).mockResolvedValue('salt' as never);
+    (bcrypt.hash as jest.Mock).mockResolvedValue('hashed' as never);
 
     const userRepo = {
       create: jest.fn((d) => d),
@@ -1023,8 +1025,8 @@ describe('InterestedService', () => {
     });
     const usersRepo = (service as any).usersRepository as MockRepository;
     usersRepo.findOne!.mockResolvedValue(null);
-    jest.spyOn(bcrypt, 'genSalt').mockResolvedValue('salt' as never);
-    jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashed' as never);
+    (bcrypt.genSalt as jest.Mock).mockResolvedValue('salt' as never);
+    (bcrypt.hash as jest.Mock).mockResolvedValue('hashed' as never);
 
     dataSource.transaction.mockImplementation(async (cb) =>
       cb({
@@ -1424,8 +1426,8 @@ describe('InterestedService', () => {
     const usersRepo = (service as any).usersRepository;
     usersRepo.findOne!.mockResolvedValue(null);
 
-    jest.spyOn(bcrypt, 'genSalt').mockResolvedValue('salt' as never);
-    jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashed' as never);
+    (bcrypt.genSalt as jest.Mock).mockResolvedValue('salt' as never);
+    (bcrypt.hash as jest.Mock).mockResolvedValue('hashed' as never);
 
     const userRepo = {
       create: jest.fn((d: any) => d),
@@ -1521,8 +1523,8 @@ describe('InterestedService', () => {
     const usersRepo = (service as any).usersRepository;
     usersRepo.findOne!.mockResolvedValue(null);
 
-    jest.spyOn(bcrypt, 'genSalt').mockResolvedValue('salt' as never);
-    jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashed' as never);
+    (bcrypt.genSalt as jest.Mock).mockResolvedValue('salt' as never);
+    (bcrypt.hash as jest.Mock).mockResolvedValue('hashed' as never);
 
     const userRepo = {
       create: jest.fn((d: any) => d),

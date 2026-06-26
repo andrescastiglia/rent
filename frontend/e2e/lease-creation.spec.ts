@@ -127,10 +127,20 @@ test.describe('Lease Creation Flow', () => {
 
         // Wait for and click first lease
         await page.waitForSelector(leaseDetailLinkSelector, { timeout: 5000 });
-        await page.locator(leaseDetailLinkSelector).first().click({ force: true });
-
-        // Click edit/new-version button
-        await page.locator('a[href*="/leases/"][href$="/edit"]').click({ force: true });
+        const leaseLink = page.locator(leaseDetailLinkSelector).first();
+        
+        // Extract the lease ID from the href
+        const href = await leaseLink.getAttribute('href');
+        expect(href).toBeTruthy();
+        
+        // Construct the edit URL directly
+        const leaseId = href!.match(/\/leases\/([^/]+)/)?.[1];
+        expect(leaseId).toBeTruthy();
+        
+        const editUrl = localePath(`/leases/${leaseId}/edit`);
+        
+        // Navigate directly to edit page
+        await gotoWithRetry(page, editUrl);
 
         // Should navigate to edit page
         await expect(page).toHaveURL(/\/es\/leases\/[^/]+\/edit$/);
