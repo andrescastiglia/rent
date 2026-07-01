@@ -393,8 +393,13 @@ jobs:
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
-      - name: Run database migrations for E2E
-        run: bash migrations/run-migrations.sh
+      - name: Initialize database schema
+        run: psql -h localhost -p 5432 -U test -d rent_test -f scripts/init-db.sql
+        env:
+          PGPASSWORD: test
+
+      - name: Baseline migrations
+        run: bash migrations/run-migrations.sh --baseline-all-if-missing --force-baseline-all-if-missing
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
