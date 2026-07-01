@@ -115,11 +115,7 @@ export interface PeopleActivityResponse {
 
 export type BatchReportType = "monthly_summary" | "settlement";
 export type BatchReportStatus =
-  | "pending"
-  | "running"
-  | "completed"
-  | "failed"
-  | "partial_failure";
+  "pending" | "running" | "completed" | "failed" | "partial_failure";
 
 export interface BatchReportRun {
   id: string;
