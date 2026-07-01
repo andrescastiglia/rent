@@ -1,8 +1,5 @@
 export type PaymentMethod =
-  | 'bank_transfer'
-  | 'check'
-  | 'cash'
-  | 'digital_wallet';
+  'bank_transfer' | 'check' | 'cash' | 'digital_wallet';
 
 export interface Owner {
   id: string;
@@ -32,10 +29,7 @@ export interface Owner {
 }
 
 export type OwnerSettlementStatus =
-  | 'pending'
-  | 'processing'
-  | 'completed'
-  | 'failed';
+  'pending' | 'processing' | 'completed' | 'failed';
 
 export interface OwnerSettlementSummary {
   id: string;
@@ -59,13 +53,7 @@ export interface OwnerSettlementSummary {
 }
 
 export type OwnerActivityType =
-  | 'call'
-  | 'task'
-  | 'note'
-  | 'email'
-  | 'whatsapp'
-  | 'visit'
-  | 'reserve';
+  'call' | 'task' | 'note' | 'email' | 'whatsapp' | 'visit' | 'reserve';
 
 export type OwnerActivityStatus = 'pending' | 'completed' | 'cancelled';
 
