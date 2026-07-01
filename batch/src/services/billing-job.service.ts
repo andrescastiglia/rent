@@ -18,11 +18,7 @@ export type BillingJobType =
  * Status of a billing job.
  */
 export type BillingJobStatus =
-  | "pending"
-  | "running"
-  | "completed"
-  | "failed"
-  | "partial_failure";
+  "pending" | "running" | "completed" | "failed" | "partial_failure";
 
 /**
  * Billing job record from database.

@@ -7,12 +7,7 @@ import { FgvService } from "./indices/fgv.service";
  * Supported adjustment types for lease contracts.
  */
 export type AdjustmentType =
-  | "icl"
-  | "igp_m"
-  | "ipc"
-  | "fixed"
-  | "none"
-  | "igpm";
+  "icl" | "igp_m" | "ipc" | "fixed" | "none" | "igpm";
 
 /**
  * Index-based adjustment types (subset of AdjustmentType).
