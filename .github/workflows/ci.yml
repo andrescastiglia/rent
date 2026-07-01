@@ -664,9 +664,7 @@ jobs:
           arch: x86_64
           profile: pixel_7
           disable-animations: true
-          script: |
-            cd mobile
-            npm run e2e:android
+          script: cd mobile && npm run e2e:android
 
   # ─────────────────────────────────────────────────────────────
   # DEPLOY TO PRODUCTION (only on main branch)
