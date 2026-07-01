@@ -656,6 +656,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate native Android project
+        run: npx expo prebuild --platform android --no-install
+
       - name: Run mobile E2E tests on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
