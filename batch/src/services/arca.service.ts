@@ -377,9 +377,11 @@ export class ArcaService {
       logger.error("Failed to sign TRA", {
         error: error instanceof Error ? error.message : error,
       });
-      throw new Error(
+      const wrappedError = new Error(
         `Failed to sign TRA: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
+      (wrappedError as Error & { cause?: unknown }).cause = error;
+      throw wrappedError;
     }
   }
 
