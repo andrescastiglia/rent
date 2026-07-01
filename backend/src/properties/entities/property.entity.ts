@@ -168,7 +168,7 @@ export class Property {
     enum: PropertyOperation,
     enumName: 'property_operation',
     array: true,
-    default: () => "ARRAY['rent']::property_operation[]",
+    default: [PropertyOperation.RENT],
   })
   operations: PropertyOperation[];
 
