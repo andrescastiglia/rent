@@ -664,6 +664,9 @@ jobs:
       - name: Generate native Android project
         run: npx expo prebuild --platform android --no-install
 
+      - name: Install Android emulator system libraries
+        run: sudo apt-get update && sudo apt-get install -y libpulse0
+
       - name: Run mobile E2E tests on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
