@@ -3,6 +3,14 @@
   "rootDir": ".",
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
+  "globals": {
+    "ts-jest": {
+      "tsconfig": {
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true
+      }
+    }
+  },
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   }
