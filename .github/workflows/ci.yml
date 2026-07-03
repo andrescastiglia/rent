@@ -100,7 +100,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U test -d rent_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -178,7 +178,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U test -d rent_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -203,6 +203,25 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Initialize database snapshot for E2E
+        working-directory: ${{ github.workspace }}
+        run: psql -h localhost -p 5432 -U test -d rent_test -f scripts/init-db.sql
+        env:
+          PGPASSWORD: test
+
+      - name: Baseline migrations for snapshot schema
+        working-directory: ${{ github.workspace }}
+        run: bash migrations/run-migrations.sh --baseline-all-if-missing --force-baseline-all-if-missing
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: rent_test
+
       - name: Run backend E2E tests
         run: npm run test:e2e
         env:
@@ -210,7 +229,6 @@ jobs:
           JWT_SECRET: test-secret
           JWT_REFRESH_SECRET: test-refresh-secret
           NODE_ENV: test
-          TYPEORM_SYNC: 'true'
 
   sonarqube:
     name: SonarQube Analysis
@@ -364,7 +382,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U test -d rent_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
