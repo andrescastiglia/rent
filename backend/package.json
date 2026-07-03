@@ -99,16 +99,13 @@
     ],
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
-    "globals": {
-      "ts-jest": {
+    "transform": {
+      "^.+\\.(t|j)s$": ["ts-jest", {
         "tsconfig": {
           "esModuleInterop": true,
           "allowSyntheticDefaultImports": true
         }
-      }
-    },
-    "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
+      }]
     },
     "transformIgnorePatterns": [
       "node_modules/(?!(node-html-parser|entities)/)"

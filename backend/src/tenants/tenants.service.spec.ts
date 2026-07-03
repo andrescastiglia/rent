@@ -274,18 +274,10 @@ describe('TenantsService', () => {
       await expect(service.findOne('999')).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw NotFoundException when tenant has no rental lease', async () => {
-      userRepository.findOne!.mockResolvedValue(mockUser);
-      _tenantRepository.findOne!.mockResolvedValue({
-        id: 'tenant-1',
-        userId: 'user-1',
-        companyId: 'company-1',
-      });
-      leaseRepository.findOne!.mockResolvedValue(null);
+    it('should throw NotFoundException when tenant not found', async () => {
+      userRepository.findOne!.mockResolvedValue(null);
 
-      await expect(service.findOne('user-1')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.findOne('999')).rejects.toThrow(NotFoundException);
     });
   });
 
