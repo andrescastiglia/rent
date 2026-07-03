@@ -3,6 +3,8 @@
   "rootDir": ".",
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
+  "maxWorkers": 1,
+  "testTimeout": 30000,
   "globals": {
     "ts-jest": {
       "tsconfig": {
@@ -14,7 +16,5 @@
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },
-  "transformIgnorePatterns": [
-    "node_modules/(?!(node-html-parser|entities)/)"
-  ]
+  "transformIgnorePatterns": ["node_modules/(?!(node-html-parser|entities)/)"]
 }

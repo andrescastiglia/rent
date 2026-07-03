@@ -39,6 +39,9 @@ export class DocumentsService implements OnModuleInit {
   async onModuleInit(): Promise<void> {
     this.s3Client = getS3Config(this.configService);
     this.bucketName = S3_BUCKET_NAME;
+    if (this.configService.get<string>('NODE_ENV') === 'test') {
+      return;
+    }
     await this.ensureBucketExists();
   }
 

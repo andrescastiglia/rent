@@ -5,6 +5,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { getDatabaseConfig } from './config/database.config';
+import { PostgresExtensionsService } from './config/postgres-extensions.service';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { TestModule } from './test/test.module';
@@ -49,7 +50,7 @@ import * as path from 'node:path';
       fallbackLanguage: 'es',
       loaderOptions: {
         path: path.join(__dirname, '/i18n/'),
-        watch: true,
+        watch: process.env.NODE_ENV !== 'test',
       },
       resolvers: [AcceptLanguageResolver],
     }),
@@ -89,6 +90,7 @@ import * as path from 'node:path';
   controllers: [AppController],
   providers: [
     AppService,
+    PostgresExtensionsService,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,

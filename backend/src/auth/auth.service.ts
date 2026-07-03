@@ -5,9 +5,12 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
+import { Repository } from 'typeorm';
 import { UsersService } from '../users/users.service';
-import { UserRole } from '../users/entities/user.entity';
+import { DEFAULT_COMPANY_ID, UserRole } from '../users/entities/user.entity';
+import { Company, PlanType } from '../companies/entities/company.entity';
 
 @Injectable()
 export class AuthService {
@@ -24,6 +27,8 @@ export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    @InjectRepository(Company)
+    private readonly companiesRepository: Repository<Company>,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<any> {
@@ -114,8 +119,14 @@ export class AuthService {
       throw new ConflictException('Email already exists');
     }
 
+    const companyId = safeUserData.companyId ?? DEFAULT_COMPANY_ID;
+    if (companyId === DEFAULT_COMPANY_ID) {
+      await this.ensureDefaultCompany();
+    }
+
     const newUser = await this.usersService.create({
       ...safeUserData,
+      companyId,
       role: safeUserData.role ?? UserRole.TENANT,
       isActive: false,
     });
@@ -125,5 +136,17 @@ export class AuthService {
       userId: newUser.id,
       message: 'registration.pendingApproval',
     };
+  }
+
+  private async ensureDefaultCompany(): Promise<void> {
+    await this.companiesRepository.upsert(
+      {
+        id: DEFAULT_COMPANY_ID,
+        name: 'Default Company',
+        taxId: 'DEFAULT',
+        plan: PlanType.FREE,
+      },
+      ['id'],
+    );
   }
 }

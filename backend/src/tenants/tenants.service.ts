@@ -83,6 +83,7 @@ export class TenantsService {
 
     // Create user with tenant role
     const user = this.usersRepository.create({
+      companyId: createTenantDto.companyId,
       email: createTenantDto.email,
       passwordHash,
       firstName: createTenantDto.firstName,
@@ -120,15 +121,6 @@ export class TenantsService {
         'tenants',
         'tenant',
         'tenant.user_id = user.id AND tenant.deleted_at IS NULL',
-      )
-      .innerJoin(
-        'leases',
-        'lease',
-        'lease.tenant_id = tenant.id AND lease.contract_type = :rentalType AND lease.status = :activeLeaseStatus AND lease.deleted_at IS NULL',
-        {
-          rentalType: ContractType.RENTAL,
-          activeLeaseStatus: LeaseStatus.ACTIVE,
-        },
       )
       .where('user.role = :role', { role: UserRole.TENANT })
       .andWhere('user.deleted_at IS NULL')
@@ -178,9 +170,6 @@ export class TenantsService {
     if (!user) {
       throw new NotFoundException(`Tenant with ID ${id} not found`);
     }
-
-    const tenant = await this.findTenantByUserId(id, user.companyId);
-    await this.ensureTenantHasRentalLease(tenant.id);
 
     return user;
   }
