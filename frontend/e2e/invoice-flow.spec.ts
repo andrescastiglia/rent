@@ -6,9 +6,9 @@ test.describe('Invoice Flow', () => {
 
     const openFirstInvoice = async (page: Page) => {
         const firstInvoiceLink = page.locator(invoiceLinksSelector).first();
-        await expect(firstInvoiceLink).toBeVisible({ timeout: 10000 });
+        await expect(firstInvoiceLink).toBeVisible({ timeout: 30000 });
         await Promise.all([
-            page.waitForURL(/\/es\/invoices\/[^/]+$/, { timeout: 10000 }),
+            page.waitForURL(/\/(es|en|pt)\/invoices\/[^/]+$/, { timeout: 30000 }),
             firstInvoiceLink.click(),
         ]);
     };

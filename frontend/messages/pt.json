@@ -519,6 +519,7 @@
       "preferredZones": "Zonas preferidas (separadas por vírgula)",
       "desiredFeatures": "Características obrigatórias (separadas por vírgula)",
       "operations": "Operações de interesse",
+      "propertyType": "Tipo de imóvel",
       "stageReason": "Motivo da mudanca de etapa",
       "notes": "Notas"
     },

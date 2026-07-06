@@ -61,9 +61,17 @@ describe('Lease Creation Flow (e2e)', () => {
     currencyRepository = moduleFixture.get(getRepositoryToken(Currency));
 
     await app.init();
-    await currencyRepository.upsert(
-      { code: 'ARS', symbol: '$', decimalPlaces: 2, isActive: true },
-      ['code'],
+    await currencyRepository.query(
+      `
+        INSERT INTO currencies (code, name, symbol, decimal_places, is_active)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (code) DO UPDATE
+        SET name = EXCLUDED.name,
+            symbol = EXCLUDED.symbol,
+            decimal_places = EXCLUDED.decimal_places,
+            is_active = EXCLUDED.is_active
+      `,
+      ['ARS', 'Peso argentino', '$', 2, true],
     );
 
     // Generate unique identifier for this test run
@@ -367,12 +375,13 @@ describe('Lease Creation Flow (e2e)', () => {
     beforeAll(async () => {
       // Create property, unit, tenant, and active lease
       const propertyData = {
-        companyId: companyId,
-        ownerId: ownerId,
+        companyId,
+        ownerId,
         name: 'Lease Termination Test Property',
         addressStreet: 'Lease Test Address',
         addressCity: 'Test City',
         addressState: 'Test State',
+        addressCountry: 'Argentina',
         addressPostalCode: '12345',
         propertyType: PropertyType.APARTMENT,
       };

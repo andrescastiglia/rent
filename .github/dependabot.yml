@@ -20,6 +20,13 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      - dependency-name: typeorm
+        update-types:
+          - version-update:semver-major
+      - dependency-name: node-html-parser
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: npm
     directory: /frontend
@@ -40,6 +47,10 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      - dependency-name: marked
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: npm
     directory: /mobile
@@ -73,6 +84,45 @@ updates:
       - dependency-name: expo
         update-types:
           - version-update:semver-major
+      - dependency-name: expo-constants
+        update-types:
+          - version-update:semver-major
+      - dependency-name: expo-file-system
+        update-types:
+          - version-update:semver-major
+      - dependency-name: expo-font
+        update-types:
+          - version-update:semver-major
+      - dependency-name: expo-image-picker
+        update-types:
+          - version-update:semver-major
+      - dependency-name: expo-linking
+        update-types:
+          - version-update:semver-major
+      - dependency-name: expo-localization
+        update-types:
+          - version-update:semver-major
+      - dependency-name: expo-router
+        update-types:
+          - version-update:semver-major
+      - dependency-name: expo-secure-store
+        update-types:
+          - version-update:semver-major
+      - dependency-name: expo-sharing
+        update-types:
+          - version-update:semver-major
+      - dependency-name: expo-status-bar
+        update-types:
+          - version-update:semver-major
+      - dependency-name: react-native-gesture-handler
+        update-types:
+          - version-update:semver-major
+      - dependency-name: react-native-webview
+        update-types:
+          - version-update:semver-major
+      - dependency-name: detox
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: npm
     directory: /batch
@@ -93,6 +143,10 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      - dependency-name: typeorm
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: github-actions
     directory: /

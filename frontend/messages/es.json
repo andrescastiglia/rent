@@ -519,6 +519,7 @@
       "preferredZones": "Zonas preferidas (separadas por coma)",
       "desiredFeatures": "Características requeridas (separadas por coma)",
       "operations": "Operaciones de interés",
+      "propertyType": "Tipo de propiedad",
       "stageReason": "Motivo del cambio de etapa",
       "notes": "Notas"
     },
