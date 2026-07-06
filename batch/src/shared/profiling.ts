@@ -61,10 +61,6 @@ export async function startProfiling(): Promise<void> {
     ...parseTags(process.env.PYROSCOPE_TAGS),
   };
 
-  if (started) {
-    return;
-  }
-
   pyroscope = await import("@pyroscope/nodejs");
   pyroscope.init({
     appName:
