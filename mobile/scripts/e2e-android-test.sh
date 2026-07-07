@@ -5,12 +5,13 @@ METRO_LOG="${METRO_LOG:-/tmp/rent-metro-e2e.log}"
 LOGCAT_LOG="${LOGCAT_LOG:-/tmp/rent-e2e-logcat.log}"
 DETOX_ARTIFACTS="${DETOX_ARTIFACTS:-/tmp/rent-detox-artifacts}"
 DETOX_CONFIGURATION="${DETOX_CONFIGURATION:-android.emu.release}"
-BUILD_TYPE="debug"
+APP_BUILD_TYPE="debug"
+TEST_BUILD_TYPE="debug"
 if [ "$DETOX_CONFIGURATION" = "android.emu.release" ]; then
-  BUILD_TYPE="release"
+  APP_BUILD_TYPE="release"
 fi
-APP_APK="android/app/build/outputs/apk/$BUILD_TYPE/app-$BUILD_TYPE.apk"
-TEST_APK="android/app/build/outputs/apk/androidTest/$BUILD_TYPE/app-$BUILD_TYPE-androidTest.apk"
+APP_APK="android/app/build/outputs/apk/$APP_BUILD_TYPE/app-$APP_BUILD_TYPE.apk"
+TEST_APK="android/app/build/outputs/apk/androidTest/$TEST_BUILD_TYPE/app-$TEST_BUILD_TYPE-androidTest.apk"
 APP_ID="$(node -p "require('./app.json').expo.android.package")"
 BUNDLE_URLS="http://127.0.0.1:8081/.expo/.virtual-metro-entry.bundle?platform=android&dev=true&minify=false
 http://127.0.0.1:8081/node_modules/expo-router/entry.bundle?platform=android&dev=true&minify=false"
@@ -20,7 +21,7 @@ LOGCAT_PID=""
 rm -rf "$DETOX_ARTIFACTS"
 rm -f "$METRO_LOG" "$LOGCAT_LOG" /tmp/rent-e2e-entry-*.bundle
 
-if [ "$BUILD_TYPE" = "debug" ]; then
+if [ "$APP_BUILD_TYPE" = "debug" ]; then
   EXPO_PUBLIC_MOCK_MODE=true EXPO_PUBLIC_E2E_MODE=true \
     ./node_modules/.bin/metro serve \
     --host 127.0.0.1 \
@@ -41,7 +42,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if [ "$BUILD_TYPE" = "debug" ]; then
+if [ "$APP_BUILD_TYPE" = "debug" ]; then
   ENTRY_INDEX=1
   for BUNDLE_URL in $BUNDLE_URLS; do
     BUNDLE_OUT="/tmp/rent-e2e-entry-$ENTRY_INDEX.bundle"

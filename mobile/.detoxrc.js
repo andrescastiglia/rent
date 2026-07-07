@@ -26,12 +26,12 @@ module.exports = {
       type: 'android.apk',
       binaryPath: 'android/app/build/outputs/apk/release/app-release.apk',
       testBinaryPath:
-        'android/app/build/outputs/apk/androidTest/release/app-release-androidTest.apk',
+        'android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk',
       launchArgs: {
         detoxEnableSynchronization: '0',
       },
       build:
-        'cd android && EXPO_PUBLIC_MOCK_MODE=true EXPO_PUBLIC_E2E_MODE=true ./gradlew app:assembleRelease app:assembleAndroidTest -DtestBuildType=release -PreactNativeArchitectures=x86_64 -Pandroid.enableMinifyInReleaseBuilds=false --no-daemon',
+        'cd android && EXPO_PUBLIC_MOCK_MODE=true EXPO_PUBLIC_E2E_MODE=true ./gradlew app:assembleRelease app:assembleDebugAndroidTest -PreactNativeArchitectures=x86_64 -Pandroid.enableMinifyInReleaseBuilds=false --no-daemon',
     },
   },
   devices: {
