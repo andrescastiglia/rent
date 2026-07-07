@@ -697,6 +697,7 @@ jobs:
           api-level: 36
           avd-name: Medium_Phone_API_36.1
           arch: x86_64
+          cores: 4
           profile: pixel_7
           disable-animations: true
           script: cd mobile && npm run e2e:android
