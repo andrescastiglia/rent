@@ -273,12 +273,6 @@ describe('TenantsService', () => {
 
       await expect(service.findOne('999')).rejects.toThrow(NotFoundException);
     });
-
-    it('should throw NotFoundException when tenant not found', async () => {
-      userRepository.findOne!.mockResolvedValue(null);
-
-      await expect(service.findOne('999')).rejects.toThrow(NotFoundException);
-    });
   });
 
   describe('update', () => {
