@@ -16,7 +16,7 @@ module.exports = {
       testBinaryPath:
         'android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk',
       build:
-        'cd android && EXPO_PUBLIC_MOCK_MODE=true EXPO_PUBLIC_E2E_MODE=true ./gradlew app:assembleDebug app:assembleDebugAndroidTest -DtestBuildType=debug -PdetoxE2E --no-daemon',
+        'cd android && ./gradlew app:assembleDebug app:assembleDebugAndroidTest -DtestBuildType=debug --no-daemon',
       reversePorts: [8081],
     },
   },
