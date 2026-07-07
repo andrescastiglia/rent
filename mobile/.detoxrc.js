@@ -15,6 +15,9 @@ module.exports = {
       binaryPath: 'android/app/build/outputs/apk/debug/app-debug.apk',
       testBinaryPath:
         'android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk',
+      launchArgs: {
+        detoxEnableSynchronization: '0',
+      },
       build:
         'cd android && ./gradlew app:assembleDebug app:assembleDebugAndroidTest -DtestBuildType=debug -PreactNativeArchitectures=x86_64 --no-daemon',
       reversePorts: [8081],

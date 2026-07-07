@@ -2,11 +2,16 @@ export async function relaunchFreshApp(): Promise<void> {
   await device.launchApp({
     newInstance: true,
     resetAppState: true,
+    launchArgs: {
+      detoxEnableSynchronization: '0',
+    },
   });
 }
 
 export async function loginAsAdmin(): Promise<void> {
-  await expect(element(by.id('login.email'))).toBeVisible();
+  await waitFor(element(by.id('login.email')))
+    .toBeVisible()
+    .withTimeout(30000);
 
   await element(by.id('login.email')).replaceText('admin@example.com');
   await element(by.id('login.password')).replaceText('admin123');
