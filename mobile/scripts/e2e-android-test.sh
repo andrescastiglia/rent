@@ -4,6 +4,9 @@ set -eu
 METRO_LOG="${METRO_LOG:-/tmp/rent-metro-e2e.log}"
 LOGCAT_LOG="${LOGCAT_LOG:-/tmp/rent-e2e-logcat.log}"
 DETOX_ARTIFACTS="${DETOX_ARTIFACTS:-/tmp/rent-detox-artifacts}"
+APP_APK="android/app/build/outputs/apk/debug/app-debug.apk"
+TEST_APK="android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
+APP_ID="$(node -p "require('./app.json').expo.android.package")"
 BUNDLE_URLS="http://127.0.0.1:8081/.expo/.virtual-metro-entry.bundle?platform=android&dev=true&minify=false
 http://127.0.0.1:8081/node_modules/expo-router/entry.bundle?platform=android&dev=true&minify=false"
 LOGCAT_PID=""
@@ -53,12 +56,18 @@ for BUNDLE_URL in $BUNDLE_URLS; do
 done
 
 adb wait-for-device
+adb install -r -d -g "$APP_APK"
+adb install -r -d "$TEST_APK"
+adb shell cmd package compile -m speed -f "$APP_ID" >/dev/null 2>&1 || true
+adb shell cmd package compile -m speed -f "$APP_ID.test" >/dev/null 2>&1 || true
+adb shell am force-stop "$APP_ID" >/dev/null 2>&1 || true
 adb logcat -c >/dev/null 2>&1 || true
 adb logcat -v time >"$LOGCAT_LOG" 2>&1 &
 LOGCAT_PID=$!
 
 EXPO_PUBLIC_MOCK_MODE=true EXPO_PUBLIC_E2E_MODE=true \
   detox test -c android.emu.debug \
+    --reuse \
     --cleanup \
     --record-logs failing \
     --take-screenshots failing \
