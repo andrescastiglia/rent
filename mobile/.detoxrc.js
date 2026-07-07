@@ -31,7 +31,7 @@ module.exports = {
         detoxEnableSynchronization: '0',
       },
       build:
-        'cd android && EXPO_PUBLIC_MOCK_MODE=true EXPO_PUBLIC_E2E_MODE=true ./gradlew app:assembleRelease app:assembleReleaseAndroidTest -DtestBuildType=release -PreactNativeArchitectures=x86_64 -Pandroid.enableMinifyInReleaseBuilds=false --no-daemon',
+        'cd android && EXPO_PUBLIC_MOCK_MODE=true EXPO_PUBLIC_E2E_MODE=true ./gradlew app:assembleRelease app:assembleAndroidTest -DtestBuildType=release -PreactNativeArchitectures=x86_64 -Pandroid.enableMinifyInReleaseBuilds=false --no-daemon',
     },
   },
   devices: {
