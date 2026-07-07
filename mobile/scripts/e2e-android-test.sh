@@ -4,11 +4,12 @@ set -eu
 METRO_LOG="${METRO_LOG:-/tmp/rent-metro-e2e.log}"
 LOGCAT_LOG="${LOGCAT_LOG:-/tmp/rent-e2e-logcat.log}"
 DETOX_ARTIFACTS="${DETOX_ARTIFACTS:-/tmp/rent-detox-artifacts}"
-DETOX_CONFIGURATION="${DETOX_CONFIGURATION:-android.emu.release}"
+DETOX_CONFIGURATION="${DETOX_CONFIGURATION:-android.emu.debug}"
 APP_BUILD_TYPE="debug"
 TEST_BUILD_TYPE="debug"
 if [ "$DETOX_CONFIGURATION" = "android.emu.release" ]; then
   APP_BUILD_TYPE="release"
+  TEST_BUILD_TYPE="release"
 fi
 APP_APK="android/app/build/outputs/apk/$APP_BUILD_TYPE/app-$APP_BUILD_TYPE.apk"
 TEST_APK="android/app/build/outputs/apk/androidTest/$TEST_BUILD_TYPE/app-$TEST_BUILD_TYPE-androidTest.apk"

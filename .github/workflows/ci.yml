@@ -693,6 +693,11 @@ jobs:
 
       - name: Run mobile E2E tests on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
+        env:
+          DETOX_CONFIGURATION: android.emu.debug
+          DETOX_ARTIFACTS: ../mobile-detox-artifacts
+          LOGCAT_LOG: ../rent-e2e-logcat.log
+          METRO_LOG: ../rent-metro-e2e.log
         with:
           api-level: 34
           avd-name: Medium_Phone_API_34
@@ -701,6 +706,17 @@ jobs:
           profile: pixel_7
           disable-animations: true
           script: cd mobile && npm run e2e:android
+
+      - name: Upload Detox artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mobile-detox-artifacts
+          path: |
+            mobile-detox-artifacts
+            rent-metro-e2e.log
+            rent-e2e-logcat.log
+          if-no-files-found: ignore
 
   # ─────────────────────────────────────────────────────────────
   # DEPLOY TO PRODUCTION (only on main branch)
