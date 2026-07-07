@@ -1,7 +1,7 @@
 export async function relaunchFreshApp(): Promise<void> {
   await device.launchApp({
-    delete: true,
     newInstance: true,
+    resetAppState: true,
   });
 }
 
