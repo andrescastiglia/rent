@@ -15,7 +15,7 @@
     "test:cov": "jest --config jest.config.js --coverage",
     "e2e:prebuild": "npx expo prebuild --platform android --no-install",
     "e2e:build:android": "EXPO_PUBLIC_MOCK_MODE=true EXPO_PUBLIC_E2E_MODE=true detox build -c android.emu.debug",
-    "e2e:test:android": "EXPO_PUBLIC_MOCK_MODE=true EXPO_PUBLIC_E2E_MODE=true sh -c 'npx expo start --localhost --clear > /tmp/rent-expo-e2e.log 2>&1 & METRO_PID=$!; trap \"kill $METRO_PID 2>/dev/null || true\" EXIT; for _ in $(seq 1 60); do curl -fsS http://127.0.0.1:8081/status | grep -q \"packager-status:running\" && break; sleep 2; done; curl -fsS http://127.0.0.1:8081/status | grep -q \"packager-status:running\" || { cat /tmp/rent-expo-e2e.log; exit 1; }; detox test -c android.emu.debug --cleanup || { cat /tmp/rent-expo-e2e.log; exit 1; }'",
+    "e2e:test:android": "EXPO_PUBLIC_MOCK_MODE=true EXPO_PUBLIC_E2E_MODE=true sh -c 'EXPO_UNSTABLE_HEADLESS=true npx expo start --localhost --clear > /tmp/rent-expo-e2e.log 2>&1 & METRO_PID=$!; trap \"kill $METRO_PID 2>/dev/null || true\" EXIT; for _ in $(seq 1 60); do curl -fsS http://127.0.0.1:8081/status 2>/dev/null | grep -q \"packager-status:running\" && break; sleep 2; done; curl -fsS http://127.0.0.1:8081/status | grep -q \"packager-status:running\" || { cat /tmp/rent-expo-e2e.log; exit 1; }; detox test -c android.emu.debug --cleanup || { cat /tmp/rent-expo-e2e.log; exit 1; }'",
     "e2e:android": "npm run e2e:build:android && npm run e2e:test:android",
     "format:check": "prettier --check \"{app,src}/**/*.{ts,tsx}\" \"*.{js,json}\""
   },
