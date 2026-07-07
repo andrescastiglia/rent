@@ -1,7 +1,6 @@
 export async function relaunchFreshApp(): Promise<void> {
   await device.launchApp({
     newInstance: true,
-    resetAppState: true,
     launchArgs: {
       detoxEnableSynchronization: '0',
     },
@@ -9,6 +8,16 @@ export async function relaunchFreshApp(): Promise<void> {
 }
 
 export async function loginAsAdmin(): Promise<void> {
+  const isAlreadyLoggedIn = await waitFor(element(by.id('tab.properties')))
+    .toBeVisible()
+    .withTimeout(10000)
+    .then(() => true)
+    .catch(() => false);
+
+  if (isAlreadyLoggedIn) {
+    return;
+  }
+
   await waitFor(element(by.id('login.email')))
     .toBeVisible()
     .withTimeout(30000);
