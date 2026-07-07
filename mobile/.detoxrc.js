@@ -24,7 +24,7 @@ module.exports = {
     emulator: {
       type: 'android.emulator',
       device: {
-        avdName: 'Medium_Phone_API_36.1',
+        avdName: 'Medium_Phone_API_35',
       },
       bootArgs: '-no-snapshot-load -no-snapshot-save -no-boot-anim',
       readonly: false,
