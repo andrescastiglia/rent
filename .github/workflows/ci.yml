@@ -694,8 +694,8 @@ jobs:
       - name: Run mobile E2E tests on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
-          avd-name: Medium_Phone_API_35
+          api-level: 34
+          avd-name: Medium_Phone_API_34
           arch: x86_64
           cores: 4
           profile: pixel_7
