@@ -1,151 +1,165 @@
-import { test, expect, gotoWithRetry, login, localePath } from './fixtures/auth';
+import type { Page } from "@playwright/test";
+import {
+  test,
+  expect,
+  gotoWithRetry,
+  login,
+  localePath,
+} from "./fixtures/auth";
 
-const leaseDetailLinkSelector =
-  'section a[href*="/leases/"]:not([href*="/leases/new"]):not([href*="/leases/templates"]):not([href*="/leases/import"]):not([href*="/edit"])';
+function firstLeaseCard(page: Page) {
+  return page
+    .locator("section button")
+    .filter({ hasText: /Alertas de renovación/ })
+    .first();
+}
 
-test.describe('Lease Creation Flow', () => {
-    test.beforeEach(async ({ page }) => {
-        await login(page);
-        await gotoWithRetry(page, localePath('/leases'));
-    });
+async function openFirstLease(page: Page) {
+  const card = firstLeaseCard(page);
+  await expect(card).toBeVisible({ timeout: 10000 });
+  await card.click({ force: true });
+  await expect(page).toHaveURL(/\/es\/leases\/[^/]+$/);
+}
 
-    test('should display leases list page', async ({ page }) => {
-        await expect(page).toHaveURL(/\/es\/leases/);
-        await expect(page.getByRole('heading', { name: /leases|contratos/i })).toBeVisible();
-    });
+test.describe("Lease Creation Flow", () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await gotoWithRetry(page, localePath("/leases"));
+  });
 
-    test('should navigate to create lease page', async ({ page }) => {
-        // New flow: create lease action is exposed from property context
-        await gotoWithRetry(page, localePath('/properties'));
-        const createLeaseFromProperty = page.locator('a[href*="/leases/new?propertyId="]').first();
+  test("should display leases list page", async ({ page }) => {
+    await expect(page).toHaveURL(/\/es\/leases/);
+    await expect(
+      page.getByRole("heading", { name: /leases|contratos/i }),
+    ).toBeVisible();
+  });
 
-        if ((await createLeaseFromProperty.count()) > 0) {
-            await createLeaseFromProperty.click({ force: true });
-        } else {
-            // Fallback for datasets where no property is currently eligible for "create lease"
-            await gotoWithRetry(page, localePath('/leases/new'));
-        }
+  test("should navigate to create lease page", async ({ page }) => {
+    // New flow: create lease action is exposed from property context
+    await gotoWithRetry(page, localePath("/properties"));
+    const createLeaseFromProperty = page
+      .locator('a[href*="/leases/new?propertyId="]')
+      .first();
 
-        // Should navigate to new lease page
-        await expect(page).toHaveURL(/\/es\/leases\/new/);
-    });
+    if ((await createLeaseFromProperty.count()) > 0) {
+      await createLeaseFromProperty.click({ force: true });
+    } else {
+      // Fallback for datasets where no property is currently eligible for "create lease"
+      await gotoWithRetry(page, localePath("/leases/new"));
+    }
 
-    test('should display lease creation form', async ({ page }) => {
-        await gotoWithRetry(page, localePath('/leases/new'));
+    // Should navigate to new lease page
+    await expect(page).toHaveURL(/\/es\/leases\/new/);
+  });
 
-        // Check form elements are visible
-        await expect(page.getByLabel(/property|propiedad/i)).toBeVisible();
-        await expect(page.getByLabel(/tenant|inquilino/i)).toBeVisible();
-        await expect(page.getByLabel(/start date|fecha.*inicio/i)).toBeVisible();
-        await expect(page.getByLabel(/end date|fecha.*fin/i)).toBeVisible();
-        await expect(page.getByLabel(/rent amount|monto.*alquiler/i)).toBeVisible();
-        await expect(page.getByRole('button', { name: /save|guardar/i })).toBeVisible();
-    });
+  test("should display lease creation form", async ({ page }) => {
+    await gotoWithRetry(page, localePath("/leases/new"));
 
-    test('should show validation errors for empty form', async ({ page }) => {
-        await gotoWithRetry(page, localePath('/leases/new'));
+    // Check form elements are visible
+    await expect(page.getByLabel(/property|propiedad/i)).toBeVisible();
+    await expect(page.getByLabel(/tenant|inquilino/i)).toBeVisible();
+    await expect(page.getByLabel(/start date|fecha.*inicio/i)).toBeVisible();
+    await expect(page.getByLabel(/end date|fecha.*fin/i)).toBeVisible();
+    await expect(page.getByLabel(/rent amount|monto.*alquiler/i)).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /save|guardar/i }),
+    ).toBeVisible();
+  });
 
-        // Try to submit empty form
-        await page.getByRole('button', { name: /save|guardar/i }).click();
+  test("should show validation errors for empty form", async ({ page }) => {
+    await gotoWithRetry(page, localePath("/leases/new"));
 
-        // Should show validation errors
-        await expect(page.getByText(/required|requerido|obrigatório/i).first()).toBeVisible();
-    });
+    // Try to submit empty form
+    await page.getByRole("button", { name: /save|guardar/i }).click();
 
-    test('should create a new lease with valid data', async ({ page }) => {
-        await gotoWithRetry(page, localePath('/leases/new'));
+    // Should show validation errors
+    await expect(
+      page.getByText(/required|requerido|obrigatório/i).first(),
+    ).toBeVisible();
+  });
 
-        // Fill in lease form
-        await page.getByLabel(/property|propiedad/i).selectOption({ index: 1 }); // Select first property
-        await page.getByLabel(/tenant|inquilino/i).selectOption({ index: 1 }); // Select first tenant
-        await page.getByLabel(/start date|fecha.*inicio/i).fill('2024-01-01');
-        await page.getByLabel(/end date|fecha.*fin/i).fill('2024-12-31');
-        await page.getByLabel(/rent amount|monto.*alquiler/i).fill('1500');
-        await page.getByLabel(/deposit|depósito/i).fill('3000');
-        await page.getByLabel(/status|estado/i).selectOption('DRAFT');
+  test("should create a new lease with valid data", async ({ page }) => {
+    await gotoWithRetry(page, localePath("/leases/new"));
 
-        // Submit form
-        await page.getByRole('button', { name: /save|guardar/i }).click();
+    // Fill in lease form
+    await page.getByLabel(/property|propiedad/i).selectOption({ index: 1 }); // Select first property
+    await page.getByLabel(/tenant|inquilino/i).selectOption({ index: 1 }); // Select first tenant
+    await page.getByLabel(/start date|fecha.*inicio/i).fill("2024-01-01");
+    await page.getByLabel(/end date|fecha.*fin/i).fill("2024-12-31");
+    await page.getByLabel(/rent amount|monto.*alquiler/i).fill("1500");
+    await page.getByLabel(/deposit|depósito/i).fill("3000");
+    await page.getByLabel(/status|estado/i).selectOption("DRAFT");
 
-        // Should redirect to lease details
-        await expect(page).toHaveURL(/\/es\/leases\/[^/]+$/);
-    });
+    // Submit form
+    await page.getByRole("button", { name: /save|guardar/i }).click();
 
-    test('should navigate to lease details', async ({ page }) => {
-        await gotoWithRetry(page, localePath('/leases'));
+    // Should redirect to lease details
+    await expect(page).toHaveURL(/\/es\/leases\/[^/]+$/);
+  });
 
-        // Wait for leases to load
-        await page.waitForSelector(leaseDetailLinkSelector, { timeout: 5000 });
+  test("should navigate to lease details", async ({ page }) => {
+    await gotoWithRetry(page, localePath("/leases"));
+    await openFirstLease(page);
+  });
 
-        // Click on first lease card link
-        const firstLeaseLink = page.locator(leaseDetailLinkSelector).first();
-        await firstLeaseLink.click({ force: true });
+  test("should display lease details correctly", async ({ page }) => {
+    await gotoWithRetry(page, localePath("/leases"));
+    await openFirstLease(page);
 
-        // Should navigate to lease detail page
-        await expect(page).toHaveURL(/\/es\/leases\/[^/]+$/);
-    });
+    // Should show lease information sections
+    await expect(
+      page.getByRole("heading", {
+        name: /lease agreement|contrato de alquiler|contrato de aluguel/i,
+      }),
+    ).toBeVisible();
+  });
 
-    test('should display lease details correctly', async ({ page }) => {
-        await gotoWithRetry(page, localePath('/leases'));
+  test("should display edit and delete buttons on lease detail page", async ({
+    page,
+  }) => {
+    await gotoWithRetry(page, localePath("/leases"));
+    await openFirstLease(page);
 
-        // Wait for and click first lease
-        await page.waitForSelector(leaseDetailLinkSelector, { timeout: 5000 });
-        await page.locator(leaseDetailLinkSelector).first().click({ force: true });
+    // Should show edit/new-version and delete buttons
+    await expect(
+      page.locator('a[href*="/leases/"][href$="/edit"]'),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /delete|eliminar/i }),
+    ).toBeVisible();
+  });
 
-        // Should show lease information sections
-        await expect(page.getByRole('heading', { name: /lease|contrato/i })).toBeVisible();
-    });
+  test("should search leases", async ({ page }) => {
+    await gotoWithRetry(page, localePath("/leases"));
 
-    test('should display edit and delete buttons on lease detail page', async ({ page }) => {
-        await gotoWithRetry(page, localePath('/leases'));
+    // Type in search box
+    const searchInput = page.getByPlaceholder(/search|buscar/i);
+    await searchInput.fill("Test");
 
-        // Wait for and click first lease
-        await page.waitForSelector(leaseDetailLinkSelector, { timeout: 5000 });
-        await page.locator(leaseDetailLinkSelector).first().click({ force: true });
+    // Wait for filter to apply
+    await page.waitForTimeout(500);
 
-        // Should show edit/new-version and delete buttons
-        await expect(page.locator('a[href*="/leases/"][href$="/edit"]')).toBeVisible();
-        await expect(page.getByRole('button', { name: /delete|eliminar/i })).toBeVisible();
-    });
+    // Search input should have the value
+    await expect(searchInput).toHaveValue("Test");
+  });
 
-    test('should search leases', async ({ page }) => {
-        await gotoWithRetry(page, localePath('/leases'));
+  test("should navigate to edit lease page", async ({ page }) => {
+    await gotoWithRetry(page, localePath("/leases"));
+    await openFirstLease(page);
 
-        // Type in search box
-        const searchInput = page.getByPlaceholder(/search|buscar/i);
-        await searchInput.fill('Test');
+    const editLink = page.locator('a[href*="/leases/"][href$="/edit"]').first();
+    await expect(editLink).toBeVisible();
+    const editHref = await editLink.getAttribute("href");
+    expect(editHref).toBeTruthy();
 
-        // Wait for filter to apply
-        await page.waitForTimeout(500);
+    await gotoWithRetry(page, editHref!);
 
-        // Search input should have the value
-        await expect(searchInput).toHaveValue('Test');
-    });
+    // Should navigate to edit page
+    await expect(page).toHaveURL(/\/es\/leases\/[^/]+\/edit$/);
 
-    test('should navigate to edit lease page', async ({ page }) => {
-        await gotoWithRetry(page, localePath('/leases'));
-
-        // Wait for and click first lease
-        await page.waitForSelector(leaseDetailLinkSelector, { timeout: 5000 });
-        const leaseLink = page.locator(leaseDetailLinkSelector).first();
-        
-        // Extract the lease ID from the href
-        const href = await leaseLink.getAttribute('href');
-        expect(href).toBeTruthy();
-        
-        // Construct the edit URL directly
-        const leaseId = href!.match(/\/leases\/([^/]+)/)?.[1];
-        expect(leaseId).toBeTruthy();
-        
-        const editUrl = localePath(`/leases/${leaseId}/edit`);
-        
-        // Navigate directly to edit page
-        await gotoWithRetry(page, editUrl);
-
-        // Should navigate to edit page
-        await expect(page).toHaveURL(/\/es\/leases\/[^/]+\/edit$/);
-
-        // Should show form with existing data
-        await expect(page.getByRole('button', { name: /save|guardar/i })).toBeVisible();
-    });
+    // Should show form with existing data
+    await expect(
+      page.getByRole("button", { name: /save|guardar/i }),
+    ).toBeVisible();
+  });
 });
