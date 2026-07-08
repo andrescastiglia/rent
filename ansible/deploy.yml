@@ -69,6 +69,7 @@
       loop:
         - "{{ current_path }}/backend/node_modules"
         - "{{ current_path }}/backend/dist"
+        - "{{ current_path }}/backend/tsconfig.build.tsbuildinfo"
 
     - name: Install backend dependencies
       ansible.builtin.command:
@@ -99,6 +100,19 @@
         cmd: npm prune --omit=dev
         chdir: "{{ current_path }}/backend"
 
+    - name: Check deployed backend path
+      ansible.builtin.stat:
+        path: "{{ deploy_path }}/backend"
+      register: deployed_backend_path
+
+    - name: Remove stale backend deploy directory before linking build output
+      ansible.builtin.file:
+        path: "{{ deploy_path }}/backend"
+        state: absent
+      when:
+        - deployed_backend_path.stat.exists
+        - not deployed_backend_path.stat.islnk
+
     - name: Create backend symlink
       ansible.builtin.file:
         src: "{{ current_path }}/backend/dist"
@@ -113,6 +127,19 @@
         state: link
         force: true
 
+    - name: Check deployed backend entrypoint exists
+      ansible.builtin.stat:
+        path: "{{ deploy_path }}/backend/main.js"
+      register: deployed_backend_entrypoint
+
+    - name: Fail if deployed backend entrypoint is missing
+      ansible.builtin.fail:
+        msg: >-
+          Backend deploy symlink is not pointing at a build with main.js.
+          Expected {{ deploy_path }}/backend/main.js to exist.
+          Build output path: {{ current_path }}/backend/dist/main.js.
+      when: not deployed_backend_entrypoint.stat.exists
+
     # ─────────────────────────────────────────────────────────────
     # BATCH BUILD
     # ─────────────────────────────────────────────────────────────
@@ -123,6 +150,7 @@
       loop:
         - "{{ current_path }}/batch/node_modules"
         - "{{ current_path }}/batch/dist"
+        - "{{ current_path }}/batch/tsconfig.build.tsbuildinfo"
 
     - name: Install batch dependencies
       ansible.builtin.command:
@@ -206,6 +234,13 @@
         state: link
         force: true
 
+    - name: Create frontend symlink newrelic.js
+      ansible.builtin.file:
+        src: "{{ current_path }}/frontend/newrelic.js"
+        dest: "{{ deploy_path }}/frontend/newrelic.js"
+        state: link
+        force: true
+
     - name: Link shared .env to frontend root
       ansible.builtin.file:
         src: "{{ deploy_path }}/shared/.env"
@@ -264,8 +299,9 @@
           --log /var/log/rent/frontend.log
           --time
           -- start --dotenv_config_path={{ deploy_path }}/frontend/.env
+        chdir: "{{ deploy_path }}/frontend"
       environment:
-        NODE_OPTIONS: "-r ./newrelic.js -r newrelic"
+        NODE_OPTIONS: "-r {{ deploy_path }}/frontend/newrelic.js -r newrelic"
 
     - name: Save PM2 process list
       ansible.builtin.command:
