@@ -4,7 +4,7 @@ Fecha de ejecucion: 2026-07-07
 
 ## Estado
 
-Estado actual: prerequisitos publicos desplegados y paquete de App Review preparado, pero submission no enviada.
+Estado actual: prerequisitos publicos desplegados, draft de App Review creado, pero submission no enviada.
 
 No se pudo enviar la submission desde este entorno porque Meta redirige a login de Facebook/Business y requiere una sesion autenticada con permisos de administrador sobre la app y el business:
 
@@ -12,6 +12,46 @@ No se pudo enviar la submission desde este entorno porque Meta redirige a login 
 - Business: `4099027493742250`
 - Submission: https://developers.facebook.com/apps/855177650884807/app-review/submissions/?business_id=4099027493742250
 - Pantalla alcanzada: login de Facebook/Meta Business con campos de email y password.
+
+Continuacion 2026-07-08:
+
+- Se encontro `auth.json` local con una sesion Meta/Facebook valida para Playwright headless.
+- Se abrio el draft autenticado de App Review.
+- Submission draft: `857140894021816`.
+- URL del draft: https://developers.facebook.com/apps/855177650884807/app-review/submissions/?submission_id=857140894021816&business_id=4099027493742250
+- Estado Meta: `Submit for App Review`, con `Allowed usage` incompleto y boton `Submit for review` deshabilitado.
+- Produccion revalidada:
+  - `https://rent.maese.com.ar/es/privacy` -> 200.
+  - `https://rent.maese.com.ar/es/terms` -> 200.
+  - `https://rent.maese.com.ar/es/data-deletion` -> 200.
+  - `https://rent.maese.com.ar/api/whatsapp/webhook` -> 400 sin challenge, esperado para llamada directa sin parametros `hub.*`.
+- Reviewer instructions ya tiene contenido cargado en Meta, incluyendo usuario demo y password en notas privadas. No copiar la password al repo.
+- En `whatsapp_business_messaging`, Meta muestra descripcion cargada, checkbox de allowed usage marcado y un screencast existente (`View uploaded screencast`).
+- Bloqueo actual en `whatsapp_business_messaging`: `0 of 1 API call(s) required`. Meta indica que la llamada requerida puede tardar hasta 24 horas en reflejarse.
+- No se envio WhatsApp real desde este entorno porque sigue pendiente confirmar que el destinatario WhatsApp de prueba sea valido y controlado por el equipo.
+- El draft incluye solicitudes adicionales visibles en Meta: `manage_app_solution`, `whatsapp_business_manage_events`, `business_management`, `public_profile`, `whatsapp_business_management`, `email`. El codigo de Rent solo evidencia WhatsApp Cloud API; intentar quitar permisos desde los botones `remove` de la lista no cambio la seleccion. Meta sugiere usar `customize use cases` para remover permisos/features de la app.
+
+Continuacion 2026-07-08 posterior:
+
+- El usuario confirmo usar su numero personal como destinatario de prueba: `+5492227442981`.
+- El usuario removio permisos extra en Meta; el draft actual muestra solo `whatsapp_business_messaging`.
+- Se reabrio el formulario de `whatsapp_business_messaging`; sigue bloqueado por `0 of 1 API call(s) required`.
+- Se intento usar `WhatsApp > Step 1. Try it out`; Meta no permitio reclamar el numero de test porque detecto nuevo dispositivo/ubicacion y pidio verificacion de cuenta.
+- Meta Business Home muestra `Verification needed` y abre un flujo de SMS (`Confirm phone number`, boton `Send text`). Requiere una persona que reciba y cargue el codigo.
+- No se pudo enviar desde el backend de produccion porque las credenciales demo ya no estan accesibles en Reviewer instructions hasta completar Allowed usage, y las variables `WHATSAPP_ACCESS_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` no estan presentes en archivos locales.
+- Proximas vias posibles:
+  - completar la verificacion SMS de Meta, volver a `WhatsApp > Step 1. Try it out`, reclamar test number y enviar el template al numero confirmado;
+  - o usar password demo/token backend para llamar `POST https://rent.maese.com.ar/api/whatsapp/messages` con JWT contra el destinatario confirmado;
+  - o usar directamente Graph API si se proveen `WHATSAPP_PHONE_NUMBER_ID` y `WHATSAPP_ACCESS_TOKEN`.
+
+Continuacion 2026-07-08 webhook:
+
+- Se probo `https://rent.maese.com.ar/api/whatsapp/webhook` con `hub.mode=subscribe`, `hub.verify_token` y `hub.challenge`; produccion responde 200 y devuelve exactamente el challenge.
+- Meta `Verify and save` fallo con: `The callback URL or verify token couldn't be validated`.
+- La respuesta de produccion devuelve el challenge con `Content-Type: text/html; charset=utf-8`.
+- Cambio local aplicado para devolver el challenge como `text/plain` en `backend/src/whatsapp/whatsapp.controller.ts`.
+- Test puntual ejecutado: `npm test -- whatsapp.controller.spec.ts` -> passed.
+- Pendiente: desplegar backend y reintentar `Verify and save` en Meta.
 
 ## Entorno revisado
 
@@ -245,12 +285,18 @@ El endpoint existe; sin parametros de verificacion devuelve 400, lo esperado par
 - [x] Ruta local de Data Deletion agregada al repo.
 - [x] Desplegar Privacy Policy, Terms y Data Deletion a produccion.
 - [x] Verificar URLs publicas de compliance en produccion.
+- [x] Recuperar sesion Meta via `auth.json`.
+- [x] Crear/abrir draft en App Review (`submission_id=857140894021816`).
+- [x] Confirmar que Reviewer instructions tiene notas privadas cargadas.
+- [x] Confirmar que `whatsapp_business_messaging` tiene descripcion/screencast/allowed usage cargados.
+- [x] Remover permisos no usados; Meta ahora muestra solo `whatsapp_business_messaging`.
+- [x] Confirmar numero WhatsApp/test recipient valido para reviewer: `+5492227442981`.
 - [ ] Confirmar Business Verification en Meta Business.
-- [ ] Confirmar numero WhatsApp/test recipient valido para reviewer.
 - [ ] Confirmar permisos exactos seleccionados en Meta UI.
-- [ ] Grabar videos.
-- [ ] Crear draft en App Review.
-- [ ] Pegar credenciales en notas privadas de Meta, sin commitear password.
+- [ ] Ejecutar una llamada real de WhatsApp Cloud API con destinatario de prueba controlado para completar `0 of 1 API call(s) required`.
+- [ ] Completar verificacion SMS de Meta Business o proveer credenciales/token para ejecutar la llamada desde backend/Graph.
+- [ ] Esperar/revalidar que Meta marque el API test call como completo (puede tardar hasta 24 h).
+- [ ] Revalidar videos/screencast adjuntos en cada permiso que quede en la submission.
 - [ ] Enviar submission.
 
 ## Referencias oficiales
