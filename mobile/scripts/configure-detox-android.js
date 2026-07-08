@@ -6,6 +6,7 @@ const path = require('path');
 const mobileRoot = path.resolve(process.env.MOBILE_ROOT || process.cwd());
 const appJsonPath = path.join(mobileRoot, 'app.json');
 const packageJsonPath = path.join(mobileRoot, 'package.json');
+const rootBuildGradlePath = path.join(mobileRoot, 'android/build.gradle');
 const buildGradlePath = path.join(mobileRoot, 'android/app/build.gradle');
 const androidTestRoot = path.join(mobileRoot, 'android/app/src/androidTest');
 
@@ -55,6 +56,32 @@ function upsertDependency(gradle, dependency) {
     dependenciesMatch.index + dependenciesMatch[0].length,
   );
   return `${gradle.slice(0, insertAfter + 1)}    androidTestImplementation("${dependency}")\n${gradle.slice(insertAfter + 1)}`;
+}
+
+function configureRootBuildGradle() {
+  let gradle = fs.readFileSync(rootBuildGradlePath, 'utf8');
+  const detoxRepo =
+    'maven { url("$rootDir/../node_modules/detox/Detox-android") }';
+
+  if (gradle.includes('node_modules/detox/Detox-android')) {
+    return;
+  }
+
+  const repositoriesMatch = gradle.match(
+    /allprojects\s*\{\s*repositories\s*\{/,
+  );
+  if (!repositoriesMatch) {
+    throw new Error(
+      'Could not find allprojects.repositories in android/build.gradle',
+    );
+  }
+
+  const insertAfter = gradle.indexOf(
+    '\n',
+    repositoriesMatch.index + repositoriesMatch[0].length,
+  );
+  gradle = `${gradle.slice(0, insertAfter + 1)}    ${detoxRepo}\n${gradle.slice(insertAfter + 1)}`;
+  fs.writeFileSync(rootBuildGradlePath, gradle);
 }
 
 function writeAndroidTestManifest() {
@@ -191,6 +218,7 @@ if (!detoxRange) {
   throw new Error('Missing detox dependency in package.json');
 }
 
+configureRootBuildGradle();
 configureBuildGradle(detoxVersion);
 writeAndroidTestManifest();
 writeDetoxTest(androidPackage);
