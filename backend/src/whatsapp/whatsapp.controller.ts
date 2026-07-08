@@ -52,7 +52,7 @@ export class WhatsappController {
       mode === 'subscribe' &&
       this.whatsappService.verifyWebhookToken(verifyToken)
     ) {
-      return res.status(HttpStatus.OK).send(challenge);
+      return res.type('text/plain').status(HttpStatus.OK).send(challenge);
     }
 
     return res.sendStatus(HttpStatus.FORBIDDEN);
