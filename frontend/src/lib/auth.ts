@@ -43,16 +43,19 @@ function getMockUserFromToken(
     return null;
   }
 
-  return sanitizeUserForStorage({
-    id: role === "admin" ? "1" : `role-${role}-1`,
-    email: null,
-    firstName: role.charAt(0).toUpperCase() + role.slice(1),
-    lastName: "User",
-    avatarUrl: null,
-    language: "es",
-    role,
-    isActive: true,
-  });
+  return {
+    ...sanitizeUserForStorage({
+      id: role === "admin" ? "1" : `role-${role}-1`,
+      email: null,
+      firstName: role.charAt(0).toUpperCase() + role.slice(1),
+      lastName: "User",
+      avatarUrl: null,
+      language: "es",
+      role,
+      isActive: true,
+    }),
+    email: `e2e.${role}@example.com`,
+  };
 }
 
 export function getToken(): string | null {
