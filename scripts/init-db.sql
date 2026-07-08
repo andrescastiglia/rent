@@ -371,15 +371,6 @@ CREATE TYPE maintenance_ticket_source AS ENUM ('tenant', 'owner', 'staff', 'admi
 CREATE TYPE portal_name AS ENUM ('zonaprop', 'argenprop', 'mercadolibre', 'properati', 'navent');
 CREATE TYPE portal_listing_status AS ENUM ('draft', 'published', 'paused', 'removed', 'error');
 
--- Payment activity type (migration 076)
-CREATE TYPE payment_activity_type AS ENUM ('monthly', 'annual', 'adjustment', 'late_fee', 'extraordinary');
-
--- Property visit kind (migration 076)
-CREATE TYPE property_visit_kind AS ENUM ('visit', 'maintenance');
-
--- Lease renewal alert periodicity (migration 076)
-CREATE TYPE lease_renewal_alert_periodicity AS ENUM ('monthly', 'four_months', 'custom');
-
 \echo '✓ Tipos ENUM creados'
 
 -- =============================================================================
@@ -1315,10 +1306,6 @@ CREATE TABLE leases (
     signed_at TIMESTAMPTZ,
     signed_by_tenant BOOLEAN DEFAULT FALSE,
     signed_by_owner BOOLEAN DEFAULT FALSE,
-    renewal_alert_enabled BOOLEAN NOT NULL DEFAULT TRUE,
-    renewal_alert_periodicity lease_renewal_alert_periodicity NOT NULL DEFAULT 'monthly',
-    renewal_alert_custom_days INTEGER NULL,
-    renewal_alert_last_sent_at TIMESTAMPTZ NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMPTZ,
@@ -1712,7 +1699,6 @@ CREATE TABLE payments (
     currency VARCHAR(3) DEFAULT 'ARS',
     payment_date DATE NOT NULL DEFAULT CURRENT_DATE,
     processed_at TIMESTAMPTZ,
-    activity_type payment_activity_type NOT NULL DEFAULT 'monthly',
     reference_number VARCHAR(255),
     bank_name VARCHAR(100),
     account_last_digits VARCHAR(4),
