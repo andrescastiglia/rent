@@ -79,6 +79,20 @@
       ansible.builtin.command:
         cmd: npm run build
         chdir: "{{ current_path }}/backend"
+      register: backend_build
+
+    - name: Check backend build output exists
+      ansible.builtin.stat:
+        path: "{{ current_path }}/backend/dist/main.js"
+      register: backend_dist
+
+    - name: Fail if backend build output is missing
+      ansible.builtin.fail:
+        msg: >-
+          Backend build completed but dist/main.js was not found.
+          Build output: {{ backend_build.stdout }}
+          Build stderr: {{ backend_build.stderr }}
+      when: not backend_dist.stat.exists
 
     - name: Prune backend dev dependencies
       ansible.builtin.command:
