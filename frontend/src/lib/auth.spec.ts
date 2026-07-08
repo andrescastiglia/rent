@@ -16,11 +16,12 @@ const buildToken = (payload: Record<string, unknown>) => {
 
 describe("auth helpers", () => {
   beforeEach(() => {
+    clearAuth();
     localStorage.clear();
     jest.useRealTimers();
   });
 
-  it("stores and reads token/sanitized user from localStorage", () => {
+  it("stores token durably and keeps sanitized user in memory only", () => {
     setToken("token-1");
     setUser({
       id: "1",
@@ -34,6 +35,7 @@ describe("auth helpers", () => {
     });
 
     expect(getToken()).toBe("token-1");
+    expect(localStorage.getItem("auth_user")).toBeNull();
     expect(getUser()).toEqual({
       id: "1",
       email: null,

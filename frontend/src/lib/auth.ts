@@ -2,6 +2,7 @@ const TOKEN_KEY = "auth_token";
 const USER_KEY = "auth_user";
 const USER_ROLES = new Set(["admin", "owner", "tenant", "staff", "buyer"]);
 const USER_LANGUAGES = new Set(["es", "en", "pt"]);
+let inMemoryUser: Record<string, unknown> | null = null;
 
 function getOptionalString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
@@ -41,30 +42,25 @@ export function removeToken(): void {
 }
 
 export function getUser(): Record<string, unknown> | null {
-  if (globalThis.localStorage == null) return null;
-  const userStr = globalThis.localStorage.getItem(USER_KEY);
-  if (!userStr) return null;
-
-  try {
-    return JSON.parse(userStr);
-  } catch {
-    // Recover from corrupted localStorage value to avoid crashing the app.
+  if (globalThis.localStorage != null) {
+    // Remove legacy persisted profiles; only the token is durable now.
     globalThis.localStorage.removeItem(USER_KEY);
-    return null;
   }
+  return inMemoryUser;
 }
 
 export function setUser(user: Record<string, unknown>): void {
-  if (globalThis.localStorage == null) return;
-  globalThis.localStorage.setItem(
-    USER_KEY,
-    JSON.stringify(sanitizeUserForStorage(user)),
-  );
+  inMemoryUser = sanitizeUserForStorage(user);
+  if (globalThis.localStorage != null) {
+    globalThis.localStorage.removeItem(USER_KEY);
+  }
 }
 
 export function removeUser(): void {
-  if (globalThis.localStorage == null) return;
-  globalThis.localStorage.removeItem(USER_KEY);
+  inMemoryUser = null;
+  if (globalThis.localStorage != null) {
+    globalThis.localStorage.removeItem(USER_KEY);
+  }
 }
 
 function base64UrlDecode(input: string): string {

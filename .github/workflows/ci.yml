@@ -418,12 +418,7 @@ jobs:
           sudo apt-get install -y postgresql-client
 
       - name: Initialize database snapshot for E2E
-        run: psql -h localhost -p 5432 -U test -d rent_test -f scripts/init-db.sql
-        env:
-          PGPASSWORD: test
-
-      - name: Initialize database schema
-        run: psql -h localhost -p 5432 -U test -d rent_test -f scripts/init-db.sql
+        run: psql -v ON_ERROR_STOP=1 -h localhost -p 5432 -U test -d rent_test -f scripts/init-db.sql
         env:
           PGPASSWORD: test
 

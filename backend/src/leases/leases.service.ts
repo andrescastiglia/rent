@@ -1645,6 +1645,7 @@ export class LeasesService {
       throw new BadRequestException('Invalid contract file payload');
     }
 
+    // lgtm[js/http-to-file-access] The upload is validated and written to a private temp file for local converters only.
     await writeFile(path, file.buffer, { flag: 'wx', mode: 0o600 });
   }
 

@@ -972,8 +972,6 @@ CREATE INDEX idx_property_visits_property_kind_visited_at
     ON property_visits(property_id, kind, visited_at DESC);
 CREATE INDEX idx_property_visits_interested_profile ON property_visits(interested_profile_id)
     WHERE interested_profile_id IS NOT NULL;
-CREATE INDEX idx_property_visits_property_kind_visited_at
-    ON property_visits (property_id, kind, visited_at DESC);
 
 CREATE TRIGGER update_property_visits_updated_at
     BEFORE UPDATE ON property_visits FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -1331,10 +1329,6 @@ CREATE TABLE leases (
         renewal_alert_custom_days IS NULL OR renewal_alert_custom_days >= 1
     ),
     CONSTRAINT leases_adjustment_frequency_check CHECK (adjustment_frequency_months > 0),
-    CONSTRAINT leases_renewal_alert_custom_days_check CHECK (
-        renewal_alert_custom_days IS NULL
-        OR renewal_alert_custom_days >= 1
-    ),
     CONSTRAINT leases_dates_check CHECK (
         contract_type <> 'rental'
         OR (start_date IS NOT NULL AND end_date IS NOT NULL AND end_date > start_date)
@@ -1381,10 +1375,6 @@ CREATE INDEX idx_leases_next_adjustment ON leases(next_adjustment_date)
 CREATE INDEX idx_leases_billing ON leases(billing_frequency, billing_day) 
     WHERE auto_generate_invoices = TRUE AND status = 'active';
 CREATE INDEX idx_leases_previous_lease_id ON leases(previous_lease_id);
-CREATE INDEX idx_leases_end_date_renewal_alerts
-    ON leases (end_date, renewal_alert_enabled, renewal_alert_periodicity)
-    WHERE deleted_at IS NULL;
-
 CREATE TRIGGER update_leases_updated_at
     BEFORE UPDATE ON leases FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -1743,8 +1733,6 @@ CREATE INDEX idx_payments_tenant ON payments(tenant_id);
 CREATE INDEX idx_payments_activity_type_payment_date
     ON payments (activity_type, payment_date DESC);
 CREATE INDEX idx_payments_status ON payments(status);
-CREATE INDEX idx_payments_activity_type_payment_date ON payments (activity_type, payment_date DESC);
-
 -- -----------------------------------------------------------------------------
 -- Payment Items
 -- -----------------------------------------------------------------------------
