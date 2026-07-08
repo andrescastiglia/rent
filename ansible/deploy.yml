@@ -99,6 +99,19 @@
         cmd: npm prune --omit=dev
         chdir: "{{ current_path }}/backend"
 
+    - name: Check deployed backend path
+      ansible.builtin.stat:
+        path: "{{ deploy_path }}/backend"
+      register: deployed_backend_path
+
+    - name: Remove stale backend deploy directory before linking build output
+      ansible.builtin.file:
+        path: "{{ deploy_path }}/backend"
+        state: absent
+      when:
+        - deployed_backend_path.stat.exists
+        - not deployed_backend_path.stat.islnk
+
     - name: Create backend symlink
       ansible.builtin.file:
         src: "{{ current_path }}/backend/dist"
@@ -112,6 +125,19 @@
         dest: "{{ current_path }}/backend/dist/.env"
         state: link
         force: true
+
+    - name: Check deployed backend entrypoint exists
+      ansible.builtin.stat:
+        path: "{{ deploy_path }}/backend/main.js"
+      register: deployed_backend_entrypoint
+
+    - name: Fail if deployed backend entrypoint is missing
+      ansible.builtin.fail:
+        msg: >-
+          Backend deploy symlink is not pointing at a build with main.js.
+          Expected {{ deploy_path }}/backend/main.js to exist.
+          Build output path: {{ current_path }}/backend/dist/main.js.
+      when: not deployed_backend_entrypoint.stat.exists
 
     # ─────────────────────────────────────────────────────────────
     # BATCH BUILD
