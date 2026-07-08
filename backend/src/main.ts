@@ -1,3 +1,8 @@
+if (process.env.NEW_RELIC_LICENSE_KEY) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('newrelic');
+}
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';

@@ -4,15 +4,45 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [preview]
+    branches: [preview, develop]
 
 permissions:
   contents: read
 
 env:
-  NODE_VERSION: '20.x'
+  NODE_VERSION: '22.22.1'
 
 jobs:
+  # ─────────────────────────────────────────────────────────────
+  # CODEQL SECURITY ANALYSIS
+  # ─────────────────────────────────────────────────────────────
+  codeql-analysis:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['javascript-typescript']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-and-quality
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:${{ matrix.language }}
+
   # ─────────────────────────────────────────────────────────────
   # BACKEND JOBS
   # ─────────────────────────────────────────────────────────────
@@ -25,15 +55,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Cache npm dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: ${{ runner.os }}-npm-backend-${{ hashFiles('backend/package-lock.json') }}
@@ -62,7 +92,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        image: postgis/postgis:16-3.5
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
@@ -70,7 +100,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U test -d rent_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -87,15 +117,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Cache npm dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: ${{ runner.os }}-npm-backend-${{ hashFiles('backend/package-lock.json') }}
@@ -124,11 +154,84 @@ jobs:
           NODE_ENV: test
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backend-coverage
           path: backend/coverage
           retention-days: 1
+
+  backend-e2e:
+    name: Backend E2E
+    runs-on: ubuntu-latest
+    needs: backend-lint
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.5
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: rent_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d rent_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v6
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-backend-${{ hashFiles('backend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-backend-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install PostgreSQL client
+        run: |
+          grep -rl "packages.microsoft.com" /etc/apt/sources.list.d 2>/dev/null | xargs -r sudo rm -f
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Initialize database snapshot for E2E
+        working-directory: ${{ github.workspace }}
+        run: psql -h localhost -p 5432 -U test -d rent_test -f scripts/init-db.sql
+        env:
+          PGPASSWORD: test
+
+      - name: Baseline migrations for snapshot schema
+        working-directory: ${{ github.workspace }}
+        run: bash migrations/run-migrations.sh --baseline-all-if-missing --force-baseline-all-if-missing
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: rent_test
+
+      - name: Run backend E2E tests
+        run: npm run test:e2e
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
+          JWT_SECRET: test-secret
+          JWT_REFRESH_SECRET: test-refresh-secret
+          NODE_ENV: test
 
   sonarqube:
     name: SonarQube Analysis
@@ -138,48 +241,50 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Download backend coverage artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: backend-coverage
           path: backend/coverage
 
       - name: Download batch coverage artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: batch-coverage
           path: batch/coverage
 
       - name: Download frontend coverage artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: frontend-coverage
           path: frontend/coverage
 
       - name: Download mobile coverage artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: mobile-coverage
           path: mobile/coverage
 
       - name: Download Playwright Sonar report
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: playwright-sonar-report
           path: frontend/playwright-report/playwright-sonar-report.xml
 
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v6
+        uses: SonarSource/sonarqube-scan-action@v8
         with:
           args: >
+            -Dsonar.host.url=https://sonarcloud.io
             -Dsonar.qualitygate.wait=true
             -Dsonar.qualitygate.timeout=300
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
 
   # ─────────────────────────────────────────────────────────────
   # BATCH JOBS
@@ -193,15 +298,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Cache npm dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: ${{ runner.os }}-npm-batch-${{ hashFiles('batch/package-lock.json') }}
@@ -230,15 +335,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Cache npm dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: ${{ runner.os }}-npm-batch-${{ hashFiles('batch/package-lock.json') }}
@@ -259,11 +364,82 @@ jobs:
           NODE_ENV: test
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: batch-coverage
           path: batch/coverage
           retention-days: 1
+
+  batch-e2e:
+    name: Batch E2E
+    runs-on: ubuntu-latest
+    needs: batch-lint
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.5
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: rent_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d rent_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v6
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-batch-${{ hashFiles('batch/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-batch-
+
+      - name: Install dependencies
+        working-directory: batch
+        run: npm ci
+
+      - name: Install PostgreSQL client
+        run: |
+          grep -rl "packages.microsoft.com" /etc/apt/sources.list.d 2>/dev/null | xargs -r sudo rm -f
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Initialize database snapshot for E2E
+        run: psql -h localhost -p 5432 -U test -d rent_test -f scripts/init-db.sql
+        env:
+          PGPASSWORD: test
+
+      - name: Baseline migrations for snapshot schema
+        run: bash migrations/run-migrations.sh --baseline-all-if-missing --force-baseline-all-if-missing
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: rent_test
+
+      - name: Run batch E2E commands (dry-run)
+        working-directory: batch
+        run: |
+          npm run dev -- billing --dry-run
+          npm run dev -- overdue --dry-run
+          npm run dev -- lease-renewal-alerts --dry-run
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
+          NODE_ENV: test
 
   # ─────────────────────────────────────────────────────────────
   # FRONTEND JOBS
@@ -277,15 +453,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Cache npm dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: ${{ runner.os }}-npm-frontend-${{ hashFiles('frontend/package-lock.json') }}
@@ -314,15 +490,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Cache npm dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: ${{ runner.os }}-npm-frontend-${{ hashFiles('frontend/package-lock.json') }}
@@ -345,7 +521,7 @@ jobs:
         run: echo "version=$(npx playwright --version | cut -d' ' -f2)" >> $GITHUB_OUTPUT
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
@@ -375,7 +551,7 @@ jobs:
           CI: true
 
       - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report
@@ -383,13 +559,13 @@ jobs:
           retention-days: 7
 
       - name: Upload Playwright report to SonarQube
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-sonar-report
           path: frontend/playwright-report/playwright-sonar-report.xml
 
       - name: Upload frontend coverage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-coverage
           path: frontend/coverage
@@ -407,15 +583,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Cache npm dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: ${{ runner.os }}-npm-mobile-${{ hashFiles('mobile/package-lock.json') }}
@@ -444,15 +620,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Cache npm dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: ${{ runner.os }}-npm-mobile-${{ hashFiles('mobile/package-lock.json') }}
@@ -468,11 +644,88 @@ jobs:
           NODE_ENV: test
 
       - name: Upload mobile coverage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mobile-coverage
           path: mobile/coverage
           retention-days: 1
+
+  mobile-e2e:
+    name: Mobile E2E (Detox)
+    runs-on: ubuntu-latest
+    needs: mobile-lint
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v6
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-mobile-${{ hashFiles('mobile/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-mobile-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate native Android project
+        run: npm run e2e:prebuild
+
+      - name: Install Android emulator system libraries
+        run: |
+          grep -rl "packages.microsoft.com" /etc/apt/sources.list.d 2>/dev/null | xargs -r sudo rm -f
+          sudo apt-get update
+          sudo apt-get install -y libpulse0
+
+      - name: Enable KVM permissions
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run mobile E2E tests on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          DETOX_CONFIGURATION: android.emu.debug
+          DETOX_ARTIFACTS: ../mobile-detox-artifacts
+          LOGCAT_LOG: ../rent-e2e-logcat.log
+          METRO_LOG: ../rent-metro-e2e.log
+        with:
+          api-level: 34
+          avd-name: Medium_Phone_API_34
+          arch: x86_64
+          cores: 4
+          profile: pixel_7
+          disable-animations: true
+          script: cd mobile && npm run e2e:android
+
+      - name: Upload Detox artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mobile-detox-artifacts
+          path: |
+            mobile-detox-artifacts
+            rent-metro-e2e.log
+            rent-e2e-logcat.log
+          if-no-files-found: ignore
 
   # ─────────────────────────────────────────────────────────────
   # DEPLOY TO PRODUCTION (only on main branch)
@@ -480,16 +733,16 @@ jobs:
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [backend-test, batch-test, frontend-test, mobile-test]
+    needs: [backend-test, backend-e2e, batch-test, batch-e2e, frontend-test, mobile-test, mobile-e2e]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: production
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 

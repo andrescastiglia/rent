@@ -137,6 +137,7 @@ coverage/
 .jest/
 test-results/
 playwright-report/
+.playwright-mcp/
 cypress/videos/
 cypress/screenshots/
 

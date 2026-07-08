@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+
+if (process.env.NEW_RELIC_LICENSE_KEY) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require("newrelic");
+}
+
 import "reflect-metadata";
 import { config } from "dotenv";
 import { Command } from "commander";
@@ -1204,7 +1210,7 @@ async function resolveSettlementsSummary(
 
 async function main() {
   try {
-    startProfiling();
+    await startProfiling();
     await startTracing();
 
     const mod = await import("./shared/logger");

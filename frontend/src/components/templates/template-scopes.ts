@@ -2,11 +2,7 @@ import { ContractType } from "@/types/lease";
 import { PaymentDocumentTemplateType } from "@/types/payment";
 
 export type TemplateScope =
-  | "contract_rental"
-  | "contract_sale"
-  | "receipt"
-  | "invoice"
-  | "credit_note";
+  "contract_rental" | "contract_sale" | "receipt" | "invoice" | "credit_note";
 
 export type EditableTemplate = {
   id: string;

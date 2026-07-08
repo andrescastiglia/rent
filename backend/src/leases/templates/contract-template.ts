@@ -1,4 +1,4 @@
-import * as PDFDocument from 'pdfkit';
+import PDFDocument from 'pdfkit';
 import { Lease } from '../entities/lease.entity';
 import { I18nService } from 'nestjs-i18n';
 import {

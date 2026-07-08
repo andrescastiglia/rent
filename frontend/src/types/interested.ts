@@ -14,12 +14,7 @@ export type InterestedStatus = "interested" | "tenant" | "buyer";
 export type InterestedQualificationLevel = "mql" | "sql" | "rejected";
 
 export type InterestedActivityType =
-  | "call"
-  | "task"
-  | "note"
-  | "email"
-  | "whatsapp"
-  | "visit";
+  "call" | "task" | "note" | "email" | "whatsapp" | "visit";
 
 export type InterestedActivityStatus = "pending" | "completed" | "cancelled";
 

@@ -1,6 +1,6 @@
 import "reflect-metadata";
 import { DataSource } from "typeorm";
-import type { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
+import type { DataSourceOptions } from "typeorm";
 import * as path from "node:path";
 import { logger } from "./logger";
 
@@ -23,7 +23,7 @@ const databasePassword =
 const ssl =
   process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false;
 
-const dataSourceOptions: PostgresConnectionOptions = {
+const dataSourceOptions: DataSourceOptions = {
   type: "postgres",
   ...(databaseUrl
     ? { url: databaseUrl }

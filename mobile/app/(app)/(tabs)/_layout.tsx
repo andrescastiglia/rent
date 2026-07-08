@@ -10,9 +10,15 @@ import { useRoleNavigation } from '@/hooks/use-role-navigation';
 const isEnabled = (allowed: string[], route: string) => allowed.includes(route);
 
 type TabBarIconProps = Readonly<{
-  color: string;
+  color: ComponentProps<typeof Ionicons>['color'];
   size: number;
   name: ComponentProps<typeof Ionicons>['name'];
+}>;
+
+type TabBarRenderProps = Readonly<{
+  color: ComponentProps<typeof Ionicons>['color'];
+  size: number;
+  focused: boolean;
 }>;
 
 type HeaderBackButtonProps = Readonly<{
@@ -94,31 +100,31 @@ function NewRouteHeaderAction({ route, testID }: NewRouteHeaderActionProps) {
   );
 }
 
-function DashboardTabBarIcon(props: Omit<TabBarIconProps, 'name'>) {
+function DashboardTabBarIcon(props: TabBarRenderProps) {
   return <TabBarIcon {...props} name="home-outline" />;
 }
 
-function PropertiesTabBarIcon(props: Omit<TabBarIconProps, 'name'>) {
+function PropertiesTabBarIcon(props: TabBarRenderProps) {
   return <TabBarIcon {...props} name="business-outline" />;
 }
 
-function TenantsTabBarIcon(props: Omit<TabBarIconProps, 'name'>) {
+function TenantsTabBarIcon(props: TabBarRenderProps) {
   return <TabBarIcon {...props} name="people-outline" />;
 }
 
-function InterestedTabBarIcon(props: Omit<TabBarIconProps, 'name'>) {
+function InterestedTabBarIcon(props: TabBarRenderProps) {
   return <TabBarIcon {...props} name="sparkles-outline" />;
 }
 
-function PaymentsTabBarIcon(props: Omit<TabBarIconProps, 'name'>) {
+function PaymentsTabBarIcon(props: TabBarRenderProps) {
   return <TabBarIcon {...props} name="card-outline" />;
 }
 
-function AiTabBarIcon(props: Omit<TabBarIconProps, 'name'>) {
+function AiTabBarIcon(props: TabBarRenderProps) {
   return <TabBarIcon {...props} name="chatbubble-ellipses-outline" />;
 }
 
-function SettingsTabBarIcon(props: Omit<TabBarIconProps, 'name'>) {
+function SettingsTabBarIcon(props: TabBarRenderProps) {
   return <TabBarIcon {...props} name="settings-outline" />;
 }
 

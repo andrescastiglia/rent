@@ -34,10 +34,10 @@ describe('main bootstrap', () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
-    jest.resetModules();
     jest.clearAllMocks();
     process.env = { ...originalEnv };
     createMock.mockResolvedValue(appMock);
+    appMock.listen.mockResolvedValue(undefined);
     startTracingMock.mockResolvedValue(undefined);
     stopProfilingMock.mockResolvedValue(undefined);
     shutdownTracingMock.mockResolvedValue(undefined);
@@ -46,6 +46,25 @@ describe('main bootstrap', () => {
   afterAll(() => {
     process.env = originalEnv;
   });
+
+  async function loadMain() {
+    await jest.isolateModulesAsync(async () => {
+      jest.doMock('@nestjs/core', () => ({
+        NestFactory: {
+          create: (...args: unknown[]) => createMock(...args),
+        },
+      }));
+      jest.doMock('./profiling', () => ({
+        startProfiling: (...args: unknown[]) => startProfilingMock(...args),
+        stopProfiling: (...args: unknown[]) => stopProfilingMock(...args),
+      }));
+      jest.doMock('./tracing', () => ({
+        startTracing: (...args: unknown[]) => startTracingMock(...args),
+        shutdownTracing: (...args: unknown[]) => shutdownTracingMock(...args),
+      }));
+      await import('./main');
+    });
+  }
 
   it('boots app with configured CORS, pipes, static assets and listeners', async () => {
     process.env.FRONTEND_URL = 'https://a.dev, https://b.dev';
@@ -59,7 +78,7 @@ describe('main bootstrap', () => {
       .spyOn(console, 'log')
       .mockImplementation(() => undefined);
 
-    await import('./main');
+    await loadMain();
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(startProfilingMock).toHaveBeenCalled();
@@ -129,7 +148,7 @@ describe('main bootstrap', () => {
       .spyOn(console, 'log')
       .mockImplementation(() => undefined);
 
-    await import('./main');
+    await loadMain();
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(appMock.enableCors).toHaveBeenCalledWith(

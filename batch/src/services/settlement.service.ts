@@ -5,10 +5,7 @@ import { logger } from "../shared/logger";
  * Settlement status.
  */
 export type SettlementStatus =
-  | "pending"
-  | "processing"
-  | "completed"
-  | "failed";
+  "pending" | "processing" | "completed" | "failed";
 
 /**
  * Settlement record.

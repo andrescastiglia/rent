@@ -1,14 +1,23 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+import { INestApplication } from '@nestjs/common';
+import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { User } from '../src/users/entities/user.entity';
+import { User, UserRole } from '../src/users/entities/user.entity';
 import { Repository } from 'typeorm';
+import { UsersService } from '../src/users/users.service';
+import { Company, PlanType } from '../src/companies/entities/company.entity';
+import {
+  configureE2eApp,
+  createActiveTestUser,
+  loginTestUser,
+} from './e2e-helpers';
 
 describe('Authentication (e2e)', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
+  let companyRepository: Repository<Company>;
+  let usersService: UsersService;
   let uniqueId: string;
 
   beforeAll(async () => {
@@ -18,13 +27,22 @@ describe('Authentication (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, transform: true }),
-    );
+    configureE2eApp(app);
 
     userRepository = moduleFixture.get(getRepositoryToken(User));
+    companyRepository = moduleFixture.get(getRepositoryToken(Company));
+    usersService = moduleFixture.get(UsersService);
 
     await app.init();
+    await companyRepository.upsert(
+      {
+        id: '00000000-0000-0000-0000-000000000001',
+        name: 'Default Test Company',
+        taxId: `default-auth-${uniqueId}`,
+        plan: PlanType.FREE,
+      },
+      ['id'],
+    );
   });
 
   afterAll(async () => {
@@ -54,10 +72,13 @@ describe('Authentication (e2e)', () => {
         .send(registerDto)
         .expect(201)
         .expect((res) => {
-          expect(res.body).toHaveProperty('user');
-          expect(res.body).toHaveProperty('accessToken');
-          expect(res.body.user.email).toBe(registerDto.email);
-          expect(res.body.user).not.toHaveProperty('passwordHash');
+          expect(res.body).toEqual(
+            expect.objectContaining({
+              pendingApproval: true,
+              userId: expect.any(String),
+              message: 'registration.pendingApproval',
+            }),
+          );
         });
     });
 
@@ -137,8 +158,11 @@ describe('Authentication (e2e)', () => {
         lastName: 'Test',
         role: 'owner',
       };
-      // Register user for login tests
-      await request(app.getHttpServer()).post('/auth/register').send(testUser);
+      await createActiveTestUser(usersService, {
+        ...testUser,
+        role: UserRole.OWNER,
+        companyId: '00000000-0000-0000-0000-000000000001',
+      });
     });
 
     it('should login with valid credentials', async () => {
@@ -198,12 +222,12 @@ describe('Authentication (e2e)', () => {
         role: 'owner',
       };
 
-      // Register and login to get token
-      const registerRes = await request(app.getHttpServer())
-        .post('/auth/register')
-        .send(testUser);
-
-      accessToken = registerRes.body.accessToken;
+      await createActiveTestUser(usersService, {
+        ...testUser,
+        role: UserRole.OWNER,
+        companyId: '00000000-0000-0000-0000-000000000001',
+      });
+      accessToken = await loginTestUser(app, testUser.email, testUser.password);
     });
 
     it('should access protected route with valid token', async () => {

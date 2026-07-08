@@ -1,4 +1,4 @@
-import type { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
+import type { DataSourceOptions } from "typeorm";
 
 describe("shared/database", () => {
   const originalEnv = process.env;
@@ -26,7 +26,7 @@ describe("shared/database", () => {
     process.env.PGPASSWORD = "pgpassword-secret";
 
     const { AppDataSource } = await import("./database");
-    const options = AppDataSource.options as PostgresConnectionOptions;
+    const options = AppDataSource.options as DataSourceOptions;
 
     expect(options).toMatchObject({
       type: "postgres",
@@ -45,7 +45,7 @@ describe("shared/database", () => {
     process.env.DATABASE_PASSWORD = "database-password-secret";
 
     const { AppDataSource } = await import("./database");
-    const options = AppDataSource.options as PostgresConnectionOptions;
+    const options = AppDataSource.options as DataSourceOptions;
 
     expect(options).toMatchObject({
       password: "database-password-secret",
@@ -59,7 +59,7 @@ describe("shared/database", () => {
     delete process.env.DATABASE_PASSWORD;
 
     const { AppDataSource } = await import("./database");
-    const options = AppDataSource.options as PostgresConnectionOptions;
+    const options = AppDataSource.options as DataSourceOptions;
 
     expect(options).toMatchObject({
       password: "rent_password",

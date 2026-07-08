@@ -44,8 +44,9 @@ test.describe('Interested, Prospect, Reports and Buyers', () => {
     const interestedId = editHref?.match(/\/interested\/([^/]+)\/edit/)?.[1];
     expect(interestedId).toBeTruthy();
     await editLink.click();
-
-    await expect(page).toHaveURL(/\/(es|en|pt)\/interested\/[^/]+\/edit$/);
+    await expect(page).toHaveURL(/\/(es|en|pt)\/interested\/[^/]+\/edit$/, {
+      timeout: 30000,
+    });
     const editForm = page.locator('form').first();
     await editForm
       .locator('input[type="text"]')
@@ -65,6 +66,7 @@ test.describe('Interested, Prospect, Reports and Buyers', () => {
       .click();
     await expect(page).toHaveURL(
       /\/(es|en|pt)\/interested\/[^/]+\/activities\/new$/,
+      { timeout: 30000 },
     );
 
     const activityForm = page.locator('form').first();

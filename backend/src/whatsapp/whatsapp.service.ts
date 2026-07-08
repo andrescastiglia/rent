@@ -100,12 +100,7 @@ export class WhatsappService {
       body: JSON.stringify(payload),
     });
 
-    let data: any = null;
-    try {
-      data = await response.json();
-    } catch {
-      data = null;
-    }
+    const data: any = await response.json().catch(() => null);
 
     if (!response.ok) {
       const errorMessage =

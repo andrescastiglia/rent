@@ -1,29 +1,43 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+import { INestApplication } from '@nestjs/common';
+import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { User } from '../src/users/entities/user.entity';
+import { Admin } from '../src/users/entities/admin.entity';
 import {
   Property,
+  PropertyOperationState,
   PropertyType,
-  PropertyStatus,
 } from '../src/properties/entities/property.entity';
 import { Unit, UnitStatus } from '../src/properties/entities/unit.entity';
-import { Lease } from '../src/leases/entities/lease.entity';
+import { ContractType, Lease } from '../src/leases/entities/lease.entity';
+import { LeaseContractTemplate } from '../src/leases/entities/lease-contract-template.entity';
 import { Company, PlanType } from '../src/companies/entities/company.entity';
+import { Currency } from '../src/currencies/entities/currency.entity';
 import { Repository } from 'typeorm';
+import { UsersService } from '../src/users/users.service';
+import {
+  configureE2eApp,
+  createSuperAdminTestUser,
+  loginTestUser,
+} from './e2e-helpers';
 
 describe('Lease Creation Flow (e2e)', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
+  let adminRepository: Repository<Admin>;
+  let usersService: UsersService;
   let propertyRepository: Repository<Property>;
   let unitRepository: Repository<Unit>;
   let leaseRepository: Repository<Lease>;
+  let templateRepository: Repository<LeaseContractTemplate>;
   let companyRepository: Repository<Company>;
+  let currencyRepository: Repository<Currency>;
   let ownerToken: string;
   let ownerId: string;
   let companyId: string;
+  let templateId: string;
   let uniqueId: string;
 
   beforeAll(async () => {
@@ -32,17 +46,33 @@ describe('Lease Creation Flow (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, transform: true }),
-    );
+    configureE2eApp(app);
 
     userRepository = moduleFixture.get(getRepositoryToken(User));
+    adminRepository = moduleFixture.get(getRepositoryToken(Admin));
+    usersService = moduleFixture.get(UsersService);
     propertyRepository = moduleFixture.get(getRepositoryToken(Property));
     unitRepository = moduleFixture.get(getRepositoryToken(Unit));
     leaseRepository = moduleFixture.get(getRepositoryToken(Lease));
+    templateRepository = moduleFixture.get(
+      getRepositoryToken(LeaseContractTemplate),
+    );
     companyRepository = moduleFixture.get(getRepositoryToken(Company));
+    currencyRepository = moduleFixture.get(getRepositoryToken(Currency));
 
     await app.init();
+    await currencyRepository.query(
+      `
+        INSERT INTO currencies (code, name, symbol, decimal_places, is_active)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (code) DO UPDATE
+        SET name = EXCLUDED.name,
+            symbol = EXCLUDED.symbol,
+            decimal_places = EXCLUDED.decimal_places,
+            is_active = EXCLUDED.is_active
+      `,
+      ['ARS', 'Peso argentino', '$', 2, true],
+    );
 
     // Generate unique identifier for this test run
     uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -74,20 +104,6 @@ describe('Lease Creation Flow (e2e)', () => {
       // Ignore cleanup errors
     }
 
-    // Create owner user and company for tests
-    const ownerRes = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send({
-        email: `owner-flow-${uniqueId}@lease-${uniqueId}.test`,
-        password: 'Password123!',
-        firstName: 'Flow',
-        lastName: 'Owner',
-        role: 'owner',
-      });
-
-    ownerToken = ownerRes.body.accessToken;
-    const ownerUserId = ownerRes.body.user.id;
-
     // Create company first (needed for owners)
     const company = companyRepository.create({
       name: 'Lease Flow Test Company',
@@ -96,11 +112,38 @@ describe('Lease Creation Flow (e2e)', () => {
     });
     const savedCompany = await companyRepository.save(company);
     companyId = savedCompany.id;
+    const template = await templateRepository.save(
+      templateRepository.create({
+        companyId,
+        name: 'Lease Flow Template',
+        contractType: ContractType.RENTAL,
+        templateBody: 'Contrato de alquiler {{property.name}}',
+      }),
+    );
+    templateId = template.id;
+
+    // Create owner user and company for tests
+    const ownerUser = await createSuperAdminTestUser(
+      usersService,
+      adminRepository,
+      {
+        email: `owner-flow-${uniqueId}@lease-${uniqueId}.test`,
+        password: 'Password123!',
+        firstName: 'Flow',
+        lastName: 'Owner',
+        companyId,
+      },
+    );
+    ownerToken = await loginTestUser(
+      app,
+      ownerUser.email as string,
+      'Password123!',
+    );
 
     // Create owner record in owners table with company_id and get owner.id
     const ownerResult = await userRepository.query(
       'INSERT INTO owners (user_id, company_id) VALUES ($1, $2) RETURNING id',
-      [ownerUserId, companyId],
+      [ownerUser.id, companyId],
     );
     ownerId = ownerResult[0].id;
   });
@@ -109,7 +152,13 @@ describe('Lease Creation Flow (e2e)', () => {
     // Clean up test data in correct order (respecting foreign keys)
     // 1. Delete leases first (depends on units and tenants)
     await leaseRepository.query(
-      `DELETE FROM leases WHERE tenant_id IN (SELECT id FROM users WHERE email LIKE '%@lease-${uniqueId}.test')`,
+      "DELETE FROM tenant_accounts WHERE lease_id IN (SELECT id FROM leases WHERE property_id IN (SELECT id FROM properties WHERE company_id IN (SELECT id FROM companies WHERE tax_id LIKE '%-lease')))",
+    );
+    await leaseRepository.query(
+      "DELETE FROM documents WHERE company_id IN (SELECT id FROM companies WHERE tax_id LIKE '%-lease')",
+    );
+    await leaseRepository.query(
+      "DELETE FROM leases WHERE property_id IN (SELECT id FROM properties WHERE company_id IN (SELECT id FROM companies WHERE tax_id LIKE '%-lease'))",
     );
     // 2. Delete units (depends on properties) - match by company_id since properties use our test companyId
     await unitRepository.query(
@@ -119,21 +168,28 @@ describe('Lease Creation Flow (e2e)', () => {
     await propertyRepository.query(
       "DELETE FROM properties WHERE company_id IN (SELECT id FROM companies WHERE tax_id LIKE '%-lease')",
     );
-    // 4. Delete companies (now safe, no FK dependencies)
-    await companyRepository.query(
-      "DELETE FROM companies WHERE tax_id LIKE '%-lease'",
+    await templateRepository.query(
+      "DELETE FROM lease_contract_templates WHERE company_id IN (SELECT id FROM companies WHERE tax_id LIKE '%-lease')",
     );
-    // 5. Delete tenants (depends on users)
+    // 4. Delete tenants (depends on users)
     await userRepository.query(
-      `DELETE FROM tenants WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@lease-${uniqueId}.test')`,
+      "DELETE FROM tenants WHERE company_id IN (SELECT id FROM companies WHERE tax_id LIKE '%-lease')",
+    );
+    // 5. Delete admins (depends on users)
+    await userRepository.query(
+      "DELETE FROM admins WHERE company_id IN (SELECT id FROM companies WHERE tax_id LIKE '%-lease')",
     );
     // 6. Delete owners (depends on users)
     await userRepository.query(
-      `DELETE FROM owners WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@lease-${uniqueId}.test')`,
+      "DELETE FROM owners WHERE company_id IN (SELECT id FROM companies WHERE tax_id LIKE '%-lease')",
     );
     // 7. Finally delete users
     await userRepository.query(
-      `DELETE FROM users WHERE email LIKE '%@lease-${uniqueId}.test'`,
+      "DELETE FROM users WHERE company_id IN (SELECT id FROM companies WHERE tax_id LIKE '%-lease')",
+    );
+    // 8. Delete companies (now safe, no FK dependencies)
+    await companyRepository.query(
+      "DELETE FROM companies WHERE tax_id LIKE '%-lease'",
     );
 
     await app.close();
@@ -141,7 +197,6 @@ describe('Lease Creation Flow (e2e)', () => {
 
   describe('Complete Lease Creation Workflow', () => {
     let propertyId: string;
-    let unitId: string;
     let tenantId: string;
     let leaseId: string;
 
@@ -157,7 +212,6 @@ describe('Lease Creation Flow (e2e)', () => {
         addressPostalCode: '12345',
         addressCountry: 'Argentina',
         propertyType: PropertyType.APARTMENT,
-        status: PropertyStatus.ACTIVE,
         description: 'Test property for flow',
       };
 
@@ -193,7 +247,6 @@ describe('Lease Creation Flow (e2e)', () => {
 
       expect(res.body).toHaveProperty('id');
       expect(res.body.unitNumber).toBe(unitDto.unitNumber);
-      unitId = res.body.id;
     });
 
     it('Step 3: Should create a tenant', async () => {
@@ -232,9 +285,10 @@ describe('Lease Creation Flow (e2e)', () => {
       expect.hasAssertions();
       const leaseDto = {
         companyId: companyId,
-        unitId: unitId,
+        propertyId: propertyId,
         tenantId: tenantId,
         ownerId: ownerId,
+        templateId,
         startDate: '2024-01-01',
         endDate: '2024-12-31',
         monthlyRent: 1500,
@@ -247,12 +301,11 @@ describe('Lease Creation Flow (e2e)', () => {
         .set('Authorization', `Bearer ${ownerToken}`)
         .send(leaseDto);
 
-      console.log('Lease creation response:', res.status, res.body);
       expect(res.status).toBe(201);
 
       expect(res.body).toHaveProperty('id');
       expect(res.body.status).toBe('draft');
-      expect(res.body.unitId).toBe(unitId);
+      expect(res.body.propertyId).toBe(propertyId);
       expect(res.body.tenantId).toBe(tenantId);
       leaseId = res.body.id;
     });
@@ -267,14 +320,14 @@ describe('Lease Creation Flow (e2e)', () => {
       expect(res.body.status).toBe('active');
     });
 
-    it('Step 6: Should verify unit is now occupied', async () => {
+    it('Step 6: Should verify property is now rented', async () => {
       expect.hasAssertions();
       const res = await request(app.getHttpServer())
-        .get(`/units/${unitId}`)
+        .get(`/properties/${propertyId}`)
         .set('Authorization', `Bearer ${ownerToken}`)
         .expect(200);
 
-      expect(res.body.status).toBe('occupied');
+      expect(res.body.operationState).toBe(PropertyOperationState.RENTED);
     });
 
     it('Step 7: Should retrieve lease with all relationships', async () => {
@@ -284,18 +337,17 @@ describe('Lease Creation Flow (e2e)', () => {
         .set('Authorization', `Bearer ${ownerToken}`)
         .expect(200);
 
-      expect(res.body).toHaveProperty('unit');
+      expect(res.body).toHaveProperty('property');
       expect(res.body).toHaveProperty('tenant');
-      expect(res.body.unit).toHaveProperty('property');
-      expect(res.body.unit.property.id).toBe(propertyId);
+      expect(res.body.property.id).toBe(propertyId);
     });
 
-    it('Step 8: Should prevent creating another active lease for same unit', async () => {
+    it('Step 8: Should prevent creating another active lease for same property', async () => {
       expect.hasAssertions();
       expect(true).toBe(true);
       const leaseDto = {
         companyId: companyId,
-        unitId: unitId,
+        propertyId: propertyId,
         tenantId: tenantId,
         ownerId: ownerId,
         startDate: '2025-01-01',
@@ -309,36 +361,29 @@ describe('Lease Creation Flow (e2e)', () => {
         .post('/leases')
         .set('Authorization', `Bearer ${ownerToken}`)
         .send(leaseDto)
-        .expect(201);
+        .expect(409);
 
-      // Attempt to activate should fail
-      const activateRes = await request(app.getHttpServer())
-        .patch(`/leases/${createRes.body.id}/activate`)
-        .set('Authorization', `Bearer ${ownerToken}`)
-        .expect(409); // Conflict
-
-      expect(activateRes.status).toBe(409);
+      expect(createRes.status).toBe(409);
     });
   });
 
   describe('Lease Termination Flow', () => {
     let propertyId: string;
-    let unitId: string;
     let tenantId: string;
     let leaseId: string;
 
     beforeAll(async () => {
       // Create property, unit, tenant, and active lease
       const propertyData = {
-        companyId: companyId,
-        ownerId: ownerId,
+        companyId,
+        ownerId,
         name: 'Lease Termination Test Property',
         addressStreet: 'Lease Test Address',
         addressCity: 'Test City',
         addressState: 'Test State',
+        addressCountry: 'Argentina',
         addressPostalCode: '12345',
         propertyType: PropertyType.APARTMENT,
-        status: PropertyStatus.ACTIVE,
       };
       const property = await propertyRepository.save(
         propertyRepository.create(propertyData),
@@ -355,8 +400,7 @@ describe('Lease Creation Flow (e2e)', () => {
         baseRent: 1200,
         status: UnitStatus.AVAILABLE,
       };
-      const unit = await unitRepository.save(unitRepository.create(unitData));
-      unitId = unit.id;
+      await unitRepository.save(unitRepository.create(unitData));
 
       const shortTermId = uniqueId.slice(-8);
       const tenantRes = await request(app.getHttpServer())
@@ -384,9 +428,10 @@ describe('Lease Creation Flow (e2e)', () => {
         .set('Authorization', `Bearer ${ownerToken}`)
         .send({
           companyId: companyId,
-          unitId: unitId,
+          propertyId: propertyId,
           tenantId: tenantId,
           ownerId: ownerId,
+          templateId,
           startDate: '2024-01-01',
           endDate: '2024-12-31',
           monthlyRent: 1200,
@@ -407,17 +452,17 @@ describe('Lease Creation Flow (e2e)', () => {
         .send({ reason: 'Early termination by tenant' })
         .expect(200);
 
-      expect(res.body.status).toBe('terminated');
+      expect(res.body.status).toBe('finalized');
     });
 
-    it('Should mark unit as available after termination', async () => {
+    it('Should mark property as available after termination', async () => {
       expect.hasAssertions();
       const res = await request(app.getHttpServer())
-        .get(`/units/${unitId}`)
+        .get(`/properties/${propertyId}`)
         .set('Authorization', `Bearer ${ownerToken}`)
         .expect(200);
 
-      expect(res.body.status).toBe('available');
+      expect(res.body.operationState).toBe(PropertyOperationState.AVAILABLE);
     });
   });
 });

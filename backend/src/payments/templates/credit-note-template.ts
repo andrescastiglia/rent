@@ -1,4 +1,4 @@
-import * as PDFDocument from 'pdfkit';
+import PDFDocument from 'pdfkit';
 import { I18nService } from 'nestjs-i18n';
 import { CreditNote } from '../entities/credit-note.entity';
 import { Invoice } from '../entities/invoice.entity';

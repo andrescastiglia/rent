@@ -4,12 +4,7 @@ import { Lease } from "./lease";
  * Estado del pago
  */
 export type PaymentStatus =
-  | "pending"
-  | "processing"
-  | "completed"
-  | "failed"
-  | "refunded"
-  | "cancelled";
+  "pending" | "processing" | "completed" | "failed" | "refunded" | "cancelled";
 
 /**
  * Método de pago
@@ -25,11 +20,7 @@ export type PaymentMethod =
   | "other";
 
 export type PaymentActivityType =
-  | "monthly"
-  | "annual"
-  | "adjustment"
-  | "late_fee"
-  | "extraordinary";
+  "monthly" | "annual" | "adjustment" | "late_fee" | "extraordinary";
 
 /**
  * Estado de la factura

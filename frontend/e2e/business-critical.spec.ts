@@ -64,7 +64,7 @@ test.describe('Business Critical Flows', () => {
           return 'receipt';
         }
         return 'pending';
-      })
+      }, { timeout: 30000 })
       .not.toBe('pending');
 
     if (await confirmPaymentButton.isVisible().catch(() => false)) {

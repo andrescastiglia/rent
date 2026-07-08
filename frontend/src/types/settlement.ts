@@ -1,8 +1,5 @@
 export type SettlementStatus =
-  | "pending"
-  | "processing"
-  | "completed"
-  | "failed";
+  "pending" | "processing" | "completed" | "failed";
 
 export interface Settlement {
   id: string;
