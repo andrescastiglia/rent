@@ -2,6 +2,8 @@ const TOKEN_KEY = "auth_token";
 const USER_KEY = "auth_user";
 const USER_ROLES = new Set(["admin", "owner", "tenant", "staff", "buyer"]);
 const USER_LANGUAGES = new Set(["es", "en", "pt"]);
+const MOCK_ROLE_TOKEN_PATTERN =
+  /^mock-token-role-(admin|owner|tenant|staff|buyer)-/;
 let inMemoryUser: Record<string, unknown> | null = null;
 
 function getOptionalString(value: unknown): string | undefined {
@@ -26,6 +28,33 @@ function sanitizeUserForStorage(
   };
 }
 
+function getMockUserFromToken(
+  token: string | null,
+): Record<string, unknown> | null {
+  if (process.env.NEXT_PUBLIC_MOCK_MODE !== "true" || token == null) {
+    return null;
+  }
+
+  const roleMatch = token.match(MOCK_ROLE_TOKEN_PATTERN);
+  const role =
+    roleMatch?.[1] ?? (token.startsWith("mock-token-") ? "admin" : null);
+
+  if (role == null) {
+    return null;
+  }
+
+  return sanitizeUserForStorage({
+    id: role === "admin" ? "1" : `role-${role}-1`,
+    email: null,
+    firstName: role.charAt(0).toUpperCase() + role.slice(1),
+    lastName: "User",
+    avatarUrl: null,
+    language: "es",
+    role,
+    isActive: true,
+  });
+}
+
 export function getToken(): string | null {
   if (globalThis.localStorage == null) return null;
   return globalThis.localStorage.getItem(TOKEN_KEY);
@@ -46,7 +75,7 @@ export function getUser(): Record<string, unknown> | null {
     // Remove legacy persisted profiles; only the token is durable now.
     globalThis.localStorage.removeItem(USER_KEY);
   }
-  return inMemoryUser;
+  return inMemoryUser ?? getMockUserFromToken(getToken());
 }
 
 export function setUser(user: Record<string, unknown>): void {

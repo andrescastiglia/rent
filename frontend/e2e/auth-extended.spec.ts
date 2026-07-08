@@ -3,41 +3,6 @@ import { expect, localePath, login, test } from './fixtures/auth';
 
 type UserRole = 'admin' | 'owner' | 'tenant' | 'staff';
 
-const ROLE_USERS: Record<
-  UserRole,
-  {
-    id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-  }
-> = {
-  admin: {
-    id: 'role-admin-1',
-    firstName: 'Admin',
-    lastName: 'Role',
-    email: 'admin.role@example.com',
-  },
-  owner: {
-    id: 'role-owner-1',
-    firstName: 'Owner',
-    lastName: 'Role',
-    email: 'owner.role@example.com',
-  },
-  tenant: {
-    id: 'role-tenant-1',
-    firstName: 'Tenant',
-    lastName: 'Role',
-    email: 'tenant.role@example.com',
-  },
-  staff: {
-    id: 'role-staff-1',
-    firstName: 'Staff',
-    lastName: 'Role',
-    email: 'staff.role@example.com',
-  },
-};
-
 async function installTurnstileMock(page: Page): Promise<void> {
   await page.addInitScript(() => {
     const win = window as unknown as {
@@ -86,26 +51,14 @@ async function gotoWithRetry(page: Page, path: string): Promise<void> {
 }
 
 async function seedAuthRole(page: Page, role: UserRole): Promise<void> {
-  const user = ROLE_USERS[role];
-  const authToken = `mock-token-${user.id}-${Date.now()}`;
+  const authToken = `mock-token-role-${role}-${Date.now()}`;
 
   await gotoWithRetry(page, localePath('/dashboard'));
   await page.evaluate(
-    ({ token, authUser, roleValue }) => {
+    ({ token }) => {
       localStorage.setItem('auth_token', token);
-      localStorage.setItem(
-        'auth_user',
-        JSON.stringify({
-          ...authUser,
-          role: roleValue,
-          language: 'es',
-          avatarUrl: null,
-          phone: '+1 555 9999',
-          isActive: true,
-        }),
-      );
     },
-    { token: authToken, authUser: user, roleValue: role },
+    { token: authToken },
   );
   await gotoWithRetry(page, localePath('/dashboard'));
   await expect(page).toHaveURL(/\/es\/dashboard/);
