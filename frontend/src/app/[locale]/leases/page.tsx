@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Lease } from "@/types/lease";
 import { leasesApi } from "@/lib/api/leases";
 import { Search, Loader2 } from "lucide-react";
@@ -27,6 +28,8 @@ function LeaseSection({
   leases: Lease[];
   locale: string;
 }>) {
+  const router = useRouter();
+
   if (leases.length === 0) {
     return (
       <section className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-900/40">
@@ -58,10 +61,11 @@ function LeaseSection({
           )}`;
 
           return (
-            <Link
+            <button
+              type="button"
               key={lease.id}
-              href={leaseHref}
-              className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+              onClick={() => router.push(leaseHref)}
+              className="w-full rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -125,7 +129,7 @@ function LeaseSection({
                     : "Desactivadas"}
                 </p>
               </div>
-            </Link>
+            </button>
           );
         })}
       </div>
