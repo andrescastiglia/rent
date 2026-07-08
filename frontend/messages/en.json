@@ -519,6 +519,7 @@
       "preferredZones": "Preferred zones (comma separated)",
       "desiredFeatures": "Required features (comma separated)",
       "operations": "Interested operations",
+      "propertyType": "Property type",
       "stageReason": "Stage change reason",
       "notes": "Notes"
     },
@@ -1191,6 +1192,7 @@
     "help": "Help",
     "termsAndConditions": "Terms & Conditions",
     "privacy": "Privacy",
+    "dataDeletion": "Data deletion",
     "contact": "Contact",
     "copyright": "© {year} Rent. All rights reserved."
   },

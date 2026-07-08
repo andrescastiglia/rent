@@ -1,16 +1,25 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+import { INestApplication } from '@nestjs/common';
+import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { User } from '../src/users/entities/user.entity';
+import { Admin } from '../src/users/entities/admin.entity';
 import { Company, PlanType } from '../src/companies/entities/company.entity';
 import { Repository } from 'typeorm';
+import { UsersService } from '../src/users/users.service';
+import {
+  configureE2eApp,
+  createSuperAdminTestUser,
+  loginTestUser,
+} from './e2e-helpers';
 
 describe('Tenants Management (e2e)', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
+  let adminRepository: Repository<Admin>;
   let companyRepository: Repository<Company>;
+  let usersService: UsersService;
   let ownerToken: string;
   let uniqueId: string;
   let shortId: string;
@@ -24,12 +33,12 @@ describe('Tenants Management (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, transform: true }),
-    );
+    configureE2eApp(app);
 
     userRepository = moduleFixture.get(getRepositoryToken(User));
+    adminRepository = moduleFixture.get(getRepositoryToken(Admin));
     companyRepository = moduleFixture.get(getRepositoryToken(Company));
+    usersService = moduleFixture.get(UsersService);
 
     await app.init();
 
@@ -44,20 +53,17 @@ describe('Tenants Management (e2e)', () => {
 
     // Create owner user for authentication with unique email
     const testEmail = `tenant-mgr-${shortId}@t-${shortId}.test`;
-    const ownerRes = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send({
-        email: testEmail,
-        password: 'Password123!',
-        firstName: 'Tenant',
-        lastName: 'Manager',
-        role: 'owner',
-      });
-
-    ownerToken = ownerRes.body.accessToken;
+    await createSuperAdminTestUser(usersService, adminRepository, {
+      email: testEmail,
+      password: 'Password123!',
+      firstName: 'Tenant',
+      lastName: 'Manager',
+      companyId,
+    });
+    ownerToken = await loginTestUser(app, testEmail, 'Password123!');
 
     if (!ownerToken) {
-      throw new Error(`Failed to setup test user. Status: ${ownerRes.status}`);
+      throw new Error('Failed to setup test user');
     }
   });
 
@@ -65,6 +71,9 @@ describe('Tenants Management (e2e)', () => {
     // Clean up
     await userRepository.query(
       `DELETE FROM tenants WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@t-${shortId}.test')`,
+    );
+    await userRepository.query(
+      `DELETE FROM admins WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@t-${shortId}.test')`,
     );
     await userRepository.query(
       `DELETE FROM users WHERE email LIKE '%@t-${shortId}.test'`,

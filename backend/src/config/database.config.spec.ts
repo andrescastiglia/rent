@@ -53,4 +53,18 @@ describe('getDatabaseConfig', () => {
       }),
     );
   });
+
+  it('disables query logging in test', () => {
+    const get = jest.fn((key: string, defaultValue?: unknown) => {
+      const values: Record<string, unknown> = {
+        NODE_ENV: 'test',
+        DATABASE_URL: undefined,
+      };
+      return key in values ? values[key] : defaultValue;
+    });
+
+    const config = getDatabaseConfig({ get } as unknown as ConfigService);
+
+    expect(config.logging).toBe(false);
+  });
 });

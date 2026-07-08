@@ -1,14 +1,23 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+import { INestApplication } from '@nestjs/common';
+import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { User, UserRole } from '../src/users/entities/user.entity';
+import { Company, PlanType } from '../src/companies/entities/company.entity';
 import { Repository } from 'typeorm';
+import { UsersService } from '../src/users/users.service';
+import {
+  configureE2eApp,
+  createActiveTestUser,
+  loginTestUser,
+} from './e2e-helpers';
 
 describe('Role-Based Access Control (e2e)', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
+  let companyRepository: Repository<Company>;
+  let usersService: UsersService;
   let uniqueId: string;
 
   // Test users
@@ -22,56 +31,60 @@ describe('Role-Based Access Control (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, transform: true }),
-    );
+    configureE2eApp(app);
 
     userRepository = moduleFixture.get(getRepositoryToken(User));
+    companyRepository = moduleFixture.get(getRepositoryToken(Company));
+    usersService = moduleFixture.get(UsersService);
 
     await app.init();
+
+    const company = await companyRepository.save(
+      companyRepository.create({
+        name: 'Roles Test Company',
+        taxId: `${uniqueId}-roles`,
+        plan: PlanType.BASIC,
+      }),
+    );
 
     // Create Admin User
     const adminEmail = `admin@roles-${uniqueId}.test`;
     const adminPassword = 'Password123!';
-    await request(app.getHttpServer())
-      .post('/auth/register')
-      .send({
-        email: adminEmail,
-        password: adminPassword,
-        firstName: 'Admin',
-        lastName: 'User',
-        role: UserRole.ADMIN,
-      })
-      .expect(201)
-      .then((res) => {
-        console.log('Admin Register Response:', res.body);
-        adminToken = res.body.accessToken;
-      });
+    await createActiveTestUser(usersService, {
+      email: adminEmail,
+      password: adminPassword,
+      firstName: 'Admin',
+      lastName: 'User',
+      role: UserRole.ADMIN,
+      companyId: company.id,
+    });
+    adminToken = await loginTestUser(app, adminEmail, adminPassword);
 
     // Create Tenant User
     const tenantEmail = `tenant@roles-${uniqueId}.test`;
     const tenantPassword = 'Password123!';
-    await request(app.getHttpServer())
-      .post('/auth/register')
-      .send({
-        email: tenantEmail,
-        password: tenantPassword,
-        firstName: 'Tenant',
-        lastName: 'User',
-        role: UserRole.TENANT,
-      })
-      .expect(201)
-      .then((res) => {
-        console.log('Tenant Register Response:', res.body);
-        tenantToken = res.body.accessToken;
-      });
+    await createActiveTestUser(usersService, {
+      email: tenantEmail,
+      password: tenantPassword,
+      firstName: 'Tenant',
+      lastName: 'User',
+      role: UserRole.TENANT,
+      companyId: company.id,
+    });
+    tenantToken = await loginTestUser(app, tenantEmail, tenantPassword);
   });
 
   afterAll(async () => {
     // Clean up test data
     if (userRepository) {
       await userRepository.query(
+        `DELETE FROM admins WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@roles-${uniqueId}.test')`,
+      );
+      await userRepository.query(
         `DELETE FROM users WHERE email LIKE '%@roles-${uniqueId}.test'`,
+      );
+      await companyRepository.query(
+        `DELETE FROM companies WHERE tax_id = '${uniqueId}-roles'`,
       );
     }
     await app.close();

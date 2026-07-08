@@ -9,7 +9,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, IsNull, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'node:crypto';
-import * as PDFDocument from 'pdfkit';
+import PDFDocument from 'pdfkit';
 import { Owner } from './entities/owner.entity';
 import {
   OwnerActivity,

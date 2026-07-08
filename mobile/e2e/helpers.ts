@@ -1,12 +1,26 @@
 export async function relaunchFreshApp(): Promise<void> {
   await device.launchApp({
-    delete: true,
     newInstance: true,
+    launchArgs: {
+      detoxEnableSynchronization: '0',
+    },
   });
 }
 
 export async function loginAsAdmin(): Promise<void> {
-  await expect(element(by.id('login.email'))).toBeVisible();
+  const isAlreadyLoggedIn = await waitFor(element(by.id('tab.properties')))
+    .toBeVisible()
+    .withTimeout(10000)
+    .then(() => true)
+    .catch(() => false);
+
+  if (isAlreadyLoggedIn) {
+    return;
+  }
+
+  await waitFor(element(by.id('login.email')))
+    .toBeVisible()
+    .withTimeout(30000);
 
   await element(by.id('login.email')).replaceText('admin@example.com');
   await element(by.id('login.password')).replaceText('admin123');

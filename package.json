@@ -6,6 +6,9 @@
   "scripts": {
     "prepare": "husky"
   },
+  "engines": {
+    "node": ">=22.22.1"
+  },
   "lint-staged": {
     "backend/**/*.{js,jsx,ts,tsx}": [
       "npm --prefix backend exec -- eslint --fix --config backend/eslint.config.mts",
@@ -18,8 +21,8 @@
     "frontend/newrelic.js": [
       "npm --prefix frontend exec -- prettier --write"
     ],
-    "mobile/**/*.{js,jsx,ts,tsx}": [
-      "npm --prefix mobile exec -- eslint --fix --config mobile/eslint.config.mts",
+    "mobile/{app,src}/**/*.{js,jsx,ts,tsx}": [
+      "npm --prefix mobile exec -- eslint --fix --config mobile/eslint.config.mjs",
       "npm --prefix mobile exec -- prettier --write"
     ],
     "batch/**/*.{js,jsx,ts,tsx}": [

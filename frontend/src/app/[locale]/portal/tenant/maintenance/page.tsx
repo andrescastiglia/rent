@@ -15,11 +15,7 @@ function getLocaleCode(loc: string): string {
 }
 
 type MaintenanceArea =
-  | "kitchen"
-  | "bathroom"
-  | "electrical"
-  | "plumbing"
-  | "other";
+  "kitchen" | "bathroom" | "electrical" | "plumbing" | "other";
 type UrgencyLevel = "low" | "medium" | "high";
 
 const AREAS: MaintenanceArea[] = [

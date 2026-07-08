@@ -5,6 +5,7 @@ export const getDatabaseConfig = (
   configService: ConfigService,
 ): TypeOrmModuleOptions => {
   const isProduction = configService.get<string>('NODE_ENV') === 'production';
+  const isTest = configService.get<string>('NODE_ENV') === 'test';
   const databaseUrl = configService.get<string>('DATABASE_URL');
 
   return {
@@ -25,6 +26,6 @@ export const getDatabaseConfig = (
     // Synchronize creates/updates tables automatically
     // Use TYPEORM_SYNC=true in .env to enable (useful for initial setup)
     synchronize: configService.get<string>('TYPEORM_SYNC', 'false') === 'true',
-    logging: !isProduction,
+    logging: !isProduction && !isTest,
   };
 };

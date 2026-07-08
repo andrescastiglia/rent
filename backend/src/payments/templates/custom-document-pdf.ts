@@ -1,4 +1,4 @@
-import * as PDFDocument from 'pdfkit';
+import PDFDocument from 'pdfkit';
 
 export function generateCustomDocumentPdf(
   title: string,

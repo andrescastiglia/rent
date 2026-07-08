@@ -21,6 +21,8 @@ import { UserRole } from '../users/entities/user.entity';
 import { Buyer } from '../buyers/entities/buyer.entity';
 import { Document } from '../documents/entities/document.entity';
 
+jest.mock('mammoth');
+
 type MockRepository<T extends Record<string, any> = any> = Partial<
   Record<keyof Repository<T>, jest.Mock>
 >;
@@ -1142,7 +1144,7 @@ describe('LeasesService', () => {
     });
 
     it('truncates imported source metadata to fit persisted column limits', async () => {
-      jest.spyOn(mammoth, 'convertToHtml').mockResolvedValue({
+      (mammoth.convertToHtml as jest.Mock).mockResolvedValue({
         value: '<p>Template</p>',
         messages: [],
       });

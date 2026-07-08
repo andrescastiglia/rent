@@ -1,6 +1,5 @@
-import * as pyroscope from "@pyroscope/nodejs";
-
 let started = false;
+let pyroscope: typeof import("@pyroscope/nodejs") | undefined;
 
 function parseTags(raw: string | undefined): Record<string, string> {
   if (!raw) {
@@ -42,7 +41,7 @@ function shouldEnableProfiling(): boolean {
   return Boolean(resolvePyroscopeServerAddress());
 }
 
-export function startProfiling(): void {
+export async function startProfiling(): Promise<void> {
   if (started || !shouldEnableProfiling()) {
     return;
   }
@@ -62,6 +61,7 @@ export function startProfiling(): void {
     ...parseTags(process.env.PYROSCOPE_TAGS),
   };
 
+  pyroscope = await import("@pyroscope/nodejs");
   pyroscope.init({
     appName:
       process.env.PYROSCOPE_APPLICATION_NAME_BATCH ||
@@ -88,6 +88,6 @@ export async function stopProfiling(): Promise<void> {
     return;
   }
 
-  await pyroscope.stop().catch(() => undefined);
+  await pyroscope?.stop().catch(() => undefined);
   started = false;
 }

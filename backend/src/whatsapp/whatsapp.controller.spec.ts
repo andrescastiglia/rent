@@ -58,6 +58,7 @@ describe('WhatsappController', () => {
   it('verifyWebhook returns challenge on valid subscribe token', () => {
     whatsappService.verifyWebhookToken.mockReturnValue(true);
     const res = {
+      type: jest.fn().mockReturnThis(),
       status: jest.fn().mockReturnThis(),
       send: jest.fn().mockReturnThis(),
       sendStatus: jest.fn().mockReturnThis(),
@@ -72,6 +73,7 @@ describe('WhatsappController', () => {
       res,
     );
 
+    expect(res.type).toHaveBeenCalledWith('text/plain');
     expect(res.status).toHaveBeenCalledWith(HttpStatus.OK);
     expect(res.send).toHaveBeenCalledWith('challenge-1');
   });

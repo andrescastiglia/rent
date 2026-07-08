@@ -10,10 +10,7 @@ export type PropertyType =
 export type PropertyStatus = "ACTIVE" | "INACTIVE" | "MAINTENANCE";
 export type PropertyOperation = "rent" | "sale";
 export type PropertyOperationState =
-  | "available"
-  | "rented"
-  | "reserved"
-  | "sold";
+  "available" | "rented" | "reserved" | "sold";
 
 export interface Address {
   street: string;

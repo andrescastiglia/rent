@@ -23,7 +23,7 @@ describe('DocumentsService', () => {
     find: jest.fn(),
     softDelete: jest.fn(),
   };
-  const configService = {};
+  const configService = { get: jest.fn() };
 
   let service: DocumentsService;
   let s3Client: { send: jest.Mock };

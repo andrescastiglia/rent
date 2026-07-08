@@ -322,28 +322,19 @@ export default function PropertyDetailPage() {
 
   const getStatusLabel = (status: string) => {
     const statusKey = status.toLowerCase() as
-      | "active"
-      | "inactive"
-      | "maintenance";
+      "active" | "inactive" | "maintenance";
     return t(`status.${statusKey}`);
   };
 
   const getTypeLabel = (type: string) => {
     const typeKey = type.toLowerCase() as
-      | "apartment"
-      | "house"
-      | "commercial"
-      | "office"
-      | "other";
+      "apartment" | "house" | "commercial" | "office" | "other";
     return t(`type.${typeKey}`);
   };
 
   const getOperationStateLabel = (state?: string) => {
     const stateKey = (state ?? "available").toLowerCase() as
-      | "available"
-      | "rented"
-      | "reserved"
-      | "sold";
+      "available" | "rented" | "reserved" | "sold";
     return t(`operationState.${stateKey}`);
   };
 

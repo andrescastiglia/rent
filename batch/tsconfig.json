@@ -10,7 +10,6 @@
         "sourceMap": true,
         "outDir": "./dist",
         "rootDir": "./src",
-        "baseUrl": "./",
         "incremental": true,
         "skipLibCheck": true,
         "strictNullChecks": true,
@@ -20,18 +19,19 @@
         "noFallthroughCasesInSwitch": true,
         "resolveJsonModule": true,
         "esModuleInterop": true,
+        "types": ["jest", "node"],
         "paths": {
             "@shared/*": [
-                "src/shared/*"
+                "./src/shared/*"
             ],
             "@commands/*": [
-                "src/commands/*"
+                "./src/commands/*"
             ],
             "@services/*": [
-                "src/services/*"
+                "./src/services/*"
             ],
             "@templates/*": [
-                "src/templates/*"
+                "./src/templates/*"
             ]
         }
     },
@@ -40,6 +40,7 @@
     ],
     "exclude": [
         "node_modules",
-        "dist"
+        "dist",
+        "**/*.spec.ts"
     ]
 }

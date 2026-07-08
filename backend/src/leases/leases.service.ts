@@ -1203,6 +1203,14 @@ export class LeasesService {
   }
 
   private buildTemplateContext(lease: Lease): Record<string, unknown> {
+    const formatDate = (value: Date | string | null | undefined) => {
+      if (!value) {
+        return undefined;
+      }
+      return value instanceof Date
+        ? value.toISOString().slice(0, 10)
+        : String(value).slice(0, 10);
+    };
     const hasLateFee =
       lease.lateFeeType &&
       lease.lateFeeType !== LateFeeType.NONE &&
@@ -1218,8 +1226,8 @@ export class LeasesService {
         id: lease.id,
         leaseNumber: lease.leaseNumber,
         contractType: lease.contractType,
-        startDate: lease.startDate?.toISOString().slice(0, 10),
-        endDate: lease.endDate?.toISOString().slice(0, 10),
+        startDate: formatDate(lease.startDate),
+        endDate: formatDate(lease.endDate),
         monthlyRent: lease.monthlyRent,
         fiscalValue: lease.fiscalValue,
         currency: lease.currency,

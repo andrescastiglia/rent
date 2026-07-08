@@ -519,6 +519,7 @@
       "preferredZones": "Zonas preferidas (separadas por vírgula)",
       "desiredFeatures": "Características obrigatórias (separadas por vírgula)",
       "operations": "Operações de interesse",
+      "propertyType": "Tipo de imóvel",
       "stageReason": "Motivo da mudanca de etapa",
       "notes": "Notas"
     },
@@ -1191,6 +1192,7 @@
     "help": "Ajuda",
     "termsAndConditions": "Termos e Condições",
     "privacy": "Privacidade",
+    "dataDeletion": "Exclusão de dados",
     "contact": "Contato",
     "copyright": "© {year} Rent. Todos os direitos reservados."
   },
