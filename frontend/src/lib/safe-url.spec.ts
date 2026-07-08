@@ -30,6 +30,9 @@ describe("safe-url helpers", () => {
     expect(getSafeDocumentHref("/documents/contract.pdf")).toBe(
       "/documents/contract.pdf",
     );
+    expect(getSafeDocumentHref("/documents/contract.pdf?name=<script>")).toBe(
+      "/documents/contract.pdf?name=%3Cscript%3E",
+    );
     expect(getSafeDocumentHref("https://example.com/document.pdf")).toBe(
       "https://example.com/document.pdf",
     );
