@@ -55,6 +55,25 @@ const MOCK_AUTH_USER = {
     isActive: true,
 };
 
+async function seedMockAuth(page: Page) {
+    const token = `mock-token-${MOCK_AUTH_USER.id}-${Date.now()}`;
+    await page.addInitScript(
+        ({ authToken, authUser }) => {
+            window.localStorage.setItem('auth_token', authToken);
+            window.localStorage.setItem('auth_user', JSON.stringify(authUser));
+        },
+        { authToken: token, authUser: MOCK_AUTH_USER },
+    );
+    await page.goto(`/${DEFAULT_LOCALE}/dashboard`, {
+        waitUntil: 'domcontentloaded',
+    });
+    await page.waitForFunction(
+        (expectedPath) => window.location.pathname === expectedPath,
+        `/${DEFAULT_LOCALE}/dashboard`,
+        { timeout: 15000 },
+    );
+}
+
 function uniqueCredentials(items: Credentials[]): Credentials[] {
     const seen = new Set<string>();
     return items.filter((item) => {
@@ -93,21 +112,7 @@ export async function login(page: Page, email?: string, password?: string) {
         const maxAttempts = 3;
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
             try {
-                const token = `mock-token-${MOCK_AUTH_USER.id}-${Date.now()}`;
-                await page.goto(`/${DEFAULT_LOCALE}/dashboard`, {
-                    waitUntil: 'domcontentloaded',
-                });
-                await page.evaluate(
-                    ({ authToken, authUser }) => {
-                        localStorage.setItem('auth_token', authToken);
-                        localStorage.setItem('auth_user', JSON.stringify(authUser));
-                    },
-                    { authToken: token, authUser: MOCK_AUTH_USER },
-                );
-                await page.goto(`/${DEFAULT_LOCALE}/dashboard`, {
-                    waitUntil: 'domcontentloaded',
-                });
-                await page.waitForURL(`**/${DEFAULT_LOCALE}/dashboard`, { timeout: 10000 });
+                await seedMockAuth(page);
                 return;
             } catch (error) {
                 const message = String(error);

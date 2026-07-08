@@ -6,11 +6,11 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import {
-  InterestedProfile,
-  InterestedStatus,
-} from './interested-profile.entity';
+import { InterestedProfile } from './interested-profile.entity';
+import type { InterestedStatus } from './interested-profile.entity';
 import { User } from '../../users/entities/user.entity';
+
+const interestedStatusValues = ['interested', 'tenant', 'buyer'];
 
 @Entity('interested_stage_history')
 export class InterestedStageHistory {
@@ -27,7 +27,7 @@ export class InterestedStageHistory {
   @Column({
     name: 'from_status',
     type: 'enum',
-    enum: InterestedStatus,
+    enum: interestedStatusValues,
     enumName: 'interested_status',
   })
   fromStatus: InterestedStatus;
@@ -35,7 +35,7 @@ export class InterestedStageHistory {
   @Column({
     name: 'to_status',
     type: 'enum',
-    enum: InterestedStatus,
+    enum: interestedStatusValues,
     enumName: 'interested_status',
   })
   toStatus: InterestedStatus;

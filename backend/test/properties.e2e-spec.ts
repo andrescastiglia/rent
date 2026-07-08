@@ -1,9 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { User } from '../src/users/entities/user.entity';
+import { User, UserRole } from '../src/users/entities/user.entity';
+import { Admin } from '../src/users/entities/admin.entity';
 import {
   Property,
   PropertyType,
@@ -11,10 +12,19 @@ import {
 } from '../src/properties/entities/property.entity';
 import { Company, PlanType } from '../src/companies/entities/company.entity';
 import { Repository } from 'typeorm';
+import { UsersService } from '../src/users/users.service';
+import {
+  configureE2eApp,
+  createActiveTestUser,
+  createSuperAdminTestUser,
+  loginTestUser,
+} from './e2e-helpers';
 
 describe('Properties Management (e2e)', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
+  let adminRepository: Repository<Admin>;
+  let usersService: UsersService;
   let propertyRepository: Repository<Property>;
   let companyRepository: Repository<Company>;
   let ownerToken: string;
@@ -30,29 +40,15 @@ describe('Properties Management (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, transform: true }),
-    );
+    configureE2eApp(app);
 
     userRepository = moduleFixture.get(getRepositoryToken(User));
+    adminRepository = moduleFixture.get(getRepositoryToken(Admin));
+    usersService = moduleFixture.get(UsersService);
     propertyRepository = moduleFixture.get(getRepositoryToken(Property));
     companyRepository = moduleFixture.get(getRepositoryToken(Company));
 
     await app.init();
-
-    // Create owner user
-    const ownerRes = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send({
-        email: `property-owner@prop-${uniqueId}.test`,
-        password: 'Password123!',
-        firstName: 'Property',
-        lastName: 'Owner',
-        role: 'owner',
-      });
-
-    ownerToken = ownerRes.body.accessToken;
-    const ownerUserId = ownerRes.body.user.id;
 
     // Create company first (needed for owners)
     const company = companyRepository.create({
@@ -63,46 +59,69 @@ describe('Properties Management (e2e)', () => {
     const savedCompany = await companyRepository.save(company);
     companyId = savedCompany.id;
 
+    // Create owner user
+    const ownerUser = await createSuperAdminTestUser(
+      usersService,
+      adminRepository,
+      {
+        email: `property-owner@prop-${uniqueId}.test`,
+        password: 'Password123!',
+        firstName: 'Property',
+        lastName: 'Owner',
+        companyId,
+      },
+    );
+    ownerToken = await loginTestUser(
+      app,
+      ownerUser.email as string,
+      'Password123!',
+    );
+
     // Create owner record in owners table with company_id and get owner.id
     const ownerResult = await userRepository.query(
       'INSERT INTO owners (user_id, company_id) VALUES ($1, $2) RETURNING id',
-      [ownerUserId, companyId],
+      [ownerUser.id, companyId],
     );
     ownerId = ownerResult[0].id;
 
     // Create another owner for authorization tests
-    const otherOwnerRes = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send({
-        email: `other-owner@prop-${uniqueId}.test`,
-        password: 'Password123!',
-        firstName: 'Other',
-        lastName: 'Owner',
-        role: 'owner',
-      });
-
-    otherOwnerToken = otherOwnerRes.body.accessToken;
+    const otherOwner = await createActiveTestUser(usersService, {
+      email: `other-owner@prop-${uniqueId}.test`,
+      password: 'Password123!',
+      firstName: 'Other',
+      lastName: 'Owner',
+      role: UserRole.OWNER,
+      companyId,
+    });
+    otherOwnerToken = await loginTestUser(
+      app,
+      otherOwner.email as string,
+      'Password123!',
+    );
 
     // Create owner record for other owner with company_id
     await userRepository.query(
       'INSERT INTO owners (user_id, company_id) VALUES ($1, $2)',
-      [otherOwnerRes.body.user.id, companyId],
+      [otherOwner.id, companyId],
     );
   });
 
   afterAll(async () => {
     // Clean up
     await propertyRepository.query(
-      `DELETE FROM properties WHERE owner_id IN (SELECT user_id FROM owners WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@prop-${uniqueId}.test'))`,
+      `DELETE FROM properties WHERE owner_id IN (SELECT id FROM owners WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@prop-${uniqueId}.test'))`,
+    );
+    await userRepository.query(
+      `DELETE FROM admins WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@prop-${uniqueId}.test')`,
     );
     await userRepository.query(
       `DELETE FROM owners WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@prop-${uniqueId}.test')`,
     );
-    await companyRepository.query(
-      `DELETE FROM companies WHERE tax_id = '${uniqueId}-prop'`,
-    );
     await userRepository.query(
       `DELETE FROM users WHERE email LIKE '%@prop-${uniqueId}.test'`,
+    );
+    await companyRepository.query(
+      `DELETE FROM companies WHERE tax_id = '${uniqueId}-prop'`,
     );
     await app.close();
   });
@@ -119,7 +138,6 @@ describe('Properties Management (e2e)', () => {
         addressState: 'CABA',
         addressPostalCode: '1425',
         propertyType: PropertyType.APARTMENT,
-        status: PropertyStatus.ACTIVE,
         description: 'Test property',
       };
 

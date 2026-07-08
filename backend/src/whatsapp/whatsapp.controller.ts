@@ -48,11 +48,19 @@ export class WhatsappController {
     const mode = query['hub.mode'];
     const verifyToken = query['hub.verify_token'];
     const challenge = query['hub.challenge'];
+
+    const isValidChallenge =
+      typeof challenge === 'string' && /^[A-Za-z0-9_-]{1,200}$/.test(challenge);
+
+    if (!isValidChallenge) {
+      return res.sendStatus(HttpStatus.BAD_REQUEST);
+    }
+
     if (
       mode === 'subscribe' &&
       this.whatsappService.verifyWebhookToken(verifyToken)
     ) {
-      return res.status(HttpStatus.OK).send(challenge);
+      return res.type('text/plain').status(HttpStatus.OK).send(challenge);
     }
 
     return res.sendStatus(HttpStatus.FORBIDDEN);

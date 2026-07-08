@@ -211,6 +211,9 @@ CREATE TYPE document_status AS ENUM ('pending', 'approved', 'rejected', 'expired
 -- Payment frequency
 CREATE TYPE payment_frequency AS ENUM ('monthly', 'bimonthly', 'quarterly', 'semiannual', 'annual');
 
+-- Property visit kinds
+CREATE TYPE property_visit_kind AS ENUM ('visit', 'maintenance');
+
 -- Lease status
 CREATE TYPE lease_status AS ENUM ('draft', 'pending_signature', 'signed', 'active', 'finalized');
 
@@ -261,6 +264,11 @@ CREATE TYPE payment_status AS ENUM (
     'pending', 'processing', 'completed', 'failed', 'refunded', 'cancelled'
 );
 
+-- Payment activity type
+CREATE TYPE payment_activity_type AS ENUM (
+    'monthly', 'annual', 'adjustment', 'late_fee', 'extraordinary'
+);
+
 -- Payment item type
 CREATE TYPE payment_item_type AS ENUM ('charge', 'discount');
 
@@ -283,6 +291,11 @@ CREATE TYPE arca_tipo_comprobante AS ENUM (
 
 -- Inflation index types
 CREATE TYPE inflation_index_type AS ENUM ('icl', 'ipc', 'igp_m');
+
+-- Lease renewal alert periodicity
+CREATE TYPE lease_renewal_alert_periodicity AS ENUM (
+    'monthly', 'four_months', 'custom'
+);
 
 -- Notification types
 CREATE TYPE notification_type AS ENUM (
@@ -955,6 +968,8 @@ CREATE TABLE property_visits (
 
 CREATE INDEX idx_property_visits_property ON property_visits(property_id);
 CREATE INDEX idx_property_visits_date ON property_visits(visited_at);
+CREATE INDEX idx_property_visits_property_kind_visited_at
+    ON property_visits(property_id, kind, visited_at DESC);
 CREATE INDEX idx_property_visits_interested_profile ON property_visits(interested_profile_id)
     WHERE interested_profile_id IS NOT NULL;
 CREATE INDEX idx_property_visits_property_kind_visited_at
@@ -1262,6 +1277,10 @@ CREATE TABLE leases (
     payment_due_day INTEGER DEFAULT 10,
     billing_frequency billing_frequency NOT NULL DEFAULT 'first_of_month',
     billing_day INTEGER,
+    renewal_alert_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    renewal_alert_periodicity lease_renewal_alert_periodicity NOT NULL DEFAULT 'monthly',
+    renewal_alert_custom_days INTEGER,
+    renewal_alert_last_sent_at TIMESTAMPTZ,
     next_billing_date DATE,
     last_billing_date DATE,
     late_fee_type late_fee_type NOT NULL DEFAULT 'none',
@@ -1308,6 +1327,9 @@ CREATE TABLE leases (
     CONSTRAINT leases_payment_due_day_check CHECK (payment_due_day BETWEEN 1 AND 28),
     CONSTRAINT leases_billing_day_check CHECK (billing_day IS NULL OR billing_day BETWEEN 1 AND 28),
     CONSTRAINT leases_late_fee_grace_days_check CHECK (late_fee_grace_days >= 0),
+    CONSTRAINT leases_renewal_alert_custom_days_check CHECK (
+        renewal_alert_custom_days IS NULL OR renewal_alert_custom_days >= 1
+    ),
     CONSTRAINT leases_adjustment_frequency_check CHECK (adjustment_frequency_months > 0),
     CONSTRAINT leases_renewal_alert_custom_days_check CHECK (
         renewal_alert_custom_days IS NULL
@@ -1349,6 +1371,9 @@ CREATE INDEX idx_leases_owner ON leases(owner_id);
 CREATE INDEX idx_leases_contract_type ON leases(contract_type);
 CREATE INDEX idx_leases_status ON leases(status);
 CREATE INDEX idx_leases_dates ON leases(start_date, end_date);
+CREATE INDEX idx_leases_end_date_renewal_alerts
+    ON leases (end_date, renewal_alert_enabled, renewal_alert_periodicity)
+    WHERE deleted_at IS NULL;
 CREATE INDEX idx_leases_active ON leases(status) WHERE status = 'active';
 CREATE INDEX idx_leases_deleted ON leases(deleted_at) WHERE deleted_at IS NULL;
 CREATE INDEX idx_leases_next_adjustment ON leases(next_adjustment_date) 
@@ -1692,6 +1717,7 @@ CREATE TABLE payments (
     payment_number VARCHAR(50),
     status payment_status NOT NULL DEFAULT 'pending',
     payment_method payment_method NOT NULL,
+    activity_type payment_activity_type NOT NULL DEFAULT 'monthly',
     amount DECIMAL(14, 2) NOT NULL,
     currency VARCHAR(3) DEFAULT 'ARS',
     payment_date DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -1714,6 +1740,8 @@ CREATE INDEX idx_payments_company ON payments(company_id);
 CREATE INDEX idx_payments_invoice ON payments(invoice_id);
 CREATE INDEX idx_payments_tenant_account ON payments(tenant_account_id);
 CREATE INDEX idx_payments_tenant ON payments(tenant_id);
+CREATE INDEX idx_payments_activity_type_payment_date
+    ON payments (activity_type, payment_date DESC);
 CREATE INDEX idx_payments_status ON payments(status);
 CREATE INDEX idx_payments_activity_type_payment_date ON payments (activity_type, payment_date DESC);
 

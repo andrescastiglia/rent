@@ -2,7 +2,8 @@ import { InterestedActivityStatus } from '../../interested/entities/interested-a
 import { OwnerActivityStatus } from '../../owners/entities/owner-activity.entity';
 
 export type PersonActivityStatus =
-  InterestedActivityStatus | OwnerActivityStatus;
+  | InterestedActivityStatus
+  | OwnerActivityStatus;
 
 export class PersonActivityItemDto {
   id: string;

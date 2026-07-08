@@ -4,13 +4,13 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [preview]
+    branches: [preview, develop]
 
 permissions:
   contents: read
 
 env:
-  NODE_VERSION: '22.x'
+  NODE_VERSION: '22.22.1'
 
 jobs:
   # ─────────────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        image: postgis/postgis:16-3.5
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
@@ -100,7 +100,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U test -d rent_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -170,7 +170,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        image: postgis/postgis:16-3.5
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
@@ -178,7 +178,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U test -d rent_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -203,6 +203,28 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install PostgreSQL client
+        run: |
+          grep -rl "packages.microsoft.com" /etc/apt/sources.list.d 2>/dev/null | xargs -r sudo rm -f
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Initialize database snapshot for E2E
+        working-directory: ${{ github.workspace }}
+        run: psql -h localhost -p 5432 -U test -d rent_test -f scripts/init-db.sql
+        env:
+          PGPASSWORD: test
+
+      - name: Baseline migrations for snapshot schema
+        working-directory: ${{ github.workspace }}
+        run: bash migrations/run-migrations.sh --baseline-all-if-missing --force-baseline-all-if-missing
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: rent_test
+
       - name: Run backend E2E tests
         run: npm run test:e2e
         env:
@@ -210,7 +232,6 @@ jobs:
           JWT_SECRET: test-secret
           JWT_REFRESH_SECRET: test-refresh-secret
           NODE_ENV: test
-          TYPEORM_SYNC: 'true'
 
   sonarqube:
     name: SonarQube Analysis
@@ -356,7 +377,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        image: postgis/postgis:16-3.5
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
@@ -364,7 +385,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U test -d rent_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -391,7 +412,15 @@ jobs:
         run: npm ci
 
       - name: Install PostgreSQL client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+        run: |
+          grep -rl "packages.microsoft.com" /etc/apt/sources.list.d 2>/dev/null | xargs -r sudo rm -f
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Initialize database snapshot for E2E
+        run: psql -h localhost -p 5432 -U test -d rent_test -f scripts/init-db.sql
+        env:
+          PGPASSWORD: test
 
       - name: Initialize database schema
         run: psql -h localhost -p 5432 -U test -d rent_test -f scripts/init-db.sql
@@ -661,15 +690,47 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate native Android project
+        run: npm run e2e:prebuild
+
+      - name: Install Android emulator system libraries
+        run: |
+          grep -rl "packages.microsoft.com" /etc/apt/sources.list.d 2>/dev/null | xargs -r sudo rm -f
+          sudo apt-get update
+          sudo apt-get install -y libpulse0
+
+      - name: Enable KVM permissions
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
       - name: Run mobile E2E tests on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
+        env:
+          DETOX_CONFIGURATION: android.emu.debug
+          DETOX_ARTIFACTS: ../mobile-detox-artifacts
+          LOGCAT_LOG: ../rent-e2e-logcat.log
+          METRO_LOG: ../rent-metro-e2e.log
         with:
-          api-level: 36
-          avd-name: Medium_Phone_API_36.1
+          api-level: 34
+          avd-name: Medium_Phone_API_34
           arch: x86_64
+          cores: 4
           profile: pixel_7
           disable-animations: true
           script: cd mobile && npm run e2e:android
+
+      - name: Upload Detox artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mobile-detox-artifacts
+          path: |
+            mobile-detox-artifacts
+            rent-metro-e2e.log
+            rent-e2e-logcat.log
+          if-no-files-found: ignore
 
   # ─────────────────────────────────────────────────────────────
   # DEPLOY TO PRODUCTION (only on main branch)

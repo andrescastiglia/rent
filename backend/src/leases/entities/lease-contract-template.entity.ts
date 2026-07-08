@@ -9,10 +9,11 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Company } from '../../companies/entities/company.entity';
-import { ContractType } from './lease.entity';
+import type { ContractType } from './lease.entity';
 
 export const LEASE_TEMPLATE_SOURCE_FILE_NAME_MAX_LENGTH = 255;
 export const LEASE_TEMPLATE_SOURCE_MIME_TYPE_MAX_LENGTH = 120;
+const contractTypeValues = ['rental', 'sale'];
 
 @Entity('lease_contract_templates')
 export class LeaseContractTemplate {
@@ -32,7 +33,7 @@ export class LeaseContractTemplate {
   @Column({
     name: 'contract_type',
     type: 'enum',
-    enum: ContractType,
+    enum: contractTypeValues,
     enumName: 'contract_type',
   })
   contractType: ContractType;

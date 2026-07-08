@@ -763,7 +763,8 @@ export class GithubIssuesService {
     });
     const githubIssuesState =
       (conversation.toolState?.githubIssues as
-        Record<string, unknown> | undefined) ?? undefined;
+        | Record<string, unknown>
+        | undefined) ?? undefined;
     const pendingPreviewId = githubIssuesState?.pendingPreviewId;
 
     return typeof pendingPreviewId === 'string' && pendingPreviewId.length > 0
@@ -785,7 +786,8 @@ export class GithubIssuesService {
     });
     const githubIssuesState =
       (conversation.toolState?.githubIssues as
-        Record<string, unknown> | undefined) ?? undefined;
+        | Record<string, unknown>
+        | undefined) ?? undefined;
     const pendingPreviewId = githubIssuesState?.pendingPreviewId;
     if (
       typeof pendingPreviewId !== 'string' ||

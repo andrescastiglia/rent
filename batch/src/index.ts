@@ -1210,7 +1210,7 @@ async function resolveSettlementsSummary(
 
 async function main() {
   try {
-    startProfiling();
+    await startProfiling();
     await startTracing();
 
     const mod = await import("./shared/logger");

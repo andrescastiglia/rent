@@ -162,7 +162,8 @@ describe('AiToolsRegistryService', () => {
 
     const parameters = tools[0].function.parameters as Record<string, any>;
     const activeOnly = parameters.properties?.activeOnly as
-      Record<string, any> | undefined;
+      | Record<string, any>
+      | undefined;
 
     expect(activeOnly).toBeDefined();
     expect(Array.isArray(activeOnly?.anyOf)).toBeTruthy();

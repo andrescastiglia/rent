@@ -120,6 +120,7 @@ src/<module>/
 - All entities include `created_at` and `updated_at`.
 - Entity files live in `src/<module>/entities/<name>.entity.ts`.
 - **`TYPEORM_SYNC=true`** auto-creates tables in dev. Never enable in production — use SQL migrations instead.
+- Do not suggest TypeORM major upgrades in ordinary feature, test, or dependency PRs. TypeORM 1.x requires a dedicated migration PR that proves backend and batch unit tests, backend E2E, and batch E2E all pass.
 
 ### SQL Migrations
 
@@ -142,6 +143,13 @@ Files in `migrations/` are sequential: `{NNN}_{snake_case_description}.sql`.
 
 - `NEXT_PUBLIC_MOCK_MODE=true` enables API mocking; used by default in `npm run test:e2e`.
 - Use `npm run test:e2e:real` only when a running backend is available.
+
+### Dependency Review Guardrails
+
+- Do not recommend major upgrades for Expo SDK, React Native, native mobile modules, Detox, TypeORM, or parser/rendering libraries unless the PR is explicitly scoped as a migration.
+- Expo SDK 57 and React Native native-module majors must include an Expo compatibility review, regenerated native project validation, Android Detox E2E, and mobile unit tests.
+- Keep dependency PRs small: minor/patch groups may be reviewed together, but incompatible major upgrades should be ignored or closed until there is a migration plan.
+- Do not re-suggest upgrades already ignored in `.github/dependabot.yml` unless the ignore rule is intentionally removed in the same migration PR.
 
 ### Observability (optional, via env vars)
 

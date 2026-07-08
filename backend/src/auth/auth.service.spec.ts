@@ -8,6 +8,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { UserRole } from '../users/entities/user.entity';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Company } from '../companies/entities/company.entity';
 import * as bcrypt from 'bcrypt';
 
 jest.mock('bcrypt', () => ({
@@ -27,6 +29,10 @@ describe('AuthService', () => {
     sign: jest.fn(),
   };
 
+  const mockCompaniesRepository = {
+    upsert: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -38,6 +44,10 @@ describe('AuthService', () => {
         {
           provide: JwtService,
           useValue: mockJwtService,
+        },
+        {
+          provide: getRepositoryToken(Company),
+          useValue: mockCompaniesRepository,
         },
       ],
     }).compile();
@@ -166,9 +176,16 @@ describe('AuthService', () => {
     expect(mockUsersService.create).toHaveBeenCalledWith(
       expect.objectContaining({
         email: 'new@user.dev',
+        companyId: '00000000-0000-0000-0000-000000000001',
         role: UserRole.TENANT,
         isActive: false,
       }),
+    );
+    expect(mockCompaniesRepository.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: '00000000-0000-0000-0000-000000000001',
+      }),
+      ['id'],
     );
     expect(result).toEqual({
       pendingApproval: true,

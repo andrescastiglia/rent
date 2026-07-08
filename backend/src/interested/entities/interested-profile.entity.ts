@@ -144,7 +144,7 @@ export class InterestedProfile {
     enum: InterestedOperation,
     enumName: 'interested_operation',
     array: true,
-    default: () => "ARRAY['rent']::interested_operation[]",
+    default: [InterestedOperation.RENT],
   })
   operations: InterestedOperation[];
 
