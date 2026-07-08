@@ -9,6 +9,7 @@ import { leasesApi } from "@/lib/api/leases";
 import { Lease } from "@/types/lease";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
+import { encodeRouteSegment } from "@/lib/safe-url";
 
 export default function EditLeasePage() {
   const { loading: authLoading } = useAuth();
@@ -64,7 +65,7 @@ export default function EditLeasePage() {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
         <Link
-          href={`/leases/${lease.id}`}
+          href={`/leases/${encodeRouteSegment(lease.id)}`}
           className="inline-flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
         >
           <ArrowLeft size={16} className="mr-1" />

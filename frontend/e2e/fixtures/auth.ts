@@ -58,11 +58,10 @@ const MOCK_AUTH_USER = {
 async function seedMockAuth(page: Page) {
     const token = `mock-token-${MOCK_AUTH_USER.id}-${Date.now()}`;
     await page.addInitScript(
-        ({ authToken, authUser }) => {
+        ({ authToken }) => {
             window.localStorage.setItem('auth_token', authToken);
-            window.localStorage.setItem('auth_user', JSON.stringify(authUser));
         },
-        { authToken: token, authUser: MOCK_AUTH_USER },
+        { authToken: token },
     );
     await page.goto(`/${DEFAULT_LOCALE}/dashboard`, {
         waitUntil: 'domcontentloaded',

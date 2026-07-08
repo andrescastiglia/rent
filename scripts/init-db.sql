@@ -26,8 +26,14 @@ SET standard_conforming_strings = on;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "unaccent";
--- PostGIS para funcionalidades geoespaciales (comentar si no se requiere)
-CREATE EXTENSION IF NOT EXISTS "postgis";
+-- PostGIS para funcionalidades geoespaciales (opcional, no disponible en postgres:16 estándar)
+DO $$
+BEGIN
+    CREATE EXTENSION IF NOT EXISTS "postgis";
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'PostGIS extension not available, skipping installation';
+END;
+$$;
 
 \echo '✓ Extensiones instaladas'
 
@@ -1356,7 +1362,6 @@ CREATE INDEX idx_leases_next_adjustment ON leases(next_adjustment_date)
 CREATE INDEX idx_leases_billing ON leases(billing_frequency, billing_day) 
     WHERE auto_generate_invoices = TRUE AND status = 'active';
 CREATE INDEX idx_leases_previous_lease_id ON leases(previous_lease_id);
-
 CREATE TRIGGER update_leases_updated_at
     BEFORE UPDATE ON leases FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -1714,7 +1719,6 @@ CREATE INDEX idx_payments_tenant ON payments(tenant_id);
 CREATE INDEX idx_payments_activity_type_payment_date
     ON payments (activity_type, payment_date DESC);
 CREATE INDEX idx_payments_status ON payments(status);
-
 -- -----------------------------------------------------------------------------
 -- Payment Items
 -- -----------------------------------------------------------------------------

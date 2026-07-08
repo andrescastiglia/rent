@@ -27,6 +27,11 @@ import { useTranslations, useLocale } from "next-intl";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { useAuth } from "@/contexts/auth-context";
 import { formatMoneyByCode } from "@/lib/format-money";
+import {
+  buildPathWithQuery,
+  encodeRouteSegment,
+  getSafeDocumentHref,
+} from "@/lib/safe-url";
 
 type TranslationValues = Record<string, string | number | Date>;
 type LeaseTranslator = (key: string, values?: TranslationValues) => string;
@@ -213,14 +218,16 @@ function LeaseHeader({
       <div className="flex space-x-2">
         {lease.contractType === "rental" ? (
           <Link
-            href={`/${locale}/payments/new?leaseId=${lease.id}`}
+            href={buildPathWithQuery(`/${locale}/payments/new`, {
+              leaseId: lease.id,
+            })}
             className="btn btn-primary"
           >
             Registrar pago
           </Link>
         ) : null}
         <Link
-          href={`/${locale}/leases/${lease.id}/edit`}
+          href={`/${locale}/leases/${encodeRouteSegment(lease.id)}/edit`}
           className="btn btn-secondary"
         >
           <Edit size={16} className="mr-2" />
@@ -681,17 +688,28 @@ function LeaseDocumentsSection({
       <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
         {lease.documents.length > 0 ? (
           <ul className="space-y-2">
-            {lease.documents.map((doc, index) => (
-              <li key={doc}>
-                <a
-                  href={doc}
-                  className="flex items-center text-blue-600 hover:underline"
-                >
-                  <FileText size={16} className="mr-2" />
-                  {t("document")} {index + 1}
-                </a>
-              </li>
-            ))}
+            {lease.documents.map((doc, index) => {
+              const safeHref = getSafeDocumentHref(doc);
+
+              return (
+                <li key={doc}>
+                  {safeHref ? (
+                    <a
+                      href={safeHref}
+                      className="flex items-center text-blue-600 hover:underline"
+                    >
+                      <FileText size={16} className="mr-2" />
+                      {t("document")} {index + 1}
+                    </a>
+                  ) : (
+                    <span className="flex items-center text-gray-500">
+                      <FileText size={16} className="mr-2" />
+                      {t("document")} {index + 1}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <div className="text-center py-4 text-gray-500 dark:text-gray-400">

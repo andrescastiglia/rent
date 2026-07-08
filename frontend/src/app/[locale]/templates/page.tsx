@@ -15,6 +15,7 @@ import {
   scopeToDocumentType,
   TemplateScope,
 } from "@/components/templates/template-scopes";
+import { buildPathWithQuery } from "@/lib/safe-url";
 
 function TemplatesList({
   templates,
@@ -75,7 +76,10 @@ function TemplatesList({
               </div>
             </div>
             <Link
-              href={`/${locale}/templates/editor?scope=${scope}&templateId=${template.id}`}
+              href={buildPathWithQuery(`/${locale}/templates/editor`, {
+                scope,
+                templateId: template.id,
+              })}
               className="inline-flex items-center gap-1 text-xs text-blue-700 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
             >
               <Pencil size={14} />
@@ -197,7 +201,7 @@ export default function TemplatesPage() {
             ))}
           </select>
           <Link
-            href={`/${locale}/templates/editor?scope=${scope}`}
+            href={buildPathWithQuery(`/${locale}/templates/editor`, { scope })}
             className="btn btn-primary"
           >
             {t("newTemplate")}

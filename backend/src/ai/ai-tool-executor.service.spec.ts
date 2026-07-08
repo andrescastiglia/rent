@@ -176,6 +176,47 @@ describe('AiToolExecutorService', () => {
     );
   });
 
+  it('should ignore prototype pollution keys while normalizing arguments', async () => {
+    process.env.AI_TOOLS_MODE = 'FULL';
+
+    const toolWithBag: AiToolDefinition = {
+      name: 'test_bag',
+      description: 'test',
+      mutability: 'readonly',
+      allowedRoles: [UserRole.ADMIN],
+      parameters: z.object({
+        bag: z
+          .object({
+            safe: z.string().optional(),
+          })
+          .passthrough(),
+      }),
+      execute: jest.fn().mockResolvedValue({ ok: true }),
+    };
+    getDefinitionByName.mockImplementation((name: string) =>
+      name === 'test_bag' ? toolWithBag : undefined,
+    );
+
+    await service.execute(
+      'test_bag',
+      {
+        bag: {
+          safe: null,
+          constructor: { polluted: true },
+          prototype: { polluted: true },
+          ...JSON.parse('{"__proto__":{"polluted":true}}'),
+        },
+      },
+      context,
+    );
+
+    expect(toolWithBag.execute).toHaveBeenCalledWith(
+      { bag: { safe: undefined } },
+      context,
+    );
+    expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
+  });
+
   it('should rethrow tool execution errors with audit log', async () => {
     process.env.AI_TOOLS_MODE = 'FULL';
     const execError = new Error('DB connection failed');
