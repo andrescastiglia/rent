@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Lease } from "@/types/lease";
 import { leasesApi } from "@/lib/api/leases";
 import { Search, Loader2 } from "lucide-react";
@@ -9,7 +10,6 @@ import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
 import { formatMoneyByCode } from "@/lib/format-money";
 import { normalizeSearchText } from "@/lib/search";
-import { encodeRouteSegment } from "@/lib/safe-url";
 
 function normalizeDate(value?: string): Date | null {
   if (!value) return null;
@@ -28,6 +28,8 @@ function LeaseSection({
   leases: Lease[];
   locale: string;
 }>) {
+  const router = useRouter();
+
   if (leases.length === 0) {
     return (
       <section className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-900/40">
@@ -53,76 +55,83 @@ function LeaseSection({
         <p className="text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>
       </div>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {leases.map((lease) => (
-          <Link
-            key={lease.id}
-            href={`/${locale}/leases/${encodeRouteSegment(lease.id)}`}
-            className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-lg font-semibold text-slate-900 dark:text-white">
-                  {lease.property?.name ?? "Propiedad sin nombre"}
-                </p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {`${lease.tenant?.firstName ?? ""} ${lease.tenant?.lastName ?? ""}`.trim() ||
-                    "Sin inquilino"}
-                </p>
-              </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                {lease.status}
-              </span>
-            </div>
+        {leases.map((lease) => {
+          const leaseHref = `/${encodeURIComponent(locale)}/leases/${encodeURIComponent(
+            lease.id,
+          )}`;
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <div>
+          return (
+            <button
+              type="button"
+              key={lease.id}
+              onClick={() => router.push(leaseHref)}
+              className="w-full rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-lg font-semibold text-slate-900 dark:text-white">
+                    {lease.property?.name ?? "Propiedad sin nombre"}
+                  </p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    {`${lease.tenant?.firstName ?? ""} ${lease.tenant?.lastName ?? ""}`.trim() ||
+                      "Sin inquilino"}
+                  </p>
+                </div>
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                  {lease.status}
+                </span>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.16em] text-slate-400">
+                    Inicio
+                  </p>
+                  <p className="text-sm text-slate-700 dark:text-slate-200">
+                    {lease.startDate
+                      ? new Date(lease.startDate).toLocaleDateString(locale)
+                      : "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.16em] text-slate-400">
+                    Fin
+                  </p>
+                  <p className="text-sm text-slate-700 dark:text-slate-200">
+                    {lease.endDate
+                      ? new Date(lease.endDate).toLocaleDateString(locale)
+                      : "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.16em] text-slate-400">
+                    Canon
+                  </p>
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                    {lease.rentAmount === undefined
+                      ? "-"
+                      : formatMoneyByCode(
+                          lease.rentAmount,
+                          lease.currency,
+                          locale,
+                        )}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl bg-slate-50 p-3 dark:bg-slate-950">
                 <p className="text-xs uppercase tracking-[0.16em] text-slate-400">
-                  Inicio
+                  Alertas de renovación
                 </p>
                 <p className="text-sm text-slate-700 dark:text-slate-200">
-                  {lease.startDate
-                    ? new Date(lease.startDate).toLocaleDateString(locale)
-                    : "-"}
+                  {lease.renewalAlertEnabled
+                    ? `Activas · ${lease.renewalAlertPeriodicity ?? "monthly"}`
+                    : "Desactivadas"}
                 </p>
               </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-400">
-                  Fin
-                </p>
-                <p className="text-sm text-slate-700 dark:text-slate-200">
-                  {lease.endDate
-                    ? new Date(lease.endDate).toLocaleDateString(locale)
-                    : "-"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-400">
-                  Canon
-                </p>
-                <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                  {lease.rentAmount === undefined
-                    ? "-"
-                    : formatMoneyByCode(
-                        lease.rentAmount,
-                        lease.currency,
-                        locale,
-                      )}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4 rounded-2xl bg-slate-50 p-3 dark:bg-slate-950">
-              <p className="text-xs uppercase tracking-[0.16em] text-slate-400">
-                Alertas de renovación
-              </p>
-              <p className="text-sm text-slate-700 dark:text-slate-200">
-                {lease.renewalAlertEnabled
-                  ? `Activas · ${lease.renewalAlertPeriodicity ?? "monthly"}`
-                  : "Desactivadas"}
-              </p>
-            </div>
-          </Link>
-        ))}
+            </button>
+          );
+        })}
       </div>
     </section>
   );
