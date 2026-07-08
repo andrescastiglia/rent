@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test": "jest --config jest.config.js",
     "test:cov": "jest --config jest.config.js --coverage",
-    "e2e:prebuild": "npx expo prebuild --platform android --no-install",
+    "e2e:prebuild": "npx expo prebuild --platform android --no-install && node scripts/configure-detox-android.js",
     "e2e:build:android": "detox build -c ${DETOX_CONFIGURATION:-android.emu.debug}",
     "e2e:test:android": "sh scripts/e2e-android-test.sh",
     "e2e:android": "npm run e2e:build:android && npm run e2e:test:android",

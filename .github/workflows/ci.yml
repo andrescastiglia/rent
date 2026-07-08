@@ -686,7 +686,7 @@ jobs:
         run: npm ci
 
       - name: Generate native Android project
-        run: npx expo prebuild --platform android --no-install
+        run: npm run e2e:prebuild
 
       - name: Install Android emulator system libraries
         run: |
