@@ -1,9 +1,10 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
+  const locale = useLocale();
   const t = useTranslations("footer");
 
   return (
@@ -38,9 +39,7 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href="https://github.com/andrescastiglia/rent/blob/main/TERMS.md"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={`/${locale}/terms`}
                   className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
                 >
                   {t("termsAndConditions")}
@@ -48,12 +47,18 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href="https://github.com/andrescastiglia/rent/blob/main/PRIVACY.md"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={`/${locale}/privacy`}
                   className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
                 >
                   {t("privacy")}
+                </a>
+              </li>
+              <li>
+                <a
+                  href={`/${locale}/data-deletion`}
+                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+                >
+                  {t("dataDeletion")}
                 </a>
               </li>
             </ul>
