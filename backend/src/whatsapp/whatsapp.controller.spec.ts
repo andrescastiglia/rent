@@ -1,4 +1,5 @@
 import { ForbiddenException, HttpStatus } from '@nestjs/common';
+import { WhatsappWebhookQueryDto } from './dto/whatsapp-webhook-query.dto';
 import { WhatsappController } from './whatsapp.controller';
 
 describe('WhatsappController', () => {
@@ -94,6 +95,37 @@ describe('WhatsappController', () => {
 
     expect(whatsappService.verifyWebhookToken).not.toHaveBeenCalled();
     expect(res.sendStatus).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
+  });
+
+  it('normalizes webhook verification query aliases', () => {
+    expect(
+      WhatsappWebhookQueryDto.zodSchema.parse({
+        'hub.mode': 'subscribe',
+        'hub.verify_token': 'verify',
+        'hub.challenge': '123456',
+        hub_mode: 'subscribe',
+        hub_verify_token: 'verify',
+        hub_challenge: '123456',
+      }),
+    ).toEqual({
+      'hub.mode': 'subscribe',
+      'hub.verify_token': 'verify',
+      'hub.challenge': '123456',
+    });
+  });
+
+  it('accepts webhook verification query aliases when canonical keys are missing', () => {
+    expect(
+      WhatsappWebhookQueryDto.zodSchema.parse({
+        hub_mode: 'subscribe',
+        hub_verify_token: 'verify',
+        hub_challenge: '123456',
+      }),
+    ).toEqual({
+      'hub.mode': 'subscribe',
+      'hub.verify_token': 'verify',
+      'hub.challenge': '123456',
+    });
   });
 
   it('verifyWebhook returns forbidden when token is invalid', () => {
