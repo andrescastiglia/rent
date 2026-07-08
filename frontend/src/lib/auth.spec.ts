@@ -15,11 +15,24 @@ const buildToken = (payload: Record<string, unknown>) => {
 };
 
 describe("auth helpers", () => {
+  const originalMockMode = process.env.NEXT_PUBLIC_MOCK_MODE;
+
+  const restoreMockMode = () => {
+    if (originalMockMode === undefined) {
+      delete process.env.NEXT_PUBLIC_MOCK_MODE;
+    } else {
+      process.env.NEXT_PUBLIC_MOCK_MODE = originalMockMode;
+    }
+  };
+
   beforeEach(() => {
+    restoreMockMode();
     clearAuth();
     localStorage.clear();
     jest.useRealTimers();
   });
+
+  afterAll(restoreMockMode);
 
   it("stores token durably and keeps sanitized user in memory only", () => {
     setToken("token-1");
@@ -57,6 +70,44 @@ describe("auth helpers", () => {
 
     expect(getUser()).toBeNull();
     expect(localStorage.getItem("auth_user")).toBeNull();
+  });
+
+  it("derives a minimal mock user from mock auth tokens", () => {
+    process.env.NEXT_PUBLIC_MOCK_MODE = "true";
+
+    setToken("mock-token-1-123");
+
+    expect(getUser()).toEqual({
+      id: "1",
+      email: "e2e.admin@example.com",
+      firstName: "Admin",
+      lastName: "User",
+      avatarUrl: null,
+      language: "es",
+      role: "admin",
+      isActive: true,
+    });
+    expect(localStorage.getItem("auth_user")).toBeNull();
+
+    setToken("mock-token-role-owner-123");
+
+    expect(getUser()).toEqual({
+      id: "role-owner-1",
+      email: "e2e.owner@example.com",
+      firstName: "Owner",
+      lastName: "User",
+      avatarUrl: null,
+      language: "es",
+      role: "owner",
+      isActive: true,
+    });
+  });
+
+  it("ignores non-mock tokens when deriving mock users", () => {
+    process.env.NEXT_PUBLIC_MOCK_MODE = "true";
+    setToken("real-token");
+
+    expect(getUser()).toBeNull();
   });
 
   it("detects token expiration and invalid tokens", () => {

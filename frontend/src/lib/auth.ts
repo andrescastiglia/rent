@@ -35,7 +35,7 @@ function getMockUserFromToken(
     return null;
   }
 
-  const roleMatch = token.match(MOCK_ROLE_TOKEN_PATTERN);
+  const roleMatch = MOCK_ROLE_TOKEN_PATTERN.exec(token);
   const role =
     roleMatch?.[1] ?? (token.startsWith("mock-token-") ? "admin" : null);
 
