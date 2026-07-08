@@ -26,8 +26,14 @@ SET standard_conforming_strings = on;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "unaccent";
--- PostGIS para funcionalidades geoespaciales (comentar si no se requiere)
-CREATE EXTENSION IF NOT EXISTS "postgis";
+-- PostGIS para funcionalidades geoespaciales (opcional, no disponible en postgres:16 estándar)
+DO $$
+BEGIN
+    CREATE EXTENSION IF NOT EXISTS "postgis";
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'PostGIS extension not available, skipping installation';
+END;
+$$;
 
 \echo '✓ Extensiones instaladas'
 
@@ -364,6 +370,15 @@ CREATE TYPE maintenance_ticket_source AS ENUM ('tenant', 'owner', 'staff', 'admi
 -- Portal listings
 CREATE TYPE portal_name AS ENUM ('zonaprop', 'argenprop', 'mercadolibre', 'properati', 'navent');
 CREATE TYPE portal_listing_status AS ENUM ('draft', 'published', 'paused', 'removed', 'error');
+
+-- Payment activity type (migration 076)
+CREATE TYPE payment_activity_type AS ENUM ('monthly', 'annual', 'adjustment', 'late_fee', 'extraordinary');
+
+-- Property visit kind (migration 076)
+CREATE TYPE property_visit_kind AS ENUM ('visit', 'maintenance');
+
+-- Lease renewal alert periodicity (migration 076)
+CREATE TYPE lease_renewal_alert_periodicity AS ENUM ('monthly', 'four_months', 'custom');
 
 \echo '✓ Tipos ENUM creados'
 
@@ -957,6 +972,8 @@ CREATE INDEX idx_property_visits_property_kind_visited_at
     ON property_visits(property_id, kind, visited_at DESC);
 CREATE INDEX idx_property_visits_interested_profile ON property_visits(interested_profile_id)
     WHERE interested_profile_id IS NOT NULL;
+CREATE INDEX idx_property_visits_property_kind_visited_at
+    ON property_visits (property_id, kind, visited_at DESC);
 
 CREATE TRIGGER update_property_visits_updated_at
     BEFORE UPDATE ON property_visits FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -1300,6 +1317,10 @@ CREATE TABLE leases (
     signed_at TIMESTAMPTZ,
     signed_by_tenant BOOLEAN DEFAULT FALSE,
     signed_by_owner BOOLEAN DEFAULT FALSE,
+    renewal_alert_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    renewal_alert_periodicity lease_renewal_alert_periodicity NOT NULL DEFAULT 'monthly',
+    renewal_alert_custom_days INTEGER NULL,
+    renewal_alert_last_sent_at TIMESTAMPTZ NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMPTZ,
@@ -1310,6 +1331,10 @@ CREATE TABLE leases (
         renewal_alert_custom_days IS NULL OR renewal_alert_custom_days >= 1
     ),
     CONSTRAINT leases_adjustment_frequency_check CHECK (adjustment_frequency_months > 0),
+    CONSTRAINT leases_renewal_alert_custom_days_check CHECK (
+        renewal_alert_custom_days IS NULL
+        OR renewal_alert_custom_days >= 1
+    ),
     CONSTRAINT leases_dates_check CHECK (
         contract_type <> 'rental'
         OR (start_date IS NOT NULL AND end_date IS NOT NULL AND end_date > start_date)
@@ -1356,6 +1381,9 @@ CREATE INDEX idx_leases_next_adjustment ON leases(next_adjustment_date)
 CREATE INDEX idx_leases_billing ON leases(billing_frequency, billing_day) 
     WHERE auto_generate_invoices = TRUE AND status = 'active';
 CREATE INDEX idx_leases_previous_lease_id ON leases(previous_lease_id);
+CREATE INDEX idx_leases_end_date_renewal_alerts
+    ON leases (end_date, renewal_alert_enabled, renewal_alert_periodicity)
+    WHERE deleted_at IS NULL;
 
 CREATE TRIGGER update_leases_updated_at
     BEFORE UPDATE ON leases FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -1694,6 +1722,7 @@ CREATE TABLE payments (
     currency VARCHAR(3) DEFAULT 'ARS',
     payment_date DATE NOT NULL DEFAULT CURRENT_DATE,
     processed_at TIMESTAMPTZ,
+    activity_type payment_activity_type NOT NULL DEFAULT 'monthly',
     reference_number VARCHAR(255),
     bank_name VARCHAR(100),
     account_last_digits VARCHAR(4),
@@ -1714,6 +1743,7 @@ CREATE INDEX idx_payments_tenant ON payments(tenant_id);
 CREATE INDEX idx_payments_activity_type_payment_date
     ON payments (activity_type, payment_date DESC);
 CREATE INDEX idx_payments_status ON payments(status);
+CREATE INDEX idx_payments_activity_type_payment_date ON payments (activity_type, payment_date DESC);
 
 -- -----------------------------------------------------------------------------
 -- Payment Items
