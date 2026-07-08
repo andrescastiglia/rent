@@ -25,6 +25,7 @@ import {
   paymentsApi,
   tenantAccountsApi,
 } from "@/lib/api/payments";
+import { encodeRouteSegment } from "@/lib/safe-url";
 
 const OPEN_INVOICE_STATUSES = new Set<Invoice["status"]>([
   "pending",
@@ -281,7 +282,7 @@ export default function TenantPaymentRegistrationPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
         <Link
-          href={`/${locale}/tenants/${tenant.id}`}
+          href={`/${locale}/tenants/${encodeRouteSegment(tenant.id)}`}
           className="inline-flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
         >
           <ArrowLeft size={16} className="mr-1" />

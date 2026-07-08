@@ -1,5 +1,4 @@
 import axios, { AxiosInstance } from "axios";
-import https from "node:https";
 import { AppDataSource } from "../shared/database";
 import { logger } from "../shared/logger";
 
@@ -64,33 +63,17 @@ export class ExchangeRateService {
 
     this.bcbApiUrl =
       process.env.BCB_API_URL || "https://api.bcb.gov.br/dados/serie";
-    const insecureBcraTls = process.env.BCRA_API_INSECURE === "true";
-    const insecureBcbTls = process.env.BCB_API_INSECURE === "true";
 
     this.bcraClient = axios.create({
       baseURL: this.bcraApiUrl,
       timeout: 30000,
       headers: { Accept: "application/json" },
-      ...(insecureBcraTls
-        ? {
-            httpsAgent: new https.Agent({
-              rejectUnauthorized: false,
-            }),
-          }
-        : {}),
     });
 
     this.bcbClient = axios.create({
       baseURL: this.bcbApiUrl,
       timeout: 30000,
       headers: { Accept: "application/json" },
-      ...(insecureBcbTls
-        ? {
-            httpsAgent: new https.Agent({
-              rejectUnauthorized: false,
-            }),
-          }
-        : {}),
     });
   }
 

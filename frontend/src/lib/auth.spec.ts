@@ -20,12 +20,28 @@ describe("auth helpers", () => {
     jest.useRealTimers();
   });
 
-  it("stores and reads token/user from localStorage", () => {
+  it("stores and reads token/sanitized user from localStorage", () => {
     setToken("token-1");
-    setUser({ id: "1", name: "Admin" });
+    setUser({
+      id: "1",
+      email: "admin@example.com",
+      firstName: "Ada",
+      lastName: "Admin",
+      phone: "+5411",
+      role: "admin",
+      password: "secret",
+      accessToken: "token",
+    });
 
     expect(getToken()).toBe("token-1");
-    expect(getUser()).toEqual({ id: "1", name: "Admin" });
+    expect(getUser()).toEqual({
+      id: "1",
+      email: null,
+      firstName: "Ada",
+      lastName: "Admin",
+      avatarUrl: null,
+      role: "admin",
+    });
 
     removeToken();
     removeUser();

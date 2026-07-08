@@ -27,6 +27,9 @@ type PasswordFormState = {
 
 const LANGUAGE_OPTIONS: Locale[] = ["es", "en", "pt"];
 
+const isLocaleOption = (value: string): value is Locale =>
+  LANGUAGE_OPTIONS.includes(value as Locale);
+
 const toProfileForm = (user: User): ProfileFormState => ({
   email: user.email ?? "",
   firstName: user.firstName ?? "",
@@ -142,7 +145,11 @@ export default function SettingsPage() {
       setProfileSuccess(t("messages.profileSaved"));
 
       if (profileForm.language !== locale) {
-        globalThis.location.assign(getPathForLocale(profileForm.language));
+        const nextPath = getPathForLocale(profileForm.language);
+        const nextUrl = new URL(nextPath, globalThis.location.origin);
+        globalThis.location.assign(
+          `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`,
+        );
         return;
       }
     } catch (error) {
@@ -267,12 +274,14 @@ export default function SettingsPage() {
               {tCommon("selectLanguage")}
               <select
                 value={profileForm.language}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const nextLanguage = event.target.value;
+                  if (!isLocaleOption(nextLanguage)) return;
                   setProfileForm((prev) => ({
                     ...prev,
-                    language: event.target.value as Locale,
-                  }))
-                }
+                    language: nextLanguage,
+                  }));
+                }}
                 className="mt-1 block w-full rounded-md border p-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
               >
                 {LANGUAGE_OPTIONS.map((language) => (

@@ -1,5 +1,29 @@
 const TOKEN_KEY = "auth_token";
 const USER_KEY = "auth_user";
+const USER_ROLES = new Set(["admin", "owner", "tenant", "staff", "buyer"]);
+const USER_LANGUAGES = new Set(["es", "en", "pt"]);
+
+function getOptionalString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function sanitizeUserForStorage(
+  user: Record<string, unknown>,
+): Record<string, unknown> {
+  const role = getOptionalString(user.role);
+  const language = getOptionalString(user.language);
+
+  return {
+    id: getOptionalString(user.id) ?? "",
+    email: null,
+    firstName: getOptionalString(user.firstName) ?? "",
+    lastName: getOptionalString(user.lastName) ?? "",
+    avatarUrl: getOptionalString(user.avatarUrl) ?? null,
+    language: language && USER_LANGUAGES.has(language) ? language : undefined,
+    role: role && USER_ROLES.has(role) ? role : "staff",
+    isActive: typeof user.isActive === "boolean" ? user.isActive : undefined,
+  };
+}
 
 export function getToken(): string | null {
   if (globalThis.localStorage == null) return null;
@@ -32,7 +56,10 @@ export function getUser(): Record<string, unknown> | null {
 
 export function setUser(user: Record<string, unknown>): void {
   if (globalThis.localStorage == null) return;
-  globalThis.localStorage.setItem(USER_KEY, JSON.stringify(user));
+  globalThis.localStorage.setItem(
+    USER_KEY,
+    JSON.stringify(sanitizeUserForStorage(user)),
+  );
 }
 
 export function removeUser(): void {

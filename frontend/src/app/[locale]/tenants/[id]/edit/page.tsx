@@ -9,6 +9,7 @@ import { tenantsApi } from "@/lib/api/tenants";
 import { Tenant } from "@/types/tenant";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
+import { encodeRouteSegment } from "@/lib/safe-url";
 
 export default function EditTenantPage() {
   const { loading: authLoading } = useAuth();
@@ -66,14 +67,14 @@ export default function EditTenantPage() {
       <div className="mb-6">
         <div className="flex flex-wrap items-center gap-3">
           <Link
-            href={`/tenants/${tenant.id}`}
+            href={`/tenants/${encodeRouteSegment(tenant.id)}`}
             className="inline-flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           >
             <ArrowLeft size={16} className="mr-1" />
             {t("backToDetails")}
           </Link>
           <Link
-            href={`/${locale}/tenants/${tenant.id}/payments/new`}
+            href={`/${locale}/tenants/${encodeRouteSegment(tenant.id)}/payments/new`}
             className="inline-flex items-center px-3 py-1.5 rounded-md border border-green-200 text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-300 dark:hover:bg-green-900/20 text-sm"
           >
             <Wallet size={14} className="mr-1" />

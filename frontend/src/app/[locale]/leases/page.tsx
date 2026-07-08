@@ -9,6 +9,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
 import { formatMoneyByCode } from "@/lib/format-money";
 import { normalizeSearchText } from "@/lib/search";
+import { encodeRouteSegment } from "@/lib/safe-url";
 
 function normalizeDate(value?: string): Date | null {
   if (!value) return null;
@@ -55,7 +56,7 @@ function LeaseSection({
         {leases.map((lease) => (
           <Link
             key={lease.id}
-            href={`/${locale}/leases/${lease.id}`}
+            href={`/${locale}/leases/${encodeRouteSegment(lease.id)}`}
             className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
           >
             <div className="flex items-start justify-between gap-4">

@@ -100,10 +100,17 @@ export class AiToolExecutorService {
     }
 
     if (value && typeof value === 'object') {
-      const output: Record<string, unknown> = {};
+      const output: Record<string, unknown> = Object.create(null);
       for (const [key, val] of Object.entries(
         value as Record<string, unknown>,
       )) {
+        if (
+          key === '__proto__' ||
+          key === 'constructor' ||
+          key === 'prototype'
+        ) {
+          continue;
+        }
         output[key] = this.nullsToUndefined(val);
       }
       return output;

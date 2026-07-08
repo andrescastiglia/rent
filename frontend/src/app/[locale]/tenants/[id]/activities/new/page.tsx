@@ -12,6 +12,7 @@ import { tenantsApi } from "@/lib/api/tenants";
 import { whatsappApi } from "@/lib/api/whatsapp";
 import { Lease } from "@/types/lease";
 import { Tenant, TenantActivityType } from "@/types/tenant";
+import { encodeRouteSegment } from "@/lib/safe-url";
 
 const ACTIVITY_TYPES: TenantActivityType[] = [
   "task",
@@ -192,7 +193,7 @@ export default function TenantActivityCreatePage() {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
         <Link
-          href={`/${locale}/tenants/${tenant.id}`}
+          href={`/${locale}/tenants/${encodeRouteSegment(tenant.id)}`}
           className="inline-flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
         >
           <ArrowLeft size={16} className="mr-1" />

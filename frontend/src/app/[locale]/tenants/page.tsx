@@ -7,6 +7,7 @@ import { tenantsApi } from "@/lib/api/tenants";
 import { Search, Loader2, Edit, Wallet, Plus } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
+import { encodeRouteSegment } from "@/lib/safe-url";
 
 function TenantsList({
   tenants,
@@ -46,6 +47,7 @@ function TenantsList({
           statusColorClass =
             "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
         }
+        const tenantId = encodeRouteSegment(tenant.id);
 
         return (
           <div
@@ -55,7 +57,7 @@ function TenantsList({
             <div className="flex flex-col md:flex-row md:items-center gap-3">
               <div className="min-w-0">
                 <Link
-                  href={`/${locale}/tenants/${tenant.id}`}
+                  href={`/${locale}/tenants/${tenantId}`}
                   data-testid="tenant-detail-link"
                   className="font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-300"
                 >
@@ -76,21 +78,21 @@ function TenantsList({
                   {getStatusLabel(tenant.status)}
                 </span>
                 <Link
-                  href={`/${locale}/tenants/${tenant.id}/edit`}
+                  href={`/${locale}/tenants/${tenantId}/edit`}
                   className="action-link action-link-primary"
                 >
                   <Edit size={14} />
                   {tc("edit")}
                 </Link>
                 <Link
-                  href={`/${locale}/tenants/${tenant.id}/payments/new`}
+                  href={`/${locale}/tenants/${tenantId}/payments/new`}
                   className="action-link action-link-success"
                 >
                   <Wallet size={14} />
                   {t("paymentRegistration.submit")}
                 </Link>
                 <Link
-                  href={`/${locale}/tenants/${tenant.id}/activities/new`}
+                  href={`/${locale}/tenants/${tenantId}/activities/new`}
                   className="action-link action-link-primary"
                 >
                   <Plus size={14} />

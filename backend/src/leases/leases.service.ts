@@ -1559,7 +1559,7 @@ export class LeasesService {
     const expectedHtmlPath = join(tempDir, 'contract.html');
 
     try {
-      await writeFile(sourcePath, file.buffer);
+      await this.writeUploadedContractTempFile(sourcePath, file, 'doc');
       await execFile(
         'soffice',
         [
@@ -1594,7 +1594,7 @@ export class LeasesService {
     const sourcePath = join(tempDir, 'contract.pdf');
 
     try {
-      await writeFile(sourcePath, file.buffer);
+      await this.writeUploadedContractTempFile(sourcePath, file, 'pdf');
       const { stdout } = await execFile(
         'pdftohtml',
         ['-s', '-noframes', '-i', '-stdout', sourcePath],
@@ -1629,6 +1629,23 @@ export class LeasesService {
     const root = parseHtml(value);
     const body = root.querySelector('body');
     return (body?.innerHTML ?? value).trim();
+  }
+
+  private async writeUploadedContractTempFile(
+    path: string,
+    file: UploadedLeaseFile,
+    expectedExtension: 'doc' | 'pdf',
+  ): Promise<void> {
+    const extension = this.getUploadedFileExtension(file.originalname);
+    if (extension !== expectedExtension) {
+      throw new BadRequestException('Invalid contract file extension');
+    }
+
+    if (!Buffer.isBuffer(file.buffer) || file.buffer.length !== file.size) {
+      throw new BadRequestException('Invalid contract file payload');
+    }
+
+    await writeFile(path, file.buffer, { flag: 'wx', mode: 0o600 });
   }
 
   private async createUploadedContractDocument(
