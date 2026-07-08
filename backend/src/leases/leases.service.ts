@@ -4,15 +4,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { promisify } from 'node:util';
-import { execFile as execFileCallback } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository, SelectQueryBuilder } from 'typeorm';
 import * as mammoth from 'mammoth';
 import { parse as parseHtml } from 'node-html-parser';
+import { PDFParse } from 'pdf-parse';
 import {
   BillingFrequency,
   ContractType,
@@ -65,7 +61,8 @@ type UploadedLeaseFile = {
 
 type LeaseContentFormat = 'plain_text' | 'html';
 
-const execFile = promisify(execFileCallback);
+const SUPPORTED_CONTRACT_FILE_MESSAGE =
+  'Only md, docx, txt and pdf contracts are accepted';
 
 @Injectable()
 export class LeasesService {
@@ -1510,14 +1507,6 @@ export class LeasesService {
       };
     }
 
-    if (extension === 'doc') {
-      const html = await this.convertLegacyWordDocumentToHtml(file);
-      return {
-        content: this.normalizeContractBody(html, 'html'),
-        format: 'html',
-      };
-    }
-
     if (extension === 'pdf') {
       return {
         content: this.normalizeContractBody(
@@ -1528,20 +1517,20 @@ export class LeasesService {
       };
     }
 
-    throw new BadRequestException(
-      'Only md, doc, docx, txt and pdf contracts are accepted',
-    );
+    throw new BadRequestException(SUPPORTED_CONTRACT_FILE_MESSAGE);
   }
 
   private ensureSupportedContractFile(
     file: UploadedLeaseFile,
     extension: string,
   ): void {
-    const supportedExtensions = new Set(['md', 'doc', 'docx', 'txt', 'pdf']);
+    const supportedExtensions = new Set(['md', 'docx', 'txt', 'pdf']);
     if (!supportedExtensions.has(extension)) {
-      throw new BadRequestException(
-        'Only md, doc, docx, txt and pdf contracts are accepted',
-      );
+      throw new BadRequestException(SUPPORTED_CONTRACT_FILE_MESSAGE);
+    }
+
+    if (!Buffer.isBuffer(file.buffer) || file.buffer.length !== file.size) {
+      throw new BadRequestException('Invalid contract file payload');
     }
 
     if (file.mimetype?.startsWith('image/')) {
@@ -1551,67 +1540,21 @@ export class LeasesService {
     }
   }
 
-  private async convertLegacyWordDocumentToHtml(
-    file: UploadedLeaseFile,
-  ): Promise<string> {
-    const tempDir = await mkdtemp(join(tmpdir(), 'rent-legacy-doc-'));
-    const sourcePath = join(tempDir, 'contract.doc');
-    const expectedHtmlPath = join(tempDir, 'contract.html');
-
-    try {
-      await writeFile(sourcePath, file.buffer);
-      await execFile(
-        'soffice',
-        [
-          '--headless',
-          '--convert-to',
-          'html:HTML',
-          '--outdir',
-          tempDir,
-          sourcePath,
-        ],
-        {
-          timeout: 30_000,
-          maxBuffer: 10 * 1024 * 1024,
-        },
-      );
-
-      const html = await readFile(expectedHtmlPath, 'utf-8');
-      return this.extractHtmlBody(html);
-    } catch {
-      throw new BadRequestException(
-        'The .doc contract could not be interpreted as rich text',
-      );
-    } finally {
-      await rm(tempDir, { recursive: true, force: true });
-    }
-  }
-
   private async convertPdfDocumentToHtml(
     file: UploadedLeaseFile,
   ): Promise<string> {
-    const tempDir = await mkdtemp(join(tmpdir(), 'rent-pdf-html-'));
-    const sourcePath = join(tempDir, 'contract.pdf');
+    const parser = new PDFParse({ data: file.buffer });
 
     try {
-      await writeFile(sourcePath, file.buffer);
-      const { stdout } = await execFile(
-        'pdftohtml',
-        ['-s', '-noframes', '-i', '-stdout', sourcePath],
-        {
-          timeout: 30_000,
-          maxBuffer: 20 * 1024 * 1024,
-        },
-      );
-
-      const html = this.extractHtmlBody(stdout);
-      if (!html.trim()) {
+      const result = await parser.getText();
+      const text = result.text.trim();
+      if (!text) {
         throw new BadRequestException(
           'The PDF contract could not be interpreted as rich text',
         );
       }
 
-      return html;
+      return this.plainTextToHtml(text);
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
@@ -1621,7 +1564,7 @@ export class LeasesService {
         'The PDF contract could not be interpreted as rich text',
       );
     } finally {
-      await rm(tempDir, { recursive: true, force: true });
+      await parser.destroy();
     }
   }
 

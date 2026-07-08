@@ -145,7 +145,7 @@ describe('LeasesService', () => {
     expect(leaseRepository.create).toHaveBeenCalled();
   });
 
-  it('imports legacy .doc contracts as rich text without OCR', async () => {
+  it('imports PDF contracts as rich text without writing uploads to disk', async () => {
     const property = { id: 'prop-1', ownerId: 'owner-1' } as Property;
     const buyer = {
       id: 'buyer-1',
@@ -159,9 +159,9 @@ describe('LeasesService', () => {
       buyerId: buyer.id,
       contractType: ContractType.SALE,
       status: LeaseStatus.ACTIVE,
-      draftContractText: '<p>Contrato legado</p>',
+      draftContractText: '<p>Contrato PDF</p>',
       draftContractFormat: 'html',
-      confirmedContractText: '<p>Contrato legado</p>',
+      confirmedContractText: '<p>Contrato PDF</p>',
       confirmedContractFormat: 'html',
     } as unknown as Lease;
 
@@ -185,16 +185,17 @@ describe('LeasesService', () => {
         fileUrl: 'db://document/doc-1',
       } as any);
     jest
-      .spyOn(service as any, 'convertLegacyWordDocumentToHtml')
-      .mockResolvedValue('<p>Contrato legado</p>');
+      .spyOn(service as any, 'convertPdfDocumentToHtml')
+      .mockResolvedValue('<p>Contrato PDF</p>');
     jest.spyOn(service, 'findOne').mockResolvedValue(importedLease);
+    const fileBuffer = Buffer.from('%PDF-1.4 contract');
 
     const result = await service.importCurrentContract(
       {
-        buffer: Buffer.from('doc'),
-        mimetype: 'application/msword',
-        originalname: 'contrato.doc',
-        size: 128,
+        buffer: fileBuffer,
+        mimetype: 'application/pdf',
+        originalname: 'contrato.pdf',
+        size: fileBuffer.length,
       },
       {
         propertyId: property.id,
@@ -1176,9 +1177,18 @@ describe('LeasesService', () => {
           originalname: 'file.zip',
           size: 1,
         }),
-      ).rejects.toThrow(
-        'Only md, doc, docx, txt and pdf contracts are accepted',
-      );
+      ).rejects.toThrow('Only md, docx, txt and pdf contracts are accepted');
+    });
+
+    it('rejects legacy doc files because they require disk-backed conversion', async () => {
+      await expect(
+        (service as any).extractTextFromUploadedContract({
+          buffer: Buffer.from('x'),
+          mimetype: 'application/msword',
+          originalname: 'file.doc',
+          size: 1,
+        }),
+      ).rejects.toThrow('Only md, docx, txt and pdf contracts are accepted');
     });
 
     it('throws on image mimetype', async () => {
@@ -1208,15 +1218,35 @@ describe('LeasesService', () => {
       jest
         .spyOn(service as any, 'renderMarkdownAsHtml')
         .mockResolvedValue('<h1>Title</h1><p>Content here</p>');
+      const buffer = Buffer.from('# Title\n\nContent here');
 
       const result = await (service as any).extractTextFromUploadedContract({
-        buffer: Buffer.from('# Title\n\nContent here'),
+        buffer,
         mimetype: 'text/markdown',
         originalname: 'contract.md',
-        size: 22,
+        size: buffer.length,
       });
       expect(result.format).toBe('html');
       expect(result.content).toContain('Title');
+    });
+
+    it('handles pdf files from memory', async () => {
+      jest
+        .spyOn(service as any, 'convertPdfDocumentToHtml')
+        .mockResolvedValue('<p>PDF text</p>');
+      const buffer = Buffer.from('%PDF-1.4');
+
+      const result = await (service as any).extractTextFromUploadedContract({
+        buffer,
+        mimetype: 'application/pdf',
+        originalname: 'contract.pdf',
+        size: buffer.length,
+      });
+
+      expect(result).toEqual({
+        content: '<p>PDF text</p>',
+        format: 'html',
+      });
     });
   });
 

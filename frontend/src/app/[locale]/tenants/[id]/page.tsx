@@ -23,6 +23,7 @@ import { Invoice, Payment } from "@/types/payment";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
 import { IS_MOCK_MODE } from "@/lib/api";
+import { encodeRouteSegment } from "@/lib/safe-url";
 
 export default function TenantDetailPage() {
   const { loading: authLoading, token } = useAuth();
@@ -270,6 +271,7 @@ export default function TenantDetailPage() {
     statusColorClass =
       "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
   }
+  const tenantRouteId = encodeRouteSegment(tenantToRender.id);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -308,21 +310,21 @@ export default function TenantDetailPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Link
-                href={`/${locale}/tenants/${tenantToRender.id}/edit`}
+                href={`/${locale}/tenants/${tenantRouteId}/edit`}
                 className="btn btn-secondary"
               >
                 <Edit size={16} className="mr-2" />
                 {tCommon("edit")}
               </Link>
               <Link
-                href={`/${locale}/tenants/${tenantToRender.id}/payments/new`}
+                href={`/${locale}/tenants/${tenantRouteId}/payments/new`}
                 className="btn btn-success"
               >
                 <Wallet size={16} className="mr-2" />
                 {t("paymentRegistration.submit")}
               </Link>
               <Link
-                href={`/${locale}/tenants/${tenantToRender.id}/activities/new`}
+                href={`/${locale}/tenants/${tenantRouteId}/activities/new`}
                 className="btn btn-primary"
               >
                 <Plus size={16} className="mr-2" />

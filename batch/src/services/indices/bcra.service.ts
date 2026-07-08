@@ -1,5 +1,4 @@
 import axios, { AxiosError, AxiosInstance } from "axios";
-import https from "node:https";
 import { logger } from "../../shared/logger";
 
 /**
@@ -70,21 +69,12 @@ export class BcraService {
       ? configuredVariableId
       : BcraService.DEFAULT_ICL_VARIABLE_ID;
 
-    const insecureTls = process.env.BCRA_API_INSECURE === "true";
-
     this.client = axios.create({
       baseURL: this.apiUrl,
       timeout: 30000,
       headers: {
         Accept: "application/json",
       },
-      ...(insecureTls
-        ? {
-            httpsAgent: new https.Agent({
-              rejectUnauthorized: false,
-            }),
-          }
-        : {}),
     });
   }
 
