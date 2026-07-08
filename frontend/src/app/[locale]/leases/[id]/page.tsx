@@ -690,12 +690,13 @@ function LeaseDocumentsSection({
           <ul className="space-y-2">
             {lease.documents.map((doc, index) => {
               const safeHref = getSafeDocumentHref(doc);
+              const documentHref = safeHref ? encodeURI(safeHref) : null;
 
               return (
                 <li key={doc}>
-                  {safeHref ? (
+                  {documentHref ? (
                     <a
-                      href={safeHref}
+                      href={documentHref}
                       className="flex items-center text-blue-600 hover:underline"
                     >
                       <FileText size={16} className="mr-2" />

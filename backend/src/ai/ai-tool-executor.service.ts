@@ -15,6 +15,11 @@ import {
 @Injectable()
 export class AiToolExecutorService {
   private readonly logger = new Logger(AiToolExecutorService.name);
+  private readonly unsafeObjectKeys = new Set([
+    '__proto__',
+    'constructor',
+    'prototype',
+  ]);
 
   constructor(private readonly catalog: AiToolCatalogService) {}
 
@@ -100,20 +105,11 @@ export class AiToolExecutorService {
     }
 
     if (value && typeof value === 'object') {
-      const output: Record<string, unknown> = Object.create(null);
-      for (const [key, val] of Object.entries(
-        value as Record<string, unknown>,
-      )) {
-        if (
-          key === '__proto__' ||
-          key === 'constructor' ||
-          key === 'prototype'
-        ) {
-          continue;
-        }
-        output[key] = this.nullsToUndefined(val);
-      }
-      return output;
+      return Object.fromEntries(
+        Object.entries(value as Record<string, unknown>)
+          .filter(([key]) => !this.unsafeObjectKeys.has(key))
+          .map(([key, val]) => [key, this.nullsToUndefined(val)]),
+      );
     }
 
     return value;
@@ -159,16 +155,11 @@ export class AiToolExecutorService {
     }
 
     if (value && typeof value === 'object') {
-      const output: Record<string, unknown> = {};
-      for (const [key, val] of Object.entries(
-        value as Record<string, unknown>,
-      )) {
-        if (blockedKeys.has(key)) {
-          continue;
-        }
-        output[key] = this.sanitizeOutput(val);
-      }
-      return output;
+      return Object.fromEntries(
+        Object.entries(value as Record<string, unknown>)
+          .filter(([key]) => !blockedKeys.has(key))
+          .map(([key, val]) => [key, this.sanitizeOutput(val)]),
+      );
     }
 
     return value;

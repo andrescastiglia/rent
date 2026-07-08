@@ -4,7 +4,7 @@ import { SyntheticEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Lock, Save } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { Locale } from "@/config/locales";
 import { useAuth } from "@/contexts/auth-context";
 import { usersApi } from "@/lib/api/users";
@@ -45,6 +45,7 @@ export default function SettingsPage() {
   const { user, loading: authLoading, updateUser } = useAuth();
   const locale = useLocale() as Locale;
   const pathname = usePathname();
+  const router = useRouter();
   const t = useTranslations("userSettings");
   const tCommon = useTranslations("common");
   const tAuth = useTranslations("auth");
@@ -146,10 +147,7 @@ export default function SettingsPage() {
 
       if (profileForm.language !== locale) {
         const nextPath = getPathForLocale(profileForm.language);
-        const nextUrl = new URL(nextPath, globalThis.location.origin);
-        globalThis.location.assign(
-          `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`,
-        );
+        router.replace(nextPath);
         return;
       }
     } catch (error) {
