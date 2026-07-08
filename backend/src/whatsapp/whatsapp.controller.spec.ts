@@ -68,14 +68,32 @@ describe('WhatsappController', () => {
       {
         'hub.mode': 'subscribe',
         'hub.verify_token': 'verify',
-        'hub.challenge': 'challenge-1',
+        'hub.challenge': '123456',
       } as any,
       res,
     );
 
     expect(res.type).toHaveBeenCalledWith('text/plain');
     expect(res.status).toHaveBeenCalledWith(HttpStatus.OK);
-    expect(res.send).toHaveBeenCalledWith('challenge-1');
+    expect(res.send).toHaveBeenCalledWith('123456');
+  });
+
+  it('verifyWebhook rejects non-numeric challenge values', () => {
+    const res = {
+      sendStatus: jest.fn().mockReturnThis(),
+    } as any;
+
+    controller.verifyWebhook(
+      {
+        'hub.mode': 'subscribe',
+        'hub.verify_token': 'verify',
+        'hub.challenge': '<script>alert(1)</script>',
+      } as any,
+      res,
+    );
+
+    expect(whatsappService.verifyWebhookToken).not.toHaveBeenCalled();
+    expect(res.sendStatus).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
   });
 
   it('verifyWebhook returns forbidden when token is invalid', () => {
@@ -90,7 +108,7 @@ describe('WhatsappController', () => {
       {
         'hub.mode': 'subscribe',
         'hub.verify_token': 'wrong',
-        'hub.challenge': 'challenge-1',
+        'hub.challenge': '123456',
       } as any,
       res,
     );

@@ -50,7 +50,7 @@ export class WhatsappController {
     const challenge = query['hub.challenge'];
 
     const isValidChallenge =
-      typeof challenge === 'string' && /^[A-Za-z0-9_-]{1,200}$/.test(challenge);
+      typeof challenge === 'string' && /^\d{1,32}$/.test(challenge);
 
     if (!isValidChallenge) {
       return res.sendStatus(HttpStatus.BAD_REQUEST);

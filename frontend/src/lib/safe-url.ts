@@ -1,4 +1,5 @@
 type QueryValue = string | number | boolean | null | undefined;
+const DOCUMENT_URL_BASE = "https://rent.local";
 
 export function encodeRouteSegment(value: string | number): string {
   return encodeURIComponent(String(value));
@@ -21,7 +22,8 @@ export function buildPathWithQuery(
 
 export function getSafeDocumentHref(value: string): string | null {
   if (value.startsWith("/") && !value.startsWith("//")) {
-    return value;
+    const url = new URL(value, DOCUMENT_URL_BASE);
+    return `${url.pathname}${url.search}${url.hash}`;
   }
 
   try {
