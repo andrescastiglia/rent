@@ -26,7 +26,6 @@ describe('Properties CRUD', () => {
     await element(by.id('propertyCreate.name')).replaceText(uniqueName);
     await element(by.id('propertyCreate.street')).replaceText('Avenida Test');
     await element(by.id('propertyCreate.number')).replaceText('123');
-    await device.pressBack();
     await waitFor(element(by.id('propertyCreate.city')))
       .toBeVisible()
       .whileElement(by.id('propertyCreate.scroll'))
