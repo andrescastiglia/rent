@@ -23,7 +23,16 @@ describe('Properties CRUD', () => {
     await element(by.id('propertyCreate.name')).replaceText(uniqueName);
     await element(by.id('propertyCreate.street')).replaceText('Avenida Test');
     await element(by.id('propertyCreate.number')).replaceText('123');
+    await device.pressBack();
+    await waitFor(element(by.id('propertyCreate.city')))
+      .toBeVisible()
+      .whileElement(by.id('propertyCreate.scroll'))
+      .scroll(220, 'down');
     await element(by.id('propertyCreate.city')).replaceText('CABA');
+    await waitFor(element(by.id('propertyCreate.state')))
+      .toBeVisible()
+      .whileElement(by.id('propertyCreate.scroll'))
+      .scroll(120, 'down');
     await element(by.id('propertyCreate.state')).replaceText('Buenos Aires');
     await waitFor(element(by.id('propertyCreate.zipCode')))
       .toBeVisible()
