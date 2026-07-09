@@ -28,4 +28,24 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   return context.resolveRequest(context, moduleName, platform);
 };
 
+const enhanceMiddleware = config.server?.enhanceMiddleware;
+config.server = {
+  ...config.server,
+  enhanceMiddleware: (middleware, server) => {
+    const enhancedMiddleware = enhanceMiddleware
+      ? enhanceMiddleware(middleware, server)
+      : middleware;
+
+    return (req, res, next) => {
+      if (req.url?.split('?')[0] === '/status') {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('packager-status:running');
+        return;
+      }
+
+      return enhancedMiddleware(req, res, next);
+    };
+  },
+};
+
 module.exports = config;

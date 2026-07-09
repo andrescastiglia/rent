@@ -164,15 +164,26 @@ export class BillingService {
       const amount = invoice.total.toLocaleString("es-AR", {
         minimumFractionDigits: 2,
       });
+      const totalAmount = `${invoice.currencyCode} ${amount}`;
       const text = [
         `Hola ${tenantName},`,
         `tu factura ${invoice.invoiceNumber} ya está disponible.`,
         `Vencimiento: ${dueDate}.`,
-        `Monto: ${invoice.currencyCode} ${amount}.`,
+        `Monto: ${totalAmount}.`,
       ].join(" ");
 
-      const sendResult = await this.whatsappService.sendTextMessage(
+      const sendResult = await this.whatsappService.sendTemplateMessage(
         contact.tenantPhone,
+        {
+          templateName: "invoice_available",
+          templateLanguage: contact.tenantLanguage ?? "es",
+          templateParameters: [
+            tenantName,
+            invoice.invoiceNumber,
+            dueDate,
+            totalAmount,
+          ],
+        },
         text,
         invoice.pdfUrl,
       );

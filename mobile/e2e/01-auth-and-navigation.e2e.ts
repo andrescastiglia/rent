@@ -9,7 +9,7 @@ describe('Auth and navigation', () => {
     await loginAsAdmin();
 
     await element(by.id('tab.properties')).tap();
-    await expect(element(by.id('properties.new'))).toBeVisible();
+    await expect(element(by.id('properties.owners.search'))).toBeVisible();
 
     await element(by.id('tab.tenants')).tap();
     await expect(element(by.id('tenants.new'))).toBeVisible();

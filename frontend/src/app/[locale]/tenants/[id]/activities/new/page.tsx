@@ -138,7 +138,7 @@ export default function TenantActivityCreatePage() {
 
     try {
       setSaving(true);
-      await tenantsApi.createActivity(tenant.id, {
+      const activity = await tenantsApi.createActivity(tenant.id, {
         type: form.type,
         subject: form.subject.trim(),
         body: form.body.trim() || undefined,
@@ -152,6 +152,10 @@ export default function TenantActivityCreatePage() {
         await whatsappApi.sendMessage({
           to: tenant.phone.trim(),
           text,
+          activityEntity: "tenant",
+          activityId: activity.id,
+          relatedEntityType: "tenant",
+          relatedEntityId: tenant.id,
         });
       }
 

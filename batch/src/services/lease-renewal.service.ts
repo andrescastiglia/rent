@@ -13,6 +13,7 @@ type LeaseRenewalRecord = {
   ownerId: string;
   ownerName: string | null;
   ownerPhone: string | null;
+  ownerLanguage: string | null;
   tenantName: string | null;
   endDate: Date;
   renewalAlertPeriodicity: RenewalAlertPeriodicity;
@@ -108,6 +109,7 @@ export class LeaseRenewalService {
           l.owner_id,
           CONCAT_WS(' ', ou.first_name, ou.last_name) AS owner_name,
           ou.phone AS owner_phone,
+          ou.language AS owner_language,
           CONCAT_WS(' ', tu.first_name, tu.last_name) AS tenant_name,
           l.end_date,
           l.renewal_alert_periodicity,
@@ -150,6 +152,7 @@ export class LeaseRenewalService {
         owner_id: string;
         owner_name: string | null;
         owner_phone: string | null;
+        owner_language: string | null;
         tenant_name: string | null;
         end_date: string | Date;
         renewal_alert_periodicity: RenewalAlertPeriodicity;
@@ -164,6 +167,7 @@ export class LeaseRenewalService {
         ownerId: row.owner_id,
         ownerName: row.owner_name?.trim() || null,
         ownerPhone: row.owner_phone,
+        ownerLanguage: row.owner_language ?? null,
         tenantName: row.tenant_name?.trim() || null,
         endDate: new Date(row.end_date),
         renewalAlertPeriodicity: row.renewal_alert_periodicity,
@@ -268,17 +272,30 @@ export class LeaseRenewalService {
       return false;
     }
 
+    const ownerName = lease.ownerName || "propietario/a";
+    const endDate = lease.endDate.toISOString().slice(0, 10);
+    const tenantName = lease.tenantName || "Sin inquilino informado";
     const text = [
-      `Hola ${lease.ownerName || "propietario/a"},`,
-      `el contrato de ${lease.propertyName} vence el ${lease.endDate.toISOString().slice(0, 10)}.`,
+      `Hola ${ownerName},`,
+      `el contrato de ${lease.propertyName} vence el ${endDate}.`,
       lease.tenantName ? `Inquilino: ${lease.tenantName}.` : null,
       "Conviene revisar la renovacion con anticipacion.",
     ]
       .filter(Boolean)
       .join(" ");
 
-    const response = await this.whatsappService.sendTextMessage(
+    const response = await this.whatsappService.sendTemplateMessage(
       lease.ownerPhone,
+      {
+        templateName: "lease_renewal_alert_owner",
+        templateLanguage: lease.ownerLanguage ?? "es",
+        templateParameters: [
+          ownerName,
+          lease.propertyName,
+          endDate,
+          tenantName,
+        ],
+      },
       text,
     );
 

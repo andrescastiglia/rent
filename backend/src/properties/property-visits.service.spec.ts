@@ -24,7 +24,7 @@ describe('PropertyVisitsService', () => {
   let visitsRepository: MockRepository<PropertyVisit>;
   let notificationsRepository: MockRepository<PropertyVisitNotification>;
   let ownerActivitiesRepository: MockRepository<OwnerActivity>;
-  let whatsappService: { sendTextMessage: jest.Mock };
+  let whatsappService: { sendTemplateMessage: jest.Mock };
 
   type MockRepository<T extends Record<string, any> = any> = Partial<
     Record<keyof Repository<T>, jest.Mock>
@@ -39,7 +39,7 @@ describe('PropertyVisitsService', () => {
 
   beforeEach(async () => {
     whatsappService = {
-      sendTextMessage: jest
+      sendTemplateMessage: jest
         .fn()
         .mockResolvedValue({ messageId: 'wamid.test', raw: {} }),
     };
@@ -122,7 +122,22 @@ describe('PropertyVisitsService', () => {
     expect(result.notifications).toHaveLength(1);
     expect(notificationsRepository.save).toHaveBeenCalledTimes(2);
     expect(ownerActivitiesRepository.save).toHaveBeenCalledTimes(1);
-    expect(whatsappService.sendTextMessage).toHaveBeenCalledTimes(1);
+    expect(whatsappService.sendTemplateMessage).toHaveBeenCalledTimes(1);
+    expect(whatsappService.sendTemplateMessage).toHaveBeenCalledWith(
+      '+54 9 11 1234-5678',
+      'property_visit_registered',
+      'es',
+      ['Casa Linda', expect.any(String), 'Ana', 'Le gustó. Oferta ARS 1000'],
+      expect.objectContaining({
+        textFallback: expect.stringContaining('Se registró una visita'),
+        context: expect.objectContaining({
+          activityEntity: 'owner',
+          activityId: 'activity-1',
+          relatedEntityType: 'property_visit',
+          relatedEntityId: 'visit-1',
+        }),
+      }),
+    );
 
     const savedNotifications = notificationsRepository.save!.mock.calls[1][0];
     for (const notification of savedNotifications) {
@@ -217,7 +232,7 @@ describe('PropertyVisitsService', () => {
 
     expect(result.kind).toBe(PropertyVisitKind.MAINTENANCE);
     expect(result.interestedName).toBe('Revisar humedad');
-    expect(whatsappService.sendTextMessage).not.toHaveBeenCalled();
+    expect(whatsappService.sendTemplateMessage).not.toHaveBeenCalled();
     expect(notificationsRepository.save).not.toHaveBeenCalled();
     expect(ownerActivitiesRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -413,7 +428,7 @@ describe('PropertyVisitsService', () => {
         { id: 'u1', role: 'agent', companyId: 'company-1' },
       );
 
-      expect(whatsappService.sendTextMessage).not.toHaveBeenCalled();
+      expect(whatsappService.sendTemplateMessage).not.toHaveBeenCalled();
       expect(notificationsRepository.save).not.toHaveBeenCalled();
       expect(result.notifications).toBeUndefined();
     });
@@ -429,7 +444,7 @@ describe('PropertyVisitsService', () => {
         ...d,
       }));
       notificationsRepository.save!.mockImplementation(async (d) => d);
-      whatsappService.sendTextMessage.mockRejectedValue(
+      whatsappService.sendTemplateMessage.mockRejectedValue(
         new Error('WhatsApp API error'),
       );
 

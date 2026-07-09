@@ -1,4 +1,8 @@
-import { loginAsAdmin, relaunchFreshApp, tapAndConfirmDeletion } from './helpers';
+import {
+  loginAsAdmin,
+  relaunchFreshApp,
+  tapAndConfirmDeletion,
+} from './helpers';
 
 describe('Properties CRUD', () => {
   beforeAll(async () => {
@@ -11,12 +15,26 @@ describe('Properties CRUD', () => {
     const updatedName = `${uniqueName} Updated`;
 
     await element(by.id('tab.properties')).tap();
-    await element(by.id('properties.new')).tap();
+    await waitFor(element(by.id('owner.addProperty.owner-1')))
+      .toBeVisible()
+      .withTimeout(15000);
+    await element(by.id('owner.addProperty.owner-1')).tap();
 
+    await waitFor(element(by.id('propertyCreate.name')))
+      .toBeVisible()
+      .withTimeout(15000);
     await element(by.id('propertyCreate.name')).replaceText(uniqueName);
     await element(by.id('propertyCreate.street')).replaceText('Avenida Test');
     await element(by.id('propertyCreate.number')).replaceText('123');
+    await waitFor(element(by.id('propertyCreate.city')))
+      .toBeVisible()
+      .whileElement(by.id('propertyCreate.scroll'))
+      .scroll(220, 'down');
     await element(by.id('propertyCreate.city')).replaceText('CABA');
+    await waitFor(element(by.id('propertyCreate.state')))
+      .toBeVisible()
+      .whileElement(by.id('propertyCreate.scroll'))
+      .scroll(120, 'down');
     await element(by.id('propertyCreate.state')).replaceText('Buenos Aires');
     await waitFor(element(by.id('propertyCreate.zipCode')))
       .toBeVisible()
@@ -35,10 +53,14 @@ describe('Properties CRUD', () => {
       .scroll(220, 'down');
     await element(by.id('propertyCreate.submit')).tap();
 
-    await waitFor(element(by.id('propertyDetail.edit'))).toBeVisible().withTimeout(15000);
+    await waitFor(element(by.id('propertyDetail.edit')))
+      .toBeVisible()
+      .withTimeout(15000);
 
     await element(by.id('propertyDetail.edit')).tap();
-    await waitFor(element(by.id('propertyEdit.name'))).toBeVisible().withTimeout(10000);
+    await waitFor(element(by.id('propertyEdit.name')))
+      .toBeVisible()
+      .withTimeout(10000);
     await element(by.id('propertyEdit.name')).replaceText(updatedName);
     await waitFor(element(by.id('propertyEdit.submit')))
       .toBeVisible()
@@ -46,9 +68,13 @@ describe('Properties CRUD', () => {
       .scroll(220, 'down');
     await element(by.id('propertyEdit.submit')).tap();
 
-    await waitFor(element(by.text(updatedName))).toBeVisible().withTimeout(15000);
+    await waitFor(element(by.text(updatedName)))
+      .toBeVisible()
+      .withTimeout(15000);
 
     await tapAndConfirmDeletion('propertyDetail.delete');
-    await waitFor(element(by.id('properties.new'))).toBeVisible().withTimeout(15000);
+    await waitFor(element(by.id('owner.addProperty.owner-1')))
+      .toBeVisible()
+      .withTimeout(15000);
   });
 });
