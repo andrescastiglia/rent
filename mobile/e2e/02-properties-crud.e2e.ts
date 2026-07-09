@@ -1,4 +1,8 @@
-import { loginAsAdmin, relaunchFreshApp, tapAndConfirmDeletion } from './helpers';
+import {
+  loginAsAdmin,
+  relaunchFreshApp,
+  tapAndConfirmDeletion,
+} from './helpers';
 
 describe('Properties CRUD', () => {
   beforeAll(async () => {
@@ -11,7 +15,10 @@ describe('Properties CRUD', () => {
     const updatedName = `${uniqueName} Updated`;
 
     await element(by.id('tab.properties')).tap();
-    await element(by.id('properties.new')).tap();
+    await waitFor(element(by.id('owner.addProperty.owner-1')))
+      .toBeVisible()
+      .withTimeout(15000);
+    await element(by.id('owner.addProperty.owner-1')).tap();
 
     await element(by.id('propertyCreate.name')).replaceText(uniqueName);
     await element(by.id('propertyCreate.street')).replaceText('Avenida Test');
@@ -35,10 +42,14 @@ describe('Properties CRUD', () => {
       .scroll(220, 'down');
     await element(by.id('propertyCreate.submit')).tap();
 
-    await waitFor(element(by.id('propertyDetail.edit'))).toBeVisible().withTimeout(15000);
+    await waitFor(element(by.id('propertyDetail.edit')))
+      .toBeVisible()
+      .withTimeout(15000);
 
     await element(by.id('propertyDetail.edit')).tap();
-    await waitFor(element(by.id('propertyEdit.name'))).toBeVisible().withTimeout(10000);
+    await waitFor(element(by.id('propertyEdit.name')))
+      .toBeVisible()
+      .withTimeout(10000);
     await element(by.id('propertyEdit.name')).replaceText(updatedName);
     await waitFor(element(by.id('propertyEdit.submit')))
       .toBeVisible()
@@ -46,9 +57,13 @@ describe('Properties CRUD', () => {
       .scroll(220, 'down');
     await element(by.id('propertyEdit.submit')).tap();
 
-    await waitFor(element(by.text(updatedName))).toBeVisible().withTimeout(15000);
+    await waitFor(element(by.text(updatedName)))
+      .toBeVisible()
+      .withTimeout(15000);
 
     await tapAndConfirmDeletion('propertyDetail.delete');
-    await waitFor(element(by.id('properties.new'))).toBeVisible().withTimeout(15000);
+    await waitFor(element(by.id('owner.addProperty.owner-1')))
+      .toBeVisible()
+      .withTimeout(15000);
   });
 });
