@@ -24,11 +24,12 @@ rm -rf "$DETOX_ARTIFACTS"
 rm -f "$METRO_LOG" "$LOGCAT_LOG" /tmp/rent-e2e-entry-*.bundle /tmp/rent-e2e-metro-status.txt
 
 if [ "$APP_BUILD_TYPE" = "debug" ]; then
-  EXPO_PUBLIC_MOCK_MODE=true EXPO_PUBLIC_E2E_MODE=true CI=1 BROWSER=none \
-    ./node_modules/.bin/expo start \
-    --localhost \
+  EXPO_PUBLIC_MOCK_MODE=true EXPO_PUBLIC_E2E_MODE=true \
+    ./node_modules/.bin/metro serve \
+    --host 127.0.0.1 \
     --port 8081 \
-    --clear \
+    --reset-cache \
+    --config metro.config.js \
     >"$METRO_LOG" 2>&1 &
   METRO_PID=$!
 fi
