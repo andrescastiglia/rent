@@ -70,6 +70,16 @@ if [ "$APP_BUILD_TYPE" = "debug" ]; then
 fi
 
 adb wait-for-device
+if [ "$APP_BUILD_TYPE" = "debug" ]; then
+  adb reverse tcp:8081 tcp:8081
+  if ! adb reverse --list | grep -q "tcp:8081 tcp:8081"; then
+    echo "Failed to configure adb reverse for Metro on tcp:8081"
+    echo "Current adb reverse mappings:"
+    adb reverse --list || true
+    exit 1
+  fi
+fi
+
 adb install -r -d -g "$APP_APK"
 adb install -r -d "$TEST_APK"
 adb shell cmd package compile -m speed -f "$APP_ID" >/dev/null 2>&1 || true
