@@ -73,7 +73,10 @@ describe('PaymentsService', () => {
         { provide: CreditNotePdfService, useValue: { generate: jest.fn() } },
         {
           provide: WhatsappService,
-          useValue: { sendTextMessage: jest.fn() },
+          useValue: {
+            sendTextMessage: jest.fn(),
+            sendTemplateMessage: jest.fn(),
+          },
         },
       ],
     }).compile();
@@ -613,7 +616,7 @@ describe('PaymentsService', () => {
     const receiptPdfService = (service as any).receiptPdfService;
     receiptPdfService.generate.mockResolvedValue('https://pdf.local/r-new.pdf');
     const whatsappService = (service as any).whatsappService;
-    whatsappService.sendTextMessage.mockResolvedValue({ ok: true });
+    whatsappService.sendTemplateMessage.mockResolvedValue({ ok: true });
 
     const payment = {
       id: 'pay-1',
@@ -626,10 +629,20 @@ describe('PaymentsService', () => {
     const result = await (service as any).generateReceipt(payment);
 
     expect(receiptPdfService.generate).toHaveBeenCalled();
-    expect(whatsappService.sendTextMessage).toHaveBeenCalledWith(
+    expect(whatsappService.sendTemplateMessage).toHaveBeenCalledWith(
       '5491112345678',
-      expect.stringContaining('Tu recibo'),
-      'https://pdf.local/r-new.pdf',
+      'receipt_available',
+      'es',
+      ['REC-202502-0008'],
+      {
+        textFallback: expect.stringContaining('Tu recibo'),
+        pdfUrl: 'https://pdf.local/r-new.pdf',
+        context: {
+          companyId: 'company-1',
+          relatedEntityType: 'payment',
+          relatedEntityId: 'pay-1',
+        },
+      },
     );
     expect(result).toEqual(
       expect.objectContaining({
@@ -669,7 +682,7 @@ describe('PaymentsService', () => {
       'https://pdf.local/cn-1.pdf',
     );
     const whatsappService = (service as any).whatsappService;
-    whatsappService.sendTextMessage.mockResolvedValue({ ok: true });
+    whatsappService.sendTemplateMessage.mockResolvedValue({ ok: true });
 
     await (service as any).createCreditNotesForSettledLateFees(
       {

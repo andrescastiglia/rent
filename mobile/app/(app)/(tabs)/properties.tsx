@@ -280,9 +280,10 @@ export default function PropertiesScreen() {
                 <ActionChip
                   title={t('properties.addPropertyForOwner')}
                   onPress={() =>
-                    router.push(
-                      `/(app)/properties/new?ownerId=${encodeURIComponent(owner.id)}` as never,
-                    )
+                    router.push({
+                      pathname: '/(app)/properties/new',
+                      params: { ownerId: owner.id },
+                    } as never)
                   }
                   testID={`owner.addProperty.${owner.id}`}
                 />

@@ -31,6 +31,14 @@ interface VisitUserContext {
   companyId?: string;
 }
 
+interface VisitWhatsappContext {
+  companyId: string;
+  relatedEntityId: string;
+  activityId?: string;
+  templateLanguage?: string;
+  templateParameters: string[];
+}
+
 @Injectable()
 export class PropertyVisitsService {
   constructor(
@@ -66,14 +74,27 @@ export class PropertyVisitsService {
       user,
     );
 
-    await this.createOwnerVisitActivity(property, savedVisit, user);
+    const ownerActivity = await this.createOwnerVisitActivity(
+      property,
+      savedVisit,
+      user,
+    );
 
     const notifications = this.buildNotifications(property, savedVisit);
     if (notifications.length > 0) {
       const savedNotifications =
         await this.notificationsRepository.save(notifications);
       savedVisit.notifications = savedNotifications;
-      await this.dispatchNotifications(savedNotifications);
+      await this.dispatchNotifications(savedNotifications, {
+        companyId: property.companyId,
+        relatedEntityId: savedVisit.id,
+        activityId: ownerActivity?.id,
+        templateLanguage: property.owner?.user?.language ?? 'es',
+        templateParameters: this.buildVisitTemplateParameters(
+          property,
+          savedVisit,
+        ),
+      });
     }
 
     return savedVisit;
@@ -256,15 +277,15 @@ export class PropertyVisitsService {
     property: Property,
     visit: PropertyVisit,
     user: VisitUserContext,
-  ): Promise<void> {
+  ): Promise<OwnerActivity | null> {
     if (!property.ownerId) {
-      return;
+      return null;
     }
 
     const interested =
       visit.interestedName?.trim() || visit.interestedProfileId || 'Visita';
 
-    await this.ownerActivitiesRepository.save(
+    return this.ownerActivitiesRepository.save(
       this.ownerActivitiesRepository.create({
         companyId: property.companyId,
         ownerId: property.ownerId,
@@ -337,12 +358,34 @@ export class PropertyVisitsService {
     }).format(value);
   }
 
+  private buildVisitTemplateParameters(
+    property: Property,
+    visit: PropertyVisit,
+  ): string[] {
+    const interested =
+      visit.interestedName?.trim() || visit.interestedProfileId || 'N/D';
+    const detailParts = [
+      visit.comments?.trim() || 'Sin comentarios',
+      visit.hasOffer && visit.offerAmount !== undefined
+        ? `Oferta ${visit.offerCurrency ?? 'ARS'} ${visit.offerAmount}`
+        : null,
+    ].filter(Boolean);
+
+    return [
+      property.name,
+      this.formatWhatsappDate(visit.visitedAt),
+      interested,
+      detailParts.join('. '),
+    ];
+  }
+
   private async dispatchNotifications(
     notifications: PropertyVisitNotification[],
+    context?: VisitWhatsappContext,
   ): Promise<void> {
     for (const notification of notifications) {
       try {
-        await this.sendNotification(notification);
+        await this.sendNotification(notification, context);
         notification.status = VisitNotificationStatus.SENT;
         notification.sentAt = new Date();
         notification.error = null;
@@ -358,11 +401,26 @@ export class PropertyVisitsService {
 
   private async sendNotification(
     notification: PropertyVisitNotification,
+    context?: VisitWhatsappContext,
   ): Promise<void> {
     if (notification.channel === VisitNotificationChannel.WHATSAPP) {
-      await this.whatsappService.sendTextMessage(
+      await this.whatsappService.sendTemplateMessage(
         notification.recipient,
-        notification.message,
+        'property_visit_registered',
+        context?.templateLanguage ?? 'es',
+        context?.templateParameters ?? [],
+        {
+          textFallback: notification.message,
+          context: context
+            ? {
+                companyId: context.companyId,
+                relatedEntityType: 'property_visit',
+                relatedEntityId: context.relatedEntityId,
+                activityEntity: context.activityId ? 'owner' : undefined,
+                activityId: context.activityId,
+              }
+            : undefined,
+        },
       );
     }
   }

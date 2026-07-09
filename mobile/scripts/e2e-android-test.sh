@@ -14,13 +14,14 @@ fi
 APP_APK="android/app/build/outputs/apk/$APP_BUILD_TYPE/app-$APP_BUILD_TYPE.apk"
 TEST_APK="android/app/build/outputs/apk/androidTest/$TEST_BUILD_TYPE/app-$TEST_BUILD_TYPE-androidTest.apk"
 APP_ID="$(node -p "require('./app.json').expo.android.package")"
+METRO_STATUS_URL="http://127.0.0.1:8081/status"
 BUNDLE_URLS="http://127.0.0.1:8081/.expo/.virtual-metro-entry.bundle?platform=android&dev=true&minify=false
 http://127.0.0.1:8081/node_modules/expo-router/entry.bundle?platform=android&dev=true&minify=false"
 METRO_PID=""
 LOGCAT_PID=""
 
 rm -rf "$DETOX_ARTIFACTS"
-rm -f "$METRO_LOG" "$LOGCAT_LOG" /tmp/rent-e2e-entry-*.bundle
+rm -f "$METRO_LOG" "$LOGCAT_LOG" /tmp/rent-e2e-entry-*.bundle /tmp/rent-e2e-metro-status.txt
 
 if [ "$APP_BUILD_TYPE" = "debug" ]; then
   EXPO_PUBLIC_MOCK_MODE=true EXPO_PUBLIC_E2E_MODE=true \
@@ -44,6 +45,27 @@ cleanup() {
 trap cleanup EXIT
 
 if [ "$APP_BUILD_TYPE" = "debug" ]; then
+  STATUS_OUT="/tmp/rent-e2e-metro-status.txt"
+  for _ in $(seq 1 150); do
+    HTTP_CODE="$(curl -sS -o "$STATUS_OUT" -w '%{http_code}' "$METRO_STATUS_URL" 2>/dev/null || true)"
+    if [ "$HTTP_CODE" = "200" ] && grep -q "packager-status:running" "$STATUS_OUT"; then
+      break
+    fi
+    sleep 2
+  done
+
+  HTTP_CODE="$(curl -sS -o "$STATUS_OUT" -w '%{http_code}' "$METRO_STATUS_URL" 2>/dev/null || true)"
+  if [ "$HTTP_CODE" != "200" ] || ! grep -q "packager-status:running" "$STATUS_OUT"; then
+    echo "Expo Metro did not expose the React Native packager status within 5 minutes"
+    echo "Status URL: $METRO_STATUS_URL"
+    echo "Last HTTP status: $HTTP_CODE"
+    cat "$METRO_LOG"
+    if [ -s "$STATUS_OUT" ]; then
+      cat "$STATUS_OUT"
+    fi
+    exit 1
+  fi
+
   ENTRY_INDEX=1
   for BUNDLE_URL in $BUNDLE_URLS; do
     BUNDLE_OUT="/tmp/rent-e2e-entry-$ENTRY_INDEX.bundle"
@@ -70,6 +92,16 @@ if [ "$APP_BUILD_TYPE" = "debug" ]; then
 fi
 
 adb wait-for-device
+if [ "$APP_BUILD_TYPE" = "debug" ]; then
+  adb reverse tcp:8081 tcp:8081
+  if ! adb reverse --list | grep -q "tcp:8081 tcp:8081"; then
+    echo "Failed to configure adb reverse for Metro on tcp:8081"
+    echo "Current adb reverse mappings:"
+    adb reverse --list || true
+    exit 1
+  fi
+fi
+
 adb install -r -d -g "$APP_APK"
 adb install -r -d "$TEST_APK"
 adb shell cmd package compile -m speed -f "$APP_ID" >/dev/null 2>&1 || true

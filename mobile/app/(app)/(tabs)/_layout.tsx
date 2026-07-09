@@ -136,6 +136,12 @@ function TenantsHeaderLeft() {
   return <DashboardHeaderBackButton testID="header.back.tenants" />;
 }
 
+function TenantsHeaderRight() {
+  return (
+    <NewRouteHeaderAction route="/(app)/tenants/new" testID="tenants.new" />
+  );
+}
+
 function InterestedHeaderLeft() {
   return <DashboardHeaderBackButton testID="header.back.interested" />;
 }
@@ -207,6 +213,7 @@ export default function TabsLayout() {
             title: t('tenants.title'),
             tabBarButtonTestID: 'tab.tenants',
             headerLeft: TenantsHeaderLeft,
+            headerRight: TenantsHeaderRight,
             tabBarIcon: TenantsTabBarIcon,
           }}
         />

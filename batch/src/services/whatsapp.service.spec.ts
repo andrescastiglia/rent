@@ -71,6 +71,47 @@ describe("WhatsappService", () => {
     expect(result).toEqual({ success: true, messageId: "msg-123" });
   });
 
+  it("sends template payloads successfully", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        messageId: "tpl-123",
+        documentMessageId: "doc-123",
+      }),
+    });
+    const service = new WhatsappService();
+
+    const result = await service.sendTemplateMessage(
+      "54911",
+      {
+        templateName: "invoice_available",
+        templateLanguage: "es_AR",
+        templateParameters: ["Juan", "F-1", "2026-07-15", "ARS 1000,00"],
+      },
+      "fallback",
+      "db://document/123e4567-e89b-12d3-a456-426614174000",
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3010/whatsapp/messages/internal",
+      expect.objectContaining({
+        body: JSON.stringify({
+          to: "54911",
+          text: "fallback",
+          pdfUrl: "db://document/123e4567-e89b-12d3-a456-426614174000",
+          templateName: "invoice_available",
+          templateLanguage: "es_AR",
+          templateParameters: ["Juan", "F-1", "2026-07-15", "ARS 1000,00"],
+        }),
+      }),
+    );
+    expect(result).toEqual({
+      success: true,
+      messageId: "tpl-123",
+      documentMessageId: "doc-123",
+    });
+  });
+
   it("returns HTTP error detail from backend response", async () => {
     fetchMock.mockResolvedValue({
       ok: false,
