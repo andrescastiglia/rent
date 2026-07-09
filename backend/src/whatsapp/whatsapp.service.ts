@@ -264,35 +264,52 @@ export class WhatsappService implements OnApplicationBootstrap {
   }
 
   async handleIncomingWebhook(payload: unknown): Promise<void> {
-    const entries = Array.isArray((payload as any)?.entry)
-      ? (payload as any).entry
-      : [];
     let sawMessage = false;
     let sawStatus = false;
 
-    for (const entry of entries) {
-      const changes = Array.isArray(entry?.changes) ? entry.changes : [];
-      for (const item of changes) {
+    for (const entry of this.getWebhookEntries(payload)) {
+      for (const item of this.asArray(entry?.changes)) {
         const value = item?.value;
-        const statuses = Array.isArray(value?.statuses) ? value.statuses : [];
-        for (const status of statuses) {
-          sawStatus = true;
-          await this.updateMessageStatus(status);
-        }
-
-        const messages = Array.isArray(value?.messages) ? value.messages : [];
-        for (const message of messages) {
-          sawMessage = true;
-          const from = message.from ?? 'unknown';
-          const text = message.text?.body ?? '[non-text-message]';
-          this.logger.log(`WhatsApp webhook message from ${from}: ${text}`);
-        }
+        sawStatus =
+          (await this.handleWebhookStatuses(value?.statuses)) || sawStatus;
+        sawMessage = this.logWebhookMessages(value?.messages) || sawMessage;
       }
     }
 
     if (!sawMessage && !sawStatus) {
       this.logger.debug('WhatsApp webhook received without messages');
     }
+  }
+
+  private getWebhookEntries(payload: unknown): any[] {
+    return this.asArray((payload as any)?.entry);
+  }
+
+  private asArray(value: unknown): any[] {
+    return Array.isArray(value) ? value : [];
+  }
+
+  private async handleWebhookStatuses(statuses: unknown): Promise<boolean> {
+    const items = this.asArray(statuses);
+
+    for (const status of items) {
+      await this.updateMessageStatus(status);
+    }
+
+    return items.length > 0;
+  }
+
+  private logWebhookMessages(messages: unknown): boolean {
+    const items = this.asArray(messages);
+
+    for (const item of items) {
+      const message = item as any;
+      const from = message?.from ?? 'unknown';
+      const text = message?.text?.body ?? '[non-text-message]';
+      this.logger.log(`WhatsApp webhook message from ${from}: ${text}`);
+    }
+
+    return items.length > 0;
   }
 
   resolveLanguageCode(locale?: string): string {
@@ -394,7 +411,7 @@ export class WhatsappService implements OnApplicationBootstrap {
   }
 
   private async ensureTrackingTable(): Promise<void> {
-    if (!this.dataSource || this.dataSource.options.type !== 'postgres') {
+    if (this.dataSource?.options.type !== 'postgres') {
       return;
     }
 
@@ -440,7 +457,7 @@ export class WhatsappService implements OnApplicationBootstrap {
   private async recordOutboundMessage(
     input: WhatsappOutboundLogInput,
   ): Promise<void> {
-    if (!this.dataSource || this.dataSource.options.type !== 'postgres') {
+    if (this.dataSource?.options.type !== 'postgres') {
       return;
     }
 
@@ -527,7 +544,7 @@ export class WhatsappService implements OnApplicationBootstrap {
   }
 
   private async updateMessageStatus(statusPayload: any): Promise<void> {
-    if (!this.dataSource || this.dataSource.options.type !== 'postgres') {
+    if (this.dataSource?.options.type !== 'postgres') {
       return;
     }
 
@@ -601,7 +618,7 @@ export class WhatsappService implements OnApplicationBootstrap {
     activityId: string,
     patch: Record<string, unknown>,
   ): Promise<void> {
-    if (!this.dataSource || this.dataSource.options.type !== 'postgres') {
+    if (this.dataSource?.options.type !== 'postgres') {
       return;
     }
 
