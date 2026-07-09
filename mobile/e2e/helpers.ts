@@ -44,23 +44,23 @@ export async function tapAndConfirmDeletion(
 ): Promise<void> {
   await element(by.id(deleteButtonId)).tap();
 
+  const androidPositiveButton = element(by.id('android:id/button1'));
+  const hasAndroidPositiveButton = await waitFor(androidPositiveButton)
+    .toBeVisible()
+    .withTimeout(1000)
+    .then(() => true)
+    .catch(() => false);
+  if (hasAndroidPositiveButton) {
+    await androidPositiveButton.tap();
+    return;
+  }
+
   try {
     await waitFor(element(by.text('Eliminar')).atIndex(1))
       .toBeVisible()
       .withTimeout(5000);
     await element(by.text('Eliminar')).atIndex(1).tap();
   } catch {
-    const androidPositiveButton = element(by.id('android:id/button1'));
-    const hasAndroidPositiveButton = await waitFor(androidPositiveButton)
-      .toBeVisible()
-      .withTimeout(1000)
-      .then(() => true)
-      .catch(() => false);
-    if (hasAndroidPositiveButton) {
-      await androidPositiveButton.tap();
-      return;
-    }
-
     await waitFor(element(by.text('Eliminar')))
       .toBeVisible()
       .withTimeout(5000);

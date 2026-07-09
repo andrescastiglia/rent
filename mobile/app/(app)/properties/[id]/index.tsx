@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ownersApi } from '@/api/owners';
@@ -184,7 +184,8 @@ function PropertyMaintenanceCard({
 }
 
 type PropertyActionsProps = Readonly<{
-  propertyId: string;
+  deleting: boolean;
+  onDelete: () => void;
   onEdit: () => void;
   onNewMaintenance: () => void;
   onNewVisit: () => void;
@@ -192,7 +193,8 @@ type PropertyActionsProps = Readonly<{
 }>;
 
 function PropertyActions({
-  propertyId,
+  deleting,
+  onDelete,
   onEdit,
   onNewMaintenance,
   onNewVisit,
@@ -217,7 +219,14 @@ function PropertyActions({
       <AppButton
         title={t('common.edit')}
         onPress={onEdit}
-        testID={`propertyDetail.edit.${propertyId}`}
+        testID="propertyDetail.edit"
+      />
+      <AppButton
+        title={t('common.delete')}
+        variant="secondary"
+        loading={deleting}
+        onPress={onDelete}
+        testID="propertyDetail.delete"
       />
     </View>
   );
@@ -226,6 +235,7 @@ function PropertyActions({
 export default function PropertyDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { t } = useTranslation();
 
   const propertyQuery = useQuery({
@@ -252,6 +262,23 @@ export default function PropertyDetailScreen() {
     enabled: Boolean(propertyQuery.data?.ownerId),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: () => propertiesApi.delete(id),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['properties'] }),
+        queryClient.invalidateQueries({ queryKey: ['leases'] }),
+      ]);
+      router.replace('/(app)/(tabs)/properties');
+    },
+    onError: (error) => {
+      Alert.alert(
+        t('common.error'),
+        error instanceof Error ? error.message : t('properties.deleteError'),
+      );
+    },
+  });
+
   const property = propertyQuery.data;
   const ownerName = getOwnerDisplayName(
     ownerQuery.data?.firstName,
@@ -265,6 +292,16 @@ export default function PropertyDetailScreen() {
     router.push(`/(app)/properties/${id}/maintenance/new` as never);
   const openEditProperty = () =>
     router.push(`/(app)/properties/${id}/edit` as never);
+  const confirmDeleteProperty = () => {
+    Alert.alert(t('common.delete'), t('properties.deleteConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.delete'),
+        style: 'destructive',
+        onPress: () => deleteMutation.mutate(),
+      },
+    ]);
+  };
 
   return (
     <Screen>
@@ -302,10 +339,11 @@ export default function PropertyDetailScreen() {
 
       {property ? (
         <PropertyActions
+          deleting={deleteMutation.isPending}
+          onDelete={confirmDeleteProperty}
           onEdit={openEditProperty}
           onNewMaintenance={openNewMaintenance}
           onNewVisit={openNewVisit}
-          propertyId={property.id}
           t={t}
         />
       ) : null}
