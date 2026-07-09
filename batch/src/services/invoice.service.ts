@@ -95,6 +95,7 @@ export interface InvoiceRecord {
 export interface InvoiceReminderContact {
   tenantPhone: string | null;
   tenantName: string | null;
+  tenantLanguage: string | null;
 }
 
 /**
@@ -244,7 +245,8 @@ export class InvoiceService {
     const result = await AppDataSource.query(
       `SELECT
           tu.phone AS tenant_phone,
-          CONCAT_WS(' ', tu.first_name, tu.last_name) AS tenant_name
+          CONCAT_WS(' ', tu.first_name, tu.last_name) AS tenant_name,
+          tu.language AS tenant_language
        FROM invoices i
        JOIN leases l ON l.id = i.lease_id
        JOIN tenants t ON t.id = l.tenant_id
@@ -257,11 +259,13 @@ export class InvoiceService {
     const row = (result[0] ?? {}) as {
       tenant_phone?: string | null;
       tenant_name?: string | null;
+      tenant_language?: string | null;
     };
 
     return {
       tenantPhone: row.tenant_phone ?? null,
       tenantName: row.tenant_name ?? null,
+      tenantLanguage: row.tenant_language ?? null,
     };
   }
 

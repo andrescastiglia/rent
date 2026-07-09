@@ -5,6 +5,21 @@ export type SendWhatsappInput = {
   to: string;
   text: string;
   pdfUrl?: string;
+  templateName?: string;
+  templateLanguage?: string;
+  templateParameters?: string[];
+  activityEntity?: "tenant" | "owner" | "interested";
+  activityId?: string;
+  relatedEntityType?:
+    | "tenant"
+    | "owner"
+    | "interested"
+    | "property_visit"
+    | "invoice"
+    | "payment"
+    | "lease";
+  relatedEntityId?: string;
+  companyId?: string;
 };
 
 export type SendWhatsappResponse = {

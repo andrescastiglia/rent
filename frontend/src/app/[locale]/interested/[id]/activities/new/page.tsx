@@ -111,7 +111,7 @@ export default function InterestedActivityCreatePage() {
 
     try {
       setSaving(true);
-      await interestedApi.addActivity(profile.id, {
+      const activity = await interestedApi.addActivity(profile.id, {
         type: form.type,
         subject: form.subject.trim(),
         body: form.body.trim() || undefined,
@@ -127,6 +127,10 @@ export default function InterestedActivityCreatePage() {
         await whatsappApi.sendMessage({
           to: profile.phone.trim(),
           text,
+          activityEntity: "interested",
+          activityId: activity.id,
+          relatedEntityType: "interested",
+          relatedEntityId: profile.id,
         });
       }
 

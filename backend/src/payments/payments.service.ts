@@ -276,10 +276,22 @@ export class PaymentsService {
         payment.tenant?.user?.phone ??
         payment.tenantAccount?.lease?.tenant?.user?.phone ??
         null;
+      const tenantLanguage =
+        payment.tenant?.user?.language ??
+        payment.tenantAccount?.lease?.tenant?.user?.language ??
+        'es';
       await this.sendTenantPdfWhatsapp(
         tenantPhone,
         `Tu recibo ${savedReceipt.receiptNumber} ya está disponible.`,
         savedReceipt.pdfUrl,
+        {
+          templateName: 'receipt_available',
+          templateLanguage: tenantLanguage,
+          templateParameters: [savedReceipt.receiptNumber],
+          companyId: payment.companyId,
+          relatedEntityType: 'payment',
+          relatedEntityId: payment.id,
+        },
       );
     } catch (error) {
       console.error('Failed to generate receipt PDF:', error);
@@ -620,6 +632,18 @@ export class PaymentsService {
             fullInvoice.lease?.tenant?.user?.phone ?? null,
             `Se emitió la nota de crédito ${savedNote.noteNumber} por ${savedNote.currencyCode} ${Number(savedNote.amount).toLocaleString('es-AR', { minimumFractionDigits: 2 })}.`,
             savedNote.pdfUrl,
+            {
+              templateName: 'credit_note_issued',
+              templateLanguage:
+                fullInvoice.lease?.tenant?.user?.language ?? 'es',
+              templateParameters: [
+                savedNote.noteNumber,
+                `${savedNote.currencyCode} ${Number(savedNote.amount).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
+              ],
+              companyId: payment.companyId,
+              relatedEntityType: 'payment',
+              relatedEntityId: payment.id,
+            },
           );
         }
       } catch (error) {
@@ -670,12 +694,39 @@ export class PaymentsService {
     phone: string | null | undefined,
     text: string,
     pdfUrl?: string | null,
+    template?: {
+      templateName: string;
+      templateLanguage?: string;
+      templateParameters: string[];
+      companyId?: string;
+      relatedEntityType?: 'payment' | 'invoice';
+      relatedEntityId?: string;
+    },
   ): Promise<void> {
     if (!phone || !pdfUrl) {
       return;
     }
 
     try {
+      if (template) {
+        await this.whatsappService.sendTemplateMessage(
+          phone,
+          template.templateName,
+          template.templateLanguage ?? 'es',
+          template.templateParameters,
+          {
+            textFallback: text,
+            pdfUrl,
+            context: {
+              companyId: template.companyId,
+              relatedEntityType: template.relatedEntityType,
+              relatedEntityId: template.relatedEntityId,
+            },
+          },
+        );
+        return;
+      }
+
       await this.whatsappService.sendTextMessage(phone, text, pdfUrl);
     } catch (error) {
       console.error('Failed to send WhatsApp PDF notification:', error);

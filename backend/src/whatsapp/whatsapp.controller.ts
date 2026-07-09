@@ -29,7 +29,7 @@ export class WhatsappController {
 
   @Post('messages')
   async sendMessage(@Body() dto: SendWhatsappMessageDto) {
-    return this.whatsappService.sendTextMessage(dto.to, dto.text, dto.pdfUrl);
+    return this.sendMessageFromDto(dto);
   }
 
   @Public()
@@ -39,7 +39,7 @@ export class WhatsappController {
     @Headers('x-batch-whatsapp-token') token?: string,
   ) {
     this.whatsappService.assertBatchToken(token);
-    return this.whatsappService.sendTextMessage(dto.to, dto.text, dto.pdfUrl);
+    return this.sendMessageFromDto(dto);
   }
 
   @Public()
@@ -69,8 +69,8 @@ export class WhatsappController {
   @Public()
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
-  receiveWebhook(@Body() payload: WhatsappWebhookPayloadDto) {
-    this.whatsappService.handleIncomingWebhook(payload);
+  async receiveWebhook(@Body() payload: WhatsappWebhookPayloadDto) {
+    await this.whatsappService.handleIncomingWebhook(payload);
     return { received: true };
   }
 
@@ -97,5 +97,36 @@ export class WhatsappController {
     });
 
     return res.send(buffer);
+  }
+
+  private sendMessageFromDto(dto: SendWhatsappMessageDto) {
+    const context = {
+      companyId: dto.companyId,
+      relatedEntityType: dto.relatedEntityType,
+      relatedEntityId: dto.relatedEntityId,
+      activityEntity: dto.activityEntity,
+      activityId: dto.activityId,
+    };
+
+    if (dto.templateName) {
+      return this.whatsappService.sendTemplateMessage(
+        dto.to,
+        dto.templateName,
+        dto.templateLanguage ?? 'es',
+        dto.templateParameters ?? [],
+        {
+          textFallback: dto.text,
+          pdfUrl: dto.pdfUrl,
+          context,
+        },
+      );
+    }
+
+    return this.whatsappService.sendTextMessage(
+      dto.to,
+      dto.text,
+      dto.pdfUrl,
+      context,
+    );
   }
 }

@@ -117,6 +117,61 @@ describe('WhatsappService', () => {
     (Date.now as jest.Mock).mockRestore();
   });
 
+  it('sendTemplateMessage sends template payload and optional document', async () => {
+    const service = buildService();
+    jest.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ messages: [{ id: 'wamid-template' }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ messages: [{ id: 'wamid-document' }] }),
+      });
+
+    const result = await service.sendTemplateMessage(
+      '+5491112345678',
+      'invoice_available',
+      'es',
+      ['Juan', 'F-1', '2026-07-15', 'ARS 1000,00'],
+      {
+        textFallback: 'Factura disponible',
+        pdfUrl: 'db://document/123e4567-e89b-12d3-a456-426614174000',
+      },
+    );
+
+    const templatePayload = JSON.parse(
+      fetchMock.mock.calls[0][1].body as string,
+    );
+    expect(templatePayload.type).toBe('template');
+    expect(templatePayload.template).toEqual({
+      name: 'invoice_available',
+      language: { code: 'es_AR' },
+      components: [
+        {
+          type: 'body',
+          parameters: [
+            { type: 'text', text: 'Juan' },
+            { type: 'text', text: 'F-1' },
+            { type: 'text', text: '2026-07-15' },
+            { type: 'text', text: 'ARS 1000,00' },
+          ],
+        },
+      ],
+    });
+    const documentPayload = JSON.parse(
+      fetchMock.mock.calls[1][1].body as string,
+    );
+    expect(documentPayload.type).toBe('document');
+    expect(result).toEqual({
+      messageId: 'wamid-template',
+      raw: { messages: [{ id: 'wamid-template' }] },
+      documentMessageId: 'wamid-document',
+    });
+    (Date.now as jest.Mock).mockRestore();
+  });
+
   it('sendTextMessage throws for invalid db url or missing doc secret', async () => {
     const service = buildService();
     await expect(

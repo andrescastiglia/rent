@@ -3,7 +3,14 @@ import { logger } from "../shared/logger";
 export interface WhatsappSendResult {
   success: boolean;
   messageId?: string | null;
+  documentMessageId?: string | null;
   error?: string;
+}
+
+export interface WhatsappTemplatePayload {
+  templateName: string;
+  templateLanguage?: string;
+  templateParameters?: string[];
 }
 
 export class WhatsappService {
@@ -16,6 +23,31 @@ export class WhatsappService {
     text: string,
     pdfUrl?: string,
   ): Promise<WhatsappSendResult> {
+    return this.sendMessage({ to, text, pdfUrl });
+  }
+
+  async sendTemplateMessage(
+    to: string,
+    template: WhatsappTemplatePayload,
+    text: string,
+    pdfUrl?: string,
+  ): Promise<WhatsappSendResult> {
+    return this.sendMessage({
+      to,
+      text,
+      pdfUrl,
+      ...template,
+    });
+  }
+
+  private async sendMessage(payload: {
+    to: string;
+    text: string;
+    pdfUrl?: string;
+    templateName?: string;
+    templateLanguage?: string;
+    templateParameters?: string[];
+  }): Promise<WhatsappSendResult> {
     if (!this.internalToken) {
       return {
         success: false,
@@ -32,7 +64,7 @@ export class WhatsappService {
           "Content-Type": "application/json",
           "x-batch-whatsapp-token": this.internalToken,
         },
-        body: JSON.stringify({ to, text, pdfUrl }),
+        body: JSON.stringify(payload),
       });
 
       const data: any = await response.json().catch(() => ({}));
@@ -41,20 +73,27 @@ export class WhatsappService {
         const errorMsg =
           data?.message || data?.error || `HTTP ${response.status}`;
         logger.error("Batch WhatsApp send failed", {
-          to,
+          to: payload.to,
           status: response.status,
           error: errorMsg,
         });
         return { success: false, error: String(errorMsg) };
       }
 
+      const documentMessageId =
+        (data?.documentMessageId as string | null | undefined) ?? null;
+
       return {
         success: true,
         messageId: (data?.messageId as string | null | undefined) ?? null,
+        ...(documentMessageId ? { documentMessageId } : {}),
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error("Batch WhatsApp request failed", { to, error: errorMsg });
+      logger.error("Batch WhatsApp request failed", {
+        to: payload.to,
+        error: errorMsg,
+      });
       return { success: false, error: errorMsg };
     }
   }

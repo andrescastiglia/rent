@@ -5,6 +5,7 @@ import { WhatsappController } from './whatsapp.controller';
 describe('WhatsappController', () => {
   const whatsappService = {
     sendTextMessage: jest.fn(),
+    sendTemplateMessage: jest.fn(),
     assertBatchToken: jest.fn(),
     verifyWebhookToken: jest.fn(),
     handleIncomingWebhook: jest.fn(),
@@ -36,6 +37,13 @@ describe('WhatsappController', () => {
       '54911',
       'hola',
       undefined,
+      {
+        activityEntity: undefined,
+        activityId: undefined,
+        companyId: undefined,
+        relatedEntityId: undefined,
+        relatedEntityType: undefined,
+      },
     );
   });
 
@@ -53,6 +61,47 @@ describe('WhatsappController', () => {
       '54911',
       'hola',
       'db://document/1',
+      {
+        activityEntity: undefined,
+        activityId: undefined,
+        companyId: undefined,
+        relatedEntityId: undefined,
+        relatedEntityType: undefined,
+      },
+    );
+  });
+
+  it('sendMessage delegates template payloads to whatsapp service', async () => {
+    whatsappService.sendTemplateMessage.mockResolvedValue({ messageId: 'tpl' });
+    const dto = {
+      to: '54911',
+      text: 'fallback',
+      templateName: 'invoice_available',
+      templateLanguage: 'es_AR',
+      templateParameters: ['Juan', 'F-1', '2026-07-15', 'ARS 1000,00'],
+      activityEntity: 'tenant',
+      activityId: '123e4567-e89b-12d3-a456-426614174000',
+    } as any;
+
+    await expect(controller.sendMessage(dto)).resolves.toEqual({
+      messageId: 'tpl',
+    });
+    expect(whatsappService.sendTemplateMessage).toHaveBeenCalledWith(
+      '54911',
+      'invoice_available',
+      'es_AR',
+      ['Juan', 'F-1', '2026-07-15', 'ARS 1000,00'],
+      {
+        textFallback: 'fallback',
+        pdfUrl: undefined,
+        context: {
+          activityEntity: 'tenant',
+          activityId: '123e4567-e89b-12d3-a456-426614174000',
+          companyId: undefined,
+          relatedEntityId: undefined,
+          relatedEntityType: undefined,
+        },
+      },
     );
   });
 
@@ -148,9 +197,11 @@ describe('WhatsappController', () => {
     expect(res.sendStatus).toHaveBeenCalledWith(HttpStatus.FORBIDDEN);
   });
 
-  it('receiveWebhook delegates and returns ack', () => {
+  it('receiveWebhook delegates and returns ack', async () => {
     const payload = { entry: [] } as any;
-    expect(controller.receiveWebhook(payload)).toEqual({ received: true });
+    await expect(controller.receiveWebhook(payload)).resolves.toEqual({
+      received: true,
+    });
     expect(whatsappService.handleIncomingWebhook).toHaveBeenCalledWith(payload);
   });
 

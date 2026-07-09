@@ -18,7 +18,7 @@ jest.mock("../shared/logger", () => ({
 describe("LeaseRenewalService", () => {
   const queryMock = AppDataSource.query as jest.Mock;
   const whatsappService = {
-    sendTextMessage: jest.fn(),
+    sendTemplateMessage: jest.fn(),
   };
 
   let service: LeaseRenewalService;
@@ -105,7 +105,7 @@ describe("LeaseRenewalService", () => {
       errorLog: [],
     });
     expect(queryMock).toHaveBeenCalledTimes(1);
-    expect(whatsappService.sendTextMessage).not.toHaveBeenCalled();
+    expect(whatsappService.sendTemplateMessage).not.toHaveBeenCalled();
     expect(logger.info).toHaveBeenCalledWith(
       "Dry run: renewal alert would be created",
       expect.objectContaining({ leaseId: "lease-monthly-due", leadDays: 30 }),
@@ -137,7 +137,7 @@ describe("LeaseRenewalService", () => {
       ])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
-    whatsappService.sendTextMessage.mockResolvedValue({
+    whatsappService.sendTemplateMessage.mockResolvedValue({
       success: true,
       messageId: "wamid-1",
     });
@@ -164,8 +164,13 @@ describe("LeaseRenewalService", () => {
         "Renovar alquiler de Casa 1",
       ]),
     );
-    expect(whatsappService.sendTextMessage).toHaveBeenCalledWith(
+    expect(whatsappService.sendTemplateMessage).toHaveBeenCalledWith(
       "+5491111111111",
+      {
+        templateName: "lease_renewal_alert_owner",
+        templateLanguage: "es",
+        templateParameters: ["Owner 1", "Casa 1", "2026-02-14", "Tenant 1"],
+      },
       expect.stringContaining("Casa 1 vence el 2026-02-14"),
     );
     expect(queryMock).toHaveBeenNthCalledWith(
@@ -204,7 +209,7 @@ describe("LeaseRenewalService", () => {
 
     expect(result.recordsProcessed).toBe(1);
     expect(result.whatsappSent).toBe(0);
-    expect(whatsappService.sendTextMessage).not.toHaveBeenCalled();
+    expect(whatsappService.sendTemplateMessage).not.toHaveBeenCalled();
   });
 
   it("records failures without stopping the remaining batch", async () => {

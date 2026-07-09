@@ -116,15 +116,27 @@ async function processReminderInvoice(
   }
 
   const tenantName = contact.tenantName || "inquilino/a";
+  const dueText = `en ${daysUntilDue} ${daysUntilDue === 1 ? "día" : "días"} (${invoice.dueDate.toISOString().slice(0, 10)})`;
+  const totalAmount = `${invoice.currencyCode} ${invoice.total.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`;
   const text = [
     `Hola ${tenantName},`,
     `recordatorio de pago de la factura ${invoice.invoiceNumber}.`,
-    `Vence en ${daysUntilDue} ${daysUntilDue === 1 ? "día" : "días"} (${invoice.dueDate.toISOString().slice(0, 10)}).`,
-    `Monto: ${invoice.currencyCode} ${invoice.total.toLocaleString("es-AR", { minimumFractionDigits: 2 })}.`,
+    `Vence ${dueText}.`,
+    `Monto: ${totalAmount}.`,
   ].join(" ");
 
-  const result = await whatsappService.sendTextMessage(
+  const result = await whatsappService.sendTemplateMessage(
     contact.tenantPhone,
+    {
+      templateName: "payment_reminder",
+      templateLanguage: contact.tenantLanguage ?? "es",
+      templateParameters: [
+        tenantName,
+        invoice.invoiceNumber,
+        dueText,
+        totalAmount,
+      ],
+    },
     text,
   );
   return result.success ? { sent: 1, failed: 0 } : { sent: 0, failed: 1 };
