@@ -20,6 +20,9 @@ describe('Properties CRUD', () => {
       .withTimeout(15000);
     await element(by.id('owner.addProperty.owner-1')).tap();
 
+    await waitFor(element(by.id('propertyCreate.name')))
+      .toBeVisible()
+      .withTimeout(15000);
     await element(by.id('propertyCreate.name')).replaceText(uniqueName);
     await element(by.id('propertyCreate.street')).replaceText('Avenida Test');
     await element(by.id('propertyCreate.number')).replaceText('123');
