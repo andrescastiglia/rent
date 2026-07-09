@@ -7,6 +7,10 @@ export async function relaunchFreshApp(): Promise<void> {
   });
 }
 
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function loginAsAdmin(): Promise<void> {
   const isAlreadyLoggedIn = await waitFor(element(by.id('tab.properties')))
     .toBeVisible()
@@ -27,16 +31,23 @@ export async function loginAsAdmin(): Promise<void> {
 
   await element(by.id('login.submit')).tap();
 
+  await sleep(1500);
+  await relaunchFreshApp();
+
   await waitFor(element(by.id('tab.properties')))
     .toBeVisible()
     .withTimeout(20000);
 }
 
-export async function tapAndConfirmDeletion(deleteButtonId: string): Promise<void> {
+export async function tapAndConfirmDeletion(
+  deleteButtonId: string,
+): Promise<void> {
   await element(by.id(deleteButtonId)).tap();
 
   try {
-    await waitFor(element(by.text('Eliminar')).atIndex(1)).toBeVisible().withTimeout(5000);
+    await waitFor(element(by.text('Eliminar')).atIndex(1))
+      .toBeVisible()
+      .withTimeout(5000);
     await element(by.text('Eliminar')).atIndex(1).tap();
   } catch {
     const androidPositiveButton = element(by.id('android:id/button1'));
@@ -50,7 +61,9 @@ export async function tapAndConfirmDeletion(deleteButtonId: string): Promise<voi
       return;
     }
 
-    await waitFor(element(by.text('Eliminar'))).toBeVisible().withTimeout(5000);
+    await waitFor(element(by.text('Eliminar')))
+      .toBeVisible()
+      .withTimeout(5000);
     await element(by.text('Eliminar')).tap();
   }
 }
