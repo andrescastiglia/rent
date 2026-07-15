@@ -36,6 +36,12 @@ de costo se configuran con `AI_RAG_INPUT_USD_PER_MILLION` y
 La ejecución estricta falla ante cualquier caso fallido, fuga de alcance,
 afirmación financiera sin fuente estructurada o respuesta sin evidencia.
 
+Por seguridad, el runner usa exclusivamente el dataset versionado
+`rag-eval.dataset.json`; no acepta rutas arbitrarias del sistema de archivos.
+El endpoint puede ser local (`localhost`, `127.0.0.1` o `::1`). Para evaluar
+contra un host remoto debe usar HTTPS y su origen exacto debe estar incluido en
+`AI_EVAL_ALLOWED_ORIGINS` (lista separada por comas).
+
 ## Promoción y rollback
 
 La promoción se hace por empresa: `RAG_SHADOW` → `RAG_READ` → `HYBRID`. Antes

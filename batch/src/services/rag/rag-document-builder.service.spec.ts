@@ -70,4 +70,42 @@ describe("RagDocumentBuilderService", () => {
       new Set(chunks.map((chunk) => chunk.contentHash)).size,
     ).toBeGreaterThan(1);
   });
+
+  it("parses malformed HTML without leaking executable element contents", () => {
+    const source: RagSourceEntity = {
+      id: "30000000-0000-0000-0000-000000000002",
+      companyId: "20000000-0000-0000-0000-000000000001",
+      updatedAt: new Date("2026-07-14T12:00:00.000Z"),
+      sourceType: "document",
+      data: {
+        name: "Documento inseguro",
+        leaseContractText:
+          "<p>Texto seguro &amp; válido</p><script>alert('secreto')</script ><p>oculto por script mal cerrado</p>",
+      },
+    };
+
+    const [chunk] = builder.build(source);
+
+    expect(chunk.content).toContain("Texto seguro & válido");
+    expect(chunk.content).not.toContain("alert");
+    expect(chunk.content).not.toContain("oculto por script mal cerrado");
+  });
+
+  it("decodes each HTML entity exactly once", () => {
+    const source: RagSourceEntity = {
+      id: "30000000-0000-0000-0000-000000000003",
+      companyId: "20000000-0000-0000-0000-000000000001",
+      updatedAt: new Date("2026-07-14T12:00:00.000Z"),
+      sourceType: "document",
+      data: {
+        name: "Entidades",
+        leaseContractText: "<p>A &amp; B; literal: &amp;lt;script&amp;gt;</p>",
+      },
+    };
+
+    const [chunk] = builder.build(source);
+
+    expect(chunk.content).toContain("A & B; literal: &lt;script&gt;");
+    expect(chunk.content).not.toContain("literal: <script>");
+  });
 });

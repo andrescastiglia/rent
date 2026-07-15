@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 
 const fs = require('node:fs');
-const path = require('node:path');
 const { Client } = require('pg');
 const { JwtService } = require('@nestjs/jwt');
+const evaluationCases = require('../evals/rag-eval.dataset.json');
 
 const args = process.argv.slice(2);
 const valueOf = (name, fallback) => {
@@ -11,10 +11,6 @@ const valueOf = (name, fallback) => {
   return index >= 0 && args[index + 1] ? args[index + 1] : fallback;
 };
 const has = (name) => args.includes(name);
-const datasetPath = valueOf(
-  '--dataset',
-  path.join(process.cwd(), 'evals', 'rag-eval.dataset.json'),
-);
 const baseUrl = valueOf(
   '--base-url',
   process.env.AI_EVAL_BASE_URL || 'http://127.0.0.1:3001',
@@ -22,6 +18,40 @@ const baseUrl = valueOf(
 const limit = Number(valueOf('--limit', '0'));
 const roleFilter = valueOf('--role', '');
 const categoryFilter = valueOf('--category', '');
+
+function evaluationEndpoint(rawBaseUrl) {
+  let endpoint;
+  try {
+    endpoint = new URL('/ai/respond', rawBaseUrl);
+  } catch {
+    throw new Error('AI evaluation base URL must be a valid absolute URL');
+  }
+  if (!['http:', 'https:'].includes(endpoint.protocol)) {
+    throw new Error('AI evaluation base URL must use HTTP or HTTPS');
+  }
+  if (endpoint.username || endpoint.password) {
+    throw new Error('AI evaluation base URL must not contain credentials');
+  }
+
+  const loopbackHosts = new Set(['localhost', '127.0.0.1', '[::1]']);
+  const allowedOrigins = new Set(
+    (process.env.AI_EVAL_ALLOWED_ORIGINS || '')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean),
+  );
+  if (!loopbackHosts.has(endpoint.hostname)) {
+    if (endpoint.protocol !== 'https:') {
+      throw new Error('Remote AI evaluation endpoints must use HTTPS');
+    }
+    if (!allowedOrigins.has(endpoint.origin)) {
+      throw new Error(
+        `AI evaluation endpoint ${endpoint.origin} is not in AI_EVAL_ALLOWED_ORIGINS`,
+      );
+    }
+  }
+  return endpoint;
+}
 
 function dbConfig() {
   if (process.env.DATABASE_URL) {
@@ -175,13 +205,14 @@ async function main() {
   await db.connect();
   try {
     if (has('--shadow-report')) return await shadowReport(db);
-    let tests = JSON.parse(fs.readFileSync(datasetPath, 'utf8'));
+    let tests = evaluationCases;
     if (roleFilter) tests = tests.filter((test) => test.role === roleFilter);
     if (categoryFilter)
       tests = tests.filter((test) => test.category === categoryFilter);
     if (limit > 0) tests = tests.slice(0, limit);
     if (tests.length < 1) throw new Error('No evaluation cases selected');
 
+    const endpoint = evaluationEndpoint(baseUrl);
     const jwt = new JwtService({ secret: process.env.JWT_SECRET });
     const results = [];
     for (const test of tests) {
@@ -192,7 +223,7 @@ async function main() {
       }
       const token = await jwt.signAsync({ sub: user.id }, { expiresIn: '15m' });
       const started = Date.now();
-      const response = await fetch(`${baseUrl}/ai/respond`, {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           authorization: `Bearer ${token}`,
@@ -375,7 +406,11 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });
+}
+
+module.exports = { evaluationEndpoint };

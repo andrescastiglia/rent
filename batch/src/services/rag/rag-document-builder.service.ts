@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { parse } from "node-html-parser";
 import { RagChunkDraft, RagSourceEntity } from "./rag-types";
 
 const DOCUMENT_CHUNK_SIZE = 4_000;
@@ -26,19 +27,19 @@ const stringArray = (value: unknown): string[] =>
     ? value.filter((item): item is string => typeof item === "string")
     : [];
 
-const normalizeText = (value: string): string =>
-  value
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
+const normalizeText = (value: string): string => {
+  const document = parse(value);
+  document
+    .querySelectorAll("script, style, noscript")
+    .forEach((element) => element.remove());
+
+  return document.structuredText
+    .replace(/\u00a0/g, " ")
     .replace(/\r\n/g, "\n")
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+};
 
 const sha256 = (content: string): string =>
   createHash("sha256").update(content, "utf8").digest("hex");
