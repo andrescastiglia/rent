@@ -95,7 +95,7 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "transformIgnorePatterns": [
-      "node_modules/(?!(node-html-parser|entities)/)"
+      "node_modules/(?!(node-html-parser|entities|commander)/)"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",

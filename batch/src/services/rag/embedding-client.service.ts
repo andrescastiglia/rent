@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import OpenAI from "openai";
 import { batchMetrics } from "../../shared/metrics";
 import {
@@ -155,7 +156,7 @@ export class EmbeddingClientService {
           throw error;
         }
         const exponential = Math.min(30_000, 500 * 2 ** (attempt - 1));
-        const jitter = Math.floor(Math.random() * 250);
+        const jitter = randomInt(250);
         await this.sleep(exponential + jitter);
       }
     }
