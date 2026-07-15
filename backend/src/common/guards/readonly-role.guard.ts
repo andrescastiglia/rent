@@ -38,6 +38,15 @@ export class ReadonlyRoleGuard implements CanActivate {
 
     const path = String(request.path ?? request.originalUrl ?? '');
 
+    // Chat requests are POST because they carry a prompt, but owner/tenant
+    // mutations are rejected by the AI orchestrator before tool execution.
+    const isAllowedAiRead =
+      method === 'POST' &&
+      (path.startsWith('/ai/respond') || path.startsWith('/ai/tools/respond'));
+    if (isAllowedAiRead) {
+      return true;
+    }
+
     // Owner/tenant can still manage own profile data and credentials.
     const isAllowedProfileMutation =
       (method === 'PATCH' && path.startsWith('/users/profile/me')) ||

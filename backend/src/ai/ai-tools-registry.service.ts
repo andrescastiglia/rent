@@ -29,6 +29,7 @@ const OPENAI_FALLBACK_PARAMETERS_SCHEMA = z
 const OPENAI_TOOLS_LIMIT = 128;
 const AI_PROMPT_ALIASES_FILENAME = 'ai-prompt-aliases.json';
 const OPENAI_DISALLOWED_SCHEMA_KEYS = ['$schema', 'propertyNames'] as const;
+const UNSUPPORTED_REGEX_LOOKAROUND = /\(\?(?:[=!]|<[=!])/;
 
 function normalizeText(value: string): string {
   return value
@@ -390,6 +391,17 @@ function sanitizeOpenAiSchemaNode(schema: unknown): void {
     delete node[key];
   }
 
+  // Zod's email format expands to a pattern containing lookarounds. Some
+  // OpenAI-compatible providers reject those patterns before tool execution.
+  // Dropping only unsupported patterns keeps the transport schema portable;
+  // the original Zod DTO still validates arguments in the executor.
+  if (
+    typeof node.pattern === 'string' &&
+    UNSUPPORTED_REGEX_LOOKAROUND.test(node.pattern)
+  ) {
+    delete node.pattern;
+  }
+
   if (Array.isArray(node.anyOf)) {
     node.anyOf = sanitizeAnyOfBranches(node.anyOf);
   }
@@ -583,6 +595,7 @@ export class AiToolsRegistryService {
     prompt?: string,
   ): AiToolDefinition[] {
     const mode = this.executor.getMode();
+    const retiredReadTools = this.retiredReadTools(context.companyId);
     const eligible = this.catalog.getDefinitions().filter((tool) => {
       if (!tool.allowedRoles.includes(context.role)) {
         return false;
@@ -591,6 +604,9 @@ export class AiToolsRegistryService {
         return false;
       }
       if (mode === 'READONLY' && tool.mutability === 'mutable') {
+        return false;
+      }
+      if (tool.mutability === 'readonly' && retiredReadTools.has(tool.name)) {
         return false;
       }
       return true;
@@ -606,6 +622,27 @@ export class AiToolsRegistryService {
       `OpenAI tools trimmed from ${eligible.length} to ${selected.length} for user ${context.userId}`,
     );
     return selected;
+  }
+
+  private retiredReadTools(companyId?: string): Set<string> {
+    if (String(process.env.AI_RETRIEVAL_MODE).toUpperCase() !== 'HYBRID') {
+      return new Set();
+    }
+    const companies = new Set(
+      String(process.env.AI_RAG_ENABLED_COMPANY_IDS ?? '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean),
+    );
+    if (!companies.has('*') && (!companyId || !companies.has(companyId))) {
+      return new Set();
+    }
+    return new Set(
+      String(process.env.AI_RAG_RETIRED_READ_TOOLS ?? '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean),
+    );
   }
 
   private rankToolsByPrompt(

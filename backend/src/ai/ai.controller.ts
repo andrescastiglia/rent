@@ -6,23 +6,25 @@ import {
   ParseUUIDPipe,
   Post,
   Request,
+  ServiceUnavailableException,
   UseGuards,
 } from '@nestjs/common';
 import { Roles } from '../common/decorators/roles.decorator';
-import { UserRole } from '../users/entities/user.entity';
+import { UserModulePermissions, UserRole } from '../users/entities/user.entity';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { ExecuteAiToolDto } from './dto/execute-ai-tool.dto';
 import { AiChatRequestDto } from './dto/ai-chat-request.dto';
 import { AiToolExecutorService } from './ai-tool-executor.service';
-import { AiOpenAiService } from './ai-openai.service';
 import { AiToolsRegistryService } from './ai-tools-registry.service';
 import { AiConversationsService } from './ai-conversations.service';
+import { AiRagRolloutService } from './rag/ai-rag-rollout.service';
 
 interface AuthenticatedRequest {
   user: {
     id: string;
     companyId?: string;
     role: UserRole;
+    permissions?: UserModulePermissions;
   };
 }
 
@@ -33,8 +35,8 @@ export class AiController {
   constructor(
     private readonly executor: AiToolExecutorService,
     private readonly registry: AiToolsRegistryService,
-    private readonly openAiService: AiOpenAiService,
     private readonly conversationsService: AiConversationsService,
+    private readonly ragRollout: AiRagRolloutService,
   ) {}
 
   @Get()
@@ -97,56 +99,22 @@ export class AiController {
     @Body() dto: AiChatRequestDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    const conversation =
-      await this.conversationsService.getOrCreateConversation({
-        conversationId: dto.conversationId,
+    if (!req.user.companyId) {
+      throw new ServiceUnavailableException(
+        'Authenticated user has no company',
+      );
+    }
+    const response = await this.ragRollout.respond({
+      prompt: dto.prompt,
+      conversationId: dto.conversationId,
+      history: dto.messages,
+      context: {
         userId: req.user.id,
         companyId: req.user.companyId,
-      });
-
-    const context = {
-      userId: req.user.id,
-      companyId: req.user.companyId,
-      conversationId: conversation.id,
-      role: req.user.role,
-    } as const;
-
-    const history =
-      dto.messages && dto.messages.length > 0
-        ? dto.messages
-        : this.conversationsService.toOpenAiHistory(conversation);
-
-    try {
-      const response = await this.openAiService.respond(
-        dto.prompt,
-        context,
-        history,
-      );
-
-      const persisted = await this.conversationsService.appendExchange({
-        conversationId: conversation.id,
-        userId: req.user.id,
-        userPrompt: dto.prompt,
-        assistantText: response.outputText || '',
-        model: response.model,
-      });
-
-      return {
-        mode: this.executor.getMode(),
-        conversationId: conversation.id,
-        toolState: persisted.toolState,
-        ...response,
-      };
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'AI provider request failed';
-      await this.conversationsService.appendAssistantError({
-        conversationId: conversation.id,
-        userId: req.user.id,
-        userPrompt: dto.prompt,
-        assistantError: message,
-      });
-      throw error;
-    }
+        role: req.user.role,
+        permissions: req.user.permissions,
+      },
+    });
+    return { mode: this.executor.getMode(), ...response };
   }
 }

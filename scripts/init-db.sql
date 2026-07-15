@@ -26,6 +26,7 @@ SET standard_conforming_strings = on;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "unaccent";
+CREATE EXTENSION IF NOT EXISTS "vector";
 -- PostGIS para funcionalidades geoespaciales (opcional, no disponible en postgres:16 estándar)
 DO $$
 BEGIN
@@ -2140,6 +2141,304 @@ CREATE INDEX idx_ai_github_issue_previews_user_expires
 COMMENT ON TABLE ai_github_issue_previews IS 'Persisted GitHub issue previews for AI-assisted reporting';
 
 -- -----------------------------------------------------------------------------
+-- AI RAG projection, outbox and execution audit
+-- Embedding contract v1: vector(1536)
+-- -----------------------------------------------------------------------------
+CREATE TABLE ai_knowledge_chunks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_id UUID NOT NULL,
+    entity_type VARCHAR(80) NOT NULL,
+    entity_id UUID NOT NULL,
+    chunk_key VARCHAR(160) NOT NULL,
+    chunk_index INTEGER NOT NULL DEFAULT 0,
+    content TEXT NOT NULL,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    embedding vector(1536),
+    embedding_model VARCHAR(120) NOT NULL,
+    embedding_version INTEGER NOT NULL DEFAULT 1,
+    content_hash VARCHAR(64) NOT NULL,
+    source_updated_at TIMESTAMPTZ NOT NULL,
+    embedded_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ,
+    CONSTRAINT uq_ai_knowledge_chunk
+        UNIQUE (company_id, entity_type, entity_id, chunk_key, embedding_version),
+    CONSTRAINT ck_ai_knowledge_chunk_index CHECK (chunk_index >= 0),
+    CONSTRAINT ck_ai_knowledge_content CHECK (length(btrim(content)) > 0),
+    CONSTRAINT ck_ai_knowledge_embedding_version CHECK (embedding_version > 0),
+    CONSTRAINT ck_ai_knowledge_content_hash CHECK (content_hash ~ '^[0-9a-f]{64}$')
+);
+
+CREATE INDEX idx_ai_chunks_company_entity
+    ON ai_knowledge_chunks (company_id, entity_type, entity_id)
+    WHERE deleted_at IS NULL;
+CREATE INDEX idx_ai_chunks_source_updated
+    ON ai_knowledge_chunks (source_updated_at)
+    WHERE deleted_at IS NULL;
+CREATE INDEX idx_ai_chunks_metadata
+    ON ai_knowledge_chunks USING GIN (metadata);
+
+CREATE TRIGGER update_ai_knowledge_chunks_updated_at
+    BEFORE UPDATE ON ai_knowledge_chunks
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TABLE ai_embedding_outbox (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_id UUID NOT NULL,
+    entity_type VARCHAR(80) NOT NULL,
+    entity_id UUID NOT NULL,
+    operation VARCHAR(20) NOT NULL,
+    source_updated_at TIMESTAMPTZ NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    attempts INTEGER NOT NULL DEFAULT 0,
+    available_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    locked_at TIMESTAMPTZ,
+    locked_by VARCHAR(120),
+    last_error TEXT,
+    processed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT ck_ai_embedding_outbox_operation
+        CHECK (operation IN ('upsert', 'delete')),
+    CONSTRAINT ck_ai_embedding_outbox_status
+        CHECK (status IN ('pending', 'processing', 'processed', 'failed')),
+    CONSTRAINT ck_ai_embedding_outbox_attempts CHECK (attempts >= 0)
+);
+
+CREATE INDEX idx_ai_embedding_outbox_pending
+    ON ai_embedding_outbox (available_at, created_at)
+    WHERE status = 'pending';
+CREATE INDEX idx_ai_embedding_outbox_entity
+    ON ai_embedding_outbox (company_id, entity_type, entity_id, created_at DESC);
+CREATE INDEX idx_ai_embedding_outbox_processing_locks
+    ON ai_embedding_outbox (locked_at)
+    WHERE status = 'processing';
+
+CREATE OR REPLACE FUNCTION enqueue_ai_embedding_outbox(
+    p_company_id UUID,
+    p_entity_type VARCHAR,
+    p_entity_id UUID,
+    p_operation VARCHAR,
+    p_source_updated_at TIMESTAMPTZ
+) RETURNS VOID
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_company_id IS NULL OR p_entity_id IS NULL THEN
+        RETURN;
+    END IF;
+    INSERT INTO ai_embedding_outbox (
+        company_id, entity_type, entity_id, operation, source_updated_at
+    ) VALUES (
+        p_company_id, p_entity_type, p_entity_id, p_operation,
+        COALESCE(p_source_updated_at, NOW())
+    );
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION trg_enqueue_property_embedding()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        PERFORM enqueue_ai_embedding_outbox(
+            OLD.company_id, 'property', OLD.id, 'delete', NOW()
+        );
+        RETURN OLD;
+    END IF;
+    PERFORM enqueue_ai_embedding_outbox(
+        NEW.company_id, 'property', NEW.id,
+        CASE WHEN NEW.deleted_at IS NULL THEN 'upsert' ELSE 'delete' END,
+        COALESCE(NEW.updated_at, NEW.deleted_at, NOW())
+    );
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER properties_ai_embedding_outbox
+AFTER INSERT OR UPDATE OR DELETE ON properties
+FOR EACH ROW EXECUTE FUNCTION trg_enqueue_property_embedding();
+
+CREATE OR REPLACE FUNCTION trg_enqueue_document_embedding()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE
+    old_was_indexable BOOLEAN := FALSE;
+BEGIN
+    IF TG_OP <> 'INSERT' THEN
+        old_was_indexable := OLD.deleted_at IS NULL AND OLD.status = 'approved';
+    END IF;
+    IF TG_OP = 'DELETE' THEN
+        IF old_was_indexable THEN
+            PERFORM enqueue_ai_embedding_outbox(
+                OLD.company_id, 'document', OLD.id, 'delete', NOW()
+            );
+        END IF;
+        RETURN OLD;
+    END IF;
+    IF NEW.deleted_at IS NULL AND NEW.status = 'approved' THEN
+        PERFORM enqueue_ai_embedding_outbox(
+            NEW.company_id, 'document', NEW.id, 'upsert',
+            COALESCE(NEW.updated_at, NOW())
+        );
+    ELSIF old_was_indexable THEN
+        PERFORM enqueue_ai_embedding_outbox(
+            NEW.company_id, 'document', NEW.id, 'delete',
+            COALESCE(NEW.updated_at, NEW.deleted_at, NOW())
+        );
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER documents_ai_embedding_outbox
+AFTER INSERT OR UPDATE OR DELETE ON documents
+FOR EACH ROW EXECUTE FUNCTION trg_enqueue_document_embedding();
+
+CREATE OR REPLACE FUNCTION trg_enqueue_property_feature_embedding()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE
+    target_property_id UUID := COALESCE(NEW.property_id, OLD.property_id);
+    target_company_id UUID;
+BEGIN
+    SELECT company_id INTO target_company_id
+      FROM properties
+     WHERE id = target_property_id AND deleted_at IS NULL;
+    IF target_company_id IS NOT NULL THEN
+        PERFORM enqueue_ai_embedding_outbox(
+            target_company_id, 'property', target_property_id, 'upsert', NOW()
+        );
+    END IF;
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER property_features_ai_embedding_outbox
+AFTER INSERT OR UPDATE OR DELETE ON property_features
+FOR EACH ROW EXECUTE FUNCTION trg_enqueue_property_feature_embedding();
+
+CREATE OR REPLACE FUNCTION trg_enqueue_lease_document_embeddings()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE
+    related_document RECORD;
+BEGIN
+    IF NEW.confirmed_contract_text IS NOT DISTINCT FROM OLD.confirmed_contract_text
+       AND NEW.draft_contract_text IS NOT DISTINCT FROM OLD.draft_contract_text THEN
+        RETURN NEW;
+    END IF;
+    FOR related_document IN
+        SELECT id, company_id
+          FROM documents
+         WHERE entity_type = 'lease' AND entity_id = NEW.id
+           AND status = 'approved' AND deleted_at IS NULL
+    LOOP
+        PERFORM enqueue_ai_embedding_outbox(
+            related_document.company_id, 'document', related_document.id,
+            'upsert', NOW()
+        );
+    END LOOP;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER leases_ai_embedding_outbox
+AFTER UPDATE OF confirmed_contract_text, draft_contract_text ON leases
+FOR EACH ROW EXECUTE FUNCTION trg_enqueue_lease_document_embeddings();
+
+CREATE TABLE ai_rag_runs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    conversation_id UUID,
+    company_id UUID NOT NULL,
+    user_id UUID NOT NULL,
+    role VARCHAR(30) NOT NULL,
+    strategy VARCHAR(30) NOT NULL,
+    query_hash VARCHAR(64) NOT NULL,
+    retrieved_chunk_ids UUID[] NOT NULL DEFAULT '{}',
+    cited_chunk_ids UUID[] NOT NULL DEFAULT '{}',
+    insufficient_evidence BOOLEAN NOT NULL DEFAULT FALSE,
+    model VARCHAR(120),
+    prompt_version VARCHAR(50) NOT NULL,
+    input_tokens INTEGER,
+    output_tokens INTEGER,
+    latency_ms INTEGER,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT ck_ai_rag_runs_query_hash CHECK (query_hash ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT ck_ai_rag_runs_token_counts CHECK (
+        (input_tokens IS NULL OR input_tokens >= 0)
+        AND (output_tokens IS NULL OR output_tokens >= 0)
+    ),
+    CONSTRAINT ck_ai_rag_runs_latency CHECK (latency_ms IS NULL OR latency_ms >= 0)
+);
+
+CREATE INDEX idx_ai_rag_runs_company_created
+    ON ai_rag_runs (company_id, created_at DESC);
+CREATE INDEX idx_ai_rag_runs_conversation_created
+    ON ai_rag_runs (conversation_id, created_at DESC)
+    WHERE conversation_id IS NOT NULL;
+
+CREATE TABLE ai_rag_shadow_comparisons (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    rag_run_id UUID REFERENCES ai_rag_runs(id) ON DELETE SET NULL,
+    conversation_id UUID,
+    company_id UUID NOT NULL,
+    user_id UUID NOT NULL,
+    role VARCHAR(30) NOT NULL,
+    query_hash VARCHAR(64) NOT NULL,
+    tools_output_hash VARCHAR(64),
+    rag_output_hash VARCHAR(64),
+    lexical_similarity NUMERIC(6,5),
+    rag_source_count INTEGER NOT NULL DEFAULT 0,
+    rag_insufficient_evidence BOOLEAN,
+    tools_latency_ms INTEGER,
+    rag_latency_ms INTEGER,
+    status VARCHAR(20) NOT NULL,
+    error_code VARCHAR(80),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT ck_ai_rag_shadow_status
+        CHECK (status IN ('compared', 'rag_failed', 'tools_failed')),
+    CONSTRAINT ck_ai_rag_shadow_hashes CHECK (
+        query_hash ~ '^[0-9a-f]{64}$'
+        AND (tools_output_hash IS NULL OR tools_output_hash ~ '^[0-9a-f]{64}$')
+        AND (rag_output_hash IS NULL OR rag_output_hash ~ '^[0-9a-f]{64}$')
+    ),
+    CONSTRAINT ck_ai_rag_shadow_similarity CHECK (
+        lexical_similarity IS NULL
+        OR (lexical_similarity >= 0 AND lexical_similarity <= 1)
+    )
+);
+
+CREATE INDEX idx_ai_rag_shadow_company_created
+    ON ai_rag_shadow_comparisons (company_id, created_at DESC);
+CREATE INDEX idx_ai_rag_shadow_status_created
+    ON ai_rag_shadow_comparisons (status, created_at DESC);
+
+COMMENT ON TABLE ai_knowledge_chunks IS
+    'Versioned, company-scoped RAG projection with 1536-dimensional embeddings';
+COMMENT ON TABLE ai_embedding_outbox IS
+    'Transactional outbox for asynchronous RAG projection updates';
+COMMENT ON TABLE ai_rag_runs IS
+    'Privacy-conscious audit records for RAG retrieval and answer generation';
+
+CREATE TABLE ai_rag_backfill_checkpoints (
+    checkpoint_key VARCHAR(240) PRIMARY KEY,
+    entity_type VARCHAR(80) NOT NULL,
+    company_id UUID,
+    embedding_version INTEGER NOT NULL,
+    last_entity_id UUID NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT ck_ai_rag_backfill_checkpoint_version
+        CHECK (embedding_version > 0)
+);
+
+CREATE INDEX idx_ai_rag_backfill_checkpoints_updated
+    ON ai_rag_backfill_checkpoints (updated_at);
+
+COMMENT ON TABLE ai_rag_backfill_checkpoints IS
+    'Durable resume checkpoints for RAG batch backfills';
+
+-- -----------------------------------------------------------------------------
 -- Digital Signature Requests
 -- -----------------------------------------------------------------------------
 CREATE TABLE digital_signature_requests (
@@ -2846,7 +3145,7 @@ SET TIME ZONE 'America/Argentina/Buenos_Aires';
 \echo '✓ RentFlow - Base de datos inicializada'
 \echo '========================================='
 \echo ''
-\echo 'Extensiones: uuid-ossp, pgcrypto, unaccent, postgis'
+\echo 'Extensiones: uuid-ossp, pgcrypto, unaccent, postgis, vector'
 \echo 'Schemas: public, audit, functions'
 \echo ''
 \echo 'Tablas creadas:'
@@ -2865,7 +3164,9 @@ SET TIME ZONE 'America/Argentina/Buenos_Aires';
 \echo '  - Operations: maintenance_tickets, maintenance_ticket_comments, portal_listings'
 \echo '  - Contracts: digital_signature_requests'
 \echo '  - Reference: currencies, inflation_indices, exchange_rates'
-\echo '  - AI: ai_conversations, ai_github_issue_previews'
+\echo '  - AI: ai_conversations, ai_github_issue_previews, ai_knowledge_chunks,'
+\echo '        ai_embedding_outbox, ai_rag_runs, ai_rag_backfill_checkpoints,'
+\echo '        ai_rag_shadow_comparisons'
 \echo '  - System: notification_preferences, billing_jobs'
 \echo '  - Audit: audit.logs'
 \echo ''

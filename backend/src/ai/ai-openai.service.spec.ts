@@ -7,16 +7,14 @@ import { UserRole } from '../users/entities/user.entity';
 import { AiToolsRegistryService } from './ai-tools-registry.service';
 import { AiOpenAiService } from './ai-openai.service';
 
-const runToolsMock = jest.fn();
+const responsesCreateMock = jest.fn();
 const openAiCtorMock = jest.fn();
 
 jest.mock('openai', () => ({
   __esModule: true,
   default: class OpenAIMock {
-    chat = {
-      completions: {
-        runTools: (...args: unknown[]) => runToolsMock(...args),
-      },
+    responses = {
+      create: (...args: unknown[]) => responsesCreateMock(...args),
     };
 
     constructor(config: unknown) {
@@ -71,13 +69,25 @@ describe('AiOpenAiService', () => {
     process.env.OPENAI_BASE_URL = 'https://proxy.example';
 
     const registry = {
-      getOpenAiTools: jest.fn().mockReturnValue([{ type: 'function' }]),
+      getOpenAiTools: jest.fn().mockReturnValue([
+        {
+          type: 'function',
+          function: {
+            name: 'get_test',
+            description: 'test',
+            parameters: { type: 'object', properties: {} },
+            strict: true,
+          },
+        },
+      ]),
     } as unknown as AiToolsRegistryService;
 
-    runToolsMock.mockReturnValue({
-      finalContent: jest.fn().mockResolvedValue('ok'),
-      finalChatCompletion: jest.fn().mockResolvedValue({ model: 'gpt-test' }),
-      totalUsage: jest.fn().mockResolvedValue({ total_tokens: 10 }),
+    responsesCreateMock.mockResolvedValue({
+      id: 'resp-1',
+      model: 'gpt-test',
+      output_text: 'ok',
+      output: [],
+      usage: { input_tokens: 6, output_tokens: 4, total_tokens: 10 },
     });
 
     const service = new AiOpenAiService(registry);
@@ -101,16 +111,19 @@ describe('AiOpenAiService', () => {
       expect.objectContaining({ role: UserRole.STAFF }),
       'estado de pagos',
     );
-    expect(runToolsMock).toHaveBeenCalledWith(
+    expect(responsesCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         model: 'gpt-test',
-        tools: [{ type: 'function' }],
+        reasoning: { effort: 'none' },
+        tools: [
+          expect.objectContaining({ type: 'function', name: 'get_test' }),
+        ],
       }),
     );
     expect(result).toEqual({
       model: 'gpt-test',
       outputText: 'ok',
-      usage: { total_tokens: 10 },
+      usage: { input_tokens: 6, output_tokens: 4, total_tokens: 10 },
     });
   });
 
@@ -118,13 +131,9 @@ describe('AiOpenAiService', () => {
     process.env.OPENAI_API_KEY = 'key-1';
     process.env.OPENAI_MODEL = 'gpt-test';
 
-    runToolsMock.mockReturnValue({
-      finalContent: jest.fn().mockRejectedValue({
-        status: 500,
-        message: 'provider down',
-      }),
-      finalChatCompletion: jest.fn().mockResolvedValue({ model: 'x' }),
-      totalUsage: jest.fn().mockResolvedValue({ total_tokens: 0 }),
+    responsesCreateMock.mockRejectedValue({
+      status: 500,
+      message: 'provider down',
     });
 
     const service = new AiOpenAiService({

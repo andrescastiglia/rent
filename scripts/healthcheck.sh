@@ -137,12 +137,15 @@ check_postgres() {
         print_success "PostgreSQL conectado exitosamente"
         
         # Verificar extensiones
-        local extensions=$(PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -c "SELECT COUNT(*) FROM pg_extension WHERE extname IN ('uuid-ossp', 'pgcrypto', 'unaccent');" 2>/dev/null | xargs)
+        local extensions=$(PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -c "SELECT COUNT(*) FROM pg_extension WHERE extname IN ('uuid-ossp', 'pgcrypto', 'unaccent', 'postgis', 'vector');" 2>/dev/null | xargs)
         
-        if [ "$extensions" -ge 3 ]; then
-            print_success "Extensiones PostgreSQL instaladas correctamente"
+        if [ "$extensions" -eq 5 ]; then
+            local spatial_versions
+            spatial_versions=$(PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "SELECT string_agg(extname || '=' || extversion, ', ' ORDER BY extname) FROM pg_extension WHERE extname IN ('postgis', 'vector');" 2>/dev/null)
+            print_success "Extensiones PostgreSQL instaladas correctamente ($spatial_versions)"
         else
-            print_warning "Algunas extensiones PostgreSQL pueden no estar instaladas"
+            print_error "Faltan extensiones PostgreSQL requeridas (esperadas: uuid-ossp, pgcrypto, unaccent, postgis, vector)"
+            return 1
         fi
         
         return 0

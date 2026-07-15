@@ -8,7 +8,7 @@
 # Environment
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-BATCH_DIR=/opt/rent/batch
+BATCH_DIR=/var/www/rent/current/batch
 LOG_DIR=/var/log/rent
 
 # -----------------------------------------------------------------------------
@@ -16,29 +16,32 @@ LOG_DIR=/var/log/rent
 # -----------------------------------------------------------------------------
 
 # Billing: Generate invoices for due leases (03:00 AM)
-0 3 * * * cd $BATCH_DIR && node index.js billing --log $LOG_DIR/billing.log
+0 3 * * * cd $BATCH_DIR && node dist/index.js billing --log $LOG_DIR/billing.log
 
 # Overdue: Mark overdue invoices (09:00 AM)
-0 9 * * * cd $BATCH_DIR && node index.js overdue --log $LOG_DIR/overdue.log
+0 9 * * * cd $BATCH_DIR && node dist/index.js overdue --log $LOG_DIR/overdue.log
 
 # Reminders: Send payment reminders via WhatsApp (10:00 AM)
-0 10 * * * cd $BATCH_DIR && node index.js reminders --log $LOG_DIR/reminders.log
+0 10 * * * cd $BATCH_DIR && node dist/index.js reminders --log $LOG_DIR/reminders.log
 
 # Lease renewals: Alert upcoming rental expirations (11:00 AM)
-0 11 * * * cd $BATCH_DIR && node index.js lease-renewal-alerts --log $LOG_DIR/lease-renewal-alerts.log
+0 11 * * * cd $BATCH_DIR && node dist/index.js lease-renewal-alerts --log $LOG_DIR/lease-renewal-alerts.log
+
+# RAG reconciliation: repair missing/stale projections and verify them (02:30 AM)
+30 2 * * * cd $BATCH_DIR && node dist/index.js rag-reconcile --entity all --log $LOG_DIR/rag-reconcile.log
 
 # -----------------------------------------------------------------------------
 # Monthly Jobs
 # -----------------------------------------------------------------------------
 
 # Sync Indices: Fetch inflation indices (1st of month, 01:00 AM)
-0 1 1 * * cd $BATCH_DIR && node index.js sync-indices --log $LOG_DIR/sync-indices.log
+0 1 1 * * cd $BATCH_DIR && node dist/index.js sync-indices --log $LOG_DIR/sync-indices.log
 
 # Reports: Generate monthly owner reports (1st of month, 06:00 AM)
-0 6 1 * * cd $BATCH_DIR && node index.js reports --type=monthly --log $LOG_DIR/reports.log
+0 6 1 * * cd $BATCH_DIR && node dist/index.js reports --type=monthly --log $LOG_DIR/reports.log
 
 # Settlements: Calculate owner settlements (2nd of month, 07:00 AM)
-0 7 2 * * cd $BATCH_DIR && node index.js process-settlements --log $LOG_DIR/process-settlements.log
+0 7 2 * * cd $BATCH_DIR && node dist/index.js process-settlements --log $LOG_DIR/process-settlements.log
 
 # -----------------------------------------------------------------------------
 # Maintenance Jobs
@@ -48,4 +51,4 @@ LOG_DIR=/var/log/rent
 0 2 * * 0 find $LOG_DIR -name "*.log" -mtime +30 -delete
 
 # Health Check: Verify batch system is operational (every 6 hours)
-0 */6 * * * cd $BATCH_DIR && node index.js --version >> /dev/null 2>&1 || echo "Batch system health check failed" >> $LOG_DIR/alerts.log
+0 */6 * * * cd $BATCH_DIR && node dist/index.js --version >> /dev/null 2>&1 || echo "Batch system health check failed" >> $LOG_DIR/alerts.log

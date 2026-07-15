@@ -79,4 +79,20 @@ describe('ReadonlyRoleGuard', () => {
       ),
     ).toThrow(ForbiddenException);
   });
+
+  it('allows only the AI response POST routes for read-only roles', () => {
+    const guard = new ReadonlyRoleGuard(reflector);
+    reflector.getAllAndOverride = jest.fn().mockReturnValue(false);
+    for (const path of ['/ai/respond', '/ai/tools/respond']) {
+      expect(
+        guard.canActivate(
+          makeContext({
+            method: 'POST',
+            path,
+            user: { role: UserRole.TENANT },
+          }),
+        ),
+      ).toBe(true);
+    }
+  });
 });

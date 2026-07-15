@@ -4,7 +4,7 @@ Fecha de ejecucion: 2026-07-07
 
 ## Estado
 
-Estado actual: prerequisitos publicos desplegados, draft de App Review creado, pero submission no enviada.
+Estado actual: prerequisitos publicos desplegados, configuracion basica corregida en Meta y App Review en curso.
 
 No se pudo enviar la submission desde este entorno porque Meta redirige a login de Facebook/Business y requiere una sesion autenticada con permisos de administrador sobre la app y el business:
 
@@ -52,6 +52,30 @@ Continuacion 2026-07-08 webhook:
 - Cambio local aplicado para devolver el challenge como `text/plain` en `backend/src/whatsapp/whatsapp.controller.ts`.
 - Test puntual ejecutado: `npm test -- whatsapp.controller.spec.ts` -> passed.
 - Pendiente: desplegar backend y reintentar `Verify and save` en Meta.
+
+Continuacion 2026-07-09:
+
+- Se ingreso al dashboard autenticado de Meta con `auth.json`.
+- Produccion confirma que `https://rent.maese.com.ar/api/whatsapp/webhook` responde `Content-Type: text/plain; charset=utf-8` para validacion fallida con token invalido; no se pudo probar el caso 200 porque el `WHATSAPP_VERIFY_TOKEN` real no esta en los `.env` locales.
+- App Settings > Basic actualizado y verificado:
+  - App domains muestra `rent.maese.com.ar`.
+  - Contact email restaurado a `acastiglia@gmail.com`.
+  - Privacy Policy URL: `https://rent.maese.com.ar/es/privacy`.
+  - Terms of Service URL: `https://rent.maese.com.ar/es/terms`.
+  - User data deletion configurado como `Data deletion instructions URL`.
+  - Data deletion URL: `https://rent.maese.com.ar/es/data-deletion`.
+- Facebook Login for Business no mostro una accion confiable de `Remove product`; se dejo funcionalmente apagado:
+  - `Client OAuth login`: off.
+  - `Web OAuth login`: off.
+  - `Force Web OAuth reauthentication`: off.
+  - `Embedded browser OAuth login`: off.
+  - `Login from devices`: off.
+  - `Login with the JavaScript SDK`: off.
+  - `Data Deletion Request URL`: `https://rent.maese.com.ar/es/data-deletion`.
+- Required actions muestra: `You don't currently have any required actions.`
+- Verification muestra Business Verification `Verified` y Access Verification `Verified`.
+- App Review muestra `Review in progress` para `whatsapp_business_messaging` y `whatsapp_business_management`.
+- La app sigue `Unpublished`; publicar queda pendiente de aprobacion/revision de Meta.
 
 ## Entorno revisado
 
@@ -285,14 +309,19 @@ El endpoint existe; sin parametros de verificacion devuelve 400, lo esperado par
 - [x] Ruta local de Data Deletion agregada al repo.
 - [x] Desplegar Privacy Policy, Terms y Data Deletion a produccion.
 - [x] Verificar URLs publicas de compliance en produccion.
+- [x] Configurar App Settings > Basic con Privacy Policy, Terms y Data Deletion URLs de Rent.
+- [x] Configurar App domains con `rent.maese.com.ar`.
+- [x] Confirmar Business Verification y Access Verification como `Verified`.
+- [x] Desactivar flujos OAuth de Facebook Login for Business no usados.
+- [x] Confirmar que no hay Required Actions activas en Meta.
 - [x] Recuperar sesion Meta via `auth.json`.
 - [x] Crear/abrir draft en App Review (`submission_id=857140894021816`).
 - [x] Confirmar que Reviewer instructions tiene notas privadas cargadas.
 - [x] Confirmar que `whatsapp_business_messaging` tiene descripcion/screencast/allowed usage cargados.
-- [x] Remover permisos no usados; Meta ahora muestra solo `whatsapp_business_messaging`.
+- [x] Remover permisos no usados de la submission inicial; App Review actual muestra `whatsapp_business_messaging` y `whatsapp_business_management`.
 - [x] Confirmar numero WhatsApp/test recipient valido para reviewer: `+5492227442981`.
-- [ ] Confirmar Business Verification en Meta Business.
-- [ ] Confirmar permisos exactos seleccionados en Meta UI.
+- [x] Confirmar Business Verification en Meta Business.
+- [x] Confirmar permisos exactos seleccionados en Meta UI: `whatsapp_business_messaging` y `whatsapp_business_management`.
 - [ ] Ejecutar una llamada real de WhatsApp Cloud API con destinatario de prueba controlado para completar `0 of 1 API call(s) required`.
 - [ ] Completar verificacion SMS de Meta Business o proveer credenciales/token para ejecutar la llamada desde backend/Graph.
 - [ ] Esperar/revalidar que Meta marque el API test call como completo (puede tardar hasta 24 h).

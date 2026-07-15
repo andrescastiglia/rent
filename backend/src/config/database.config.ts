@@ -23,9 +23,8 @@ export const getDatabaseConfig = (
           database: configService.get<string>('POSTGRES_DB', 'rent_db'),
         }),
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-    // Synchronize creates/updates tables automatically
-    // Use TYPEORM_SYNC=true in .env to enable (useful for initial setup)
-    synchronize: configService.get<string>('TYPEORM_SYNC', 'false') === 'true',
+    // Schema changes are always applied through reviewed SQL migrations.
+    synchronize: false,
     logging: !isProduction && !isTest,
   };
 };
