@@ -1,2 +1,4 @@
 #!/usr/bin/env sh
-npx lint-staged
+# Run project linters sequentially to avoid backend and batch ESLint competing
+# for memory on large cross-project commits.
+NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=4096}" npx lint-staged --concurrent false

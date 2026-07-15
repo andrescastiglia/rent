@@ -1235,6 +1235,9 @@ async function main() {
     const job = await import("./services/billing-job.service");
     BillingJobServiceCtor = job.BillingJobService;
 
+    const rag = await import("./services/rag/rag-cli");
+    rag.registerRagCommands(program);
+
     // Parse command line arguments
     await program.parseAsync(process.argv);
 

@@ -238,4 +238,35 @@ describe('AiToolsRegistryService', () => {
       expect.stringContaining('patch_interested_activity'),
     );
   });
+
+  it('removes regex lookarounds unsupported by tool JSON schemas', () => {
+    const catalog = {
+      getDefinitions: jest.fn().mockReturnValue([
+        {
+          name: 'create_user',
+          description: 'Create user',
+          mutability: 'mutable',
+          allowedRoles: [UserRole.ADMIN],
+          parameters: z.object({ email: z.email() }).strict(),
+          execute: jest.fn(),
+        },
+      ]),
+    } as unknown as AiToolCatalogService;
+    const executor = {
+      execute: jest.fn(),
+      getMode: jest.fn().mockReturnValue('FULL'),
+    } as unknown as AiToolExecutorService;
+
+    const [tool] = new AiToolsRegistryService(catalog, executor).getOpenAiTools(
+      {
+        userId: 'user-1',
+        companyId: 'company-1',
+        role: UserRole.ADMIN,
+      },
+    ) as any[];
+
+    const emailSchema = tool.function.parameters.properties.email;
+    expect(emailSchema.type).toBe('string');
+    expect(emailSchema.pattern).toBeUndefined();
+  });
 });

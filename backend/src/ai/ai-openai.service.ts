@@ -40,6 +40,18 @@ type RelationshipContext = {
   source: 'file' | 'fallback';
 };
 
+type RunnableTool = {
+  type: 'function';
+  function: {
+    name: string;
+    description?: string;
+    parameters: Record<string, unknown>;
+    strict?: boolean;
+  };
+  $parseRaw?: (value: string) => unknown;
+  $callback?: (args: unknown) => Promise<unknown> | unknown;
+};
+
 function loadRelationshipContext(): RelationshipContext {
   const candidates = [
     join(__dirname, AI_RELATIONSHIP_MD_FILENAME),
@@ -103,45 +115,118 @@ export class AiOpenAiService {
       ...(baseURL ? { baseURL } : {}),
     });
 
-    const conversationHistory: OpenAI.Chat.Completions.ChatCompletionMessageParam[] =
-      (history ?? []).map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
+    const conversationHistory = (history ?? []).map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
 
     const rolePreamble = this.buildRolePreamble(context.role);
 
-    const runner = client.chat.completions.runTools({
-      model,
-      messages: [
-        {
-          role: 'system',
-          content:
-            'Use the following DB relationship map as hard context for tool planning.',
-        },
-        { role: 'system', content: this.relationshipContext.content },
-        { role: 'system', content: rolePreamble },
-        ...conversationHistory,
-        { role: 'user', content: prompt },
-      ],
-      tools: this.registry.getOpenAiTools(context, prompt),
-    });
-
     try {
-      const [content, completion, usage] = await Promise.all([
-        runner.finalContent(),
-        runner.finalChatCompletion(),
-        runner.totalUsage(),
-      ]);
+      const tools = this.registry.getOpenAiTools(
+        context,
+        prompt,
+      ) as RunnableTool[];
+      const responseTools = tools.map((tool) => ({
+        type: 'function' as const,
+        name: tool.function.name,
+        description: tool.function.description,
+        parameters: tool.function.parameters,
+        strict: tool.function.strict ?? true,
+      }));
+      const instructions = [
+        'Use the following DB relationship map as hard context for tool planning.',
+        this.relationshipContext.content,
+        rolePreamble,
+      ].join('\n\n');
+      let response = await client.responses.create({
+        model,
+        reasoning: { effort: 'none' },
+        instructions,
+        input: [...conversationHistory, { role: 'user', content: prompt }],
+        tools: responseTools,
+      } as OpenAI.Responses.ResponseCreateParamsNonStreaming);
+      const usage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
 
-      return {
-        model: completion.model,
-        outputText: content ?? '',
-        usage,
-      };
+      for (let round = 0; round < 8; round += 1) {
+        this.addUsage(usage, response.usage);
+        const calls = response.output.filter(
+          (item): item is OpenAI.Responses.ResponseFunctionToolCall =>
+            item.type === 'function_call',
+        );
+        if (calls.length === 0) {
+          return {
+            model: response.model,
+            outputText: response.output_text ?? '',
+            usage,
+          };
+        }
+
+        const outputs = await Promise.all(
+          calls.map(async (call) => {
+            const tool = tools.find(
+              (candidate) => candidate.function.name === call.name,
+            );
+            if (!tool?.$callback) {
+              return this.toolOutput(call.call_id, {
+                error: `Unknown tool: ${call.name}`,
+              });
+            }
+            try {
+              const args = tool.$parseRaw
+                ? tool.$parseRaw(call.arguments)
+                : JSON.parse(call.arguments);
+              const result = await tool.$callback(args);
+              return this.toolOutput(call.call_id, result);
+            } catch (error) {
+              return this.toolOutput(call.call_id, {
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : 'Tool execution failed',
+              });
+            }
+          }),
+        );
+
+        response = await client.responses.create({
+          model,
+          reasoning: { effort: 'none' },
+          previous_response_id: response.id,
+          input: outputs,
+          tools: responseTools,
+        } as OpenAI.Responses.ResponseCreateParamsNonStreaming);
+      }
+
+      throw new Error('OpenAI tool loop exceeded 8 rounds');
     } catch (error) {
       throw this.mapProviderError(error);
     }
+  }
+
+  private toolOutput(callId: string, value: unknown) {
+    let output: string;
+    try {
+      output = JSON.stringify(value ?? null);
+    } catch {
+      output = JSON.stringify({
+        error: 'Tool returned non-serializable output',
+      });
+    }
+    return { type: 'function_call_output' as const, call_id: callId, output };
+  }
+
+  private addUsage(
+    target: {
+      input_tokens: number;
+      output_tokens: number;
+      total_tokens: number;
+    },
+    source: OpenAI.Responses.ResponseUsage | null | undefined,
+  ): void {
+    target.input_tokens += source?.input_tokens ?? 0;
+    target.output_tokens += source?.output_tokens ?? 0;
+    target.total_tokens += source?.total_tokens ?? 0;
   }
 
   private mapProviderError(error: unknown): HttpException {

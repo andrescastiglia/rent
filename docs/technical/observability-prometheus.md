@@ -21,6 +21,13 @@
   - `batch_records_processed_total`
   - `batch_records_failed_total`
   - `batch_last_success_timestamp_seconds`
+  - `ai_embedding_requests_total`
+  - `ai_embedding_tokens_total`
+  - `ai_embedding_request_duration_seconds`
+  - `ai_embedding_backfill_records_total`
+  - `ai_embedding_outbox_pending`
+  - `ai_embedding_outbox_failed`
+  - `ai_embedding_lag_seconds`
 
 ## Reglas de alerta sugeridas
 
@@ -61,6 +68,30 @@ groups:
           severity: warning
         annotations:
           summary: "Se detectaron ejecuciones batch fallidas"
+
+      - alert: RagOutboxFreshnessSlaExceeded
+        expr: max(ai_embedding_lag_seconds) > 60
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "El outbox RAG supera el SLA de frescura de 60 segundos"
+
+      - alert: RagOutboxFailedEvents
+        expr: sum(ai_embedding_outbox_failed) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Hay eventos RAG en estado failed"
+
+      - alert: RagReconciliationMissing
+        expr: time() - max(batch_last_success_timestamp_seconds{job="rag-reconcile"}) > 90000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "La reconciliación nocturna RAG no registra un éxito reciente"
 
   - name: rent-frontend
     rules:

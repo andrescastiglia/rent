@@ -27,11 +27,32 @@ import { AiToolsRegistryService } from './ai-tools-registry.service';
 import { AiConversationsService } from './ai-conversations.service';
 import { AiConversation } from './entities/ai-conversation.entity';
 import { AiGithubIssuePreview } from './entities/ai-github-issue-preview.entity';
+import { AiKnowledgeChunk } from './entities/ai-knowledge-chunk.entity';
+import { AiEmbeddingOutbox } from './entities/ai-embedding-outbox.entity';
+import { AiRagRun } from './entities/ai-rag-run.entity';
+import { AiRagShadowComparison } from './entities/ai-rag-shadow-comparison.entity';
 import { GithubIssuesService } from './github-issues.service';
+import { AiRagController } from './ai-rag.controller';
+import { AiIntentClassifierService } from './rag/ai-intent-classifier.service';
+import { AiQueryEmbeddingService } from './rag/ai-query-embedding.service';
+import { AiVectorRetrieverService } from './rag/ai-vector-retriever.service';
+import { AiStructuredRetrieverService } from './rag/ai-structured-retriever.service';
+import { AiEvidenceValidatorService } from './rag/ai-evidence-validator.service';
+import { AiAnswerGeneratorService } from './rag/ai-answer-generator.service';
+import { AiRagAuditService } from './rag/ai-rag-audit.service';
+import { AiRagOrchestratorService } from './rag/ai-rag-orchestrator.service';
+import { AiRagRolloutService } from './rag/ai-rag-rollout.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AiConversation, AiGithubIssuePreview]),
+    TypeOrmModule.forFeature([
+      AiConversation,
+      AiGithubIssuePreview,
+      AiKnowledgeChunk,
+      AiEmbeddingOutbox,
+      AiRagRun,
+      AiRagShadowComparison,
+    ]),
     AuthModule,
     CurrenciesModule,
     DocumentsModule,
@@ -51,7 +72,7 @@ import { GithubIssuesService } from './github-issues.service';
     SettlementsModule,
     NotificationsModule,
   ],
-  controllers: [AiController],
+  controllers: [AiController, AiRagController],
   providers: [
     GithubIssuesService,
     AiConversationsService,
@@ -60,6 +81,15 @@ import { GithubIssuesService } from './github-issues.service';
     AiToolExecutorService,
     AiOpenAiService,
     AiToolsRegistryService,
+    AiIntentClassifierService,
+    AiQueryEmbeddingService,
+    AiVectorRetrieverService,
+    AiStructuredRetrieverService,
+    AiEvidenceValidatorService,
+    AiAnswerGeneratorService,
+    AiRagAuditService,
+    AiRagOrchestratorService,
+    AiRagRolloutService,
   ],
   exports: [
     AiToolCatalogService,
@@ -67,6 +97,8 @@ import { GithubIssuesService } from './github-issues.service';
     AiOpenAiService,
     AiToolsRegistryService,
     AiConversationsService,
+    AiRagOrchestratorService,
+    AiRagRolloutService,
   ],
 })
 export class AiModule {}

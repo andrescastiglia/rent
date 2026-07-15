@@ -33,7 +33,6 @@ describe('getDatabaseConfig', () => {
         POSTGRES_USER: 'rent',
         POSTGRES_PASSWORD: 'secret',
         POSTGRES_DB: 'rent_db',
-        TYPEORM_SYNC: 'true',
       };
       return key in values ? values[key] : defaultValue;
     });
@@ -48,7 +47,7 @@ describe('getDatabaseConfig', () => {
         username: 'rent',
         password: 'secret',
         database: 'rent_db',
-        synchronize: true,
+        synchronize: false,
         logging: true,
       }),
     );

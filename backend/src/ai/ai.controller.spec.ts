@@ -10,7 +10,7 @@ describe('AiController', () => {
   const registry = {
     getOpenAiTools: jest.fn(),
   };
-  const openAiService = {
+  const ragRollout = {
     respond: jest.fn(),
   };
   const conversationsService = {
@@ -35,8 +35,8 @@ describe('AiController', () => {
     controller = new AiController(
       executor as any,
       registry as any,
-      openAiService as any,
       conversationsService as any,
+      ragRollout as any,
     );
   });
 
@@ -95,14 +95,10 @@ describe('AiController', () => {
   });
 
   it('respond uses dto history when provided', async () => {
-    conversationsService.getOrCreateConversation.mockResolvedValue({
-      id: 'conv-1',
-    });
-    openAiService.respond.mockResolvedValue({
+    ragRollout.respond.mockResolvedValue({
+      conversationId: 'conv-1',
       outputText: 'assistant',
       model: 'gpt',
-    });
-    conversationsService.appendExchange.mockResolvedValue({
       toolState: { ok: true },
     });
 
@@ -115,16 +111,16 @@ describe('AiController', () => {
       req,
     );
 
-    expect(openAiService.respond).toHaveBeenCalledWith(
-      'hola',
-      {
+    expect(ragRollout.respond).toHaveBeenCalledWith({
+      prompt: 'hola',
+      conversationId: 'conv-1',
+      history: [{ role: 'user', content: 'prev' }],
+      context: {
         userId: 'u1',
         companyId: 'c1',
-        conversationId: 'conv-1',
         role: UserRole.ADMIN,
       },
-      [{ role: 'user', content: 'prev' }],
-    );
+    });
     expect(result).toEqual(
       expect.objectContaining({
         mode: 'FULL',
@@ -135,30 +131,26 @@ describe('AiController', () => {
     );
   });
 
-  it('respond falls back to persisted history when dto messages are empty', async () => {
-    conversationsService.getOrCreateConversation.mockResolvedValue({
-      id: 'conv-2',
+  it('respond lets the orchestrator load persisted history when messages are empty', async () => {
+    ragRollout.respond.mockResolvedValue({
+      conversationId: 'conv-2',
+      outputText: '',
+      model: 'gpt',
     });
-    conversationsService.toOpenAiHistory.mockReturnValue([
-      { role: 'assistant', content: 'prev' },
-    ]);
-    openAiService.respond.mockResolvedValue({ outputText: '', model: 'gpt' });
-    conversationsService.appendExchange.mockResolvedValue({ toolState: {} });
 
     await controller.respond(
       { conversationId: 'conv-2', prompt: 'hola', messages: [] } as any,
       req,
     );
 
-    expect(conversationsService.toOpenAiHistory).toHaveBeenCalled();
+    expect(ragRollout.respond).toHaveBeenCalledWith(
+      expect.objectContaining({ history: [] }),
+    );
   });
 
-  it('respond appends assistant error and rethrows', async () => {
-    conversationsService.getOrCreateConversation.mockResolvedValue({
-      id: 'conv-3',
-    });
+  it('respond propagates orchestrator errors', async () => {
     const error = new Error('provider failed');
-    openAiService.respond.mockRejectedValue(error);
+    ragRollout.respond.mockRejectedValue(error);
 
     await expect(
       controller.respond(
@@ -167,11 +159,6 @@ describe('AiController', () => {
       ),
     ).rejects.toThrow('provider failed');
 
-    expect(conversationsService.appendAssistantError).toHaveBeenCalledWith({
-      conversationId: 'conv-3',
-      userId: 'u1',
-      userPrompt: 'hola',
-      assistantError: 'provider failed',
-    });
+    expect(ragRollout.respond).toHaveBeenCalled();
   });
 });
