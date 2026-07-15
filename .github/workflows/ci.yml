@@ -209,6 +209,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client
 
+      - name: Install pinned pgvector in PostgreSQL service
+        working-directory: ${{ github.workspace }}
+        run: bash scripts/install-pgvector-in-container.sh '${{ job.services.postgres.id }}'
+
       - name: Initialize database snapshot for E2E
         working-directory: ${{ github.workspace }}
         run: psql -h localhost -p 5432 -U test -d rent_test -f scripts/init-db.sql
@@ -416,6 +420,9 @@ jobs:
           grep -rl "packages.microsoft.com" /etc/apt/sources.list.d 2>/dev/null | xargs -r sudo rm -f
           sudo apt-get update
           sudo apt-get install -y postgresql-client
+
+      - name: Install pinned pgvector in PostgreSQL service
+        run: bash scripts/install-pgvector-in-container.sh '${{ job.services.postgres.id }}'
 
       - name: Initialize database snapshot for E2E
         run: psql -v ON_ERROR_STOP=1 -h localhost -p 5432 -U test -d rent_test -f scripts/init-db.sql

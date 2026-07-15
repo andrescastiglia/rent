@@ -21,6 +21,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed": "ts-node -r tsconfig-paths/register src/seeds/seed.ts",
     "tunnel": "bash scripts/db-tunnel.sh",
+    "rag:eval": "node -r dotenv/config scripts/run-rag-eval.js",
+    "rag:shadow-report": "node -r dotenv/config scripts/run-rag-eval.js --shadow-report",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\""
   },
   "dependencies": {

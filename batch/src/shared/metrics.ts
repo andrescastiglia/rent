@@ -16,6 +16,9 @@ type JobSummary = {
   recordsFailed?: number;
 };
 
+type OutboxOutcome =
+  "processed" | "compacted" | "retried" | "failed" | "recovered";
+
 class BatchMetrics {
   private readonly registry = new Registry();
   private readonly pushGatewayUrl =
@@ -71,6 +74,56 @@ class BatchMetrics {
     registers: [this.registry],
   });
 
+  private readonly embeddingRequestsTotal = new Counter({
+    name: "ai_embedding_requests_total",
+    help: "Total OpenAI embedding API attempts",
+    labelNames: ["model", "outcome"] as const,
+    registers: [this.registry],
+  });
+
+  private readonly embeddingTokensTotal = new Counter({
+    name: "ai_embedding_tokens_total",
+    help: "Total input tokens consumed by embedding requests",
+    labelNames: ["model"] as const,
+    registers: [this.registry],
+  });
+
+  private readonly embeddingRequestDurationSeconds = new Histogram({
+    name: "ai_embedding_request_duration_seconds",
+    help: "OpenAI embedding API request duration in seconds",
+    labelNames: ["model", "outcome"] as const,
+    buckets: [0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60],
+    registers: [this.registry],
+  });
+
+  private readonly outboxRecordsTotal = new Counter({
+    name: "ai_embedding_backfill_records_total",
+    help: "RAG outbox records by entity type and processing outcome",
+    labelNames: ["entity_type", "outcome"] as const,
+    registers: [this.registry],
+  });
+
+  private readonly outboxPending = new Gauge({
+    name: "ai_embedding_outbox_pending",
+    help: "Current pending RAG outbox records",
+    labelNames: ["entity_type"] as const,
+    registers: [this.registry],
+  });
+
+  private readonly outboxFailed = new Gauge({
+    name: "ai_embedding_outbox_failed",
+    help: "Current failed RAG outbox records",
+    labelNames: ["entity_type"] as const,
+    registers: [this.registry],
+  });
+
+  private readonly outboxLagSeconds = new Gauge({
+    name: "ai_embedding_lag_seconds",
+    help: "Age in seconds of the oldest pending RAG outbox record",
+    labelNames: ["entity_type"] as const,
+    registers: [this.registry],
+  });
+
   constructor() {
     collectDefaultMetrics({
       register: this.registry,
@@ -107,6 +160,62 @@ class BatchMetrics {
     }
 
     await this.push(job);
+  }
+
+  recordEmbeddingRequest(input: {
+    model: string;
+    outcome: "success" | "error";
+    durationMs: number;
+    tokens?: number;
+  }): void {
+    this.embeddingRequestsTotal.inc({
+      model: input.model,
+      outcome: input.outcome,
+    });
+    this.embeddingRequestDurationSeconds.observe(
+      { model: input.model, outcome: input.outcome },
+      input.durationMs / 1_000,
+    );
+    if (input.tokens && input.tokens > 0) {
+      this.embeddingTokensTotal.inc({ model: input.model }, input.tokens);
+    }
+  }
+
+  recordOutboxRecords(
+    entityType: string,
+    outcome: OutboxOutcome,
+    count: number,
+  ): void {
+    if (count > 0) {
+      this.outboxRecordsTotal.inc({ entity_type: entityType, outcome }, count);
+    }
+  }
+
+  async setOutboxHealth(
+    rows: Array<{
+      entity_type: string;
+      pending: number;
+      failed: number;
+      lag_seconds: number;
+    }>,
+  ): Promise<void> {
+    const byType = new Map(rows.map((row) => [row.entity_type, row]));
+    for (const entityType of ["property", "document"]) {
+      const row = byType.get(entityType);
+      this.outboxPending.set(
+        { entity_type: entityType },
+        Number(row?.pending ?? 0),
+      );
+      this.outboxFailed.set(
+        { entity_type: entityType },
+        Number(row?.failed ?? 0),
+      );
+      this.outboxLagSeconds.set(
+        { entity_type: entityType },
+        Number(row?.lag_seconds ?? 0),
+      );
+    }
+    await this.push("rag-sync");
   }
 
   private async push(command: string): Promise<void> {

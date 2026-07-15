@@ -261,6 +261,11 @@
         cmd: pm2 stop rent-frontend
       ignore_errors: true
 
+    - name: Stop rent-rag-worker if running
+      ansible.builtin.command:
+        cmd: pm2 stop rent-rag-worker
+      ignore_errors: true
+
     - name: Delete rent-backend from PM2
       ansible.builtin.command:
         cmd: pm2 delete rent-backend
@@ -269,6 +274,11 @@
     - name: Delete rent-frontend from PM2
       ansible.builtin.command:
         cmd: pm2 delete rent-frontend
+      ignore_errors: true
+
+    - name: Delete rent-rag-worker from PM2
+      ansible.builtin.command:
+        cmd: pm2 delete rent-rag-worker
       ignore_errors: true
 
     - name: Run database migrations
@@ -302,6 +312,26 @@
         chdir: "{{ deploy_path }}/frontend"
       environment:
         NODE_OPTIONS: "-r {{ deploy_path }}/frontend/newrelic.js -r newrelic"
+
+    - name: Start transactional RAG outbox worker
+      ansible.builtin.command:
+        cmd: >
+          pm2 start {{ deploy_path }}/batch/index.js
+          --name rent-rag-worker
+          --cwd {{ deploy_path }}/batch
+          --log /var/log/rent/rag-worker.log
+          --time
+          -- rag-sync --batch-size 50 --worker-id {{ inventory_hostname }}
+
+    - name: Schedule nightly RAG reconciliation
+      ansible.builtin.cron:
+        name: "Rent RAG nightly reconciliation"
+        minute: "30"
+        hour: "2"
+        job: >-
+          cd {{ deploy_path }}/batch &&
+          node index.js rag-reconcile --entity all
+          --log /var/log/rent/rag-reconcile.log
 
     - name: Save PM2 process list
       ansible.builtin.command:
