@@ -30,6 +30,9 @@ LOG_DIR=/var/log/rent
 # RAG reconciliation: repair missing/stale projections and verify them (02:30 AM)
 30 2 * * * cd $BATCH_DIR && node dist/index.js rag-reconcile --entity all --log $LOG_DIR/rag-reconcile.log
 
+# RAG audit retention: purge expired audit/outbox rows every Sunday (03:30 AM)
+30 3 * * 0 cd $BATCH_DIR && node dist/index.js rag-purge-audit --log $LOG_DIR/rag-purge-audit.log
+
 # -----------------------------------------------------------------------------
 # Monthly Jobs
 # -----------------------------------------------------------------------------

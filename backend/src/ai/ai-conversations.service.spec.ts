@@ -49,6 +49,22 @@ describe('AiConversationsService', () => {
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
+    it('throws ForbiddenException when conversation belongs to another company', async () => {
+      repo.findOne.mockResolvedValue({
+        id: 'c1',
+        userId: 'u1',
+        companyId: 'other-company',
+      });
+
+      await expect(
+        service.getOrCreateConversation({
+          conversationId: 'c1',
+          userId: 'u1',
+          companyId: 'company-1',
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
     it('creates new conversation when conversationId is not provided', async () => {
       const created = {
         companyId: 'co1',

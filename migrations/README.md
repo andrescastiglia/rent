@@ -7,7 +7,9 @@ Este directorio contiene las migraciones incrementales que se aplican sobre el s
 - `scripts/init-db.sql` es el snapshot completo usado para crear una base local desde cero.
 - `migrations/*.sql` contiene cambios incrementales para bases ya existentes.
 - `schema_migrations` registra qué archivos ya fueron aplicados.
-- `scripts/reset-db.sh` recrea la DB local, ejecuta el snapshot y registra las migraciones incluidas en ese snapshot.
+- `scripts/reset-db.sh` recrea la DB local, ejecuta el snapshot, registra las
+  migraciones incluidas hasta `090_add_ai_rag_shadow_comparisons.sql` y ejecuta
+  normalmente toda migración posterior.
 
 Este modelo evita re-ejecutar migraciones antiguas sobre una estructura que ya las contiene.
 
@@ -78,10 +80,17 @@ CREATE TABLE IF NOT EXISTS example_table (
 
 ## Troubleshooting
 
-Si una base ya tiene tablas pero no tiene `schema_migrations`, el runner se niega a asumir estado por defecto. Para una base creada desde el snapshot actual se puede registrar la línea base con:
+Si una base ya tiene tablas pero no tiene `schema_migrations`, el runner se
+niega a asumir estado por defecto. Para una base creada desde el snapshot
+actual se registra la línea base hasta la última migración realmente incluida
+y luego se ejecutan las posteriores:
 
 ```bash
-./migrations/run-migrations.sh --baseline-all-if-missing --force-baseline-all-if-missing
+./migrations/run-migrations.sh \
+  --baseline-through 090_add_ai_rag_shadow_comparisons.sql \
+  --force-baseline-through
 ```
 
-Usar esa opción solo después de confirmar que el snapshot contiene la estructura esperada.
+Usar esa opción sólo después de confirmar que el snapshot contiene la
+estructura esperada hasta esa migración. No usar `--baseline-all-if-missing`
+para un snapshot atrasado: marcaría SQL pendiente como ejecutado.

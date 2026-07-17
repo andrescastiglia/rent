@@ -36,6 +36,9 @@ describe("RagDocumentBuilderService", () => {
     });
     expect(first[0].content).toContain("Mascotas: permitidas");
     expect(first[0].content).toContain("Comodidades: balcón; luminoso");
+    expect(first[0].content).not.toContain("Estado:");
+    expect(first[0].content).not.toContain("Estado operativo:");
+    expect(first[0].content).not.toContain("Actualizado:");
     expect(first[0].content).not.toContain("must-not-leak");
     expect(first[0].contentHash).toMatch(/^[0-9a-f]{64}$/);
   });
@@ -66,6 +69,8 @@ describe("RagDocumentBuilderService", () => {
       true,
     );
     expect(chunks[0].content).not.toContain("<p>");
+    expect(chunks[0].content).not.toContain("Estado:");
+    expect(chunks[0].content).not.toContain("Actualizado:");
     expect(
       new Set(chunks.map((chunk) => chunk.contentHash)).size,
     ).toBeGreaterThan(1);
@@ -108,4 +113,110 @@ describe("RagDocumentBuilderService", () => {
     expect(chunk.content).toContain("A & B; literal: &lt;script&gt;");
     expect(chunk.content).not.toContain("literal: <script>");
   });
+
+  it.each([
+    [
+      "lease",
+      "lease_summary",
+      {
+        leaseNumber: "L-1",
+        propertyName: "Casa Norte",
+        tenantName: "Ana Pérez",
+        monthlyRent: "999999-secret",
+      },
+      "Contrato ID",
+    ],
+    [
+      "invoice",
+      "invoice_payment_summary",
+      {
+        invoiceNumber: "F-1",
+        leaseNumber: "L-1",
+        totalAmount: "999999-secret",
+        payments: [{ id: "p1", paymentNumber: "P-1", method: "cash" }],
+      },
+      "Pagos relacionados",
+    ],
+    [
+      "owner",
+      "owner_portfolio_summary",
+      {
+        ownerName: "Dueña Demo",
+        bankCbu: "999999-secret",
+        properties: [{ id: "p1", name: "Casa", city: "Córdoba" }],
+      },
+      "Propiedades",
+    ],
+    [
+      "tenant_account",
+      "tenant_account_summary",
+      {
+        tenantName: "Inquilino Demo",
+        leaseNumber: "L-1",
+        balance: "999999-secret",
+      },
+      "Cuenta de inquilino ID",
+    ],
+    [
+      "interested",
+      "interested_profile_summary",
+      {
+        firstName: "Eva",
+        preferredCity: "Rosario",
+        phone: "999999-secret",
+        desiredFeatures: ["patio"],
+      },
+      "Ciudad preferida: Rosario",
+    ],
+    [
+      "owner_activity",
+      "activity_chunk",
+      {
+        type: "note",
+        subject: "Seguimiento",
+        body: "Llamar la semana próxima",
+        metadata: { token: "999999-secret" },
+      },
+      "Seguimiento",
+    ],
+    [
+      "tenant_activity",
+      "activity_chunk",
+      {
+        type: "call",
+        subject: "Consulta",
+        body: "Respondida",
+        metadata: { token: "999999-secret" },
+      },
+      "Respondida",
+    ],
+    [
+      "interested_activity",
+      "activity_chunk",
+      {
+        type: "visit",
+        subject: "Visita",
+        body: "Prefiere balcón",
+        metadata: { token: "999999-secret" },
+      },
+      "Prefiere balcón",
+    ],
+  ] as const)(
+    "builds the canonical %s projection and excludes sensitive fields",
+    (sourceType, projection, data, expectedText) => {
+      const [result] = builder.build({
+        id: "30000000-0000-0000-0000-000000000004",
+        companyId: "20000000-0000-0000-0000-000000000001",
+        updatedAt: new Date("2026-07-14T12:00:00.000Z"),
+        sourceType,
+        data,
+      });
+
+      expect(result.entityType).toBe(projection);
+      expect(result.content).toContain(expectedText);
+      expect(result.content).not.toContain("999999-secret");
+      expect(result.content).not.toContain("Actualizado:");
+      expect(result.metadata.sourceType).toBe(sourceType);
+    },
+  );
 });

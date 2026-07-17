@@ -96,7 +96,7 @@ describe('AiVectorRetrieverService authorization', () => {
       role: UserRole.ADMIN,
     });
 
-    expect(query.mock.calls[0][1][6]).toBe(20);
+    expect(query.mock.calls[0][1][6]).toBe(60);
     expect(result).toEqual([
       expect.objectContaining({ label: 'Casa', content: 'x'.repeat(5000) }),
       expect.objectContaining({ label: 'document_chunk:document-1' }),
@@ -151,7 +151,9 @@ describe('AiVectorRetrieverService authorization', () => {
       sources[0],
       sources[2],
     ]);
-    expect(query.mock.calls[0][0]).toContain('TRUE');
+    expect(query.mock.calls[0][0]).toContain(
+      "c.entity_type = 'property_summary'",
+    );
   });
 
   it('does not query authorization when there are no vector sources', async () => {

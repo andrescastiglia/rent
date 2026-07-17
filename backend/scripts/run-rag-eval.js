@@ -18,6 +18,42 @@ const baseUrl = valueOf(
 const limit = Number(valueOf('--limit', '0'));
 const roleFilter = valueOf('--role', '');
 const categoryFilter = valueOf('--category', '');
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function validateEvaluationDataset(tests) {
+  if (!Array.isArray(tests) || tests.length < 1) {
+    throw new Error('RAG evaluation dataset must contain cases');
+  }
+  const ids = new Set();
+  for (const test of tests) {
+    if (!test.id || ids.has(test.id)) {
+      throw new Error(`Duplicate or missing evaluation id: ${test.id}`);
+    }
+    ids.add(test.id);
+    if (!uuidPattern.test(test.companyId || '')) {
+      throw new Error(`Invalid companyId in evaluation case ${test.id}`);
+    }
+    if (
+      ['semantic', 'hybrid'].includes(test.category) &&
+      test.shouldAbstain === false &&
+      (!Array.isArray(test.expectedEntityIds) ||
+        test.expectedEntityIds.length === 0)
+    ) {
+      throw new Error(
+        `Evaluation case ${test.id} must declare expectedEntityIds`,
+      );
+    }
+    for (const field of ['expectedEntityIds', 'forbiddenEntityIds']) {
+      if (
+        Array.isArray(test[field]) &&
+        test[field].some((value) => !uuidPattern.test(value))
+      ) {
+        throw new Error(`Invalid ${field} in evaluation case ${test.id}`);
+      }
+    }
+  }
+}
 
 function evaluationEndpoint(rawBaseUrl) {
   let endpoint;
@@ -118,7 +154,7 @@ async function findUser(db, test) {
 async function sourceAuthorized(db, source, test, userId) {
   const type = source.entityType;
   const entityId = source.entityId;
-  if (type === 'structured_query') {
+  if (type === 'structured_query' || type === 'dashboard') {
     return entityId === test.companyId;
   }
   const params = ['owner', 'tenant'].includes(test.role)
@@ -142,7 +178,7 @@ async function sourceAuthorized(db, source, test, userId) {
       ) === 1
     );
   }
-  if (type === 'lease') {
+  if (type === 'lease' || type === 'lease_summary') {
     const scope =
       test.role === 'owner'
         ? `AND EXISTS (SELECT 1 FROM owners o WHERE o.id=l.owner_id AND o.user_id=$3::uuid AND o.deleted_at IS NULL)`
@@ -160,7 +196,7 @@ async function sourceAuthorized(db, source, test, userId) {
       ) === 1
     );
   }
-  if (type === 'invoice') {
+  if (type === 'invoice' || type === 'invoice_payment_summary') {
     const scope =
       test.role === 'owner'
         ? `AND EXISTS (SELECT 1 FROM owners o WHERE o.id=i.owner_id AND o.user_id=$3::uuid AND o.deleted_at IS NULL)`
@@ -196,11 +232,319 @@ async function sourceAuthorized(db, source, test, userId) {
       ) === 1
     );
   }
+  if (type === 'owner_portfolio_summary') {
+    const scope =
+      test.role === 'owner'
+        ? `AND o.user_id=$3::uuid`
+        : test.role === 'tenant'
+          ? 'AND FALSE'
+          : '';
+    return (
+      Number(
+        (
+          await db.query(
+            `SELECT count(*) n FROM owners o
+              WHERE o.id=$1::uuid AND o.company_id=$2::uuid
+                AND o.deleted_at IS NULL ${scope}`,
+            params,
+          )
+        ).rows[0].n,
+      ) === 1
+    );
+  }
+  if (type === 'tenant_account' || type === 'tenant_account_summary') {
+    const scope =
+      test.role === 'owner'
+        ? `AND EXISTS (
+             SELECT 1 FROM leases l JOIN owners o ON o.id=l.owner_id
+              WHERE l.id=a.lease_id AND l.deleted_at IS NULL
+                AND o.deleted_at IS NULL AND o.user_id=$3::uuid
+           )`
+        : test.role === 'tenant'
+          ? `AND EXISTS (
+               SELECT 1 FROM tenants t WHERE t.id=a.tenant_id
+                 AND t.deleted_at IS NULL AND t.user_id=$3::uuid
+             )`
+          : '';
+    return (
+      Number(
+        (
+          await db.query(
+            `SELECT count(*) n FROM tenant_accounts a
+              WHERE a.id=$1::uuid AND a.company_id=$2::uuid
+                AND a.deleted_at IS NULL ${scope}`,
+            params,
+          )
+        ).rows[0].n,
+      ) === 1
+    );
+  }
+  if (type === 'interested_profile_summary') {
+    if (test.role === 'owner' || test.role === 'tenant') return false;
+    return (
+      Number(
+        (
+          await db.query(
+            `SELECT count(*) n FROM interested_profiles ip
+              WHERE ip.id=$1::uuid AND ip.company_id=$2::uuid
+                AND ip.deleted_at IS NULL`,
+            params,
+          )
+        ).rows[0].n,
+      ) === 1
+    );
+  }
+  if (type === 'activity_chunk') {
+    const roleScope =
+      test.role === 'owner'
+        ? `AND c.metadata->>'activitySourceType'='owner_activity'
+           AND EXISTS (
+             SELECT 1 FROM owner_activities a JOIN owners o ON o.id=a.owner_id
+              WHERE a.id=c.entity_id AND a.deleted_at IS NULL
+                AND o.deleted_at IS NULL AND o.user_id=$3::uuid
+           )`
+        : test.role === 'tenant'
+          ? `AND c.metadata->>'activitySourceType'='tenant_activity'
+             AND EXISTS (
+               SELECT 1 FROM tenant_activities a JOIN tenants t ON t.id=a.tenant_id
+                WHERE a.id=c.entity_id AND a.deleted_at IS NULL
+                  AND t.deleted_at IS NULL AND t.user_id=$3::uuid
+             )`
+          : '';
+    return (
+      Number(
+        (
+          await db.query(
+            `SELECT count(*) n FROM ai_knowledge_chunks c
+              WHERE c.id=$1::uuid AND c.company_id=$2::uuid
+                AND c.entity_type='activity_chunk' AND c.deleted_at IS NULL
+                ${roleScope}`,
+            [source.sourceId, test.companyId, userId],
+          )
+        ).rows[0].n,
+      ) === 1
+    );
+  }
+  if (type === 'payment') {
+    const scope =
+      test.role === 'owner'
+        ? `AND EXISTS (
+             SELECT 1 FROM invoices i JOIN owners o ON o.id=i.owner_id
+              WHERE i.id=pay.invoice_id AND i.deleted_at IS NULL
+                AND o.deleted_at IS NULL AND o.user_id=$3::uuid
+           )`
+        : test.role === 'tenant'
+          ? `AND EXISTS (
+               SELECT 1 FROM tenants t WHERE t.id=pay.tenant_id
+                 AND t.deleted_at IS NULL AND t.user_id=$3::uuid
+             )`
+          : '';
+    return (
+      Number(
+        (
+          await db.query(
+            `SELECT count(*) n FROM payments pay
+              WHERE pay.id=$1::uuid AND pay.company_id=$2::uuid
+                AND pay.deleted_at IS NULL ${scope}`,
+            params,
+          )
+        ).rows[0].n,
+      ) === 1
+    );
+  }
   return false;
+}
+
+function numericVariants(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return [];
+  const fixed = number.toFixed(2);
+  const [integer, decimals] = fixed.split('.');
+  const groupedDot = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const groupedComma = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return [
+    String(number),
+    fixed,
+    groupedDot,
+    groupedComma,
+    `${groupedDot},${decimals}`,
+    `${groupedComma}.${decimals}`,
+  ];
+}
+
+function statusVariants(value) {
+  const normalized = String(value).toLowerCase();
+  const translations = {
+    active: ['active', 'activo', 'activa', 'vigente'],
+    available: ['available', 'disponible'],
+    rented: ['rented', 'alquilado', 'alquilada', 'ocupado', 'ocupada'],
+    reserved: ['reserved', 'reservado', 'reservada'],
+    pending: ['pending', 'pendiente'],
+    paid: ['paid', 'pagado', 'pagada'],
+    overdue: ['overdue', 'vencido', 'vencida'],
+    cancelled: ['cancelled', 'cancelado', 'cancelada'],
+  };
+  return translations[normalized] || [normalized];
+}
+
+function dateVariants(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return [];
+  const iso = date.toISOString().slice(0, 10);
+  const [year, month, day] = iso.split('-');
+  return [iso, `${day}/${month}/${year}`, `${day}-${month}-${year}`];
+}
+
+async function exactMonetaryValues(db, sources) {
+  const values = [];
+  for (const source of sources) {
+    let query;
+    if (source.entityType === 'invoice') {
+      query =
+        'SELECT total_amount, paid_amount, balance_due FROM invoices WHERE id=$1::uuid';
+    } else if (source.entityType === 'lease') {
+      query = 'SELECT monthly_rent FROM leases WHERE id=$1::uuid';
+    } else if (source.entityType === 'property') {
+      query = 'SELECT rent_price, sale_price FROM properties WHERE id=$1::uuid';
+    } else if (source.entityType === 'payment') {
+      query = 'SELECT amount FROM payments WHERE id=$1::uuid';
+    } else if (source.entityType === 'tenant_account') {
+      query = 'SELECT current_balance FROM tenant_accounts WHERE id=$1::uuid';
+    }
+    if (!query) continue;
+    const row = (await db.query(query, [source.entityId])).rows[0];
+    if (!row) continue;
+    for (const value of Object.values(row)) {
+      if (
+        value !== null &&
+        value !== undefined &&
+        Number.isFinite(Number(value))
+      ) {
+        values.push(value);
+      }
+    }
+  }
+  return values;
+}
+
+async function exactStatusAndDateValues(db, sources) {
+  const values = { statuses: [], dates: [] };
+  for (const source of sources) {
+    let query;
+    if (source.entityType === 'invoice') {
+      query =
+        'SELECT status::text AS status, issue_date, due_date FROM invoices WHERE id=$1::uuid';
+    } else if (source.entityType === 'lease') {
+      query =
+        'SELECT status::text AS status, start_date, end_date FROM leases WHERE id=$1::uuid';
+    } else if (source.entityType === 'property') {
+      query =
+        'SELECT status::text AS status, operation_state::text AS operation_state FROM properties WHERE id=$1::uuid';
+    } else if (source.entityType === 'payment') {
+      query =
+        'SELECT status::text AS status, payment_date FROM payments WHERE id=$1::uuid';
+    }
+    if (!query) continue;
+    const row = (await db.query(query, [source.entityId])).rows[0];
+    if (!row) continue;
+    for (const [name, value] of Object.entries(row)) {
+      if (value === null || value === undefined) continue;
+      if (name === 'status' || name === 'operation_state') {
+        values.statuses.push(value);
+      } else {
+        values.dates.push(value);
+      }
+    }
+  }
+  return values;
+}
+
+async function exactFinancialValueMatches(db, test, body, sources) {
+  if (
+    test.financial !== true ||
+    body.insufficientEvidence === true ||
+    !/\b(saldo|deuda|monto|importe|cu[aá]nto|alquiler mensual|precio)\b/i.test(
+      test.prompt,
+    )
+  ) {
+    return true;
+  }
+  const values = await exactMonetaryValues(db, sources);
+  if (values.length === 0) {
+    return sources.some((source) => source.entityType === 'structured_query');
+  }
+  const output = String(body.outputText ?? body.answer ?? '');
+  return values.some((value) =>
+    numericVariants(value).some((variant) => output.includes(variant)),
+  );
+}
+
+async function exactRestrictedValueMatches(db, test, body, sources, userId) {
+  if (body.insufficientEvidence === true) return true;
+  const output = String(body.outputText ?? body.answer ?? '').toLowerCase();
+  const monetaryOk = await exactFinancialValueMatches(db, test, body, sources);
+  if (!monetaryOk) return false;
+
+  const exact = await exactStatusAndDateValues(db, sources);
+  if (/\bestado|vigente|ocupaci[oó]n\b/i.test(test.prompt)) {
+    const matchesStatus = exact.statuses.some((status) =>
+      statusVariants(status).some((variant) => output.includes(variant)),
+    );
+    if (exact.statuses.length > 0 && !matchesStatus) return false;
+  }
+  if (/\bcu[aá]ndo|fecha|vence|vencimiento\b/i.test(test.prompt)) {
+    const matchesDate = exact.dates.some((date) =>
+      dateVariants(date).some((variant) => output.includes(variant)),
+    );
+    if (exact.dates.length > 0 && !matchesDate) return false;
+  }
+
+  if (/cu[aá]ntas propiedades.*disponibles/i.test(test.prompt)) {
+    const count = await db.query(
+      `SELECT count(*)::int AS count
+         FROM properties p
+        WHERE p.company_id=$1::uuid AND p.deleted_at IS NULL
+          AND p.operation_state::text='available'
+          AND (
+            $2::text IN ('admin', 'staff')
+            OR ($2::text='owner' AND EXISTS (
+              SELECT 1 FROM owners o
+               WHERE o.id=p.owner_id AND o.user_id=$3::uuid
+                 AND o.deleted_at IS NULL
+            ))
+          )`,
+      [test.companyId, test.role, userId],
+    );
+    if (
+      !numericVariants(count.rows[0].count).some((value) =>
+        output.includes(value),
+      )
+    ) {
+      return false;
+    }
+  }
+  if (/cu[aá]ntos contratos.*vigentes/i.test(test.prompt)) {
+    const count = await db.query(
+      `SELECT count(*)::int AS count
+         FROM leases l
+        WHERE l.company_id=$1::uuid AND l.deleted_at IS NULL
+          AND l.status::text='active'`,
+      [test.companyId],
+    );
+    if (
+      !numericVariants(count.rows[0].count).some((value) =>
+        output.includes(value),
+      )
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 async function main() {
   if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET is required');
+  validateEvaluationDataset(evaluationCases);
   const db = new Client(dbConfig());
   await db.connect();
   try {
@@ -256,12 +600,39 @@ async function main() {
       const financialViolation =
         test.financial === true &&
         body.insufficientEvidence !== true &&
-        sources.some(
-          (source) =>
-            !['invoice', 'lease', 'property', 'structured_query'].includes(
-              source.entityType,
-            ),
+        !sources.some((source) =>
+          [
+            'invoice',
+            'lease',
+            'property',
+            'payment',
+            'tenant_account',
+            'dashboard',
+            'structured_query',
+          ].includes(source.entityType),
         );
+      const exactFinancialValueOk = await exactFinancialValueMatches(
+        db,
+        test,
+        body,
+        sources,
+      );
+      const exactRestrictedValueOk = await exactRestrictedValueMatches(
+        db,
+        test,
+        body,
+        sources,
+        user.id,
+      );
+      const forbiddenEntityLeak = (test.forbiddenEntityIds || []).some((id) =>
+        sourceEntityIds.has(id),
+      );
+      const normalizedOutput = String(
+        body.outputText ?? body.answer ?? '',
+      ).toLowerCase();
+      const forbiddenOutputLeak = (test.forbiddenOutputSubstrings || []).some(
+        (value) => normalizedOutput.includes(String(value).toLowerCase()),
+      );
       const requiredSourceOk =
         !Array.isArray(test.requiredSourceTypes) ||
         test.requiredSourceTypes.length === 0 ||
@@ -276,7 +647,11 @@ async function main() {
         abstentionOk &&
         grounded &&
         !financialViolation &&
+        exactFinancialValueOk &&
+        exactRestrictedValueOk &&
         requiredSourceOk &&
+        !forbiddenEntityLeak &&
+        !forbiddenOutputLeak &&
         (recall === null || recall > 0);
       results.push({
         id: test.id,
@@ -293,7 +668,11 @@ async function main() {
         recall,
         grounded,
         financialViolation,
+        exactFinancialValueOk,
+        exactRestrictedValueOk,
         requiredSourceOk,
+        forbiddenEntityLeak,
+        forbiddenOutputLeak,
         latencyMs,
         inputTokens: Number(body.usage?.input_tokens || 0),
         outputTokens: Number(body.usage?.output_tokens || 0),
@@ -350,9 +729,18 @@ async function main() {
       financialExactnessRate:
         results.filter((result) => {
           const test = tests.find((candidate) => candidate.id === result.id);
-          return test?.financial === true && result.requiredSourceOk;
+          return test?.financial === true && result.exactFinancialValueOk;
         }).length /
         Math.max(tests.filter((test) => test.financial === true).length, 1),
+      restrictedFactExactnessRate:
+        results.filter((result) => result.exactRestrictedValueOk).length /
+        results.length,
+      forbiddenEntityLeaks: results.filter(
+        (result) => result.forbiddenEntityLeak,
+      ).length,
+      forbiddenOutputLeaks: results.filter(
+        (result) => result.forbiddenOutputLeak,
+      ).length,
       groundednessRate:
         results.filter((result) => result.grounded).length / results.length,
       correctAbstentionRate:
@@ -413,4 +801,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { evaluationEndpoint };
+module.exports = { evaluationEndpoint, validateEvaluationDataset };

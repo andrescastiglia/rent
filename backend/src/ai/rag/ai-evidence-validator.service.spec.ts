@@ -73,4 +73,24 @@ describe('AiEvidenceValidatorService', () => {
     );
     expect(answer.insufficientEvidence).toBe(true);
   });
+
+  it('revalidates vector sources against operational rows and timestamps', async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValue([{ id: source('vector').sourceId }]);
+    const validator = new AiEvidenceValidatorService({ query } as never);
+    const evidence = source('vector');
+
+    await expect(
+      validator.filterFreshVectorSources(
+        [evidence],
+        '22222222-2222-4222-8222-222222222222',
+      ),
+    ).resolves.toEqual([evidence]);
+    expect(query.mock.calls[0][0]).toContain(
+      'p.updated_at <= c.source_updated_at',
+    );
+    expect(query.mock.calls[0][0]).toContain("WHEN 'invoice_payment_summary'");
+    expect(query.mock.calls[0][0]).toContain("WHEN 'activity_chunk'");
+  });
 });

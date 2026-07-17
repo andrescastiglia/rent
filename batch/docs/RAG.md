@@ -1,6 +1,27 @@
 # Operación del batch RAG
 
-La fase C genera chunks canónicos de propiedades y documentos aprobados, obtiene embeddings con OpenAI y los persiste en `ai_knowledge_chunks`. El proceso usa paginación por UUID, checkpoints persistentes e idempotencia por hash, modelo y versión.
+El batch genera chunks canónicos para propiedades, documentos aprobados,
+contratos, facturas/pagos, portfolios de propietarios, cuentas de inquilino,
+interesados y actividades. Obtiene embeddings con OpenAI y los persiste en
+`ai_knowledge_chunks`. El proceso usa paginación por UUID, checkpoints
+persistentes e idempotencia por hash, modelo y versión.
+
+## Contrato de las proyecciones
+
+| Proyección | Incluye | Excluye deliberadamente |
+|---|---|---|
+| `property_summary` | descripción, ubicación, tipo, comodidades, garantías y características | precios y credenciales |
+| `document_chunk` | texto aprobado/contractual normalizado y metadata de relación | binarios, URLs firmadas y metadata secreta |
+| `lease_summary` | participantes, propiedad, términos y cláusulas | montos, estado y fechas vigentes |
+| `invoice_payment_summary` | relación factura/contrato/propiedad y medios de pagos relacionados | importes, estados, fechas y datos bancarios |
+| `owner_portfolio_summary` | nombre, propiedades, tipos y ciudades | datos fiscales y bancarios |
+| `tenant_account_summary` | relación inquilino/contrato/propiedad y notas | saldo, moneda, documentos y datos laborales |
+| `interested_profile_summary` | preferencias, zonas, mascotas, garantías y calificación | teléfono, email, presupuesto y consentimiento |
+| `activity_chunk` | tipo, asunto y cuerpo de actividades | metadata arbitraria, contactos y secretos |
+
+Los valores financieros, estados y fechas se obtienen únicamente mediante las
+consultas SQL registradas del backend; nunca se consideran hechos a partir de
+estas proyecciones semánticas.
 
 ## Configuración
 
@@ -39,10 +60,15 @@ Crear HNSW únicamente después de una verificación limpia:
 
 ```bash
 node dist/index.js rag-build-index
+node dist/index.js rag-recall --sample-size 100 --k 8 --min-recall 0.95
 ```
 
 El comando rechaza crear el índice si todavía no hay chunks activos o alguno no tiene embedding. El índice se crea concurrentemente y luego se ejecuta `ANALYZE`.
 En producción debe ejecutarse con el rol de migraciones o administración que sea propietario de la tabla; el usuario de aplicación no necesita permisos DDL.
+
+`rag-recall` deshabilita índices dentro de una transacción para obtener los
+vecinos exactos y los compara con HNSW. Falla si no hay una muestra evaluable o
+si cualquier consulta queda por debajo del recall mínimo.
 
 ## Reanudación y mantenimiento
 
@@ -55,11 +81,26 @@ node dist/index.js rag-purge-stale --older-than 2026-08-01T00:00:00Z --dry-run
 node dist/index.js rag-purge-stale --older-than 2026-08-01T00:00:00Z
 ```
 
+La retención de ejecuciones RAG, comparaciones shadow, confirmaciones de
+mutaciones y eventos procesados del outbox es idempotente:
+
+```bash
+node dist/index.js rag-purge-audit --dry-run
+node dist/index.js rag-purge-audit
+```
+
+El corte predeterminado es `AI_RAG_AUDIT_RETENTION_DAYS=90`. Los eventos
+pendientes, en procesamiento o fallidos nunca se eliminan por esta política.
+
 Los comandos aceptan `--company-id <uuid>` para limitar el alcance a una empresa.
 
 ## Sincronización online
 
-La migración `089_add_rag_online_outbox_triggers.sql` genera eventos dentro de la misma transacción que modifica propiedades, características, documentos o textos contractuales. No se llama a OpenAI desde el request del backend.
+Las migraciones `089` y `091` generan eventos dentro de la misma transacción
+para todas las fuentes y dependencias. Cuando una fuente se elimina o una
+dependencia puede invalidar su documento, el chunk se retira sincrónicamente;
+el retriever además contrasta existencia y `updated_at` operativos antes de
+generar. No se llama a OpenAI desde el request del backend.
 
 El worker continuo reclama eventos mediante `FOR UPDATE SKIP LOCKED`, compacta cambios de una misma entidad, relee la fuente actual y recupera locks abandonados:
 

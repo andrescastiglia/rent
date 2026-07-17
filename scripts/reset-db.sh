@@ -145,7 +145,9 @@ run_migrations() {
     if [ -x "$PROJECT_ROOT/migrations/run-migrations.sh" ]; then
         (
             cd "$PROJECT_ROOT"
-            ./migrations/run-migrations.sh --baseline-all-if-missing --force-baseline-all-if-missing
+            ./migrations/run-migrations.sh \
+                --baseline-through 090_add_ai_rag_shadow_comparisons.sql \
+                --force-baseline-through
         )
         print_success "Migraciones registradas/verificadas"
     else

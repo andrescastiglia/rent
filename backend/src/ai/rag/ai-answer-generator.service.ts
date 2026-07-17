@@ -38,16 +38,39 @@ export class AiAnswerGeneratorService {
       timeout: Number(process.env.AI_RAG_TIMEOUT_MS ?? 60_000),
       maxRetries: 2,
     });
-    const evidence = params.sources.map((source) => ({
-      sourceId: source.sourceId,
-      entityType: source.entityType,
-      entityId: source.entityId,
-      updatedAt: source.updatedAt,
-      origin: source.origin,
-      content: source.content,
-    }));
+    const maxContextChars = Math.min(
+      Math.max(Number(process.env.AI_RAG_MAX_CONTEXT_CHARS ?? 40_000), 4_000),
+      80_000,
+    );
+    let remainingContext = maxContextChars;
+    const evidence = [...params.sources]
+      .sort((left, right) =>
+        left.origin === right.origin
+          ? 0
+          : left.origin === 'structured'
+            ? -1
+            : 1,
+      )
+      .map((source) => {
+        const content = source.content.slice(0, Math.max(remainingContext, 0));
+        remainingContext -= content.length;
+        return {
+          sourceId: source.sourceId,
+          entityType: source.entityType,
+          entityId: source.entityId,
+          updatedAt: source.updatedAt,
+          origin: source.origin,
+          content,
+        };
+      })
+      .filter((source) => source.content.length > 0);
+    const maxOutputTokens = Math.min(
+      Math.max(Number(process.env.AI_RAG_MAX_OUTPUT_TOKENS ?? 1200), 128),
+      4000,
+    );
     const response = await client.responses.parse({
       model,
+      max_output_tokens: maxOutputTokens,
       input: [
         {
           role: 'system',

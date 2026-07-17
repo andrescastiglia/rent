@@ -7,6 +7,7 @@ import {
   Registry,
   collectDefaultMetrics,
 } from "prom-client";
+import { RAG_SOURCE_ENTITY_TYPES } from "../services/rag/rag-types";
 
 type JobStatus = "success" | "failed";
 
@@ -200,7 +201,7 @@ class BatchMetrics {
     }>,
   ): Promise<void> {
     const byType = new Map(rows.map((row) => [row.entity_type, row]));
-    for (const entityType of ["property", "document"]) {
+    for (const entityType of RAG_SOURCE_ENTITY_TYPES) {
       const row = byType.get(entityType);
       this.outboxPending.set(
         { entity_type: entityType },

@@ -10,6 +10,15 @@
   - `frontend_web_vital_value`
   - `frontend_client_errors_total`
   - `frontend_api_failures_total`
+  - `ai_rag_requests_total`
+  - `ai_rag_request_duration_seconds`
+  - `ai_rag_retrieved_chunks`
+  - `ai_rag_abstentions_total`
+  - `ai_rag_citation_failures_total`
+  - `ai_rag_scope_rejections_total`
+  - `ai_rag_prompt_override_attempts_total`
+  - `ai_rag_tokens_total`
+  - `ai_rag_estimated_cost_usd_total`
 
 ## Batch
 
@@ -50,6 +59,38 @@ groups:
           severity: critical
         annotations:
           summary: "Tasa de errores 5xx superior a 5%"
+
+      - alert: RagBackendHighP95Latency
+        expr: histogram_quantile(0.95, sum(rate(ai_rag_request_duration_seconds_bucket[10m])) by (le, strategy)) > 8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Latencia p95 alta en RAG"
+
+      - alert: RagCitationFailures
+        expr: increase(ai_rag_citation_failures_total[15m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "El verificador rechazó claims con citas inválidas"
+
+      - alert: RagScopeRejectionsSpike
+        expr: increase(ai_rag_scope_rejections_total{reason="authorization"}[10m]) > 5
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Aumento de fuentes rechazadas por autorización"
+
+      - alert: RagAbstentionRateHigh
+        expr: sum(rate(ai_rag_abstentions_total[15m])) / clamp_min(sum(rate(ai_rag_requests_total{outcome="success"}[15m])), 0.001) > 0.35
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "La tasa de abstención RAG supera 35%"
 
   - name: rent-batch
     rules:

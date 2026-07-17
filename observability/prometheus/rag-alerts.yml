@@ -1,0 +1,68 @@
+groups:
+  - name: rent-rag-backend
+    rules:
+      - alert: RagBackendHighP95Latency
+        expr: histogram_quantile(0.95, sum(rate(ai_rag_request_duration_seconds_bucket[10m])) by (le, strategy)) > 8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: RAG backend p95 latency is above 8 seconds
+
+      - alert: RagCitationFailures
+        expr: increase(ai_rag_citation_failures_total[15m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: RAG claims were rejected because of invalid citations
+
+      - alert: RagAuthorizationRejectionsSpike
+        expr: increase(ai_rag_scope_rejections_total{reason="authorization"}[10m]) > 5
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: RAG authorization rejections increased unexpectedly
+
+      - alert: RagAbstentionRateHigh
+        expr: sum(rate(ai_rag_abstentions_total[15m])) / clamp_min(sum(rate(ai_rag_requests_total{outcome="success"}[15m])), 0.001) > 0.35
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: RAG abstention rate is above 35 percent
+
+  - name: rent-rag-batch
+    rules:
+      - alert: RagOutboxFreshnessSlaExceeded
+        expr: max(ai_embedding_lag_seconds) > 60
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: RAG outbox freshness is outside the 60-second SLA
+
+      - alert: RagOutboxFailedEvents
+        expr: sum(ai_embedding_outbox_failed) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: RAG outbox contains failed events
+
+      - alert: RagReconciliationMissing
+        expr: time() - max(batch_last_success_timestamp_seconds{job="rag-reconcile"}) > 90000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: RAG reconciliation has not succeeded in the expected window
+
+      - alert: RagAuditPurgeMissing
+        expr: time() - max(batch_last_success_timestamp_seconds{job="rag-purge-audit"}) > 691200
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: RAG audit retention has not run successfully in eight days

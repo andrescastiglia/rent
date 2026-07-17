@@ -13,6 +13,26 @@ env:
   NODE_VERSION: '22.22.1'
 
 jobs:
+  postgres-image-security:
+    name: PostgreSQL image security scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Build pinned PostgreSQL image
+        run: docker build --pull --tag rent-postgres:ci docker/postgres
+
+      - name: Scan image for high and critical vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: rent-postgres:ci
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+
   # ─────────────────────────────────────────────────────────────
   # CODEQL SECURITY ANALYSIS
   # ─────────────────────────────────────────────────────────────
@@ -219,15 +239,24 @@ jobs:
         env:
           PGPASSWORD: test
 
-      - name: Baseline migrations for snapshot schema
+      - name: Baseline snapshot and apply pending migrations
         working-directory: ${{ github.workspace }}
-        run: bash migrations/run-migrations.sh --baseline-all-if-missing --force-baseline-all-if-missing
+        run: >-
+          bash migrations/run-migrations.sh
+          --baseline-through 090_add_ai_rag_shadow_comparisons.sql
+          --force-baseline-through
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
           POSTGRES_DB: rent_test
+
+      - name: Verify RAG migration and transactional retirement
+        working-directory: ${{ github.workspace }}
+        run: psql -v ON_ERROR_STOP=1 -h localhost -p 5432 -U test -d rent_test -f scripts/verify-rag-migration.sql
+        env:
+          PGPASSWORD: test
 
       - name: Run backend E2E tests
         run: npm run test:e2e

@@ -5,7 +5,7 @@ import { batchMetrics } from "../../shared/metrics";
 import { RagBackfillService } from "./rag-backfill.service";
 import { RagOutboxWorkerService } from "./rag-outbox-worker.service";
 import { RagVerificationService } from "./rag-verification.service";
-import { RagCliEntityType } from "./rag-types";
+import { RAG_SOURCE_ENTITY_TYPES, RagCliEntityType } from "./rag-types";
 
 const parsePositiveInteger = (value: string, label: string): number => {
   const parsed = Number.parseInt(value, 10);
@@ -16,10 +16,12 @@ const parsePositiveInteger = (value: string, label: string): number => {
 };
 
 const parseEntity = (value: string): RagCliEntityType => {
-  if (value === "property" || value === "document" || value === "all") {
-    return value;
+  if (value === "all" || RAG_SOURCE_ENTITY_TYPES.includes(value as never)) {
+    return value as RagCliEntityType;
   }
-  throw new Error("entity must be property, document or all");
+  throw new Error(
+    `entity must be one of ${RAG_SOURCE_ENTITY_TYPES.join(", ")} or all`,
+  );
 };
 
 const withDatabase = async (action: () => Promise<void>): Promise<void> => {
@@ -96,7 +98,7 @@ export const registerRagCommands = (program: Command): void => {
     .command("rag-reconcile")
     .description("Run the nightly incremental RAG reconciliation")
     .option("--log <file>", "Write logs to the given file")
-    .option("--entity <type>", "property, document or all", "all")
+    .option("--entity <type>", "RAG source entity type or all", "all")
     .option("--company-id <uuid>", "Restrict reconciliation to one company")
     .option("--batch-size <number>", "Source entities per page", "50")
     .option("--concurrency <number>", "Concurrent source entities", "2")
@@ -146,7 +148,7 @@ export const registerRagCommands = (program: Command): void => {
     .command("rag-backfill")
     .description("Backfill canonical RAG chunks and embeddings")
     .option("--log <file>", "Write logs to the given file")
-    .option("--entity <type>", "property, document or all", "all")
+    .option("--entity <type>", "RAG source entity type or all", "all")
     .option("--company-id <uuid>", "Restrict the backfill to one company")
     .option("--batch-size <number>", "Source entities per page", "50")
     .option("--checkpoint <uuid>", "Resume after this source entity ID")
@@ -178,7 +180,7 @@ export const registerRagCommands = (program: Command): void => {
     .command("rag-verify")
     .description("Verify RAG coverage, hashes, dimensions and source freshness")
     .option("--log <file>", "Write logs to the given file")
-    .option("--entity <type>", "property, document or all", "all")
+    .option("--entity <type>", "RAG source entity type or all", "all")
     .option("--company-id <uuid>", "Restrict verification to one company")
     .option("--sample-size <number>", "Maximum source entities per type", "100")
     .action(async (options) => {
@@ -242,6 +244,85 @@ export const registerRagCommands = (program: Command): void => {
           dryRun: options.dryRun,
           count,
         });
+      });
+    });
+
+  program
+    .command("rag-purge-audit")
+    .description("Idempotently enforce retention for RAG audit and outbox data")
+    .option(
+      "--older-than <date>",
+      "Delete records older than this ISO date; defaults from AI_RAG_AUDIT_RETENTION_DAYS",
+    )
+    .option("--log <file>", "Write logs to the given file")
+    .option("--dry-run", "Count rows without deleting them", false)
+    .action(async (options) => {
+      const startedAtNs = process.hrtime.bigint();
+      const retentionDays = parsePositiveInteger(
+        process.env.AI_RAG_AUDIT_RETENTION_DAYS ?? "90",
+        "AI_RAG_AUDIT_RETENTION_DAYS",
+      );
+      const olderThan = options.olderThan
+        ? new Date(options.olderThan)
+        : new Date(Date.now() - retentionDays * 86_400_000);
+      if (Number.isNaN(olderThan.getTime())) {
+        throw new Error("older-than must be a valid ISO date");
+      }
+      await withDatabase(async () => {
+        const result = await new RagVerificationService().purgeAudit(
+          olderThan,
+          options.dryRun,
+        );
+        logger.info("RAG audit retention completed", {
+          olderThan: olderThan.toISOString(),
+          dryRun: options.dryRun,
+          ...result,
+        });
+        const recordsProcessed = Object.values(result).reduce(
+          (sum, count) => sum + count,
+          0,
+        );
+        await batchMetrics.recordJobRun({
+          job: "rag-purge-audit",
+          status: "success",
+          startedAtNs,
+          summary: {
+            recordsTotal: recordsProcessed,
+            recordsProcessed,
+            recordsFailed: 0,
+          },
+        });
+      });
+    });
+
+  program
+    .command("rag-recall")
+    .description("Compare approximate HNSW neighbors with exact cosine search")
+    .option("--company-id <uuid>", "Restrict comparison to one company")
+    .option("--sample-size <number>", "Query chunks to compare", "100")
+    .option("--k <number>", "Neighbors per query", "8")
+    .option("--min-recall <number>", "Minimum accepted recall@K", "0.95")
+    .option("--log <file>", "Write logs to the given file")
+    .action(async (options) => {
+      const minimumRecall = Number(options.minRecall);
+      if (
+        !Number.isFinite(minimumRecall) ||
+        minimumRecall < 0 ||
+        minimumRecall > 1
+      ) {
+        throw new Error("min-recall must be between 0 and 1");
+      }
+      await withDatabase(async () => {
+        const result = await new RagVerificationService().compareHnswRecall({
+          companyId: options.companyId,
+          sampleSize: parsePositiveInteger(options.sampleSize, "sample-size"),
+          k: parsePositiveInteger(options.k, "k"),
+          minimumRecall,
+        });
+        logger.info("RAG HNSW recall comparison completed", result);
+        if (result.evaluated === 0 || result.failures.length > 0) {
+          process.exitCode = 1;
+        }
       });
     });
 };
