@@ -24,7 +24,7 @@ jobs:
         run: docker build --pull --tag rent-postgres:ci docker/postgres
 
       - name: Scan image for high and critical vulnerabilities
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: rent-postgres:ci
           format: table

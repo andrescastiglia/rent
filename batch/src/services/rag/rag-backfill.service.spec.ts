@@ -286,4 +286,81 @@ describe("RagBackfillService", () => {
       5,
     ]);
   });
+
+  it.each([
+    ["lease", "FROM leases l", "leaseNumber"],
+    ["invoice", "FROM invoices i", "invoiceNumber"],
+    ["owner", "FROM owners o", "ownerName"],
+    ["tenant_account", "FROM tenant_accounts a", "tenantName"],
+    ["interested", "FROM interested_profiles ip", "firstName"],
+    ["owner_activity", "FROM owner_activities a", "subjectId"],
+    ["tenant_activity", "FROM tenant_activities a", "subjectId"],
+    ["interested_activity", "FROM interested_activities a", "subjectId"],
+  ] as const)(
+    "loads and maps the %s projection",
+    async (sourceType, expectedSql, expectedDataKey) => {
+      const row = {
+        id: "30000000-0000-0000-0000-000000000001",
+        company_id: source().companyId,
+        updated_at: source().updatedAt.toISOString(),
+        lease_number: "LEASE-1",
+        invoice_number: "INV-1",
+        owner_name: "Owner One",
+        tenant_name: "Tenant One",
+        first_name: "Interested",
+        subject_id: "40000000-0000-0000-0000-000000000001",
+      };
+      const query = jest.fn().mockResolvedValue([row]);
+      const service = new RagBackfillService({
+        dataSource: dataSource(query),
+        dryRun: true,
+      });
+
+      const [mapped] = await service.loadSourceEntities(
+        sourceType,
+        source().companyId,
+        source().id,
+        5,
+      );
+
+      expect(query.mock.calls[0][0]).toContain(expectedSql);
+      expect(query.mock.calls[0][1]).toEqual([
+        source().companyId,
+        source().id,
+        5,
+        null,
+      ]);
+      expect(mapped).toMatchObject({
+        sourceType,
+        companyId: source().companyId,
+        data: { [expectedDataKey]: expect.anything() },
+      });
+    },
+  );
+
+  it("loads an additional source by company and entity id", async () => {
+    const entityId = "30000000-0000-0000-0000-000000000001";
+    const query = jest.fn().mockResolvedValue([
+      {
+        id: entityId,
+        company_id: source().companyId,
+        updated_at: source().updatedAt.toISOString(),
+        lease_number: "LEASE-1",
+      },
+    ]);
+    const service = new RagBackfillService({
+      dataSource: dataSource(query),
+      dryRun: true,
+    });
+
+    await expect(
+      service.loadSourceEntity("lease", source().companyId, entityId),
+    ).resolves.toMatchObject({ id: entityId, sourceType: "lease" });
+    expect(query.mock.calls[0][1]).toEqual([
+      source().companyId,
+      null,
+      1,
+      entityId,
+    ]);
+  });
 });

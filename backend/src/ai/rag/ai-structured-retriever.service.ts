@@ -22,6 +22,9 @@ type StructuredRow = {
   payload: Record<string, unknown>;
 };
 
+const containsAny = (text: string, terms: readonly string[]): boolean =>
+  terms.some((term) => text.includes(term));
+
 const queryParamsSchema = z.object({
   companyId: z
     .string()
@@ -101,16 +104,14 @@ export class AiStructuredRetrieverService {
     if (/saldo|cuenta corriente|deuda/.test(text)) return 'tenant_balance';
     if (/pagos?|cobros?/.test(text)) return 'payments';
     if (
-      /(?:propiedades?.*(?:venta|precio|importe)|(?:venta|precio).*propiedades?)/.test(
-        text,
-      )
+      text.includes('propiedad') &&
+      containsAny(text, ['venta', 'precio', 'importe'])
     ) {
       return 'portfolio';
     }
     if (
-      /(?:alquiler|canon).*(?:mensual|monto|importe)|(?:monto|importe).*(?:alquiler|canon)/.test(
-        text,
-      )
+      containsAny(text, ['alquiler', 'canon']) &&
+      containsAny(text, ['mensual', 'monto', 'importe'])
     ) {
       return 'lease_status';
     }
