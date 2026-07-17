@@ -15,6 +15,7 @@ describe('AiToolExecutorService', () => {
   let service: AiToolExecutorService;
   let getDefinitions: jest.Mock;
   let getDefinitionByName: jest.Mock;
+  let databaseQuery: jest.Mock;
   let testTool: AiToolDefinition;
 
   beforeEach(() => {
@@ -39,10 +40,16 @@ describe('AiToolExecutorService', () => {
       name === testTool.name ? testTool : undefined,
     );
 
-    service = new AiToolExecutorService({
-      getDefinitions,
-      getDefinitionByName,
-    } as unknown as AiToolCatalogService);
+    databaseQuery = jest.fn();
+    service = new AiToolExecutorService(
+      {
+        getDefinitions,
+        getDefinitionByName,
+      } as unknown as AiToolCatalogService,
+      {
+        query: databaseQuery,
+      } as unknown as import('typeorm').DataSource,
+    );
 
     delete process.env.AI_TOOLS_MODE;
   });
@@ -291,5 +298,61 @@ describe('AiToolExecutorService', () => {
 
     await service.execute('users_list', null, context);
     expect(testTool.execute).toHaveBeenCalledWith({ page: 1 }, context);
+  });
+
+  it('previews a mutable tool without executing it and redacts secrets', async () => {
+    process.env.AI_TOOLS_MODE = 'FULL';
+    testTool.mutability = 'mutable';
+    testTool.parameters = z.object({
+      page: z.number(),
+      password: z.string(),
+    });
+    databaseQuery.mockResolvedValue([
+      { id: '44444444-4444-4444-8444-444444444444' },
+    ]);
+
+    const result = await service.execute(
+      'users_list',
+      { page: 1, password: 'secret' },
+      {
+        ...context,
+        conversationId: '33333333-3333-4333-8333-333333333333',
+      },
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'pending_confirmation',
+        payload: { page: 1, password: '[REDACTED]' },
+      }),
+    );
+    expect(testTool.execute).not.toHaveBeenCalled();
+    expect(databaseQuery.mock.calls[0][1][4]).not.toContain('secret');
+  });
+
+  it('executes a mutable tool only after matching explicit confirmation', async () => {
+    process.env.AI_TOOLS_MODE = 'FULL';
+    testTool.mutability = 'mutable';
+    databaseQuery
+      .mockResolvedValueOnce([
+        [{ id: '44444444-4444-4444-8444-444444444444' }],
+        1,
+      ])
+      .mockResolvedValueOnce([]);
+
+    const result = await service.execute(
+      'users_list',
+      { page: 1 },
+      {
+        ...context,
+        conversationId: '33333333-3333-4333-8333-333333333333',
+        confirmMutation: true,
+      },
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(testTool.execute).toHaveBeenCalledTimes(1);
+    expect(databaseQuery.mock.calls[0][0]).toContain("status = 'confirmed'");
+    expect(databaseQuery.mock.calls[1][0]).toContain('result_hash');
   });
 });

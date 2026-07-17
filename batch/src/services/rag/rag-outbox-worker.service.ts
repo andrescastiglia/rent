@@ -4,7 +4,11 @@ import { AppDataSource } from "../../shared/database";
 import { logger } from "../../shared/logger";
 import { batchMetrics } from "../../shared/metrics";
 import { RagBackfillService } from "./rag-backfill.service";
-import { RagSourceEntityType } from "./rag-types";
+import {
+  RAG_PROJECTION_BY_SOURCE,
+  RAG_SOURCE_ENTITY_TYPES,
+  RagSourceEntityType,
+} from "./rag-types";
 
 type OutboxStatus = "pending" | "processing" | "processed" | "failed";
 
@@ -245,7 +249,7 @@ export class RagOutboxWorkerService {
     tokens: number;
     skipped: boolean;
   }> {
-    if (event.entity_type !== "property" && event.entity_type !== "document") {
+    if (!RAG_SOURCE_ENTITY_TYPES.includes(event.entity_type as never)) {
       throw new Error(
         `Unsupported RAG outbox entity type: ${event.entity_type}`,
       );
@@ -281,8 +285,7 @@ export class RagOutboxWorkerService {
     companyId: string,
     entityId: string,
   ): Promise<void> {
-    const projection =
-      sourceType === "property" ? "property_summary" : "document_chunk";
+    const projection = RAG_PROJECTION_BY_SOURCE[sourceType];
     await this.dataSource.query(
       `UPDATE ai_knowledge_chunks
        SET deleted_at = NOW(), updated_at = NOW()

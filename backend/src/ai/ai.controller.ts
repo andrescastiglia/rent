@@ -65,6 +65,9 @@ export class AiController {
       userId: req.user.id,
       companyId: req.user.companyId,
       role: req.user.role,
+      conversationId: dto.conversationId,
+      confirmationId: dto.confirmationId,
+      confirmMutation: dto.confirm === true,
     });
 
     return {
@@ -82,6 +85,7 @@ export class AiController {
     const conversation = await this.conversationsService.getConversationById({
       conversationId,
       userId: req.user.id,
+      companyId: req.user.companyId,
     });
 
     return {

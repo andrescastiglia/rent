@@ -67,7 +67,14 @@ describe('AiController', () => {
     expect(executor.execute).toHaveBeenCalledWith(
       'get_users',
       { page: 1 },
-      { userId: 'u1', companyId: 'c1', role: UserRole.ADMIN },
+      {
+        userId: 'u1',
+        companyId: 'c1',
+        role: UserRole.ADMIN,
+        conversationId: undefined,
+        confirmationId: undefined,
+        confirmMutation: false,
+      },
     );
     expect(result).toEqual({
       toolName: 'get_users',
@@ -90,6 +97,7 @@ describe('AiController', () => {
     expect(conversationsService.getConversationById).toHaveBeenCalledWith({
       conversationId: 'conv-1',
       userId: 'u1',
+      companyId: 'c1',
     });
     expect(result.conversationId).toBe('conv-1');
   });

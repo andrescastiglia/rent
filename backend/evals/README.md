@@ -1,10 +1,10 @@
 # Evaluación RAG y rollout
 
-El dataset `rag-eval.dataset.json` contiene 50 casos por empresa y rol
-(`admin`, `staff`, `owner`, `tenant`). Incluye consultas estructuradas,
-semánticas, híbridas, financieras y adversariales. Cada caso declara la
-conducta esperada, estrategia, entidades conocidas y tipos de fuente
-requeridos.
+El dataset `rag-eval.dataset.json` contiene 58 casos para `admin`, `staff`,
+`owner` y `tenant`, incluyendo una segunda empresa para los casos de
+aislamiento. Incluye consultas estructuradas, semánticas, híbridas, financieras
+y adversariales. Cada caso declara la conducta esperada, estrategia, entidades
+conocidas cuando corresponde y tipos de fuente requeridos.
 
 ## Modos
 
@@ -28,8 +28,9 @@ npm run rag:shadow-report -- --hours 24
 ```
 
 El informe incluye recall@K, precisión/autorización de fuentes, groundedness,
-exactitud financiera por fuente, abstención correcta, respuestas incorrectas
-sin abstención, estrategia, latencia p50/p95, tokens y costo estimado. Las tasas
+exactitud de valores monetarios contra las filas SQL citadas, abstención
+correcta, respuestas incorrectas sin abstención, estrategia, latencia p50/p95,
+tokens y costo estimado. Las tasas
 de costo se configuran con `AI_RAG_INPUT_USD_PER_MILLION` y
 `AI_RAG_OUTPUT_USD_PER_MILLION`.
 

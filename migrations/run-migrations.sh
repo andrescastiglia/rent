@@ -4,7 +4,7 @@
 # MIGRATION RUNNER - Execute PostgreSQL Migrations
 # =============================================================================
 # This script runs all SQL migration files in sequence
-# Usage: ./run-migrations.sh [--dry-run] [--baseline-all-if-missing --force-baseline-all-if-missing] [--status]
+# Usage: ./run-migrations.sh [--dry-run] [--baseline-through <migration> --force-baseline-through] [--status]
 # =============================================================================
 
 # Colores para output
@@ -50,6 +50,8 @@ export PGPASSWORD
 DRY_RUN=false
 BASELINE_ALL_IF_MISSING=false
 FORCE_BASELINE_ALL_IF_MISSING=false
+BASELINE_THROUGH=""
+FORCE_BASELINE_THROUGH=false
 
 # =============================================================================
 # FUNCIONES
@@ -156,6 +158,33 @@ baseline_all_migrations() {
     print_success "Baselined $baseline_count migration(s)"
 }
 
+baseline_migrations_through() {
+    local through_migration="$1"
+    local baseline_count=0
+
+    if [ "$(basename "$through_migration")" != "$through_migration" ] \
+       || [ ! -f "$SCRIPT_DIR/$through_migration" ]; then
+        print_error "Baseline migration does not exist: $through_migration"
+        exit 1
+    fi
+
+    echo ""
+    print_warning "schema_migrations was missing on an initialized database"
+    print_info "Baselining snapshot migrations through $through_migration"
+
+    for migration_file in $(ls -1 "$SCRIPT_DIR"/*.sql 2>/dev/null | sort -V); do
+        local migration_name
+        migration_name=$(basename "$migration_file")
+        run_query "INSERT INTO schema_migrations (migration_name) VALUES ('$migration_name') ON CONFLICT (migration_name) DO NOTHING;" &> /dev/null
+        ((baseline_count++))
+        if [ "$migration_name" = "$through_migration" ]; then
+            break
+        fi
+    done
+
+    print_success "Baselined $baseline_count snapshot migration(s) through $through_migration"
+}
+
 get_executed_migrations() {
     run_query "SELECT migration_name FROM schema_migrations ORDER BY migration_name;" -t | tr -d ' \r'
 }
@@ -170,17 +199,23 @@ handle_missing_migration_table() {
     echo ""
     print_warning "Detected an initialized database without schema_migrations"
 
-    if [ "$BASELINE_ALL_IF_MISSING" != true ]; then
+    if [ "$BASELINE_ALL_IF_MISSING" != true ] && [ -z "$BASELINE_THROUGH" ]; then
         print_error "Refusing to auto-baseline because pending migrations cannot be verified safely"
         print_info "Recover schema_migrations manually, or rerun with:"
-        echo "  $0 --baseline-all-if-missing --force-baseline-all-if-missing"
-        print_info "Use the force flag only after confirming every migration file has already been applied."
+        echo "  $0 --baseline-through <last-snapshot-migration> --force-baseline-through"
+        print_info "Use the force flag only after confirming the snapshot boundary."
         exit 1
     fi
 
-    if [ "$FORCE_BASELINE_ALL_IF_MISSING" != true ]; then
+    if [ "$BASELINE_ALL_IF_MISSING" = true ] && [ "$FORCE_BASELINE_ALL_IF_MISSING" != true ]; then
         print_error "--baseline-all-if-missing requires --force-baseline-all-if-missing on initialized databases"
         print_info "This prevents silently marking unapplied migrations as executed."
+        exit 1
+    fi
+
+    if [ -n "$BASELINE_THROUGH" ] && [ "$FORCE_BASELINE_THROUGH" != true ]; then
+        print_error "--baseline-through requires --force-baseline-through on initialized databases"
+        print_info "This prevents selecting an unverified snapshot boundary."
         exit 1
     fi
 }
@@ -287,6 +322,18 @@ main() {
                 FORCE_BASELINE_ALL_IF_MISSING=true
                 shift
                 ;;
+            --baseline-through)
+                if [ $# -lt 2 ] || [[ "$2" = --* ]]; then
+                    print_error "--baseline-through requires a migration filename"
+                    exit 1
+                fi
+                BASELINE_THROUGH="$2"
+                shift 2
+                ;;
+            --force-baseline-through)
+                FORCE_BASELINE_THROUGH=true
+                shift
+                ;;
             --status)
                 determine_exec_method
                 check_connection
@@ -304,6 +351,11 @@ main() {
                 echo "  --force-baseline-all-if-missing"
                 echo "               Required together with --baseline-all-if-missing"
                 echo "               after manually verifying the schema is up to date"
+                echo "  --baseline-through <migration>"
+                echo "               Mark only snapshot migrations through the named file"
+                echo "               and execute every later migration normally"
+                echo "  --force-baseline-through"
+                echo "               Required together with --baseline-through"
                 echo "  --status     Show migration execution history"
                 echo "  --help       Show this help message"
                 echo ""
@@ -316,6 +368,11 @@ main() {
                 ;;
         esac
     done
+
+    if [ "$BASELINE_ALL_IF_MISSING" = true ] && [ -n "$BASELINE_THROUGH" ]; then
+        print_error "--baseline-all-if-missing and --baseline-through are mutually exclusive"
+        exit 1
+    fi
     
     print_header
     
@@ -340,6 +397,8 @@ main() {
 
     if [ "$had_migration_table" != "t" ] && [ "$has_existing_schema" = "t" ] && [ "$BASELINE_ALL_IF_MISSING" = true ] && [ "$FORCE_BASELINE_ALL_IF_MISSING" = true ]; then
         baseline_all_migrations
+    elif [ "$had_migration_table" != "t" ] && [ "$has_existing_schema" = "t" ] && [ -n "$BASELINE_THROUGH" ] && [ "$FORCE_BASELINE_THROUGH" = true ]; then
+        baseline_migrations_through "$BASELINE_THROUGH"
     fi
 
     # Run migrations

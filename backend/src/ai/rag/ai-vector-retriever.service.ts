@@ -14,6 +14,17 @@ type VectorRow = {
   similarity: string | number;
 };
 
+export const AI_RAG_VECTOR_PROJECTIONS = [
+  'property_summary',
+  'document_chunk',
+  'lease_summary',
+  'invoice_payment_summary',
+  'owner_portfolio_summary',
+  'tenant_account_summary',
+  'interested_profile_summary',
+  'activity_chunk',
+] as const;
+
 @Injectable()
 export class AiVectorRetrieverService {
   constructor(
@@ -25,7 +36,10 @@ export class AiVectorRetrieverService {
     prompt: string,
     context: AiRagContext,
   ): Promise<AiRagSource[]> {
-    const configuredThreshold = process.env.AI_RAG_MIN_SIMILARITY;
+    const roleThreshold =
+      process.env[`AI_RAG_MIN_SIMILARITY_${context.role.toUpperCase()}`];
+    const configuredThreshold =
+      roleThreshold ?? process.env.AI_RAG_MIN_SIMILARITY;
     if (!configuredThreshold) {
       throw new ServiceUnavailableException(
         'AI_RAG_MIN_SIMILARITY must be calibrated and configured',
@@ -37,13 +51,15 @@ export class AiVectorRetrieverService {
         'AI_RAG_MIN_SIMILARITY must be between 0 and 1',
       );
     }
-    const limit = Math.min(
+    const topK = Math.min(
       Math.max(Number(process.env.AI_RAG_TOP_K ?? 8), 1),
       20,
     );
+    const candidateLimit = Math.min(topK * 3, 60);
     const embedding = await this.embeddings.embed(prompt);
     const vector = `[${embedding.join(',')}]`;
     const roleFilter = this.roleFilter(context);
+    const projectionThresholds = this.projectionThresholds();
 
     const rows = await this.dataSource.query<VectorRow[]>(
       `SELECT c.id, c.entity_type, c.entity_id, c.content, c.metadata,
@@ -56,29 +72,37 @@ export class AiVectorRetrieverService {
           AND $4::uuid IS NOT NULL
           AND $5::text IS NOT NULL
           AND (${roleFilter})
-          AND 1 - (c.embedding <=> $1::vector) >= $6
+          AND 1 - (c.embedding <=> $1::vector) >= COALESCE(
+            NULLIF($8::jsonb->>c.entity_type, '')::double precision,
+            $6
+          )
         ORDER BY c.embedding <=> $1::vector
         LIMIT $7`,
       [
         vector,
         context.companyId,
-        ['property_summary', 'document_chunk'],
+        AI_RAG_VECTOR_PROJECTIONS,
         context.userId,
         context.role,
         threshold,
-        limit,
+        candidateLimit,
+        JSON.stringify(projectionThresholds),
       ],
     );
 
-    return rows.map((row) => ({
-      sourceId: row.id,
-      entityType: row.entity_type,
-      entityId: row.entity_id,
-      label: this.label(row),
-      updatedAt: new Date(row.source_updated_at).toISOString(),
-      content: row.content.slice(0, 5000),
-      origin: 'vector',
-    }));
+    return this.rerank(
+      rows.map((row) => ({
+        sourceId: row.id,
+        entityType: row.entity_type,
+        entityId: row.entity_id,
+        label: this.label(row),
+        updatedAt: new Date(row.source_updated_at).toISOString(),
+        content: row.content.slice(0, 5000),
+        origin: 'vector',
+        retrievalScore: Number(row.similarity),
+      })),
+      topK,
+    );
   }
 
   async filterAuthorized(
@@ -103,7 +127,7 @@ export class AiVectorRetrieverService {
       [
         vectorSources.map((source) => source.sourceId),
         context.companyId,
-        ['property_summary', 'document_chunk'],
+        AI_RAG_VECTOR_PROJECTIONS,
         context.userId,
         context.role,
       ],
@@ -119,8 +143,36 @@ export class AiVectorRetrieverService {
     if (role === UserRole.ADMIN) return 'TRUE';
     if (role === UserRole.STAFF) {
       const permissions = context.permissions;
-      if (!permissions || Object.keys(permissions).length === 0) return 'TRUE';
-      return permissions.properties || permissions.leases ? 'TRUE' : 'FALSE';
+      if (!permissions || Object.keys(permissions).length === 0) return 'FALSE';
+      const clauses: string[] = [];
+      if (permissions.properties) {
+        clauses.push("c.entity_type = 'property_summary'");
+      }
+      if (permissions.owners) {
+        clauses.push("c.entity_type = 'owner_portfolio_summary'");
+      }
+      if (permissions.interested) {
+        clauses.push("c.entity_type = 'interested_profile_summary'");
+      }
+      if (permissions.leases) {
+        clauses.push("c.entity_type IN ('lease_summary', 'document_chunk')");
+      }
+      if (permissions.invoices || permissions.payments) {
+        clauses.push("c.entity_type = 'invoice_payment_summary'");
+      }
+      if (permissions.tenants || permissions.payments) {
+        clauses.push("c.entity_type = 'tenant_account_summary'");
+      }
+      const activityTypes: string[] = [];
+      if (permissions.owners) activityTypes.push("'owner_activity'");
+      if (permissions.tenants) activityTypes.push("'tenant_activity'");
+      if (permissions.interested) activityTypes.push("'interested_activity'");
+      if (activityTypes.length) {
+        clauses.push(
+          `(c.entity_type = 'activity_chunk' AND c.metadata->>'activitySourceType' IN (${activityTypes.join(', ')}))`,
+        );
+      }
+      return clauses.length ? `(${clauses.join(' OR ')})` : 'FALSE';
     }
     if (role === UserRole.OWNER) {
       return `(
@@ -143,7 +195,28 @@ export class AiVectorRetrieverService {
                   AND o.deleted_at IS NULL AND o.user_id = $4::uuid
              ))
            )
-        ))
+        )) OR
+        (c.entity_type = 'lease_summary' AND EXISTS (
+          SELECT 1 FROM leases l JOIN owners o ON o.id = l.owner_id
+           WHERE l.id = c.entity_id AND l.deleted_at IS NULL
+             AND o.deleted_at IS NULL AND o.user_id = $4::uuid
+        )) OR
+        (c.entity_type = 'invoice_payment_summary' AND EXISTS (
+          SELECT 1 FROM invoices i JOIN owners o ON o.id = i.owner_id
+           WHERE i.id = c.entity_id AND i.deleted_at IS NULL
+             AND o.deleted_at IS NULL AND o.user_id = $4::uuid
+        )) OR
+        (c.entity_type = 'owner_portfolio_summary' AND EXISTS (
+          SELECT 1 FROM owners o WHERE o.id = c.entity_id
+            AND o.deleted_at IS NULL AND o.user_id = $4::uuid
+        )) OR
+        (c.entity_type = 'activity_chunk'
+          AND c.metadata->>'activitySourceType' = 'owner_activity'
+          AND EXISTS (
+            SELECT 1 FROM owner_activities a JOIN owners o ON o.id = a.owner_id
+             WHERE a.id = c.entity_id AND a.deleted_at IS NULL
+               AND o.deleted_at IS NULL AND o.user_id = $4::uuid
+          ))
       )`;
     }
     if (role === UserRole.TENANT) {
@@ -167,7 +240,31 @@ export class AiVectorRetrieverService {
                   AND t.deleted_at IS NULL AND t.user_id = $4::uuid
              ))
            )
-        ))
+        )) OR
+        (c.entity_type = 'lease_summary' AND EXISTS (
+          SELECT 1 FROM leases l JOIN tenants t ON t.id = l.tenant_id
+           WHERE l.id = c.entity_id AND l.deleted_at IS NULL
+             AND t.deleted_at IS NULL AND t.user_id = $4::uuid
+        )) OR
+        (c.entity_type = 'invoice_payment_summary' AND EXISTS (
+          SELECT 1 FROM invoices i JOIN leases l ON l.id = i.lease_id
+          JOIN tenants t ON t.id = l.tenant_id
+           WHERE i.id = c.entity_id AND i.deleted_at IS NULL
+             AND l.deleted_at IS NULL AND t.deleted_at IS NULL
+             AND t.user_id = $4::uuid
+        )) OR
+        (c.entity_type = 'tenant_account_summary' AND EXISTS (
+          SELECT 1 FROM tenant_accounts a JOIN tenants t ON t.id = a.tenant_id
+           WHERE a.id = c.entity_id AND a.deleted_at IS NULL
+             AND t.deleted_at IS NULL AND t.user_id = $4::uuid
+        )) OR
+        (c.entity_type = 'activity_chunk'
+          AND c.metadata->>'activitySourceType' = 'tenant_activity'
+          AND EXISTS (
+            SELECT 1 FROM tenant_activities a JOIN tenants t ON t.id = a.tenant_id
+             WHERE a.id = c.entity_id AND a.deleted_at IS NULL
+               AND t.deleted_at IS NULL AND t.user_id = $4::uuid
+          ))
       )`;
     }
     return 'FALSE';
@@ -179,5 +276,54 @@ export class AiVectorRetrieverService {
     return typeof label === 'string' && label.trim()
       ? label.slice(0, 200)
       : `${row.entity_type}:${row.entity_id}`;
+  }
+
+  private rerank(sources: AiRagSource[], topK: number): AiRagSource[] {
+    const finalK = Math.min(
+      Math.max(Number(process.env.AI_RAG_FINAL_K ?? topK), 1),
+      topK,
+    );
+    const perEntity = new Map<string, number>();
+    return [...sources]
+      .sort((left, right) => {
+        const scoreDelta =
+          (right.retrievalScore ?? 0) - (left.retrievalScore ?? 0);
+        if (scoreDelta !== 0) return scoreDelta;
+        return left.sourceId.localeCompare(right.sourceId);
+      })
+      .filter((source) => {
+        const key = `${source.entityType}:${source.entityId}`;
+        const count = perEntity.get(key) ?? 0;
+        if (count >= 2) return false;
+        perEntity.set(key, count + 1);
+        return true;
+      })
+      .slice(0, finalK);
+  }
+
+  private projectionThresholds(): Record<string, number> {
+    const raw = process.env.AI_RAG_MIN_SIMILARITY_BY_PROJECTION?.trim();
+    if (!raw) return {};
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      return Object.fromEntries(
+        Object.entries(parsed).map(([projection, value]) => {
+          if (
+            !AI_RAG_VECTOR_PROJECTIONS.includes(projection as never) ||
+            typeof value !== 'number' ||
+            !Number.isFinite(value) ||
+            value < 0 ||
+            value > 1
+          ) {
+            throw new Error('invalid projection threshold');
+          }
+          return [projection, value];
+        }),
+      );
+    } catch {
+      throw new ServiceUnavailableException(
+        'AI_RAG_MIN_SIMILARITY_BY_PROJECTION must be a valid projection-to-number JSON object',
+      );
+    }
   }
 }

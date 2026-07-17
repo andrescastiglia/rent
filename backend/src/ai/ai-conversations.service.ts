@@ -37,6 +37,15 @@ export class AiConversationsService {
           'Conversation is not accessible for current user',
         );
       }
+      if (
+        params.companyId &&
+        conversation.companyId &&
+        conversation.companyId !== params.companyId
+      ) {
+        throw new ForbiddenException(
+          'Conversation belongs to a different company',
+        );
+      }
 
       return conversation;
     }
@@ -55,6 +64,7 @@ export class AiConversationsService {
   async getConversationById(params: {
     conversationId: string;
     userId: string;
+    companyId?: string;
   }): Promise<AiConversation> {
     const conversation = await this.conversationsRepo.findOne({
       where: { id: params.conversationId },
@@ -67,6 +77,15 @@ export class AiConversationsService {
     if (conversation.userId !== params.userId) {
       throw new ForbiddenException(
         'Conversation is not accessible for current user',
+      );
+    }
+    if (
+      params.companyId &&
+      conversation.companyId &&
+      conversation.companyId !== params.companyId
+    ) {
+      throw new ForbiddenException(
+        'Conversation belongs to a different company',
       );
     }
 

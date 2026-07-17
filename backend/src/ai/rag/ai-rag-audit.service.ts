@@ -30,6 +30,7 @@ export class AiRagAuditService {
     model: string;
     usage?: AiRagUsage;
     latencyMs: number;
+    promptOverrideAttempt?: boolean;
   }): Promise<string | null> {
     try {
       const saved = await this.runs.save(
@@ -48,6 +49,7 @@ export class AiRagAuditService {
           inputTokens: this.token(params.usage?.input_tokens),
           outputTokens: this.token(params.usage?.output_tokens),
           latencyMs: Math.max(0, Math.round(params.latencyMs)),
+          promptOverrideAttempt: params.promptOverrideAttempt === true,
         }),
       );
       return saved.id;

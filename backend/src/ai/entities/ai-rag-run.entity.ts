@@ -71,6 +71,13 @@ export class AiRagRun {
   @Column({ name: 'latency_ms', type: 'integer', nullable: true })
   latencyMs: number | null;
 
+  @Column({
+    name: 'prompt_override_attempt',
+    type: 'boolean',
+    default: false,
+  })
+  promptOverrideAttempt: boolean;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

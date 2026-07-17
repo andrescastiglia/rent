@@ -123,8 +123,12 @@ export class AiOpenAiService {
     const rolePreamble = this.buildRolePreamble(context.role);
 
     try {
+      const executionContext: AiExecutionContext = {
+        ...context,
+        confirmMutation: this.isExplicitConfirmation(prompt),
+      };
       const tools = this.registry.getOpenAiTools(
-        context,
+        executionContext,
         prompt,
       ) as RunnableTool[];
       const responseTools = tools.map((tool) => ({
@@ -202,6 +206,12 @@ export class AiOpenAiService {
     } catch (error) {
       throw this.mapProviderError(error);
     }
+  }
+
+  private isExplicitConfirmation(prompt: string): boolean {
+    return /^\s*(?:s[ií]|confirmo|confirmar|confirmado|adelante|proced[eé]|ejecut[aá])(?:\s|[.!])*$/i.test(
+      prompt,
+    );
   }
 
   private toolOutput(callId: string, value: unknown) {

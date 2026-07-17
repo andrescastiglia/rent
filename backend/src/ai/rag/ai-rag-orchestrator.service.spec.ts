@@ -1,4 +1,3 @@
-import { ForbiddenException } from '@nestjs/common';
 import { UserRole } from '../../users/entities/user.entity';
 import { AiRagOrchestratorService } from './ai-rag-orchestrator.service';
 import { AiRagSource } from './ai-rag.types';
@@ -33,6 +32,7 @@ describe('AiRagOrchestratorService', () => {
   };
   const generator = { generate: jest.fn() };
   const audit = { record: jest.fn() };
+  const metrics = { recordRagRequest: jest.fn() };
   const service = new AiRagOrchestratorService(
     conversations as never,
     legacy as never,
@@ -42,6 +42,7 @@ describe('AiRagOrchestratorService', () => {
     validator as never,
     generator as never,
     audit as never,
+    metrics as never,
   );
   const params = {
     prompt: 'consulta',
@@ -100,20 +101,22 @@ describe('AiRagOrchestratorService', () => {
     });
   });
 
-  it('rejects owner mutations and records the assistant error', async () => {
+  it('delegates owner mutations to role-scoped tools and confirmation', async () => {
     classifier.classify.mockReturnValue('mutation');
+    legacy.respond.mockResolvedValue({
+      model: 'tools-model',
+      outputText: 'pendiente de confirmación',
+    });
 
     await expect(
       service.respond({
         ...params,
         context: { ...params.context, role: UserRole.OWNER },
       }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
-    expect(conversations.appendAssistantError).toHaveBeenCalledWith(
-      expect.objectContaining({
-        assistantError: expect.stringContaining('read-only'),
-      }),
+    ).resolves.toEqual(
+      expect.objectContaining({ outputText: 'pendiente de confirmación' }),
     );
+    expect(legacy.respond).toHaveBeenCalled();
   });
 
   it.each(['structured', 'semantic'] as const)(

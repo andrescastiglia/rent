@@ -46,9 +46,48 @@ const sha256 = (content: string): string =>
 
 export class RagDocumentBuilderService {
   build(source: RagSourceEntity): RagChunkDraft[] {
-    return source.sourceType === "property"
-      ? [this.buildProperty(source)]
-      : this.buildDocument(source);
+    switch (source.sourceType) {
+      case "property":
+        return [this.buildProperty(source)];
+      case "document":
+        return this.buildDocument(source);
+      case "lease":
+        return [this.buildLease(source)];
+      case "invoice":
+        return [this.buildInvoicePayment(source)];
+      case "owner":
+        return [this.buildOwnerPortfolio(source)];
+      case "tenant_account":
+        return [this.buildTenantAccount(source)];
+      case "interested":
+        return [this.buildInterestedProfile(source)];
+      case "owner_activity":
+      case "tenant_activity":
+      case "interested_activity":
+        return [this.buildActivity(source)];
+    }
+  }
+
+  private singleChunk(
+    source: RagSourceEntity,
+    entityType: RagChunkDraft["entityType"],
+    lines: Array<string | null>,
+    metadata: Record<string, unknown>,
+  ): RagChunkDraft {
+    const content = lines
+      .filter((line): line is string => Boolean(line))
+      .join("\n");
+    return {
+      companyId: source.companyId,
+      entityType,
+      entityId: source.id,
+      chunkKey: "summary",
+      chunkIndex: 0,
+      content,
+      metadata: { sourceType: source.sourceType, ...metadata },
+      contentHash: sha256(content),
+      sourceUpdatedAt: source.updatedAt,
+    };
   }
 
   private buildProperty(source: RagSourceEntity): RagChunkDraft {
@@ -95,14 +134,9 @@ export class RagDocumentBuilderService {
       optionalLine("Nombre", data.name),
       optionalLine("Tipo de propiedad", data.propertyType),
       operations.length ? `Operaciones: ${operations.join("; ")}` : null,
-      optionalLine("Estado operativo", data.operationState),
-      optionalLine("Estado", data.status),
       address ? `Ubicación: ${address}` : null,
       numberLine("Superficie total m²", data.totalArea),
       numberLine("Superficie cubierta m²", data.builtArea),
-      numberLine("Año de construcción", data.yearBuilt),
-      numberLine("Unidades", data.totalUnits),
-      numberLine("Ocupantes máximos", data.maxOccupants),
       `Mascotas: ${booleanLabel(data.allowsPets, "permitidas", "no permitidas")}`,
       amenities.length ? `Comodidades: ${amenities.join("; ")}` : null,
       features.length ? `Características: ${features.join("; ")}` : null,
@@ -111,7 +145,6 @@ export class RagDocumentBuilderService {
         : null,
       optionalLine("Descripción", data.description),
       optionalLine("Notas", data.notes),
-      `Actualizado: ${source.updatedAt.toISOString()}`,
     ].filter((line): line is string => Boolean(line));
     const content = lines.join("\n");
 
@@ -159,14 +192,12 @@ export class RagDocumentBuilderService {
         `Documento ID: ${source.id}`,
         optionalLine("Nombre", data.name),
         optionalLine("Tipo de documento", data.documentType),
-        optionalLine("Estado", data.status),
         optionalLine("Entidad relacionada", data.relatedEntityType),
         data.relatedEntityId
           ? `Entidad relacionada ID: ${stringValue(data.relatedEntityId)}`
           : null,
         `Fragmento: ${chunkIndex + 1} de ${pieces.length}`,
         piece,
-        `Actualizado: ${source.updatedAt.toISOString()}`,
       ].filter((line): line is string => Boolean(line));
       const content = lines.join("\n");
       return {
@@ -188,6 +219,208 @@ export class RagDocumentBuilderService {
         sourceUpdatedAt: source.updatedAt,
       };
     });
+  }
+
+  private buildLease(source: RagSourceEntity): RagChunkDraft {
+    const data = source.data;
+    return this.singleChunk(
+      source,
+      "lease_summary",
+      [
+        "Tipo: lease_summary",
+        `Contrato ID: ${source.id}`,
+        optionalLine("Número", data.leaseNumber),
+        optionalLine("Tipo", data.contractType),
+        optionalLine("Propiedad", data.propertyName),
+        optionalLine("Ciudad", data.propertyCity),
+        optionalLine("Inquilino", data.tenantName),
+        optionalLine("Propietario", data.ownerName),
+        optionalLine("Frecuencia de pago", data.paymentFrequency),
+        optionalLine("Términos", data.termsAndConditions),
+        optionalLine("Cláusulas especiales", data.specialClauses),
+        optionalLine("Notas", data.notes),
+      ],
+      {
+        propertyId: data.propertyId,
+        tenantId: data.tenantId,
+        ownerId: data.ownerId,
+        contractType: data.contractType,
+      },
+    );
+  }
+
+  private buildInvoicePayment(source: RagSourceEntity): RagChunkDraft {
+    const data = source.data;
+    const payments = Array.isArray(data.payments)
+      ? data.payments
+          .filter(
+            (payment): payment is Record<string, unknown> =>
+              typeof payment === "object" && payment !== null,
+          )
+          .map((payment) =>
+            [
+              stringValue(payment.paymentNumber) || "sin número",
+              stringValue(payment.method),
+            ]
+              .filter(Boolean)
+              .join(" / "),
+          )
+      : [];
+    return this.singleChunk(
+      source,
+      "invoice_payment_summary",
+      [
+        "Tipo: invoice_payment_summary",
+        `Factura ID: ${source.id}`,
+        optionalLine("Número", data.invoiceNumber),
+        optionalLine("Contrato", data.leaseNumber),
+        optionalLine("Propiedad", data.propertyName),
+        optionalLine("Concepto", data.notes),
+        payments.length
+          ? `Pagos relacionados: ${payments.join("; ")}`
+          : "Pagos relacionados: ninguno",
+      ],
+      {
+        leaseId: data.leaseId,
+        ownerId: data.ownerId,
+        tenantId: data.tenantId,
+        paymentIds: Array.isArray(data.payments)
+          ? data.payments
+              .map((item) =>
+                typeof item === "object" && item !== null
+                  ? (item as Record<string, unknown>).id
+                  : undefined,
+              )
+              .filter(Boolean)
+          : [],
+      },
+    );
+  }
+
+  private buildOwnerPortfolio(source: RagSourceEntity): RagChunkDraft {
+    const data = source.data;
+    const properties = Array.isArray(data.properties)
+      ? data.properties
+          .filter(
+            (property): property is Record<string, unknown> =>
+              typeof property === "object" && property !== null,
+          )
+          .map((property) =>
+            [
+              stringValue(property.name),
+              stringValue(property.propertyType),
+              stringValue(property.city),
+            ]
+              .filter(Boolean)
+              .join(" / "),
+          )
+          .filter(Boolean)
+      : [];
+    return this.singleChunk(
+      source,
+      "owner_portfolio_summary",
+      [
+        "Tipo: owner_portfolio_summary",
+        `Propietario ID: ${source.id}`,
+        optionalLine("Nombre", data.ownerName),
+        properties.length
+          ? `Propiedades: ${properties.join("; ")}`
+          : "Propiedades: ninguna",
+        optionalLine("Notas", data.notes),
+      ],
+      {
+        userId: data.userId,
+        propertyIds: Array.isArray(data.properties)
+          ? data.properties
+              .map((item) =>
+                typeof item === "object" && item !== null
+                  ? (item as Record<string, unknown>).id
+                  : undefined,
+              )
+              .filter(Boolean)
+          : [],
+      },
+    );
+  }
+
+  private buildTenantAccount(source: RagSourceEntity): RagChunkDraft {
+    const data = source.data;
+    return this.singleChunk(
+      source,
+      "tenant_account_summary",
+      [
+        "Tipo: tenant_account_summary",
+        `Cuenta de inquilino ID: ${source.id}`,
+        optionalLine("Inquilino", data.tenantName),
+        optionalLine("Contrato", data.leaseNumber),
+        optionalLine("Propiedad", data.propertyName),
+        optionalLine("Notas", data.notes),
+      ],
+      {
+        tenantId: data.tenantId,
+        tenantUserId: data.tenantUserId,
+        leaseId: data.leaseId,
+        propertyId: data.propertyId,
+      },
+    );
+  }
+
+  private buildInterestedProfile(source: RagSourceEntity): RagChunkDraft {
+    const data = source.data;
+    const name = [data.firstName, data.lastName]
+      .map(stringValue)
+      .filter(Boolean)
+      .join(" ");
+    return this.singleChunk(
+      source,
+      "interested_profile_summary",
+      [
+        "Tipo: interested_profile_summary",
+        `Interesado ID: ${source.id}`,
+        name ? `Nombre: ${name}` : null,
+        optionalLine("Operación", data.operation),
+        optionalLine("Tipo de propiedad buscada", data.propertyTypePreference),
+        optionalLine("Ciudad preferida", data.preferredCity),
+        stringArray(data.preferredZones).length
+          ? `Zonas preferidas: ${stringArray(data.preferredZones).join("; ")}`
+          : null,
+        stringArray(data.desiredFeatures).length
+          ? `Características deseadas: ${stringArray(data.desiredFeatures).join("; ")}`
+          : null,
+        `Mascotas: ${booleanLabel(data.hasPets, "sí", "no")}`,
+        stringArray(data.guaranteeTypes).length
+          ? `Garantías: ${stringArray(data.guaranteeTypes).join("; ")}`
+          : null,
+        optionalLine("Notas de calificación", data.qualificationNotes),
+      ],
+      {
+        status: data.status,
+        assignedToUserId: data.assignedToUserId,
+        operations: data.operations,
+      },
+    );
+  }
+
+  private buildActivity(source: RagSourceEntity): RagChunkDraft {
+    const data = source.data;
+    return this.singleChunk(
+      source,
+      "activity_chunk",
+      [
+        "Tipo: activity_chunk",
+        `Actividad ID: ${source.id}`,
+        optionalLine("Clase", source.sourceType),
+        optionalLine("Tipo de actividad", data.type),
+        optionalLine("Asunto", data.subject),
+        optionalLine("Detalle", data.body),
+      ],
+      {
+        activitySourceType: source.sourceType,
+        subjectId: data.subjectId,
+        propertyId: data.propertyId,
+        createdByUserId: data.createdByUserId,
+      },
+    );
   }
 
   private splitText(text: string): string[] {
