@@ -1,0 +1,303 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(ai_rag_requests_total[$__rate_interval])) by (strategy, outcome)",
+          "legendFormat": "{{strategy}} / {{outcome}}",
+          "refId": "A"
+        }
+      ],
+      "title": "RAG request rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "id": 2,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(ai_rag_request_duration_seconds_bucket[$__rate_interval])) by (le, strategy))",
+          "legendFormat": "p95 {{strategy}}",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(ai_rag_request_duration_seconds_bucket[$__rate_interval])) by (le, strategy))",
+          "legendFormat": "p50 {{strategy}}",
+          "refId": "B"
+        }
+      ],
+      "title": "End-to-end latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "id": 3,
+      "targets": [
+        {
+          "expr": "sum(rate(ai_rag_abstentions_total[$__rate_interval])) / clamp_min(sum(rate(ai_rag_requests_total{outcome=\"success\"}[$__rate_interval])), 0.001)",
+          "legendFormat": "abstention rate",
+          "refId": "A"
+        }
+      ],
+      "title": "Abstention rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 8
+      },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "sum(increase(ai_rag_citation_failures_total[$__rate_interval])) by (strategy)",
+          "legendFormat": "citation / {{strategy}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(increase(ai_rag_scope_rejections_total[$__rate_interval])) by (reason)",
+          "legendFormat": "scope / {{reason}}",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(increase(ai_rag_prompt_override_attempts_total[$__rate_interval])) by (origin)",
+          "legendFormat": "override / {{origin}}",
+          "refId": "C"
+        }
+      ],
+      "title": "Safety rejections",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 8
+      },
+      "id": 5,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(ai_rag_retrieved_chunks_bucket[$__rate_interval])) by (le, strategy))",
+          "legendFormat": "p50 {{strategy}}",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(ai_rag_retrieved_chunks_bucket[$__rate_interval])) by (le, strategy))",
+          "legendFormat": "p95 {{strategy}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Evidence items per response",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 8
+      },
+      "id": 6,
+      "targets": [
+        {
+          "expr": "sum(increase(ai_rag_estimated_cost_usd_total[$__range])) by (model)",
+          "legendFormat": "{{model}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Estimated model cost in range",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 16
+      },
+      "id": 7,
+      "targets": [
+        {
+          "expr": "sum(ai_embedding_outbox_pending) by (entity_type)",
+          "legendFormat": "pending {{entity_type}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(ai_embedding_outbox_failed) by (entity_type)",
+          "legendFormat": "failed {{entity_type}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Embedding outbox",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 16
+      },
+      "id": 8,
+      "targets": [
+        {
+          "expr": "max(ai_embedding_lag_seconds) by (entity_type)",
+          "legendFormat": "{{entity_type}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Outbox freshness lag",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 16
+      },
+      "id": 9,
+      "targets": [
+        {
+          "expr": "sum(increase(ai_rag_tokens_total[$__range])) by (direction, model)",
+          "legendFormat": "{{direction}} / {{model}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Model tokens in range",
+      "type": "stat"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": [
+    "rentflow",
+    "rag"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "label": "Prometheus",
+        "name": "DS_PROMETHEUS",
+        "options": [],
+        "query": "prometheus",
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "RentFlow RAG",
+  "uid": "rentflow-rag",
+  "version": 1
+}

@@ -168,8 +168,14 @@ AI_EMBEDDING_DIMENSIONS=1536
 AI_EMBEDDING_VERSION=1
 AI_RAG_MIN_SIMILARITY=0.35
 AI_RAG_TOP_K=8
+AI_RAG_FINAL_K=8
 AI_RAG_STRUCTURED_LIMIT=20
 AI_RAG_TIMEOUT_MS=60000
+AI_RAG_MAX_OUTPUT_TOKENS=1200
+AI_RAG_MAX_CONTEXT_CHARS=40000
+AI_RAG_MIN_SIMILARITY_BY_PROJECTION=
+AI_MUTATION_CONFIRMATION_TTL_SECONDS=900
+AI_RAG_AUDIT_RETENTION_DAYS=90
 
 AI_RETRIEVAL_MODE=TOOLS
 AI_RAG_ENABLED_COMPANY_IDS=
@@ -195,6 +201,8 @@ node dist/index.js rag-sync --once --batch-size 50
 node dist/index.js rag-verify --entity all --sample-size 1000
 node dist/index.js rag-reconcile --entity all
 node dist/index.js rag-build-index
+node dist/index.js rag-recall --sample-size 100 --k 8 --min-recall 0.95
+node dist/index.js rag-purge-audit --dry-run
 ~~~
 
 Evaluación:
@@ -243,8 +251,10 @@ Rollout:
 
 Evaluación existente:
 
-- 50 casos por admin, staff, owner y tenant;
-- 50/50 aprobados por el runner actual;
+- 58 casos distribuidos entre admin, staff, owner y tenant, con una segunda
+  empresa en la matriz de aislamiento;
+- 50/50 aprobados por el último runner registrado; los 8 casos agregados
+  requieren una nueva ejecución contra el ambiente piloto;
 - 0 fuentes fuera de alcance;
 - p50 2512 ms y p95 6378 ms;
 - 34.174 tokens de entrada y 9.777 de salida;
@@ -254,7 +264,7 @@ Validación de código:
 
 - typecheck aprobado;
 - build aprobado;
-- 105 suites y 796 pruebas aprobadas.
+- 126 suites y 962 pruebas aprobadas entre backend y batch.
 
 ## 9. Estado real por fase
 
@@ -262,9 +272,9 @@ Validación de código:
 |---|---|---|
 | A. Infraestructura | Parcial avanzada | Falta demostrar escaneo de imagen en CI y todos los ambientes |
 | B. Esquema | Implementada | Tablas e índices operativos |
-| C. Batch | Parcial | Sólo propiedades y documentos |
-| D. Online | Parcial avanzada | Cumple SLA observado; falta exclusión inmediata garantizada |
-| E. Backend RAG | Parcial avanzada | Funciona para el alcance actual; faltan métricas y cobertura total |
+| C. Batch | Implementada en código | Ocho proyecciones, diez fuentes, backfill, outbox, verificación y recall exacto/HNSW |
+| D. Online | Implementada en código | Tombstone transaccional y revalidación sincrónica de existencia y versión |
+| E. Backend RAG | Implementada en código | SQL registrado, autorización, métricas, límites, final-K y citas |
 | F. Evaluación y rollout | Piloto aprobado | El dataset debe fortalecerse antes de rollout global |
 
 No usar AI_RAG_ENABLED_COMPANY_IDS=* mientras existan brechas del plan de
@@ -272,32 +282,30 @@ cierre.
 
 ## 10. Brechas conocidas
 
-1. Sólo 2 de las 8 proyecciones iniciales están implementadas.
-2. Admin y staff pueden depender del worker para excluir una fuente eliminada.
-3. No existe confirmación universal para todas las tools mutables.
-4. El backend no publica todas las métricas ai_rag_* definidas.
-5. No existe una política automática de retención para ai_rag_runs.
-6. La generación no configura todavía límite explícito de salida ni una
-   estrategia de reranking/final-K.
-7. El dataset sólo declara entidades esperadas en una fracción de los casos.
-8. La exactitud financiera actual valida el tipo de fuente, no el valor exacto.
-9. Shadow tiene pocas comparaciones exitosas para demostrar paridad con tools.
-10. Faltan pruebas E2E de fuente eliminada/stale, prompt injection almacenado,
-    secretos, dos empresas y comparación exacta contra HNSW.
-11. Falta escaneo automatizado de la imagen PostgreSQL en CI.
-12. Falta recalibrar el umbral con un dataset más completo.
+1. Falta ejecutar el backfill completo y `rag-verify` en cada ambiente.
+2. Falta medir el SLA p95 de frescura bajo carga en producción.
+3. Falta importar/probar dashboards y disparar las alertas en el stack real.
+4. Falta programar `rag-purge-audit` en los ambientes desplegados.
+5. El dataset sólo declara entidades esperadas en una fracción de los casos.
+6. Shadow tiene pocas comparaciones exitosas para demostrar paridad con tools.
+7. La E2E automatizada ya cubre fuente eliminada/stale, prompt injection
+   almacenado, SQL injection, secretos y dos empresas; falta extenderla a
+   tenants solapados, todas las proyecciones y comparación exacta contra HNSW.
+8. Falta recalibrar los umbrales por rol y proyección con el corpus completo.
+9. Faltan el ensayo de restauración, la prueba de carga y un ciclo estable de
+   piloto antes del rollout global.
 
 ## 11. Plan para llegar a una implementación completa
 
 ### Etapa G — Completar las proyecciones
 
-- [ ] Crear builders canónicos para contratos, facturas/pagos, portfolios,
+- [x] Crear builders canónicos para contratos, facturas/pagos, portfolios,
   cuentas de tenant, interesados y actividades.
-- [ ] Compartir builders entre backfill y sincronización online.
-- [ ] Agregar triggers/outbox para todas las dependencias que cambien el
+- [x] Compartir builders entre backfill y sincronización online.
+- [x] Agregar triggers/outbox para todas las dependencias que cambien el
   documento canónico.
 - [ ] Ejecutar backfill, verificación e HNSW con el corpus completo.
-- [ ] Documentar campos incluidos y campos sensibles excluidos por proyección.
+- [x] Documentar campos incluidos y campos sensibles excluidos por proyección.
 
 Criterio de aceptación:
 
@@ -307,12 +315,13 @@ Criterio de aceptación:
 
 ### Etapa H — Garantizar frescura y eliminación
 
-- [ ] Revalidar cada fuente vectorial contra la tabla operativa antes de
+- [x] Revalidar cada fuente vectorial contra la tabla operativa antes de
   incorporarla a la evidencia.
-- [ ] Comparar source_updated_at con updated_at de la entidad real.
-- [ ] Excluir eliminaciones dentro de la transacción o mediante validación
+- [x] Comparar source_updated_at con updated_at de la entidad real.
+- [x] Excluir eliminaciones dentro de la transacción o mediante validación
   sincrónica del retriever.
-- [ ] Probar create, update y delete para cada proyección.
+- [x] Probar builders de cada proyección y triggers/frescura contra PostgreSQL
+  aislado; queda incorporar la matriz completa como E2E permanente.
 - [ ] Medir p95 y máximo del lag bajo carga.
 
 Criterio de aceptación:
@@ -323,12 +332,13 @@ Criterio de aceptación:
 
 ### Etapa I — Consultas estructuradas y mutaciones seguras
 
-- [ ] Implementar consultas registradas para saldo de tenant, facturas, pagos,
+- [x] Implementar consultas registradas para saldo de tenant, facturas, pagos,
   contratos, portfolio, disponibilidad y dashboard.
-- [ ] Validar valores exactos de montos, monedas, estados y fechas.
-- [ ] Introducir preview y confirmación obligatoria para toda tool mutable.
-- [ ] Persistir quién confirmó, qué payload confirmó y el resultado.
-- [ ] Mantener servicios de dominio como única vía de escritura.
+- [x] Validar valores monetarios exactos contra las filas SQL citadas en el
+  runner; estados y fechas continúan proviniendo sólo del registro SQL.
+- [x] Introducir preview y confirmación obligatoria para toda tool mutable.
+- [x] Persistir quién confirmó, qué payload confirmó y el resultado.
+- [x] Mantener servicios de dominio como única vía de escritura.
 
 Criterio de aceptación:
 
@@ -338,13 +348,14 @@ Criterio de aceptación:
 
 ### Etapa J — Observabilidad, alertas y retención
 
-- [ ] Publicar ai_rag_requests_total y duración por estrategia.
-- [ ] Publicar chunks recuperados, abstenciones, fallos de citas y rechazos de
+- [x] Publicar ai_rag_requests_total y duración por estrategia.
+- [x] Publicar chunks recuperados, abstenciones, fallos de citas y rechazos de
   alcance.
 - [ ] Crear dashboards para latencia, costo, calidad, outbox y frescura.
 - [ ] Activar y probar alertas con fallos controlados.
-- [ ] Definir retención y purga para ai_rag_runs y shadow comparisons.
-- [ ] Registrar intentos de prompt override sin guardar contenido sensible.
+- [x] Definir retención y purga para ai_rag_runs, shadow comparisons,
+  confirmaciones y outbox procesado.
+- [x] Registrar intentos de prompt override sin guardar contenido sensible.
 
 Criterio de aceptación:
 
@@ -356,14 +367,17 @@ Criterio de aceptación:
 
 - [ ] Ampliar el dataset con entidades, valores y fuentes exactas en todos los
   casos.
-- [ ] Agregar múltiples empresas, owners y tenants con datos solapados.
-- [ ] Comparar búsqueda exacta contra HNSW y medir recall@K real.
-- [ ] Verificar groundedness por claim, no sólo presencia de fuentes.
-- [ ] Probar prompt injection almacenado, SQL injection, fuentes stale,
-  eliminadas y datos sensibles.
+- [x] Agregar empresas y owners con datos solapados a la matriz E2E; falta
+  completar tenants solapados en el dataset de evaluación.
+- [x] Comparar búsqueda exacta contra HNSW y medir recall@K real.
+- [x] Verificar groundedness por claim, no sólo presencia de fuentes.
+- [x] Probar prompt injection almacenado, SQL injection, fuentes stale,
+  eliminadas y aislamiento de secretos/empresas; falta ampliar la matriz
+  permanente a todas las proyecciones.
 - [ ] Ejecutar suficiente tráfico shadow para comparar calidad, latencia y
   costo contra tools.
-- [ ] Recalibrar AI_RAG_MIN_SIMILARITY por rol y tipo de proyección.
+- [x] Permitir umbrales por rol y tipo de proyección; falta ejecutar la
+  recalibración con el corpus completo.
 
 Criterio de aceptación:
 
@@ -374,11 +388,12 @@ Criterio de aceptación:
 
 ### Etapa L — Hardening y cierre de producción
 
-- [ ] Agregar escaneo de la imagen PostgreSQL al CI.
-- [ ] Fijar y verificar versiones, checksums y dimensiones en cada ambiente.
+- [x] Agregar escaneo de la imagen PostgreSQL al CI.
+- [x] Fijar versiones, checksum y dimensiones en código; falta verificar todos
+  los ambientes desplegados.
 - [ ] Probar restauración del backup en una base aislada.
 - [ ] Probar rollback TOOLS y recuperación RAG en un ensayo documentado.
-- [ ] Configurar límite de salida, contexto máximo y final-K/reranking.
+- [x] Configurar límite de salida, contexto máximo y final-K/reranking.
 - [ ] Ejecutar pruebas de carga y definir capacidad.
 - [ ] Mantener el piloto durante un ciclo estable antes del rollout global.
 - [ ] Habilitar empresas progresivamente; usar * sólo al finalizar.

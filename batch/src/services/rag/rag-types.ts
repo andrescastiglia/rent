@@ -2,9 +2,46 @@ export const RAG_EMBEDDING_DIMENSIONS = 1536;
 export const RAG_EMBEDDING_VERSION = 1;
 export const RAG_DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small";
 
-export type RagSourceEntityType = "property" | "document";
+export const RAG_SOURCE_ENTITY_TYPES = [
+  "property",
+  "document",
+  "lease",
+  "invoice",
+  "owner",
+  "tenant_account",
+  "interested",
+  "owner_activity",
+  "tenant_activity",
+  "interested_activity",
+] as const;
+
+export type RagSourceEntityType = (typeof RAG_SOURCE_ENTITY_TYPES)[number];
 export type RagCliEntityType = RagSourceEntityType | "all";
-export type RagProjectionType = "property_summary" | "document_chunk";
+export type RagProjectionType =
+  | "property_summary"
+  | "document_chunk"
+  | "lease_summary"
+  | "invoice_payment_summary"
+  | "owner_portfolio_summary"
+  | "tenant_account_summary"
+  | "interested_profile_summary"
+  | "activity_chunk";
+
+export const RAG_PROJECTION_BY_SOURCE: Record<
+  RagSourceEntityType,
+  RagProjectionType
+> = {
+  property: "property_summary",
+  document: "document_chunk",
+  lease: "lease_summary",
+  invoice: "invoice_payment_summary",
+  owner: "owner_portfolio_summary",
+  tenant_account: "tenant_account_summary",
+  interested: "interested_profile_summary",
+  owner_activity: "activity_chunk",
+  tenant_activity: "activity_chunk",
+  interested_activity: "activity_chunk",
+};
 
 export interface RagChunkDraft {
   companyId: string;
@@ -61,6 +98,18 @@ export interface RagVerificationResult {
   orphaned: number;
   selfSearchFailures: number;
   details: Array<Record<string, unknown>>;
+}
+
+export interface RagRecallResult {
+  evaluated: number;
+  k: number;
+  averageRecall: number;
+  minimumRecall: number;
+  failures: Array<{
+    sourceId: string;
+    recall: number;
+    missingExactNeighborIds: string[];
+  }>;
 }
 
 export interface EmbeddingBatchResult {

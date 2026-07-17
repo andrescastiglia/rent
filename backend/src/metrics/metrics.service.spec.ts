@@ -54,4 +54,38 @@ describe('MetricsService', () => {
     expect(metrics).toContain('frontend_client_errors_total');
     expect(metrics).toContain('frontend_api_failures_total');
   });
+
+  it('records the complete RAG metrics contract', async () => {
+    process.env.AI_RAG_INPUT_USD_PER_MILLION = '0.15';
+    process.env.AI_RAG_OUTPUT_USD_PER_MILLION = '0.60';
+    service.recordRagRequest({
+      strategy: 'hybrid',
+      outcome: 'success',
+      durationMs: 120,
+      retrieved: 4,
+      abstained: true,
+      citationFailures: 2,
+      staleRejections: 1,
+      authorizationRejections: 1,
+      promptOverrideOrigins: ['query', 'evidence'],
+      model: 'gpt-test',
+      inputTokens: 1000,
+      outputTokens: 200,
+    });
+
+    const metrics = await service.getMetrics();
+    expect(metrics).toContain('ai_rag_requests_total');
+    expect(metrics).toContain('ai_rag_request_duration_seconds');
+    expect(metrics).toContain('ai_rag_retrieved_chunks');
+    expect(metrics).toContain('ai_rag_abstentions_total');
+    expect(metrics).toContain('ai_rag_citation_failures_total');
+    expect(metrics).toContain('ai_rag_scope_rejections_total');
+    expect(metrics).toContain('ai_rag_prompt_override_attempts_total');
+    expect(metrics).toContain(
+      'ai_rag_tokens_total{direction="input",model="gpt-test"} 1000',
+    );
+    expect(metrics).toContain('ai_rag_estimated_cost_usd_total');
+    delete process.env.AI_RAG_INPUT_USD_PER_MILLION;
+    delete process.env.AI_RAG_OUTPUT_USD_PER_MILLION;
+  });
 });

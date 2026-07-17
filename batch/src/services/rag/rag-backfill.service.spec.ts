@@ -4,10 +4,11 @@ import {
   RAG_EMBEDDING_VERSION,
   RagChunkDraft,
   RagSourceEntity,
+  RagSourceEntityType,
 } from "./rag-types";
 
 const source = (
-  sourceType: "property" | "document" = "property",
+  sourceType: RagSourceEntityType = "property",
 ): RagSourceEntity => ({
   id:
     sourceType === "property"
@@ -54,6 +55,7 @@ describe("RagBackfillService", () => {
     jest
       .spyOn(service, "loadSourceEntities")
       .mockImplementation(async (type) => {
+        if (type !== "property" && type !== "document") return [];
         if (seen.has(type)) return [];
         seen.add(type);
         return [source(type)];

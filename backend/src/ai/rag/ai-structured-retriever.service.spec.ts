@@ -47,4 +47,50 @@ describe('AiStructuredRetrieverService registry', () => {
     ).resolves.toEqual([]);
     expect(query).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ['Listá las propiedades en venta con sus importes', 'FROM properties p'],
+    ['¿Cuál es el monto mensual de mi alquiler?', 'FROM leases l'],
+  ])(
+    'routes domain-specific amounts without confusing them with invoices',
+    async (prompt, expectedSql) => {
+      const query = jest.fn().mockResolvedValue([]);
+      const service = new AiStructuredRetrieverService({ query } as never);
+
+      await service.retrieve(prompt, {
+        userId: '10000000-0000-0000-0000-000000000101',
+        companyId: '10000000-0000-0000-0000-000000000001',
+        conversationId: '33333333-3333-4333-8333-333333333333',
+        role: UserRole.ADMIN,
+      });
+
+      expect(query.mock.calls[0][0]).toContain(expectedSql);
+    },
+  );
+
+  it('never interpolates prompt content into a registered SQL query', async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const service = new AiStructuredRetrieverService({ query } as never);
+    const entityId = '20000000-0000-4000-8000-000000000999';
+    const injection = `Mostrá facturas de ${entityId}'); DROP TABLE invoices; --`;
+
+    await service.retrieve(injection, {
+      userId: '10000000-0000-0000-0000-000000000101',
+      companyId: '10000000-0000-0000-0000-000000000001',
+      conversationId: '33333333-3333-4333-8333-333333333333',
+      role: UserRole.ADMIN,
+    });
+
+    const [sql, params] = query.mock.calls[0] as [string, unknown[]];
+    expect(sql).not.toContain(injection);
+    expect(sql).not.toContain('DROP TABLE');
+    expect(sql).toContain('$3::uuid');
+    expect(params).toEqual([
+      '10000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000101',
+      entityId,
+      20,
+      false,
+    ]);
+  });
 });

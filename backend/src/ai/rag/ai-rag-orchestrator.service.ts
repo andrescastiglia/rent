@@ -1,5 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
-import { UserRole } from '../../users/entities/user.entity';
+import { Injectable } from '@nestjs/common';
 import { AiChatMessage } from '../dto/ai-chat-request.dto';
 import { AiConversationsService } from '../ai-conversations.service';
 import { AiOpenAiService } from '../ai-openai.service';
@@ -10,6 +9,7 @@ import { AiEvidenceValidatorService } from './ai-evidence-validator.service';
 import { AiAnswerGeneratorService } from './ai-answer-generator.service';
 import { AiRagAuditService } from './ai-rag-audit.service';
 import { AiRagContext, AiRagSource } from './ai-rag.types';
+import { MetricsService } from '../../metrics/metrics.service';
 
 @Injectable()
 export class AiRagOrchestratorService {
@@ -22,6 +22,7 @@ export class AiRagOrchestratorService {
     private readonly validator: AiEvidenceValidatorService,
     private readonly generator: AiAnswerGeneratorService,
     private readonly audit: AiRagAuditService,
+    private readonly metrics: MetricsService,
   ) {}
 
   async respond(params: {
@@ -50,14 +51,6 @@ export class AiRagOrchestratorService {
 
     try {
       if (strategy === 'mutation') {
-        if (
-          context.role === UserRole.OWNER ||
-          context.role === UserRole.TENANT
-        ) {
-          throw new ForbiddenException(
-            'This role can only perform read-only AI queries',
-          );
-        }
         const response = await this.legacy.respond(
           params.prompt,
           context,
@@ -95,11 +88,18 @@ export class AiRagOrchestratorService {
         sources = this.unique([...structured, ...vector]);
       }
 
-      sources = await this.validator.filterFreshVectorSources(
+      const freshSources = await this.validator.filterFreshVectorSources(
         sources,
         context.companyId,
       );
-      sources = await this.vector.filterAuthorized(sources, context);
+      const staleRejections = sources.length - freshSources.length;
+      const authorizedSources = await this.vector.filterAuthorized(
+        freshSources,
+        context,
+      );
+      const authorizationRejections =
+        freshSources.length - authorizedSources.length;
+      sources = authorizedSources;
       sources = this.validator.sanitize(sources);
       const generated =
         strategy === 'unsupported'
@@ -111,6 +111,10 @@ export class AiRagOrchestratorService {
             }
           : await this.generator.generate({ prompt: params.prompt, sources });
       const answer = this.validator.validate(generated.answer, sources);
+      const citationFailures = Math.max(
+        0,
+        generated.answer.claims.length - answer.claims.length,
+      );
       const persisted = persistConversation
         ? await this.conversations.appendExchange({
             conversationId: conversation.id,
@@ -131,10 +135,35 @@ export class AiRagOrchestratorService {
         model: generated.model,
         usage: generated.usage,
         latencyMs: Date.now() - startedAt,
+        promptOverrideAttempt: this.hasPromptOverride(params.prompt, sources),
+      });
+      this.metrics.recordRagRequest({
+        strategy,
+        outcome: 'success',
+        durationMs: Date.now() - startedAt,
+        retrieved: sources.length,
+        abstained: answer.insufficientEvidence,
+        citationFailures,
+        staleRejections,
+        authorizationRejections,
+        promptOverrideOrigins: this.promptOverrideOrigins(
+          params.prompt,
+          sources,
+        ),
+        model: generated.model,
+        inputTokens: generated.usage?.input_tokens,
+        outputTokens: generated.usage?.output_tokens,
       });
       const publicSources = sources
         .filter((source) => citedIds.includes(source.sourceId))
-        .map(({ content: _content, origin: _origin, ...source }) => source);
+        .map(
+          ({
+            content: _content,
+            origin: _origin,
+            retrievalScore: _retrievalScore,
+            ...source
+          }) => source,
+        );
       return {
         conversationId: conversation.id,
         toolState: persisted.toolState,
@@ -151,6 +180,13 @@ export class AiRagOrchestratorService {
         ragRunId,
       };
     } catch (error) {
+      this.metrics.recordRagRequest({
+        strategy,
+        outcome: 'error',
+        durationMs: Date.now() - startedAt,
+        retrieved: 0,
+        abstained: false,
+      });
       const message =
         error instanceof Error ? error.message : 'AI provider request failed';
       if (persistConversation) {
@@ -169,5 +205,23 @@ export class AiRagOrchestratorService {
     return [
       ...new Map(sources.map((source) => [source.sourceId, source])).values(),
     ];
+  }
+
+  private promptOverrideOrigins(
+    prompt: string,
+    sources: AiRagSource[],
+  ): Array<'query' | 'evidence'> {
+    const pattern =
+      /\b(ignore|ignor[aá]|olvid[aá]|override|system prompt|developer message|nuevas instrucciones)\b/i;
+    const origins: Array<'query' | 'evidence'> = [];
+    if (pattern.test(prompt)) origins.push('query');
+    if (sources.some((source) => pattern.test(source.content))) {
+      origins.push('evidence');
+    }
+    return origins;
+  }
+
+  private hasPromptOverride(prompt: string, sources: AiRagSource[]): boolean {
+    return this.promptOverrideOrigins(prompt, sources).length > 0;
   }
 }

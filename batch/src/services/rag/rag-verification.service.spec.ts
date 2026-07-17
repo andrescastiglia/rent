@@ -56,7 +56,8 @@ describe("RagVerificationService", () => {
       loadSourceEntities: jest
         .fn()
         .mockResolvedValueOnce([property])
-        .mockResolvedValueOnce([document]),
+        .mockResolvedValueOnce([document])
+        .mockResolvedValue([]),
     };
     const builder = {
       build: jest.fn((input: RagSourceEntity) =>
@@ -90,9 +91,18 @@ describe("RagVerificationService", () => {
       "invalid_embedding",
       "missing",
     ]);
-    expect(sourceReader.loadSourceEntities).toHaveBeenCalledTimes(2);
+    expect(sourceReader.loadSourceEntities).toHaveBeenCalledTimes(10);
     expect(query.mock.calls[2][1]).toEqual([
-      ["property_summary", "document_chunk"],
+      [
+        "property_summary",
+        "document_chunk",
+        "lease_summary",
+        "invoice_payment_summary",
+        "owner_portfolio_summary",
+        "tenant_account_summary",
+        "interested_profile_summary",
+        "activity_chunk",
+      ],
       "company-id",
     ]);
   });
@@ -151,4 +161,53 @@ describe("RagVerificationService", () => {
       expect(query.mock.calls[0][1]).toEqual([olderThan]);
     },
   );
+
+  it("compares approximate HNSW results with exact neighbors", async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([
+        {
+          id: "source",
+          company_id: "company",
+          embedding: "[0,1]",
+        },
+      ])
+      .mockResolvedValueOnce([{ id: "a" }, { id: "c" }]);
+    const managerQuery = jest
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: "a" }, { id: "b" }]);
+    const dataSource = {
+      query,
+      transaction: jest.fn(async (action) => action({ query: managerQuery })),
+    };
+    const service = new RagVerificationService({
+      dataSource: dataSource as unknown as DataSource,
+      sourceReader: {} as never,
+      builder: {} as never,
+    });
+
+    const result = await service.compareHnswRecall({
+      sampleSize: 1,
+      k: 2,
+      minimumRecall: 0.75,
+    });
+
+    expect(result).toMatchObject({
+      evaluated: 1,
+      averageRecall: 0.5,
+      minimumRecall: 0.5,
+      failures: [
+        {
+          sourceId: "source",
+          recall: 0.5,
+          missingExactNeighborIds: ["b"],
+        },
+      ],
+    });
+    expect(managerQuery).toHaveBeenCalledWith(
+      "SET LOCAL enable_indexscan = off",
+    );
+  });
 });

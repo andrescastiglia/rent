@@ -9,6 +9,8 @@ export interface AiExecutionContext {
   companyId?: string;
   conversationId?: string;
   role: UserRole;
+  confirmMutation?: boolean;
+  confirmationId?: string;
 }
 
 export interface AiToolDefinition<TSchema extends ZodType = ZodType> {

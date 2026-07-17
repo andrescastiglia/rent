@@ -93,7 +93,9 @@ describe('AI tools integration', () => {
       whatsappService,
       githubIssuesService,
     } as any);
-    executor = new AiToolExecutorService(catalog);
+    executor = new AiToolExecutorService(catalog, {
+      query: jest.fn(),
+    } as any);
     process.env.AI_TOOLS_MODE = 'FULL';
   });
 

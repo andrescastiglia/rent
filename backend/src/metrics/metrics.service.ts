@@ -56,6 +56,71 @@ export class MetricsService {
     registers: [this.registry],
   });
 
+  private readonly ragRequestsTotal = new Counter({
+    name: 'ai_rag_requests_total',
+    help: 'RAG requests by retrieval strategy and outcome',
+    labelNames: ['strategy', 'outcome'] as const,
+    registers: [this.registry],
+  });
+
+  private readonly ragRequestDurationSeconds = new Histogram({
+    name: 'ai_rag_request_duration_seconds',
+    help: 'End-to-end RAG request duration',
+    labelNames: ['strategy', 'outcome'] as const,
+    buckets: [0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60],
+    registers: [this.registry],
+  });
+
+  private readonly ragRetrievedChunks = new Histogram({
+    name: 'ai_rag_retrieved_chunks',
+    help: 'Authorized and fresh evidence items passed to generation',
+    labelNames: ['strategy'] as const,
+    buckets: [0, 1, 2, 4, 8, 12, 20, 40],
+    registers: [this.registry],
+  });
+
+  private readonly ragAbstentionsTotal = new Counter({
+    name: 'ai_rag_abstentions_total',
+    help: 'RAG responses that abstained for insufficient evidence',
+    labelNames: ['strategy'] as const,
+    registers: [this.registry],
+  });
+
+  private readonly ragCitationFailuresTotal = new Counter({
+    name: 'ai_rag_citation_failures_total',
+    help: 'Generated claims rejected because citations were invalid',
+    labelNames: ['strategy'] as const,
+    registers: [this.registry],
+  });
+
+  private readonly ragScopeRejectionsTotal = new Counter({
+    name: 'ai_rag_scope_rejections_total',
+    help: 'Retrieved vector sources rejected by freshness or authorization',
+    labelNames: ['reason'] as const,
+    registers: [this.registry],
+  });
+
+  private readonly ragPromptOverrideAttemptsTotal = new Counter({
+    name: 'ai_rag_prompt_override_attempts_total',
+    help: 'Detected prompt override patterns without recording prompt text',
+    labelNames: ['origin'] as const,
+    registers: [this.registry],
+  });
+
+  private readonly ragTokensTotal = new Counter({
+    name: 'ai_rag_tokens_total',
+    help: 'RAG model tokens by direction and model',
+    labelNames: ['direction', 'model'] as const,
+    registers: [this.registry],
+  });
+
+  private readonly ragEstimatedCostUsdTotal = new Counter({
+    name: 'ai_rag_estimated_cost_usd_total',
+    help: 'Estimated cumulative RAG model cost in USD using configured rates',
+    labelNames: ['model'] as const,
+    registers: [this.registry],
+  });
+
   constructor() {
     collectDefaultMetrics({
       register: this.registry,
@@ -129,6 +194,80 @@ export class MetricsService {
         status_code: this.normalizeStatusCode(metric.statusCode),
       });
     }
+  }
+
+  recordRagRequest(input: {
+    strategy: string;
+    outcome: 'success' | 'error';
+    durationMs: number;
+    retrieved: number;
+    abstained: boolean;
+    citationFailures?: number;
+    staleRejections?: number;
+    authorizationRejections?: number;
+    promptOverrideOrigins?: Array<'query' | 'evidence'>;
+    model?: string;
+    inputTokens?: number;
+    outputTokens?: number;
+  }): void {
+    const strategy = this.normalizeLabelValue(input.strategy, 30);
+    this.ragRequestsTotal.inc({ strategy, outcome: input.outcome });
+    this.ragRequestDurationSeconds.observe(
+      { strategy, outcome: input.outcome },
+      Math.max(0, input.durationMs) / 1000,
+    );
+    this.ragRetrievedChunks.observe({ strategy }, Math.max(0, input.retrieved));
+    if (input.abstained) this.ragAbstentionsTotal.inc({ strategy });
+    if (input.citationFailures && input.citationFailures > 0) {
+      this.ragCitationFailuresTotal.inc({ strategy }, input.citationFailures);
+    }
+    if (input.staleRejections && input.staleRejections > 0) {
+      this.ragScopeRejectionsTotal.inc(
+        { reason: 'stale' },
+        input.staleRejections,
+      );
+    }
+    if (input.authorizationRejections && input.authorizationRejections > 0) {
+      this.ragScopeRejectionsTotal.inc(
+        { reason: 'authorization' },
+        input.authorizationRejections,
+      );
+    }
+    for (const origin of new Set(input.promptOverrideOrigins ?? [])) {
+      this.ragPromptOverrideAttemptsTotal.inc({ origin });
+    }
+    const model = this.normalizeLabelValue(input.model ?? 'none', 80);
+    const inputTokens = this.nonNegativeInteger(input.inputTokens);
+    const outputTokens = this.nonNegativeInteger(input.outputTokens);
+    if (inputTokens > 0) {
+      this.ragTokensTotal.inc({ direction: 'input', model }, inputTokens);
+    }
+    if (outputTokens > 0) {
+      this.ragTokensTotal.inc({ direction: 'output', model }, outputTokens);
+    }
+    const inputRate = this.nonNegativeNumber(
+      process.env.AI_RAG_INPUT_USD_PER_MILLION,
+    );
+    const outputRate = this.nonNegativeNumber(
+      process.env.AI_RAG_OUTPUT_USD_PER_MILLION,
+    );
+    const estimatedCost =
+      (inputTokens * inputRate + outputTokens * outputRate) / 1_000_000;
+    if (estimatedCost > 0) {
+      this.ragEstimatedCostUsdTotal.inc({ model }, estimatedCost);
+    }
+  }
+
+  private nonNegativeInteger(value?: number): number {
+    return typeof value === 'number' && Number.isFinite(value) && value > 0
+      ? Math.trunc(value)
+      : 0;
+  }
+
+  private nonNegativeNumber(value?: string): number {
+    if (!value) return 0;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
   }
 
   private normalizeMethod(method?: string): string {

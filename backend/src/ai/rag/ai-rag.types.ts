@@ -22,6 +22,7 @@ export type AiRagSource = {
   updatedAt: string;
   content: string;
   origin: 'vector' | 'structured';
+  retrievalScore?: number;
 };
 
 export type AiRagAnswer = {

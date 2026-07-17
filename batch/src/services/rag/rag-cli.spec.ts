@@ -6,6 +6,8 @@ const mockBackfillRun = jest.fn();
 const mockVerify = jest.fn();
 const mockBuildHnswIndex = jest.fn();
 const mockPurgeStale = jest.fn();
+const mockPurgeAudit = jest.fn();
+const mockCompareHnswRecall = jest.fn();
 const mockRunOnce = jest.fn();
 const mockRunUntilStopped = jest.fn();
 const mockRecordJobRun = jest.fn();
@@ -36,6 +38,8 @@ jest.mock("./rag-verification.service", () => ({
     verify: (...args: unknown[]) => mockVerify(...args),
     buildHnswIndex: (...args: unknown[]) => mockBuildHnswIndex(...args),
     purgeStale: (...args: unknown[]) => mockPurgeStale(...args),
+    purgeAudit: (...args: unknown[]) => mockPurgeAudit(...args),
+    compareHnswRecall: (...args: unknown[]) => mockCompareHnswRecall(...args),
   })),
 }));
 
@@ -85,6 +89,19 @@ describe("RAG CLI", () => {
     mockVerify.mockResolvedValue(verification());
     mockBuildHnswIndex.mockResolvedValue(undefined);
     mockPurgeStale.mockResolvedValue(3);
+    mockPurgeAudit.mockResolvedValue({
+      ragRuns: 1,
+      shadowComparisons: 1,
+      mutationConfirmations: 1,
+      outbox: 1,
+    });
+    mockCompareHnswRecall.mockResolvedValue({
+      evaluated: 10,
+      k: 8,
+      averageRecall: 1,
+      minimumRecall: 1,
+      failures: [],
+    });
     mockRunOnce.mockResolvedValue({ claimed: 2, processed: 2, failed: 0 });
     mockRunUntilStopped.mockResolvedValue(undefined);
     mockRecordJobRun.mockResolvedValue(undefined);
@@ -199,8 +216,52 @@ describe("RAG CLI", () => {
     );
   });
 
+  it("purges retained audit data and records a successful maintenance run", async () => {
+    await execute(
+      "rag-purge-audit",
+      "--older-than",
+      "2026-01-01T00:00:00.000Z",
+    );
+
+    expect(mockPurgeAudit).toHaveBeenCalledWith(
+      new Date("2026-01-01T00:00:00.000Z"),
+      false,
+    );
+    expect(mockRecordJobRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        job: "rag-purge-audit",
+        status: "success",
+        summary: {
+          recordsTotal: 4,
+          recordsProcessed: 4,
+          recordsFailed: 0,
+        },
+      }),
+    );
+  });
+
+  it("compares HNSW recall against exact search", async () => {
+    await execute(
+      "rag-recall",
+      "--sample-size",
+      "10",
+      "--k",
+      "4",
+      "--min-recall",
+      "0.9",
+    );
+
+    expect(mockCompareHnswRecall).toHaveBeenCalledWith({
+      companyId: undefined,
+      sampleSize: 10,
+      k: 4,
+      minimumRecall: 0.9,
+    });
+    expect(process.exitCode).toBeUndefined();
+  });
+
   it.each([
-    [["rag-backfill", "--entity", "invoice", "--dry-run"], "entity must be"],
+    [["rag-backfill", "--entity", "invalid", "--dry-run"], "entity must be"],
     [["rag-verify", "--sample-size", "0"], "positive integer"],
     [["rag-purge-stale", "--older-than", "not-a-date"], "valid ISO date"],
   ])("rejects invalid input", async (args, message) => {

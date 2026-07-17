@@ -5,6 +5,7 @@ import { EmbeddingClientService } from "./embedding-client.service";
 import { RagDocumentBuilderService } from "./rag-document-builder.service";
 import {
   RAG_EMBEDDING_VERSION,
+  RAG_SOURCE_ENTITY_TYPES,
   RagBackfillOptions,
   RagBackfillResult,
   RagChunkDraft,
@@ -54,7 +55,9 @@ export class RagBackfillService {
       errors: [],
     };
     const sourceTypes: RagSourceEntityType[] =
-      options.entity === "all" ? ["property", "document"] : [options.entity];
+      options.entity === "all"
+        ? [...RAG_SOURCE_ENTITY_TYPES]
+        : [options.entity];
 
     for (const sourceType of sourceTypes) {
       await this.backfillSourceType(sourceType, options, result);
@@ -268,9 +271,19 @@ export class RagBackfillService {
     checkpoint: string | undefined,
     limit: number,
   ): Promise<RagSourceEntity[]> {
-    return sourceType === "property"
-      ? this.loadProperties(companyId, checkpoint, limit)
-      : this.loadDocuments(companyId, checkpoint, limit);
+    switch (sourceType) {
+      case "property":
+        return this.loadProperties(companyId, checkpoint, limit);
+      case "document":
+        return this.loadDocuments(companyId, checkpoint, limit);
+      default:
+        return this.loadAdditionalSources(
+          sourceType,
+          companyId,
+          checkpoint,
+          limit,
+        );
+    }
   }
 
   async loadSourceEntity(
@@ -281,8 +294,259 @@ export class RagBackfillService {
     const rows =
       sourceType === "property"
         ? await this.loadPropertyById(companyId, entityId)
-        : await this.loadDocumentById(companyId, entityId);
+        : sourceType === "document"
+          ? await this.loadDocumentById(companyId, entityId)
+          : await this.loadAdditionalSources(
+              sourceType,
+              companyId,
+              undefined,
+              1,
+              entityId,
+            );
     return rows[0];
+  }
+
+  private async loadAdditionalSources(
+    sourceType: Exclude<RagSourceEntityType, "property" | "document">,
+    companyId: string | undefined,
+    checkpoint: string | undefined,
+    limit: number,
+    entityId?: string,
+  ): Promise<RagSourceEntity[]> {
+    const values = [
+      companyId ?? null,
+      checkpoint ?? null,
+      limit,
+      entityId ?? null,
+    ];
+    let sql: string;
+    switch (sourceType) {
+      case "lease":
+        sql = `SELECT l.*, p.name AS property_name, p.address_city AS property_city,
+                      concat_ws(' ', tu.first_name, tu.last_name) AS tenant_name,
+                      concat_ws(' ', ou.first_name, ou.last_name) AS owner_name,
+                      GREATEST(
+                        l.updated_at, p.updated_at, o.updated_at, ou.updated_at,
+                        COALESCE(t.updated_at, l.updated_at),
+                        COALESCE(tu.updated_at, l.updated_at)
+                      ) AS source_updated_at
+                 FROM leases l
+                 JOIN properties p ON p.id = l.property_id AND p.deleted_at IS NULL
+                 JOIN owners o ON o.id = l.owner_id AND o.deleted_at IS NULL
+                 JOIN users ou ON ou.id = o.user_id AND ou.deleted_at IS NULL
+            LEFT JOIN tenants t ON t.id = l.tenant_id AND t.deleted_at IS NULL
+            LEFT JOIN users tu ON tu.id = t.user_id AND tu.deleted_at IS NULL
+                WHERE l.deleted_at IS NULL
+                  AND ($1::uuid IS NULL OR l.company_id = $1)
+                  AND ($2::uuid IS NULL OR l.id > $2)
+                  AND ($4::uuid IS NULL OR l.id = $4)
+                ORDER BY l.id LIMIT $3`;
+        break;
+      case "invoice":
+        sql = `SELECT i.*, l.tenant_id, l.lease_number, p.name AS property_name,
+                      GREATEST(
+                        i.updated_at, l.updated_at, p.updated_at,
+                        COALESCE(max(pay.updated_at), i.updated_at)
+                      ) AS source_updated_at,
+                      COALESCE(jsonb_agg(jsonb_build_object(
+                        'id', pay.id, 'paymentNumber', pay.payment_number,
+                        'method', pay.payment_method
+                      ) ORDER BY pay.payment_date, pay.id)
+                      FILTER (WHERE pay.id IS NOT NULL), '[]'::jsonb) AS payments
+                 FROM invoices i
+                 JOIN leases l ON l.id = i.lease_id AND l.deleted_at IS NULL
+                 JOIN properties p ON p.id = l.property_id AND p.deleted_at IS NULL
+            LEFT JOIN payments pay ON pay.invoice_id = i.id AND pay.deleted_at IS NULL
+                WHERE i.deleted_at IS NULL
+                  AND ($1::uuid IS NULL OR i.company_id = $1)
+                  AND ($2::uuid IS NULL OR i.id > $2)
+                  AND ($4::uuid IS NULL OR i.id = $4)
+                GROUP BY i.id, l.id, p.id
+                ORDER BY i.id LIMIT $3`;
+        break;
+      case "owner":
+        sql = `SELECT o.*, concat_ws(' ', u.first_name, u.last_name) AS owner_name,
+                      GREATEST(
+                        o.updated_at, u.updated_at,
+                        COALESCE(max(p.updated_at), o.updated_at)
+                      ) AS source_updated_at,
+                      COALESCE(jsonb_agg(jsonb_build_object(
+                        'id', p.id, 'name', p.name, 'propertyType', p.property_type,
+                        'city', p.address_city
+                      ) ORDER BY p.name, p.id)
+                      FILTER (WHERE p.id IS NOT NULL), '[]'::jsonb) AS properties
+                 FROM owners o
+                 JOIN users u ON u.id = o.user_id AND u.deleted_at IS NULL
+            LEFT JOIN properties p ON p.owner_id = o.id AND p.deleted_at IS NULL
+                WHERE o.deleted_at IS NULL
+                  AND ($1::uuid IS NULL OR o.company_id = $1)
+                  AND ($2::uuid IS NULL OR o.id > $2)
+                  AND ($4::uuid IS NULL OR o.id = $4)
+                GROUP BY o.id, u.id
+                ORDER BY o.id LIMIT $3`;
+        break;
+      case "tenant_account":
+        sql = `SELECT a.*, t.user_id AS tenant_user_id,
+                      concat_ws(' ', u.first_name, u.last_name) AS tenant_name,
+                      l.lease_number, l.property_id, p.name AS property_name,
+                      GREATEST(a.updated_at, t.updated_at, u.updated_at, l.updated_at, p.updated_at)
+                        AS source_updated_at
+                 FROM tenant_accounts a
+                 JOIN tenants t ON t.id = a.tenant_id AND t.deleted_at IS NULL
+                 JOIN users u ON u.id = t.user_id AND u.deleted_at IS NULL
+                 JOIN leases l ON l.id = a.lease_id AND l.deleted_at IS NULL
+                 JOIN properties p ON p.id = l.property_id AND p.deleted_at IS NULL
+                WHERE a.deleted_at IS NULL
+                  AND ($1::uuid IS NULL OR a.company_id = $1)
+                  AND ($2::uuid IS NULL OR a.id > $2)
+                  AND ($4::uuid IS NULL OR a.id = $4)
+                ORDER BY a.id LIMIT $3`;
+        break;
+      case "interested":
+        sql = `SELECT ip.*
+                 FROM interested_profiles ip
+                WHERE ip.deleted_at IS NULL
+                  AND ($1::uuid IS NULL OR ip.company_id = $1)
+                  AND ($2::uuid IS NULL OR ip.id > $2)
+                  AND ($4::uuid IS NULL OR ip.id = $4)
+                ORDER BY ip.id LIMIT $3`;
+        break;
+      case "owner_activity":
+        sql = `SELECT a.*, a.owner_id AS subject_id
+                 FROM owner_activities a
+                WHERE a.deleted_at IS NULL
+                  AND ($1::uuid IS NULL OR a.company_id = $1)
+                  AND ($2::uuid IS NULL OR a.id > $2)
+                  AND ($4::uuid IS NULL OR a.id = $4)
+                ORDER BY a.id LIMIT $3`;
+        break;
+      case "tenant_activity":
+        sql = `SELECT a.*, a.tenant_id AS subject_id
+                 FROM tenant_activities a
+                WHERE a.deleted_at IS NULL
+                  AND ($1::uuid IS NULL OR a.company_id = $1)
+                  AND ($2::uuid IS NULL OR a.id > $2)
+                  AND ($4::uuid IS NULL OR a.id = $4)
+                ORDER BY a.id LIMIT $3`;
+        break;
+      case "interested_activity":
+        sql = `SELECT a.*, ip.company_id, a.interested_profile_id AS subject_id
+                 FROM interested_activities a
+                 JOIN interested_profiles ip ON ip.id = a.interested_profile_id
+                  AND ip.deleted_at IS NULL
+                WHERE ($1::uuid IS NULL OR ip.company_id = $1)
+                  AND ($2::uuid IS NULL OR a.id > $2)
+                  AND ($4::uuid IS NULL OR a.id = $4)
+                ORDER BY a.id LIMIT $3`;
+        break;
+    }
+    const rows = (await this.dataSource.query(sql, values)) as Array<
+      Record<string, unknown>
+    >;
+    return rows.map((row) => this.mapAdditionalSource(sourceType, row));
+  }
+
+  private mapAdditionalSource(
+    sourceType: Exclude<RagSourceEntityType, "property" | "document">,
+    row: Record<string, unknown>,
+  ): RagSourceEntity {
+    const common = {
+      id: String(row.id),
+      companyId: String(row.company_id),
+      updatedAt: new Date(String(row.source_updated_at ?? row.updated_at)),
+      sourceType,
+    };
+    switch (sourceType) {
+      case "lease":
+        return {
+          ...common,
+          data: {
+            leaseNumber: row.lease_number,
+            contractType: row.contract_type,
+            propertyId: row.property_id,
+            propertyName: row.property_name,
+            propertyCity: row.property_city,
+            tenantId: row.tenant_id,
+            tenantName: row.tenant_name,
+            ownerId: row.owner_id,
+            ownerName: row.owner_name,
+            paymentFrequency: row.payment_frequency,
+            termsAndConditions: row.terms_and_conditions,
+            specialClauses: row.special_clauses,
+            notes: row.notes,
+          },
+        };
+      case "invoice":
+        return {
+          ...common,
+          data: {
+            invoiceNumber: row.invoice_number,
+            leaseId: row.lease_id,
+            leaseNumber: row.lease_number,
+            propertyName: row.property_name,
+            ownerId: row.owner_id,
+            tenantId: row.tenant_id,
+            notes: row.notes,
+            payments: row.payments,
+          },
+        };
+      case "owner":
+        return {
+          ...common,
+          data: {
+            userId: row.user_id,
+            ownerName: row.owner_name,
+            notes: row.notes,
+            properties: row.properties,
+          },
+        };
+      case "tenant_account":
+        return {
+          ...common,
+          data: {
+            tenantId: row.tenant_id,
+            tenantUserId: row.tenant_user_id,
+            tenantName: row.tenant_name,
+            leaseId: row.lease_id,
+            leaseNumber: row.lease_number,
+            propertyId: row.property_id,
+            propertyName: row.property_name,
+            notes: row.notes,
+          },
+        };
+      case "interested":
+        return {
+          ...common,
+          data: {
+            firstName: row.first_name,
+            lastName: row.last_name,
+            peopleCount: row.people_count,
+            hasPets: row.has_pets,
+            guaranteeTypes: row.guarantee_types,
+            preferredZones: row.preferred_zones,
+            preferredCity: row.preferred_city,
+            desiredFeatures: row.desired_features,
+            propertyTypePreference: row.property_type_preference,
+            operation: row.operation,
+            operations: row.operations,
+            status: row.status,
+            qualificationNotes: row.qualification_notes,
+            assignedToUserId: row.assigned_to_user_id,
+          },
+        };
+      default:
+        return {
+          ...common,
+          data: {
+            type: row.type,
+            subject: row.subject,
+            body: row.body,
+            subjectId: row.subject_id,
+            propertyId: row.property_id,
+            createdByUserId: row.created_by_user_id,
+          },
+        };
+    }
   }
 
   private async loadPropertyById(
@@ -291,6 +555,7 @@ export class RagBackfillService {
   ): Promise<RagSourceEntity[]> {
     const rows = (await this.dataSource.query(
       `SELECT p.*,
+              GREATEST(p.updated_at, COALESCE(max(pf.updated_at), p.updated_at)) AS source_updated_at,
               COALESCE(
                 jsonb_agg(jsonb_build_object(
                   'category', pf.category,
@@ -316,6 +581,7 @@ export class RagBackfillService {
   ): Promise<RagSourceEntity[]> {
     const rows = (await this.dataSource.query(
       `SELECT d.*,
+              GREATEST(d.updated_at, COALESCE(l.updated_at, d.updated_at)) AS source_updated_at,
               CASE WHEN d.entity_type = 'lease'
                    THEN COALESCE(l.confirmed_contract_text, l.draft_contract_text)
                    ELSE NULL
@@ -338,6 +604,7 @@ export class RagBackfillService {
   ): Promise<RagSourceEntity[]> {
     const rows = (await this.dataSource.query(
       `SELECT p.*,
+              GREATEST(p.updated_at, COALESCE(max(pf.updated_at), p.updated_at)) AS source_updated_at,
               COALESCE(
                 jsonb_agg(jsonb_build_object(
                   'category', pf.category,
@@ -368,6 +635,7 @@ export class RagBackfillService {
   ): Promise<RagSourceEntity[]> {
     const rows = (await this.dataSource.query(
       `SELECT d.*,
+              GREATEST(d.updated_at, COALESCE(l.updated_at, d.updated_at)) AS source_updated_at,
               CASE WHEN d.entity_type = 'lease'
                    THEN COALESCE(l.confirmed_contract_text, l.draft_contract_text)
                    ELSE NULL
@@ -389,7 +657,7 @@ export class RagBackfillService {
     return {
       id: String(row.id),
       companyId: String(row.company_id),
-      updatedAt: new Date(String(row.updated_at)),
+      updatedAt: new Date(String(row.source_updated_at ?? row.updated_at)),
       sourceType: "property",
       data: {
         name: row.name,
@@ -423,7 +691,7 @@ export class RagBackfillService {
     return {
       id: String(row.id),
       companyId: String(row.company_id),
-      updatedAt: new Date(String(row.updated_at)),
+      updatedAt: new Date(String(row.source_updated_at ?? row.updated_at)),
       sourceType: "document",
       data: {
         documentType: row.document_type,

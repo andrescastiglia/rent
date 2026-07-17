@@ -18,6 +18,7 @@ import { MaintenanceModule } from '../maintenance/maintenance.module';
 import { BankAccountsModule } from '../bank-accounts/bank-accounts.module';
 import { SettlementsModule } from '../settlements/settlements.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { MetricsModule } from '../metrics/metrics.module';
 import { AiController } from './ai.controller';
 import { AiToolCatalogService } from './ai-tool-catalog.service';
 import { AiToolExecutorService } from './ai-tool-executor.service';
@@ -71,6 +72,7 @@ import { AiRagRolloutService } from './rag/ai-rag-rollout.service';
     BankAccountsModule,
     SettlementsModule,
     NotificationsModule,
+    MetricsModule,
   ],
   controllers: [AiController, AiRagController],
   providers: [
