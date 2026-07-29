@@ -136,7 +136,8 @@
       "10000000-0000-0000-0000-000000000602",
       "10000000-0000-0000-0000-000000000603",
       "10000000-0000-0000-0000-000000000604",
-      "10000000-0000-0000-0000-000000000605"
+      "10000000-0000-0000-0000-000000000605",
+      "10000000-0000-0000-0000-000000001402"
     ],
     "expectedAnswer": "Debe responder solamente con evidencia semántica autorizada y citar sus fuentes.",
     "requiredSourceTypes": ["document_chunk", "property", "property_summary"],

@@ -16,10 +16,20 @@ const baseUrl = valueOf(
   process.env.AI_EVAL_BASE_URL || 'http://127.0.0.1:3001',
 );
 const limit = Number(valueOf('--limit', '0'));
+const caseFilter = valueOf('--case-id', '');
 const roleFilter = valueOf('--role', '');
 const categoryFilter = valueOf('--category', '');
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const structuredSourceTypes = new Set([
+  'invoice',
+  'lease',
+  'property',
+  'payment',
+  'tenant_account',
+  'dashboard',
+  'structured_query',
+]);
 
 function validateEvaluationDataset(tests) {
   if (!Array.isArray(tests) || tests.length < 1) {
@@ -392,7 +402,19 @@ function dateVariants(value) {
   if (Number.isNaN(date.getTime())) return [];
   const iso = date.toISOString().slice(0, 10);
   const [year, month, day] = iso.split('-');
-  return [iso, `${day}/${month}/${year}`, `${day}-${month}-${year}`];
+  const natural = new Intl.DateTimeFormat('es-AR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(date);
+  return [
+    iso,
+    `${day}/${month}/${year}`,
+    `${day}-${month}-${year}`,
+    `${Number(day)}/${Number(month)}/${year}`,
+    natural,
+  ];
 }
 
 async function exactMonetaryValues(db, sources) {
@@ -550,6 +572,7 @@ async function main() {
   try {
     if (has('--shadow-report')) return await shadowReport(db);
     let tests = evaluationCases;
+    if (caseFilter) tests = tests.filter((test) => test.id === caseFilter);
     if (roleFilter) tests = tests.filter((test) => test.role === roleFilter);
     if (categoryFilter)
       tests = tests.filter((test) => test.category === categoryFilter);
@@ -637,8 +660,11 @@ async function main() {
         !Array.isArray(test.requiredSourceTypes) ||
         test.requiredSourceTypes.length === 0 ||
         body.insufficientEvidence === true ||
-        sources.some((source) =>
-          test.requiredSourceTypes.includes(source.entityType),
+        sources.some(
+          (source) =>
+            test.requiredSourceTypes.includes(source.entityType) ||
+            (test.requiredSourceTypes.includes('structured_query') &&
+              structuredSourceTypes.has(source.entityType)),
         );
       const passed =
         response.ok &&
@@ -677,6 +703,24 @@ async function main() {
         inputTokens: Number(body.usage?.input_tokens || 0),
         outputTokens: Number(body.usage?.output_tokens || 0),
       });
+      if (has('--debug')) {
+        console.log(
+          JSON.stringify(
+            {
+              id: test.id,
+              answer: body.outputText ?? body.answer,
+              insufficientEvidence: body.insufficientEvidence,
+              sources: sources.map((source) => ({
+                entityType: source.entityType,
+                entityId: source.entityId,
+                label: source.label,
+              })),
+            },
+            null,
+            2,
+          ),
+        );
+      }
       console.log(`${test.id}: ${passed ? 'PASS' : 'FAIL'}`);
     }
 

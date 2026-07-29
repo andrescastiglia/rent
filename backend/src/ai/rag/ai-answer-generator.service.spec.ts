@@ -109,6 +109,12 @@ describe('AiAnswerGeneratorService', () => {
             ),
           }),
           expect.objectContaining({
+            role: 'system',
+            content: expect.stringContaining(
+              'Respondé cada aspecto pedido explícitamente',
+            ),
+          }),
+          expect.objectContaining({
             role: 'user',
             content: expect.stringContaining('Admite mascotas'),
           }),

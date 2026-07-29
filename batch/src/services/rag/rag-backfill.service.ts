@@ -20,7 +20,12 @@ type ExistingChunk = {
   embedding_model: string;
   embedding_version: number;
   has_embedding: boolean;
+  source_updated_at: Date | string;
+  is_deleted: boolean;
 };
+
+const asDate = (value: unknown): Date =>
+  value instanceof Date ? new Date(value.getTime()) : new Date(String(value));
 
 export class RagBackfillService {
   private readonly dataSource: DataSource;
@@ -149,7 +154,8 @@ export class RagBackfillService {
     ];
     const existing = (await this.dataSource.query(
       `SELECT chunk_key, content_hash, embedding_model, embedding_version,
-              embedding IS NOT NULL AS has_embedding
+              embedding IS NOT NULL AS has_embedding, source_updated_at,
+              deleted_at IS NOT NULL AS is_deleted
        FROM ai_knowledge_chunks
        WHERE company_id = $1
          AND entity_id = $2
@@ -170,7 +176,18 @@ export class RagBackfillService {
         current.content_hash !== chunk.contentHash ||
         current.embedding_model !== model ||
         current.embedding_version !== RAG_EMBEDDING_VERSION ||
-        !current.has_embedding
+        !current.has_embedding ||
+        current.is_deleted
+      );
+    });
+    const changedKeys = new Set(changed.map((chunk) => chunk.chunkKey));
+    const timestampOnly = chunks.filter((chunk) => {
+      const current = byKey.get(chunk.chunkKey);
+      return (
+        current &&
+        !changedKeys.has(chunk.chunkKey) &&
+        asDate(current.source_updated_at).getTime() !==
+          chunk.sourceUpdatedAt.getTime()
       );
     });
     const staleExists = existing.some(
@@ -182,7 +199,8 @@ export class RagBackfillService {
       return {
         embedded: changed.length,
         tokens: 0,
-        skipped: changed.length === 0 && !staleExists,
+        skipped:
+          changed.length === 0 && timestampOnly.length === 0 && !staleExists,
       };
     }
     if (!this.embeddings) throw new Error("Embedding client is not configured");
@@ -197,6 +215,26 @@ export class RagBackfillService {
           changed[index],
           embeddingResult.embeddings[index],
           model,
+        );
+      }
+      for (const chunk of timestampOnly) {
+        await manager.query(
+          `UPDATE ai_knowledge_chunks
+              SET source_updated_at = $6, updated_at = NOW()
+            WHERE company_id = $1
+              AND entity_id = $2
+              AND entity_type = $3
+              AND chunk_key = $4
+              AND embedding_version = $5
+              AND deleted_at IS NULL`,
+          [
+            chunk.companyId,
+            chunk.entityId,
+            chunk.entityType,
+            chunk.chunkKey,
+            RAG_EMBEDDING_VERSION,
+            chunk.sourceUpdatedAt,
+          ],
         );
       }
       await manager.query(
@@ -220,7 +258,8 @@ export class RagBackfillService {
     return {
       embedded: changed.length,
       tokens: embeddingResult.tokens,
-      skipped: changed.length === 0 && !staleExists,
+      skipped:
+        changed.length === 0 && timestampOnly.length === 0 && !staleExists,
     };
   }
 
@@ -453,7 +492,7 @@ export class RagBackfillService {
     const common = {
       id: String(row.id),
       companyId: String(row.company_id),
-      updatedAt: new Date(String(row.source_updated_at ?? row.updated_at)),
+      updatedAt: asDate(row.source_updated_at ?? row.updated_at),
       sourceType,
     };
     switch (sourceType) {
@@ -657,7 +696,7 @@ export class RagBackfillService {
     return {
       id: String(row.id),
       companyId: String(row.company_id),
-      updatedAt: new Date(String(row.source_updated_at ?? row.updated_at)),
+      updatedAt: asDate(row.source_updated_at ?? row.updated_at),
       sourceType: "property",
       data: {
         name: row.name,
@@ -691,7 +730,7 @@ export class RagBackfillService {
     return {
       id: String(row.id),
       companyId: String(row.company_id),
-      updatedAt: new Date(String(row.source_updated_at ?? row.updated_at)),
+      updatedAt: asDate(row.source_updated_at ?? row.updated_at),
       sourceType: "document",
       data: {
         documentType: row.document_type,

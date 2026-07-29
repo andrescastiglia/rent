@@ -97,8 +97,10 @@ export class RagVerificationService {
           }
           if (
             actual.content_hash !== chunk.contentHash ||
-            new Date(String(actual.source_updated_at)).getTime() !==
-              chunk.sourceUpdatedAt.getTime()
+            (actual.source_updated_at instanceof Date
+              ? actual.source_updated_at
+              : new Date(String(actual.source_updated_at))
+            ).getTime() !== chunk.sourceUpdatedAt.getTime()
           ) {
             result.stale += 1;
             result.details.push({

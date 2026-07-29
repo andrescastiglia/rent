@@ -39,7 +39,17 @@ export class AiEvidenceValidatorService {
     }));
   }
 
-  validate(answer: AiRagAnswer, sources: AiRagSource[]): AiRagAnswer {
+  validate(
+    answer: AiRagAnswer,
+    sources: AiRagSource[],
+    prompt = '',
+  ): AiRagAnswer {
+    if (
+      answer.insufficientEvidence &&
+      this.hasMissingExplicitIdentifier(prompt, sources)
+    ) {
+      return this.abstention();
+    }
     const allowed = new Set(sources.map((source) => source.sourceId));
     const structured = new Set(
       sources
@@ -69,9 +79,6 @@ export class AiEvidenceValidatorService {
         suggestedAction: answer.suggestedAction,
       };
     }
-    // A model may conservatively mark a useful, fully grounded answer as
-    // insufficient. Reserve abstention for no evidence or rejected claims;
-    // otherwise expose the cited answer as sufficient.
     return { ...answer, insufficientEvidence: false, claims: groundedClaims };
   }
 
@@ -93,23 +100,23 @@ export class AiEvidenceValidatorService {
               SELECT 1 FROM properties p
                WHERE p.id = c.entity_id AND p.company_id = c.company_id
                  AND p.deleted_at IS NULL
-                 AND p.updated_at <= c.source_updated_at
+                 AND p.updated_at < c.source_updated_at + INTERVAL '1 millisecond'
                  AND NOT EXISTS (
                    SELECT 1 FROM property_features pf
                     WHERE pf.property_id = p.id
-                      AND pf.updated_at > c.source_updated_at
+                      AND pf.updated_at >= c.source_updated_at + INTERVAL '1 millisecond'
                  )
             )
             WHEN 'document_chunk' THEN EXISTS (
               SELECT 1 FROM documents d
                WHERE d.id = c.entity_id AND d.company_id = c.company_id
                  AND d.deleted_at IS NULL AND d.status = 'approved'
-                 AND d.updated_at <= c.source_updated_at
+                 AND d.updated_at < c.source_updated_at + INTERVAL '1 millisecond'
                  AND NOT EXISTS (
                    SELECT 1 FROM leases l
                     WHERE d.entity_type = 'lease' AND l.id = d.entity_id
                       AND l.deleted_at IS NULL
-                      AND l.updated_at > c.source_updated_at
+                      AND l.updated_at >= c.source_updated_at + INTERVAL '1 millisecond'
                  )
             )
             WHEN 'lease_summary' THEN EXISTS (
@@ -125,7 +132,7 @@ export class AiEvidenceValidatorService {
                    l.updated_at, p.updated_at, o.updated_at, ou.updated_at,
                    COALESCE(t.updated_at, l.updated_at),
                    COALESCE(tu.updated_at, l.updated_at)
-                 ) <= c.source_updated_at
+                 ) < c.source_updated_at + INTERVAL '1 millisecond'
             )
             WHEN 'invoice_payment_summary' THEN EXISTS (
               SELECT 1 FROM invoices i
@@ -133,11 +140,12 @@ export class AiEvidenceValidatorService {
               JOIN properties p ON p.id = l.property_id AND p.deleted_at IS NULL
                WHERE i.id = c.entity_id AND i.company_id = c.company_id
                  AND i.deleted_at IS NULL
-                 AND GREATEST(i.updated_at, l.updated_at, p.updated_at) <= c.source_updated_at
+                 AND GREATEST(i.updated_at, l.updated_at, p.updated_at)
+                     < c.source_updated_at + INTERVAL '1 millisecond'
                  AND NOT EXISTS (
                    SELECT 1 FROM payments pay
                     WHERE pay.invoice_id = i.id AND pay.deleted_at IS NULL
-                      AND pay.updated_at > c.source_updated_at
+                      AND pay.updated_at >= c.source_updated_at + INTERVAL '1 millisecond'
                  )
             )
             WHEN 'owner_portfolio_summary' THEN EXISTS (
@@ -145,11 +153,12 @@ export class AiEvidenceValidatorService {
               JOIN users u ON u.id = o.user_id AND u.deleted_at IS NULL
                WHERE o.id = c.entity_id AND o.company_id = c.company_id
                  AND o.deleted_at IS NULL
-                 AND GREATEST(o.updated_at, u.updated_at) <= c.source_updated_at
+                 AND GREATEST(o.updated_at, u.updated_at)
+                     < c.source_updated_at + INTERVAL '1 millisecond'
                  AND NOT EXISTS (
                    SELECT 1 FROM properties p
                     WHERE p.owner_id = o.id AND p.deleted_at IS NULL
-                      AND p.updated_at > c.source_updated_at
+                      AND p.updated_at >= c.source_updated_at + INTERVAL '1 millisecond'
                  )
             )
             WHEN 'tenant_account_summary' THEN EXISTS (
@@ -161,30 +170,33 @@ export class AiEvidenceValidatorService {
                WHERE a.id = c.entity_id AND a.company_id = c.company_id
                  AND a.deleted_at IS NULL
                  AND GREATEST(a.updated_at, t.updated_at, u.updated_at, l.updated_at, p.updated_at)
-                     <= c.source_updated_at
+                     < c.source_updated_at + INTERVAL '1 millisecond'
             )
             WHEN 'interested_profile_summary' THEN EXISTS (
               SELECT 1 FROM interested_profiles ip
                WHERE ip.id = c.entity_id AND ip.company_id = c.company_id
                  AND ip.deleted_at IS NULL
-                 AND ip.updated_at <= c.source_updated_at
+                 AND ip.updated_at < c.source_updated_at + INTERVAL '1 millisecond'
             )
             WHEN 'activity_chunk' THEN (
               (c.metadata->>'activitySourceType' = 'owner_activity' AND EXISTS (
                 SELECT 1 FROM owner_activities a
                  WHERE a.id = c.entity_id AND a.company_id = c.company_id
-                   AND a.deleted_at IS NULL AND a.updated_at <= c.source_updated_at
+                   AND a.deleted_at IS NULL
+                   AND a.updated_at < c.source_updated_at + INTERVAL '1 millisecond'
               )) OR
               (c.metadata->>'activitySourceType' = 'tenant_activity' AND EXISTS (
                 SELECT 1 FROM tenant_activities a
                  WHERE a.id = c.entity_id AND a.company_id = c.company_id
-                   AND a.deleted_at IS NULL AND a.updated_at <= c.source_updated_at
+                   AND a.deleted_at IS NULL
+                   AND a.updated_at < c.source_updated_at + INTERVAL '1 millisecond'
               )) OR
               (c.metadata->>'activitySourceType' = 'interested_activity' AND EXISTS (
                 SELECT 1 FROM interested_activities a
                 JOIN interested_profiles ip ON ip.id = a.interested_profile_id
                  WHERE a.id = c.entity_id AND ip.company_id = c.company_id
-                   AND ip.deleted_at IS NULL AND a.updated_at <= c.source_updated_at
+                   AND ip.deleted_at IS NULL
+                   AND a.updated_at < c.source_updated_at + INTERVAL '1 millisecond'
               ))
             )
             ELSE FALSE
@@ -216,5 +228,58 @@ export class AiEvidenceValidatorService {
         text,
       )
     );
+  }
+
+  private hasMissingExplicitIdentifier(
+    prompt: string,
+    sources: AiRagSource[],
+  ): boolean {
+    const identifiers = this.extractExplicitIdentifiers(prompt);
+    if (identifiers.length === 0) return false;
+    const evidence = sources
+      .map((source) =>
+        `${source.label} ${source.content} ${source.entityId}`.toUpperCase(),
+      )
+      .join('\n');
+    return identifiers.some((identifier) => !evidence.includes(identifier));
+  }
+
+  private extractExplicitIdentifiers(prompt: string): string[] {
+    const identifiers: string[] = [];
+    let token = '';
+    const flush = () => {
+      if (this.isExplicitIdentifier(token)) identifiers.push(token);
+      token = '';
+    };
+
+    for (const character of prompt.toUpperCase()) {
+      const code = character.charCodeAt(0);
+      const isLetter = code >= 65 && code <= 90;
+      const isDigit = code >= 48 && code <= 57;
+      if (isLetter || isDigit || character === '-') {
+        token += character;
+      } else {
+        flush();
+      }
+    }
+    flush();
+    return identifiers;
+  }
+
+  private isExplicitIdentifier(token: string): boolean {
+    const separator = token.indexOf('-');
+    if (separator < 2 || separator === token.length - 1) return false;
+    if (!this.isAsciiLetter(token.charCodeAt(0))) return false;
+    if (!this.isAsciiLetter(token.charCodeAt(1))) return false;
+
+    for (let index = separator + 1; index < token.length; index += 1) {
+      const code = token.charCodeAt(index);
+      if (code >= 48 && code <= 57) return true;
+    }
+    return false;
+  }
+
+  private isAsciiLetter(code: number): boolean {
+    return code >= 65 && code <= 90;
   }
 }
