@@ -52,6 +52,11 @@ describe('AiToolsRegistryService', () => {
     expect(tools[0].function.parameters.type).toBe('object');
     expect(tools[1].function.name).toBe('post_whatsapp_webhook');
     expect(tools[1].function.parameters.type).toBe('object');
+    expect(tools[1].function.parameters.additionalProperties).toBe(true);
+    expect(tools[1].function.strict).toBe(false);
+    expect(tools[1].$parseRaw('{"event":"message"}')).toEqual({
+      event: 'message',
+    });
   });
 
   it('logs fallback warning once per tool', () => {
