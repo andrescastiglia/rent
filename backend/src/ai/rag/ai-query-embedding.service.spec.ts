@@ -27,6 +27,8 @@ describe('AiQueryEmbeddingService', () => {
     delete process.env.OPENAI_BASE_URL;
     delete process.env.AI_EMBEDDING_DIMENSIONS;
     delete process.env.AI_EMBEDDING_MODEL;
+    delete process.env.AI_EMBEDDING_MAX_ATTEMPTS;
+    delete process.env.AI_EMBEDDING_RETRY_BASE_MS;
   });
 
   afterAll(() => {
@@ -69,5 +71,30 @@ describe('AiQueryEmbeddingService', () => {
       encoding_format: 'float',
       dimensions: AI_EMBEDDING_DIMENSIONS,
     });
+  });
+
+  it('retries a transient embeddings endpoint error', async () => {
+    process.env.OPENAI_API_KEY = 'test-key';
+    process.env.AI_EMBEDDING_RETRY_BASE_MS = '0';
+    const transient = Object.assign(
+      new Error('Invalid URL (POST /v1/embeddings)'),
+      { status: 404 },
+    );
+    createMock
+      .mockRejectedValueOnce(transient)
+      .mockResolvedValueOnce({ data: [{ embedding: [0.3, 0.4] }] });
+
+    await expect(service.embed('consulta')).resolves.toEqual([0.3, 0.4]);
+    expect(createMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not retry a permanent provider error', async () => {
+    process.env.OPENAI_API_KEY = 'test-key';
+    createMock.mockRejectedValue(
+      Object.assign(new Error('model not found'), { status: 404 }),
+    );
+
+    await expect(service.embed('consulta')).rejects.toThrow('model not found');
+    expect(createMock).toHaveBeenCalledTimes(1);
   });
 });
