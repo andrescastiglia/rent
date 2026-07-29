@@ -23,9 +23,6 @@ const OPENAI_LOOSE_UNKNOWN_SCHEMA = z.union([
   OPENAI_LOOSE_OBJECT_SCHEMA,
   z.array(OPENAI_LOOSE_OBJECT_SCHEMA),
 ]);
-const OPENAI_FALLBACK_PARAMETERS_SCHEMA = z
-  .object({})
-  .catchall(OPENAI_LOOSE_UNKNOWN_SCHEMA);
 const OPENAI_TOOLS_LIMIT = 128;
 const AI_PROMPT_ALIASES_FILENAME = 'ai-prompt-aliases.json';
 const OPENAI_DISALLOWED_SCHEMA_KEYS = ['$schema', 'propertyNames'] as const;
@@ -470,6 +467,9 @@ export class AiToolsRegistryService {
     context: AiExecutionContext,
   ) {
     const parameters = this.resolveParametersSchema(tool);
+    if (!parameters) {
+      return this.buildLooseFallbackTool(tool, context);
+    }
 
     try {
       const built = this.buildTool(tool, parameters, context);
@@ -478,17 +478,41 @@ export class AiToolsRegistryService {
           tool.name,
           `OpenAI schema validation failed for tool "${tool.name}" (invalid anyOf branch without type). Falling back to typed object schema.`,
         );
-        return this.buildTool(tool, OPENAI_FALLBACK_PARAMETERS_SCHEMA, context);
+        return this.buildLooseFallbackTool(tool, context);
       }
       return built;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logBuildErrorOnce(
+      this.logWarnOnce(
         tool.name,
-        `Failed to build OpenAI schema for tool "${tool.name}": ${message}. Falling back to typed object schema.`,
+        `Failed to build strict OpenAI schema for tool "${tool.name}": ${message}. Falling back to a non-strict object schema.`,
       );
-      return this.buildTool(tool, OPENAI_FALLBACK_PARAMETERS_SCHEMA, context);
+      return this.buildLooseFallbackTool(tool, context);
     }
+  }
+
+  private buildLooseFallbackTool(
+    tool: AiToolDefinition,
+    context: AiExecutionContext,
+  ) {
+    const description = tool.responseDescription
+      ? `${tool.description} Returns: ${tool.responseDescription}`
+      : tool.description;
+    return {
+      type: 'function' as const,
+      function: {
+        name: tool.name,
+        description,
+        parameters: {
+          type: 'object',
+          additionalProperties: true,
+        },
+        strict: false,
+      },
+      $parseRaw: (value: string) => JSON.parse(value) as unknown,
+      $callback: async (args: unknown) =>
+        this.executor.execute(tool.name, args, context),
+    };
   }
 
   private buildTool(
@@ -528,7 +552,9 @@ export class AiToolsRegistryService {
     sanitizeOpenAiSchemaNode(fnNode.parameters);
   }
 
-  private resolveParametersSchema(tool: AiToolDefinition): z.ZodObject<any> {
+  private resolveParametersSchema(
+    tool: AiToolDefinition,
+  ): z.ZodObject<any> | null {
     let transformed: unknown;
     try {
       transformed = toOpenAiCompatibleSchema(tool.parameters);
@@ -538,7 +564,7 @@ export class AiToolsRegistryService {
         tool.name,
         `Failed to transform OpenAI schema for tool "${tool.name}": ${message}. Using passthrough object schema.`,
       );
-      return OPENAI_FALLBACK_PARAMETERS_SCHEMA;
+      return null;
     }
 
     const rootObject = toRootObjectSchema(transformed);
@@ -547,13 +573,13 @@ export class AiToolsRegistryService {
         tool.parameters instanceof z.ZodUnknown ||
         tool.parameters instanceof z.ZodAny
       ) {
-        return OPENAI_FALLBACK_PARAMETERS_SCHEMA;
+        return null;
       }
       this.logWarnOnce(
         tool.name,
         `OpenAI tool schema for "${tool.name}" is not an object after transform; using typed object fallback`,
       );
-      return OPENAI_FALLBACK_PARAMETERS_SCHEMA;
+      return null;
     }
 
     return rootObject;

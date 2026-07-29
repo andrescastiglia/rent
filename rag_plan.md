@@ -97,17 +97,17 @@ Componentes principales:
 Implementadas:
 
 - property_summary;
-- document_chunk.
-
-Proyecciones todavía necesarias para completar el alcance:
-
+- document_chunk;
 - lease_summary;
 - invoice_payment_summary;
 - owner_portfolio_summary;
 - tenant_account_summary;
 - interested_profile_summary;
-- activity_chunk;
-- ventas, mantenimiento y otras entidades que se definan como recuperables.
+- activity_chunk.
+
+Ventas, mantenimiento y cualquier otra entidad futura deben incorporarse sólo
+después de definir su proyección canónica, dependencias, autorización y matriz
+de evaluación.
 
 ### Flujo online
 
@@ -171,6 +171,8 @@ AI_RAG_TOP_K=8
 AI_RAG_FINAL_K=8
 AI_RAG_STRUCTURED_LIMIT=20
 AI_RAG_TIMEOUT_MS=60000
+AI_EMBEDDING_MAX_ATTEMPTS=5
+AI_EMBEDDING_RETRY_BASE_MS=250
 AI_RAG_MAX_OUTPUT_TOKENS=1200
 AI_RAG_MAX_CONTEXT_CHARS=40000
 AI_RAG_MIN_SIMILARITY_BY_PROJECTION=
@@ -209,6 +211,7 @@ Evaluación:
 
 ~~~bash
 npm run rag:eval -- --report /tmp/rag-eval.json --strict
+npm run rag:eval -- --case-id admin-01 --debug
 npm run rag:eval -- --role owner
 npm run rag:eval -- --category adversarial --strict
 npm run rag:shadow-report -- --hours 24
@@ -225,22 +228,39 @@ Rollback:
 
 Infraestructura:
 
-- PostgreSQL 16 con PostGIS 3.5.3 y pgvector 0.8.5;
+- PostgreSQL 17.9 con PostGIS 3.5.3 y pgvector 0.8.5;
 - índice HNSW activo;
 - backend y rent-rag-worker online;
 - reconciliación nocturna configurada;
-- Pushgateway configurado;
-- backup previo a Fase F verificado.
+- purga de auditoría semanal configurada;
+- backup actual restaurado y verificado en una base aislada.
 
 Datos actuales:
 
-- 7 property_summary;
-- 2 document_chunk;
-- 9 de 9 chunks con embedding;
+- 24 chunks activos distribuidos en siete proyecciones;
+- 7 property_summary, 2 document_chunk, 1 lease_summary,
+  5 owner_portfolio_summary, 1 tenant_account_summary,
+  6 interested_profile_summary y 2 activity_chunk;
+- 24 de 24 chunks con embedding;
 - 0 chunks sin embedding;
 - 0 chunks stale;
 - outbox sin pendientes ni fallidos al verificar;
-- frescura histórica máxima observada: 31,896 segundos.
+- dos backfills consecutivos procesaron 24 fuentes, generaron 0 embeddings y
+  omitieron correctamente los 24 chunks sin cambios;
+- rag-verify comprobó 24 chunks con 0 missing, stale, orphaned, dimensiones
+  inválidas o fallas de autoconsistencia;
+- recall exacto contra HNSW: promedio 1, mínimo 1, 0 fallas en 24 muestras.
+
+Recuperación:
+
+- backup actual:
+  rent_db_rag_closure_20260729T201200Z.dump;
+- restauración aislada: rent_2026q3_restore_drill;
+- RTO observado: 4 segundos;
+- pgvector restaurado: 0.8.5;
+- 24 chunks activos y 0 sin embedding en la copia;
+- rag-verify sobre la copia: 0 missing, stale, orphaned, dimensiones inválidas
+  o fallas de autoconsistencia al momento del ensayo.
 
 Rollout:
 
@@ -249,51 +269,67 @@ Rollout:
   HYBRID de forma reversible;
 - rollback real a TOOLS comprobado con HTTP 201.
 
+Integración WhatsApp:
+
+- el despliegue y las credenciales revisadas corresponden a Rent;
+- la cuenta Meta usada para WhatsApp es Rent, no Agora;
+- Graph API confirmó que el número configurado está aprobado.
+
 Evaluación existente:
 
 - 58 casos distribuidos entre admin, staff, owner y tenant, con una segunda
   empresa en la matriz de aislamiento;
-- 50/50 aprobados por el último runner registrado; los 8 casos agregados
-  requieren una nueva ejecución contra el ambiente piloto;
-- 0 fuentes fuera de alcance;
-- p50 2512 ms y p95 6378 ms;
-- 34.174 tokens de entrada y 9.777 de salida;
-- costo estimado: USD 0,000219846 por consulta con las tarifas configuradas.
+- 58/58 aprobados por el runner estricto contra la copia aislada;
+- 0 fuentes fuera de alcance, 0 fugas de entidad o contenido, 0 violaciones
+  financieras y 0 respuestas incorrectas de alta confianza;
+- precisión de fuentes, exactitud financiera/restringida, groundedness,
+  abstención y estrategia: 100%;
+- recall@K observado: 0,9691;
+- p50 3480 ms y p95 10260 ms;
+- 46.881 tokens de entrada y 17.400 de salida;
+- costo estimado: USD 0,000301244 por consulta con las tarifas configuradas;
+- el ensayo detectó y corrigió pérdida de milisegundos en
+  source_updated_at, actualización omitida cuando el hash no cambiaba y falta
+  de retry ante errores transitorios del endpoint de embeddings.
 
 Validación de código:
 
 - typecheck aprobado;
 - build aprobado;
-- 126 suites y 962 pruebas aprobadas entre backend y batch.
+- 126 suites y 991 pruebas aprobadas entre backend y batch.
 
 ## 9. Estado real por fase
 
 | Fase | Estado | Observación |
 |---|---|---|
-| A. Infraestructura | Parcial avanzada | Falta demostrar escaneo de imagen en CI y todos los ambientes |
+| A. Infraestructura | Implementada en producción | PostgreSQL 17.9, pgvector 0.8.5, HNSW y escaneo de imagen comprobados |
 | B. Esquema | Implementada | Tablas e índices operativos |
-| C. Batch | Implementada en código | Ocho proyecciones, diez fuentes, backfill, outbox, verificación y recall exacto/HNSW |
+| C. Batch | Implementada y verificada en producción | Dos backfills idempotentes, verificación completa y recall exacto/HNSW aprobados |
 | D. Online | Implementada en código | Tombstone transaccional y revalidación sincrónica de existencia y versión |
 | E. Backend RAG | Implementada en código | SQL registrado, autorización, métricas, límites, final-K y citas |
-| F. Evaluación y rollout | Piloto aprobado | El dataset debe fortalecerse antes de rollout global |
+| F. Evaluación y rollout | Piloto aprobado | Gate aislado 58/58; falta tráfico shadow estable antes del rollout global |
 
 No usar AI_RAG_ENABLED_COMPANY_IDS=* mientras existan brechas del plan de
 cierre.
 
 ## 10. Brechas conocidas
 
-1. Falta ejecutar el backfill completo y `rag-verify` en cada ambiente.
-2. Falta medir el SLA p95 de frescura bajo carga en producción.
-3. Falta importar/probar dashboards y disparar las alertas en el stack real.
-4. Falta programar `rag-purge-audit` en los ambientes desplegados.
-5. El dataset sólo declara entidades esperadas en una fracción de los casos.
-6. Shadow tiene pocas comparaciones exitosas para demostrar paridad con tools.
-7. La E2E automatizada ya cubre fuente eliminada/stale, prompt injection
-   almacenado, SQL injection, secretos y dos empresas; falta extenderla a
-   tenants solapados, todas las proyecciones y comparación exacta contra HNSW.
-8. Falta recalibrar los umbrales por rol y proyección con el corpus completo.
-9. Faltan el ensayo de restauración, la prueba de carga y un ciclo estable de
-   piloto antes del rollout global.
+1. Producción tiene backfill y `rag-verify` aprobados; falta repetir la
+   evidencia en cualquier otro ambiente que se despliegue.
+2. Falta medir el SLA p95 de frescura bajo carga en un ambiente aislado.
+3. Falta importar/probar dashboards y disparar las alertas en el stack real;
+   Oracle no expone actualmente Prometheus, Pushgateway ni Grafana locales.
+4. El dataset declara entidades esperadas para todos los casos semánticos e
+   híbridos no abstencionistas y valida valores restringidos contra SQL; debe
+   mantenerse al agregar nuevas proyecciones.
+5. Shadow no registró comparaciones en los últimos siete días y todavía no
+   demuestra paridad con tools.
+6. La E2E automatizada cubre fuente eliminada/stale, prompt injection
+   almacenado, SQL injection, secretos, datos solapados y dos empresas; falta
+   extenderla a toda nueva proyección que se incorpore.
+7. Falta recalibrar los umbrales por rol y proyección con el corpus completo.
+8. Falta la prueba de carga y un ciclo estable de piloto antes del rollout
+   global. El ensayo de restauración quedó aprobado.
 
 ## 11. Plan para llegar a una implementación completa
 
@@ -304,7 +340,8 @@ cierre.
 - [x] Compartir builders entre backfill y sincronización online.
 - [x] Agregar triggers/outbox para todas las dependencias que cambien el
   documento canónico.
-- [ ] Ejecutar backfill, verificación e HNSW con el corpus completo.
+- [x] Ejecutar backfill, verificación e HNSW con el corpus completo en
+  producción.
 - [x] Documentar campos incluidos y campos sensibles excluidos por proyección.
 
 Criterio de aceptación:
@@ -365,15 +402,14 @@ Criterio de aceptación:
 
 ### Etapa K — Evaluación rigurosa y seguridad E2E
 
-- [ ] Ampliar el dataset con entidades, valores y fuentes exactas en todos los
-  casos.
-- [x] Agregar empresas y owners con datos solapados a la matriz E2E; falta
-  completar tenants solapados en el dataset de evaluación.
+- [x] Ampliar el dataset con entidades, valores y fuentes exactas para los 58
+  casos actuales.
+- [x] Agregar dos empresas, owners y tenants con datos solapados a la matriz
+  E2E.
 - [x] Comparar búsqueda exacta contra HNSW y medir recall@K real.
 - [x] Verificar groundedness por claim, no sólo presencia de fuentes.
 - [x] Probar prompt injection almacenado, SQL injection, fuentes stale,
-  eliminadas y aislamiento de secretos/empresas; falta ampliar la matriz
-  permanente a todas las proyecciones.
+  eliminadas y aislamiento de secretos/empresas en el corpus actual.
 - [ ] Ejecutar suficiente tráfico shadow para comparar calidad, latencia y
   costo contra tools.
 - [x] Permitir umbrales por rol y tipo de proyección; falta ejecutar la
@@ -391,8 +427,9 @@ Criterio de aceptación:
 - [x] Agregar escaneo de la imagen PostgreSQL al CI.
 - [x] Fijar versiones, checksum y dimensiones en código; falta verificar todos
   los ambientes desplegados.
-- [ ] Probar restauración del backup en una base aislada.
-- [ ] Probar rollback TOOLS y recuperación RAG en un ensayo documentado.
+- [x] Probar restauración del backup actual en una base aislada y ejecutar
+  `rag-verify` sobre la copia.
+- [x] Probar rollback TOOLS y recuperación RAG en un ensayo documentado.
 - [x] Configurar límite de salida, contexto máximo y final-K/reranking.
 - [ ] Ejecutar pruebas de carga y definir capacidad.
 - [ ] Mantener el piloto durante un ciclo estable antes del rollout global.
