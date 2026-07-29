@@ -234,10 +234,7 @@ export class AiEvidenceValidatorService {
     prompt: string,
     sources: AiRagSource[],
   ): boolean {
-    const identifiers =
-      prompt
-        .toUpperCase()
-        .match(/\b[A-Z]{2,}[A-Z0-9]*-[A-Z0-9-]*\d[A-Z0-9-]*\b/g) ?? [];
+    const identifiers = this.extractExplicitIdentifiers(prompt);
     if (identifiers.length === 0) return false;
     const evidence = sources
       .map((source) =>
@@ -245,5 +242,44 @@ export class AiEvidenceValidatorService {
       )
       .join('\n');
     return identifiers.some((identifier) => !evidence.includes(identifier));
+  }
+
+  private extractExplicitIdentifiers(prompt: string): string[] {
+    const identifiers: string[] = [];
+    let token = '';
+    const flush = () => {
+      if (this.isExplicitIdentifier(token)) identifiers.push(token);
+      token = '';
+    };
+
+    for (const character of prompt.toUpperCase()) {
+      const code = character.charCodeAt(0);
+      const isLetter = code >= 65 && code <= 90;
+      const isDigit = code >= 48 && code <= 57;
+      if (isLetter || isDigit || character === '-') {
+        token += character;
+      } else {
+        flush();
+      }
+    }
+    flush();
+    return identifiers;
+  }
+
+  private isExplicitIdentifier(token: string): boolean {
+    const separator = token.indexOf('-');
+    if (separator < 2 || separator === token.length - 1) return false;
+    if (!this.isAsciiLetter(token.charCodeAt(0))) return false;
+    if (!this.isAsciiLetter(token.charCodeAt(1))) return false;
+
+    for (let index = separator + 1; index < token.length; index += 1) {
+      const code = token.charCodeAt(index);
+      if (code >= 48 && code <= 57) return true;
+    }
+    return false;
+  }
+
+  private isAsciiLetter(code: number): boolean {
+    return code >= 65 && code <= 90;
   }
 }

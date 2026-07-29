@@ -66,6 +66,30 @@ describe('AiEvidenceValidatorService', () => {
     expect(answer).toEqual(service.abstention());
   });
 
+  it('accepts a requested identifier that is present in evidence', () => {
+    const evidence = {
+      ...source('vector'),
+      content: 'Recibo REC-202603-0002 aprobado.',
+    };
+    const answer = service.validate(
+      {
+        answer: 'El recibo está aprobado.',
+        insufficientEvidence: false,
+        claims: [
+          {
+            text: 'El recibo está aprobado.',
+            sourceIds: [evidence.sourceId],
+          },
+        ],
+        suggestedAction: null,
+      },
+      [evidence],
+      '¿Qué dice el recibo REC-202603-0002?',
+    );
+
+    expect(answer.insufficientEvidence).toBe(false);
+  });
+
   it('abstains on an invented citation', () => {
     const answer = service.validate(
       {
