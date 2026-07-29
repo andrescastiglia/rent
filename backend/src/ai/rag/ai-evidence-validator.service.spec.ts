@@ -42,6 +42,30 @@ describe('AiEvidenceValidatorService', () => {
     expect(answer.insufficientEvidence).toBe(false);
   });
 
+  it('abstains when an explicit requested identifier is absent from evidence', () => {
+    const evidence = {
+      ...source('vector'),
+      content: 'Recibo REC-202603-0001 aprobado.',
+    };
+    const answer = service.validate(
+      {
+        answer: 'No aparece el recibo pedido.',
+        insufficientEvidence: true,
+        claims: [
+          {
+            text: 'No aparece el recibo pedido.',
+            sourceIds: [evidence.sourceId],
+          },
+        ],
+        suggestedAction: null,
+      },
+      [evidence],
+      '¿Qué dice el recibo REC-202603-0002?',
+    );
+
+    expect(answer).toEqual(service.abstention());
+  });
+
   it('abstains on an invented citation', () => {
     const answer = service.validate(
       {
@@ -88,7 +112,7 @@ describe('AiEvidenceValidatorService', () => {
       ),
     ).resolves.toEqual([evidence]);
     expect(query.mock.calls[0][0]).toContain(
-      'p.updated_at <= c.source_updated_at',
+      "p.updated_at < c.source_updated_at + INTERVAL '1 millisecond'",
     );
     expect(query.mock.calls[0][0]).toContain("WHEN 'invoice_payment_summary'");
     expect(query.mock.calls[0][0]).toContain("WHEN 'activity_chunk'");

@@ -333,6 +333,17 @@
           node index.js rag-reconcile --entity all
           --log /var/log/rent/rag-reconcile.log
 
+    - name: Schedule weekly RAG audit retention
+      ansible.builtin.cron:
+        name: "Rent RAG audit retention"
+        minute: "15"
+        hour: "3"
+        weekday: "0"
+        job: >-
+          cd {{ deploy_path }}/batch &&
+          node index.js rag-purge-audit
+          --log /var/log/rent/rag-purge-audit.log
+
     - name: Save PM2 process list
       ansible.builtin.command:
         cmd: pm2 save

@@ -110,7 +110,11 @@ export class AiRagOrchestratorService {
               usage: undefined,
             }
           : await this.generator.generate({ prompt: params.prompt, sources });
-      const answer = this.validator.validate(generated.answer, sources);
+      const answer = this.validator.validate(
+        generated.answer,
+        sources,
+        params.prompt,
+      );
       const citationFailures = Math.max(
         0,
         generated.answer.claims.length - answer.claims.length,
