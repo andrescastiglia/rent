@@ -151,6 +151,8 @@ describe("RagBackfillService", () => {
         embedding_model: "test-model",
         embedding_version: RAG_EMBEDDING_VERSION,
         has_embedding: true,
+        source_updated_at: source().updatedAt,
+        is_deleted: false,
       },
     ]);
     const managerQuery = jest.fn().mockResolvedValue([]);
@@ -185,6 +187,8 @@ describe("RagBackfillService", () => {
       embedding_model: "test-model",
       embedding_version: RAG_EMBEDDING_VERSION,
       has_embedding: true,
+      source_updated_at: source().updatedAt,
+      is_deleted: false,
     };
     const service = new RagBackfillService({
       dataSource: dataSource(jest.fn().mockResolvedValue([current])),
@@ -203,6 +207,37 @@ describe("RagBackfillService", () => {
     delete process.env.AI_EMBEDDING_MODEL;
   });
 
+  it("refreshes a changed source timestamp without recomputing the embedding", async () => {
+    const current = {
+      chunk_key: "summary",
+      content_hash: "hash-1",
+      embedding_model: "test-model",
+      embedding_version: RAG_EMBEDDING_VERSION,
+      has_embedding: true,
+      source_updated_at: new Date("2026-07-14T11:59:59.000Z"),
+      is_deleted: false,
+    };
+    const managerQuery = jest.fn().mockResolvedValue([]);
+    const embed = jest.fn().mockResolvedValue({ embeddings: [], tokens: 0 });
+    const service = new RagBackfillService({
+      dataSource: dataSource(
+        jest.fn().mockResolvedValue([current]),
+        managerQuery,
+      ),
+      builder: { build: jest.fn().mockReturnValue([chunk()]) } as never,
+      embeddings: { model: "test-model", embed } as never,
+    });
+
+    await expect(
+      service.syncSourceEntity(source(), { dryRun: false, force: false }),
+    ).resolves.toEqual({ embedded: 0, tokens: 0, skipped: false });
+    expect(embed).toHaveBeenCalledWith([]);
+    expect(managerQuery.mock.calls[0][0]).toContain(
+      "SET source_updated_at = $6",
+    );
+    expect(managerQuery.mock.calls[0][1][5]).toEqual(source().updatedAt);
+  });
+
   it("requires an embedding client for a real synchronization", async () => {
     const service = new RagBackfillService({
       dataSource: dataSource(),
@@ -216,10 +251,12 @@ describe("RagBackfillService", () => {
   });
 
   it("loads and maps property and document rows for batch and entity lookups", async () => {
+    const preciseTimestamp = new Date("2026-07-14T12:00:00.789Z");
     const propertyRow = {
       id: source().id,
       company_id: source().companyId,
       updated_at: source().updatedAt.toISOString(),
+      source_updated_at: preciseTimestamp,
       name: "Casa",
       property_type: "house",
       operations: ["rent"],
@@ -271,6 +308,7 @@ describe("RagBackfillService", () => {
 
     expect(properties[0]).toMatchObject({
       sourceType: "property",
+      updatedAt: preciseTimestamp,
       data: { propertyType: "house" },
     });
     expect(documents[0]).toMatchObject({
