@@ -77,6 +77,31 @@ Continuacion 2026-07-09:
 - App Review muestra `Review in progress` para `whatsapp_business_messaging` y `whatsapp_business_management`.
 - La app sigue `Unpublished`; publicar queda pendiente de aprobacion/revision de Meta.
 
+Continuacion 2026-07-30:
+
+- La submission enviada el 2026-07-27 fue aprobada por Meta.
+- `whatsapp_business_messaging` y `whatsapp_business_management` aparecen `Approved`.
+- El primer intento de publicacion fue bloqueado por una asociacion obsoleta de Google Play para `com.maese.rent`; la URL publica devolvia 404.
+- Se removio esa asociacion de App Store desde App Settings > Basic, manteniendo la plataforma web configurada.
+- Meta confirmo `Changes saved`.
+- Se reintento la publicacion y Meta confirmo `Your app was successfully published`.
+- Estado final de App Publish Status: `Published`.
+
+Continuacion 2026-07-30 operativa:
+
+- Se audito produccion mediante `ssh oracle`.
+- El backend y batch usan `/var/www/rent/shared/.env`, con secretos reales y permisos restringidos.
+- El token permanente es valido, pertenece a la app Rent y tiene los permisos de WhatsApp requeridos.
+- Se detecto que produccion apuntaba a un Phone Number ID historico que ya no pertenecia al WABA productivo de Rent.
+- Se registro mediante Cloud API el numero productivo configurado en el WABA Rent y quedo `CONNECTED`, `CLOUD_API`, `VERIFIED` y `LIVE`.
+- El PIN de dos pasos se genero y almaceno solo en el `.env` protegido del servidor. No copiarlo al repo.
+- Se actualizo `WHATSAPP_PHONE_NUMBER_ID` en produccion y se reinicio `rent-backend`.
+- Se enviaron correctamente al destinatario de prueba controlado las plantillas `hello_world` y `payment_reminder`.
+- Se detecto que los callbacks POST reales de Meta recibian HTTP 400 porque el segundo pipe global de validacion rechazaba las propiedades del payload libre del webhook.
+- Se cambio el parametro del controller a `unknown`, se desplego el artefacto compilado y los reintentos de Meta pasaron a responder HTTP 200.
+- La base actualizo el mensaje de prueba `payment_reminder` a estado `read`.
+- `reminders --dry-run` y `lease-renewal-alerts --dry-run` finalizaron correctamente; no habia registros elegibles al momento de la prueba.
+
 ## Entorno revisado
 
 - Produccion: https://rent.maese.com.ar/
@@ -322,11 +347,11 @@ El endpoint existe; sin parametros de verificacion devuelve 400, lo esperado par
 - [x] Confirmar numero WhatsApp/test recipient valido para reviewer: `+5492227442981`.
 - [x] Confirmar Business Verification en Meta Business.
 - [x] Confirmar permisos exactos seleccionados en Meta UI: `whatsapp_business_messaging` y `whatsapp_business_management`.
-- [ ] Ejecutar una llamada real de WhatsApp Cloud API con destinatario de prueba controlado para completar `0 of 1 API call(s) required`.
-- [ ] Completar verificacion SMS de Meta Business o proveer credenciales/token para ejecutar la llamada desde backend/Graph.
-- [ ] Esperar/revalidar que Meta marque el API test call como completo (puede tardar hasta 24 h).
-- [ ] Revalidar videos/screencast adjuntos en cada permiso que quede en la submission.
-- [ ] Enviar submission.
+- [x] Ejecutar una llamada real de WhatsApp Cloud API con destinatario de prueba controlado.
+- [x] Registrar el numero productivo y configurar credenciales permanentes en el backend.
+- [x] Revalidar App Review: submission aprobada el 2026-07-27.
+- [x] Revalidar permisos y evidencia aceptados por Meta.
+- [x] Enviar submission.
 
 ## Referencias oficiales
 
