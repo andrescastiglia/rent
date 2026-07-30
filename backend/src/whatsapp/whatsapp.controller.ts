@@ -17,7 +17,6 @@ import { DocumentsService } from '../documents/documents.service';
 import { SendWhatsappMessageDto } from './dto/send-whatsapp-message.dto';
 import { WhatsappWebhookQueryDto } from './dto/whatsapp-webhook-query.dto';
 import { WhatsappDocumentQueryDto } from './dto/whatsapp-document-query.dto';
-import { WhatsappWebhookPayloadDto } from './dto/whatsapp-webhook-payload.dto';
 import { WhatsappService } from './whatsapp.service';
 
 @Controller('whatsapp')
@@ -69,7 +68,7 @@ export class WhatsappController {
   @Public()
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
-  async receiveWebhook(@Body() payload: WhatsappWebhookPayloadDto) {
+  async receiveWebhook(@Body() payload: unknown) {
     await this.whatsappService.handleIncomingWebhook(payload);
     return { received: true };
   }
