@@ -22,6 +22,10 @@ Variables de entorno requeridas:
 - `BATCH_WHATSAPP_INTERNAL_TOKEN=...`
 - `WHATSAPP_DOCUMENT_LINK_SECRET=...`
 
+Secreto operativo recomendado:
+
+- `WHATSAPP_TWO_STEP_PIN=...` (PIN de seis digitos usado al registrar el numero; conservarlo solo en el gestor de secretos o `.env` protegido de produccion)
+
 Variables recomendadas para links de documentos:
 
 - `FRONTEND_URL=http://localhost:3000` (URL pública del frontend)
