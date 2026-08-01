@@ -11,7 +11,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-rent_dev}
       POSTGRES_USER: ${POSTGRES_USER:-rent_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rent_dev_password}
-      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=es_ES.UTF-8"
+      # The Alpine-based PostGIS image guarantees C.UTF-8; es_ES.UTF-8 is not
+      # installed and leaves PostgreSQL in a restart loop after initialization.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
