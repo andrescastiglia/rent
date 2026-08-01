@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   ForbiddenException,
   NotFoundException,
@@ -10,6 +11,8 @@ import { CreateBankAccountDto } from './dto/create-bank-account.dto';
 import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
 import { UserRole } from '../users/entities/user.entity';
 import { Owner } from '../owners/entities/owner.entity';
+import { Property } from '../properties/entities/property.entity';
+import { User } from '../users/entities/user.entity';
 
 interface UserContext {
   id: string;
@@ -24,6 +27,10 @@ export class BankAccountsService {
     private readonly bankAccountsRepository: Repository<BankAccount>,
     @InjectRepository(Owner)
     private readonly ownersRepository: Repository<Owner>,
+    @InjectRepository(Property)
+    private readonly propertiesRepository: Repository<Property>,
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
   ) {}
 
   async findAll(
@@ -89,6 +96,7 @@ export class BankAccountsService {
     user?: UserContext,
   ): Promise<BankAccount> {
     let ownerId = dto.ownerId ?? null;
+    let userId = dto.userId ?? null;
 
     if (user?.role === UserRole.OWNER) {
       const owner = await this.resolveOwnerForUser(user, companyId);
@@ -96,7 +104,17 @@ export class BankAccountsService {
         throw new ForbiddenException('Owner profile not found');
       }
       ownerId = owner.id;
+      userId = user.id;
     }
+
+    await this.validateReferences(
+      companyId,
+      user,
+      ownerId,
+      userId,
+      dto.propertyId ?? null,
+    );
+    this.validateVirtualAlias(dto);
 
     if (dto.isDefault) {
       await this.bankAccountsRepository.update(
@@ -109,6 +127,7 @@ export class BankAccountsService {
       companyId,
       currency: dto.currency ?? 'ARS',
       ownerId,
+      userId,
     });
     return this.bankAccountsRepository.save(account);
   }
@@ -120,6 +139,26 @@ export class BankAccountsService {
     user?: UserContext,
   ): Promise<BankAccount> {
     const account = await this.findOne(id, companyId, user);
+    const nextOwnerId =
+      user?.role === UserRole.OWNER
+        ? account.ownerId
+        : (dto.ownerId ?? account.ownerId);
+    const nextUserId =
+      user?.role === UserRole.OWNER ? user.id : (dto.userId ?? account.userId);
+    const nextPropertyId = dto.propertyId ?? account.propertyId;
+
+    await this.validateReferences(
+      companyId,
+      user,
+      nextOwnerId,
+      nextUserId,
+      nextPropertyId,
+    );
+    this.validateVirtualAlias({
+      isVirtualAlias: dto.isVirtualAlias ?? account.isVirtualAlias,
+      propertyId: nextPropertyId ?? undefined,
+      alias: dto.alias ?? account.alias ?? undefined,
+    });
 
     if (dto.isDefault) {
       await this.bankAccountsRepository.update(
@@ -128,8 +167,72 @@ export class BankAccountsService {
       );
     }
 
-    Object.assign(account, dto);
+    Object.assign(account, dto, {
+      ownerId: nextOwnerId,
+      userId: nextUserId,
+      propertyId: nextPropertyId,
+    });
     return this.bankAccountsRepository.save(account);
+  }
+
+  private async validateReferences(
+    companyId: string,
+    user: UserContext | undefined,
+    ownerId: string | null,
+    userId: string | null,
+    propertyId: string | null,
+  ): Promise<void> {
+    if (userId) {
+      const referencedUser = await this.usersRepository.findOne({
+        where: { id: userId, companyId },
+      });
+      if (!referencedUser) {
+        throw new BadRequestException(
+          'Bank account user must belong to company',
+        );
+      }
+    }
+
+    if (ownerId) {
+      const owner = await this.ownersRepository.findOne({
+        where: { id: ownerId, companyId },
+      });
+      if (!owner) {
+        throw new BadRequestException(
+          'Bank account owner must belong to company',
+        );
+      }
+    }
+
+    if (!propertyId) return;
+
+    const property = await this.propertiesRepository.findOne({
+      where: { id: propertyId, companyId },
+    });
+    if (!property) {
+      throw new BadRequestException(
+        'Virtual alias property must belong to company',
+      );
+    }
+    if (user?.role === UserRole.OWNER && property.ownerId !== ownerId) {
+      throw new ForbiddenException(
+        'You can only assign aliases to your own properties',
+      );
+    }
+  }
+
+  private validateVirtualAlias(
+    values: Pick<
+      CreateBankAccountDto,
+      'isVirtualAlias' | 'propertyId' | 'alias'
+    >,
+  ): void {
+    if (!values.isVirtualAlias) return;
+    if (!values.propertyId || !values.alias?.trim()) {
+      throw new BadRequestException(
+        'Virtual bank accounts require propertyId and alias',
+      );
+    }
   }
 
   async remove(

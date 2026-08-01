@@ -25,6 +25,26 @@ export class CreateBankAccountDto {
   cbu?: string;
 
   @IsString()
+  @MaxLength(22)
+  @IsOptional()
+  cbuCvu?: string;
+
+  @IsString()
+  @MaxLength(50)
+  @IsOptional()
+  alias?: string;
+
+  @IsString()
+  @MaxLength(200)
+  @IsOptional()
+  holderName?: string;
+
+  @IsString()
+  @MaxLength(20)
+  @IsOptional()
+  holderCuit?: string;
+
+  @IsString()
   @MaxLength(10)
   @IsOptional()
   currency?: string;
@@ -42,5 +62,18 @@ export class CreateBankAccountDto {
   ownerId?: string;
 
   @IsUUID()
-  userId: string;
+  @IsOptional()
+  userId?: string;
+
+  @IsUUID()
+  @IsOptional()
+  propertyId?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isVirtualAlias?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
 }

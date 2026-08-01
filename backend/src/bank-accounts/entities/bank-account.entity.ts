@@ -11,18 +11,19 @@ import {
 import { Owner } from '../../owners/entities/owner.entity';
 import { User } from '../../users/entities/user.entity';
 import { Company } from '../../companies/entities/company.entity';
+import { Property } from '../../properties/entities/property.entity';
 
 @Entity('bank_accounts')
 export class BankAccount {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'user_id' })
-  userId: string;
+  @Column({ name: 'user_id', nullable: true, type: 'uuid' })
+  userId: string | null;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: User | null;
 
   @Column({ name: 'company_id' })
   companyId: string;
@@ -38,6 +39,13 @@ export class BankAccount {
   @JoinColumn({ name: 'owner_id' })
   owner: Owner | null;
 
+  @Column({ name: 'property_id', nullable: true, type: 'uuid' })
+  propertyId: string | null;
+
+  @ManyToOne(() => Property, { nullable: true })
+  @JoinColumn({ name: 'property_id' })
+  property: Property | null;
+
   @Column({ name: 'bank_name' })
   bankName: string;
 
@@ -50,11 +58,29 @@ export class BankAccount {
   @Column({ type: 'varchar', nullable: true })
   cbu: string | null;
 
+  @Column({ name: 'cbu_cvu', type: 'varchar', nullable: true })
+  cbuCvu: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  alias: string | null;
+
+  @Column({ name: 'holder_name', type: 'varchar', nullable: true })
+  holderName: string | null;
+
+  @Column({ name: 'holder_cuit', type: 'varchar', nullable: true })
+  holderCuit: string | null;
+
   @Column({ default: 'ARS' })
   currency: string;
 
   @Column({ name: 'is_default', default: false })
   isDefault: boolean;
+
+  @Column({ name: 'is_virtual_alias', default: false })
+  isVirtualAlias: boolean;
+
+  @Column({ name: 'is_active', default: true })
+  isActive: boolean;
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;
