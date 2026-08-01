@@ -710,9 +710,10 @@ Implementar sistema de cobranza multicanal y liquidación a propietarios.
   - ✅ Webhooks con validación de origen
   - Testing sandbox
 
-- **T822**: Link de pago en facturas
-  - Incluir link MP en email de factura
-  - QR code en PDF de factura
+- ✅ **T822**: Link de pago en facturas
+  - Link de Checkout Pro en la notificación de factura
+  - QR code y enlace accesible en PDFs backend y batch
+  - Inicio de pago desde el detalle web o desde el QR
 
 ### 8.3 Integración Bancaria
 

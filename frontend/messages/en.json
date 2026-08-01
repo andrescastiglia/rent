@@ -1049,6 +1049,8 @@
     "amountPending": "Pending Amount",
     "notes": "Notes",
     "downloadPdf": "Download PDF",
+    "payMercadoPago": "Pay with MercadoPago",
+    "mercadoPagoError": "We could not start the MercadoPago payment. Please try again.",
     "registerPayment": "Register Payment",
     "actions": {
       "downloadInvoice": "Download invoice"

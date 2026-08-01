@@ -20,6 +20,13 @@ pendientes del plan de trabajo.
    actualiza la transacción. Los reintentos sobre una transacción ya procesada
    no vuelven a aplicar el cambio.
 
+Las facturas pendientes exponen `Pagar con MercadoPago` en su detalle web. Los
+PDFs generados tanto por backend como por batch contienen un QR y un enlace a
+ese mismo flujo. El enlace estable vuelve primero a la factura autenticada y
+recién allí crea la preferencia, por lo que el PDF no contiene una preferencia
+efímera ni credenciales del proveedor. Las notificaciones batch incluyen ese
+enlace junto con el PDF.
+
 ## Configuración
 
 Variables requeridas en producción:

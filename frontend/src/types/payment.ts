@@ -126,6 +126,12 @@ export interface Invoice {
   updatedAt: string;
 }
 
+export interface PaymentPreference {
+  initPoint: string;
+  sandboxInitPoint: string;
+  transactionId: string;
+}
+
 export interface CreditNote {
   id: string;
   invoiceId: string;

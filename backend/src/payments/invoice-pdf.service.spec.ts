@@ -5,6 +5,7 @@ import { Document } from '../documents/entities/document.entity';
 import { InvoicePdfService } from './invoice-pdf.service';
 import { PaymentDocumentTemplatesService } from './payment-document-templates.service';
 import { PaymentDocumentTemplateType } from './entities/payment-document-template.entity';
+import { ConfigService } from '@nestjs/config';
 
 jest.mock('./templates/invoice-template', () => ({
   generateInvoicePdf: jest.fn(),
@@ -59,6 +60,14 @@ describe('InvoicePdfService', () => {
         {
           provide: PaymentDocumentTemplatesService,
           useValue: templatesService,
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string) =>
+              key === 'FRONTEND_URL' ? 'https://rent.example.com' : undefined,
+            ),
+          },
         },
       ],
     }).compile();
@@ -125,6 +134,10 @@ describe('InvoicePdfService', () => {
       'Factura FAC-1',
       '<h1>FAC-1</h1>',
       'Factura ID: inv-1',
+      {
+        paymentUrl:
+          'https://rent.example.com/en/invoices/inv-1?pay=mercadopago',
+      },
     );
     expect(generateInvoicePdf).not.toHaveBeenCalled();
     expect(documentsRepository.create).toHaveBeenCalled();
@@ -160,6 +173,7 @@ describe('InvoicePdfService', () => {
       expect.objectContaining({ id: 'inv-2' }),
       i18n,
       'es',
+      'https://rent.example.com/es/invoices/inv-2?pay=mercadopago',
     );
     expect(renderDocumentTemplate).not.toHaveBeenCalled();
     expect(generateCustomDocumentPdf).not.toHaveBeenCalled();

@@ -1,6 +1,8 @@
 import { AppDataSource } from "../shared/database";
 import { logger } from "../shared/logger";
 import * as PDFDocument from "pdfkit";
+import { buildInvoicePaymentUrl } from "./invoice-payment-link";
+import { appendInvoicePaymentQr } from "./invoice-payment-pdf";
 
 const TEMPLATE_PLACEHOLDER_REGEX = /{{\s*([a-zA-Z0-9_.]+)\s*}}/g;
 
@@ -130,6 +132,10 @@ export interface LeaseForBilling {
  * Service for managing invoices in the batch system.
  */
 export class InvoiceService {
+  getPaymentLink(invoiceId: string, locale = "es"): string | null {
+    return buildInvoicePaymentUrl(invoiceId, locale);
+  }
+
   /**
    * Generates the next invoice number for an owner.
    */
@@ -586,41 +592,46 @@ export class InvoiceService {
       doc.on("end", () => resolve(Buffer.concat(chunks)));
       doc.on("error", reject);
 
-      doc
-        .fontSize(18)
-        .font("Helvetica-Bold")
-        .text("Factura", { align: "center" });
-      doc.moveDown();
-      doc.fontSize(10).font("Helvetica");
-      doc.text(`Numero: ${invoice.invoiceNumber}`);
-      doc.text(
-        `Fecha emision: ${
-          invoice.issuedAt
-            ? invoice.issuedAt.toISOString().slice(0, 10)
-            : new Date().toISOString().slice(0, 10)
-        }`,
-      );
-      doc.text(`Vencimiento: ${invoice.dueDate.toISOString().slice(0, 10)}`);
-      doc.text(
-        `Periodo: ${invoice.periodStart.toISOString().slice(0, 10)} al ${invoice.periodEnd.toISOString().slice(0, 10)}`,
-      );
-      doc.moveDown();
-      doc.text(
-        `Subtotal: ${invoice.currencyCode} ${invoice.subtotal.toLocaleString("es-AR")}`,
-      );
-      doc.text(
-        `Mora: ${invoice.currencyCode} ${invoice.lateFee.toLocaleString("es-AR")}`,
-      );
-      doc.text(
-        `Ajustes: ${invoice.currencyCode} ${invoice.adjustments.toLocaleString("es-AR")}`,
-      );
-      doc.text(
-        `Total: ${invoice.currencyCode} ${invoice.total.toLocaleString("es-AR")}`,
-      );
-      doc.moveDown(2);
-      doc.fontSize(8).text(`ID factura: ${invoice.id}`, { align: "center" });
+      const render = async () => {
+        doc
+          .fontSize(18)
+          .font("Helvetica-Bold")
+          .text("Factura", { align: "center" });
+        doc.moveDown();
+        doc.fontSize(10).font("Helvetica");
+        doc.text(`Numero: ${invoice.invoiceNumber}`);
+        doc.text(
+          `Fecha emision: ${
+            invoice.issuedAt
+              ? invoice.issuedAt.toISOString().slice(0, 10)
+              : new Date().toISOString().slice(0, 10)
+          }`,
+        );
+        doc.text(`Vencimiento: ${invoice.dueDate.toISOString().slice(0, 10)}`);
+        doc.text(
+          `Periodo: ${invoice.periodStart.toISOString().slice(0, 10)} al ${invoice.periodEnd.toISOString().slice(0, 10)}`,
+        );
+        doc.moveDown();
+        doc.text(
+          `Subtotal: ${invoice.currencyCode} ${invoice.subtotal.toLocaleString("es-AR")}`,
+        );
+        doc.text(
+          `Mora: ${invoice.currencyCode} ${invoice.lateFee.toLocaleString("es-AR")}`,
+        );
+        doc.text(
+          `Ajustes: ${invoice.currencyCode} ${invoice.adjustments.toLocaleString("es-AR")}`,
+        );
+        doc.text(
+          `Total: ${invoice.currencyCode} ${invoice.total.toLocaleString("es-AR")}`,
+        );
+        await appendInvoicePaymentQr(doc, this.getPaymentLink(invoice.id));
+        doc.moveDown(2);
+        doc.fontSize(8).text(`ID factura: ${invoice.id}`, { align: "center" });
 
-      doc.end();
+        doc.end();
+      };
+
+      void render().catch(reject);
     });
   }
 
@@ -642,18 +653,23 @@ export class InvoiceService {
       doc.on("end", () => resolve(Buffer.concat(chunks)));
       doc.on("error", reject);
 
-      doc
-        .fontSize(18)
-        .font("Helvetica-Bold")
-        .text(`Factura ${invoice.invoiceNumber}`, { align: "center" });
-      doc.moveDown();
-      doc.fontSize(10).font("Helvetica").text(rendered, {
-        align: "left",
-        lineGap: 4,
-      });
-      doc.moveDown(2);
-      doc.fontSize(8).text(`ID factura: ${invoice.id}`, { align: "center" });
-      doc.end();
+      const renderPdf = async () => {
+        doc
+          .fontSize(18)
+          .font("Helvetica-Bold")
+          .text(`Factura ${invoice.invoiceNumber}`, { align: "center" });
+        doc.moveDown();
+        doc.fontSize(10).font("Helvetica").text(rendered, {
+          align: "left",
+          lineGap: 4,
+        });
+        await appendInvoicePaymentQr(doc, this.getPaymentLink(invoice.id));
+        doc.moveDown(2);
+        doc.fontSize(8).text(`ID factura: ${invoice.id}`, { align: "center" });
+        doc.end();
+      };
+
+      void renderPdf().catch(reject);
     });
   }
 
