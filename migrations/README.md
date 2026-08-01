@@ -45,6 +45,21 @@ POSTGRES_PASSWORD
 POSTGRES_DB
 ```
 
+Para una base temporal o CI se puede conservar el entorno ya exportado sin
+cargar el `.env` local:
+
+```bash
+MIGRATIONS_SKIP_ENV_FILE=true \
+POSTGRES_HOST=localhost POSTGRES_PORT=55432 \
+POSTGRES_USER=test POSTGRES_PASSWORD=test POSTGRES_DB=rent_test \
+./migrations/run-migrations.sh --status
+```
+
+También se puede indicar otro archivo con `MIGRATIONS_ENV_FILE=/ruta/al/.env`.
+Si no hay un cliente `psql` local, `MIGRATIONS_CONTAINER_NAME` selecciona el
+contenedor PostgreSQL donde se ejecutarán las consultas (por defecto,
+`rent-postgres`).
+
 ## Crear Una Migración
 
 1. Buscar el último número:

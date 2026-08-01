@@ -20,7 +20,11 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Cargar variables de entorno
 load_env_file() {
-    local env_file="$PROJECT_ROOT/.env"
+    if [ "${MIGRATIONS_SKIP_ENV_FILE:-false}" = true ]; then
+        return 0
+    fi
+
+    local env_file="${MIGRATIONS_ENV_FILE:-$PROJECT_ROOT/.env}"
 
     if [ ! -f "$env_file" ]; then
         return 0
@@ -82,7 +86,7 @@ print_info() {
 
 # Determine execution method
 declare -a EXEC_CMD=()
-CONTAINER_NAME="rent-postgres"
+CONTAINER_NAME="${MIGRATIONS_CONTAINER_NAME:-rent-postgres}"
 
 run_query() {
     local sql="$1"

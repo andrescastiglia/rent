@@ -1,9 +1,12 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   ForbiddenException,
   InternalServerErrorException,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -17,7 +20,21 @@ import { Invoice, InvoiceStatus } from '../payments/entities/invoice.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { UserRole } from '../users/entities/user.entity';
 import { CreatePaymentPreferenceDto } from './dto/create-payment-preference.dto';
-import { WebhookNotificationDto } from './dto/webhook-notification.dto';
+
+interface MercadoPagoWebhookNotification {
+  id: string;
+  type: string;
+  data: { id: string };
+  action?: string;
+  date_created?: string;
+}
+
+export interface MercadoPagoWebhookSignatureContext {
+  xSignature?: string;
+  xRequestId?: string;
+  dataId?: string;
+  receivedAt?: number;
+}
 
 interface UserContext {
   id: string;
@@ -143,7 +160,13 @@ export class PaymentGatewayService {
     };
   }
 
-  async processWebhook(notification: WebhookNotificationDto): Promise<void> {
+  async processWebhook(
+    payload: unknown,
+    signatureContext: MercadoPagoWebhookSignatureContext = {},
+  ): Promise<void> {
+    const notification = this.normalizeWebhookNotification(payload);
+    this.validateWebhookSignature(notification, signatureContext);
+
     if (notification.type !== 'payment') {
       return;
     }
@@ -206,6 +229,125 @@ export class PaymentGatewayService {
         `UPDATE invoices SET status = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3`,
         [InvoiceStatus.PAID, invoiceId, tx.companyId],
       );
+    }
+  }
+
+  private normalizeWebhookNotification(
+    payload: unknown,
+  ): MercadoPagoWebhookNotification {
+    if (!payload || typeof payload !== 'object') {
+      throw new BadRequestException('Invalid MercadoPago webhook payload');
+    }
+
+    const candidate = payload as Record<string, unknown>;
+    const data = candidate.data;
+    if (!data || typeof data !== 'object') {
+      throw new BadRequestException('MercadoPago webhook data is required');
+    }
+
+    const dataId = (data as Record<string, unknown>).id;
+    if (
+      (typeof dataId !== 'string' && typeof dataId !== 'number') ||
+      (typeof candidate.type !== 'string' &&
+        typeof candidate.topic !== 'string')
+    ) {
+      throw new BadRequestException('Invalid MercadoPago webhook payload');
+    }
+
+    const rawNotificationId = candidate.id;
+    const notificationId =
+      typeof rawNotificationId === 'string' ||
+      typeof rawNotificationId === 'number'
+        ? String(rawNotificationId)
+        : String(dataId);
+
+    return {
+      id: notificationId,
+      type: String(candidate.type ?? candidate.topic),
+      data: { id: String(dataId) },
+      ...(typeof candidate.action === 'string'
+        ? { action: candidate.action }
+        : {}),
+      ...(typeof candidate.date_created === 'string'
+        ? { date_created: candidate.date_created }
+        : {}),
+    };
+  }
+
+  private validateWebhookSignature(
+    notification: MercadoPagoWebhookNotification,
+    context: MercadoPagoWebhookSignatureContext,
+  ): void {
+    const secret = this.configService.get<string>('MERCADOPAGO_WEBHOOK_SECRET');
+    const isProduction =
+      this.configService.get<string>('NODE_ENV') === 'production';
+
+    if (!secret) {
+      if (isProduction) {
+        throw new InternalServerErrorException(
+          'MercadoPago webhook secret is not configured',
+        );
+      }
+      return;
+    }
+
+    const signedDataId = context.dataId ?? notification.data.id;
+    if (
+      context.dataId &&
+      context.dataId.toLowerCase() !== notification.data.id.toLowerCase()
+    ) {
+      throw new UnauthorizedException('Invalid MercadoPago webhook signature');
+    }
+
+    const signatureParts = new Map(
+      (context.xSignature ?? '').split(',').map((part) => {
+        const separator = part.indexOf('=');
+        if (separator < 1) return ['', ''];
+        return [part.slice(0, separator).trim(), part.slice(separator + 1)];
+      }),
+    );
+    const timestamp = signatureParts.get('ts');
+    const providedDigest = signatureParts.get('v1');
+
+    if (!timestamp || !providedDigest) {
+      throw new UnauthorizedException('Invalid MercadoPago webhook signature');
+    }
+
+    const signatureTemplate = [
+      `id:${signedDataId.toLowerCase()};`,
+      context.xRequestId ? `request-id:${context.xRequestId};` : '',
+      `ts:${timestamp};`,
+    ].join('');
+    const expectedDigest = createHmac('sha256', secret)
+      .update(signatureTemplate)
+      .digest('hex');
+    const providedBuffer = Buffer.from(providedDigest, 'hex');
+    const expectedBuffer = Buffer.from(expectedDigest, 'hex');
+
+    if (
+      providedBuffer.length !== expectedBuffer.length ||
+      !timingSafeEqual(providedBuffer, expectedBuffer)
+    ) {
+      throw new UnauthorizedException('Invalid MercadoPago webhook signature');
+    }
+
+    const timestampValue = Number(timestamp);
+    const timestampMs =
+      timestampValue < 1_000_000_000_000
+        ? timestampValue * 1000
+        : timestampValue;
+    const toleranceSeconds = Number(
+      this.configService.get<string>('MERCADOPAGO_WEBHOOK_TOLERANCE_SECONDS') ??
+        300,
+    );
+    const receivedAt = context.receivedAt ?? Date.now();
+
+    if (
+      !Number.isFinite(timestampMs) ||
+      !Number.isFinite(toleranceSeconds) ||
+      Math.abs(receivedAt - timestampMs) > toleranceSeconds * 1000
+    ) {
+      throw new UnauthorizedException('Expired MercadoPago webhook signature');
     }
   }
 

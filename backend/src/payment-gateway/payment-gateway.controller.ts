@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -17,7 +18,6 @@ import { Public } from '../common/decorators/public.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { PaymentGatewayService } from './payment-gateway.service';
 import { CreatePaymentPreferenceDto } from './dto/create-payment-preference.dto';
-import { WebhookNotificationDto } from './dto/webhook-notification.dto';
 import { PaymentGatewayTransaction } from './entities/payment-gateway-transaction.entity';
 
 interface AuthenticatedRequest {
@@ -74,8 +74,16 @@ export class PaymentGatewayController {
   @Public()
   @HttpCode(HttpStatus.OK)
   async processWebhook(
-    @Body() notification: WebhookNotificationDto,
+    @Body() notification: unknown,
+    @Headers('x-signature') xSignature?: string,
+    @Headers('x-request-id') xRequestId?: string,
+    @Query('data.id') dottedDataId?: string,
+    @Query('data_id') underscoredDataId?: string,
   ): Promise<void> {
-    return this.paymentGatewayService.processWebhook(notification);
+    return this.paymentGatewayService.processWebhook(notification, {
+      xSignature,
+      xRequestId,
+      dataId: dottedDataId ?? underscoredDataId,
+    });
   }
 }
