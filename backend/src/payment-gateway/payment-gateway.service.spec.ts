@@ -1,7 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { createHmac } from 'node:crypto';
 import {
+  BadRequestException,
   NotFoundException,
   InternalServerErrorException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -260,6 +263,102 @@ describe('PaymentGatewayService', () => {
 
       expect(txRepo.update).not.toHaveBeenCalled();
       expect(dataSource.query).not.toHaveBeenCalled();
+    });
+
+    it('should accept a valid signed notification with numeric ids', async () => {
+      const receivedAt = 1_754_000_000_000;
+      const timestamp = String(receivedAt);
+      const requestId = 'request-123';
+      const dataId = '456';
+      const secret = 'webhook-secret';
+      const digest = createHmac('sha256', secret)
+        .update(`id:${dataId};request-id:${requestId};ts:${timestamp};`)
+        .digest('hex');
+
+      configService.get.mockImplementation((key: string) => {
+        if (key === 'MERCADOPAGO_WEBHOOK_SECRET') return secret;
+        if (key === 'MERCADOPAGO_ACCESS_TOKEN') return 'TEST_TOKEN';
+        return undefined;
+      });
+      httpService.get.mockReturnValue(
+        of({
+          data: {
+            id: dataId,
+            status: 'approved',
+            external_reference: 'invoice-uuid-1234',
+          },
+        } as AxiosResponse),
+      );
+      txRepo.findOne!.mockResolvedValue(null);
+
+      await service.processWebhook(
+        {
+          id: 123,
+          live_mode: true,
+          type: 'payment',
+          data: { id: 456 },
+        },
+        {
+          xSignature: `ts=${timestamp},v1=${digest}`,
+          xRequestId: requestId,
+          dataId,
+          receivedAt,
+        },
+      );
+
+      expect(httpService.get).toHaveBeenCalledWith(
+        `https://api.mercadopago.com/v1/payments/${dataId}`,
+        expect.any(Object),
+      );
+    });
+
+    it('should reject an invalid webhook signature', async () => {
+      configService.get.mockImplementation((key: string) => {
+        if (key === 'MERCADOPAGO_WEBHOOK_SECRET') return 'webhook-secret';
+        return undefined;
+      });
+
+      await expect(
+        service.processWebhook(baseNotification, {
+          xSignature: 'ts=1754000000000,v1=deadbeef',
+          xRequestId: 'request-123',
+          dataId: baseNotification.data.id,
+          receivedAt: 1_754_000_000_000,
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(httpService.get).not.toHaveBeenCalled();
+    });
+
+    it('should reject a signed query id that differs from the payload id', async () => {
+      configService.get.mockImplementation((key: string) => {
+        if (key === 'MERCADOPAGO_WEBHOOK_SECRET') return 'webhook-secret';
+        return undefined;
+      });
+
+      await expect(
+        service.processWebhook(baseNotification, {
+          xSignature: 'ts=1754000000000,v1=deadbeef',
+          dataId: 'different-payment-id',
+          receivedAt: 1_754_000_000_000,
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should reject malformed webhook payloads', async () => {
+      await expect(service.processWebhook({ type: 'payment' })).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should require a webhook secret in production', async () => {
+      configService.get.mockImplementation((key: string) => {
+        if (key === 'NODE_ENV') return 'production';
+        return undefined;
+      });
+
+      await expect(service.processWebhook(baseNotification)).rejects.toThrow(
+        InternalServerErrorException,
+      );
     });
   });
 

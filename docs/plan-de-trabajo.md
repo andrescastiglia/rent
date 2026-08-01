@@ -282,10 +282,10 @@ Integrar servicios externos críticos para el negocio.
   - Webhooks de confirmación
   - Manejo de errores y reintentos
 
-- **T213**: Integración con MercadoPago
+- 🔄 **T213**: Integración con MercadoPago (EN PROGRESO)
   - Implementación de Strategy para MP
-  - Checkout Pro
-  - Webhooks IPN
+  - ✅ Checkout Pro
+  - ✅ Webhooks con validación HMAC e idempotencia de transacción
   - Testing en sandbox
 
 - ✅ **T214**: API de Pagos
@@ -704,10 +704,10 @@ Implementar sistema de cobranza multicanal y liquidación a propietarios.
 
 ### 8.2 Integración MercadoPago
 
-- **T821**: Servicio MercadoPago
-  - MercadoPagoService
-  - Crear preferencia de pago
-  - Webhooks IPN
+- 🔄 **T821**: Servicio MercadoPago (EN PROGRESO)
+  - ✅ PaymentGatewayService
+  - ✅ Crear preferencia de pago
+  - ✅ Webhooks con validación de origen
   - Testing sandbox
 
 - **T822**: Link de pago en facturas
