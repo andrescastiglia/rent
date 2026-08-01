@@ -72,6 +72,30 @@ describe("BankReconciliationBatchService", () => {
     );
   });
 
+  it("uses the default backend URL and reports no resolved alert when none exists", async () => {
+    delete process.env.BACKEND_INTERNAL_URL;
+    delete process.env.BACKEND_PORT;
+    query
+      .mockResolvedValueOnce([candidate("default-url")])
+      .mockResolvedValueOnce([[], 0]);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: "matched", paymentId: "payment-1" }),
+    });
+
+    const result = await new BankReconciliationBatchService().process({
+      limit: 1,
+      minAgeMinutes: 0,
+      dryRun: false,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/bank-reconciliation/internal/movements/default-url/reconcile",
+      expect.any(Object),
+    );
+    expect(result.alertsResolved).toBe(0);
+  });
+
   it("processes matches, opens unmatched alerts and records request failures", async () => {
     query
       .mockResolvedValueOnce([

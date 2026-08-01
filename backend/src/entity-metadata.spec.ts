@@ -1,6 +1,9 @@
 import 'reflect-metadata';
 import { getMetadataArgsStorage } from 'typeorm';
+import { BankMovement } from './bank-reconciliation/entities/bank-movement.entity';
+import { BankReconciliationAlert } from './bank-reconciliation/entities/bank-reconciliation-alert.entity';
 import { Buyer } from './buyers/entities/buyer.entity';
+import { Company } from './companies/entities/company.entity';
 import { InterestedProfile } from './interested/entities/interested-profile.entity';
 import { LeaseContractTemplate } from './leases/entities/lease-contract-template.entity';
 import { User } from './users/entities/user.entity';
@@ -20,6 +23,19 @@ describe('Entity metadata', () => {
 
     expect(column).toBeDefined();
     expect(column?.options.type).toBe(expectedType);
+  };
+
+  const expectRelationTarget = (
+    entity: EntityClass,
+    propertyName: string,
+    expectedTarget: EntityClass,
+  ) => {
+    const relation = getMetadataArgsStorage().relations.find(
+      (item) => item.target === entity && item.propertyName === propertyName,
+    );
+
+    expect(relation).toBeDefined();
+    expect((relation?.type as () => EntityClass)()).toBe(expectedTarget);
   };
 
   it('defines explicit runtime-safe types for nullable string and UUID unions', () => {
@@ -53,5 +69,11 @@ describe('Entity metadata', () => {
       });
 
     expect(unsafeColumns).toEqual([]);
+  });
+
+  it('links bank reconciliation alerts to their scoped entities', () => {
+    expectRelationTarget(BankReconciliationAlert, 'company', Company);
+    expectRelationTarget(BankReconciliationAlert, 'movement', BankMovement);
+    expectRelationTarget(BankReconciliationAlert, 'resolver', User);
   });
 });
