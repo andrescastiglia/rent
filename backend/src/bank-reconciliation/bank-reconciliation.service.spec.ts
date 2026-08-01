@@ -10,6 +10,7 @@ import {
 } from './entities/bank-movement.entity';
 import { InvoiceStatus } from '../payments/entities/invoice.entity';
 import { PaymentStatus } from '../payments/entities/payment.entity';
+import { BankReconciliationAlertStatus } from './entities/bank-reconciliation-alert.entity';
 
 const fluentQuery = (result: { one?: unknown; many?: unknown[] }) => {
   const query: Record<string, jest.Mock> = {};
@@ -39,6 +40,7 @@ describe('BankReconciliationService', () => {
   let reconciliations: any;
   let bankAccounts: any;
   let invoices: any;
+  let alerts: any;
   let payments: any;
   let dataSource: any;
   let service: BankReconciliationService;
@@ -94,6 +96,11 @@ describe('BankReconciliationService', () => {
       createQueryBuilder: jest.fn(),
     };
     invoices = { findOne: jest.fn(), createQueryBuilder: jest.fn() };
+    alerts = {
+      find: jest.fn(),
+      findOne: jest.fn(),
+      save: jest.fn(async (value) => value),
+    };
     payments = {
       create: jest.fn(),
       findOne: jest.fn(),
@@ -113,9 +120,77 @@ describe('BankReconciliationService', () => {
       reconciliations,
       bankAccounts,
       invoices,
+      alerts,
       payments,
       dataSource,
     );
+  });
+
+  it('protects batch reconciliation with a separately configured token', () => {
+    const previous = process.env.BATCH_BANK_RECONCILIATION_INTERNAL_TOKEN;
+    delete process.env.BATCH_BANK_RECONCILIATION_INTERNAL_TOKEN;
+    expect(() => service.assertBatchToken('token')).toThrow(
+      'token is not configured',
+    );
+    process.env.BATCH_BANK_RECONCILIATION_INTERNAL_TOKEN = 'expected';
+    expect(() => service.assertBatchToken()).toThrow('Invalid batch');
+    expect(() => service.assertBatchToken('wrong')).toThrow('Invalid batch');
+    expect(() => service.assertBatchToken('expected')).not.toThrow();
+    if (previous === undefined) {
+      delete process.env.BATCH_BANK_RECONCILIATION_INTERNAL_TOKEN;
+    } else {
+      process.env.BATCH_BANK_RECONCILIATION_INTERNAL_TOKEN = previous;
+    }
+  });
+
+  it('resolves company scope before an internal reconciliation', async () => {
+    const storedMovement = movement();
+    const matched = reconciliation({
+      status: BankReconciliationStatus.MATCHED,
+    });
+    movements.findOne
+      .mockResolvedValueOnce(storedMovement)
+      .mockResolvedValueOnce(storedMovement);
+    reconciliations.findOne
+      .mockResolvedValueOnce(matched)
+      .mockResolvedValueOnce(matched);
+    await expect(service.reconcileInternal(movementId)).resolves.toBe(matched);
+
+    movements.findOne.mockReset().mockResolvedValue(null);
+    await expect(service.reconcileInternal('missing')).rejects.toThrow(
+      'Bank movement not found',
+    );
+  });
+
+  it('lists and manually resolves company-scoped alerts', async () => {
+    const openAlert = {
+      id: 'alert-1',
+      companyId,
+      status: BankReconciliationAlertStatus.OPEN,
+      resolvedAt: null,
+      resolvedBy: null,
+    };
+    alerts.find.mockResolvedValue([openAlert]);
+    await expect(service.findAlerts(companyId)).resolves.toEqual([openAlert]);
+    expect(alerts.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          companyId,
+          status: BankReconciliationAlertStatus.OPEN,
+        },
+      }),
+    );
+
+    alerts.findOne.mockResolvedValue(openAlert);
+    const resolved = await service.resolveAlert('alert-1', companyId, 'user-1');
+    expect(resolved.status).toBe(BankReconciliationAlertStatus.RESOLVED);
+    expect(resolved.resolvedBy).toBe('user-1');
+    expect(resolved.resolvedAt).toBeInstanceOf(Date);
+
+    alerts.findOne.mockResolvedValue(null);
+    await expect(
+      service.resolveAlert('missing', companyId, 'user-1'),
+    ).rejects.toThrow('Bank reconciliation alert not found');
   });
 
   it('ingests, matches by virtual account, confirms and returns a receipt-bearing reconciliation', async () => {
