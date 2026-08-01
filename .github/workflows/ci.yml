@@ -483,6 +483,48 @@ jobs:
           DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
           NODE_ENV: test
 
+      - name: Run settlement integration flow
+        working-directory: batch
+        run: |
+          SETTLEMENT_PERIOD="$(date +%Y-%m)"
+          npm run dev -- process-settlements \
+            --owner-id 33333333-3333-3333-3333-333333333333 \
+            --period "$SETTLEMENT_PERIOD"
+          psql -v ON_ERROR_STOP=1 "$DATABASE_URL" <<'SQL'
+          DO $assert$
+          DECLARE
+            settlement_record settlements%ROWTYPE;
+          BEGIN
+            SELECT * INTO settlement_record
+            FROM settlements
+            WHERE owner_id = '33333333-3333-3333-3333-333333333333'::uuid
+              AND period = TO_CHAR(CURRENT_DATE, 'YYYY-MM');
+
+            IF NOT FOUND THEN
+              RAISE EXCEPTION 'Settlement was not persisted';
+            END IF;
+            IF settlement_record.status <> 'completed' THEN
+              RAISE EXCEPTION 'Unexpected settlement status: %', settlement_record.status;
+            END IF;
+            IF settlement_record.gross_amount <> 250000.00 THEN
+              RAISE EXCEPTION 'Unexpected gross amount: %', settlement_record.gross_amount;
+            END IF;
+            IF settlement_record.commission_amount <> 20000.00 THEN
+              RAISE EXCEPTION 'Unexpected commission: %', settlement_record.commission_amount;
+            END IF;
+            IF settlement_record.net_amount <> 230000.00 THEN
+              RAISE EXCEPTION 'Unexpected net amount: %', settlement_record.net_amount;
+            END IF;
+            IF settlement_record.transfer_reference IS NULL THEN
+              RAISE EXCEPTION 'Transfer reference was not recorded';
+            END IF;
+          END
+          $assert$;
+          SQL
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
+          NODE_ENV: test
+
       - name: Seed bank reconciliation integration fixture
         run: |
           psql -v ON_ERROR_STOP=1 "$DATABASE_URL" <<'SQL'
@@ -726,48 +768,6 @@ jobs:
           if [ -f "$RUNNER_TEMP/rent-backend.log" ]; then
             tail -100 "$RUNNER_TEMP/rent-backend.log"
           fi
-
-      - name: Run settlement integration flow
-        working-directory: batch
-        run: |
-          SETTLEMENT_PERIOD="$(date +%Y-%m)"
-          npm run dev -- process-settlements \
-            --owner-id 33333333-3333-3333-3333-333333333333 \
-            --period "$SETTLEMENT_PERIOD"
-          psql -v ON_ERROR_STOP=1 "$DATABASE_URL" <<'SQL'
-          DO $assert$
-          DECLARE
-            settlement_record settlements%ROWTYPE;
-          BEGIN
-            SELECT * INTO settlement_record
-            FROM settlements
-            WHERE owner_id = '33333333-3333-3333-3333-333333333333'::uuid
-              AND period = TO_CHAR(CURRENT_DATE, 'YYYY-MM');
-
-            IF NOT FOUND THEN
-              RAISE EXCEPTION 'Settlement was not persisted';
-            END IF;
-            IF settlement_record.status <> 'completed' THEN
-              RAISE EXCEPTION 'Unexpected settlement status: %', settlement_record.status;
-            END IF;
-            IF settlement_record.gross_amount <> 250000.00 THEN
-              RAISE EXCEPTION 'Unexpected gross amount: %', settlement_record.gross_amount;
-            END IF;
-            IF settlement_record.commission_amount <> 20000.00 THEN
-              RAISE EXCEPTION 'Unexpected commission: %', settlement_record.commission_amount;
-            END IF;
-            IF settlement_record.net_amount <> 230000.00 THEN
-              RAISE EXCEPTION 'Unexpected net amount: %', settlement_record.net_amount;
-            END IF;
-            IF settlement_record.transfer_reference IS NULL THEN
-              RAISE EXCEPTION 'Transfer reference was not recorded';
-            END IF;
-          END
-          $assert$;
-          SQL
-        env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
-          NODE_ENV: test
 
   # ─────────────────────────────────────────────────────────────
   # FRONTEND JOBS
