@@ -7,6 +7,13 @@ liquidaciones. MercadoPago Checkout Pro está implementado en
 `backend/src/payment-gateway`; las transferencias y cripto permanecen como
 pendientes del plan de trabajo.
 
+La base neutral para cuentas virtuales permite persistir CBU/CVU, alias y la
+propiedad asociada sin acoplarse todavía a Bind o Pomelo. Los alias activos son
+únicos sin perder el historial de cuentas desactivadas o eliminadas, y el API
+valida que usuario, propietario y propiedad pertenezcan a la misma compañía.
+La creación del alias en un proveedor y la conciliación automática continúan
+pendientes.
+
 ## Flujo MercadoPago
 
 1. Un administrador o inquilino autenticado crea una preferencia con
@@ -49,6 +56,9 @@ La tabla de transacciones de la pasarela se crea en
 `migrations/079_add_payment_gateway_transactions.sql`. Toda modificación futura
 del contrato persistido debe agregarse como una migración numerada nueva; las
 migraciones existentes no se editan después de haber sido desplegadas.
+
+La unicidad de alias bancarios activos se incorpora en
+`migrations/092_enforce_active_bank_alias_uniqueness.sql`.
 
 Validación local de la cadena completa:
 

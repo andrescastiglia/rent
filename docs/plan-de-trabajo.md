@@ -721,10 +721,10 @@ Implementar sistema de cobranza multicanal y liquidación a propietarios.
   - Integración con proveedor (Bind/Pomelo)
   - Webhooks de movimientos
 
-- **T832**: Cuentas virtuales por propiedad
-  - Crear alias virtual
-  - Asociar a propiedad
-  - Identificación automática
+- 🔄 **T832**: Cuentas virtuales por propiedad (EN PROGRESO)
+  - 🔄 Crear alias virtual (persistencia y validación listas; proveedor pendiente)
+  - ✅ Asociar a propiedad con aislamiento por compañía/propietario
+  - ⏳ Identificación automática
 
 ### 8.4 Integración Crypto
 

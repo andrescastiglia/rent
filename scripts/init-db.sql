@@ -2629,6 +2629,9 @@ CREATE INDEX idx_bank_accounts_company ON bank_accounts(company_id) WHERE delete
 CREATE INDEX idx_bank_accounts_property ON bank_accounts(property_id) WHERE is_virtual_alias = TRUE;
 CREATE INDEX idx_bank_accounts_default
     ON bank_accounts(company_id, owner_id, is_default) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX idx_bank_accounts_active_alias_unique
+    ON bank_accounts(LOWER(alias))
+    WHERE deleted_at IS NULL AND alias IS NOT NULL AND is_active = TRUE;
 
 CREATE TRIGGER update_bank_accounts_updated_at
     BEFORE UPDATE ON bank_accounts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
