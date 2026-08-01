@@ -12,7 +12,8 @@ export type BillingJobType =
   | "sync_indices"
   | "reports"
   | "exchange_rates"
-  | "process_settlements";
+  | "process_settlements"
+  | "reconcile_bank";
 
 /**
  * Status of a billing job.

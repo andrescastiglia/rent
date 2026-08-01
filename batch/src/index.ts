@@ -7,7 +7,7 @@ if (process.env.NEW_RELIC_LICENSE_KEY) {
 
 import "reflect-metadata";
 import { config } from "dotenv";
-import { Command } from "commander";
+import { Command, InvalidArgumentError } from "commander";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
 import type { BillingJobService } from "./services/billing-job.service";
 import { batchMetrics } from "./shared/metrics";
@@ -53,6 +53,28 @@ let closeDatabase: () => Promise<void> = async () => {
 
 const program = new Command();
 const tracer = trace.getTracer("rent-batch-cli");
+
+function positiveInteger(value: string): number {
+  if (!/^\d+$/.test(value)) {
+    throw new InvalidArgumentError("Must be a positive integer");
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new InvalidArgumentError("Must be a positive integer");
+  }
+  return parsed;
+}
+
+function nonNegativeInteger(value: string): number {
+  if (!/^\d+$/.test(value)) {
+    throw new InvalidArgumentError("Must be a non-negative integer");
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new InvalidArgumentError("Must be a non-negative integer");
+  }
+  return parsed;
+}
 
 // Import logger after potential `process.env.LOG_FILE` is set.
 // Use dynamic import inside main() so ESLint does not complain about require().
@@ -1109,6 +1131,84 @@ program
  * T882: Settlement Command
  * T883: Settlement scheduled date logic (5th business day)
  */
+program
+  .command("reconcile-bank")
+  .description("Retry pending bank movements and create unmatched alerts")
+  .option("--log <file>", "Write logs to the given file (no rotation)")
+  .option("--company-id <id>", "Restrict reconciliation to one company")
+  .option(
+    "--limit <count>",
+    "Maximum movements to process",
+    positiveInteger,
+    100,
+  )
+  .option(
+    "--min-age-minutes <minutes>",
+    "Only process movements at least this old",
+    nonNegativeInteger,
+    5,
+  )
+  .option("-d, --dry-run", "Select movements without reconciling", false)
+  .action(
+    withTracedAction("reconcile-bank", async (options) => {
+      const { BankReconciliationBatchService } =
+        await import("./services/bank-reconciliation.service");
+      const startedAtNs = process.hrtime.bigint();
+      let jobId: string | undefined;
+      let metricsSummary:
+        | {
+            recordsTotal: number;
+            recordsProcessed: number;
+            recordsFailed: number;
+          }
+        | undefined;
+
+      try {
+        await initializeDatabase();
+        billingJobService = newBillingJobService();
+        jobId = await billingJobService.startJob(
+          "reconcile_bank",
+          {
+            companyId: options.companyId,
+            limit: options.limit,
+            minAgeMinutes: options.minAgeMinutes,
+          },
+          options.dryRun,
+        );
+
+        const summary = await new BankReconciliationBatchService().process({
+          companyId: options.companyId,
+          limit: options.limit,
+          minAgeMinutes: options.minAgeMinutes,
+          dryRun: options.dryRun,
+        });
+        metricsSummary = summary;
+        await billingJobService.completeJob(jobId, summary);
+        logger.info("Reconcile-bank completed", summary);
+        await batchMetrics.recordJobRun({
+          job: "reconcile_bank",
+          status: "success",
+          startedAtNs,
+          summary: metricsSummary,
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Unknown error";
+        logger.error("Reconcile-bank failed", { error: message });
+        if (jobId) await billingJobService.failJob(jobId, message);
+        await batchMetrics.recordJobRun({
+          job: "reconcile_bank",
+          status: "failed",
+          startedAtNs,
+          summary: metricsSummary,
+        });
+        process.exitCode = 1;
+      } finally {
+        await closeDatabase();
+      }
+    }),
+  );
+
 program
   .command("process-settlements")
   .description("Calculate and process settlements for property owners")

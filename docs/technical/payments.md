@@ -31,8 +31,19 @@ concurrentes y evita pagos duplicados.
 Para desarrollo y CI existe `POST /bank-reconciliation/sandbox/movements`. El
 endpoint está deshabilitado cuando `NODE_ENV=production`; no representa un
 webhook productivo ni llama a Bind o Pomelo. Los movimientos no conciliados se
-persisten para revisión, pero sus alertas y el comando batch `reconcile-bank`
-siguen pendientes.
+persisten para revisión.
+
+El comando batch `reconcile-bank` reintenta créditos pendientes o no
+conciliados, respetando antigüedad mínima, límite y compañía opcional. La
+contabilidad se ejecuta exclusivamente en el backend mediante un endpoint
+interno autenticado; el batch no duplica la lógica de pagos. Un movimiento que
+continúa sin match crea o actualiza una alerta operativa idempotente. Si un
+reintento posterior concilia el movimiento, la alerta abierta se resuelve
+automáticamente.
+
+Los administradores y miembros de staff pueden consultar estas alertas con
+`GET /bank-reconciliation/alerts?status=open` y resolver una revisión manual con
+`PATCH /bank-reconciliation/alerts/:id/resolve`.
 
 ## Flujo MercadoPago
 
@@ -56,6 +67,8 @@ MERCADOPAGO_ACCESS_TOKEN=...
 MERCADOPAGO_WEBHOOK_SECRET=...
 MERCADOPAGO_WEBHOOK_TOLERANCE_SECONDS=300
 APP_URL=https://rent.example.com/api
+BATCH_BANK_RECONCILIATION_INTERNAL_TOKEN=...
+BACKEND_INTERNAL_URL=http://backend:3001
 ```
 
 La clave de webhook se obtiene en MercadoPago Developers, dentro de la
@@ -81,6 +94,8 @@ La unicidad de alias bancarios activos se incorpora en
 `migrations/092_enforce_active_bank_alias_uniqueness.sql`.
 Las tablas `bank_movements` y `bank_reconciliations` se incorporan en
 `migrations/093_add_bank_movement_reconciliation.sql`.
+El tipo de job y `bank_reconciliation_alerts` se incorporan en
+`migrations/094_add_bank_reconciliation_alerts_and_batch_job.sql`.
 
 Validación local de la cadena completa:
 
@@ -90,6 +105,18 @@ cd backend
 npm run test:e2e -- --runInBand payment-gateway.e2e-spec.ts
 npm run test:e2e -- --runInBand payment-flow.e2e-spec.ts
 ```
+
+Ejecución operativa:
+
+```bash
+cd batch
+npm start -- reconcile-bank --limit 100 --min-age-minutes 5
+npm start -- reconcile-bank --company-id <uuid> --dry-run
+```
+
+La frecuencia recomendada es cada diez minutos. El token interno debe ser un
+secreto largo, distinto de JWT y credenciales bancarias, compartido solamente
+entre batch y backend.
 
 ## Salida a producción
 
