@@ -13,6 +13,8 @@ import { renderDocumentTemplate } from './templates/document-template-renderer';
 import { generateCustomDocumentPdf } from './templates/custom-document-pdf';
 import { PaymentDocumentTemplatesService } from './payment-document-templates.service';
 import { PaymentDocumentTemplateType } from './entities/payment-document-template.entity';
+import { ConfigService } from '@nestjs/config';
+import { buildInvoicePaymentUrl } from './invoice-payment-link';
 
 /**
  * Servicio para generar PDFs de facturas.
@@ -24,6 +26,7 @@ export class InvoicePdfService {
     private readonly documentsRepository: Repository<Document>,
     private readonly i18n: I18nService,
     private readonly templatesService: PaymentDocumentTemplatesService,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
@@ -34,6 +37,11 @@ export class InvoicePdfService {
   async generate(invoice: Invoice): Promise<string> {
     // Obtener idioma preferido del usuario o default
     const lang = invoice.lease?.tenant?.user?.language || 'es';
+    const paymentUrl = buildInvoicePaymentUrl(
+      this.configService.get<string>('FRONTEND_URL'),
+      invoice.id,
+      lang,
+    );
     const activeTemplate = await this.templatesService.findActiveTemplate(
       invoice.companyId,
       PaymentDocumentTemplateType.INVOICE,
@@ -43,8 +51,9 @@ export class InvoicePdfService {
           activeTemplate.templateBody,
           invoice,
           lang,
+          paymentUrl,
         )
-      : await generateInvoicePdf(invoice, this.i18n, lang);
+      : await generateInvoicePdf(invoice, this.i18n, lang, paymentUrl);
 
     const document = await this.documentsRepository.save(
       this.documentsRepository.create({
@@ -70,6 +79,7 @@ export class InvoicePdfService {
     templateBody: string,
     invoice: Invoice,
     lang: string,
+    paymentUrl: string | null,
   ): Promise<Buffer> {
     const title = this.i18n.t('invoice.title', { lang });
     const context = this.buildTemplateContext(invoice);
@@ -78,6 +88,7 @@ export class InvoicePdfService {
       `${title} ${invoice.invoiceNumber}`,
       rendered,
       `Factura ID: ${invoice.id}`,
+      { paymentUrl },
     );
   }
 

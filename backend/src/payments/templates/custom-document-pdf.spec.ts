@@ -29,4 +29,16 @@ describe('generateCustomDocumentPdf', () => {
 
     expect(Buffer.isBuffer(buffer)).toBe(true);
   });
+
+  it('includes a MercadoPago QR section when a payment URL is provided', async () => {
+    const buffer = await generateCustomDocumentPdf(
+      'Invoice',
+      'Amount: 100',
+      'Footer',
+      { paymentUrl: 'https://rent.example.com/es/invoices/1?pay=mercadopago' },
+    );
+
+    expect(Buffer.isBuffer(buffer)).toBe(true);
+    expect(buffer.length).toBeGreaterThan(0);
+  });
 });

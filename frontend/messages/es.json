@@ -1049,6 +1049,8 @@
     "amountPending": "Saldo Pendiente",
     "notes": "Notas",
     "downloadPdf": "Descargar PDF",
+    "payMercadoPago": "Pagar con MercadoPago",
+    "mercadoPagoError": "No pudimos iniciar el pago con MercadoPago. Intentá nuevamente.",
     "registerPayment": "Registrar Pago",
     "actions": {
       "downloadInvoice": "Descargar factura"
