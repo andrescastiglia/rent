@@ -716,15 +716,15 @@ Implementar sistema de cobranza multicanal y liquidación a propietarios.
 
 ### 8.3 Integración Bancaria
 
-- **T831**: Servicio de transferencias
-  - BankTransferService
-  - Integración con proveedor (Bind/Pomelo)
-  - Webhooks de movimientos
+- 🔄 **T831**: Servicio de transferencias (EN PROGRESO)
+  - ✅ Persistencia neutral e idempotente de movimientos bancarios
+  - ⏳ Integración con proveedor (Bind/Pomelo)
+  - ⏳ Webhooks de movimientos
 
 - 🔄 **T832**: Cuentas virtuales por propiedad (EN PROGRESO)
   - 🔄 Crear alias virtual (persistencia y validación listas; proveedor pendiente)
   - ✅ Asociar a propiedad con aislamiento por compañía/propietario
-  - ⏳ Identificación automática
+  - ✅ Identificación automática por alias en movimientos normalizados
 
 ### 8.4 Integración Crypto
 
@@ -745,11 +745,11 @@ Implementar sistema de cobranza multicanal y liquidación a propietarios.
 
 ### 8.5 Conciliación
 
-- **T851**: Servicio de conciliación
-  - ReconciliationService
-  - Matching por alias
-  - Matching por monto/fecha
-  - Alertas de no conciliados
+- 🔄 **T851**: Servicio de conciliación (EN PROGRESO)
+  - ✅ BankReconciliationService idempotente y aislado por compañía
+  - ✅ Matching por alias/propiedad
+  - ✅ Matching único por monto/fecha
+  - ⏳ Alertas de no conciliados
 
 - **T852**: Comando `reconcile-bank`
   - Procesar movimientos bancarios
@@ -803,10 +803,11 @@ Implementar sistema de cobranza multicanal y liquidación a propietarios.
   - ✅ Mocks de MercadoPago
   - ⏳ Mocks de bancos
 
-- 🔄 **T892**: Tests de integración (EN PROGRESO)
+- ✅ **T892**: Tests de integración
   - ✅ Flujo completo de pago: confirmación, cuenta corriente, factura, recibo y PDF
     (`backend/test/payment-flow.e2e-spec.ts`)
-  - ⏳ Conciliación
+  - ✅ Conciliación bancaria sandbox: alias, pago contable, factura, recibo e idempotencia
+    (`backend/test/payment-flow.e2e-spec.ts`)
   - ✅ Liquidación: cálculo, comisión, persistencia, transferencia simulada y estado final
     (`Batch E2E` en `.github/workflows/ci.yml`)
 

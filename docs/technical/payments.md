@@ -4,15 +4,35 @@
 
 El dominio de pagos conecta facturas, cuentas corrientes, pagos, recibos y
 liquidaciones. MercadoPago Checkout Pro está implementado en
-`backend/src/payment-gateway`; las transferencias y cripto permanecen como
-pendientes del plan de trabajo.
+`backend/src/payment-gateway`. La base neutral de transferencias y la
+conciliación sandbox están implementadas; la conexión con un proveedor bancario
+real y cripto permanecen pendientes del plan de trabajo.
 
 La base neutral para cuentas virtuales permite persistir CBU/CVU, alias y la
 propiedad asociada sin acoplarse todavía a Bind o Pomelo. Los alias activos son
 únicos sin perder el historial de cuentas desactivadas o eliminadas, y el API
 valida que usuario, propietario y propiedad pertenezcan a la misma compañía.
-La creación del alias en un proveedor y la conciliación automática continúan
-pendientes.
+La creación del alias en un proveedor continúa pendiente. Los movimientos ya
+pueden identificarse automáticamente por alias y conciliarse contra facturas.
+
+## Conciliación bancaria neutral
+
+`backend/src/bank-reconciliation` persiste movimientos normalizados con una
+clave idempotente por compañía, proveedor e identificador externo. Los créditos
+entrantes se asocian primero por cuenta virtual/propiedad y, si no hay cuenta,
+por coincidencia única de monto y fecha dentro de una ventana de cinco días.
+
+Una coincidencia crea y confirma un pago mediante `PaymentsService`, por lo que
+aplica el mismo flujo contable FIFO y genera el mismo recibo PDF que un pago
+registrado desde el API. El movimiento y su conciliación quedan vinculados a la
+factura y al pago. Un bloqueo transaccional por movimiento serializa reintentos
+concurrentes y evita pagos duplicados.
+
+Para desarrollo y CI existe `POST /bank-reconciliation/sandbox/movements`. El
+endpoint está deshabilitado cuando `NODE_ENV=production`; no representa un
+webhook productivo ni llama a Bind o Pomelo. Los movimientos no conciliados se
+persisten para revisión, pero sus alertas y el comando batch `reconcile-bank`
+siguen pendientes.
 
 ## Flujo MercadoPago
 
@@ -59,6 +79,8 @@ migraciones existentes no se editan después de haber sido desplegadas.
 
 La unicidad de alias bancarios activos se incorpora en
 `migrations/092_enforce_active_bank_alias_uniqueness.sql`.
+Las tablas `bank_movements` y `bank_reconciliations` se incorporan en
+`migrations/093_add_bank_movement_reconciliation.sql`.
 
 Validación local de la cadena completa:
 
@@ -66,6 +88,7 @@ Validación local de la cadena completa:
 ./migrations/run-migrations.sh
 cd backend
 npm run test:e2e -- --runInBand payment-gateway.e2e-spec.ts
+npm run test:e2e -- --runInBand payment-flow.e2e-spec.ts
 ```
 
 ## Salida a producción

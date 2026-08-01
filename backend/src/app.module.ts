@@ -27,6 +27,7 @@ import { AiModule } from './ai/ai.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { BuyersModule } from './buyers/buyers.module';
 import { BankAccountsModule } from './bank-accounts/bank-accounts.module';
+import { BankReconciliationModule } from './bank-reconciliation/bank-reconciliation.module';
 import { SettlementsModule } from './settlements/settlements.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -81,6 +82,7 @@ import * as path from 'node:path';
     BuyersModule,
     NotificationsModule,
     BankAccountsModule,
+    BankReconciliationModule,
     SettlementsModule,
     MaintenanceModule,
     PaymentGatewayModule,
