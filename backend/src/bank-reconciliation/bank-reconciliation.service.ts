@@ -2,7 +2,10 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { timingSafeEqual } from 'node:crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
@@ -13,6 +16,10 @@ import {
 } from '../payments/entities/payment.entity';
 import { PaymentsService } from '../payments/payments.service';
 import { CreateSandboxBankMovementDto } from './dto/create-sandbox-bank-movement.dto';
+import {
+  BankReconciliationAlert,
+  BankReconciliationAlertStatus,
+} from './entities/bank-reconciliation-alert.entity';
 import {
   BankMatchStrategy,
   BankReconciliation,
@@ -43,9 +50,67 @@ export class BankReconciliationService {
     private readonly bankAccountsRepository: Repository<BankAccount>,
     @InjectRepository(Invoice)
     private readonly invoicesRepository: Repository<Invoice>,
+    @InjectRepository(BankReconciliationAlert)
+    private readonly alertsRepository: Repository<BankReconciliationAlert>,
     private readonly paymentsService: PaymentsService,
     private readonly dataSource: DataSource,
   ) {}
+
+  assertBatchToken(token?: string): void {
+    const expected =
+      process.env.BATCH_BANK_RECONCILIATION_INTERNAL_TOKEN?.trim() ?? '';
+    if (!expected) {
+      throw new ServiceUnavailableException(
+        'Batch bank reconciliation token is not configured',
+      );
+    }
+    const received = Buffer.from(token ?? '');
+    const configured = Buffer.from(expected);
+    if (
+      received.length !== configured.length ||
+      !timingSafeEqual(received, configured)
+    ) {
+      throw new UnauthorizedException(
+        'Invalid batch bank reconciliation token',
+      );
+    }
+  }
+
+  async reconcileInternal(movementId: string): Promise<BankReconciliation> {
+    const movement = await this.movementsRepository.findOne({
+      where: { id: movementId },
+    });
+    if (!movement) throw new NotFoundException('Bank movement not found');
+    return this.reconcile(movementId, movement.companyId);
+  }
+
+  findAlerts(
+    companyId: string,
+    status: BankReconciliationAlertStatus = BankReconciliationAlertStatus.OPEN,
+  ): Promise<BankReconciliationAlert[]> {
+    return this.alertsRepository.find({
+      where: { companyId, status },
+      relations: ['movement'],
+      order: { lastDetectedAt: 'DESC' },
+    });
+  }
+
+  async resolveAlert(
+    id: string,
+    companyId: string,
+    userId: string,
+  ): Promise<BankReconciliationAlert> {
+    const alert = await this.alertsRepository.findOne({
+      where: { id, companyId },
+    });
+    if (!alert) {
+      throw new NotFoundException('Bank reconciliation alert not found');
+    }
+    alert.status = BankReconciliationAlertStatus.RESOLVED;
+    alert.resolvedAt = new Date();
+    alert.resolvedBy = userId;
+    return this.alertsRepository.save(alert);
+  }
 
   async ingestSandboxMovement(
     companyId: string,

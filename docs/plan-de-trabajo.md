@@ -745,16 +745,17 @@ Implementar sistema de cobranza multicanal y liquidación a propietarios.
 
 ### 8.5 Conciliación
 
-- 🔄 **T851**: Servicio de conciliación (EN PROGRESO)
+- ✅ **T851**: Servicio de conciliación
   - ✅ BankReconciliationService idempotente y aislado por compañía
   - ✅ Matching por alias/propiedad
   - ✅ Matching único por monto/fecha
-  - ⏳ Alertas de no conciliados
+  - ✅ Alertas operativas idempotentes de no conciliados, con revisión y resolución
 
-- **T852**: Comando `reconcile-bank`
-  - Procesar movimientos bancarios
-  - Match con pagos pendientes
-  - Generar alertas
+- ✅ **T852**: Comando `reconcile-bank`
+  - ✅ Procesar y reintentar movimientos bancarios pendientes
+  - ✅ Match contable mediante el backend y confirmación de pagos
+  - ✅ Generar y resolver alertas persistentes
+  - ✅ Flujo integrado batch → backend → pago/factura/recibo en CI
 
 ### 8.6 Cuenta Corriente
 
@@ -797,11 +798,11 @@ Implementar sistema de cobranza multicanal y liquidación a propietarios.
 
 ### 8.9 Testing Cobranzas
 
-- 🔄 **T891**: Tests unitarios servicios (EN PROGRESO)
+- ✅ **T891**: Tests unitarios servicios
   - ✅ Tests de PaymentService
   - ✅ Tests de SettlementService
   - ✅ Mocks de MercadoPago
-  - ⏳ Mocks de bancos
+  - ✅ Mocks de conciliación bancaria neutral y del backend interno
 
 - ✅ **T892**: Tests de integración
   - ✅ Flujo completo de pago: confirmación, cuenta corriente, factura, recibo y PDF
@@ -824,8 +825,8 @@ Implementar sistema de cobranza multicanal y liquidación a propietarios.
 # Procesar webhooks (cada 5 min)
 */5 * * * * cd /opt/rent/batch && npm start -- process-payments
 
-# Conciliación bancaria (diario 8:00)
-0 8 * * * cd /opt/rent/batch && npm start -- reconcile-bank
+# Conciliación bancaria (cada 10 min; reintenta movimientos con 5 min de antigüedad)
+*/10 * * * * cd /opt/rent/batch && npm start -- reconcile-bank --min-age-minutes 5
 
 # Verificar crypto (cada 15 min)
 */15 * * * * cd /opt/rent/batch && npm start -- check-crypto

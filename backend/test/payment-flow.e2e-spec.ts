@@ -199,6 +199,10 @@ describe('Payment accounting flow (e2e)', () => {
   afterAll(async () => {
     if (companyId) {
       await dataSource.query(
+        `DELETE FROM bank_reconciliation_alerts WHERE company_id = $1::uuid`,
+        [companyId],
+      );
+      await dataSource.query(
         `DELETE FROM bank_reconciliations WHERE company_id = $1::uuid`,
         [companyId],
       );
@@ -463,5 +467,89 @@ describe('Payment accounting flow (e2e)', () => {
     });
     expect(refreshedInvoice.status).toBe(InvoiceStatus.PAID);
     expect(Number(refreshedInvoice.amountPaid)).toBe(750);
+  });
+
+  it('protects batch retries and lets administrators review and resolve unmatched alerts', async () => {
+    expect.hasAssertions();
+    const internalToken = `bank-batch-${uniqueId}`;
+    process.env.BATCH_BANK_RECONCILIATION_INTERNAL_TOKEN = internalToken;
+
+    const unmatched = await request(app.getHttpServer())
+      .post('/bank-reconciliation/sandbox/movements')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        externalId: `sandbox-unmatched-${uniqueId}`,
+        direction: 'credit',
+        amount: 987654.32,
+        currency: 'ARS',
+        occurredAt: '2026-08-15T14:00:00.000Z',
+        description: 'Transferencia sin referencia identificable',
+      })
+      .expect(201);
+    expect(unmatched.body.status).toBe('unmatched');
+
+    await request(app.getHttpServer())
+      .post(
+        `/bank-reconciliation/internal/movements/${unmatched.body.movementId}/reconcile`,
+      )
+      .set('x-batch-bank-token', 'invalid-token')
+      .expect(401);
+
+    const retried = await request(app.getHttpServer())
+      .post(
+        `/bank-reconciliation/internal/movements/${unmatched.body.movementId}/reconcile`,
+      )
+      .set('x-batch-bank-token', internalToken)
+      .expect(201);
+    expect(retried.body).toMatchObject({
+      id: unmatched.body.id,
+      movementId: unmatched.body.movementId,
+      status: 'unmatched',
+    });
+
+    const [alert] = await dataSource.query(
+      `INSERT INTO bank_reconciliation_alerts (
+         company_id, movement_id, reason, metadata
+       ) VALUES ($1::uuid, $2::uuid, $3, $4::jsonb)
+       RETURNING id`,
+      [
+        companyId,
+        unmatched.body.movementId,
+        'No unique pending invoice matched the movement',
+        JSON.stringify({ source: 'reconcile-bank-e2e' }),
+      ],
+    );
+
+    const openAlerts = await request(app.getHttpServer())
+      .get('/bank-reconciliation/alerts')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(openAlerts.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: alert.id,
+          movementId: unmatched.body.movementId,
+          status: 'open',
+        }),
+      ]),
+    );
+
+    const resolved = await request(app.getHttpServer())
+      .patch(`/bank-reconciliation/alerts/${alert.id}/resolve`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(resolved.body).toMatchObject({ id: alert.id, status: 'resolved' });
+    expect(resolved.body.resolvedAt).toBeTruthy();
+    expect(resolved.body.resolvedBy).toBeTruthy();
+
+    const resolvedAlerts = await request(app.getHttpServer())
+      .get('/bank-reconciliation/alerts?status=resolved')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(resolvedAlerts.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: alert.id, status: 'resolved' }),
+      ]),
+    );
   });
 });

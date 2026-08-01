@@ -351,7 +351,7 @@ CREATE TYPE payment_document_template_type AS ENUM ('receipt', 'invoice', 'credi
 
 -- Billing job types
 CREATE TYPE billing_job_type AS ENUM (
-    'billing', 'overdue', 'reminders', 'late_fees', 'sync_indices', 'reports', 'exchange_rates', 'process_settlements'
+    'billing', 'overdue', 'reminders', 'late_fees', 'sync_indices', 'reports', 'exchange_rates', 'process_settlements', 'reconcile_bank'
 );
 
 -- Billing job status
@@ -2682,6 +2682,29 @@ CREATE INDEX idx_bank_reconciliations_company_status
     ON bank_reconciliations(company_id, status, created_at DESC);
 CREATE TRIGGER update_bank_reconciliations_updated_at
     BEFORE UPDATE ON bank_reconciliations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TABLE bank_reconciliation_alerts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    movement_id UUID NOT NULL UNIQUE REFERENCES bank_movements(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL DEFAULT 'open'
+        CHECK (status IN ('open', 'resolved')),
+    reason TEXT NOT NULL,
+    occurrence_count INTEGER NOT NULL DEFAULT 1 CHECK (occurrence_count > 0),
+    first_detected_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_detected_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    resolved_at TIMESTAMPTZ,
+    resolved_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_bank_reconciliation_alerts_open
+    ON bank_reconciliation_alerts(company_id, last_detected_at DESC)
+    WHERE status = 'open';
+CREATE TRIGGER update_bank_reconciliation_alerts_updated_at
+    BEFORE UPDATE ON bank_reconciliation_alerts
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- -----------------------------------------------------------------------------
 -- Crypto Wallets (T812)
