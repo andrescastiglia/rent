@@ -437,12 +437,16 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.npm
-          key: ${{ runner.os }}-npm-batch-${{ hashFiles('batch/package-lock.json') }}
+          key: ${{ runner.os }}-npm-bank-e2e-${{ hashFiles('batch/package-lock.json', 'backend/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-npm-batch-
+            ${{ runner.os }}-npm-bank-e2e-
 
-      - name: Install dependencies
+      - name: Install batch dependencies
         working-directory: batch
+        run: npm ci
+
+      - name: Install backend dependencies
+        working-directory: backend
         run: npm ci
 
       - name: Install PostgreSQL client
@@ -474,9 +478,296 @@ jobs:
           npm run dev -- billing --dry-run
           npm run dev -- overdue --dry-run
           npm run dev -- lease-renewal-alerts --dry-run
+          npm run dev -- reconcile-bank --dry-run --min-age-minutes 0
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
           NODE_ENV: test
+
+      - name: Run settlement integration flow
+        working-directory: batch
+        run: |
+          SETTLEMENT_PERIOD="$(date +%Y-%m)"
+          npm run dev -- process-settlements \
+            --owner-id 33333333-3333-3333-3333-333333333333 \
+            --period "$SETTLEMENT_PERIOD"
+          psql -v ON_ERROR_STOP=1 "$DATABASE_URL" <<'SQL'
+          DO $assert$
+          DECLARE
+            settlement_record settlements%ROWTYPE;
+          BEGIN
+            SELECT * INTO settlement_record
+            FROM settlements
+            WHERE owner_id = '33333333-3333-3333-3333-333333333333'::uuid
+              AND period = TO_CHAR(CURRENT_DATE, 'YYYY-MM');
+
+            IF NOT FOUND THEN
+              RAISE EXCEPTION 'Settlement was not persisted';
+            END IF;
+            IF settlement_record.status <> 'completed' THEN
+              RAISE EXCEPTION 'Unexpected settlement status: %', settlement_record.status;
+            END IF;
+            IF settlement_record.gross_amount <> 250000.00 THEN
+              RAISE EXCEPTION 'Unexpected gross amount: %', settlement_record.gross_amount;
+            END IF;
+            IF settlement_record.commission_amount <> 20000.00 THEN
+              RAISE EXCEPTION 'Unexpected commission: %', settlement_record.commission_amount;
+            END IF;
+            IF settlement_record.net_amount <> 230000.00 THEN
+              RAISE EXCEPTION 'Unexpected net amount: %', settlement_record.net_amount;
+            END IF;
+            IF settlement_record.transfer_reference IS NULL THEN
+              RAISE EXCEPTION 'Transfer reference was not recorded';
+            END IF;
+          END
+          $assert$;
+          SQL
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
+          NODE_ENV: test
+
+      - name: Seed bank reconciliation integration fixture
+        run: |
+          psql -v ON_ERROR_STOP=1 "$DATABASE_URL" <<'SQL'
+          INSERT INTO invoices (
+            id, company_id, lease_id, owner_id, tenant_account_id,
+            invoice_number, status, issue_date, due_date, period_start,
+            period_end, subtotal, total_amount, balance_due, currency
+          ) VALUES (
+            'cccccccc-cccc-cccc-cccc-cccccccccccc',
+            '11111111-1111-1111-1111-111111111111',
+            '88888888-8888-8888-8888-888888888888',
+            '33333333-3333-3333-3333-333333333333',
+            '99999999-9999-9999-9999-999999999999',
+            'INV-BANK-E2E', 'pending', CURRENT_DATE, CURRENT_DATE,
+            DATE_TRUNC('month', CURRENT_DATE)::date,
+            (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month - 1 day')::date,
+            43210.00, 43210.00, 43210.00, 'ARS'
+          );
+
+          UPDATE tenant_accounts
+             SET current_balance = 43210.00
+           WHERE id = '99999999-9999-9999-9999-999999999999';
+
+          INSERT INTO bank_movements (
+            id, company_id, provider, external_id, direction, amount,
+            currency, occurred_at, description, raw_payload, status
+          ) VALUES (
+            'dddddddd-dddd-dddd-dddd-dddddddddddd',
+            '11111111-1111-1111-1111-111111111111',
+            'ci-bank', 'ci-bank-credit-1', 'credit', 43210.00,
+            'ARS', NOW() - INTERVAL '10 minutes',
+            'Batch reconciliation integration fixture', '{}'::jsonb, 'pending'
+          );
+
+          INSERT INTO bank_movements (
+            id, company_id, provider, external_id, direction, amount,
+            currency, occurred_at, description, raw_payload, status
+          ) VALUES (
+            'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+            '11111111-1111-1111-1111-111111111111',
+            'ci-bank', 'ci-bank-unmatched-1', 'credit', 98765.00,
+            'ARS', NOW() - INTERVAL '10 minutes',
+            'Unmatched reconciliation integration fixture', '{}'::jsonb, 'pending'
+          );
+          SQL
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
+
+      - name: Start backend for bank reconciliation
+        working-directory: backend
+        run: |
+          npm run start > "$RUNNER_TEMP/rent-backend.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/rent-backend.pid"
+          for attempt in $(seq 1 45); do
+            if curl --fail --silent http://localhost:3001/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/rent-backend.log"
+          exit 1
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
+          JWT_SECRET: test-secret
+          JWT_REFRESH_SECRET: test-refresh-secret
+          BATCH_BANK_RECONCILIATION_INTERNAL_TOKEN: ci-bank-token
+          NODE_ENV: test
+
+      - name: Run bank reconciliation integration flow
+        working-directory: batch
+        run: >-
+          npm run dev -- reconcile-bank
+          --company-id 11111111-1111-1111-1111-111111111111
+          --limit 10
+          --min-age-minutes 0
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
+          BACKEND_INTERNAL_URL: http://localhost:3001
+          BATCH_BANK_RECONCILIATION_INTERNAL_TOKEN: ci-bank-token
+          NODE_ENV: test
+
+      - name: Verify bank reconciliation integration flow
+        run: |
+          psql -v ON_ERROR_STOP=1 "$DATABASE_URL" <<'SQL'
+          DO $assert$
+          DECLARE
+            movement_status TEXT;
+            reconciliation_status TEXT;
+            invoice_status TEXT;
+            payment_count INTEGER;
+            alert_count INTEGER;
+            job_status TEXT;
+            unmatched_movement_status TEXT;
+            unmatched_reconciliation_status TEXT;
+            unmatched_alert_status TEXT;
+          BEGIN
+            SELECT status INTO movement_status
+              FROM bank_movements
+             WHERE id = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
+            SELECT status INTO reconciliation_status
+              FROM bank_reconciliations
+             WHERE movement_id = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
+            SELECT status INTO invoice_status
+              FROM invoices
+             WHERE id = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+            SELECT COUNT(*) INTO payment_count
+              FROM payments
+             WHERE reference_number = 'ci-bank:ci-bank-credit-1'
+               AND status = 'completed';
+            SELECT COUNT(*) INTO alert_count
+              FROM bank_reconciliation_alerts
+             WHERE movement_id = 'dddddddd-dddd-dddd-dddd-dddddddddddd'
+               AND status = 'open';
+            SELECT status INTO job_status
+              FROM billing_jobs
+             WHERE job_type = 'reconcile_bank'
+             ORDER BY created_at DESC
+             LIMIT 1;
+            SELECT status INTO unmatched_movement_status
+              FROM bank_movements
+             WHERE id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+            SELECT status INTO unmatched_reconciliation_status
+              FROM bank_reconciliations
+             WHERE movement_id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+            SELECT status INTO unmatched_alert_status
+              FROM bank_reconciliation_alerts
+             WHERE movement_id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+
+            IF movement_status <> 'reconciled'
+              OR reconciliation_status <> 'matched'
+              OR invoice_status <> 'paid'
+              OR payment_count <> 1
+              OR alert_count <> 0
+              OR job_status <> 'completed'
+              OR unmatched_movement_status <> 'unmatched'
+              OR unmatched_reconciliation_status <> 'unmatched'
+              OR unmatched_alert_status <> 'open' THEN
+              RAISE EXCEPTION
+                'Unexpected reconciliation state: movement %, reconciliation %, invoice %, payments %, alerts %, job %, unmatched movement %, unmatched reconciliation %, unmatched alert %',
+                movement_status, reconciliation_status, invoice_status,
+                payment_count, alert_count, job_status,
+                unmatched_movement_status, unmatched_reconciliation_status,
+                unmatched_alert_status;
+            END IF;
+          END $assert$;
+          SQL
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
+
+      - name: Seed invoice for unmatched reconciliation retry
+        run: |
+          psql -v ON_ERROR_STOP=1 "$DATABASE_URL" <<'SQL'
+          INSERT INTO invoices (
+            id, company_id, lease_id, owner_id, tenant_account_id,
+            invoice_number, status, issue_date, due_date, period_start,
+            period_end, subtotal, total_amount, balance_due, currency
+          ) VALUES (
+            'ffffffff-ffff-ffff-ffff-ffffffffffff',
+            '11111111-1111-1111-1111-111111111111',
+            '88888888-8888-8888-8888-888888888888',
+            '33333333-3333-3333-3333-333333333333',
+            '99999999-9999-9999-9999-999999999999',
+            'INV-BANK-RETRY-E2E', 'pending', CURRENT_DATE, CURRENT_DATE,
+            DATE_TRUNC('month', CURRENT_DATE)::date,
+            (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month - 1 day')::date,
+            98765.00, 98765.00, 98765.00, 'ARS'
+          );
+
+          UPDATE tenant_accounts
+             SET current_balance = 98765.00
+           WHERE id = '99999999-9999-9999-9999-999999999999';
+          SQL
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
+
+      - name: Retry unmatched bank reconciliation
+        working-directory: batch
+        run: >-
+          npm run dev -- reconcile-bank
+          --company-id 11111111-1111-1111-1111-111111111111
+          --limit 10
+          --min-age-minutes 0
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
+          BACKEND_INTERNAL_URL: http://localhost:3001
+          BATCH_BANK_RECONCILIATION_INTERNAL_TOKEN: ci-bank-token
+          NODE_ENV: test
+
+      - name: Verify unmatched alert resolution
+        run: |
+          psql -v ON_ERROR_STOP=1 "$DATABASE_URL" <<'SQL'
+          DO $assert$
+          DECLARE
+            movement_status TEXT;
+            reconciliation_status TEXT;
+            invoice_status TEXT;
+            alert_status TEXT;
+            alert_resolved BOOLEAN;
+            payment_count INTEGER;
+          BEGIN
+            SELECT status INTO movement_status
+              FROM bank_movements
+             WHERE id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+            SELECT status INTO reconciliation_status
+              FROM bank_reconciliations
+             WHERE movement_id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+            SELECT status INTO invoice_status
+              FROM invoices
+             WHERE id = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+            SELECT status, resolved_at IS NOT NULL
+              INTO alert_status, alert_resolved
+              FROM bank_reconciliation_alerts
+             WHERE movement_id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+            SELECT COUNT(*) INTO payment_count
+              FROM payments
+             WHERE reference_number = 'ci-bank:ci-bank-unmatched-1'
+               AND status = 'completed';
+
+            IF movement_status <> 'reconciled'
+              OR reconciliation_status <> 'matched'
+              OR invoice_status <> 'paid'
+              OR alert_status <> 'resolved'
+              OR alert_resolved IS NOT TRUE
+              OR payment_count <> 1 THEN
+              RAISE EXCEPTION
+                'Unexpected retry state: movement %, reconciliation %, invoice %, alert %, resolved %, payments %',
+                movement_status, reconciliation_status, invoice_status,
+                alert_status, alert_resolved, payment_count;
+            END IF;
+          END $assert$;
+          SQL
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
+
+      - name: Stop bank reconciliation backend
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/rent-backend.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/rent-backend.pid")" 2>/dev/null || true
+          fi
+          if [ -f "$RUNNER_TEMP/rent-backend.log" ]; then
+            tail -100 "$RUNNER_TEMP/rent-backend.log"
+          fi
 
   # ─────────────────────────────────────────────────────────────
   # FRONTEND JOBS

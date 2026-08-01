@@ -105,7 +105,7 @@ export class SettlementService {
                 o.commission_rate
              FROM users u
              JOIN owners o ON o.user_id = u.id
-             WHERE o.user_id = $1`,
+             WHERE o.id = $1`,
       [ownerId],
     );
 
@@ -133,7 +133,7 @@ export class SettlementService {
              JOIN leases l ON l.id = i.lease_id
              LEFT JOIN properties p ON p.id = l.property_id
              JOIN tenant_accounts ta ON ta.id = i.tenant_account_id
-             JOIN tenants t ON t.user_id = ta.tenant_id
+             JOIN tenants t ON t.id = ta.tenant_id
              JOIN users tu ON tu.id = t.user_id
              LEFT JOIN payments p2 ON p2.invoice_id = i.id AND p2.status = 'completed'
              WHERE i.owner_id = $1

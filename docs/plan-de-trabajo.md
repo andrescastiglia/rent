@@ -717,15 +717,15 @@ Implementar sistema de cobranza multicanal y liquidación a propietarios.
 
 ### 8.3 Integración Bancaria
 
-- **T831**: Servicio de transferencias
-  - BankTransferService
-  - Integración con proveedor (Bind/Pomelo)
-  - Webhooks de movimientos
+- 🔄 **T831**: Servicio de transferencias (EN PROGRESO)
+  - ✅ Persistencia neutral e idempotente de movimientos bancarios
+  - ⏳ Integración con proveedor (Bind/Pomelo)
+  - ⏳ Webhooks de movimientos
 
-- **T832**: Cuentas virtuales por propiedad
-  - Crear alias virtual
-  - Asociar a propiedad
-  - Identificación automática
+- 🔄 **T832**: Cuentas virtuales por propiedad (EN PROGRESO)
+  - 🔄 Crear alias virtual (persistencia y validación listas; proveedor pendiente)
+  - ✅ Asociar a propiedad con aislamiento por compañía/propietario
+  - ✅ Identificación automática por alias en movimientos normalizados
 
 ### 8.4 Integración Crypto
 
@@ -746,16 +746,17 @@ Implementar sistema de cobranza multicanal y liquidación a propietarios.
 
 ### 8.5 Conciliación
 
-- **T851**: Servicio de conciliación
-  - ReconciliationService
-  - Matching por alias
-  - Matching por monto/fecha
-  - Alertas de no conciliados
+- ✅ **T851**: Servicio de conciliación
+  - ✅ BankReconciliationService idempotente y aislado por compañía
+  - ✅ Matching por alias/propiedad
+  - ✅ Matching único por monto/fecha
+  - ✅ Alertas operativas idempotentes de no conciliados, con revisión y resolución
 
-- **T852**: Comando `reconcile-bank`
-  - Procesar movimientos bancarios
-  - Match con pagos pendientes
-  - Generar alertas
+- ✅ **T852**: Comando `reconcile-bank`
+  - ✅ Procesar y reintentar movimientos bancarios pendientes
+  - ✅ Match contable mediante el backend y confirmación de pagos
+  - ✅ Generar y resolver alertas persistentes
+  - ✅ Flujo integrado batch → backend → pago/factura/recibo en CI
 
 ### 8.6 Cuenta Corriente
 
@@ -798,15 +799,19 @@ Implementar sistema de cobranza multicanal y liquidación a propietarios.
 
 ### 8.9 Testing Cobranzas
 
-- **T891**: Tests unitarios servicios
-  - Tests de PaymentService
-  - Tests de SettlementService
-  - Mocks de MercadoPago/bancos
+- ✅ **T891**: Tests unitarios servicios
+  - ✅ Tests de PaymentService
+  - ✅ Tests de SettlementService
+  - ✅ Mocks de MercadoPago
+  - ✅ Mocks de conciliación bancaria neutral y del backend interno
 
-- **T892**: Tests de integración
-  - Flujo completo de pago
-  - Conciliación
-  - Liquidación
+- ✅ **T892**: Tests de integración
+  - ✅ Flujo completo de pago: confirmación, cuenta corriente, factura, recibo y PDF
+    (`backend/test/payment-flow.e2e-spec.ts`)
+  - ✅ Conciliación bancaria sandbox: alias, pago contable, factura, recibo e idempotencia
+    (`backend/test/payment-flow.e2e-spec.ts`)
+  - ✅ Liquidación: cálculo, comisión, persistencia, transferencia simulada y estado final
+    (`Batch E2E` en `.github/workflows/ci.yml`)
 
 **Criterios de Éxito**:
 - ⏳ Pagos MP se confirman automáticamente
@@ -821,8 +826,8 @@ Implementar sistema de cobranza multicanal y liquidación a propietarios.
 # Procesar webhooks (cada 5 min)
 */5 * * * * cd /opt/rent/batch && npm start -- process-payments
 
-# Conciliación bancaria (diario 8:00)
-0 8 * * * cd /opt/rent/batch && npm start -- reconcile-bank
+# Conciliación bancaria (cada 10 min; reintenta movimientos con 5 min de antigüedad)
+*/10 * * * * cd /opt/rent/batch && npm start -- reconcile-bank --min-age-minutes 5
 
 # Verificar crypto (cada 15 min)
 */15 * * * * cd /opt/rent/batch && npm start -- check-crypto
