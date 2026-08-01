@@ -52,6 +52,8 @@ describe('Payment accounting flow (e2e)', () => {
   let adminToken: string;
   let tenantAccountId: string;
   let invoiceId: string;
+  let ownerId: string;
+  let propertyId: string;
 
   const uniqueId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -120,6 +122,7 @@ describe('Payment accounting flow (e2e)', () => {
     const owner = await ownerRepository.save(
       ownerRepository.create({ userId: ownerUser.id, companyId }),
     );
+    ownerId = owner.id;
 
     const tenantUser = await createActiveTestUser(usersService, {
       email: `tenant-${uniqueId}@payment-flow.test`,
@@ -144,6 +147,7 @@ describe('Payment accounting flow (e2e)', () => {
         addressState: 'Buenos Aires',
       }),
     );
+    propertyId = property.id;
     const lease = await leaseRepository.save(
       leaseRepository.create({
         companyId,
@@ -195,6 +199,14 @@ describe('Payment accounting flow (e2e)', () => {
   afterAll(async () => {
     if (companyId) {
       await dataSource.query(
+        `DELETE FROM bank_reconciliations WHERE company_id = $1::uuid`,
+        [companyId],
+      );
+      await dataSource.query(
+        `DELETE FROM bank_movements WHERE company_id = $1::uuid`,
+        [companyId],
+      );
+      await dataSource.query(
         `DELETE FROM documents WHERE company_id = $1::uuid`,
         [companyId],
       );
@@ -222,6 +234,10 @@ describe('Payment accounting flow (e2e)', () => {
       );
       await dataSource.query(
         `DELETE FROM invoices WHERE company_id = $1::uuid`,
+        [companyId],
+      );
+      await dataSource.query(
+        `DELETE FROM bank_accounts WHERE company_id = $1::uuid`,
         [companyId],
       );
       await dataSource.query(
@@ -343,5 +359,109 @@ describe('Payment accounting flow (e2e)', () => {
       .expect(200);
     expect(Buffer.isBuffer(pdf.body)).toBe(true);
     expect(pdf.body.subarray(0, 4).toString()).toBe('%PDF');
+  });
+
+  it('ingests an idempotent sandbox credit and reconciles it by virtual alias', async () => {
+    expect.hasAssertions();
+
+    const alias = `rent.${uniqueId}`.slice(0, 50);
+    const account = await request(app.getHttpServer())
+      .post('/bank-accounts')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        ownerId,
+        propertyId,
+        bankName: 'Sandbox Bank',
+        accountType: 'virtual',
+        accountNumber: `VIRTUAL-${uniqueId}`,
+        alias,
+        isVirtualAlias: true,
+      })
+      .expect(201);
+
+    const reconciliationInvoice = await invoiceRepository.save(
+      invoiceRepository.create({
+        companyId,
+        leaseId: (
+          await tenantAccountRepository.findOneByOrFail({
+            id: tenantAccountId,
+          })
+        ).leaseId,
+        ownerId,
+        tenantAccountId,
+        invoiceNumber: `INV-RECON-${uniqueId}`,
+        periodStart: new Date('2026-08-01'),
+        periodEnd: new Date('2026-08-31'),
+        issuedAt: new Date('2026-08-01'),
+        dueDate: new Date('2026-08-10'),
+        subtotal: 750,
+        total: 750,
+        balanceDue: 750,
+        currencyCode: 'ARS',
+        amountPaid: 0,
+        status: InvoiceStatus.PENDING,
+      }),
+    );
+    await dataSource.query(
+      `UPDATE tenant_accounts SET current_balance = 750 WHERE id = $1::uuid`,
+      [tenantAccountId],
+    );
+
+    const payload = {
+      externalId: `sandbox-credit-${uniqueId}`,
+      direction: 'credit',
+      amount: 750,
+      currency: 'ARS',
+      occurredAt: '2026-08-10T14:00:00.000Z',
+      description: `Transferencia recibida a ${alias}`,
+      counterparty: 'Tenant Sandbox',
+      rawPayload: { fixture: true },
+    };
+    const first = await request(app.getHttpServer())
+      .post('/bank-reconciliation/sandbox/movements')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send(payload)
+      .expect(201);
+
+    expect(first.body).toMatchObject({
+      invoiceId: reconciliationInvoice.id,
+      matchStrategy: 'virtual_alias',
+      status: 'matched',
+      movement: {
+        bankAccountId: account.body.id,
+        externalId: payload.externalId,
+        status: 'reconciled',
+      },
+      payment: {
+        status: 'completed',
+        method: PaymentMethod.BANK_TRANSFER,
+      },
+    });
+    expect(first.body.payment.receipt.pdfUrl).toMatch(/^db:\/\/document\//);
+
+    const retried = await request(app.getHttpServer())
+      .post('/bank-reconciliation/sandbox/movements')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send(payload)
+      .expect(201);
+    expect(retried.body.id).toBe(first.body.id);
+    expect(retried.body.paymentId).toBe(first.body.paymentId);
+
+    const [counts] = await dataSource.query(
+      `SELECT
+         (SELECT COUNT(*) FROM bank_movements
+          WHERE company_id = $1::uuid AND external_id = $2) AS movements,
+         (SELECT COUNT(*) FROM payments
+          WHERE company_id = $1::uuid AND reference_number = $3) AS payments`,
+      [companyId, payload.externalId, `sandbox:${payload.externalId}`],
+    );
+    expect(Number(counts.movements)).toBe(1);
+    expect(Number(counts.payments)).toBe(1);
+
+    const refreshedInvoice = await invoiceRepository.findOneByOrFail({
+      id: reconciliationInvoice.id,
+    });
+    expect(refreshedInvoice.status).toBe(InvoiceStatus.PAID);
+    expect(Number(refreshedInvoice.amountPaid)).toBe(750);
   });
 });
