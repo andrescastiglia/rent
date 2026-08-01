@@ -11,4 +11,16 @@ describe("buildInvoicePaymentUrl", () => {
     expect(buildInvoicePaymentUrl("invoice-1", "es", undefined)).toBeNull();
     expect(buildInvoicePaymentUrl("invoice-1", "es", "invalid")).toBeNull();
   });
+
+  it("uses the first configured origin and falls back to Spanish", () => {
+    expect(
+      buildInvoicePaymentUrl(
+        "invoice/with spaces",
+        "fr",
+        "https://rent.example.com, https://admin.example.com",
+      ),
+    ).toBe(
+      "https://rent.example.com/es/invoices/invoice%2Fwith%20spaces?pay=mercadopago",
+    );
+  });
 });

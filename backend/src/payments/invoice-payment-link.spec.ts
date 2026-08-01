@@ -23,4 +23,13 @@ describe('buildInvoicePaymentUrl', () => {
     expect(buildInvoicePaymentUrl(undefined, 'invoice-1')).toBeNull();
     expect(buildInvoicePaymentUrl('not a url', 'invoice-1')).toBeNull();
   });
+
+  it('replaces paths, query strings and fragments from the configured origin', () => {
+    expect(
+      buildInvoicePaymentUrl(
+        'https://rent.example.com/legacy?source=config#invoice',
+        'invoice-1',
+      ),
+    ).toBe('https://rent.example.com/es/invoices/invoice-1?pay=mercadopago');
+  });
 });
