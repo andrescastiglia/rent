@@ -797,15 +797,17 @@ Implementar sistema de cobranza multicanal y liquidación a propietarios.
 
 ### 8.9 Testing Cobranzas
 
-- **T891**: Tests unitarios servicios
-  - Tests de PaymentService
-  - Tests de SettlementService
-  - Mocks de MercadoPago/bancos
+- 🔄 **T891**: Tests unitarios servicios (EN PROGRESO)
+  - ✅ Tests de PaymentService
+  - ✅ Tests de SettlementService
+  - 🔄 Mocks de MercadoPago
+  - ⏳ Mocks de bancos
 
-- **T892**: Tests de integración
-  - Flujo completo de pago
-  - Conciliación
-  - Liquidación
+- 🔄 **T892**: Tests de integración (EN PROGRESO)
+  - ✅ Flujo completo de pago: confirmación, cuenta corriente, factura, recibo y PDF
+    (`backend/test/payment-flow.e2e-spec.ts`)
+  - ⏳ Conciliación
+  - ⏳ Liquidación
 
 **Criterios de Éxito**:
 - ⏳ Pagos MP se confirman automáticamente
