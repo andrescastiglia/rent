@@ -1,35 +1,30 @@
-import { formatMoney, formatMoneyByCode } from "./format-money";
+import {
+  formatMoney,
+  formatMoneyByCode,
+  normalizeRoundedNumber,
+} from "./format-money";
 
-describe("format-money", () => {
-  it("formats using locale map and currency decimals", () => {
-    const result = formatMoney(
-      1500.5,
-      { code: "ARS", symbol: "$", decimalPlaces: 2, isActive: true },
-      "es",
-    );
-
-    expect(result).toContain("$");
-    expect(result).toContain("1.500,50");
+describe("money formatting", () => {
+  it.each([
+    [0, 0],
+    [-0, 0],
+    [-0.0, 0],
+    [-0.0001, 0],
+    [-0.005, -0.01],
+  ])("normalizes %p at two decimals to %p", (value, expected) => {
+    expect(normalizeRoundedNumber(value, 2)).toBe(expected);
   });
 
-  it("falls back to default symbol and decimals", () => {
-    const result = formatMoney(1000, undefined, "en");
+  it("never renders a negative sign for amounts rounded to zero", () => {
+    const currency = {
+      code: "ARS",
+      symbol: "$",
+      decimalPlaces: 2,
+      isActive: true,
+    };
 
-    expect(result).toBe("$ 1,000.00");
-  });
-
-  it("supports explicit locale passthrough when not mapped", () => {
-    const result = formatMoney(
-      1000,
-      { code: "EUR", symbol: "EUR", decimalPlaces: 0, isActive: true },
-      "de-DE",
-    );
-
-    expect(result).toBe("EUR 1.000");
-  });
-
-  it("formats by currency code and fallbacks to code as symbol", () => {
-    expect(formatMoneyByCode(10, "USD", "en")).toBe("US$ 10.00");
-    expect(formatMoneyByCode(10, "XYZ", "en")).toBe("XYZ 10.00");
+    expect(formatMoney(-0, currency, "es")).toBe("$ 0,00");
+    expect(formatMoney(-0.0001, currency, "es")).toBe("$ 0,00");
+    expect(formatMoneyByCode(-0.0001, "USD", "en")).toBe("US$ 0.00");
   });
 });

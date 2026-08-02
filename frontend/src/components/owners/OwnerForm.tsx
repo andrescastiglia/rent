@@ -19,6 +19,8 @@ const emptyOwnerForm: CreateOwnerInput = {
   phone: "",
   taxId: "",
   notes: "",
+  contactConsent: false,
+  preferredContactChannel: "whatsapp",
 };
 
 export function OwnerForm({ initialData, isEditing = false }: OwnerFormProps) {
@@ -35,6 +37,9 @@ export function OwnerForm({ initialData, isEditing = false }: OwnerFormProps) {
           phone: initialData.phone ?? "",
           taxId: initialData.taxId ?? "",
           notes: initialData.notes ?? "",
+          contactConsent: initialData.contactConsent ?? false,
+          preferredContactChannel:
+            initialData.preferredContactChannel ?? "whatsapp",
         }
       : emptyOwnerForm,
   );
@@ -57,6 +62,8 @@ export function OwnerForm({ initialData, isEditing = false }: OwnerFormProps) {
         phone: form.phone?.trim() || undefined,
         taxId: form.taxId?.trim() || undefined,
         notes: form.notes?.trim() || undefined,
+        contactConsent: form.contactConsent,
+        preferredContactChannel: form.preferredContactChannel,
       };
 
       if (isEditing && initialData) {
@@ -166,6 +173,43 @@ export function OwnerForm({ initialData, isEditing = false }: OwnerFormProps) {
             className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
           />
         </div>
+        <div>
+          <label
+            htmlFor="ownerPreferredContactChannel"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            Canal de contacto
+          </label>
+          <select
+            id="ownerPreferredContactChannel"
+            value={form.preferredContactChannel ?? "whatsapp"}
+            onChange={(event) =>
+              setForm((previous) => ({
+                ...previous,
+                preferredContactChannel: event.target.value as
+                  "whatsapp" | "email" | "sms",
+              }))
+            }
+            className="mt-1 block w-full rounded-md border p-2 dark:bg-gray-700"
+          >
+            <option value="whatsapp">WhatsApp</option>
+            <option value="email">Email</option>
+            <option value="sms">SMS</option>
+          </select>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+          <input
+            type="checkbox"
+            checked={form.contactConsent ?? false}
+            onChange={(event) =>
+              setForm((previous) => ({
+                ...previous,
+                contactConsent: event.target.checked,
+              }))
+            }
+          />
+          <span>Consentimiento para comunicaciones registrado</span>
+        </label>
       </div>
 
       <div className="flex justify-end gap-3">

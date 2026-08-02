@@ -38,6 +38,9 @@ describe('OwnersService', () => {
   const documentsService = {
     downloadByS3Key: jest.fn(),
   };
+  const communicationsService = {
+    dispatchEvent: jest.fn(),
+  };
 
   let service: OwnersService;
 
@@ -51,6 +54,7 @@ describe('OwnersService', () => {
       documentsRepository as any,
       dataSource as any,
       documentsService as any,
+      communicationsService as any,
     );
   });
 

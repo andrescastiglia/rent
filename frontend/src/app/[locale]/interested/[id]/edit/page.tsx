@@ -70,6 +70,8 @@ const profileToForm = (
   qualificationLevel: profile.qualificationLevel,
   source: profile.source,
   consentContact: profile.consentContact,
+  registeredInOffice: profile.registeredInOffice,
+  preferredContactChannel: profile.preferredContactChannel,
   notes: profile.notes ?? "",
 });
 
@@ -378,6 +380,23 @@ export default function EditInterestedPage() {
               className="rounded-sm border border-gray-300 dark:border-gray-600"
             />
             {t("fields.hasPets")}
+          </label>
+
+          <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              type="checkbox"
+              checked={form.consentContact ?? false}
+              onChange={(event) =>
+                setForm((prev) => ({
+                  ...prev,
+                  consentContact: event.target.checked,
+                  consentRecordedAt: event.target.checked
+                    ? new Date()
+                    : undefined,
+                }))
+              }
+            />
+            {t("fields.consentContact")}
           </label>
 
           <textarea

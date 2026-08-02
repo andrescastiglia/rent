@@ -464,7 +464,10 @@ jobs:
           PGPASSWORD: test
 
       - name: Baseline migrations
-        run: bash migrations/run-migrations.sh --baseline-all-if-missing --force-baseline-all-if-missing
+        run: >-
+          bash migrations/run-migrations.sh
+          --baseline-through 094_add_bank_reconciliation_alerts_and_batch_job.sql
+          --force-baseline-through
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432

@@ -1,6 +1,19 @@
 import { Currency } from "@/types/lease";
 
 /**
+ * Normalize values that round to zero so Intl never renders "-0".
+ */
+export function normalizeRoundedNumber(
+  amount: number,
+  decimalPlaces: number,
+): number {
+  if (!Number.isFinite(amount)) return amount;
+
+  const rounded = Number(amount.toFixed(decimalPlaces));
+  return Object.is(rounded, -0) || rounded === 0 ? 0 : rounded;
+}
+
+/**
  * Format a monetary amount with its currency symbol
  * @param amount - The numeric amount to format
  * @param currency - Currency object with symbol and decimal places
@@ -24,7 +37,10 @@ export function formatMoney(
 
   const fullLocale = localeMap[locale] || locale;
 
-  const formattedNumber = amount.toLocaleString(fullLocale, {
+  const formattedNumber = normalizeRoundedNumber(
+    amount,
+    decimalPlaces,
+  ).toLocaleString(fullLocale, {
     minimumFractionDigits: decimalPlaces,
     maximumFractionDigits: decimalPlaces,
   });

@@ -14,9 +14,11 @@ import { SaleAgreement } from '../sales/entities/sale-agreement.entity';
 import { SaleFolder } from '../sales/entities/sale-folder.entity';
 import { PropertyReservation } from './entities/property-reservation.entity';
 import { Buyer } from '../buyers/entities/buyer.entity';
+import { CommunicationsModule } from '../communications/communications.module';
 
 @Module({
   imports: [
+    CommunicationsModule,
     TypeOrmModule.forFeature([
       InterestedProfile,
       Property,

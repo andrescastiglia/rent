@@ -59,9 +59,15 @@ export interface PropertyVisit {
   hasOffer?: boolean;
   offerAmount?: number;
   offerCurrency?: string;
+  result?: PropertyVisitResult;
+  resultReason?: string;
+  completedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
+
+export type PropertyVisitResult =
+  "pending" | "interested" | "not_interested" | "offer";
 
 export interface Property {
   id: string;
@@ -122,6 +128,13 @@ export interface CreatePropertyVisitInput {
   interestedProfileId?: string;
   comments?: string;
   hasOffer?: boolean;
+  offerAmount?: number;
+  offerCurrency?: string;
+}
+
+export interface UpdatePropertyVisitResultInput {
+  result: Exclude<PropertyVisitResult, "pending">;
+  reason?: string;
   offerAmount?: number;
   offerCurrency?: string;
 }
