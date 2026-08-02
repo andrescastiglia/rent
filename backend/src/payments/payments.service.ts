@@ -21,6 +21,12 @@ import { ReceiptPdfService } from './receipt-pdf.service';
 import { CreditNotePdfService } from './credit-note-pdf.service';
 import { UserRole } from '../users/entities/user.entity';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
+import { CommunicationsService } from '../communications/communications.service';
+import {
+  CommunicationChannel,
+  CommunicationEvent,
+  CommunicationRecipientRole,
+} from '../communications/entities/communication-template.entity';
 
 type RequestUser = {
   id: string;
@@ -49,6 +55,7 @@ export class PaymentsService {
     private readonly receiptPdfService: ReceiptPdfService,
     private readonly creditNotePdfService: CreditNotePdfService,
     private readonly whatsappService: WhatsappService,
+    private readonly communicationsService: CommunicationsService,
   ) {}
 
   /**
@@ -272,32 +279,58 @@ export class PaymentsService {
       );
       savedReceipt.pdfUrl = pdfUrl;
       await this.receiptsRepository.save(savedReceipt);
-      const tenantPhone =
-        payment.tenant?.user?.phone ??
-        payment.tenantAccount?.lease?.tenant?.user?.phone ??
-        null;
-      const tenantLanguage =
-        payment.tenant?.user?.language ??
-        payment.tenantAccount?.lease?.tenant?.user?.language ??
-        'es';
-      await this.sendTenantPdfWhatsapp(
-        tenantPhone,
-        `Tu recibo ${savedReceipt.receiptNumber} ya está disponible.`,
-        savedReceipt.pdfUrl,
-        {
-          templateName: 'receipt_available',
-          templateLanguage: tenantLanguage,
-          templateParameters: [savedReceipt.receiptNumber],
-          companyId: payment.companyId,
-          relatedEntityType: 'payment',
-          relatedEntityId: payment.id,
-        },
-      );
+      await this.dispatchPaymentReceived(payment, savedReceipt);
     } catch (error) {
       console.error('Failed to generate receipt PDF:', error);
     }
 
     return savedReceipt;
+  }
+
+  private async dispatchPaymentReceived(
+    payment: Payment,
+    receipt: Receipt,
+  ): Promise<void> {
+    const tenant =
+      payment.tenant ?? payment.tenantAccount?.lease?.tenant ?? null;
+    const user = tenant?.user;
+    const channel =
+      tenant?.preferredContactChannel ?? CommunicationChannel.WHATSAPP;
+    const recipient =
+      channel === CommunicationChannel.EMAIL ? user?.email : user?.phone;
+    if (!tenant || !user || !recipient) return;
+    const name = [user.firstName, user.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+
+    await this.communicationsService.dispatchEvent({
+      companyId: payment.companyId,
+      event: CommunicationEvent.PAYMENT_RECEIVED,
+      recipientRole: CommunicationRecipientRole.TENANT,
+      recipientId: tenant.id,
+      channel,
+      recipient,
+      locale: user.language ?? 'es',
+      variables: {
+        nombre: name,
+        monto: Number(payment.amount).toFixed(2),
+        moneda: payment.currencyCode,
+        recibo: receipt.receiptNumber,
+        saldo: payment.tenantAccount?.balance ?? null,
+        link_recibo: receipt.pdfUrl,
+      },
+      fallbackSubject: `Pago recibido - ${receipt.receiptNumber}`,
+      fallbackBody:
+        'Hola {{nombre}}, confirmamos tu pago de {{moneda}} {{monto}}. Recibo {{recibo}}: {{link_recibo}}',
+      consented: tenant.contactConsent,
+      relatedEntityType: 'payment',
+      relatedEntityId: payment.id,
+      metadata: {
+        receiptId: receipt.id,
+        attachmentUrl: receipt.pdfUrl,
+      },
+    });
   }
 
   /**

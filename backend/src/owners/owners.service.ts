@@ -28,6 +28,12 @@ import { UpdateOwnerActivityDto } from './dto/update-owner-activity.dto';
 import { CreateOwnerDto } from './dto/create-owner.dto';
 import { UpdateOwnerDto } from './dto/update-owner.dto';
 import { RegisterOwnerSettlementPaymentDto } from './dto/register-owner-settlement-payment.dto';
+import { CommunicationsService } from '../communications/communications.service';
+import {
+  CommunicationChannel,
+  CommunicationEvent,
+  CommunicationRecipientRole,
+} from '../communications/entities/communication-template.entity';
 
 export interface OwnerSummary {
   owner: Owner;
@@ -105,6 +111,7 @@ export class OwnersService {
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly documentsService: DocumentsService,
+    private readonly communicationsService: CommunicationsService,
   ) {}
 
   /**
@@ -201,6 +208,9 @@ export class OwnersService {
         paymentMethod: dto.paymentMethod,
         commissionRate: dto.commissionRate,
         notes: dto.notes?.trim() || undefined,
+        contactConsent: dto.contactConsent ?? false,
+        contactConsentRecordedAt: dto.contactConsent ? new Date() : null,
+        preferredContactChannel: dto.preferredContactChannel,
       });
 
       const savedOwner = await manager.getRepository(Owner).save(owner);
@@ -275,6 +285,13 @@ export class OwnersService {
     }
     if (dto.commissionRate !== undefined) {
       owner.commissionRate = dto.commissionRate;
+    }
+    if (dto.contactConsent !== undefined) {
+      owner.contactConsent = dto.contactConsent;
+      owner.contactConsentRecordedAt = dto.contactConsent ? new Date() : null;
+    }
+    if (dto.preferredContactChannel !== undefined) {
+      owner.preferredContactChannel = dto.preferredContactChannel;
     }
   }
 
@@ -585,7 +602,51 @@ export class OwnersService {
       throw new NotFoundException('Updated settlement not found');
     }
 
+    await this.dispatchSettlementPaid(owner, updated);
+
     return this.mapSettlement(updated);
+  }
+
+  private async dispatchSettlementPaid(
+    owner: Owner,
+    settlement: OwnerSettlementRow,
+  ): Promise<void> {
+    const channel =
+      owner.preferredContactChannel ?? CommunicationChannel.WHATSAPP;
+    const recipient =
+      channel === CommunicationChannel.EMAIL
+        ? owner.user.email
+        : owner.user.phone;
+    if (!recipient) return;
+
+    await this.communicationsService.dispatchEvent({
+      companyId: owner.companyId,
+      event: CommunicationEvent.SETTLEMENT_PAID,
+      recipientRole: CommunicationRecipientRole.OWNER,
+      recipientId: owner.id,
+      channel,
+      recipient,
+      locale: owner.user.language ?? 'es',
+      variables: {
+        nombre: settlement.owner_name,
+        periodo_liquidacion: settlement.period,
+        monto_neto: Number(settlement.net_amount).toFixed(2),
+        monto_bruto: Number(settlement.gross_amount).toFixed(2),
+        comisiones: Number(settlement.commission_amount).toFixed(2),
+        retenciones: Number(settlement.withholdings_amount).toFixed(2),
+        link_liquidacion: settlement.receipt_pdf_url,
+      },
+      fallbackSubject: `Liquidación pagada - ${settlement.period}`,
+      fallbackBody:
+        'Hola {{nombre}}, se pagó la liquidación de {{periodo_liquidacion}}. Neto: ARS {{monto_neto}}. Recibo: {{link_liquidacion}}',
+      consented: owner.contactConsent,
+      relatedEntityType: 'owner',
+      relatedEntityId: settlement.id,
+      metadata: {
+        settlementId: settlement.id,
+        attachmentUrl: settlement.receipt_pdf_url,
+      },
+    });
   }
 
   async getSettlementReceipt(

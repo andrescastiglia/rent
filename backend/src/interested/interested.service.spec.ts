@@ -29,6 +29,8 @@ import { I18nContext, I18nService } from 'nestjs-i18n';
 import { PropertyOperationState } from '../properties/entities/property.entity';
 import { Buyer } from '../buyers/entities/buyer.entity';
 import * as bcrypt from 'bcrypt';
+import { CommunicationsService } from '../communications/communications.service';
+import { CommunicationChannel } from '../communications/entities/communication-template.entity';
 
 jest.mock('bcrypt');
 
@@ -37,6 +39,8 @@ describe('InterestedService', () => {
   let interestedRepository: MockRepository<InterestedProfile>;
   let propertiesRepository: MockRepository<Property>;
   let stageHistoryRepository: MockRepository<InterestedStageHistory>;
+  let activityRepository: MockRepository<InterestedActivity>;
+  let communicationsService: { dispatchEvent: jest.Mock };
   let dataSource: { transaction: jest.Mock };
 
   type MockRepository<T extends Record<string, any> = any> = Partial<
@@ -56,6 +60,9 @@ describe('InterestedService', () => {
   beforeEach(async () => {
     dataSource = {
       transaction: jest.fn(),
+    };
+    communicationsService = {
+      dispatchEvent: jest.fn(),
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -118,6 +125,10 @@ describe('InterestedService', () => {
             t: jest.fn((key: string) => key),
           },
         },
+        {
+          provide: CommunicationsService,
+          useValue: communicationsService,
+        },
       ],
     }).compile();
 
@@ -127,6 +138,7 @@ describe('InterestedService', () => {
     stageHistoryRepository = module.get(
       getRepositoryToken(InterestedStageHistory),
     );
+    activityRepository = module.get(getRepositoryToken(InterestedActivity));
   });
 
   it('should create a detailed interested profile', async () => {
@@ -180,6 +192,68 @@ describe('InterestedService', () => {
     });
     expect(stageHistoryRepository.save).toHaveBeenCalled();
     expect(result).toEqual(created);
+  });
+
+  it('sends the initial office message and records consent and delivery', async () => {
+    const dto = {
+      firstName: 'Ana',
+      lastName: 'Pérez',
+      phone: '+5491112345678',
+      email: 'ana@example.com',
+      operation: InterestedOperation.SALE,
+      registeredInOffice: true,
+      consentContact: true,
+      preferredContactChannel: CommunicationChannel.EMAIL,
+    };
+    const duplicateQueryBuilder = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    };
+    interestedRepository.createQueryBuilder!.mockReturnValue(
+      duplicateQueryBuilder as any,
+    );
+    interestedRepository.create!.mockImplementation((data) => ({
+      id: 'interested-1',
+      status: InterestedStatus.INTERESTED,
+      ...data,
+    }));
+    interestedRepository.save!.mockImplementation(async (data) => data);
+    stageHistoryRepository.create!.mockImplementation((data) => data);
+    stageHistoryRepository.save!.mockImplementation(async (data) => data);
+    activityRepository.create!.mockImplementation((data) => data);
+    activityRepository.save!.mockImplementation(async (data) => data);
+    communicationsService.dispatchEvent.mockResolvedValue({
+      id: 'delivery-1',
+      status: 'sent',
+      body: 'Registro confirmado',
+    });
+
+    const result = await service.create(dto as any, {
+      id: 'staff-1',
+      role: 'staff',
+      companyId: 'company-1',
+    });
+
+    expect(result.source).toBe('office');
+    expect(result.consentRecordedAt).toBeInstanceOf(Date);
+    expect(communicationsService.dispatchEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'office_prospect_welcome_sale',
+        channel: 'email',
+        recipient: 'ana@example.com',
+        consented: true,
+      }),
+    );
+    expect(activityRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          deliveryId: 'delivery-1',
+          deliveryStatus: 'sent',
+          consented: true,
+        }),
+      }),
+    );
   });
 
   it('should keep only properties compatible with selected operations', async () => {

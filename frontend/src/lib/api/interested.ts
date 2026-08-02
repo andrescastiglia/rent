@@ -206,6 +206,8 @@ const mapProfile = (raw: any): InterestedProfile => {
     lostReason: raw.lostReason,
     consentContact: raw.consentContact,
     consentRecordedAt: toOptionalIsoString(raw.consentRecordedAt),
+    registeredInOffice: raw.registeredInOffice,
+    preferredContactChannel: raw.preferredContactChannel,
     convertedToTenantId: raw.convertedToTenantId,
     convertedToSaleAgreementId: raw.convertedToSaleAgreementId,
     notes: raw.notes,
@@ -429,6 +431,8 @@ export const interestedApi = {
         consentRecordedAt: data.consentRecordedAt
           ? new Date(data.consentRecordedAt).toISOString()
           : undefined,
+        registeredInOffice: data.registeredInOffice,
+        preferredContactChannel: data.preferredContactChannel,
         notes: data.notes,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -487,6 +491,19 @@ export const interestedApi = {
       token ?? undefined,
     );
     return mapProfile(result);
+  },
+
+  sendInitialMessage: async (id: string): Promise<void> => {
+    if (IS_MOCK_MODE) {
+      await delay(DELAY);
+      return;
+    }
+    const token = getToken();
+    await apiClient.post(
+      `/interested/${id}/send-initial-message`,
+      {},
+      token ?? undefined,
+    );
   },
 
   remove: async (id: string): Promise<void> => {

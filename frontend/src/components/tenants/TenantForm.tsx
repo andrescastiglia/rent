@@ -63,6 +63,10 @@ const createExtendedTenantSchema = (
       return Number(value);
     }, z.number().min(0).max(1000).optional()),
     notes: z.string().optional(),
+    contactConsent: z.boolean().optional(),
+    preferredContactChannel: z
+      .enum(["whatsapp", "email", "sms"] as const)
+      .optional(),
   });
 };
 
@@ -99,6 +103,8 @@ export function TenantForm({
     resolver: zodResolver(tenantSchema) as Resolver<ExtendedTenantFormData>,
     defaultValues: initialData || {
       status: "PROSPECT",
+      contactConsent: false,
+      preferredContactChannel: "whatsapp",
     },
   });
 
@@ -292,6 +298,27 @@ export function TenantForm({
               <option value="INACTIVE">{t("status.INACTIVE")}</option>
             </select>
           </div>
+        </div>
+      </div>
+
+      <div className={sectionClass}>
+        <h2 className={sectionTitleClass}>Preferencias de comunicación</h2>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <label className={labelClass}>
+            <span>Canal preferido</span>
+            <select
+              {...register("preferredContactChannel")}
+              className={inputClass}
+            >
+              <option value="whatsapp">WhatsApp</option>
+              <option value="email">Email</option>
+              <option value="sms">SMS</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input type="checkbox" {...register("contactConsent")} />
+            <span>Consentimiento para comunicaciones registrado</span>
+          </label>
         </div>
       </div>
 

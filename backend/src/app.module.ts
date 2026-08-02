@@ -34,6 +34,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentGatewayModule } from './payment-gateway/payment-gateway.module';
 import { DigitalSignaturesModule } from './digital-signatures/digital-signatures.module';
 import { PortalsModule } from './portals/portals.module';
+import { CommunicationsModule } from './communications/communications.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -88,6 +89,7 @@ import * as path from 'node:path';
     PaymentGatewayModule,
     PortalsModule,
     DigitalSignaturesModule,
+    CommunicationsModule,
   ],
   controllers: [AppController],
   providers: [

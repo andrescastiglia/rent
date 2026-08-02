@@ -6,6 +6,7 @@ import { Property } from './entities/property.entity';
 import {
   PropertyVisit,
   PropertyVisitKind,
+  PropertyVisitResult,
 } from './entities/property-visit.entity';
 import {
   PropertyVisitNotification,
@@ -17,6 +18,9 @@ import {
   OwnerActivityStatus,
   OwnerActivityType,
 } from '../owners/entities/owner-activity.entity';
+import { InterestedProfile } from '../interested/entities/interested-profile.entity';
+import { InterestedActivity } from '../interested/entities/interested-activity.entity';
+import { CommunicationsService } from '../communications/communications.service';
 
 describe('PropertyVisitsService', () => {
   let service: PropertyVisitsService;
@@ -24,7 +28,10 @@ describe('PropertyVisitsService', () => {
   let visitsRepository: MockRepository<PropertyVisit>;
   let notificationsRepository: MockRepository<PropertyVisitNotification>;
   let ownerActivitiesRepository: MockRepository<OwnerActivity>;
+  let interestedRepository: MockRepository<InterestedProfile>;
+  let interestedActivitiesRepository: MockRepository<InterestedActivity>;
   let whatsappService: { sendTemplateMessage: jest.Mock };
+  let communicationsService: { dispatchEvent: jest.Mock };
 
   type MockRepository<T extends Record<string, any> = any> = Partial<
     Record<keyof Repository<T>, jest.Mock>
@@ -42,6 +49,13 @@ describe('PropertyVisitsService', () => {
       sendTemplateMessage: jest
         .fn()
         .mockResolvedValue({ messageId: 'wamid.test', raw: {} }),
+    };
+    communicationsService = {
+      dispatchEvent: jest.fn().mockResolvedValue({
+        id: 'delivery-1',
+        status: 'sent',
+        body: 'Mensaje enviado',
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -63,7 +77,16 @@ describe('PropertyVisitsService', () => {
           provide: getRepositoryToken(OwnerActivity),
           useValue: createMockRepository(),
         },
+        {
+          provide: getRepositoryToken(InterestedProfile),
+          useValue: createMockRepository(),
+        },
+        {
+          provide: getRepositoryToken(InterestedActivity),
+          useValue: createMockRepository(),
+        },
         { provide: WhatsappService, useValue: whatsappService },
+        { provide: CommunicationsService, useValue: communicationsService },
       ],
     }).compile();
 
@@ -74,6 +97,10 @@ describe('PropertyVisitsService', () => {
       getRepositoryToken(PropertyVisitNotification),
     );
     ownerActivitiesRepository = module.get(getRepositoryToken(OwnerActivity));
+    interestedRepository = module.get(getRepositoryToken(InterestedProfile));
+    interestedActivitiesRepository = module.get(
+      getRepositoryToken(InterestedActivity),
+    );
   });
 
   it('should register a visit and send notifications', async () => {
@@ -419,6 +446,17 @@ describe('PropertyVisitsService', () => {
         ...d,
       }));
       ownerActivitiesRepository.save!.mockImplementation(async (d) => d);
+      interestedRepository.findOne!.mockResolvedValue({
+        id: 'profile-abc',
+        companyId: 'company-1',
+        firstName: 'Ana',
+        lastName: 'Pérez',
+        phone: '+5491112345678',
+        preferredContactChannel: 'whatsapp',
+        consentContact: true,
+      });
+      interestedActivitiesRepository.create!.mockImplementation((d) => d);
+      interestedActivitiesRepository.save!.mockImplementation(async (d) => d);
     });
 
     it('should skip notifications when no ownerWhatsapp', async () => {
@@ -529,6 +567,17 @@ describe('PropertyVisitsService', () => {
         ...d,
       }));
       ownerActivitiesRepository.save!.mockImplementation(async (d) => d);
+      interestedRepository.findOne!.mockResolvedValue({
+        id: 'profile-abc',
+        companyId: 'company-1',
+        firstName: 'Ana',
+        lastName: 'Pérez',
+        phone: '+5491112345678',
+        preferredContactChannel: 'whatsapp',
+        consentContact: true,
+      });
+      interestedActivitiesRepository.create!.mockImplementation((d) => d);
+      interestedActivitiesRepository.save!.mockImplementation(async (d) => d);
 
       await service.create(
         'prop-1',
@@ -575,6 +624,127 @@ describe('PropertyVisitsService', () => {
       );
       expect(createdData.visitedAt.getTime()).toBeLessThanOrEqual(
         after.getTime(),
+      );
+    });
+  });
+
+  describe('commercial visit communications', () => {
+    const property = {
+      id: 'prop-1',
+      name: 'Casa en venta',
+      companyId: 'company-1',
+      ownerId: 'owner-1',
+      ownerWhatsapp: '+5491111111111',
+      owner: {
+        userId: 'owner-user-1',
+        user: { firstName: 'Olivia', lastName: 'Dueña' },
+      },
+    } as unknown as Property;
+
+    beforeEach(() => {
+      propertiesRepository.findOne!.mockResolvedValue(property);
+      interestedActivitiesRepository.create!.mockImplementation((data) => data);
+      interestedActivitiesRepository.save!.mockImplementation(
+        async (data) => data,
+      );
+    });
+
+    it('records a blocked confirmation when the interested did not consent', async () => {
+      interestedRepository.findOne!.mockResolvedValue({
+        id: 'profile-1',
+        companyId: 'company-1',
+        firstName: 'Ana',
+        phone: '+5491122222222',
+        preferredContactChannel: 'whatsapp',
+        consentContact: false,
+      });
+      visitsRepository.create!.mockImplementation((data) => ({
+        id: 'visit-1',
+        ...data,
+      }));
+      visitsRepository.save!.mockImplementation(async (data) => data);
+      ownerActivitiesRepository.create!.mockImplementation((data) => data);
+      ownerActivitiesRepository.save!.mockImplementation(async (data) => data);
+      notificationsRepository.create!.mockImplementation((data) => data);
+      notificationsRepository.save!.mockImplementation(async (data) => data);
+      communicationsService.dispatchEvent.mockResolvedValueOnce({
+        id: 'delivery-blocked',
+        status: 'blocked',
+        body: 'Confirmación de visita',
+      });
+
+      await service.create(
+        'prop-1',
+        { interestedProfileId: 'profile-1', visitedAt: '2025-02-01' },
+        { id: 'staff-1', role: 'staff', companyId: 'company-1' },
+      );
+
+      expect(communicationsService.dispatchEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ consented: false, recipientId: 'profile-1' }),
+      );
+      expect(interestedActivitiesRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            deliveryStatus: 'blocked',
+            consented: false,
+          }),
+        }),
+      );
+    });
+
+    it('sends an offer result to the owner and interested profile', async () => {
+      const interested = {
+        id: 'profile-1',
+        companyId: 'company-1',
+        firstName: 'Ana',
+        lastName: 'Compradora',
+        phone: '+5491122222222',
+        preferredContactChannel: 'whatsapp',
+        consentContact: true,
+      } as InterestedProfile;
+      const visit = {
+        id: 'visit-1',
+        propertyId: 'prop-1',
+        kind: PropertyVisitKind.VISIT,
+        visitedAt: new Date('2025-02-01T15:00:00Z'),
+        interestedProfileId: interested.id,
+        interestedProfile: interested,
+        result: PropertyVisitResult.PENDING,
+        offerCurrency: 'ARS',
+      } as PropertyVisit;
+      visitsRepository.findOne!.mockResolvedValue(visit);
+      visitsRepository.save!.mockImplementation(async (data) => data);
+
+      const result = await service.updateResult(
+        'prop-1',
+        'visit-1',
+        {
+          result: PropertyVisitResult.OFFER,
+          offerAmount: 150000,
+          offerCurrency: 'USD',
+        },
+        { id: 'staff-1', role: 'staff', companyId: 'company-1' },
+      );
+
+      expect(result.result).toBe(PropertyVisitResult.OFFER);
+      expect(communicationsService.dispatchEvent).toHaveBeenCalledTimes(2);
+      expect(communicationsService.dispatchEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: 'property_visit_offer',
+          recipientRole: 'owner',
+        }),
+      );
+      expect(communicationsService.dispatchEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: 'property_visit_offer',
+          recipientRole: 'interested',
+          consented: true,
+        }),
+      );
+      expect(interestedActivitiesRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({ potentialBuyer: true }),
+        }),
       );
     });
   });

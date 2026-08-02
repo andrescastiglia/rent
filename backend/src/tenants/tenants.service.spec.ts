@@ -622,6 +622,14 @@ describe('TenantsService', () => {
       companyId: 'company-1',
       contractType: ContractType.RENTAL,
       status: LeaseStatus.ACTIVE,
+      endDate: new Date(
+        Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 20),
+      ),
+      nextAdjustmentDate: new Date(
+        Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 10),
+      ),
+      adjustmentType: 'percentage',
+      adjustmentValue: '12.5',
     };
 
     it('returns summary with active lease, balance and pending invoices', async () => {
@@ -638,11 +646,13 @@ describe('TenantsService', () => {
           id: 'inv-1',
           dueDate: new Date('2025-02-10'),
           status: InvoiceStatus.PENDING,
+          total: '1000.25',
         },
         {
           id: 'inv-2',
           dueDate: new Date('2025-03-10'),
           status: InvoiceStatus.OVERDUE,
+          total: '500.50',
         },
       ]);
 
@@ -654,6 +664,15 @@ describe('TenantsService', () => {
       expect(summary.currencyCode).toBe('ARS');
       expect(summary.pendingInvoicesCount).toBe(2);
       expect(summary.nextPaymentDueDate).toEqual(new Date('2025-02-10'));
+      expect(summary.monthlySummary).toEqual(
+        expect.objectContaining({
+          pendingAmount: 1500.75,
+          contractExpiresThisMonth: true,
+          adjustmentDueThisMonth: true,
+          adjustmentType: 'percentage',
+          adjustmentValue: 12.5,
+        }),
+      );
     });
 
     it('returns summary with zeroed values when no active lease', async () => {
@@ -666,6 +685,15 @@ describe('TenantsService', () => {
       expect(summary.currentBalance).toBe(0);
       expect(summary.pendingInvoicesCount).toBe(0);
       expect(summary.nextPaymentDueDate).toBeNull();
+      expect(summary.monthlySummary).toEqual(
+        expect.objectContaining({
+          pendingAmount: 0,
+          contractEndDate: null,
+          contractExpiresThisMonth: false,
+          nextAdjustmentDate: null,
+          adjustmentDueThisMonth: false,
+        }),
+      );
     });
 
     it('throws NotFoundException when tenant not found', async () => {

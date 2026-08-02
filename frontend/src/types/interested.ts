@@ -12,6 +12,7 @@ export type InterestedPropertyType =
   | "other";
 export type InterestedStatus = "interested" | "tenant" | "buyer";
 export type InterestedQualificationLevel = "mql" | "sql" | "rejected";
+export type InterestedContactChannel = "whatsapp" | "email" | "sms";
 
 export type InterestedActivityType =
   "call" | "task" | "note" | "email" | "whatsapp" | "visit";
@@ -55,6 +56,8 @@ export interface InterestedProfile {
   lostReason?: string;
   consentContact?: boolean;
   consentRecordedAt?: string;
+  registeredInOffice?: boolean;
+  preferredContactChannel?: InterestedContactChannel;
   convertedToTenantId?: string;
   convertedToBuyerId?: string;
   convertedToSaleAgreementId?: string;
@@ -88,6 +91,8 @@ export interface CreateInterestedProfileInput {
   customFields?: Record<string, unknown>;
   consentContact?: boolean;
   consentRecordedAt?: Date;
+  registeredInOffice?: boolean;
+  preferredContactChannel?: InterestedContactChannel;
   lastContactAt?: Date;
   nextContactAt?: Date;
   lostReason?: string;

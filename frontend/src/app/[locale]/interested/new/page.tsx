@@ -27,6 +27,9 @@ const emptyForm: CreateInterestedProfileInput = {
   operation: "rent",
   operations: ["rent"],
   notes: "",
+  registeredInOffice: true,
+  consentContact: false,
+  preferredContactChannel: "whatsapp",
 };
 
 const toggleOperation = (
@@ -340,6 +343,60 @@ export default function NewInterestedPage() {
             />
             {t("fields.hasPets")}
           </label>
+
+          <div className="md:col-span-2 rounded-md border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950/20 space-y-3">
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                checked={form.registeredInOffice ?? false}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    registeredInOffice: event.target.checked,
+                  }))
+                }
+              />
+              {t("fields.registeredInOffice")}
+            </label>
+            {form.registeredInOffice ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-sm text-gray-700 dark:text-gray-300">
+                  {t("fields.preferredContactChannel")}
+                  <select
+                    value={form.preferredContactChannel ?? "whatsapp"}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        preferredContactChannel: event.target.value as
+                          "whatsapp" | "email" | "sms",
+                      }))
+                    }
+                    className="mt-1 w-full rounded-md border border-gray-300 bg-white p-2 dark:border-gray-600 dark:bg-gray-700"
+                  >
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="email">Email</option>
+                    <option value="sms">SMS</option>
+                  </select>
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={form.consentContact ?? false}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        consentContact: event.target.checked,
+                        consentRecordedAt: event.target.checked
+                          ? new Date()
+                          : undefined,
+                      }))
+                    }
+                  />
+                  {t("fields.consentContact")}
+                </label>
+              </div>
+            ) : null}
+          </div>
 
           <label htmlFor="interested-notes" className="sr-only">
             {t("fields.notes")}

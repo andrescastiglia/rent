@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  CalendarClock,
 } from "lucide-react";
 
 export default function TenantPortalDashboard() {
@@ -142,6 +143,65 @@ export default function TenantPortalDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Monthly summary */}
+      <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
+          <CalendarClock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+              {t("monthlySummary.title")}
+            </h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {summary?.monthlySummary.period}
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100 dark:divide-gray-700">
+          <div className="p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              {t("monthlySummary.pending")}
+            </p>
+            <p className="mt-1 font-semibold text-gray-900 dark:text-white">
+              {formatCurrency(
+                summary?.monthlySummary.pendingAmount ?? 0,
+                summary?.activeLease?.currency ?? "ARS",
+              )}
+            </p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {t("monthlySummary.pendingCount", {
+                count: summary?.pendingInvoicesCount ?? 0,
+              })}
+            </p>
+          </div>
+          <div className="p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              {t("monthlySummary.adjustment")}
+            </p>
+            <p className="mt-1 font-semibold text-gray-900 dark:text-white">
+              {formatDate(summary?.monthlySummary.nextAdjustmentDate)}
+            </p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {summary?.monthlySummary.adjustmentDueThisMonth
+                ? t("monthlySummary.dueThisMonth")
+                : t("monthlySummary.notDueThisMonth")}
+            </p>
+          </div>
+          <div className="p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              {t("monthlySummary.contractExpiration")}
+            </p>
+            <p className="mt-1 font-semibold text-gray-900 dark:text-white">
+              {formatDate(summary?.monthlySummary.contractEndDate)}
+            </p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {summary?.monthlySummary.contractExpiresThisMonth
+                ? t("monthlySummary.expiresThisMonth")
+                : t("monthlySummary.current")}
+            </p>
+          </div>
+        </div>
+      </section>
 
       {/* Recent payments */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
