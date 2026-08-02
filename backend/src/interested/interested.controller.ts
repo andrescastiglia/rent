@@ -145,6 +145,15 @@ export class InterestedController {
     return this.interestedService.createActivity(id, dto, req.user);
   }
 
+  @Post(':id/send-initial-message')
+  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  sendInitialMessage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.interestedService.sendInitialMessage(id, req.user);
+  }
+
   @Post(':id/reservations')
   @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
   createReservation(

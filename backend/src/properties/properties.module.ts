@@ -16,10 +16,14 @@ import { PropertyImagesController } from './property-images.controller';
 import { UnitsController } from './units.controller';
 import { PropertyVisitsController } from './property-visits.controller';
 import { WhatsappModule } from '../whatsapp/whatsapp.module';
+import { InterestedProfile } from '../interested/entities/interested-profile.entity';
+import { InterestedActivity } from '../interested/entities/interested-activity.entity';
+import { CommunicationsModule } from '../communications/communications.module';
 
 @Module({
   imports: [
     WhatsappModule,
+    CommunicationsModule,
     TypeOrmModule.forFeature([
       Property,
       Unit,
@@ -29,6 +33,8 @@ import { WhatsappModule } from '../whatsapp/whatsapp.module';
       PropertyImage,
       Owner,
       OwnerActivity,
+      InterestedProfile,
+      InterestedActivity,
     ]),
   ],
   controllers: [

@@ -21,6 +21,7 @@ describe('InterestedController', () => {
     convertToBuyer: jest.fn(),
     update: jest.fn(),
     remove: jest.fn(),
+    sendInitialMessage: jest.fn(),
   };
 
   let controller: InterestedController;
@@ -55,6 +56,10 @@ describe('InterestedController', () => {
     interestedService.convertToTenant.mockResolvedValue({ tenantId: 't1' });
     interestedService.convertToBuyer.mockResolvedValue({ buyerId: 'b1' });
     interestedService.update.mockResolvedValue({ id: 'i1', firstName: 'Ana' });
+    interestedService.sendInitialMessage.mockResolvedValue({
+      id: 'delivery-1',
+      status: 'sent',
+    });
 
     await expect(controller.create({} as any, req)).resolves.toEqual({
       id: 'i1',
@@ -104,6 +109,10 @@ describe('InterestedController', () => {
     await expect(controller.update('i1', {} as any, req)).resolves.toEqual({
       id: 'i1',
       firstName: 'Ana',
+    });
+    await expect(controller.sendInitialMessage('i1', req)).resolves.toEqual({
+      id: 'delivery-1',
+      status: 'sent',
     });
   });
 

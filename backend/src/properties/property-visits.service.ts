@@ -10,6 +10,7 @@ import { Property } from './entities/property.entity';
 import {
   PropertyVisit,
   PropertyVisitKind,
+  PropertyVisitResult,
 } from './entities/property-visit.entity';
 import {
   PropertyVisitNotification,
@@ -18,12 +19,25 @@ import {
 } from './entities/property-visit-notification.entity';
 import { CreatePropertyVisitDto } from './dto/create-property-visit.dto';
 import { CreatePropertyMaintenanceTaskDto } from './dto/create-property-maintenance-task.dto';
+import { UpdatePropertyVisitResultDto } from './dto/update-property-visit-result.dto';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import {
   OwnerActivity,
   OwnerActivityStatus,
   OwnerActivityType,
 } from '../owners/entities/owner-activity.entity';
+import { InterestedProfile } from '../interested/entities/interested-profile.entity';
+import {
+  InterestedActivity,
+  InterestedActivityStatus,
+  InterestedActivityType,
+} from '../interested/entities/interested-activity.entity';
+import { CommunicationsService } from '../communications/communications.service';
+import {
+  CommunicationChannel,
+  CommunicationEvent,
+  CommunicationRecipientRole,
+} from '../communications/entities/communication-template.entity';
 
 interface VisitUserContext {
   id: string;
@@ -50,7 +64,12 @@ export class PropertyVisitsService {
     private readonly notificationsRepository: Repository<PropertyVisitNotification>,
     @InjectRepository(OwnerActivity)
     private readonly ownerActivitiesRepository: Repository<OwnerActivity>,
+    @InjectRepository(InterestedProfile)
+    private readonly interestedRepository: Repository<InterestedProfile>,
+    @InjectRepository(InterestedActivity)
+    private readonly interestedActivitiesRepository: Repository<InterestedActivity>,
     private readonly whatsappService: WhatsappService,
+    private readonly communicationsService: CommunicationsService,
   ) {}
 
   async create(
@@ -59,6 +78,10 @@ export class PropertyVisitsService {
     user: VisitUserContext,
   ): Promise<PropertyVisit> {
     const property = await this.getPropertyForAccess(propertyId, user);
+    const interested = await this.getInterestedForVisit(
+      dto.interestedProfileId,
+      property.companyId,
+    );
     const savedVisit = await this.createVisitRecord(
       property,
       {
@@ -73,6 +96,7 @@ export class PropertyVisitsService {
       },
       user,
     );
+    if (interested) savedVisit.interestedProfile = interested;
 
     const ownerActivity = await this.createOwnerVisitActivity(
       property,
@@ -97,6 +121,59 @@ export class PropertyVisitsService {
       });
     }
 
+    if (interested) {
+      await this.dispatchInterestedVisitCommunication(
+        property,
+        savedVisit,
+        interested,
+        CommunicationEvent.PROPERTY_VISIT_SCHEDULED,
+        user,
+      );
+    }
+
+    return savedVisit;
+  }
+
+  async updateResult(
+    propertyId: string,
+    visitId: string,
+    dto: UpdatePropertyVisitResultDto,
+    user: VisitUserContext,
+  ): Promise<PropertyVisit> {
+    const property = await this.getPropertyForAccess(propertyId, user);
+    const visit = await this.propertyVisitsRepository.findOne({
+      where: { id: visitId, propertyId, kind: PropertyVisitKind.VISIT },
+      relations: ['interestedProfile'],
+    });
+    if (!visit) throw new NotFoundException('Property visit not found');
+
+    visit.result = dto.result;
+    visit.resultReason = dto.reason?.trim() || null;
+    visit.completedAt = new Date();
+    visit.hasOffer = dto.result === PropertyVisitResult.OFFER;
+    if (visit.hasOffer) {
+      visit.offerAmount = dto.offerAmount!;
+      visit.offerCurrency = dto.offerCurrency ?? visit.offerCurrency ?? 'ARS';
+    } else {
+      visit.offerAmount = null;
+    }
+    const savedVisit = await this.propertyVisitsRepository.save(visit);
+    const event =
+      dto.result === PropertyVisitResult.OFFER
+        ? CommunicationEvent.PROPERTY_VISIT_OFFER
+        : CommunicationEvent.PROPERTY_VISIT_COMPLETED;
+
+    await this.dispatchOwnerResultCommunication(property, savedVisit, event);
+    if (savedVisit.interestedProfile) {
+      await this.dispatchInterestedVisitCommunication(
+        property,
+        savedVisit,
+        savedVisit.interestedProfile,
+        event,
+        user,
+      );
+    }
+    await this.createInterestedResultActivity(savedVisit, user);
     return savedVisit;
   }
 
@@ -198,6 +275,10 @@ export class PropertyVisitsService {
       hasOffer,
       offerAmount: input.offerAmount,
       offerCurrency: input.offerCurrency ?? 'ARS',
+      result: input.hasOffer
+        ? PropertyVisitResult.OFFER
+        : PropertyVisitResult.PENDING,
+      completedAt: input.hasOffer ? new Date() : undefined,
       createdByUserId: user.id,
     };
 
@@ -228,6 +309,163 @@ export class PropertyVisitsService {
     }
 
     return property;
+  }
+
+  private async getInterestedForVisit(
+    interestedProfileId: string | undefined,
+    companyId: string,
+  ): Promise<InterestedProfile | null> {
+    if (!interestedProfileId) return null;
+    const interested = await this.interestedRepository.findOne({
+      where: { id: interestedProfileId, companyId },
+    });
+    if (!interested) {
+      throw new BadRequestException('Interested profile was not found');
+    }
+    return interested;
+  }
+
+  private async dispatchInterestedVisitCommunication(
+    property: Property,
+    visit: PropertyVisit,
+    interested: InterestedProfile,
+    event: CommunicationEvent,
+    user: VisitUserContext,
+  ): Promise<void> {
+    const channel =
+      interested.preferredContactChannel ?? CommunicationChannel.WHATSAPP;
+    const recipient =
+      channel === CommunicationChannel.EMAIL
+        ? interested.email
+        : interested.phone;
+    if (!recipient) return;
+
+    const name =
+      [interested.firstName, interested.lastName]
+        .filter(Boolean)
+        .join(' ')
+        .trim() || 'cliente';
+    const delivery = await this.communicationsService.dispatchEvent({
+      companyId: property.companyId,
+      event,
+      recipientRole: CommunicationRecipientRole.INTERESTED,
+      recipientId: interested.id,
+      channel,
+      recipient,
+      variables: this.buildCommunicationVariables(property, visit, name),
+      fallbackSubject: `Visita a ${property.name}`,
+      fallbackBody:
+        event === CommunicationEvent.PROPERTY_VISIT_SCHEDULED
+          ? 'Hola {{nombre_interesado}}, confirmamos la visita a {{propiedad}} para el {{fecha_visita}} a las {{hora_visita}}. Detalle: {{link_visita}}'
+          : 'Hola {{nombre_interesado}}, registramos el resultado de la visita a {{propiedad}}: {{resultado}}. {{motivo}} Detalle: {{link_visita}}',
+      consented: interested.consentContact,
+      relatedEntityType: 'property_visit',
+      relatedEntityId: visit.id,
+      metadata: { propertyId: property.id, result: visit.result },
+    });
+
+    await this.interestedActivitiesRepository.save(
+      this.interestedActivitiesRepository.create({
+        interestedProfileId: interested.id,
+        type: InterestedActivityType.VISIT,
+        status:
+          delivery.status === 'sent'
+            ? InterestedActivityStatus.COMPLETED
+            : InterestedActivityStatus.PENDING,
+        subject:
+          event === CommunicationEvent.PROPERTY_VISIT_SCHEDULED
+            ? `Visita agendada en ${property.name}`
+            : `Resultado de visita en ${property.name}`,
+        body: delivery.body,
+        dueAt: visit.visitedAt,
+        completedAt: delivery.status === 'sent' ? new Date() : undefined,
+        metadata: {
+          visitId: visit.id,
+          deliveryId: delivery.id,
+          deliveryStatus: delivery.status,
+          consented: interested.consentContact,
+        },
+        createdByUserId: user.id,
+      }),
+    );
+  }
+
+  private async dispatchOwnerResultCommunication(
+    property: Property,
+    visit: PropertyVisit,
+    event: CommunicationEvent,
+  ): Promise<void> {
+    if (!property.ownerWhatsapp) return;
+    const ownerName =
+      [property.owner?.user?.firstName, property.owner?.user?.lastName]
+        .filter(Boolean)
+        .join(' ')
+        .trim() || 'propietario';
+    await this.communicationsService.dispatchEvent({
+      companyId: property.companyId,
+      event,
+      recipientRole: CommunicationRecipientRole.OWNER,
+      recipientId: property.ownerId,
+      channel: CommunicationChannel.WHATSAPP,
+      recipient: property.ownerWhatsapp,
+      variables: this.buildCommunicationVariables(property, visit, ownerName),
+      fallbackSubject: `Resultado de visita a ${property.name}`,
+      fallbackBody:
+        'Se registró el resultado de la visita a {{propiedad}}: {{resultado}}. {{motivo}} {{detalle_oferta}} Detalle: {{link_visita}}',
+      consented: true,
+      relatedEntityType: 'property_visit',
+      relatedEntityId: visit.id,
+      metadata: { propertyId: property.id, result: visit.result },
+    });
+  }
+
+  private buildCommunicationVariables(
+    property: Property,
+    visit: PropertyVisit,
+    recipientName: string,
+  ): Record<string, string | number | null> {
+    const frontendUrl = (process.env.FRONTEND_URL ?? '').split(',')[0].trim();
+    return {
+      nombre_interesado: recipientName,
+      propiedad: property.name,
+      fecha_visita: this.formatWhatsappDate(visit.visitedAt).split(',')[0],
+      hora_visita:
+        this.formatWhatsappDate(visit.visitedAt).split(',')[1]?.trim() ?? '',
+      resultado: visit.result,
+      motivo: visit.resultReason,
+      detalle_oferta:
+        visit.hasOffer && visit.offerAmount
+          ? `${visit.offerCurrency ?? 'ARS'} ${visit.offerAmount}`
+          : '',
+      link_visita: `${frontendUrl}/es/properties/${property.id}#visits`,
+    };
+  }
+
+  private async createInterestedResultActivity(
+    visit: PropertyVisit,
+    user: VisitUserContext,
+  ): Promise<void> {
+    if (!visit.interestedProfileId) return;
+    await this.interestedActivitiesRepository.save(
+      this.interestedActivitiesRepository.create({
+        interestedProfileId: visit.interestedProfileId,
+        type: InterestedActivityType.VISIT,
+        status: InterestedActivityStatus.COMPLETED,
+        subject: `Resultado comercial: ${visit.result}`,
+        body: visit.resultReason ?? undefined,
+        completedAt: visit.completedAt ?? undefined,
+        metadata: {
+          visitId: visit.id,
+          result: visit.result,
+          potentialBuyer:
+            visit.result === PropertyVisitResult.INTERESTED ||
+            visit.result === PropertyVisitResult.OFFER,
+          offerAmount: visit.offerAmount ?? null,
+          offerCurrency: visit.offerCurrency ?? null,
+        },
+        createdByUserId: user.id,
+      }),
+    );
   }
 
   private buildNotifications(

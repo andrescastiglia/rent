@@ -521,7 +521,10 @@
       "operations": "Operaciones de interés",
       "propertyType": "Tipo de propiedad",
       "stageReason": "Motivo del cambio de etapa",
-      "notes": "Notas"
+      "notes": "Notas",
+      "registeredInOffice": "Registrado presencialmente en la oficina",
+      "preferredContactChannel": "Canal preferido",
+      "consentContact": "El interesado autoriza el contacto"
     },
     "operations": {
       "rent": "Alquiler",
@@ -564,7 +567,9 @@
       "confirming": "Confirmando...",
       "markedAsTenant": "Marcado como inquilino",
       "markedAsBuyer": "Marcado como comprador",
-      "purchaseConfirmedReason": "Compra confirmada para {property}"
+      "purchaseConfirmedReason": "Compra confirmada para {property}",
+      "generateInvoice": "Generar factura",
+      "invoiceUnavailable": "Disponible al convertir el interesado en inquilino o comprador"
     },
     "errors": {
       "phoneRequired": "El teléfono es requerido",
@@ -1394,6 +1399,17 @@
     "maintenance": "Mantenimiento",
     "nextPayment": "Próximo Vencimiento",
     "pendingBalance": "Saldo Pendiente",
+    "monthlySummary": {
+      "title": "Resumen mensual",
+      "pending": "Pagos pendientes",
+      "pendingCount": "{count, plural, =0 {Sin facturas pendientes} one {# factura pendiente} other {# facturas pendientes}}",
+      "adjustment": "Próximo ajuste",
+      "dueThisMonth": "Corresponde este mes",
+      "notDueThisMonth": "Sin ajuste este mes",
+      "contractExpiration": "Vencimiento del contrato",
+      "expiresThisMonth": "Vence este mes",
+      "current": "Contrato vigente"
+    },
     "noActiveContract": "Sin contrato activo",
     "submitMaintenance": "Reportar Problema",
     "dashboard": "Inicio",

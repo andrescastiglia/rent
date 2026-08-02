@@ -521,7 +521,10 @@
       "operations": "Interested operations",
       "propertyType": "Property type",
       "stageReason": "Stage change reason",
-      "notes": "Notes"
+      "notes": "Notes",
+      "registeredInOffice": "Registered in person at the office",
+      "preferredContactChannel": "Preferred channel",
+      "consentContact": "The prospect authorizes contact"
     },
     "operations": {
       "rent": "Rent",
@@ -564,7 +567,9 @@
       "confirming": "Confirming...",
       "markedAsTenant": "Marked as tenant",
       "markedAsBuyer": "Marked as buyer",
-      "purchaseConfirmedReason": "Purchase confirmed for {property}"
+      "purchaseConfirmedReason": "Purchase confirmed for {property}",
+      "generateInvoice": "Generate invoice",
+      "invoiceUnavailable": "Available after converting the interested profile to tenant or buyer"
     },
     "errors": {
       "phoneRequired": "Phone is required",
@@ -1394,6 +1399,17 @@
     "maintenance": "Maintenance",
     "nextPayment": "Next Payment Due",
     "pendingBalance": "Pending Balance",
+    "monthlySummary": {
+      "title": "Monthly summary",
+      "pending": "Pending payments",
+      "pendingCount": "{count, plural, =0 {No pending invoices} one {# pending invoice} other {# pending invoices}}",
+      "adjustment": "Next adjustment",
+      "dueThisMonth": "Due this month",
+      "notDueThisMonth": "No adjustment this month",
+      "contractExpiration": "Contract expiration",
+      "expiresThisMonth": "Expires this month",
+      "current": "Contract active"
+    },
     "noActiveContract": "No active contract",
     "submitMaintenance": "Report Issue",
     "dashboard": "Home",

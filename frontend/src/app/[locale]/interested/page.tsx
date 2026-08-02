@@ -380,6 +380,16 @@ function ProfilesList({
               >
                 {t("activities.add")}
               </Link>
+              {(profile.status ?? "interested") === "interested" ? (
+                <button
+                  type="button"
+                  disabled
+                  title={t("actions.invoiceUnavailable")}
+                  className="cursor-not-allowed rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-400 dark:border-gray-700 dark:text-gray-500"
+                >
+                  {t("actions.generateInvoice")}
+                </button>
+              ) : null}
             </div>
 
             {isSelected && (

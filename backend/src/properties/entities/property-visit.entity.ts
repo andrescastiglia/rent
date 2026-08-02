@@ -17,6 +17,13 @@ export enum PropertyVisitKind {
   MAINTENANCE = 'maintenance',
 }
 
+export enum PropertyVisitResult {
+  PENDING = 'pending',
+  INTERESTED = 'interested',
+  NOT_INTERESTED = 'not_interested',
+  OFFER = 'offer',
+}
+
 @Entity('property_visits')
 export class PropertyVisit {
   @PrimaryGeneratedColumn('uuid')
@@ -63,10 +70,24 @@ export class PropertyVisit {
     scale: 2,
     nullable: true,
   })
-  offerAmount: number;
+  offerAmount: number | null;
 
   @Column({ name: 'offer_currency', default: 'ARS' })
   offerCurrency: string;
+
+  @Column({
+    type: 'enum',
+    enum: PropertyVisitResult,
+    enumName: 'property_visit_result',
+    default: PropertyVisitResult.PENDING,
+  })
+  result: PropertyVisitResult;
+
+  @Column({ name: 'result_reason', type: 'text', nullable: true })
+  resultReason: string | null;
+
+  @Column({ name: 'completed_at', type: 'timestamptz', nullable: true })
+  completedAt: Date | null;
 
   @Column({ name: 'created_by_user_id', type: 'varchar', nullable: true })
   createdByUserId: string;

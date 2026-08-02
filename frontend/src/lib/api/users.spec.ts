@@ -1,3 +1,5 @@
+export {};
+
 type MockedApiClient = {
   get: jest.Mock;
   post: jest.Mock;

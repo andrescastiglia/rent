@@ -18,6 +18,7 @@ import { Buyer } from '../../buyers/entities/buyer.entity';
 import { InterestedActivity } from './interested-activity.entity';
 import { InterestedStageHistory } from './interested-stage-history.entity';
 import { InterestedPropertyMatch } from './interested-property-match.entity';
+import { CommunicationChannel } from '../../communications/entities/communication-template.entity';
 
 export enum InterestedOperation {
   RENT = 'rent',
@@ -198,6 +199,17 @@ export class InterestedProfile {
 
   @Column({ name: 'consent_recorded_at', type: 'timestamptz', nullable: true })
   consentRecordedAt: Date;
+
+  @Column({ name: 'registered_in_office', default: false })
+  registeredInOffice: boolean;
+
+  @Column({
+    name: 'preferred_contact_channel',
+    type: 'enum',
+    enum: CommunicationChannel,
+    default: CommunicationChannel.WHATSAPP,
+  })
+  preferredContactChannel: CommunicationChannel;
 
   @Column({ name: 'converted_to_tenant_id', type: 'uuid', nullable: true })
   convertedToTenantId: string | null;

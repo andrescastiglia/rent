@@ -9,6 +9,8 @@ import { useAuth } from "@/contexts/auth-context";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { propertiesApi } from "@/lib/api/properties";
 import { CreatePropertyVisitInput, Property } from "@/types/property";
+import { interestedApi } from "@/lib/api/interested";
+import { InterestedProfile } from "@/types/interested";
 
 export default function CreatePropertyVisitPage() {
   const { loading: authLoading } = useAuth();
@@ -22,6 +24,9 @@ export default function CreatePropertyVisitPage() {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [interestedProfiles, setInterestedProfiles] = useState<
+    InterestedProfile[]
+  >([]);
 
   const defaultVisitDate = useMemo(() => {
     const now = new Date();
@@ -33,6 +38,7 @@ export default function CreatePropertyVisitPage() {
   const [form, setForm] = useState({
     visitedAt: defaultVisitDate,
     interestedName: "",
+    interestedProfileId: "",
     comments: "",
     hasOffer: false,
     offerAmount: "",
@@ -44,8 +50,12 @@ export default function CreatePropertyVisitPage() {
 
     const loadProperty = async () => {
       try {
-        const data = await propertiesApi.getById(propertyId);
+        const [data, profiles] = await Promise.all([
+          propertiesApi.getById(propertyId),
+          interestedApi.getAll({ operation: "sale", limit: 100 }),
+        ]);
         setProperty(data);
+        setInterestedProfiles(profiles.data);
       } catch (loadError) {
         console.error("Failed to load property for visit creation", loadError);
       } finally {
@@ -77,6 +87,7 @@ export default function CreatePropertyVisitPage() {
     const payload: CreatePropertyVisitInput = {
       visitedAt: form.visitedAt,
       interestedName: form.interestedName.trim(),
+      interestedProfileId: form.interestedProfileId || undefined,
       comments: form.comments.trim() || undefined,
       hasOffer: form.hasOffer,
       offerAmount: form.hasOffer ? Number(form.offerAmount || 0) : undefined,
@@ -152,6 +163,42 @@ export default function CreatePropertyVisitPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label
+                htmlFor="interestedProfileId"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                Interesado registrado
+              </label>
+              <select
+                id="interestedProfileId"
+                value={form.interestedProfileId}
+                onChange={(event) => {
+                  const profile = interestedProfiles.find(
+                    (item) => item.id === event.target.value,
+                  );
+                  setForm((prev) => ({
+                    ...prev,
+                    interestedProfileId: event.target.value,
+                    interestedName: profile
+                      ? [profile.firstName, profile.lastName]
+                          .filter(Boolean)
+                          .join(" ")
+                      : prev.interestedName,
+                  }));
+                }}
+                className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
+              >
+                <option value="">Carga manual</option>
+                {interestedProfiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>
+                    {[profile.firstName, profile.lastName]
+                      .filter(Boolean)
+                      .join(" ") || profile.phone}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label
                 htmlFor="visitDate"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
@@ -188,6 +235,7 @@ export default function CreatePropertyVisitPage() {
                 }
                 className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
                 placeholder="Nombre y apellido"
+                disabled={Boolean(form.interestedProfileId)}
               />
             </div>
           </div>
