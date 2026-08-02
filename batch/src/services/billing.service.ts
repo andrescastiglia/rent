@@ -10,6 +10,7 @@ import { AdjustmentService, LeaseAdjustmentData } from "./adjustment.service";
 import { ExchangeRateService } from "./exchange-rate.service";
 import { WithholdingsService } from "./withholdings.service";
 import { WhatsappService } from "./whatsapp.service";
+import { buildInvoicePaymentNotification } from "./invoice-payment-notification";
 
 /**
  * Result of a billing run.
@@ -165,12 +166,17 @@ export class BillingService {
         minimumFractionDigits: 2,
       });
       const totalAmount = `${invoice.currencyCode} ${amount}`;
-      const text = [
-        `Hola ${tenantName},`,
-        `tu factura ${invoice.invoiceNumber} ya está disponible.`,
-        `Vencimiento: ${dueDate}.`,
-        `Monto: ${totalAmount}.`,
-      ].join(" ");
+      const paymentLink = this.invoiceService.getPaymentLink(
+        invoice.id,
+        contact.tenantLanguage ?? "es",
+      );
+      const text = buildInvoicePaymentNotification({
+        tenantName,
+        invoiceNumber: invoice.invoiceNumber,
+        dueDate,
+        totalAmount,
+        paymentLink,
+      });
 
       const sendResult = await this.whatsappService.sendTemplateMessage(
         contact.tenantPhone,

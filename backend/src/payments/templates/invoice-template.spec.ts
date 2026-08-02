@@ -44,6 +44,7 @@ describe('generateInvoicePdf', () => {
       } as any,
       i18n,
       'es',
+      'https://rent.example.com/es/invoices/inv-1?pay=mercadopago',
     );
 
     expect(Buffer.isBuffer(buffer)).toBe(true);

@@ -1,4 +1,5 @@
 import PDFDocument from 'pdfkit';
+import QRCode from 'qrcode';
 import { Invoice } from '../entities/invoice.entity';
 import { I18nService } from 'nestjs-i18n';
 
@@ -12,6 +13,7 @@ export function generateInvoicePdf(
   invoice: Invoice,
   i18n: I18nService,
   lang: string = 'es',
+  paymentUrl?: string | null,
 ): Promise<Buffer> {
   return new Promise<Buffer>((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
@@ -213,6 +215,31 @@ export function generateInvoicePdf(
       // Estado
       y += 20;
       doc.text(`Estado: ${formatInvoiceStatus(invoice.status)}`, col1, y);
+
+      if (paymentUrl) {
+        const qrBuffer = await QRCode.toBuffer(paymentUrl, {
+          errorCorrectionLevel: 'M',
+          margin: 1,
+          width: 180,
+        });
+        y += 35;
+        doc
+          .fontSize(11)
+          .font('Helvetica-Bold')
+          .fillColor('#111827')
+          .text('PAGAR CON MERCADOPAGO', col1, y);
+        doc
+          .fontSize(8)
+          .font('Helvetica')
+          .fillColor('#0369a1')
+          .text(paymentUrl, col1, y + 20, {
+            width: 330,
+            link: paymentUrl,
+            underline: true,
+          });
+        doc.image(qrBuffer, 445, y - 15, { width: 90 });
+        doc.fillColor('#000000');
+      }
 
       // Footer
       doc
