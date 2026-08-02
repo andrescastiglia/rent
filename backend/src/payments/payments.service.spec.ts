@@ -13,6 +13,7 @@ import { ReceiptPdfService } from './receipt-pdf.service';
 import { CreditNotePdfService } from './credit-note-pdf.service';
 import { UserRole } from '../users/entities/user.entity';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
+import { CommunicationsService } from '../communications/communications.service';
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
@@ -77,6 +78,10 @@ describe('PaymentsService', () => {
             sendTextMessage: jest.fn(),
             sendTemplateMessage: jest.fn(),
           },
+        },
+        {
+          provide: CommunicationsService,
+          useValue: { dispatchEvent: jest.fn() },
         },
       ],
     }).compile();
@@ -596,7 +601,7 @@ describe('PaymentsService', () => {
     expect(receiptsRepository.create).not.toHaveBeenCalled();
   });
 
-  it('should generate receipt, store pdf and send whatsapp when phone is available', async () => {
+  it('should generate receipt and dispatch a consent-aware communication', async () => {
     receiptsRepository.findOne!.mockResolvedValue(null);
     receiptsRepository.find!.mockResolvedValue([
       { receiptNumber: 'REC-202502-0007' },
@@ -615,34 +620,41 @@ describe('PaymentsService', () => {
 
     const receiptPdfService = (service as any).receiptPdfService;
     receiptPdfService.generate.mockResolvedValue('https://pdf.local/r-new.pdf');
-    const whatsappService = (service as any).whatsappService;
-    whatsappService.sendTemplateMessage.mockResolvedValue({ ok: true });
+    const communicationsService = (service as any).communicationsService;
+    communicationsService.dispatchEvent.mockResolvedValue({ status: 'sent' });
 
     const payment = {
       id: 'pay-1',
       companyId: 'company-1',
       amount: 100,
       currencyCode: 'ARS',
-      tenant: { user: { phone: '5491112345678' } },
+      tenant: {
+        id: 'tenant-1',
+        contactConsent: true,
+        preferredContactChannel: 'whatsapp',
+        user: {
+          firstName: 'Ana',
+          lastName: 'Pérez',
+          phone: '5491112345678',
+          language: 'es',
+        },
+      },
     } as any as Payment;
 
     const result = await (service as any).generateReceipt(payment);
 
     expect(receiptPdfService.generate).toHaveBeenCalled();
-    expect(whatsappService.sendTemplateMessage).toHaveBeenCalledWith(
-      '5491112345678',
-      'receipt_available',
-      'es',
-      ['REC-202502-0008'],
-      {
-        textFallback: expect.stringContaining('Tu recibo'),
-        pdfUrl: 'https://pdf.local/r-new.pdf',
-        context: {
-          companyId: 'company-1',
-          relatedEntityType: 'payment',
-          relatedEntityId: 'pay-1',
-        },
-      },
+    expect(communicationsService.dispatchEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'payment_received',
+        recipientRole: 'tenant',
+        recipient: '5491112345678',
+        consented: true,
+        relatedEntityId: 'pay-1',
+        metadata: expect.objectContaining({
+          attachmentUrl: 'https://pdf.local/r-new.pdf',
+        }),
+      }),
     );
     expect(result).toEqual(
       expect.objectContaining({

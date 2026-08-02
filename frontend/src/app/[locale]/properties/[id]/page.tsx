@@ -554,6 +554,17 @@ export default function PropertyDetailPage() {
                                 Sin oferta registrada
                               </p>
                             )}
+                            <div className="mt-3 flex items-center justify-between gap-3 border-t border-gray-100 pt-3 dark:border-gray-700">
+                              <span className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                Resultado: {visit.result ?? "pending"}
+                              </span>
+                              <Link
+                                href={`/${locale}/properties/${property.id}/visits/${visit.id}/result`}
+                                className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+                              >
+                                Enviar resultado
+                              </Link>
+                            </div>
                           </div>
                         ))
                       ) : (

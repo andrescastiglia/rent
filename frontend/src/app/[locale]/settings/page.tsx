@@ -2,7 +2,13 @@
 
 import { SyntheticEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Lock, Save } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  Lock,
+  MessageSquareText,
+  Save,
+} from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
 import type { Locale } from "@/config/locales";
@@ -233,6 +239,23 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {user?.role === "admin" || user?.role === "staff" ? (
+          <Link
+            href={`/${locale}/settings/communications`}
+            className="xl:col-span-2 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 p-5 text-blue-900 hover:border-blue-400 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-100"
+          >
+            <span>
+              <span className="block text-lg font-semibold">
+                Plantillas y comunicaciones
+              </span>
+              <span className="text-sm opacity-80">
+                Configurá mensajes automáticos, vista previa, pruebas e
+                historial.
+              </span>
+            </span>
+            <MessageSquareText />
+          </Link>
+        ) : null}
         <form
           onSubmit={handleSaveProfile}
           className="space-y-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5"

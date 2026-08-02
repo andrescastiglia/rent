@@ -97,6 +97,8 @@ const mapOwner = (raw: BackendOwner): Owner => ({
   paymentMethod: raw.paymentMethod ?? undefined,
   commissionRate: raw.commissionRate ?? undefined,
   notes: raw.notes ?? undefined,
+  contactConsent: raw.contactConsent ?? false,
+  preferredContactChannel: raw.preferredContactChannel ?? "whatsapp",
   createdAt: raw.createdAt ?? new Date().toISOString(),
   updatedAt: raw.updatedAt ?? new Date().toISOString(),
 });

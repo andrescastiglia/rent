@@ -21,6 +21,7 @@ import {
 } from '../entities/interested-profile.entity';
 import { Type } from 'class-transformer';
 import { z } from 'zod';
+import { CommunicationChannel } from '../../communications/entities/communication-template.entity';
 
 export const createInterestedProfileZodSchema = z
   .object({
@@ -94,6 +95,8 @@ export const createInterestedProfileZodSchema = z
       .optional()
       .describe('Whether the prospect consented to be contacted'),
     consentRecordedAt: z.coerce.date().optional(),
+    registeredInOffice: z.coerce.boolean().optional(),
+    preferredContactChannel: z.enum(CommunicationChannel).optional(),
     lastContactAt: z.coerce.date().optional(),
     nextContactAt: z.coerce.date().optional(),
     lostReason: z
@@ -213,6 +216,14 @@ export class CreateInterestedProfileDto {
   @IsOptional()
   @Type(() => Date)
   consentRecordedAt?: Date;
+
+  @IsBoolean()
+  @IsOptional()
+  registeredInOffice?: boolean;
+
+  @IsEnum(CommunicationChannel)
+  @IsOptional()
+  preferredContactChannel?: CommunicationChannel;
 
   @IsOptional()
   @Type(() => Date)

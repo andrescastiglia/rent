@@ -55,6 +55,13 @@ import { SaleAgreement } from '../sales/entities/sale-agreement.entity';
 import { SaleFolder } from '../sales/entities/sale-folder.entity';
 import { CreatePropertyReservationDto } from './dto/create-property-reservation.dto';
 import { Buyer } from '../buyers/entities/buyer.entity';
+import { CommunicationsService } from '../communications/communications.service';
+import {
+  CommunicationChannel,
+  CommunicationEvent,
+  CommunicationRecipientRole,
+} from '../communications/entities/communication-template.entity';
+import { CommunicationDeliveryStatus } from '../communications/entities/communication-delivery.entity';
 
 interface UserContext {
   id: string;
@@ -113,6 +120,7 @@ export class InterestedService {
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly i18n: I18nService,
+    private readonly communicationsService: CommunicationsService,
   ) {}
 
   async create(
@@ -136,6 +144,11 @@ export class InterestedService {
       operation: normalizedOperations.primaryOperation,
       operations: normalizedOperations.operations,
       status: dto.status ?? InterestedStatus.INTERESTED,
+      source: dto.registeredInOffice ? (dto.source ?? 'office') : dto.source,
+      consentRecordedAt:
+        dto.consentContact && !dto.consentRecordedAt
+          ? new Date()
+          : dto.consentRecordedAt,
     });
     const created = await this.interestedRepository.save(profile);
 
@@ -149,7 +162,106 @@ export class InterestedService {
       }),
     );
 
+    if (created.registeredInOffice) {
+      await this.sendInitialOfficeMessage(created, user);
+    }
+
     return created;
+  }
+
+  async sendInitialMessage(id: string, user: UserContext) {
+    const profile = await this.findOne(id, user);
+    return this.sendInitialOfficeMessage(profile, user, true);
+  }
+
+  private async sendInitialOfficeMessage(
+    profile: InterestedProfile,
+    user: UserContext,
+    forceSend = false,
+  ) {
+    const channel =
+      profile.preferredContactChannel ?? CommunicationChannel.WHATSAPP;
+    const recipient =
+      channel === CommunicationChannel.EMAIL ? profile.email : profile.phone;
+    const operation = profile.operations?.[0] ?? profile.operation;
+    const event =
+      operation === InterestedOperation.SALE
+        ? CommunicationEvent.OFFICE_PROSPECT_WELCOME_SALE
+        : CommunicationEvent.OFFICE_PROSPECT_WELCOME_RENT;
+    const name =
+      [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim() ||
+      'cliente';
+
+    if (!recipient) {
+      return this.activityRepository.save(
+        this.activityRepository.create({
+          interestedProfileId: profile.id,
+          type: InterestedActivityType.TASK,
+          status: InterestedActivityStatus.PENDING,
+          subject: 'Enviar mensaje inicial',
+          body: `Falta un dato de contacto para el canal ${channel}.`,
+          metadata: { channel, reason: 'missing_recipient' },
+          createdByUserId: user.id,
+        }),
+      );
+    }
+
+    const delivery = await this.communicationsService.dispatchEvent({
+      companyId: profile.companyId,
+      event,
+      recipientRole: CommunicationRecipientRole.INTERESTED,
+      recipientId: profile.id,
+      channel,
+      recipient,
+      variables: {
+        nombre: name,
+        telefono: profile.phone,
+        email: profile.email,
+        interes_operacion: operation,
+        agente: user.id,
+        link_perfil: `${(process.env.FRONTEND_URL ?? '').split(',')[0]}/es/interested`,
+      },
+      fallbackSubject: 'Confirmación de registro en oficina',
+      fallbackBody:
+        'Hola {{nombre}}, registramos tu interés en {{interes_operacion}}. Nuestro equipo continuará el seguimiento por este medio.',
+      consented: profile.consentContact,
+      relatedEntityType: 'interested',
+      relatedEntityId: profile.id,
+      forceSend,
+      metadata: { registeredInOffice: true },
+    });
+
+    const sent = delivery.status === CommunicationDeliveryStatus.SENT;
+    await this.activityRepository.save(
+      this.activityRepository.create({
+        interestedProfileId: profile.id,
+        type:
+          channel === CommunicationChannel.EMAIL
+            ? InterestedActivityType.EMAIL
+            : channel === CommunicationChannel.WHATSAPP
+              ? InterestedActivityType.WHATSAPP
+              : InterestedActivityType.TASK,
+        status: sent
+          ? InterestedActivityStatus.COMPLETED
+          : InterestedActivityStatus.PENDING,
+        subject: 'Mensaje inicial - registro en oficina',
+        body: delivery.body,
+        completedAt: sent ? new Date() : undefined,
+        metadata: {
+          deliveryId: delivery.id,
+          deliveryStatus: delivery.status,
+          channel,
+          consented: profile.consentContact,
+        },
+        createdByUserId: user.id,
+      }),
+    );
+
+    if (sent) {
+      profile.lastContactAt = new Date();
+      await this.interestedRepository.save(profile);
+    }
+    return delivery;
   }
 
   async findAll(

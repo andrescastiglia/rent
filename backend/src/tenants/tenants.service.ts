@@ -37,6 +37,16 @@ export interface TenantSummary {
   currencyCode: string;
   pendingInvoicesCount: number;
   nextPaymentDueDate: Date | null;
+  monthlySummary: {
+    period: string;
+    pendingAmount: number;
+    contractEndDate: Date | null;
+    contractExpiresThisMonth: boolean;
+    nextAdjustmentDate: Date | null;
+    adjustmentDueThisMonth: boolean;
+    adjustmentType: string | null;
+    adjustmentValue: number | null;
+  };
 }
 
 @Injectable()
@@ -97,13 +107,20 @@ export class TenantsService {
 
     // Create tenant record (using raw query since we don't have Tenant entity in TypeORM)
     await this.usersRepository.query(
-      `INSERT INTO tenants (user_id, company_id, dni, emergency_contact_name, emergency_contact_phone) VALUES ($1, $2, $3, $4, $5)`,
+      `INSERT INTO tenants (
+        user_id, company_id, dni, emergency_contact_name,
+        emergency_contact_phone, contact_consent,
+        contact_consent_recorded_at, preferred_contact_channel
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         savedUser.id,
         createTenantDto.companyId,
         createTenantDto.dni,
         createTenantDto.emergencyContact,
         createTenantDto.emergencyPhone,
+        createTenantDto.contactConsent ?? false,
+        createTenantDto.contactConsent ? new Date() : null,
+        createTenantDto.preferredContactChannel ?? 'whatsapp',
       ],
     );
 
@@ -171,6 +188,14 @@ export class TenantsService {
       throw new NotFoundException(`Tenant with ID ${id} not found`);
     }
 
+    const tenant = await this.tenantsRepository.findOne({
+      where: { userId: id, deletedAt: IsNull() },
+    });
+    Object.assign(user, {
+      contactConsent: tenant?.contactConsent ?? false,
+      preferredContactChannel: tenant?.preferredContactChannel ?? 'whatsapp',
+    });
+
     return user;
   }
 
@@ -188,7 +213,9 @@ export class TenantsService {
     if (
       updateTenantDto.dni ||
       updateTenantDto.emergencyContact ||
-      updateTenantDto.emergencyPhone
+      updateTenantDto.emergencyPhone ||
+      updateTenantDto.contactConsent !== undefined ||
+      updateTenantDto.preferredContactChannel !== undefined
     ) {
       const updates: string[] = [];
       const values: any[] = [];
@@ -205,6 +232,16 @@ export class TenantsService {
       if (updateTenantDto.emergencyPhone) {
         updates.push(`emergency_contact_phone = $${paramIndex++}`);
         values.push(updateTenantDto.emergencyPhone);
+      }
+      if (updateTenantDto.contactConsent !== undefined) {
+        updates.push(`contact_consent = $${paramIndex++}`);
+        values.push(updateTenantDto.contactConsent);
+        updates.push(`contact_consent_recorded_at = $${paramIndex++}`);
+        values.push(updateTenantDto.contactConsent ? new Date() : null);
+      }
+      if (updateTenantDto.preferredContactChannel !== undefined) {
+        updates.push(`preferred_contact_channel = $${paramIndex++}`);
+        values.push(updateTenantDto.preferredContactChannel);
       }
 
       if (updates.length > 0) {
@@ -394,6 +431,7 @@ export class TenantsService {
     let currencyCode = 'ARS';
     let pendingInvoicesCount = 0;
     let nextPaymentDueDate: Date | null = null;
+    let pendingAmount = 0;
 
     if (activeLease) {
       const account = await this.tenantAccountsRepository.findOne({
@@ -427,15 +465,28 @@ export class TenantsService {
           },
         ],
         order: { dueDate: 'ASC' },
-        select: ['id', 'dueDate', 'status'],
+        select: ['id', 'dueDate', 'status', 'total'],
       });
 
       pendingInvoicesCount = pendingInvoices.length;
+      pendingAmount = pendingInvoices.reduce(
+        (sum, invoice) => sum + Number(invoice.total ?? 0),
+        0,
+      );
 
       if (pendingInvoices.length > 0) {
         nextPaymentDueDate = pendingInvoices[0].dueDate;
       }
     }
+
+    const now = new Date();
+    const period = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+    const isInCurrentMonth = (value: Date | null | undefined): boolean =>
+      Boolean(
+        value &&
+        value.getUTCFullYear() === now.getUTCFullYear() &&
+        value.getUTCMonth() === now.getUTCMonth(),
+      );
 
     return {
       tenant,
@@ -444,6 +495,22 @@ export class TenantsService {
       currencyCode,
       pendingInvoicesCount,
       nextPaymentDueDate,
+      monthlySummary: {
+        period,
+        pendingAmount,
+        contractEndDate: activeLease?.endDate ?? null,
+        contractExpiresThisMonth: isInCurrentMonth(activeLease?.endDate),
+        nextAdjustmentDate: activeLease?.nextAdjustmentDate ?? null,
+        adjustmentDueThisMonth: isInCurrentMonth(
+          activeLease?.nextAdjustmentDate,
+        ),
+        adjustmentType: activeLease?.adjustmentType ?? null,
+        adjustmentValue:
+          activeLease?.adjustmentValue === undefined ||
+          activeLease?.adjustmentValue === null
+            ? null
+            : Number(activeLease.adjustmentValue),
+      },
     };
   }
 }

@@ -24,6 +24,8 @@ export interface Owner {
   paymentMethod?: PaymentMethod;
   commissionRate?: number;
   notes?: string;
+  contactConsent?: boolean;
+  preferredContactChannel?: "whatsapp" | "email" | "sms";
   createdAt: string;
   updatedAt: string;
 }
@@ -92,6 +94,8 @@ export interface CreateOwnerInput {
   paymentMethod?: PaymentMethod;
   commissionRate?: number;
   notes?: string;
+  contactConsent?: boolean;
+  preferredContactChannel?: "whatsapp" | "email" | "sms";
 }
 
 export type UpdateOwnerInput = Partial<CreateOwnerInput>;

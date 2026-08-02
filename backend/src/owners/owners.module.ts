@@ -8,11 +8,13 @@ import { Document } from '../documents/entities/document.entity';
 import { OwnersService } from './owners.service';
 import { OwnersController } from './owners.controller';
 import { DocumentsModule } from '../documents/documents.module';
+import { CommunicationsModule } from '../communications/communications.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Owner, OwnerActivity, Property, User, Document]),
     DocumentsModule,
+    CommunicationsModule,
   ],
   controllers: [OwnersController],
   providers: [OwnersService],

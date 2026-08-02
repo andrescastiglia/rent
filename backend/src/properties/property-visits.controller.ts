@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Request,
   UseGuards,
@@ -14,6 +15,7 @@ import { UserRole } from '../users/entities/user.entity';
 import { PropertyVisitsService } from './property-visits.service';
 import { CreatePropertyVisitDto } from './dto/create-property-visit.dto';
 import { CreatePropertyMaintenanceTaskDto } from './dto/create-property-maintenance-task.dto';
+import { UpdatePropertyVisitResultDto } from './dto/update-property-visit-result.dto';
 
 interface AuthenticatedRequest {
   user: {
@@ -45,6 +47,22 @@ export class PropertyVisitsController {
     @Request() req: AuthenticatedRequest,
   ) {
     return this.propertyVisitsService.findAll(propertyId, req.user);
+  }
+
+  @Patch(':visitId/result')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  updateResult(
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
+    @Param('visitId', ParseUUIDPipe) visitId: string,
+    @Body() dto: UpdatePropertyVisitResultDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.propertyVisitsService.updateResult(
+      propertyId,
+      visitId,
+      dto,
+      req.user,
+    );
   }
 
   @Post('/maintenance-tasks')

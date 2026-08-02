@@ -26,6 +26,8 @@ type BackendTenantLike = {
   phone?: string | null;
   isActive?: boolean | null;
   dni?: string | null;
+  contactConsent?: boolean | null;
+  preferredContactChannel?: "whatsapp" | "email" | "sms" | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;
   user?: {
@@ -77,6 +79,8 @@ const mapBackendTenantToTenant = (raw: BackendTenantLike): Tenant => {
     email,
     phone,
     dni: normalizedDni,
+    contactConsent: raw.contactConsent ?? false,
+    preferredContactChannel: raw.preferredContactChannel ?? "whatsapp",
     status: isActive ? "ACTIVE" : "INACTIVE",
     createdAt: raw.createdAt
       ? new Date(raw.createdAt).toISOString()
@@ -542,6 +546,16 @@ export const tenantsApi = {
         accountBalance: 0,
         pendingInvoicesCount: 0,
         nextPaymentDue: null,
+        monthlySummary: {
+          period: new Date().toISOString().slice(0, 7),
+          pendingAmount: 0,
+          contractEndDate: null,
+          contractExpiresThisMonth: false,
+          nextAdjustmentDate: null,
+          adjustmentDueThisMonth: false,
+          adjustmentType: null,
+          adjustmentValue: null,
+        },
       };
     }
     const token = getToken();
@@ -552,12 +566,23 @@ export const tenantsApi = {
       currencyCode?: string;
       pendingInvoicesCount?: number;
       nextPaymentDueDate?: string | null;
+      monthlySummary?: TenantSummary["monthlySummary"];
     }>("/tenants/me/summary", token ?? undefined);
     return {
       activeLease: raw.activeLease ?? null,
       accountBalance: raw.currentBalance ?? 0,
       pendingInvoicesCount: raw.pendingInvoicesCount ?? 0,
       nextPaymentDue: raw.nextPaymentDueDate ?? null,
+      monthlySummary: raw.monthlySummary ?? {
+        period: new Date().toISOString().slice(0, 7),
+        pendingAmount: 0,
+        contractEndDate: null,
+        contractExpiresThisMonth: false,
+        nextAdjustmentDate: null,
+        adjustmentDueThisMonth: false,
+        adjustmentType: null,
+        adjustmentValue: null,
+      },
     };
   },
 

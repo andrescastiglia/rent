@@ -4,6 +4,7 @@ import {
   PropertyVisit,
   CreatePropertyInput,
   CreatePropertyVisitInput,
+  UpdatePropertyVisitResultInput,
   UpdatePropertyInput,
   PropertyMaintenanceTask,
   CreatePropertyMaintenanceTaskInput,
@@ -69,6 +70,9 @@ type BackendPropertyVisit = {
   hasOffer?: boolean | null;
   offerAmount?: number | string | null;
   offerCurrency?: string | null;
+  result?: "pending" | "interested" | "not_interested" | "offer" | null;
+  resultReason?: string | null;
+  completedAt?: string | Date | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;
 };
@@ -574,6 +578,9 @@ const mapBackendVisitToVisit = (raw: BackendPropertyVisit): PropertyVisit => ({
   hasOffer: raw.hasOffer ?? undefined,
   offerAmount: toOptionalNumber(raw.offerAmount),
   offerCurrency: raw.offerCurrency ?? undefined,
+  result: raw.result ?? "pending",
+  resultReason: raw.resultReason ?? undefined,
+  completedAt: raw.completedAt ? toIsoDate(raw.completedAt) : undefined,
   createdAt: toIsoDate(raw.createdAt),
   updatedAt: toIsoDate(raw.updatedAt),
 });
@@ -956,6 +963,34 @@ export const propertiesApi = {
     const token = getToken();
     const result = await apiClient.post<BackendPropertyVisit>(
       `/properties/${propertyId}/visits`,
+      data,
+      token ?? undefined,
+    );
+    return mapBackendVisitToVisit(result);
+  },
+
+  updateVisitResult: async (
+    propertyId: string,
+    visitId: string,
+    data: UpdatePropertyVisitResultInput,
+  ): Promise<PropertyVisit> => {
+    if (IS_MOCK_MODE) {
+      await delay(DELAY);
+      const visit = (MOCK_VISITS[propertyId] ?? []).find(
+        (item) => item.id === visitId,
+      );
+      if (!visit) throw new Error("Property visit not found");
+      Object.assign(visit, data, {
+        hasOffer: data.result === "offer",
+        completedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      return visit;
+    }
+
+    const token = getToken();
+    const result = await apiClient.patch<BackendPropertyVisit>(
+      `/properties/${propertyId}/visits/${visitId}/result`,
       data,
       token ?? undefined,
     );

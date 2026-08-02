@@ -4,12 +4,14 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsBoolean,
   MaxLength,
   MinLength,
 } from 'class-validator';
 import { PaymentMethod } from '../entities/owner.entity';
 import { z } from 'zod';
 import { USER_EMAIL_MAX_LENGTH } from '../../users/entities/user.entity';
+import { CommunicationChannel } from '../../communications/entities/communication-template.entity';
 
 export const createOwnerZodSchema = z
   .object({
@@ -51,6 +53,8 @@ export const createOwnerZodSchema = z
       .describe('Management commission rate (0-100 percentage)'),
     notes: z.string().optional(),
     password: z.string().min(8).optional(),
+    contactConsent: z.coerce.boolean().optional(),
+    preferredContactChannel: z.enum(CommunicationChannel).optional(),
   })
   .strict();
 
@@ -140,4 +144,12 @@ export class CreateOwnerDto {
   @MinLength(8)
   @IsOptional()
   password?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  contactConsent?: boolean;
+
+  @IsEnum(CommunicationChannel)
+  @IsOptional()
+  preferredContactChannel?: CommunicationChannel;
 }

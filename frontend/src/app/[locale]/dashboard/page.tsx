@@ -11,7 +11,7 @@ import {
   PersonActivityItem,
   PersonActivityStatus,
 } from "@/lib/api/dashboard";
-import { formatMoneyByCode } from "@/lib/format-money";
+import { formatMoneyByCode, normalizeRoundedNumber } from "@/lib/format-money";
 import { Building2, CalendarClock, CreditCard, TrendingUp } from "lucide-react";
 
 const STATUS_COLORS: Record<PersonActivityStatus, string> = {
@@ -30,7 +30,7 @@ function getMetricValue(
   loading: boolean,
   value: number | null | undefined,
 ): number | string {
-  return loading ? "..." : (value ?? 0);
+  return loading ? "..." : normalizeRoundedNumber(value ?? 0, 0);
 }
 
 function shouldShowEmptyState(

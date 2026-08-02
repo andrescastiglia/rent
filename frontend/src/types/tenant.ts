@@ -36,6 +36,8 @@ export interface Tenant {
   creditScore?: number;
   creditScoreDate?: string;
   notes?: string;
+  contactConsent?: boolean;
+  preferredContactChannel?: "whatsapp" | "email" | "sms";
   createdAt: string;
   updatedAt: string;
 }
@@ -69,6 +71,8 @@ export interface CreateTenantInput {
   // Credit information
   creditScore?: number;
   notes?: string;
+  contactConsent?: boolean;
+  preferredContactChannel?: "whatsapp" | "email" | "sms";
 }
 
 export type UpdateTenantInput = Partial<CreateTenantInput>;
@@ -78,6 +82,16 @@ export interface TenantSummary {
   accountBalance: number;
   pendingInvoicesCount: number;
   nextPaymentDue: string | null;
+  monthlySummary: {
+    period: string;
+    pendingAmount: number;
+    contractEndDate: string | null;
+    contractExpiresThisMonth: boolean;
+    nextAdjustmentDate: string | null;
+    adjustmentDueThisMonth: boolean;
+    adjustmentType: string | null;
+    adjustmentValue: number | null;
+  };
 }
 
 export interface TenantActivity {

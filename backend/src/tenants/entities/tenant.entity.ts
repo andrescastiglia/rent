@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { Company } from '../../companies/entities/company.entity';
 import { User } from '../../users/entities/user.entity';
+import { CommunicationChannel } from '../../communications/entities/communication-template.entity';
 
 export enum EmploymentStatus {
   EMPLOYED = 'employed',
@@ -95,6 +96,25 @@ export class Tenant {
 
   @Column({ name: 'credit_score_date', type: 'date', nullable: true })
   creditScoreDate: Date;
+
+  @Column({ name: 'contact_consent', default: false })
+  contactConsent: boolean;
+
+  @Column({
+    name: 'contact_consent_recorded_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  contactConsentRecordedAt: Date | null;
+
+  @Column({
+    name: 'preferred_contact_channel',
+    type: 'enum',
+    enum: CommunicationChannel,
+    enumName: 'communication_channel',
+    default: CommunicationChannel.WHATSAPP,
+  })
+  preferredContactChannel: CommunicationChannel;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
