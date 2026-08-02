@@ -1,19 +1,28 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Invoice } from "@/types/payment";
 import { invoicesApi } from "@/lib/api/payments";
+import { paymentGatewayApi } from "@/lib/api/payment-gateway";
 import { InvoiceStatusBadge } from "@/components/invoices/InvoiceStatusBadge";
 import { formatMoneyByCode } from "@/lib/format-money";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowLeft, Loader2, Calendar, Download } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Calendar,
+  Download,
+  Loader2,
+  WalletCards,
+} from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
 export default function InvoiceDetailPage() {
   const { loading: authLoading } = useAuth();
   const params = useParams();
+  const searchParams = useSearchParams();
   const invoiceId = Array.isArray(params.id) ? params.id[0] : params.id;
   const t = useTranslations("invoices");
   const tCommon = useTranslations("common");
@@ -22,6 +31,9 @@ export default function InvoiceDetailPage() {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [creatingPayment, setCreatingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const autoPaymentStarted = useRef(false);
 
   const loadInvoice = useCallback(async () => {
     try {
@@ -41,6 +53,35 @@ export default function InvoiceDetailPage() {
       console.error("Failed to load invoice", error);
     });
   }, [loadInvoice, authLoading]);
+
+  const handleMercadoPago = useCallback(async () => {
+    if (!invoiceId || creatingPayment) return;
+
+    try {
+      setCreatingPayment(true);
+      setPaymentError(null);
+      const preference = await paymentGatewayApi.createPreference(invoiceId);
+      window.location.assign(preference.initPoint);
+    } catch (error) {
+      console.error("Failed to create MercadoPago preference", error);
+      setPaymentError(t("mercadoPagoError"));
+      setCreatingPayment(false);
+    }
+  }, [creatingPayment, invoiceId, t]);
+
+  useEffect(() => {
+    if (
+      searchParams.get("pay") !== "mercadopago" ||
+      !invoice ||
+      !["pending", "sent", "partial", "overdue"].includes(invoice.status) ||
+      autoPaymentStarted.current
+    ) {
+      return;
+    }
+
+    autoPaymentStarted.current = true;
+    void handleMercadoPago();
+  }, [handleMercadoPago, invoice, searchParams]);
 
   if (loading) {
     return (
@@ -272,11 +313,34 @@ export default function InvoiceDetailPage() {
           {/* Actions */}
           {(invoice.status === "pending" ||
             invoice.status === "sent" ||
-            invoice.status === "partial") && (
+            invoice.status === "partial" ||
+            invoice.status === "overdue") && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <button
+                type="button"
+                onClick={() => void handleMercadoPago()}
+                disabled={creatingPayment}
+                className="btn btn-primary w-full mb-3"
+              >
+                {creatingPayment ? (
+                  <Loader2 size={18} className="mr-2 animate-spin" />
+                ) : (
+                  <WalletCards size={18} className="mr-2" />
+                )}
+                {creatingPayment ? tCommon("loading") : t("payMercadoPago")}
+              </button>
+              {paymentError && (
+                <p
+                  role="alert"
+                  className="mb-3 flex items-start gap-2 text-sm text-red-600 dark:text-red-400"
+                >
+                  <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                  {paymentError}
+                </p>
+              )}
               <Link
                 href={`/${locale}/payments/new?leaseId=${invoice.leaseId}`}
-                className="btn btn-primary w-full"
+                className="btn btn-secondary w-full"
               >
                 {t("registerPayment")}
               </Link>

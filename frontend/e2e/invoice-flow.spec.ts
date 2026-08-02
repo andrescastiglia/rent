@@ -34,6 +34,7 @@ test.describe('Invoice Flow', () => {
 
         // Should show invoice heading or details (use level 1 heading)
         await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+        await expect(page.getByRole('button', { name: /MercadoPago/i })).toBeVisible();
     });
 
     test('should search invoices', async ({ page }) => {

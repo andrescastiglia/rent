@@ -122,7 +122,7 @@ create_database() {
     print_info "Creando base de datos nueva..."
     
     # Crear base de datos
-    docker exec -it "$CONTAINER_NAME" psql -U "$POSTGRES_USER" -c "CREATE DATABASE $POSTGRES_DB WITH ENCODING='UTF8' LC_COLLATE='es_ES.UTF-8' LC_CTYPE='es_ES.UTF-8';" 2>/dev/null
+    docker exec -it "$CONTAINER_NAME" psql -U "$POSTGRES_USER" -c "CREATE DATABASE $POSTGRES_DB WITH ENCODING='UTF8' LC_COLLATE='C.UTF-8' LC_CTYPE='C.UTF-8';" 2>/dev/null
     
     print_success "Base de datos creada"
 }

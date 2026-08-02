@@ -14,6 +14,12 @@ describe('BankAccountsService', () => {
   const ownersRepository = {
     findOne: jest.fn(),
   };
+  const propertiesRepository = {
+    findOne: jest.fn(),
+  };
+  const usersRepository = {
+    findOne: jest.fn(),
+  };
 
   let service: BankAccountsService;
 
@@ -30,9 +36,12 @@ describe('BankAccountsService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    usersRepository.findOne.mockResolvedValue({ id: 'u1', companyId: 'c1' });
     service = new BankAccountsService(
       bankAccountsRepository as any,
       ownersRepository as any,
+      propertiesRepository as any,
+      usersRepository as any,
     );
   });
 
@@ -149,6 +158,7 @@ describe('BankAccountsService', () => {
 
     it('creates for OWNER using resolved owner id', async () => {
       ownersRepository.findOne.mockResolvedValue({ id: 'o1' });
+      usersRepository.findOne.mockResolvedValue({ id: 'u2', companyId: 'c1' });
       const dto = { bankName: 'B', accountNumber: '1' };
       bankAccountsRepository.create.mockReturnValue({
         id: 'ba3',
@@ -160,12 +170,130 @@ describe('BankAccountsService', () => {
       });
       const result = await service.create(dto as any, 'c1', ownerUser);
       expect(result.ownerId).toBe('o1');
+      expect(bankAccountsRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'u2', ownerId: 'o1' }),
+      );
     });
 
     it('throws ForbiddenException when OWNER has no owner profile on create', async () => {
       ownersRepository.findOne.mockResolvedValue(null);
       await expect(
         service.create({ bankName: 'B' } as any, 'c1', ownerUser),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('creates a virtual alias associated with a company property', async () => {
+      ownersRepository.findOne.mockResolvedValue({ id: 'o1' });
+      propertiesRepository.findOne.mockResolvedValue({
+        id: 'p1',
+        companyId: 'c1',
+        ownerId: 'o1',
+      });
+      const dto = {
+        bankName: 'Virtual Bank',
+        accountType: 'virtual',
+        accountNumber: 'VA-1',
+        ownerId: 'o1',
+        propertyId: 'p1',
+        alias: 'rent.unit.1',
+        isVirtualAlias: true,
+      };
+      bankAccountsRepository.create.mockReturnValue({ id: 'ba4', ...dto });
+      bankAccountsRepository.save.mockResolvedValue({ id: 'ba4', ...dto });
+
+      await expect(
+        service.create(dto as any, 'c1', adminUser),
+      ).resolves.toEqual(
+        expect.objectContaining({ alias: 'rent.unit.1', propertyId: 'p1' }),
+      );
+    });
+
+    it('rejects virtual aliases without a property and alias', async () => {
+      await expect(
+        service.create(
+          {
+            bankName: 'Virtual Bank',
+            accountType: 'virtual',
+            accountNumber: 'VA-1',
+            isVirtualAlias: true,
+          } as any,
+          'c1',
+          adminUser,
+        ),
+      ).rejects.toThrow('Virtual bank accounts require propertyId and alias');
+    });
+
+    it('rejects a referenced user from another company', async () => {
+      usersRepository.findOne.mockResolvedValue(null);
+      await expect(
+        service.create(
+          {
+            bankName: 'Bank',
+            accountType: 'checking',
+            accountNumber: '1',
+            userId: 'foreign-user',
+          } as any,
+          'c1',
+          adminUser,
+        ),
+      ).rejects.toThrow('Bank account user must belong to company');
+    });
+
+    it('rejects an owner from another company', async () => {
+      ownersRepository.findOne.mockResolvedValue(null);
+      await expect(
+        service.create(
+          {
+            bankName: 'Bank',
+            accountType: 'checking',
+            accountNumber: '1',
+            ownerId: 'foreign-owner',
+          } as any,
+          'c1',
+          adminUser,
+        ),
+      ).rejects.toThrow('Bank account owner must belong to company');
+    });
+
+    it('rejects a virtual alias property from another company', async () => {
+      propertiesRepository.findOne.mockResolvedValue(null);
+      await expect(
+        service.create(
+          {
+            bankName: 'Virtual Bank',
+            accountType: 'virtual',
+            accountNumber: 'VA-1',
+            propertyId: 'foreign-property',
+            alias: 'rent.foreign',
+            isVirtualAlias: true,
+          } as any,
+          'c1',
+          adminUser,
+        ),
+      ).rejects.toThrow('Virtual alias property must belong to company');
+    });
+
+    it('prevents owners from assigning aliases to another owner property', async () => {
+      ownersRepository.findOne.mockResolvedValue({ id: 'o1' });
+      usersRepository.findOne.mockResolvedValue({ id: 'u2', companyId: 'c1' });
+      propertiesRepository.findOne.mockResolvedValue({
+        id: 'p2',
+        companyId: 'c1',
+        ownerId: 'other-owner',
+      });
+      await expect(
+        service.create(
+          {
+            bankName: 'Virtual Bank',
+            accountType: 'virtual',
+            accountNumber: 'VA-2',
+            propertyId: 'p2',
+            alias: 'rent.other',
+            isVirtualAlias: true,
+          } as any,
+          'c1',
+          ownerUser,
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
   });
