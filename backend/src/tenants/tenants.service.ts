@@ -209,51 +209,40 @@ export class TenantsService {
 
     await this.usersRepository.save(user);
 
-    // Update tenant fields if provided
-    if (
-      updateTenantDto.dni ||
-      updateTenantDto.emergencyContact ||
-      updateTenantDto.emergencyPhone ||
-      updateTenantDto.contactConsent !== undefined ||
-      updateTenantDto.preferredContactChannel !== undefined
-    ) {
-      const updates: string[] = [];
-      const values: any[] = [];
-      let paramIndex = 1;
-
-      if (updateTenantDto.dni) {
-        updates.push(`dni = $${paramIndex++}`);
-        values.push(updateTenantDto.dni);
-      }
-      if (updateTenantDto.emergencyContact) {
-        updates.push(`emergency_contact_name = $${paramIndex++}`);
-        values.push(updateTenantDto.emergencyContact);
-      }
-      if (updateTenantDto.emergencyPhone) {
-        updates.push(`emergency_contact_phone = $${paramIndex++}`);
-        values.push(updateTenantDto.emergencyPhone);
-      }
-      if (updateTenantDto.contactConsent !== undefined) {
-        updates.push(`contact_consent = $${paramIndex++}`);
-        values.push(updateTenantDto.contactConsent);
-        updates.push(`contact_consent_recorded_at = $${paramIndex++}`);
-        values.push(updateTenantDto.contactConsent ? new Date() : null);
-      }
-      if (updateTenantDto.preferredContactChannel !== undefined) {
-        updates.push(`preferred_contact_channel = $${paramIndex++}`);
-        values.push(updateTenantDto.preferredContactChannel);
-      }
-
-      if (updates.length > 0) {
-        values.push(id);
-        await this.usersRepository.query(
-          `UPDATE tenants SET ${updates.join(', ')} WHERE user_id = $${paramIndex}`,
-          values,
-        );
-      }
-    }
+    await this.updateTenantProfile(id, updateTenantDto);
 
     return user;
+  }
+
+  private async updateTenantProfile(
+    id: string,
+    dto: UpdateTenantDto,
+  ): Promise<void> {
+    const fields: Array<[string, unknown]> = [
+      ['dni', dto.dni],
+      ['emergency_contact_name', dto.emergencyContact],
+      ['emergency_contact_phone', dto.emergencyPhone],
+      ['preferred_contact_channel', dto.preferredContactChannel],
+    ];
+    if (dto.contactConsent !== undefined) {
+      fields.push(
+        ['contact_consent', dto.contactConsent],
+        ['contact_consent_recorded_at', dto.contactConsent ? new Date() : null],
+      );
+    }
+
+    const providedFields = fields.filter(([, value]) => value !== undefined);
+    if (providedFields.length === 0) return;
+
+    const updates = providedFields.map(
+      ([column], index) => `${column} = $${index + 1}`,
+    );
+    const values = providedFields.map(([, value]) => value);
+    values.push(id);
+    await this.usersRepository.query(
+      `UPDATE tenants SET ${updates.join(', ')} WHERE user_id = $${values.length}`,
+      values,
+    );
   }
 
   async remove(id: string): Promise<void> {
@@ -483,9 +472,8 @@ export class TenantsService {
     const period = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
     const isInCurrentMonth = (value: Date | null | undefined): boolean =>
       Boolean(
-        value &&
-        value.getUTCFullYear() === now.getUTCFullYear() &&
-        value.getUTCMonth() === now.getUTCMonth(),
+        value?.getUTCFullYear() === now.getUTCFullYear() &&
+        value?.getUTCMonth() === now.getUTCMonth(),
       );
 
     return {

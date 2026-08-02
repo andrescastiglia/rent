@@ -26,11 +26,8 @@ function formatPersonName(name: string | null | undefined): string {
   return name?.trim() || "Sin asignar";
 }
 
-function getMetricValue(
-  loading: boolean,
-  value: number | null | undefined,
-): number | string {
-  return loading ? "..." : normalizeRoundedNumber(value ?? 0, 0);
+function getMetricValue(value: number | null | undefined): number {
+  return normalizeRoundedNumber(value ?? 0, 0);
 }
 
 function shouldShowEmptyState(
@@ -320,7 +317,7 @@ export default function DashboardPage() {
                   Venta
                 </p>
                 <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {getMetricValue(loading, propertyPanel?.saleCount)}
+                  {loading ? "..." : getMetricValue(propertyPanel?.saleCount)}
                 </p>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
                   propiedades publicadas para venta
@@ -331,7 +328,9 @@ export default function DashboardPage() {
                   Alquileres Vigentes
                 </p>
                 <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {getMetricValue(loading, propertyPanel?.rentalActiveCount)}
+                  {loading
+                    ? "..."
+                    : getMetricValue(propertyPanel?.rentalActiveCount)}
                 </p>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
                   contratos activos para seguimiento
@@ -342,10 +341,9 @@ export default function DashboardPage() {
                   Vencen Este Mes
                 </p>
                 <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {getMetricValue(
-                    loading,
-                    propertyPanel?.expiringThisMonthCount,
-                  )}
+                  {loading
+                    ? "..."
+                    : getMetricValue(propertyPanel?.expiringThisMonthCount)}
                 </p>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
                   revisar para renovar ahora
@@ -356,7 +354,9 @@ export default function DashboardPage() {
                   Vencidos
                 </p>
                 <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {getMetricValue(loading, propertyPanel?.rentalExpiredCount)}
+                  {loading
+                    ? "..."
+                    : getMetricValue(propertyPanel?.rentalExpiredCount)}
                 </p>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
                   contratos para regularizar o renovar
@@ -517,7 +517,9 @@ export default function DashboardPage() {
                   Total
                 </p>
                 <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {getMetricValue(loading, paymentsPanel?.totalPayments)}
+                  {loading
+                    ? "..."
+                    : getMetricValue(paymentsPanel?.totalPayments)}
                 </p>
               </div>
               <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-900 dark:bg-amber-950/20">
@@ -525,7 +527,9 @@ export default function DashboardPage() {
                   Pendientes
                 </p>
                 <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {getMetricValue(loading, paymentsPanel?.pendingPayments)}
+                  {loading
+                    ? "..."
+                    : getMetricValue(paymentsPanel?.pendingPayments)}
                 </p>
               </div>
               <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-900 dark:bg-emerald-950/20">
@@ -533,7 +537,9 @@ export default function DashboardPage() {
                   Realizados
                 </p>
                 <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {getMetricValue(loading, paymentsPanel?.completedPayments)}
+                  {loading
+                    ? "..."
+                    : getMetricValue(paymentsPanel?.completedPayments)}
                 </p>
               </div>
               <div className="rounded-2xl border border-rose-200 bg-rose-50/80 p-4 dark:border-rose-900 dark:bg-rose-950/20">
@@ -541,7 +547,9 @@ export default function DashboardPage() {
                   Facturas Vencidas
                 </p>
                 <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {getMetricValue(loading, paymentsPanel?.overdueInvoices)}
+                  {loading
+                    ? "..."
+                    : getMetricValue(paymentsPanel?.overdueInvoices)}
                 </p>
               </div>
             </div>

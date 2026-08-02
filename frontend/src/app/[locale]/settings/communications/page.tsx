@@ -198,6 +198,7 @@ export default function CommunicationsSettingsPage() {
       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
         <aside className="space-y-2 rounded-lg border p-4 dark:border-gray-700">
           <button
+            type="button"
             onClick={() => selectTemplate(null)}
             className="w-full rounded-md bg-blue-600 px-3 py-2 text-white"
           >
@@ -205,6 +206,7 @@ export default function CommunicationsSettingsPage() {
           </button>
           {templates.map((template) => (
             <button
+              type="button"
               key={template.id}
               onClick={() => selectTemplate(template)}
               className={`w-full rounded-md border p-3 text-left text-sm dark:border-gray-700 ${selected?.id === template.id ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30" : ""}`}
@@ -394,7 +396,7 @@ export default function CommunicationsSettingsPage() {
       <section className="rounded-lg border p-5 dark:border-gray-700">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold">Historial de envíos</h2>
-          <button onClick={() => void load()}>
+          <button type="button" onClick={() => void load()}>
             <RefreshCw size={18} />
           </button>
         </div>
@@ -424,6 +426,7 @@ export default function CommunicationsSettingsPage() {
                     {delivery.status === "failed" ||
                     delivery.status === "pending_approval" ? (
                       <button
+                        type="button"
                         onClick={() => void deliveryAction(delivery)}
                         className="text-blue-600 hover:underline"
                       >

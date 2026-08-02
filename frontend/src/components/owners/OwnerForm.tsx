@@ -208,7 +208,7 @@ export function OwnerForm({ initialData, isEditing = false }: OwnerFormProps) {
               }))
             }
           />
-          Consentimiento para comunicaciones registrado
+          <span>Consentimiento para comunicaciones registrado</span>
         </label>
       </div>
 

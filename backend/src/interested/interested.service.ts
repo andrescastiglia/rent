@@ -232,15 +232,16 @@ export class InterestedService {
     });
 
     const sent = delivery.status === CommunicationDeliveryStatus.SENT;
+    let activityType = InterestedActivityType.TASK;
+    if (channel === CommunicationChannel.EMAIL) {
+      activityType = InterestedActivityType.EMAIL;
+    } else if (channel === CommunicationChannel.WHATSAPP) {
+      activityType = InterestedActivityType.WHATSAPP;
+    }
     await this.activityRepository.save(
       this.activityRepository.create({
         interestedProfileId: profile.id,
-        type:
-          channel === CommunicationChannel.EMAIL
-            ? InterestedActivityType.EMAIL
-            : channel === CommunicationChannel.WHATSAPP
-              ? InterestedActivityType.WHATSAPP
-              : InterestedActivityType.TASK,
+        type: activityType,
         status: sent
           ? InterestedActivityStatus.COMPLETED
           : InterestedActivityStatus.PENDING,

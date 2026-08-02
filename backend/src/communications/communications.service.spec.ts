@@ -1,4 +1,9 @@
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { CommunicationsService } from './communications.service';
 import {
   CommunicationChannel,
@@ -28,6 +33,7 @@ describe('CommunicationsService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     templatesRepository.findOne.mockResolvedValue(null);
+    deliveriesRepository.findOne.mockResolvedValue(null);
     whatsappService.sendTextMessage.mockResolvedValue({
       messageId: 'wamid-1',
     });
@@ -36,6 +42,14 @@ describe('CommunicationsService', () => {
       deliveriesRepository as any,
       whatsappService as any,
     );
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    delete process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN;
+    delete process.env.COMMUNICATION_EMAIL_WEBHOOK_URL;
+    delete process.env.COMMUNICATION_EMAIL_WEBHOOK_TOKEN;
+    delete process.env.COMMUNICATION_SMS_WEBHOOK_URL;
   });
 
   const dispatchInput = {
@@ -126,7 +140,119 @@ describe('CommunicationsService', () => {
     expect(() => service.assertBatchToken('wrong')).toThrow(
       UnauthorizedException,
     );
-    delete process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN;
+  });
+
+  it('requires a configured retry token and accepts the configured value', () => {
+    expect(() => service.assertBatchToken()).toThrow(
+      ServiceUnavailableException,
+    );
+    process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN = ' expected ';
+    expect(() => service.assertBatchToken('expected')).not.toThrow();
+  });
+
+  it('lists templates and deliveries with their operational ordering', async () => {
+    templatesRepository.find.mockResolvedValueOnce([{ id: 'template-1' }]);
+    deliveriesRepository.find.mockResolvedValueOnce([{ id: 'delivery-1' }]);
+
+    await expect(service.listTemplates('company-1')).resolves.toEqual([
+      { id: 'template-1' },
+    ]);
+    await expect(service.listDeliveries('company-1')).resolves.toEqual([
+      { id: 'delivery-1' },
+    ]);
+    expect(deliveriesRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 200 }),
+    );
+  });
+
+  it('creates templates with defaults and inferred unique variables', async () => {
+    const result = await service.createTemplate('company-1', {
+      name: 'Recordatorio',
+      event: CommunicationEvent.PAYMENT_REMINDER,
+      recipientRole: CommunicationRecipientRole.TENANT,
+      channel: CommunicationChannel.EMAIL,
+      locale: 'es',
+      subject: 'Hola {{nombre}}',
+      body: '{{nombre}}, vence {{fecha}}',
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        companyId: 'company-1',
+        locale: 'es',
+        isActive: true,
+        autoSend: true,
+        requiresApproval: false,
+        variables: ['nombre', 'fecha'],
+      }),
+    );
+  });
+
+  it('updates a template and recalculates variables', async () => {
+    templatesRepository.findOne.mockResolvedValueOnce({
+      id: 'template-1',
+      companyId: 'company-1',
+      subject: null,
+      body: 'Anterior',
+      variables: [],
+    });
+
+    const result = await service.updateTemplate('template-1', 'company-1', {
+      subject: 'Saldo {{saldo}}',
+      body: 'Hola {{nombre}}',
+    });
+
+    expect(result.variables).toEqual(['saldo', 'nombre']);
+  });
+
+  it('rejects unknown templates and deliveries', async () => {
+    await expect(
+      service.updateTemplate('missing', 'company-1', { body: 'Hola' }),
+    ).rejects.toThrow(NotFoundException);
+    await expect(service.approve('missing', 'company-1')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('previews stored templates and rejects an empty message', async () => {
+    templatesRepository.findOne.mockResolvedValueOnce({
+      id: 'template-1',
+      subject: 'Hola {{nombre}}',
+      body: 'Saldo {{saldo}}',
+    });
+    await expect(
+      service.preview('company-1', {
+        templateId: 'template-1',
+        variables: { nombre: 'Ana', saldo: 10 },
+      }),
+    ).resolves.toEqual({
+      subject: 'Hola Ana',
+      body: 'Saldo 10',
+      missingVariables: [],
+    });
+    await expect(
+      service.preview('company-1', { body: '', variables: {} }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('validates test variables and sends a forced test delivery', async () => {
+    await expect(
+      service.sendTest('company-1', {
+        channel: CommunicationChannel.WHATSAPP,
+        recipient: '+5491111111111',
+        body: 'Hola {{nombre}}',
+        variables: {},
+      }),
+    ).rejects.toThrow('Missing variables: nombre');
+
+    const delivery = await service.sendTest('company-1', {
+      channel: CommunicationChannel.WHATSAPP,
+      recipient: '+5491111111111',
+      body: 'Hola {{nombre}}',
+      variables: { nombre: 'Ana' },
+    });
+    expect(delivery.status).toBe(CommunicationDeliveryStatus.SENT);
+    expect(delivery.metadata).toEqual({ test: true });
   });
 
   it('rejects retrying a non-failed delivery', async () => {
@@ -138,5 +264,91 @@ describe('CommunicationsService', () => {
     await expect(service.retry('delivery-1', 'company-1')).rejects.toThrow(
       BadRequestException,
     );
+  });
+
+  it('retries failed deliveries and summarizes due attempts', async () => {
+    const failedDelivery = {
+      ...deliveriesRepository.create(dispatchInput),
+      id: 'failed-1',
+      companyId: 'company-1',
+      channel: CommunicationChannel.WHATSAPP,
+      body: 'Hola',
+      status: CommunicationDeliveryStatus.FAILED,
+      attempts: 1,
+      maxAttempts: 3,
+      metadata: {},
+      relatedEntityType: 'payment',
+    };
+    deliveriesRepository.findOne.mockResolvedValueOnce(failedDelivery);
+    await expect(service.retry('failed-1', 'company-1')).resolves.toEqual(
+      expect.objectContaining({ status: CommunicationDeliveryStatus.SENT }),
+    );
+
+    const dueToSend = { ...failedDelivery, id: 'due-1', attempts: 0 };
+    const dueToFail = { ...failedDelivery, id: 'due-2', attempts: 0 };
+    const exhausted = { ...failedDelivery, id: 'due-3', attempts: 3 };
+    deliveriesRepository.find.mockResolvedValueOnce([
+      dueToSend,
+      dueToFail,
+      exhausted,
+    ]);
+    whatsappService.sendTextMessage
+      .mockResolvedValueOnce({ messageId: 'sent-due' })
+      .mockRejectedValueOnce(new Error('still unavailable'));
+
+    await expect(service.retryDue()).resolves.toEqual({
+      processed: 3,
+      sent: 1,
+      failed: 1,
+    });
+  });
+
+  it('sends email webhooks with authorization and handles provider errors', async () => {
+    process.env.COMMUNICATION_EMAIL_WEBHOOK_URL = 'https://email.test/send';
+    process.env.COMMUNICATION_EMAIL_WEBHOOK_TOKEN = 'secret';
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ id: 'email-1' }),
+    } as Response);
+
+    const sent = await service.dispatchEvent({
+      ...dispatchInput,
+      channel: CommunicationChannel.EMAIL,
+      recipient: 'ana@example.com',
+      fallbackSubject: 'Recibo',
+      skipTemplateLookup: true,
+    });
+    expect(sent.providerMessageId).toBe('email-1');
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://email.test/send',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer secret' }),
+      }),
+    );
+
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      json: async () => ({ error: 'mail provider down' }),
+    } as Response);
+    const failed = await service.dispatchEvent({
+      ...dispatchInput,
+      channel: CommunicationChannel.EMAIL,
+      recipient: 'ana@example.com',
+      skipTemplateLookup: true,
+    });
+    expect(failed.status).toBe(CommunicationDeliveryStatus.FAILED);
+    expect(failed.errorMessage).toBe('mail provider down');
+  });
+
+  it('records a missing generic provider configuration as a failed attempt', async () => {
+    const delivery = await service.dispatchEvent({
+      ...dispatchInput,
+      channel: CommunicationChannel.SMS,
+      recipient: '+5491111111111',
+      skipTemplateLookup: true,
+    });
+    expect(delivery.status).toBe(CommunicationDeliveryStatus.FAILED);
+    expect(delivery.errorMessage).toContain('WEBHOOK_URL is not configured');
   });
 });

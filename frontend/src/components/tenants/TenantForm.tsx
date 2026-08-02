@@ -305,7 +305,7 @@ export function TenantForm({
         <h2 className={sectionTitleClass}>Preferencias de comunicación</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label className={labelClass}>
-            Canal preferido
+            <span>Canal preferido</span>
             <select
               {...register("preferredContactChannel")}
               className={inputClass}
@@ -317,7 +317,7 @@ export function TenantForm({
           </label>
           <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
             <input type="checkbox" {...register("contactConsent")} />
-            Consentimiento para comunicaciones registrado
+            <span>Consentimiento para comunicaciones registrado</span>
           </label>
         </div>
       </div>
