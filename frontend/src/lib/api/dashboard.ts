@@ -87,13 +87,14 @@ export interface DashboardOperationsOverview {
   };
 }
 
-export type PersonActivitySource = "interested" | "owner";
+export type PersonActivitySource =
+  "interested" | "owner" | "communication" | "pending_action";
 export type PersonActivityStatus = "pending" | "completed" | "cancelled";
 
 export interface PersonActivityItem {
   id: string;
   sourceType: PersonActivitySource;
-  personType: PersonActivitySource;
+  personType: "interested" | "owner" | "tenant" | "buyer" | "staff" | "admin";
   personId: string;
   personName: string;
   subject: string;
@@ -105,9 +106,12 @@ export interface PersonActivityItem {
   propertyName: string | null;
   createdAt: string;
   updatedAt: string;
+  actionKind?: "communication" | "pending_action" | "registration";
+  actionId?: string;
 }
 
 export interface PeopleActivityResponse {
+  new: PersonActivityItem[];
   overdue: PersonActivityItem[];
   today: PersonActivityItem[];
   total: number;
@@ -211,5 +215,41 @@ export const dashboardApi = {
     await ownersApi.updateActivity(activity.personId, activity.id, {
       body: comment,
     });
+  },
+
+  replyCommunication: async (id: string, body: string): Promise<void> => {
+    const token = getToken();
+    await apiClient.post(
+      `/communications/inbox/${id}/reply`,
+      { body },
+      token ?? undefined,
+    );
+  },
+
+  markCommunicationRead: async (id: string): Promise<void> => {
+    const token = getToken();
+    await apiClient.post(
+      `/communications/inbox/${id}/read`,
+      {},
+      token ?? undefined,
+    );
+  },
+
+  approvePendingAction: async (id: string): Promise<void> => {
+    const token = getToken();
+    await apiClient.post(
+      `/pending-actions/${id}/approve`,
+      {},
+      token ?? undefined,
+    );
+  },
+
+  rejectPendingAction: async (id: string, reason?: string): Promise<void> => {
+    const token = getToken();
+    await apiClient.post(
+      `/pending-actions/${id}/reject`,
+      { reason },
+      token ?? undefined,
+    );
   },
 };

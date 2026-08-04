@@ -28,6 +28,7 @@ describe('CommunicationsService', () => {
   const whatsappService = {
     sendTextMessage: jest.fn(),
   };
+  const dataSource = { query: jest.fn() };
   let service: CommunicationsService;
 
   beforeEach(() => {
@@ -41,6 +42,7 @@ describe('CommunicationsService', () => {
       templatesRepository as any,
       deliveriesRepository as any,
       whatsappService as any,
+      dataSource as any,
     );
   });
 
@@ -165,12 +167,129 @@ describe('CommunicationsService', () => {
     );
   });
 
+  it('lists the WhatsApp inbox and marks a communication as read', async () => {
+    dataSource.query
+      .mockResolvedValueOnce([{ id: 'communication-1', status: 'new' }])
+      .mockResolvedValueOnce([{ id: 'communication-1', status: 'read' }]);
+
+    await expect(service.listInbox('company-1')).resolves.toEqual([
+      { id: 'communication-1', status: 'new' },
+    ]);
+    await expect(
+      service.markInboxRead('communication-1', {
+        id: 'staff-1',
+        companyId: 'company-1',
+      }),
+    ).resolves.toEqual({ id: 'communication-1', status: 'read' });
+    expect(dataSource.query.mock.calls[0][0]).toContain(
+      "pc.direction = 'inbound'",
+    );
+    expect(dataSource.query.mock.calls[1][1]).toEqual([
+      'communication-1',
+      'company-1',
+      'staff-1',
+    ]);
+  });
+
+  it('rejects missing inbox messages and revoked consent', async () => {
+    dataSource.query.mockResolvedValueOnce([]);
+    await expect(
+      service.markInboxRead('missing', {
+        id: 'staff-1',
+        companyId: 'company-1',
+      }),
+    ).rejects.toThrow(NotFoundException);
+
+    dataSource.query
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ whatsapp_enabled: false }]);
+    await expect(
+      service.replyToInbox(
+        'missing',
+        {
+          id: 'staff-1',
+          companyId: 'company-1',
+        },
+        'Hola',
+      ),
+    ).rejects.toThrow(NotFoundException);
+    await expect(
+      service.replyToInbox(
+        'communication-1',
+        {
+          id: 'staff-1',
+          companyId: 'company-1',
+        },
+        'Hola',
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('replies through WhatsApp and records an owner activity', async () => {
+    const incoming = {
+      id: 'communication-1',
+      company_id: 'company-1',
+      user_id: 'user-1',
+      person_type: 'owner',
+      person_id: 'owner-1',
+      phone: '+5491111111111',
+      whatsapp_enabled: true,
+    };
+    dataSource.query
+      .mockResolvedValueOnce([incoming])
+      .mockResolvedValueOnce([{ id: 'reply-1' }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+
+    await expect(
+      service.replyToInbox(
+        'communication-1',
+        {
+          id: 'staff-1',
+          companyId: 'company-1',
+        },
+        '  Respuesta  ',
+      ),
+    ).resolves.toEqual({ id: 'reply-1' });
+    expect(whatsappService.sendTextMessage).toHaveBeenCalledWith(
+      incoming.phone,
+      'Respuesta',
+      undefined,
+      { companyId: 'company-1' },
+    );
+    expect(dataSource.query.mock.calls[3][0]).toContain(
+      'INSERT INTO owner_activities',
+    );
+  });
+
+  it('records interested replies and skips unsupported activity owners', async () => {
+    await (service as any).recordReplyActivity(
+      {
+        id: 'communication-2',
+        company_id: 'company-1',
+        person_type: 'interested',
+        person_id: 'interested-1',
+      },
+      'staff-1',
+      'Respuesta',
+    );
+    expect(dataSource.query.mock.calls[0][0]).toContain(
+      'INSERT INTO interested_activities',
+    );
+    await (service as any).recordReplyActivity(
+      { person_type: 'buyer', person_id: 'buyer-1' },
+      'staff-1',
+      'Respuesta',
+    );
+    expect(dataSource.query).toHaveBeenCalledTimes(1);
+  });
+
   it('creates templates with defaults and inferred unique variables', async () => {
     const result = await service.createTemplate('company-1', {
       name: 'Recordatorio',
       event: CommunicationEvent.PAYMENT_REMINDER,
       recipientRole: CommunicationRecipientRole.TENANT,
-      channel: CommunicationChannel.EMAIL,
+      channel: CommunicationChannel.WHATSAPP,
       locale: 'es',
       subject: 'Hola {{nombre}}',
       body: '{{nombre}}, vence {{fecha}}',
@@ -194,6 +313,7 @@ describe('CommunicationsService', () => {
       companyId: 'company-1',
       subject: null,
       body: 'Anterior',
+      channel: CommunicationChannel.WHATSAPP,
       variables: [],
     });
 
@@ -303,52 +423,24 @@ describe('CommunicationsService', () => {
     });
   });
 
-  it('sends email webhooks with authorization and handles provider errors', async () => {
-    process.env.COMMUNICATION_EMAIL_WEBHOOK_URL = 'https://email.test/send';
-    process.env.COMMUNICATION_EMAIL_WEBHOOK_TOKEN = 'secret';
-    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ id: 'email-1' }),
-    } as Response);
-
-    const sent = await service.dispatchEvent({
-      ...dispatchInput,
-      channel: CommunicationChannel.EMAIL,
-      recipient: 'ana@example.com',
-      fallbackSubject: 'Recibo',
-      skipTemplateLookup: true,
-    });
-    expect(sent.providerMessageId).toBe('email-1');
-    expect(fetchMock).toHaveBeenCalledWith(
-      'https://email.test/send',
-      expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: 'Bearer secret' }),
+  it('rejects email and SMS before contacting a provider', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch');
+    await expect(
+      service.dispatchEvent({
+        ...dispatchInput,
+        channel: CommunicationChannel.EMAIL,
+        recipient: 'ana@example.com',
+        skipTemplateLookup: true,
       }),
-    );
-
-    fetchMock.mockResolvedValueOnce({
-      ok: false,
-      status: 503,
-      json: async () => ({ error: 'mail provider down' }),
-    } as Response);
-    const failed = await service.dispatchEvent({
-      ...dispatchInput,
-      channel: CommunicationChannel.EMAIL,
-      recipient: 'ana@example.com',
-      skipTemplateLookup: true,
-    });
-    expect(failed.status).toBe(CommunicationDeliveryStatus.FAILED);
-    expect(failed.errorMessage).toBe('mail provider down');
-  });
-
-  it('records a missing generic provider configuration as a failed attempt', async () => {
-    const delivery = await service.dispatchEvent({
-      ...dispatchInput,
-      channel: CommunicationChannel.SMS,
-      recipient: '+5491111111111',
-      skipTemplateLookup: true,
-    });
-    expect(delivery.status).toBe(CommunicationDeliveryStatus.FAILED);
-    expect(delivery.errorMessage).toContain('WEBHOOK_URL is not configured');
+    ).rejects.toThrow(BadRequestException);
+    await expect(
+      service.dispatchEvent({
+        ...dispatchInput,
+        channel: CommunicationChannel.SMS,
+        recipient: '+5491111111111',
+        skipTemplateLookup: true,
+      }),
+    ).rejects.toThrow(BadRequestException);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

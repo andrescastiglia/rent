@@ -34,6 +34,7 @@ describe('AiRagRolloutService', () => {
   };
   const classifier = { classify: jest.fn().mockReturnValue('semantic') };
   const repo = { create: jest.fn((value) => value), save: jest.fn() };
+  const dataSource = { query: jest.fn() };
   const params = {
     prompt: 'consulta',
     context: {
@@ -49,6 +50,7 @@ describe('AiRagRolloutService', () => {
     rag as never,
     classifier as never,
     repo as never,
+    dataSource as never,
   );
 
   beforeEach(() => {

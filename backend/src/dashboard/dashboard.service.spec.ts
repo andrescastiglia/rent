@@ -565,7 +565,9 @@ describe('DashboardService', () => {
     );
 
     expect(result.overdue.length).toBeGreaterThan(0);
-    expect(result.total).toBe(result.overdue.length + result.today.length);
+    expect(result.total).toBe(
+      result.new.length + result.overdue.length + result.today.length,
+    );
   });
 
   it('getReportJobs paginates and normalizes report types', async () => {

@@ -18,8 +18,11 @@ import {
   TestCommunicationDto,
   UpdateCommunicationTemplateDto,
 } from './dto/communication-template.dto';
+import { ReplyCommunicationDto } from './dto/reply-communication.dto';
 
 type AuthenticatedRequest = { user: { companyId: string } };
+
+type StaffRequest = { user: { id: string; companyId: string } };
 
 @Controller('communications')
 @Roles(UserRole.ADMIN, UserRole.STAFF)
@@ -71,6 +74,25 @@ export class CommunicationsController {
   @Get('deliveries')
   listDeliveries(@Request() req: AuthenticatedRequest) {
     return this.communicationsService.listDeliveries(req.user.companyId);
+  }
+
+  @Get('inbox')
+  listInbox(@Request() req: AuthenticatedRequest) {
+    return this.communicationsService.listInbox(req.user.companyId);
+  }
+
+  @Post('inbox/:id/read')
+  markRead(@Param('id') id: string, @Request() req: StaffRequest) {
+    return this.communicationsService.markInboxRead(id, req.user);
+  }
+
+  @Post('inbox/:id/reply')
+  reply(
+    @Param('id') id: string,
+    @Request() req: StaffRequest,
+    @Body() dto: ReplyCommunicationDto,
+  ) {
+    return this.communicationsService.replyToInbox(id, req.user, dto.body);
   }
 
   @Post('deliveries/:id/approve')

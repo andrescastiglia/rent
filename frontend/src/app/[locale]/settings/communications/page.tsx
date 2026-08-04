@@ -5,7 +5,6 @@ import Link from "next/link";
 import { ArrowLeft, Loader2, RefreshCw, Send, Save } from "lucide-react";
 import { useLocale } from "next-intl";
 import {
-  CommunicationChannel,
   CommunicationDelivery,
   CommunicationEvent,
   CommunicationRecipientRole,
@@ -265,21 +264,9 @@ export default function CommunicationsSettingsPage() {
               <option value="owner">Propietario</option>
               <option value="interested">Interesado</option>
             </select>
-            <select
-              aria-label="Canal"
-              value={form.channel}
-              onChange={(event) =>
-                setForm((previous) => ({
-                  ...previous,
-                  channel: event.target.value as CommunicationChannel,
-                }))
-              }
-              className="rounded-md border p-2 dark:bg-gray-800"
-            >
-              <option value="whatsapp">WhatsApp</option>
-              <option value="email">Email</option>
-              <option value="sms">SMS</option>
-            </select>
+            <div className="rounded-md border p-2 dark:bg-gray-800">
+              WhatsApp (único canal habilitado)
+            </div>
             <input
               aria-label="Idioma"
               value={form.locale}
@@ -302,7 +289,7 @@ export default function CommunicationsSettingsPage() {
               }))
             }
             className="w-full rounded-md border p-2 dark:bg-gray-800"
-            placeholder="Asunto (email)"
+            placeholder="Etiqueta interna opcional"
           />
           <textarea
             aria-label="Mensaje"
@@ -375,7 +362,7 @@ export default function CommunicationsSettingsPage() {
               value={testRecipient}
               onChange={(event) => setTestRecipient(event.target.value)}
               className="min-w-60 rounded-md border p-2 dark:bg-gray-800"
-              placeholder="Teléfono o email de prueba"
+              placeholder="Teléfono de WhatsApp de prueba"
             />
             <button
               type="button"

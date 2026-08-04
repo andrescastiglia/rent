@@ -4,13 +4,35 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { createHmac } from 'node:crypto';
+import OpenAI from 'openai';
 import { WhatsappService } from './whatsapp.service';
+
+jest.mock('openai', () => {
+  const create = jest.fn();
+  const MockOpenAI = jest.fn(() => ({
+    audio: { transcriptions: { create } },
+  }));
+  Object.assign(MockOpenAI, { transcriptionCreate: create });
+  return {
+    __esModule: true,
+    default: MockOpenAI,
+    toFile: jest.fn(async (buffer, name, options) => ({
+      buffer,
+      name,
+      ...options,
+    })),
+  };
+});
 
 describe('WhatsappService', () => {
   const originalEnv = { ...process.env };
   const fetchMock = jest.fn();
 
-  const buildService = (env?: Record<string, string>, dataSource?: any) => {
+  const buildService = (
+    env?: Record<string, string>,
+    dataSource?: any,
+    moduleRef?: any,
+  ) => {
     process.env = {
       ...originalEnv,
       WHATSAPP_ENABLED: 'true',
@@ -18,12 +40,13 @@ describe('WhatsappService', () => {
       WHATSAPP_PHONE_NUMBER_ID: 'phone-1',
       WHATSAPP_ACCESS_TOKEN: 'token-1',
       WHATSAPP_VERIFY_TOKEN: 'verify-1',
+      WHATSAPP_APP_SECRET: 'app-secret',
       WHATSAPP_DOCUMENT_LINK_SECRET: 'doc-secret',
       WHATSAPP_DOCUMENTS_BASE_URL: 'https://frontend.example.com/',
       BATCH_WHATSAPP_INTERNAL_TOKEN: 'batch-token',
       ...env,
     };
-    return new WhatsappService(dataSource);
+    return new WhatsappService(dataSource, moduleRef);
   };
 
   const buildDataSource = (
@@ -360,6 +383,16 @@ describe('WhatsappService', () => {
     expect(service.resolveLanguageCode('unknown')).toBe('es_AR');
     expect(service.resolveLanguageCode()).toBe('es_AR');
 
+    const rawBody = Buffer.from('{"entry":[]}');
+    const webhookSignature = `sha256=${createHmac('sha256', 'app-secret')
+      .update(rawBody)
+      .digest('hex')}`;
+    expect(service.verifyWebhookSignature(webhookSignature, rawBody)).toBe(
+      true,
+    );
+    expect(service.verifyWebhookSignature('sha256=bad', rawBody)).toBe(false);
+    expect(service.verifyWebhookSignature(undefined, rawBody)).toBe(false);
+
     const documentId = '123e4567-e89b-12d3-a456-426614174000';
     const exp = Math.floor(Date.now() / 1000) + 600;
     const signature = createHmac('sha256', 'doc-secret')
@@ -437,6 +470,253 @@ describe('WhatsappService', () => {
     expect(logSpy).toHaveBeenCalledWith(
       'WhatsApp webhook message from unknown: [non-text-message]',
     );
+  });
+
+  it('processes an opted-in owner message through AI and replies', async () => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('FROM users')) {
+        return [
+          {
+            id: 'user-1',
+            company_id: 'company-1',
+            role: 'owner',
+            language: 'es',
+          },
+        ];
+      }
+      if (sql.includes('SELECT id FROM owners')) return [{ id: 'owner-1' }];
+      if (sql.includes('INSERT INTO person_communications')) {
+        return [{ id: 'communication-1' }];
+      }
+      return [];
+    });
+    const respond = jest.fn().mockResolvedValue({
+      conversationId: 'conversation-1',
+      outputText: '  La operación quedó pendiente.  ',
+    });
+    const moduleRef = { get: jest.fn(() => ({ respond })) };
+    const service = buildService(undefined, buildDataSource(query), moduleRef);
+    mockSuccessfulSend('wamid-reply');
+
+    await service.handleIncomingWebhook({
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                messages: [
+                  {
+                    id: 'wamid-inbound',
+                    from: '+54 9 11 1234-5678',
+                    type: 'text',
+                    text: { body: '  Crear propietario  ' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(respond).toHaveBeenCalledWith({
+      prompt: 'Crear propietario',
+      context: {
+        userId: 'user-1',
+        companyId: 'company-1',
+        role: 'owner',
+        mutationApprovalMode: 'staff_queue',
+      },
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/phone-1/messages'),
+      expect.any(Object),
+    );
+    expect(
+      query.mock.calls.some(([sql]) => sql.includes('metadata = metadata')),
+    ).toBe(true);
+  });
+
+  it('ignores ambiguous users and duplicate inbound message ids', async () => {
+    const ambiguousQuery = jest
+      .fn()
+      .mockResolvedValueOnce([{ id: 'user-1' }, { id: 'user-2' }]);
+    const ambiguous = buildService(undefined, buildDataSource(ambiguousQuery));
+    await ambiguous.handleIncomingWebhook({
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                messages: [
+                  {
+                    id: 'wamid-ambiguous',
+                    from: '5491112345678',
+                    text: { body: 'hola' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    const duplicateQuery = jest
+      .fn()
+      .mockResolvedValueOnce([
+        {
+          id: 'staff-1',
+          company_id: 'company-1',
+          role: 'admin',
+          language: 'es',
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    const duplicate = buildService(undefined, buildDataSource(duplicateQuery));
+    await duplicate.handleIncomingWebhook({
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                messages: [
+                  {
+                    id: 'wamid-duplicate',
+                    from: '5491112345678',
+                    text: { body: 'hola' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps inbound messages pending when AI is unavailable', async () => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('FROM users')) {
+        return [
+          {
+            id: 'staff-1',
+            company_id: 'company-1',
+            role: 'staff',
+            language: 'es',
+          },
+        ];
+      }
+      if (sql.includes('INSERT INTO person_communications')) {
+        return [{ id: 'communication-1' }];
+      }
+      return [];
+    });
+    const service = buildService(undefined, buildDataSource(query), {
+      get: jest.fn(() => undefined),
+    });
+    mockSuccessfulSend('wamid-fallback');
+
+    await service.handleIncomingWebhook({
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                messages: [
+                  {
+                    id: 'wamid-inbound',
+                    from: '5491112345678',
+                    text: { body: 'hola' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const fallbackPayload = JSON.parse(
+      fetchMock.mock.calls.find(([url]) => url.includes('/messages'))[1].body,
+    );
+    expect(fallbackPayload.text.body).toContain('pendiente de revisión');
+    expect(
+      (query.mock.calls as unknown[][]).some(
+        ([, params]) =>
+          Array.isArray(params) &&
+          params.some((value: unknown) =>
+            String(value).includes('processingError'),
+          ),
+      ),
+    ).toBe(true);
+  });
+
+  it('downloads and transcribes WhatsApp voice messages', async () => {
+    const transcriptionCreate = (
+      OpenAI as unknown as {
+        transcriptionCreate: jest.Mock;
+      }
+    ).transcriptionCreate;
+    transcriptionCreate.mockResolvedValueOnce({ text: '  Consulta por voz  ' });
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          url: 'https://media.example.com/voice',
+          mime_type: 'audio/ogg',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: async () => Uint8Array.from([1, 2, 3]).buffer,
+      });
+    const service = buildService({ OPENAI_API_KEY: 'openai-key' });
+
+    await expect(
+      (service as any).extractIncomingContent({ audio: { id: 'media-1' } }),
+    ).resolves.toEqual({ body: 'Consulta por voz', type: 'voice' });
+    expect(transcriptionCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'gpt-4o-mini-transcribe' }),
+    );
+  });
+
+  it('validates voice download and transcription prerequisites', async () => {
+    const service = buildService({ OPENAI_API_KEY: '' });
+    await expect((service as any).extractIncomingContent({})).resolves.toEqual({
+      body: '',
+      type: 'text',
+    });
+
+    fetchMock.mockResolvedValueOnce({ ok: false, json: async () => null });
+    await expect(
+      (service as any).extractIncomingContent({ audio: { id: 'media-1' } }),
+    ).rejects.toBeInstanceOf(BadGatewayException);
+
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ url: 'https://media.example.com/voice' }),
+      })
+      .mockResolvedValueOnce({ ok: false });
+    await expect(
+      (service as any).extractIncomingContent({ audio: { id: 'media-2' } }),
+    ).rejects.toBeInstanceOf(BadGatewayException);
+
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ url: 'https://media.example.com/voice' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: async () => Uint8Array.from([1, 2]).buffer,
+      });
+    await expect(
+      (service as any).extractIncomingContent({ audio: { id: 'media-3' } }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 
   it('creates tracking table on postgres bootstrap only', async () => {

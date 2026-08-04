@@ -23,6 +23,7 @@ type ProfileFormState = {
   phone: string;
   language: Locale;
   avatarUrl: string;
+  whatsappEnabled: boolean;
 };
 
 type PasswordFormState = {
@@ -43,6 +44,7 @@ const toProfileForm = (user: User): ProfileFormState => ({
   phone: user.phone ?? "",
   language: user.language ?? "es",
   avatarUrl: user.avatarUrl ?? "",
+  whatsappEnabled: user.whatsappEnabled ?? false,
 });
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // NOSONAR
@@ -70,6 +72,7 @@ export default function SettingsPage() {
     phone: "",
     language: locale,
     avatarUrl: "",
+    whatsappEnabled: false,
   });
   const [passwordForm, setPasswordForm] = useState<PasswordFormState>({
     currentPassword: "",
@@ -147,6 +150,7 @@ export default function SettingsPage() {
         phone: profileForm.phone.trim(),
         language: profileForm.language,
         avatarUrl: profileForm.avatarUrl.trim() || null,
+        whatsappEnabled: profileForm.whatsappEnabled,
       });
       updateUser(updated);
       setProfileSuccess(t("messages.profileSaved"));
@@ -390,6 +394,25 @@ export default function SettingsPage() {
               {t("avatarHint")}
             </span>
           </div>
+
+          <label className="flex items-start gap-3 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-950 dark:border-green-800 dark:bg-green-950/30 dark:text-green-100">
+            <input
+              type="checkbox"
+              checked={profileForm.whatsappEnabled}
+              disabled={!profileForm.phone.trim()}
+              onChange={(event) =>
+                setProfileForm((prev) => ({
+                  ...prev,
+                  whatsappEnabled: event.target.checked,
+                }))
+              }
+              className="mt-1"
+            />
+            <span>
+              <span className="block font-semibold">{t("whatsappOptIn")}</span>
+              <span className="block opacity-80">{t("whatsappOptInHint")}</span>
+            </span>
+          </label>
 
           <button
             type="submit"

@@ -6,8 +6,8 @@ export type PersonActivityStatus =
 
 export class PersonActivityItemDto {
   id: string;
-  sourceType: 'interested' | 'owner';
-  personType: 'interested' | 'owner';
+  sourceType: 'interested' | 'owner' | 'communication' | 'pending_action';
+  personType: 'interested' | 'owner' | 'tenant' | 'buyer' | 'staff' | 'admin';
   personId: string;
   personName: string;
   subject: string;
@@ -19,9 +19,12 @@ export class PersonActivityItemDto {
   propertyName: string | null;
   createdAt: Date;
   updatedAt: Date;
+  actionKind?: 'communication' | 'pending_action' | 'registration';
+  actionId?: string;
 }
 
 export class RecentActivityDto {
+  new: PersonActivityItemDto[];
   overdue: PersonActivityItemDto[];
   today: PersonActivityItemDto[];
   total: number;
