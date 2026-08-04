@@ -7,6 +7,7 @@ import { ownersApi } from "./owners";
 jest.mock("../api", () => ({
   apiClient: {
     get: jest.fn(),
+    post: jest.fn(),
   },
 }));
 
@@ -181,6 +182,40 @@ describe("dashboardApi", () => {
       "owner-4",
       "activity-4",
       { body: "Needs owner confirmation" },
+    );
+  });
+
+  it("handles the WhatsApp inbox and pending-action commands", async () => {
+    (apiClient.post as jest.Mock).mockResolvedValue({});
+
+    await dashboardApi.replyCommunication("communication-1", "Respuesta");
+    await dashboardApi.markCommunicationRead("communication-2");
+    await dashboardApi.approvePendingAction("action-1");
+    await dashboardApi.rejectPendingAction("action-2", "Datos incorrectos");
+
+    expect(apiClient.post).toHaveBeenNthCalledWith(
+      1,
+      "/communications/inbox/communication-1/reply",
+      { body: "Respuesta" },
+      "token-123",
+    );
+    expect(apiClient.post).toHaveBeenNthCalledWith(
+      2,
+      "/communications/inbox/communication-2/read",
+      {},
+      "token-123",
+    );
+    expect(apiClient.post).toHaveBeenNthCalledWith(
+      3,
+      "/pending-actions/action-1/approve",
+      {},
+      "token-123",
+    );
+    expect(apiClient.post).toHaveBeenNthCalledWith(
+      4,
+      "/pending-actions/action-2/reject",
+      { reason: "Datos incorrectos" },
+      "token-123",
     );
   });
 });

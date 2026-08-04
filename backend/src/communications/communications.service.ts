@@ -1,13 +1,12 @@
 import {
-  BadGatewayException,
   BadRequestException,
   Injectable,
   NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { LessThanOrEqual, Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, LessThanOrEqual, Repository } from 'typeorm';
 import {
   WhatsappRelatedEntityType,
   WhatsappService,
@@ -58,6 +57,7 @@ export class CommunicationsService {
     @InjectRepository(CommunicationDelivery)
     private readonly deliveriesRepository: Repository<CommunicationDelivery>,
     private readonly whatsappService: WhatsappService,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   assertBatchToken(token?: string): void {
@@ -88,10 +88,131 @@ export class CommunicationsService {
     });
   }
 
+  listInbox(companyId: string) {
+    return this.dataSource.query(
+      `SELECT pc.id, pc.person_type AS "personType", pc.person_id AS "personId",
+              pc.message_type AS "messageType", pc.body, pc.status,
+              pc.created_at AS "createdAt", pc.metadata,
+              concat_ws(' ', u.first_name, u.last_name) AS "personName",
+              u.phone
+         FROM person_communications pc
+         LEFT JOIN users u ON u.id = pc.user_id
+        WHERE pc.company_id = $1::uuid AND pc.direction = 'inbound'
+        ORDER BY CASE WHEN pc.status = 'new' THEN 0 ELSE 1 END, pc.created_at DESC
+        LIMIT 200`,
+      [companyId],
+    );
+  }
+
+  async markInboxRead(id: string, staff: { id: string; companyId: string }) {
+    const rows = await this.dataSource.query(
+      `UPDATE person_communications
+          SET status = CASE WHEN status = 'new' THEN 'read' ELSE status END,
+              read_at = COALESCE(read_at, now()), read_by = $3::uuid,
+              updated_at = now()
+        WHERE id = $1::uuid AND company_id = $2::uuid AND direction = 'inbound'
+        RETURNING *`,
+      [id, staff.companyId, staff.id],
+    );
+    if (!rows[0]) throw new NotFoundException('Communication not found');
+    return rows[0];
+  }
+
+  async replyToInbox(
+    id: string,
+    staff: { id: string; companyId: string },
+    body: string,
+  ) {
+    const rows = await this.dataSource.query(
+      `SELECT pc.*, u.phone, u.whatsapp_enabled
+         FROM person_communications pc
+         JOIN users u ON u.id = pc.user_id
+        WHERE pc.id = $1::uuid AND pc.company_id = $2::uuid
+          AND pc.direction = 'inbound'`,
+      [id, staff.companyId],
+    );
+    const incoming = rows[0];
+    if (!incoming) throw new NotFoundException('Communication not found');
+    if (!incoming.whatsapp_enabled) {
+      throw new BadRequestException('The recipient revoked WhatsApp consent');
+    }
+    const sent = await this.whatsappService.sendTextMessage(
+      incoming.phone,
+      body.trim(),
+      undefined,
+      { companyId: staff.companyId },
+    );
+    const inserted = await this.dataSource.query(
+      `INSERT INTO person_communications (
+         company_id, user_id, person_type, person_id, direction, message_type,
+         body, whatsapp_message_id, in_reply_to_id, status, read_at, read_by,
+         metadata
+       ) VALUES ($1::uuid, $2::uuid, $3, $4::uuid, 'outbound', 'text', $5,
+                 $6, $7::uuid, 'read', now(), $8::uuid, $9::jsonb)
+       RETURNING *`,
+      [
+        staff.companyId,
+        incoming.user_id,
+        incoming.person_type,
+        incoming.person_id,
+        body.trim(),
+        sent.messageId,
+        id,
+        staff.id,
+        JSON.stringify({ repliedBy: staff.id }),
+      ],
+    );
+    await this.dataSource.query(
+      `UPDATE person_communications SET status = 'replied',
+              read_at = COALESCE(read_at, now()), read_by = $2::uuid,
+              updated_at = now() WHERE id = $1::uuid`,
+      [id, staff.id],
+    );
+    await this.recordReplyActivity(incoming, staff.id, body.trim());
+    return inserted[0];
+  }
+
+  private async recordReplyActivity(
+    incoming: Record<string, unknown>,
+    staffId: string,
+    body: string,
+  ): Promise<void> {
+    const personType = String(incoming.person_type);
+    const personId = incoming.person_id;
+    if (!personId || !['owner', 'tenant', 'interested'].includes(personType))
+      return;
+    const table =
+      personType === 'owner'
+        ? 'owner_activities'
+        : personType === 'tenant'
+          ? 'tenant_activities'
+          : 'interested_activities';
+    const personColumn =
+      personType === 'interested'
+        ? 'interested_profile_id'
+        : `${personType}_id`;
+    const companyColumns = personType === 'interested' ? '' : 'company_id,';
+    const companyValues = personType === 'interested' ? '' : '$2::uuid,';
+    await this.dataSource.query(
+      `INSERT INTO ${table} (${companyColumns} ${personColumn}, type, status,
+         subject, body, metadata, created_by_user_id)
+       VALUES (${companyValues} $1::uuid, 'whatsapp', 'completed',
+               'Respuesta por WhatsApp', $3, $4::jsonb, $5::uuid)`,
+      [
+        personId,
+        incoming.company_id,
+        body,
+        JSON.stringify({ communicationId: incoming.id, direction: 'outbound' }),
+        staffId,
+      ],
+    );
+  }
+
   async createTemplate(
     companyId: string,
     dto: CreateCommunicationTemplateDto,
   ): Promise<CommunicationTemplate> {
+    this.assertWhatsappOnly(dto.channel);
     return this.templatesRepository.save(
       this.templatesRepository.create({
         ...dto,
@@ -113,6 +234,7 @@ export class CommunicationsService {
     dto: UpdateCommunicationTemplateDto,
   ): Promise<CommunicationTemplate> {
     const template = await this.findTemplate(id, companyId);
+    this.assertWhatsappOnly(dto.channel ?? template.channel);
     Object.assign(template, dto);
     if (
       (dto.body || dto.subject !== undefined) &&
@@ -183,6 +305,7 @@ export class CommunicationsService {
   async dispatchEvent(
     input: DispatchCommunicationInput,
   ): Promise<CommunicationDelivery> {
+    this.assertWhatsappOnly(input.channel);
     const template = input.skipTemplateLookup
       ? null
       : await this.templatesRepository.findOne({
@@ -322,62 +445,30 @@ export class CommunicationsService {
   }
 
   private async send(delivery: CommunicationDelivery): Promise<string | null> {
-    if (delivery.channel === CommunicationChannel.WHATSAPP) {
-      const result = await this.whatsappService.sendTextMessage(
-        delivery.recipient,
-        delivery.body,
-        typeof delivery.metadata?.attachmentUrl === 'string'
-          ? delivery.metadata.attachmentUrl
-          : undefined,
-        {
-          companyId: delivery.companyId,
-          relatedEntityType: this.toWhatsappEntityType(
-            delivery.relatedEntityType,
-          ),
-          relatedEntityId: delivery.relatedEntityId ?? undefined,
-        },
-      );
-      return result.messageId;
-    }
-
-    const prefix =
-      delivery.channel === CommunicationChannel.EMAIL
-        ? 'COMMUNICATION_EMAIL'
-        : 'COMMUNICATION_SMS';
-    const endpoint = process.env[`${prefix}_WEBHOOK_URL`]?.trim();
-    if (!endpoint) {
-      throw new BadGatewayException(`${prefix}_WEBHOOK_URL is not configured`);
-    }
-    const token = process.env[`${prefix}_WEBHOOK_TOKEN`]?.trim();
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    this.assertWhatsappOnly(delivery.channel);
+    const result = await this.whatsappService.sendTextMessage(
+      delivery.recipient,
+      delivery.body,
+      typeof delivery.metadata?.attachmentUrl === 'string'
+        ? delivery.metadata.attachmentUrl
+        : undefined,
+      {
+        companyId: delivery.companyId,
+        relatedEntityType: this.toWhatsappEntityType(
+          delivery.relatedEntityType,
+        ),
+        relatedEntityId: delivery.relatedEntityId ?? undefined,
       },
-      body: JSON.stringify({
-        to: delivery.recipient,
-        subject: delivery.subject,
-        text: delivery.body,
-        metadata: {
-          deliveryId: delivery.id,
-          event: delivery.event,
-          relatedEntityType: delivery.relatedEntityType,
-          relatedEntityId: delivery.relatedEntityId,
-        },
-      }),
-    });
-    const payload = (await response.json().catch(() => null)) as {
-      id?: string;
-      messageId?: string;
-      error?: string;
-    } | null;
-    if (!response.ok) {
-      throw new BadGatewayException(
-        payload?.error ?? `Communication provider failed (${response.status})`,
+    );
+    return result.messageId;
+  }
+
+  private assertWhatsappOnly(channel: CommunicationChannel): void {
+    if (channel !== CommunicationChannel.WHATSAPP) {
+      throw new BadRequestException(
+        'Email and SMS are disabled; communications require explicit WhatsApp opt-in',
       );
     }
-    return payload?.messageId ?? payload?.id ?? null;
   }
 
   private toWhatsappEntityType(

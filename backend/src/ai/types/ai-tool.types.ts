@@ -11,6 +11,8 @@ export interface AiExecutionContext {
   role: UserRole;
   confirmMutation?: boolean;
   confirmationId?: string;
+  mutationApprovalMode?: 'conversation' | 'staff_queue';
+  roleDataContext?: string;
 }
 
 export interface AiToolDefinition<TSchema extends ZodType = ZodType> {

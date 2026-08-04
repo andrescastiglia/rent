@@ -15,6 +15,7 @@ export type UpdateMyProfileInput = {
   phone?: string;
   language?: "es" | "en" | "pt";
   avatarUrl?: string | null;
+  whatsappEnabled?: boolean;
 };
 
 type BackendUser = {
@@ -23,6 +24,8 @@ type BackendUser = {
   firstName: string;
   lastName: string;
   phone?: string | null;
+  whatsappEnabled?: boolean;
+  whatsappEnabledAt?: string | null;
   avatarUrl?: string | null;
   language?: string;
   role: User["role"];
@@ -88,6 +91,12 @@ const mapUser = (raw: BackendUser): User => ({
   firstName: raw.firstName,
   lastName: raw.lastName,
   phone: raw.phone ?? null,
+  ...(raw.whatsappEnabled === undefined
+    ? {}
+    : {
+        whatsappEnabled: raw.whatsappEnabled,
+        whatsappEnabledAt: raw.whatsappEnabledAt ?? null,
+      }),
   avatarUrl: raw.avatarUrl ?? null,
   language: normalizeLanguage(raw.language),
   role: raw.role,

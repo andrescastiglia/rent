@@ -120,6 +120,8 @@
     "changingPassword": "Alterando senha...",
     "avatarUrl": "URL do avatar",
     "avatarHint": "Você pode usar uma URL pública de imagem para o avatar.",
+    "whatsappOptIn": "Ativar o WhatsApp expressamente",
+    "whatsappOptInHint": "Autorizo consultas, mensagens e notificações por WhatsApp no telefone do meu perfil. Posso revogar esta permissão a qualquer momento. E-mail e SMS estão desativados.",
     "messages": {
       "profileSaved": "Perfil atualizado com sucesso.",
       "passwordSaved": "Senha atualizada com sucesso."
@@ -182,6 +184,11 @@
     },
     "peopleActivity": {
       "title": "Atividades de pessoas",
+      "newTitle": "Novas",
+      "noNew": "Não há novas comunicações ou tarefas.",
+      "replyPrompt": "Resposta pelo WhatsApp",
+      "approvePrompt": "Confirmar e executar esta operação?",
+      "rejectPrompt": "Motivo da rejeição (opcional)",
       "overdueTitle": "Vencidas",
       "todayTitle": "Hoje",
       "noOverdue": "Não há atividades vencidas.",
@@ -205,7 +212,12 @@
         "complete": "Concluir",
         "editComment": "Editar comentário",
         "save": "Salvar",
-        "cancel": "Cancelar"
+        "cancel": "Cancelar",
+        "reply": "Responder",
+        "markRead": "Marcar como lida",
+        "approve": "Aprovar",
+        "reject": "Rejeitar",
+        "review": "Revisar"
       }
     }
   },

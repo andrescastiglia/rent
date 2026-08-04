@@ -4,6 +4,7 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  IsBoolean,
   MaxLength,
 } from 'class-validator';
 import {
@@ -24,6 +25,7 @@ const updateUserZodSchema = z
       .optional()
       .describe('User interface language: es|en|pt'),
     permissions: z.record(z.string(), z.boolean()).optional(),
+    whatsappEnabled: z.boolean().optional(),
   })
   .strict();
 
@@ -59,4 +61,8 @@ export class UpdateUserDto {
   @IsObject()
   @IsOptional()
   permissions?: UserModulePermissions;
+
+  @IsBoolean()
+  @IsOptional()
+  whatsappEnabled?: boolean;
 }

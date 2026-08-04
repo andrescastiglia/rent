@@ -9,9 +9,11 @@ import {
   Param,
   Post,
   Query,
+  Req,
   Res,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { RawBodyRequest } from '@nestjs/common';
+import { Request, Response } from 'express';
 import { Public } from '../common/decorators/public.decorator';
 import { DocumentsService } from '../documents/documents.service';
 import { SendWhatsappMessageDto } from './dto/send-whatsapp-message.dto';
@@ -68,8 +70,19 @@ export class WhatsappController {
   @Public()
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
-  async receiveWebhook(@Body() payload: unknown) {
-    await this.whatsappService.handleIncomingWebhook(payload);
+  receiveWebhook(
+    @Body() payload: unknown,
+    @Headers('x-hub-signature-256') signature: string | undefined,
+    @Req() request: RawBodyRequest<Request>,
+  ) {
+    if (
+      !this.whatsappService.verifyWebhookSignature(signature, request.rawBody)
+    ) {
+      throw new ForbiddenException('Invalid WhatsApp webhook signature');
+    }
+    void Promise.resolve(
+      this.whatsappService.handleIncomingWebhook(payload),
+    ).catch((error) => this.whatsappService.logIncomingError(error));
     return { received: true };
   }
 

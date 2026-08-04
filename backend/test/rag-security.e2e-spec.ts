@@ -316,7 +316,7 @@ describe('RAG freshness and authorization (e2e)', () => {
       name: 'rag_e2e_mutation',
       description: 'RAG E2E mutation',
       mutability: 'mutable' as const,
-      allowedRoles: [UserRole.OWNER],
+      allowedRoles: [UserRole.OWNER, UserRole.ADMIN],
       parameters: z.object({ value: z.string() }).strict(),
       execute: executeMutation,
     };
@@ -327,11 +327,23 @@ describe('RAG freshness and authorization (e2e)', () => {
       } as never,
       { query } as never,
     );
-    const context = {
+    const ownerContext = {
       companyId,
       userId: ownerUserId,
       conversationId,
       role: UserRole.OWNER,
+    };
+    await expect(
+      executor.execute(
+        definition.name,
+        { value: 'owner-attempt' },
+        ownerContext,
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    const context = {
+      ...ownerContext,
+      role: UserRole.ADMIN,
     };
 
     const preview = (await executor.execute(

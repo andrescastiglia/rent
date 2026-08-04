@@ -30,7 +30,13 @@ interface AuthenticatedRequest {
 
 @Controller('ai/tools')
 @UseGuards(JwtAuthGuard)
-@Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.OWNER, UserRole.TENANT)
+@Roles(
+  UserRole.ADMIN,
+  UserRole.STAFF,
+  UserRole.OWNER,
+  UserRole.TENANT,
+  UserRole.BUYER,
+)
 export class AiController {
   constructor(
     private readonly executor: AiToolExecutorService,
