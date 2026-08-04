@@ -167,6 +167,123 @@ describe('CommunicationsService', () => {
     );
   });
 
+  it('lists the WhatsApp inbox and marks a communication as read', async () => {
+    dataSource.query
+      .mockResolvedValueOnce([{ id: 'communication-1', status: 'new' }])
+      .mockResolvedValueOnce([{ id: 'communication-1', status: 'read' }]);
+
+    await expect(service.listInbox('company-1')).resolves.toEqual([
+      { id: 'communication-1', status: 'new' },
+    ]);
+    await expect(
+      service.markInboxRead('communication-1', {
+        id: 'staff-1',
+        companyId: 'company-1',
+      }),
+    ).resolves.toEqual({ id: 'communication-1', status: 'read' });
+    expect(dataSource.query.mock.calls[0][0]).toContain(
+      "pc.direction = 'inbound'",
+    );
+    expect(dataSource.query.mock.calls[1][1]).toEqual([
+      'communication-1',
+      'company-1',
+      'staff-1',
+    ]);
+  });
+
+  it('rejects missing inbox messages and revoked consent', async () => {
+    dataSource.query.mockResolvedValueOnce([]);
+    await expect(
+      service.markInboxRead('missing', {
+        id: 'staff-1',
+        companyId: 'company-1',
+      }),
+    ).rejects.toThrow(NotFoundException);
+
+    dataSource.query
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ whatsapp_enabled: false }]);
+    await expect(
+      service.replyToInbox(
+        'missing',
+        {
+          id: 'staff-1',
+          companyId: 'company-1',
+        },
+        'Hola',
+      ),
+    ).rejects.toThrow(NotFoundException);
+    await expect(
+      service.replyToInbox(
+        'communication-1',
+        {
+          id: 'staff-1',
+          companyId: 'company-1',
+        },
+        'Hola',
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('replies through WhatsApp and records an owner activity', async () => {
+    const incoming = {
+      id: 'communication-1',
+      company_id: 'company-1',
+      user_id: 'user-1',
+      person_type: 'owner',
+      person_id: 'owner-1',
+      phone: '+5491111111111',
+      whatsapp_enabled: true,
+    };
+    dataSource.query
+      .mockResolvedValueOnce([incoming])
+      .mockResolvedValueOnce([{ id: 'reply-1' }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+
+    await expect(
+      service.replyToInbox(
+        'communication-1',
+        {
+          id: 'staff-1',
+          companyId: 'company-1',
+        },
+        '  Respuesta  ',
+      ),
+    ).resolves.toEqual({ id: 'reply-1' });
+    expect(whatsappService.sendTextMessage).toHaveBeenCalledWith(
+      incoming.phone,
+      'Respuesta',
+      undefined,
+      { companyId: 'company-1' },
+    );
+    expect(dataSource.query.mock.calls[3][0]).toContain(
+      'INSERT INTO owner_activities',
+    );
+  });
+
+  it('records interested replies and skips unsupported activity owners', async () => {
+    await (service as any).recordReplyActivity(
+      {
+        id: 'communication-2',
+        company_id: 'company-1',
+        person_type: 'interested',
+        person_id: 'interested-1',
+      },
+      'staff-1',
+      'Respuesta',
+    );
+    expect(dataSource.query.mock.calls[0][0]).toContain(
+      'INSERT INTO interested_activities',
+    );
+    await (service as any).recordReplyActivity(
+      { person_type: 'buyer', person_id: 'buyer-1' },
+      'staff-1',
+      'Respuesta',
+    );
+    expect(dataSource.query).toHaveBeenCalledTimes(1);
+  });
+
   it('creates templates with defaults and inferred unique variables', async () => {
     const result = await service.createTemplate('company-1', {
       name: 'Recordatorio',
