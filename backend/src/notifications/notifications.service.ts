@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -56,6 +56,11 @@ export class NotificationsService {
     dto: UpdateNotificationPreferencesDto,
   ): Promise<NotificationPreference[]> {
     for (const item of dto.preferences) {
+      if (item.channel.toLowerCase() !== DEFAULT_CHANNEL) {
+        throw new BadRequestException(
+          'Email and SMS notifications are disabled; only WhatsApp is available',
+        );
+      }
       const existing = await this.preferencesRepo.findOne({
         where: {
           userId,

@@ -8,7 +8,9 @@ describe('WhatsappController', () => {
     sendTemplateMessage: jest.fn(),
     assertBatchToken: jest.fn(),
     verifyWebhookToken: jest.fn(),
+    verifyWebhookSignature: jest.fn(),
     handleIncomingWebhook: jest.fn(),
+    logIncomingError: jest.fn(),
     isDocumentTokenValid: jest.fn(),
   };
 
@@ -197,11 +199,17 @@ describe('WhatsappController', () => {
     expect(res.sendStatus).toHaveBeenCalledWith(HttpStatus.FORBIDDEN);
   });
 
-  it('receiveWebhook delegates and returns ack', async () => {
+  it('receiveWebhook verifies signature, delegates and returns ack', () => {
     const payload = { entry: [] } as any;
-    await expect(controller.receiveWebhook(payload)).resolves.toEqual({
+    whatsappService.verifyWebhookSignature.mockReturnValue(true);
+    expect(
+      controller.receiveWebhook(payload, 'sha256=test', {
+        rawBody: Buffer.from('{}'),
+      } as any),
+    ).toEqual({
       received: true,
     });
+    expect(whatsappService.verifyWebhookSignature).toHaveBeenCalled();
     expect(whatsappService.handleIncomingWebhook).toHaveBeenCalledWith(payload);
   });
 

@@ -72,6 +72,12 @@ export class User {
   @Column({ type: 'varchar', nullable: true })
   phone: string | null;
 
+  @Column({ name: 'whatsapp_enabled', default: false })
+  whatsappEnabled: boolean;
+
+  @Column({ name: 'whatsapp_enabled_at', type: 'timestamptz', nullable: true })
+  whatsappEnabledAt: Date | null;
+
   @Column({ name: 'avatar_url', type: 'text', nullable: true })
   avatarUrl: string | null;
 

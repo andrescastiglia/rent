@@ -5,6 +5,7 @@ import {
   NotificationType,
 } from './entities/notification-preference.entity';
 import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
+import { BadRequestException } from '@nestjs/common';
 
 describe('NotificationsService', () => {
   const preferencesRepo = {
@@ -130,7 +131,7 @@ describe('NotificationsService', () => {
       );
     });
 
-    it('creates a new preference when it does not exist', async () => {
+    it('rejects non-WhatsApp preferences', async () => {
       preferencesRepo.findOne.mockResolvedValue(null);
       const newPref = {
         userId: 'user-1',
@@ -155,17 +156,10 @@ describe('NotificationsService', () => {
         ],
       };
 
-      await service.updatePreferences('user-1', 'co-1', dto);
-
-      expect(preferencesRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          userId: 'user-1',
-          companyId: 'co-1',
-          notificationType: NotificationType.PAYMENT_REMINDER,
-          channel: 'email',
-        }),
-      );
-      expect(preferencesRepo.save).toHaveBeenCalledWith(newPref);
+      await expect(
+        service.updatePreferences('user-1', 'co-1', dto),
+      ).rejects.toThrow(BadRequestException);
+      expect(preferencesRepo.create).not.toHaveBeenCalled();
     });
   });
 });

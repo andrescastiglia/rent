@@ -9,7 +9,27 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import { ModuleRef } from '@nestjs/core';
+import OpenAI, { toFile } from 'openai';
 import { DataSource } from 'typeorm';
+import { AI_RAG_ROLLOUT } from '../ai/ai.tokens';
+import { UserRole } from '../users/entities/user.entity';
+
+type AiRagRollout = {
+  respond(params: {
+    prompt: string;
+    context: {
+      userId: string;
+      companyId: string;
+      role: UserRole;
+      mutationApprovalMode: 'staff_queue';
+    };
+  }): Promise<{
+    conversationId: string;
+    outputText: string;
+    toolState?: Record<string, unknown>;
+  }>;
+};
 
 export type WhatsappSendResult = {
   messageId: string | null;
@@ -58,6 +78,7 @@ export class WhatsappService implements OnApplicationBootstrap {
   private readonly phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID ?? '';
   private readonly accessToken = process.env.WHATSAPP_ACCESS_TOKEN ?? '';
   private readonly verifyToken = process.env.WHATSAPP_VERIFY_TOKEN ?? '';
+  private readonly appSecret = process.env.WHATSAPP_APP_SECRET ?? '';
   private readonly batchInternalToken =
     process.env.BATCH_WHATSAPP_INTERNAL_TOKEN ?? '';
   private readonly frontendUrl =
@@ -81,6 +102,7 @@ export class WhatsappService implements OnApplicationBootstrap {
     @Optional()
     @InjectDataSource()
     private readonly dataSource?: DataSource,
+    private readonly moduleRef?: ModuleRef,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -224,6 +246,25 @@ export class WhatsappService implements OnApplicationBootstrap {
     return !!this.verifyToken && token === this.verifyToken;
   }
 
+  verifyWebhookSignature(signature?: string, rawBody?: Buffer): boolean {
+    if (!signature || !rawBody || !this.appSecret) return false;
+    const expected = `sha256=${createHmac('sha256', this.appSecret)
+      .update(rawBody)
+      .digest('hex')}`;
+    try {
+      return timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+    } catch {
+      return false;
+    }
+  }
+
+  logIncomingError(error: unknown): void {
+    this.logger.error(
+      'Failed to process incoming WhatsApp message',
+      error instanceof Error ? error.stack : String(error),
+    );
+  }
+
   isDocumentTokenValid(documentId: string, token?: string): boolean {
     if (!token || !this.documentLinkSecret) {
       return false;
@@ -272,7 +313,8 @@ export class WhatsappService implements OnApplicationBootstrap {
         const value = item?.value;
         sawStatus =
           (await this.handleWebhookStatuses(value?.statuses)) || sawStatus;
-        sawMessage = this.logWebhookMessages(value?.messages) || sawMessage;
+        sawMessage =
+          (await this.handleWebhookMessages(value?.messages)) || sawMessage;
       }
     }
 
@@ -299,17 +341,197 @@ export class WhatsappService implements OnApplicationBootstrap {
     return items.length > 0;
   }
 
-  private logWebhookMessages(messages: unknown): boolean {
+  private async handleWebhookMessages(messages: unknown): Promise<boolean> {
     const items = this.asArray(messages);
 
     for (const item of items) {
-      const message = item as any;
-      const from = message?.from ?? 'unknown';
-      const text = message?.text?.body ?? '[non-text-message]';
-      this.logger.log(`WhatsApp webhook message from ${from}: ${text}`);
+      await this.processIncomingMessage(item as Record<string, any>);
     }
 
     return items.length > 0;
+  }
+
+  private async processIncomingMessage(
+    message: Record<string, any>,
+  ): Promise<void> {
+    const loggedFrom = message.from ?? 'unknown';
+    const loggedText = message.text?.body ?? '[non-text-message]';
+    this.logger.log(
+      `WhatsApp webhook message from ${loggedFrom}: ${loggedText}`,
+    );
+    if (!this.dataSource || this.dataSource.options.type !== 'postgres') return;
+    const whatsappMessageId = String(message.id ?? '').trim();
+    const from = this.normalizePhone(String(message.from ?? ''));
+    if (!whatsappMessageId || !from) return;
+
+    const users = await this.dataSource.query(
+      `SELECT id, company_id, role, language, phone
+         FROM users
+        WHERE is_active = true AND deleted_at IS NULL
+          AND whatsapp_enabled = true
+          AND regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = $1
+        LIMIT 2`,
+      [from],
+    );
+    if (users.length !== 1) {
+      this.logger.warn(
+        `Ignored WhatsApp message from unconsented or ambiguous phone ${from}`,
+      );
+      return;
+    }
+    const user = users[0] as {
+      id: string;
+      company_id: string;
+      role: UserRole;
+      language: string;
+    };
+    const content = await this.extractIncomingContent(message);
+    if (!content.body) return;
+    const personId = await this.resolvePersonId(user.id, user.role);
+    const isStaff = [UserRole.ADMIN, UserRole.STAFF].includes(user.role);
+    const inserted = await this.dataSource.query(
+      `INSERT INTO person_communications (
+         company_id, user_id, person_type, person_id, direction, message_type,
+         body, whatsapp_message_id, status, metadata
+       ) VALUES ($1::uuid, $2::uuid, $3, $4::uuid, 'inbound', $5, $6, $7,
+                 $8, $9::jsonb)
+       ON CONFLICT (whatsapp_message_id) WHERE whatsapp_message_id IS NOT NULL
+       DO NOTHING RETURNING id`,
+      [
+        user.company_id,
+        user.id,
+        user.role,
+        personId,
+        content.type,
+        content.body,
+        whatsappMessageId,
+        isStaff ? 'read' : 'new',
+        JSON.stringify({ provider: 'meta', originalType: message.type }),
+      ],
+    );
+    if (!inserted[0]) return;
+
+    try {
+      const rollout = this.moduleRef?.get<AiRagRollout>(AI_RAG_ROLLOUT, {
+        strict: false,
+      });
+      if (!rollout)
+        throw new ServiceUnavailableException('AI service is unavailable');
+      const response = await rollout.respond({
+        prompt: content.body,
+        context: {
+          userId: user.id,
+          companyId: user.company_id,
+          role: user.role,
+          mutationApprovalMode: 'staff_queue',
+        },
+      });
+      const answer =
+        response.outputText?.trim() ||
+        'Recibimos tu mensaje. Si requiere una acción, quedó pendiente de revisión.';
+      await this.sendTextMessage(from, answer, undefined, {
+        companyId: user.company_id,
+      });
+      await this.dataSource.query(
+        `UPDATE person_communications
+            SET metadata = metadata || $2::jsonb, updated_at = now()
+          WHERE id = $1::uuid`,
+        [
+          inserted[0].id,
+          JSON.stringify({
+            conversationId: response.conversationId,
+            answered: true,
+          }),
+        ],
+      );
+    } catch (error) {
+      await this.dataSource.query(
+        `UPDATE person_communications
+            SET metadata = metadata || $2::jsonb, updated_at = now()
+          WHERE id = $1::uuid`,
+        [
+          inserted[0].id,
+          JSON.stringify({
+            processingError:
+              error instanceof Error ? error.message : String(error),
+          }),
+        ],
+      );
+      await this.sendTextMessage(
+        from,
+        'Recibimos tu mensaje y quedó pendiente de revisión por el equipo.',
+        undefined,
+        { companyId: user.company_id },
+      );
+    }
+  }
+
+  private async extractIncomingContent(
+    message: Record<string, any>,
+  ): Promise<{ body: string; type: 'text' | 'voice' }> {
+    const text = String(message.text?.body ?? '').trim();
+    if (text) return { body: text.slice(0, 10000), type: 'text' };
+    const mediaId = String(message.audio?.id ?? '').trim();
+    if (!mediaId) return { body: '', type: 'text' };
+    const metadataResponse = await fetch(
+      `${this.apiBaseUrl.replace(/\/$/, '')}/${encodeURIComponent(mediaId)}`,
+      { headers: { Authorization: `Bearer ${this.accessToken}` } },
+    );
+    const metadata = (await metadataResponse.json().catch(() => null)) as {
+      url?: string;
+      mime_type?: string;
+    } | null;
+    if (!metadataResponse.ok || !metadata?.url) {
+      throw new BadGatewayException(
+        'Could not retrieve WhatsApp voice metadata',
+      );
+    }
+    const mediaResponse = await fetch(metadata.url, {
+      headers: { Authorization: `Bearer ${this.accessToken}` },
+    });
+    if (!mediaResponse.ok)
+      throw new BadGatewayException('Could not download WhatsApp voice');
+    const buffer = Buffer.from(await mediaResponse.arrayBuffer());
+    const maxBytes = Number(process.env.WHATSAPP_MAX_VOICE_BYTES ?? 16_000_000);
+    if (buffer.length > maxBytes)
+      throw new BadGatewayException('WhatsApp voice is too large');
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey)
+      throw new ServiceUnavailableException('OPENAI_API_KEY is not configured');
+    const client = new OpenAI({
+      apiKey,
+      ...(process.env.OPENAI_BASE_URL
+        ? { baseURL: process.env.OPENAI_BASE_URL }
+        : {}),
+    });
+    const transcription = await client.audio.transcriptions.create({
+      file: await toFile(buffer, 'voice.ogg', {
+        type: metadata.mime_type ?? 'audio/ogg',
+      }),
+      model: process.env.OPENAI_TRANSCRIPTION_MODEL ?? 'gpt-4o-mini-transcribe',
+    });
+    return { body: transcription.text.trim().slice(0, 10000), type: 'voice' };
+  }
+
+  private async resolvePersonId(
+    userId: string,
+    role: UserRole,
+  ): Promise<string> {
+    if (!this.dataSource) return userId;
+    const table =
+      role === UserRole.OWNER
+        ? 'owners'
+        : role === UserRole.TENANT
+          ? 'tenants'
+          : role === UserRole.BUYER
+            ? 'buyers'
+            : null;
+    if (!table) return userId;
+    const rows = await this.dataSource.query(
+      `SELECT id FROM ${table} WHERE user_id = $1::uuid AND deleted_at IS NULL LIMIT 1`,
+      [userId],
+    );
+    return rows[0]?.id ?? userId;
   }
 
   resolveLanguageCode(locale?: string): string {

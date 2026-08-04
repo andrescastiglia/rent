@@ -103,6 +103,30 @@ export class AiToolExecutorService {
     }
   }
 
+  async executeApproved(
+    toolName: string,
+    args: unknown,
+    context: AiExecutionContext,
+  ): Promise<unknown> {
+    const definition = this.catalog.getDefinitionByName(toolName);
+    if (!definition)
+      throw new NotFoundException(`AI tool not found: ${toolName}`);
+    if (definition.mutability !== 'mutable') {
+      throw new ForbiddenException('Only mutable tools can be approved');
+    }
+    if (![UserRole.ADMIN, UserRole.STAFF].includes(context.role)) {
+      throw new ForbiddenException('Only staff or admin can approve actions');
+    }
+    this.assertModeAllowsExecution(this.getMode(), definition);
+    this.assertContext(context);
+    const parsed = this.parseArguments(definition, args ?? {});
+    this.auditLog('start', toolName, context, this.redactSensitive(parsed));
+    const result = await definition.execute(parsed, context);
+    const sanitized = this.sanitizeOutput(result);
+    this.auditLog('success', toolName, context, { approved: true });
+    return sanitized;
+  }
+
   private async requireMutationConfirmation(
     definition: AiToolDefinition,
     parsed: unknown,
@@ -150,6 +174,9 @@ export class AiToolExecutorService {
       const id = rows[0]?.id;
       if (!id) {
         throw new ForbiddenException('Could not create mutation preview');
+      }
+      if (context.mutationApprovalMode === 'staff_queue') {
+        await this.enqueuePendingAction(definition, parsed, context, id);
       }
       return {
         confirmed: false,
@@ -199,6 +226,44 @@ export class AiToolExecutorService {
       );
     }
     return { confirmed: true, id };
+  }
+
+  private async enqueuePendingAction(
+    definition: AiToolDefinition,
+    parsed: unknown,
+    context: AiExecutionContext,
+    confirmationId: string,
+  ): Promise<void> {
+    const actionType = definition.name.includes('delete')
+      ? 'delete'
+      : /(?:patch|put|update|set)_/.test(definition.name)
+        ? 'update'
+        : /(?:post|create|register|add)_/.test(definition.name)
+          ? 'create'
+          : 'other';
+    const entityType = definition.name
+      .replace(/^(?:get|post|patch|put|delete)_/, '')
+      .split(/_(?:by_id|upload|confirm|activation|reset)/)[0]
+      .slice(0, 80);
+    await this.dataSource.query(
+      `INSERT INTO pending_actions (
+         company_id, requested_by, conversation_id, source_confirmation_id,
+         tool_name, action_type, entity_type, summary, payload
+       ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7, $8, $9::jsonb)
+       ON CONFLICT (source_confirmation_id) WHERE source_confirmation_id IS NOT NULL
+       DO NOTHING`,
+      [
+        context.companyId,
+        context.userId,
+        context.conversationId,
+        confirmationId,
+        definition.name,
+        actionType,
+        entityType,
+        definition.description,
+        JSON.stringify(parsed),
+      ],
+    );
   }
 
   private async finishConfirmation(
@@ -315,6 +380,20 @@ export class AiToolExecutorService {
     definition: AiToolDefinition,
     role: UserRole,
   ): void {
+    if (
+      definition.mutability === 'mutable' &&
+      ![UserRole.ADMIN, UserRole.STAFF].includes(role)
+    ) {
+      throw new ForbiddenException(
+        `Role ${role} can only query its own data or register a communication`,
+      );
+    }
+    if (
+      definition.mutability === 'mutable' &&
+      [UserRole.ADMIN, UserRole.STAFF].includes(role)
+    ) {
+      return;
+    }
     if (!definition.allowedRoles.includes(role)) {
       throw new ForbiddenException(
         `Role ${role} is not allowed to execute ${definition.name}`,

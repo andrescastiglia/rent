@@ -724,7 +724,73 @@ export class DashboardService {
       })
       .slice(0, effectiveLimit);
 
+    const newItems: PersonActivityItemDto[] = [];
+
     if (isPrivileged) {
+      const [communications, pendingActions] = await Promise.all([
+        this.dataSource.query(
+          `SELECT pc.id, pc.person_type, pc.person_id, pc.message_type, pc.body,
+                  pc.created_at, pc.updated_at,
+                  concat_ws(' ', u.first_name, u.last_name) AS person_name
+             FROM person_communications pc
+             LEFT JOIN users u ON u.id = pc.user_id
+            WHERE pc.company_id = $1::uuid AND pc.direction = 'inbound'
+              AND pc.status = 'new'
+            ORDER BY pc.created_at DESC LIMIT $2`,
+          [companyId, effectiveLimit],
+        ),
+        this.dataSource.query(
+          `SELECT pa.id, pa.action_type, pa.entity_type, pa.summary, pa.created_at,
+                  pa.updated_at,
+                  concat_ws(' ', u.first_name, u.last_name) AS person_name
+             FROM pending_actions pa
+             JOIN users u ON u.id = pa.requested_by
+            WHERE pa.company_id = $1::uuid AND pa.status = 'pending'
+            ORDER BY pa.created_at DESC LIMIT $2`,
+          [companyId, effectiveLimit],
+        ),
+      ]);
+      newItems.push(
+        ...communications.map((item: any) => ({
+          id: `communication-${item.id}`,
+          sourceType: 'communication' as const,
+          personType: item.person_type,
+          personId: item.person_id,
+          personName: item.person_name || 'WhatsApp',
+          subject:
+            item.message_type === 'voice'
+              ? 'Nuevo mensaje de voz'
+              : 'Nuevo mensaje de WhatsApp',
+          body: item.body,
+          status: OwnerActivityStatus.PENDING,
+          dueAt: item.created_at ? new Date(item.created_at) : null,
+          completedAt: null,
+          propertyId: null,
+          propertyName: null,
+          createdAt: new Date(item.created_at),
+          updatedAt: new Date(item.updated_at),
+          actionKind: 'communication' as const,
+          actionId: item.id,
+        })),
+        ...pendingActions.map((item: any) => ({
+          id: `pending-action-${item.id}`,
+          sourceType: 'pending_action' as const,
+          personType: 'staff' as const,
+          personId: item.id,
+          personName: item.person_name || 'WhatsApp',
+          subject: `${item.action_type}: ${item.entity_type}`,
+          body: item.summary,
+          status: OwnerActivityStatus.PENDING,
+          dueAt: item.created_at ? new Date(item.created_at) : null,
+          completedAt: null,
+          propertyId: null,
+          propertyName: null,
+          createdAt: new Date(item.created_at),
+          updatedAt: new Date(item.updated_at),
+          actionKind: 'pending_action' as const,
+          actionId: item.id,
+        })),
+      );
       const pendingApprovals = await this.usersRepository.find({
         where: {
           companyId,
@@ -759,15 +825,11 @@ export class DashboardService {
           propertyName: null,
           createdAt: pendingUser.createdAt,
           updatedAt: pendingUser.updatedAt,
+          actionKind: 'registration',
+          actionId: pendingUser.id,
         }));
 
-      for (const item of pendingItems) {
-        if (item.createdAt < startOfToday) {
-          overdue.push(item);
-        } else {
-          today.push(item);
-        }
-      }
+      newItems.push(...pendingItems);
     }
 
     overdue.sort((a, b) => {
@@ -783,9 +845,12 @@ export class DashboardService {
     });
 
     return {
+      new: newItems
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, effectiveLimit),
       overdue: overdue.slice(0, effectiveLimit),
       today: today.slice(0, effectiveLimit),
-      total: overdue.length + today.length,
+      total: newItems.length + overdue.length + today.length,
     };
   }
 

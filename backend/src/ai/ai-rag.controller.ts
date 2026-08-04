@@ -23,7 +23,13 @@ interface AuthenticatedRequest {
 
 @Controller('ai')
 @UseGuards(JwtAuthGuard)
-@Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.OWNER, UserRole.TENANT)
+@Roles(
+  UserRole.ADMIN,
+  UserRole.STAFF,
+  UserRole.OWNER,
+  UserRole.TENANT,
+  UserRole.BUYER,
+)
 export class AiRagController {
   constructor(private readonly rollout: AiRagRolloutService) {}
 

@@ -3,6 +3,7 @@ import { zodFunction } from 'openai/helpers/zod';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
+import { UserRole } from '../users/entities/user.entity';
 import { AiToolCatalogService } from './ai-tool-catalog.service';
 import { AiToolExecutorService } from './ai-tool-executor.service';
 import { AiExecutionContext, AiToolDefinition } from './types/ai-tool.types';
@@ -623,7 +624,21 @@ export class AiToolsRegistryService {
     const mode = this.executor.getMode();
     const retiredReadTools = this.retiredReadTools(context.companyId);
     const eligible = this.catalog.getDefinitions().filter((tool) => {
-      if (!tool.allowedRoles.includes(context.role)) {
+      if (
+        [UserRole.OWNER, UserRole.TENANT, UserRole.BUYER].includes(
+          context.role,
+        ) &&
+        !['get_auth_profile', 'get_users_profile_me'].includes(tool.name)
+      ) {
+        return false;
+      }
+      if (
+        !tool.allowedRoles.includes(context.role) &&
+        !(
+          tool.mutability === 'mutable' &&
+          [UserRole.ADMIN, UserRole.STAFF].includes(context.role)
+        )
+      ) {
         return false;
       }
       if (mode === 'NONE') {

@@ -43,6 +43,9 @@ import { AiAnswerGeneratorService } from './rag/ai-answer-generator.service';
 import { AiRagAuditService } from './rag/ai-rag-audit.service';
 import { AiRagOrchestratorService } from './rag/ai-rag-orchestrator.service';
 import { AiRagRolloutService } from './rag/ai-rag-rollout.service';
+import { PendingActionsController } from './pending-actions.controller';
+import { PendingActionsService } from './pending-actions.service';
+import { AI_RAG_ROLLOUT } from './ai.tokens';
 
 @Module({
   imports: [
@@ -74,7 +77,7 @@ import { AiRagRolloutService } from './rag/ai-rag-rollout.service';
     NotificationsModule,
     MetricsModule,
   ],
-  controllers: [AiController, AiRagController],
+  controllers: [AiController, AiRagController, PendingActionsController],
   providers: [
     GithubIssuesService,
     AiConversationsService,
@@ -92,6 +95,8 @@ import { AiRagRolloutService } from './rag/ai-rag-rollout.service';
     AiRagAuditService,
     AiRagOrchestratorService,
     AiRagRolloutService,
+    { provide: AI_RAG_ROLLOUT, useExisting: AiRagRolloutService },
+    PendingActionsService,
   ],
   exports: [
     AiToolCatalogService,

@@ -27,7 +27,11 @@ export class ReadonlyRoleGuard implements CanActivate {
       return true;
     }
 
-    if (user.role !== UserRole.OWNER && user.role !== UserRole.TENANT) {
+    if (
+      user.role !== UserRole.OWNER &&
+      user.role !== UserRole.TENANT &&
+      user.role !== UserRole.BUYER
+    ) {
       return true;
     }
 

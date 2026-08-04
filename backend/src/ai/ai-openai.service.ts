@@ -125,7 +125,10 @@ export class AiOpenAiService {
     try {
       const executionContext: AiExecutionContext = {
         ...context,
-        confirmMutation: this.isExplicitConfirmation(prompt),
+        confirmMutation:
+          context.mutationApprovalMode === 'staff_queue'
+            ? false
+            : this.isExplicitConfirmation(prompt),
       };
       const tools = this.registry.getOpenAiTools(
         executionContext,
@@ -142,6 +145,12 @@ export class AiOpenAiService {
         'Use the following DB relationship map as hard context for tool planning.',
         this.relationshipContext.content,
         rolePreamble,
+        context.roleDataContext
+          ? `The following JSON is the complete authorized data scope for this user. Answer only from it and never request records by arbitrary IDs:\n${context.roleDataContext}`
+          : '',
+        context.mutationApprovalMode === 'staff_queue'
+          ? 'Any create, update, or delete operation is only a proposal. Explain that it was queued for staff review and never claim it was executed.'
+          : '',
       ].join('\n\n');
       let response = await client.responses.create({
         model,
