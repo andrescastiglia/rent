@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'node:crypto';
 import { Repository } from 'typeorm';
+import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import {
   UserModulePermissions,
   UserRole,
@@ -20,6 +22,8 @@ type RolloutContext = {
   companyId: string;
   role: UserRole;
   permissions?: UserModulePermissions;
+  mutationApprovalMode?: 'conversation' | 'staff_queue';
+  roleDataContext?: string;
 };
 
 type RolloutParams = {
@@ -52,9 +56,18 @@ export class AiRagRolloutService {
     private readonly classifier: AiIntentClassifierService,
     @InjectRepository(AiRagShadowComparison)
     private readonly comparisons: Repository<AiRagShadowComparison>,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   async respond(params: RolloutParams) {
+    params = await this.withRoleDataContext(params);
+    if (
+      [UserRole.OWNER, UserRole.TENANT, UserRole.BUYER].includes(
+        params.context.role,
+      )
+    ) {
+      return this.respondTools(params, 'TOOLS');
+    }
     const mode = this.getEffectiveMode(params.context.companyId);
     if (mode === 'TOOLS') return this.respondTools(params, mode);
 
@@ -68,6 +81,74 @@ export class AiRagRolloutService {
     const response = (await this.rag.respond(params)) as RagResult;
     const { ragRunId: _ragRunId, ...publicResponse } = response;
     return { ...publicResponse, retrievalMode: mode };
+  }
+
+  private async withRoleDataContext(
+    params: RolloutParams,
+  ): Promise<RolloutParams> {
+    const { role, userId, companyId } = params.context;
+    if (![UserRole.OWNER, UserRole.TENANT, UserRole.BUYER].includes(role)) {
+      return params;
+    }
+    const profileRows = await this.dataSource.query(
+      `SELECT id, first_name AS "firstName", last_name AS "lastName", email,
+              phone, role, language
+         FROM users WHERE id = $1::uuid AND company_id = $2::uuid
+           AND deleted_at IS NULL`,
+      [userId, companyId],
+    );
+    let related: unknown[];
+    if (role === UserRole.OWNER) {
+      related = await this.dataSource.query(
+        `SELECT o.id AS "ownerId", p.id AS "propertyId", p.name AS "propertyName",
+                p.operation_state AS "propertyStatus", l.id AS "leaseId",
+                l.status AS "leaseStatus", l.start_date AS "leaseStart",
+                l.end_date AS "leaseEnd", l.monthly_rent AS "monthlyRent"
+           FROM owners o
+           LEFT JOIN properties p ON p.owner_id = o.id AND p.deleted_at IS NULL
+           LEFT JOIN leases l ON l.owner_id = o.id AND l.property_id = p.id
+                              AND l.deleted_at IS NULL
+          WHERE o.user_id = $1::uuid AND o.company_id = $2::uuid
+            AND o.deleted_at IS NULL LIMIT 100`,
+        [userId, companyId],
+      );
+    } else if (role === UserRole.TENANT) {
+      related = await this.dataSource.query(
+        `SELECT t.id AS "tenantId", l.id AS "leaseId", l.status AS "leaseStatus",
+                l.start_date AS "leaseStart", l.end_date AS "leaseEnd",
+                l.monthly_rent AS "monthlyRent", p.id AS "propertyId",
+                p.name AS "propertyName"
+           FROM tenants t
+           LEFT JOIN leases l ON l.tenant_id = t.id AND l.deleted_at IS NULL
+           LEFT JOIN properties p ON p.id = l.property_id AND p.deleted_at IS NULL
+          WHERE t.user_id = $1::uuid AND t.company_id = $2::uuid
+            AND t.deleted_at IS NULL LIMIT 100`,
+        [userId, companyId],
+      );
+    } else {
+      related = await this.dataSource.query(
+        `SELECT b.id AS "buyerId", sa.id AS "saleAgreementId",
+                sa.total_amount AS "totalAmount", sa.currency,
+                sa.paid_amount AS "paidAmount", sa.installment_count AS "installmentCount",
+                sa.start_date AS "startDate", sf.name AS "folderName"
+           FROM buyers b
+           LEFT JOIN sale_agreements sa ON sa.buyer_id = b.id AND sa.deleted_at IS NULL
+           LEFT JOIN sale_folders sf ON sf.id = sa.folder_id AND sf.deleted_at IS NULL
+          WHERE b.user_id = $1::uuid AND b.company_id = $2::uuid
+            AND b.deleted_at IS NULL LIMIT 100`,
+        [userId, companyId],
+      );
+    }
+    return {
+      ...params,
+      context: {
+        ...params.context,
+        roleDataContext: JSON.stringify({
+          profile: profileRows[0] ?? null,
+          related,
+        }),
+      },
+    };
   }
 
   getEffectiveMode(companyId: string): AiRetrievalMode {

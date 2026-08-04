@@ -1,7 +1,7 @@
 import { apiClient } from "../api";
 import { getToken } from "../auth";
 
-export type CommunicationChannel = "whatsapp" | "email" | "sms";
+export type CommunicationChannel = "whatsapp";
 export type CommunicationRecipientRole = "tenant" | "owner" | "interested";
 export type CommunicationEvent =
   | "payment_received"

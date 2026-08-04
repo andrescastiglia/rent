@@ -355,4 +355,44 @@ describe('AiToolExecutorService', () => {
     expect(databaseQuery.mock.calls[0][0]).toContain("status = 'confirmed'");
     expect(databaseQuery.mock.calls[1][0]).toContain('result_hash');
   });
+
+  it('queues WhatsApp mutations for staff approval without executing them', async () => {
+    process.env.AI_TOOLS_MODE = 'FULL';
+    testTool.mutability = 'mutable';
+    databaseQuery
+      .mockResolvedValueOnce([{ id: '44444444-4444-4444-8444-444444444444' }])
+      .mockResolvedValueOnce([]);
+
+    const result = await service.execute(
+      'users_list',
+      { page: 1 },
+      {
+        ...context,
+        conversationId: '33333333-3333-4333-8333-333333333333',
+        mutationApprovalMode: 'staff_queue',
+        confirmMutation: false,
+      },
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({ status: 'pending_confirmation' }),
+    );
+    expect(databaseQuery.mock.calls[1][0]).toContain(
+      'INSERT INTO pending_actions',
+    );
+    expect(testTool.execute).not.toHaveBeenCalled();
+  });
+
+  it('rejects every mutable tool for owner, tenant, and buyer roles', async () => {
+    process.env.AI_TOOLS_MODE = 'FULL';
+    testTool.mutability = 'mutable';
+    testTool.allowedRoles = [UserRole.OWNER, UserRole.TENANT, UserRole.BUYER];
+
+    for (const role of [UserRole.OWNER, UserRole.TENANT, UserRole.BUYER]) {
+      await expect(
+        service.execute('users_list', { page: 1 }, { ...context, role }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    }
+    expect(testTool.execute).not.toHaveBeenCalled();
+  });
 });

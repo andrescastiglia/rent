@@ -22,6 +22,8 @@ export interface User {
   firstName: string;
   lastName: string;
   phone?: string | null;
+  whatsappEnabled?: boolean;
+  whatsappEnabledAt?: string | null;
   avatarUrl?: string | null;
   language?: "es" | "en" | "pt";
   role: "admin" | "owner" | "tenant" | "staff" | "buyer";

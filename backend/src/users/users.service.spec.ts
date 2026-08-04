@@ -3,6 +3,7 @@ import { UsersService } from './users.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import {
+  BadRequestException,
   ConflictException,
   NotFoundException,
   UnauthorizedException,
@@ -146,13 +147,26 @@ describe('UsersService', () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
-  it('updateProfile reuses update', async () => {
-    const spy = jest
-      .spyOn(service, 'update')
-      .mockResolvedValue({ id: 'u1' } as any);
-    const result = await service.updateProfile('u1', { firstName: 'A' } as any);
-    expect(spy).toHaveBeenCalledWith('u1', { firstName: 'A' });
-    expect(result).toEqual({ id: 'u1' });
+  it('updateProfile applies explicit WhatsApp consent to the own account', async () => {
+    const user = { id: 'u1', phone: '+54911', whatsappEnabled: false } as any;
+    mockUsersRepository.findOne.mockResolvedValue(user);
+    mockUsersRepository.save.mockImplementation(async (value) => value);
+    const result = await service.updateProfile('u1', {
+      firstName: 'A',
+      whatsappEnabled: true,
+    } as any);
+    expect(result.whatsappEnabled).toBe(true);
+    expect(result.whatsappEnabledAt).toBeInstanceOf(Date);
+  });
+
+  it('does not let an administrator grant WhatsApp consent for another user', async () => {
+    mockUsersRepository.findOne.mockResolvedValue({
+      id: 'u1',
+      phone: '+54911',
+    });
+    await expect(
+      service.update('u1', { whatsappEnabled: true } as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('remove throws when user does not exist', async () => {

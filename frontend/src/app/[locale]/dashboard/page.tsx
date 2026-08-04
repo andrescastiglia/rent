@@ -146,6 +146,35 @@ export default function DashboardPage() {
     }
   };
 
+  const handleQueuedAction = async (
+    item: PersonActivityItem,
+    action: "approve" | "reject" | "reply" | "read",
+  ) => {
+    if (!item.actionId) return;
+    try {
+      setUpdatingActivityId(item.id);
+      if (action === "reply") {
+        const body = window.prompt(t("peopleActivity.replyPrompt"));
+        if (!body?.trim()) return;
+        await dashboardApi.replyCommunication(item.actionId, body.trim());
+      } else if (action === "read") {
+        await dashboardApi.markCommunicationRead(item.actionId);
+      } else if (action === "approve") {
+        if (!window.confirm(t("peopleActivity.approvePrompt"))) return;
+        await dashboardApi.approvePendingAction(item.actionId);
+      } else {
+        const reason =
+          window.prompt(t("peopleActivity.rejectPrompt")) ?? undefined;
+        await dashboardApi.rejectPendingAction(item.actionId, reason);
+      }
+      await fetchPeopleActivity();
+    } catch (error) {
+      console.error("Failed to process queued action", error);
+    } finally {
+      setUpdatingActivityId(null);
+    }
+  };
+
   const renderPeopleTable = (
     items: PersonActivityItem[],
     emptyLabel: string,
@@ -208,24 +237,71 @@ export default function DashboardPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-sm">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleCompleteActivity(item)}
-                      disabled={updatingActivityId === item.id}
-                      className="px-2 py-1 rounded-sm bg-green-600 text-white disabled:opacity-50"
+                  {item.actionKind === "communication" ? (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void handleQueuedAction(item, "reply")}
+                        disabled={updatingActivityId === item.id}
+                        className="px-2 py-1 rounded-sm bg-green-600 text-white disabled:opacity-50"
+                      >
+                        {t("peopleActivity.actions.reply")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleQueuedAction(item, "read")}
+                        disabled={updatingActivityId === item.id}
+                        className="px-2 py-1 rounded-sm bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200 disabled:opacity-50"
+                      >
+                        {t("peopleActivity.actions.markRead")}
+                      </button>
+                    </div>
+                  ) : item.actionKind === "pending_action" ? (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void handleQueuedAction(item, "approve")}
+                        disabled={updatingActivityId === item.id}
+                        className="px-2 py-1 rounded-sm bg-green-600 text-white disabled:opacity-50"
+                      >
+                        {t("peopleActivity.actions.approve")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleQueuedAction(item, "reject")}
+                        disabled={updatingActivityId === item.id}
+                        className="px-2 py-1 rounded-sm bg-red-600 text-white disabled:opacity-50"
+                      >
+                        {t("peopleActivity.actions.reject")}
+                      </button>
+                    </div>
+                  ) : item.actionKind === "registration" ? (
+                    <Link
+                      href={`/${locale}/users`}
+                      className="text-blue-600 hover:underline"
                     >
-                      {t("peopleActivity.actions.complete")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleEditComment(item)}
-                      disabled={updatingActivityId === item.id}
-                      className="px-2 py-1 rounded-sm bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200 disabled:opacity-50"
-                    >
-                      {t("peopleActivity.actions.editComment")}
-                    </button>
-                  </div>
+                      {t("peopleActivity.actions.review")}
+                    </Link>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleCompleteActivity(item)}
+                        disabled={updatingActivityId === item.id}
+                        className="px-2 py-1 rounded-sm bg-green-600 text-white disabled:opacity-50"
+                      >
+                        {t("peopleActivity.actions.complete")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleEditComment(item)}
+                        disabled={updatingActivityId === item.id}
+                        className="px-2 py-1 rounded-sm bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200 disabled:opacity-50"
+                      >
+                        {t("peopleActivity.actions.editComment")}
+                      </button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}
@@ -629,6 +705,15 @@ export default function DashboardPage() {
             <p className="text-gray-600 dark:text-gray-400">{t("loading")}</p>
           ) : (
             <>
+              <section>
+                <h3 className="text-md font-semibold text-green-700 dark:text-green-400 mb-3">
+                  {t("peopleActivity.newTitle")}
+                </h3>
+                {renderPeopleTable(
+                  peopleActivity?.new ?? [],
+                  t("peopleActivity.noNew"),
+                )}
+              </section>
               <section>
                 <h3 className="text-md font-semibold text-red-700 dark:text-red-400 mb-3">
                   {t("peopleActivity.overdueTitle")}

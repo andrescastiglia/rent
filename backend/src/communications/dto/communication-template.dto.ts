@@ -20,7 +20,7 @@ export const communicationTemplateSchema = z
     name: z.string().min(1).max(120),
     event: z.enum(CommunicationEvent),
     recipientRole: z.enum(CommunicationRecipientRole),
-    channel: z.enum(CommunicationChannel),
+    channel: z.literal(CommunicationChannel.WHATSAPP),
     locale: z.string().min(2).max(10).default('es'),
     subject: z.string().max(200).nullable().optional(),
     body: z.string().min(1).max(10000),
@@ -94,7 +94,7 @@ export class TestCommunicationDto extends PreviewCommunicationDto {
       subject: z.string().max(200).optional(),
       body: z.string().max(10000).optional(),
       variables: variablesSchema,
-      channel: z.enum(CommunicationChannel),
+      channel: z.literal(CommunicationChannel.WHATSAPP),
       recipient: z.string().min(3).max(320),
     })
     .strict()

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -71,12 +72,15 @@ export class UsersService {
       throw new NotFoundException('user.notFound');
     }
 
-    await this.applyUserUpdates(user, updateUserDto);
+    await this.applyUserUpdates(user, updateUserDto, false);
     return this.usersRepository.save(user);
   }
 
   async updateProfile(id: string, updateUserDto: UpdateUserDto): Promise<User> {
-    return this.update(id, updateUserDto);
+    const user = await this.findOneById(id);
+    if (!user) throw new NotFoundException('user.notFound');
+    await this.applyUserUpdates(user, updateUserDto, true);
+    return this.usersRepository.save(user);
   }
 
   async remove(id: string): Promise<void> {
@@ -150,6 +154,7 @@ export class UsersService {
   private async applyUserUpdates(
     user: User,
     updateUserDto: UpdateUserDto,
+    allowWhatsappConsent: boolean,
   ): Promise<void> {
     if (updateUserDto.email !== undefined) {
       const nextEmail = updateUserDto.email.trim().toLowerCase();
@@ -170,6 +175,23 @@ export class UsersService {
 
     if (updateUserDto.phone !== undefined) {
       user.phone = updateUserDto.phone.trim();
+    }
+
+    if (updateUserDto.whatsappEnabled !== undefined) {
+      if (!allowWhatsappConsent) {
+        throw new BadRequestException(
+          'WhatsApp consent can only be changed by the account owner',
+        );
+      }
+      if (updateUserDto.whatsappEnabled && !user.phone?.trim()) {
+        throw new BadRequestException(
+          'A phone number is required to enable WhatsApp',
+        );
+      }
+      user.whatsappEnabled = updateUserDto.whatsappEnabled;
+      user.whatsappEnabledAt = updateUserDto.whatsappEnabled
+        ? new Date()
+        : null;
     }
 
     if (updateUserDto.language !== undefined) {

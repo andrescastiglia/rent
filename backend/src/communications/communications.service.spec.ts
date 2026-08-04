@@ -28,6 +28,7 @@ describe('CommunicationsService', () => {
   const whatsappService = {
     sendTextMessage: jest.fn(),
   };
+  const dataSource = { query: jest.fn() };
   let service: CommunicationsService;
 
   beforeEach(() => {
@@ -41,6 +42,7 @@ describe('CommunicationsService', () => {
       templatesRepository as any,
       deliveriesRepository as any,
       whatsappService as any,
+      dataSource as any,
     );
   });
 
@@ -170,7 +172,7 @@ describe('CommunicationsService', () => {
       name: 'Recordatorio',
       event: CommunicationEvent.PAYMENT_REMINDER,
       recipientRole: CommunicationRecipientRole.TENANT,
-      channel: CommunicationChannel.EMAIL,
+      channel: CommunicationChannel.WHATSAPP,
       locale: 'es',
       subject: 'Hola {{nombre}}',
       body: '{{nombre}}, vence {{fecha}}',
@@ -194,6 +196,7 @@ describe('CommunicationsService', () => {
       companyId: 'company-1',
       subject: null,
       body: 'Anterior',
+      channel: CommunicationChannel.WHATSAPP,
       variables: [],
     });
 
@@ -303,52 +306,24 @@ describe('CommunicationsService', () => {
     });
   });
 
-  it('sends email webhooks with authorization and handles provider errors', async () => {
-    process.env.COMMUNICATION_EMAIL_WEBHOOK_URL = 'https://email.test/send';
-    process.env.COMMUNICATION_EMAIL_WEBHOOK_TOKEN = 'secret';
-    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ id: 'email-1' }),
-    } as Response);
-
-    const sent = await service.dispatchEvent({
-      ...dispatchInput,
-      channel: CommunicationChannel.EMAIL,
-      recipient: 'ana@example.com',
-      fallbackSubject: 'Recibo',
-      skipTemplateLookup: true,
-    });
-    expect(sent.providerMessageId).toBe('email-1');
-    expect(fetchMock).toHaveBeenCalledWith(
-      'https://email.test/send',
-      expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: 'Bearer secret' }),
+  it('rejects email and SMS before contacting a provider', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch');
+    await expect(
+      service.dispatchEvent({
+        ...dispatchInput,
+        channel: CommunicationChannel.EMAIL,
+        recipient: 'ana@example.com',
+        skipTemplateLookup: true,
       }),
-    );
-
-    fetchMock.mockResolvedValueOnce({
-      ok: false,
-      status: 503,
-      json: async () => ({ error: 'mail provider down' }),
-    } as Response);
-    const failed = await service.dispatchEvent({
-      ...dispatchInput,
-      channel: CommunicationChannel.EMAIL,
-      recipient: 'ana@example.com',
-      skipTemplateLookup: true,
-    });
-    expect(failed.status).toBe(CommunicationDeliveryStatus.FAILED);
-    expect(failed.errorMessage).toBe('mail provider down');
-  });
-
-  it('records a missing generic provider configuration as a failed attempt', async () => {
-    const delivery = await service.dispatchEvent({
-      ...dispatchInput,
-      channel: CommunicationChannel.SMS,
-      recipient: '+5491111111111',
-      skipTemplateLookup: true,
-    });
-    expect(delivery.status).toBe(CommunicationDeliveryStatus.FAILED);
-    expect(delivery.errorMessage).toContain('WEBHOOK_URL is not configured');
+    ).rejects.toThrow(BadRequestException);
+    await expect(
+      service.dispatchEvent({
+        ...dispatchInput,
+        channel: CommunicationChannel.SMS,
+        recipient: '+5491111111111',
+        skipTemplateLookup: true,
+      }),
+    ).rejects.toThrow(BadRequestException);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

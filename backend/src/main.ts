@@ -15,7 +15,9 @@ import { shutdownTracing, startTracing } from './tracing';
 async function bootstrap() {
   startProfiling();
   await startTracing();
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+  });
   app.set('trust proxy', 1);
 
   const configuredOrigins = process.env.FRONTEND_URL

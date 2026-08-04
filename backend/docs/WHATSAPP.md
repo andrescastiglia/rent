@@ -19,6 +19,9 @@ Variables de entorno requeridas:
 - `WHATSAPP_PHONE_NUMBER_ID=...`
 - `WHATSAPP_ACCESS_TOKEN=...`
 - `WHATSAPP_VERIFY_TOKEN=...`
+- `WHATSAPP_APP_SECRET=...` (obligatorio para validar `X-Hub-Signature-256`)
+- `WHATSAPP_MAX_VOICE_BYTES=16000000`
+- `OPENAI_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe`
 - `BATCH_WHATSAPP_INTERNAL_TOKEN=...`
 - `WHATSAPP_DOCUMENT_LINK_SECRET=...`
 
@@ -32,6 +35,16 @@ Variables recomendadas para links de documentos:
 - `WHATSAPP_DOCUMENTS_BASE_URL=$FRONTEND_URL` (URL base publicada en el link de WhatsApp; opcional)
 - `PORT=3001` (fallback local del backend si no se define `WHATSAPP_DOCUMENTS_BASE_URL` ni `FRONTEND_URL`)
 - `WHATSAPP_DOCUMENT_LINK_TTL_SECONDS=604800` (TTL en segundos para links firmados)
+
+Los mensajes de texto y audio entrantes sólo se procesan cuando el teléfono
+coincide de forma unívoca con un usuario activo que habilitó WhatsApp
+expresamente. Las consultas de owner, tenant y buyer se limitan a sus propios
+datos. Sus comunicaciones quedan en **Actividades de personas > Nuevas**.
+
+Las altas y modificaciones solicitadas por staff/admin no se ejecutan desde la
+conversación: se guardan en `pending_actions` y requieren aprobación de un
+staff/admin. Email y SMS están deshabilitados tanto en API como en plantillas y
+notificaciones; WhatsApp es el único canal permitido.
 
 ### Configuración de Endpoint
 
