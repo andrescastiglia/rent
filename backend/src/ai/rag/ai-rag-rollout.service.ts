@@ -71,10 +71,12 @@ export class AiRagRolloutService {
     const mode = this.getEffectiveMode(params.context.companyId);
     if (mode === 'TOOLS') return this.respondTools(params, mode);
 
+    const strategy = this.classifier.classify(params.prompt);
+    if (strategy === 'mutation') {
+      return this.respondTools(params, mode);
+    }
+
     if (mode === 'RAG_SHADOW') {
-      if (this.classifier.classify(params.prompt) === 'mutation') {
-        return this.respondTools(params, mode);
-      }
       return this.respondShadow(params);
     }
 
