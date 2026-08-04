@@ -40,6 +40,38 @@ CREATE INDEX IF NOT EXISTS idx_person_communications_inbox
 CREATE INDEX IF NOT EXISTS idx_person_communications_person
   ON person_communications (company_id, person_type, person_id, created_at DESC);
 
+-- Some historical snapshots were baselined through migration 091 without this
+-- runtime table. Recreate its exact idempotent contract before referencing it.
+CREATE TABLE IF NOT EXISTS ai_tool_mutation_confirmations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id uuid NOT NULL REFERENCES ai_conversations(id) ON DELETE CASCADE,
+  company_id uuid,
+  user_id uuid NOT NULL,
+  tool_name varchar(160) NOT NULL,
+  payload jsonb NOT NULL,
+  payload_hash varchar(64) NOT NULL,
+  status varchar(20) NOT NULL DEFAULT 'pending',
+  previewed_at timestamptz NOT NULL DEFAULT now(),
+  confirmed_at timestamptz,
+  executed_at timestamptz,
+  result_hash varchar(64),
+  expires_at timestamptz NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT ck_ai_tool_confirmation_status
+    CHECK (status IN ('pending', 'confirmed', 'executed', 'failed', 'expired')),
+  CONSTRAINT ck_ai_tool_confirmation_payload_hash
+    CHECK (payload_hash ~ '^[0-9a-f]{64}$'),
+  CONSTRAINT ck_ai_tool_confirmation_result_hash
+    CHECK (result_hash IS NULL OR result_hash ~ '^[0-9a-f]{64}$')
+);
+CREATE INDEX IF NOT EXISTS idx_ai_tool_confirmation_lookup
+  ON ai_tool_mutation_confirmations (
+    conversation_id, user_id, tool_name, payload_hash, created_at DESC
+  );
+CREATE INDEX IF NOT EXISTS idx_ai_tool_confirmation_expiry
+  ON ai_tool_mutation_confirmations (expires_at)
+  WHERE status = 'pending';
+
 CREATE TABLE IF NOT EXISTS pending_actions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id uuid NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
