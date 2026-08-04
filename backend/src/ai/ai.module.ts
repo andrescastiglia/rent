@@ -45,6 +45,7 @@ import { AiRagOrchestratorService } from './rag/ai-rag-orchestrator.service';
 import { AiRagRolloutService } from './rag/ai-rag-rollout.service';
 import { PendingActionsController } from './pending-actions.controller';
 import { PendingActionsService } from './pending-actions.service';
+import { AI_RAG_ROLLOUT } from './ai.tokens';
 
 @Module({
   imports: [
@@ -94,6 +95,7 @@ import { PendingActionsService } from './pending-actions.service';
     AiRagAuditService,
     AiRagOrchestratorService,
     AiRagRolloutService,
+    { provide: AI_RAG_ROLLOUT, useExisting: AiRagRolloutService },
     PendingActionsService,
   ],
   exports: [

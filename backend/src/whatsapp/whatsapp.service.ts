@@ -12,8 +12,24 @@ import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { ModuleRef } from '@nestjs/core';
 import OpenAI, { toFile } from 'openai';
 import { DataSource } from 'typeorm';
-import { AiRagRolloutService } from '../ai/rag/ai-rag-rollout.service';
+import { AI_RAG_ROLLOUT } from '../ai/ai.tokens';
 import { UserRole } from '../users/entities/user.entity';
+
+type AiRagRollout = {
+  respond(params: {
+    prompt: string;
+    context: {
+      userId: string;
+      companyId: string;
+      role: UserRole;
+      mutationApprovalMode: 'staff_queue';
+    };
+  }): Promise<{
+    conversationId: string;
+    outputText: string;
+    toolState?: Record<string, unknown>;
+  }>;
+};
 
 export type WhatsappSendResult = {
   messageId: string | null;
@@ -396,7 +412,7 @@ export class WhatsappService implements OnApplicationBootstrap {
     if (!inserted[0]) return;
 
     try {
-      const rollout = this.moduleRef?.get(AiRagRolloutService, {
+      const rollout = this.moduleRef?.get<AiRagRollout>(AI_RAG_ROLLOUT, {
         strict: false,
       });
       if (!rollout)
