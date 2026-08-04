@@ -624,6 +624,9 @@ export class AiToolsRegistryService {
     const mode = this.executor.getMode();
     const retiredReadTools = this.retiredReadTools(context.companyId);
     const eligible = this.catalog.getDefinitions().filter((tool) => {
+      if (context.mutationIntent && tool.mutability !== 'mutable') {
+        return false;
+      }
       if (
         [UserRole.OWNER, UserRole.TENANT, UserRole.BUYER].includes(
           context.role,

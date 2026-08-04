@@ -149,15 +149,19 @@ export class AiOpenAiService {
           ? `The following JSON is the complete authorized data scope for this user. Answer only from it and never request records by arbitrary IDs:\n${context.roleDataContext}`
           : '',
         context.mutationApprovalMode === 'staff_queue'
-          ? 'Any create, update, or delete operation is only a proposal. Explain that it was queued for staff review and never claim it was executed.'
+          ? 'Any create, update, or delete operation is only a proposal. For a mutation intent, you must call the appropriate tool. Only say it was queued for staff review when the tool result has status pending_confirmation; never claim it was executed.'
           : '',
       ].join('\n\n');
+      let mutationProposalQueued = false;
       let response = await client.responses.create({
         model,
         reasoning: { effort: 'none' },
         instructions,
         input: [...conversationHistory, { role: 'user', content: prompt }],
         tools: responseTools,
+        ...(context.mutationIntent
+          ? { tool_choice: 'required' as const, parallel_tool_calls: false }
+          : {}),
       } as OpenAI.Responses.ResponseCreateParamsNonStreaming);
       const usage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
 
@@ -168,6 +172,14 @@ export class AiOpenAiService {
             item.type === 'function_call',
         );
         if (calls.length === 0) {
+          if (context.mutationIntent && !mutationProposalQueued) {
+            return {
+              model: response.model,
+              outputText:
+                'No pude registrar la solicitud como tarea pendiente. Revisá los datos e intentá nuevamente.',
+              usage,
+            };
+          }
           return {
             model: response.model,
             outputText: response.output_text ?? '',
@@ -190,6 +202,9 @@ export class AiOpenAiService {
                 ? tool.$parseRaw(call.arguments)
                 : JSON.parse(call.arguments);
               const result = await tool.$callback(args);
+              mutationProposalQueued =
+                mutationProposalQueued ||
+                this.isPendingMutationProposal(result);
               return this.toolOutput(call.call_id, result);
             } catch (error) {
               return this.toolOutput(call.call_id, {
@@ -220,6 +235,14 @@ export class AiOpenAiService {
   private isExplicitConfirmation(prompt: string): boolean {
     return /^\s*(?:s[ií]|confirmo|confirmar|confirmado|adelante|proced[eé]|ejecut[aá])(?:\s|[.!])*$/i.test(
       prompt,
+    );
+  }
+
+  private isPendingMutationProposal(value: unknown): boolean {
+    return (
+      !!value &&
+      typeof value === 'object' &&
+      (value as Record<string, unknown>).status === 'pending_confirmation'
     );
   }
 
