@@ -139,6 +139,44 @@ describe('AiToolsRegistryService', () => {
     ).toBeTruthy();
   });
 
+  it('exposes only mutable tools for a classified mutation intent', () => {
+    const catalog = {
+      getDefinitions: jest.fn().mockReturnValue([
+        {
+          name: 'get_owners',
+          description: 'Lists owners',
+          mutability: 'readonly',
+          allowedRoles: [UserRole.ADMIN],
+          parameters: z.object({}).strict(),
+          execute: jest.fn(),
+        },
+        {
+          name: 'post_owners',
+          description: 'Creates an owner',
+          mutability: 'mutable',
+          allowedRoles: [UserRole.ADMIN],
+          parameters: z
+            .object({ firstName: z.string(), lastName: z.string() })
+            .strict(),
+          execute: jest.fn(),
+        },
+      ]),
+    } as unknown as AiToolCatalogService;
+    const executor = {
+      execute: jest.fn(),
+      getMode: jest.fn().mockReturnValue('FULL'),
+    } as unknown as AiToolExecutorService;
+
+    const tools = new AiToolsRegistryService(catalog, executor).getOpenAiTools({
+      userId: 'user-1',
+      companyId: 'company-1',
+      role: UserRole.ADMIN,
+      mutationIntent: true,
+    }) as any[];
+
+    expect(tools.map((tool) => tool.function.name)).toEqual(['post_owners']);
+  });
+
   it('keeps typed anyOf branches for transformed union fields', () => {
     const catalog = {
       getDefinitions: jest.fn().mockReturnValue([

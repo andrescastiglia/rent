@@ -127,6 +127,105 @@ describe('AiOpenAiService', () => {
     });
   });
 
+  it('requires a mutable tool and accepts only a persisted pending proposal', async () => {
+    process.env.OPENAI_API_KEY = 'key-1';
+    process.env.OPENAI_MODEL = 'gpt-test';
+    const callback = jest.fn().mockResolvedValue({
+      status: 'pending_confirmation',
+      confirmationId: 'confirmation-1',
+    });
+    const registry = {
+      getOpenAiTools: jest.fn().mockReturnValue([
+        {
+          type: 'function',
+          function: {
+            name: 'post_owners',
+            description: 'Creates an owner proposal',
+            parameters: { type: 'object', properties: {} },
+            strict: true,
+          },
+          $callback: callback,
+        },
+      ]),
+    } as unknown as AiToolsRegistryService;
+    responsesCreateMock
+      .mockResolvedValueOnce({
+        id: 'resp-mutation-1',
+        model: 'gpt-test',
+        output_text: '',
+        output: [
+          {
+            type: 'function_call',
+            call_id: 'call-1',
+            name: 'post_owners',
+            arguments: '{"firstName":"Juan","lastName":"Pérez"}',
+          },
+        ],
+        usage: { input_tokens: 5, output_tokens: 2, total_tokens: 7 },
+      })
+      .mockResolvedValueOnce({
+        id: 'resp-mutation-2',
+        model: 'gpt-test',
+        output_text: 'La solicitud quedó pendiente de revisión.',
+        output: [],
+        usage: { input_tokens: 4, output_tokens: 3, total_tokens: 7 },
+      });
+
+    const result = await new AiOpenAiService(registry).respond(
+      'Creá un propietario llamado Juan Pérez',
+      {
+        userId: 'u1',
+        companyId: 'c1',
+        role: UserRole.ADMIN,
+        mutationApprovalMode: 'staff_queue',
+        mutationIntent: true,
+      },
+    );
+
+    expect(registry.getOpenAiTools).toHaveBeenCalledWith(
+      expect.objectContaining({ mutationIntent: true }),
+      expect.any(String),
+    );
+    expect(responsesCreateMock.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        tool_choice: 'required',
+        parallel_tool_calls: false,
+      }),
+    );
+    expect(callback).toHaveBeenCalledWith({
+      firstName: 'Juan',
+      lastName: 'Pérez',
+    });
+    expect(result.outputText).toBe('La solicitud quedó pendiente de revisión.');
+  });
+
+  it('does not claim a mutation was queued when no tool persisted it', async () => {
+    process.env.OPENAI_API_KEY = 'key-1';
+    process.env.OPENAI_MODEL = 'gpt-test';
+    const registry = {
+      getOpenAiTools: jest.fn().mockReturnValue([]),
+    } as unknown as AiToolsRegistryService;
+    responsesCreateMock.mockResolvedValue({
+      id: 'resp-without-call',
+      model: 'gpt-test',
+      output_text: 'Quedó enviada para revisión.',
+      output: [],
+      usage: { input_tokens: 5, output_tokens: 2, total_tokens: 7 },
+    });
+
+    const result = await new AiOpenAiService(registry).respond('Creá algo', {
+      userId: 'u1',
+      companyId: 'c1',
+      role: UserRole.ADMIN,
+      mutationApprovalMode: 'staff_queue',
+      mutationIntent: true,
+    });
+
+    expect(result.outputText).toBe(
+      'No pude registrar la solicitud como tarea pendiente. Revisá los datos e intentá nuevamente.',
+    );
+  });
+
   it('respond maps runner failures through provider mapper', async () => {
     process.env.OPENAI_API_KEY = 'key-1';
     process.env.OPENAI_MODEL = 'gpt-test';

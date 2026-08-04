@@ -12,6 +12,7 @@ export interface AiExecutionContext {
   confirmMutation?: boolean;
   confirmationId?: string;
   mutationApprovalMode?: 'conversation' | 'staff_queue';
+  mutationIntent?: boolean;
   roleDataContext?: string;
 }
 

@@ -69,12 +69,11 @@ export class AiRagRolloutService {
       return this.respondTools(params, 'TOOLS');
     }
     const mode = this.getEffectiveMode(params.context.companyId);
-    if (mode === 'TOOLS') return this.respondTools(params, mode);
-
     const strategy = this.classifier.classify(params.prompt);
     if (strategy === 'mutation') {
-      return this.respondTools(params, mode);
+      return this.respondTools(params, mode, true);
     }
+    if (mode === 'TOOLS') return this.respondTools(params, mode);
 
     if (mode === 'RAG_SHADOW') {
       return this.respondShadow(params);
@@ -231,7 +230,11 @@ export class AiRagRolloutService {
     return { ...tools.value, retrievalMode: 'RAG_SHADOW' as const };
   }
 
-  private async respondTools(params: RolloutParams, mode: AiRetrievalMode) {
+  private async respondTools(
+    params: RolloutParams,
+    mode: AiRetrievalMode,
+    mutationIntent = false,
+  ) {
     const conversation = await this.conversations.getOrCreateConversation({
       conversationId: params.conversationId,
       userId: params.context.userId,
@@ -247,6 +250,7 @@ export class AiRagRolloutService {
         {
           ...params.context,
           conversationId: conversation.id,
+          mutationIntent,
         },
         history,
       );

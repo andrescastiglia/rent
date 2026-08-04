@@ -102,7 +102,7 @@ describe('AiRagRolloutService', () => {
     expect(result.retrievalMode).toBe('RAG_READ');
   });
 
-  it.each(['RAG_READ', 'HYBRID'] as const)(
+  it.each(['TOOLS', 'RAG_READ', 'HYBRID'] as const)(
     'routes mutations through tools before selecting %s RAG',
     async (mode) => {
       process.env.AI_RETRIEVAL_MODE = mode;
@@ -115,7 +115,11 @@ describe('AiRagRolloutService', () => {
 
       expect(result.outputText).toBe('legacy answer');
       expect(result.retrievalMode).toBe(mode);
-      expect(legacy.respond).toHaveBeenCalledTimes(1);
+      expect(legacy.respond).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ mutationIntent: true }),
+        expect.any(Array),
+      );
       expect(rag.respond).not.toHaveBeenCalled();
       expect(repo.save).not.toHaveBeenCalled();
     },
