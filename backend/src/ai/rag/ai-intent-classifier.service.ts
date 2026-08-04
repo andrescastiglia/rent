@@ -11,8 +11,9 @@ export class AiIntentClassifierService {
     }
 
     const mutation =
-      /\b(cre(?:a|á|ar|ame)|agreg(?:a|á|ar)|actualiz(?:a|á|ar)|modific(?:a|á|ar)|elimin(?:a|á|ar)|borr(?:a|á|ar)|registr(?:a|á|ar)|cobr(?:a|á|ar)|pag(?:a|á|ar)|envi(?:a|á|ar)|cancel(?:a|á|ar)|reserv(?:a|á|ar))(?=\s|$|[.,;:!?])/i;
-    if (mutation.test(text)) return 'mutation';
+      /\b(cr(?:e(?:a|á|ar|ame|e|é|eme)|é(?:ame|eme))|agreg(?:a|á|ar|ue)|actualiz(?:a|á|ar)|actualic(?:e|en)|modific(?:a|á|ar)|modifiqu(?:e|en)|elimin(?:a|á|ar|e)|borr(?:a|á|ar|e)|registr(?:a|á|ar|e)|cobr(?:a|á|ar|e)|pag(?:a|á|ar|ue)|env(?:i(?:a|á|ar|e)|í(?:a|e))|cancel(?:a|á|ar|e)|reserv(?:a|á|ar|e)|cambi(?:a|á|ar|e)|edit(?:a|á|ar|e)|asign(?:a|á|ar|e))(?=\s|$|[.,;:!?])/i;
+    const lifecycleMutation = /\bd(?:a|á|ar|e|é)\s+de\s+(?:alta|baja)\b/i;
+    if (mutation.test(text) || lifecycleMutation.test(text)) return 'mutation';
 
     if (
       /\bdocumentos?\b/i.test(text) &&

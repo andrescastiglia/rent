@@ -102,6 +102,25 @@ describe('AiRagRolloutService', () => {
     expect(result.retrievalMode).toBe('RAG_READ');
   });
 
+  it.each(['RAG_READ', 'HYBRID'] as const)(
+    'routes mutations through tools before selecting %s RAG',
+    async (mode) => {
+      process.env.AI_RETRIEVAL_MODE = mode;
+      classifier.classify.mockReturnValueOnce('mutation');
+
+      const result = await service.respond({
+        ...params,
+        prompt: 'Créeme un propietario que se llame Juan Pérez',
+      });
+
+      expect(result.outputText).toBe('legacy answer');
+      expect(result.retrievalMode).toBe(mode);
+      expect(legacy.respond).toHaveBeenCalledTimes(1);
+      expect(rag.respond).not.toHaveBeenCalled();
+      expect(repo.save).not.toHaveBeenCalled();
+    },
+  );
+
   it('does not shadow-execute mutations', async () => {
     process.env.AI_RETRIEVAL_MODE = 'RAG_SHADOW';
     classifier.classify.mockReturnValueOnce('mutation');
