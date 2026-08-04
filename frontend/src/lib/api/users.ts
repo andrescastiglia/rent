@@ -91,8 +91,12 @@ const mapUser = (raw: BackendUser): User => ({
   firstName: raw.firstName,
   lastName: raw.lastName,
   phone: raw.phone ?? null,
-  whatsappEnabled: raw.whatsappEnabled ?? false,
-  whatsappEnabledAt: raw.whatsappEnabledAt ?? null,
+  ...(raw.whatsappEnabled === undefined
+    ? {}
+    : {
+        whatsappEnabled: raw.whatsappEnabled,
+        whatsappEnabledAt: raw.whatsappEnabledAt ?? null,
+      }),
   avatarUrl: raw.avatarUrl ?? null,
   language: normalizeLanguage(raw.language),
   role: raw.role,
