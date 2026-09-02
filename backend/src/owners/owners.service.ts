@@ -128,6 +128,14 @@ export class OwnersService {
     });
   }
 
+  async findAllScoped(user: UserContext): Promise<Owner[]> {
+    if (user.role === UserRole.OWNER) {
+      const owner = await this.findByUserId(user.id, user.companyId);
+      return owner ? [owner] : [];
+    }
+    return this.findAll(user.companyId);
+  }
+
   /**
    * Get owner by ID.
    * @param id - Owner ID
@@ -145,6 +153,10 @@ export class OwnersService {
     }
 
     return owner;
+  }
+
+  async findOneScoped(id: string, user: UserContext): Promise<Owner> {
+    return this.assertOwnerAccess(id, user.companyId, user);
   }
 
   /**
@@ -233,6 +245,15 @@ export class OwnersService {
     await this.ownersRepository.save(owner);
 
     return this.findOne(id, companyId);
+  }
+
+  async updateScoped(
+    id: string,
+    dto: UpdateOwnerDto,
+    user: UserContext,
+  ): Promise<Owner> {
+    await this.assertOwnerAccess(id, user.companyId, user);
+    return this.update(id, dto, user.companyId);
   }
 
   private async applyOwnerUserUpdates(
@@ -377,6 +398,7 @@ export class OwnersService {
     user: UserContext,
     limit = 100,
   ): Promise<OwnerSettlementSummary[]> {
+    this.assertCompanyContext(companyId, user);
     const params: Array<string | number> = [companyId];
     const ownerScope = await this.getOwnerScopeCondition(user, params);
 
@@ -660,6 +682,7 @@ export class OwnersService {
     companyId: string,
     user: UserContext,
   ): Promise<{ buffer: Buffer; contentType: string; filename: string }> {
+    this.assertCompanyContext(companyId, user);
     const params: Array<string> = [companyId, settlementId];
     const ownerScope = await this.getOwnerScopeCondition(user, params);
 
@@ -733,12 +756,20 @@ export class OwnersService {
     });
   }
 
+  async listActivitiesScoped(
+    ownerId: string,
+    user: UserContext,
+  ): Promise<OwnerActivity[]> {
+    await this.assertOwnerAccess(ownerId, user.companyId, user);
+    return this.listActivities(ownerId, user.companyId);
+  }
+
   async createActivity(
     ownerId: string,
     dto: CreateOwnerActivityDto,
     user: UserContext,
   ): Promise<OwnerActivity> {
-    await this.findOne(ownerId, user.companyId);
+    await this.assertOwnerAccess(ownerId, user.companyId, user);
 
     if (dto.propertyId) {
       const property = await this.propertiesRepository.findOne({
@@ -824,6 +855,16 @@ export class OwnersService {
     }
 
     return this.ownerActivitiesRepository.save(activity);
+  }
+
+  async updateActivityScoped(
+    ownerId: string,
+    activityId: string,
+    dto: UpdateOwnerActivityDto,
+    user: UserContext,
+  ): Promise<OwnerActivity> {
+    await this.assertOwnerAccess(ownerId, user.companyId, user);
+    return this.updateActivity(ownerId, activityId, dto, user.companyId);
   }
 
   private mapSettlement(row: OwnerSettlementRow): OwnerSettlementSummary {
@@ -929,11 +970,18 @@ export class OwnersService {
     companyId: string,
     user: UserContext,
   ): Promise<Owner> {
+    this.assertCompanyContext(companyId, user);
     const owner = await this.findOne(ownerId, companyId);
     if (user.role === UserRole.OWNER && owner.userId !== user.id) {
       throw new ForbiddenException('You can only access your own settlements');
     }
     return owner;
+  }
+
+  private assertCompanyContext(companyId: string, user: UserContext): void {
+    if (!companyId || !user.companyId || companyId !== user.companyId) {
+      throw new ForbiddenException('Company scope mismatch');
+    }
   }
 
   private async getOwnerScopeCondition(

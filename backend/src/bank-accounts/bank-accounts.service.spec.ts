@@ -339,7 +339,10 @@ describe('BankAccountsService', () => {
       await expect(
         service.remove('ba1', 'c1', adminUser),
       ).resolves.toBeUndefined();
-      expect(bankAccountsRepository.softDelete).toHaveBeenCalledWith('ba1');
+      expect(bankAccountsRepository.softDelete).toHaveBeenCalledWith({
+        id: 'ba1',
+        companyId: 'c1',
+      });
     });
 
     it('throws ForbiddenException when not admin', async () => {

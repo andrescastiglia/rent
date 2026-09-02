@@ -624,7 +624,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Dashboard statistics object with numeric KPIs and currency code.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: emptyObjectSchema,
       execute: async (_args, context) =>
         deps.dashboardService.getStats(
@@ -2466,7 +2466,7 @@ export function buildAiToolDefinitions(
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: emptyObjectSchema,
       execute: async (_args, context) =>
-        deps.ownersService.findAll(context.companyId ?? ''),
+        deps.ownersService.findAllScoped(toScopedUser(context) as any),
     },
     {
       name: 'post_owners',
@@ -2475,7 +2475,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The newly created owner record with assigned UUID and linked user account.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: CreateOwnerDto.zodSchema,
       execute: async (args, context) =>
         deps.ownersService.create(
@@ -2494,7 +2494,10 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.ownersService.findOne(id, context.companyId ?? '');
+        return deps.ownersService.findOneScoped(
+          id,
+          toScopedUser(context) as any,
+        );
       },
     },
     {
@@ -2509,10 +2512,10 @@ export function buildAiToolDefinitions(
         const parsed = withParams(UpdateOwnerDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.ownersService.update(
+        return deps.ownersService.updateScoped(
           parsed.id,
           parsed,
-          context.companyId ?? '',
+          toScopedUser(context) as any,
         );
       },
     },
@@ -2576,7 +2579,10 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.ownersService.listActivities(id, context.companyId ?? '');
+        return deps.ownersService.listActivitiesScoped(
+          id,
+          toScopedUser(context) as any,
+        );
       },
     },
     {
@@ -2593,10 +2599,11 @@ export function buildAiToolDefinitions(
         const parsed = withParams(CreateOwnerActivityDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.ownersService.createActivity(parsed.id, parsed, {
-          id: context.userId,
-          companyId: context.companyId ?? '',
-        });
+        return deps.ownersService.createActivity(
+          parsed.id,
+          parsed,
+          toScopedUser(context) as any,
+        );
       },
     },
     {
@@ -2615,11 +2622,11 @@ export function buildAiToolDefinitions(
           id: uuidSchema,
           activityId: uuidSchema,
         }).parse(args) as any;
-        return deps.ownersService.updateActivity(
+        return deps.ownersService.updateActivityScoped(
           parsed.id,
           parsed.activityId,
           parsed,
-          context.companyId ?? '',
+          toScopedUser(context) as any,
         );
       },
     },
@@ -3091,7 +3098,11 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.bankAccountsService.findOne(id, context.companyId ?? '');
+        return deps.bankAccountsService.findOne(
+          id,
+          context.companyId ?? '',
+          toScopedUser(context) as any,
+        );
       },
     },
     {
@@ -3104,7 +3115,11 @@ export function buildAiToolDefinitions(
       parameters: createBankAccountSchema,
       execute: async (args, context) => {
         const dto = createBankAccountSchema.parse(args) as any;
-        return deps.bankAccountsService.create(dto, context.companyId ?? '');
+        return deps.bankAccountsService.create(
+          dto,
+          context.companyId ?? '',
+          toScopedUser(context) as any,
+        );
       },
     },
     {
@@ -3123,6 +3138,7 @@ export function buildAiToolDefinitions(
           id,
           dto,
           context.companyId ?? '',
+          toScopedUser(context) as any,
         );
       },
     },

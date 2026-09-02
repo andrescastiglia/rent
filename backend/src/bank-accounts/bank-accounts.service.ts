@@ -38,6 +38,7 @@ export class BankAccountsService {
     user: UserContext,
     ownerId?: string,
   ): Promise<BankAccount[]> {
+    this.assertCompanyContext(companyId, user);
     const where: Record<string, unknown> = {
       companyId,
       deletedAt: IsNull(),
@@ -73,6 +74,7 @@ export class BankAccountsService {
     companyId: string,
     user?: UserContext,
   ): Promise<BankAccount> {
+    if (user) this.assertCompanyContext(companyId, user);
     const account = await this.bankAccountsRepository.findOne({
       where: { id, companyId, deletedAt: IsNull() },
     });
@@ -95,6 +97,7 @@ export class BankAccountsService {
     companyId: string,
     user?: UserContext,
   ): Promise<BankAccount> {
+    if (user) this.assertCompanyContext(companyId, user);
     let ownerId = dto.ownerId ?? null;
     let userId = dto.userId ?? null;
 
@@ -138,6 +141,7 @@ export class BankAccountsService {
     companyId: string,
     user?: UserContext,
   ): Promise<BankAccount> {
+    if (user) this.assertCompanyContext(companyId, user);
     const account = await this.findOne(id, companyId, user);
     const nextOwnerId =
       user?.role === UserRole.OWNER
@@ -240,10 +244,20 @@ export class BankAccountsService {
     companyId: string,
     user: UserContext,
   ): Promise<void> {
+    this.assertCompanyContext(companyId, user);
     if (user.role !== UserRole.ADMIN) {
       throw new ForbiddenException('Only admins can delete bank accounts');
     }
-    const account = await this.findOne(id, companyId);
-    await this.bankAccountsRepository.softDelete(account.id);
+    const account = await this.findOne(id, companyId, user);
+    await this.bankAccountsRepository.softDelete({
+      id: account.id,
+      companyId,
+    });
+  }
+
+  private assertCompanyContext(companyId: string, user: UserContext): void {
+    if (!companyId || !user.companyId || companyId !== user.companyId) {
+      throw new ForbiddenException('Company scope mismatch');
+    }
   }
 }

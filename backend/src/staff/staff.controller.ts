@@ -21,6 +21,7 @@ import { Staff } from './entities/staff.entity';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { UpdateStaffDto } from './dto/update-staff.dto';
 import { StaffFiltersDto } from './dto/staff-filters.dto';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 
 interface AuthenticatedRequest {
   user: {
@@ -34,6 +35,7 @@ interface AuthenticatedRequest {
 
 @Controller('staff')
 @UseGuards(JwtAuthGuard)
+@Authenticated('users')
 export class StaffController {
   constructor(private readonly staffService: StaffService) {}
 
