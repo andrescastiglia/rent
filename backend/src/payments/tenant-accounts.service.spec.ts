@@ -72,21 +72,26 @@ describe('TenantAccountsService', () => {
 
   it('findOne throws when account is missing', async () => {
     accountsRepository.findOne.mockResolvedValue(null);
-    await expect(service.findOne('missing')).rejects.toBeInstanceOf(
-      NotFoundException,
+    await expect(
+      service.findOne('missing', 'company-a'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(accountsRepository.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'missing', companyId: 'company-a' },
+      }),
     );
   });
 
-  it('findByLease returns existing account or creates one', async () => {
+  it('findByLease returns an existing account and never creates on GET', async () => {
     accountsRepository.findOne.mockResolvedValueOnce({ id: 'acc-1' });
     await expect(service.findByLease('l1')).resolves.toEqual({ id: 'acc-1' });
 
     accountsRepository.findOne.mockResolvedValueOnce(null);
-    const createSpy = jest
-      .spyOn(service, 'createForLease')
-      .mockResolvedValue({ id: 'acc-2' } as any);
-    await expect(service.findByLease('l2')).resolves.toEqual({ id: 'acc-2' });
-    expect(createSpy).toHaveBeenCalledWith('l2');
+    const createSpy = jest.spyOn(service, 'createForLease');
+    await expect(service.findByLease('l2')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect(createSpy).not.toHaveBeenCalled();
   });
 
   it('adds account movement and updates balance', async () => {
@@ -104,6 +109,7 @@ describe('TenantAccountsService', () => {
       'payment',
       'pay-1',
       'desc',
+      'co1',
     );
 
     expect(accountsRepository.update).toHaveBeenCalledWith(

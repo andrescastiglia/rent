@@ -15,6 +15,7 @@ describe('TenantAccountsController', () => {
   });
 
   it('delegates account retrieval endpoints', async () => {
+    const request = { user: { companyId: 'company-a' } } as any;
     tenantAccountsService.findByLease.mockResolvedValue({ id: 'acc-1' });
     tenantAccountsService.findOne.mockResolvedValue({ id: 'acc-1' });
     tenantAccountsService.getMovements.mockResolvedValue([]);
@@ -23,14 +24,26 @@ describe('TenantAccountsController', () => {
       lateFee: 0,
     });
 
-    await expect(controller.findByLease('lease-1')).resolves.toEqual({
+    await expect(controller.findByLease('lease-1', request)).resolves.toEqual({
       id: 'acc-1',
     });
-    await expect(controller.findOne('acc-1')).resolves.toEqual({ id: 'acc-1' });
-    await expect(controller.getMovements('acc-1')).resolves.toEqual([]);
-    await expect(controller.getBalance('acc-1')).resolves.toEqual({
+    await expect(controller.findOne('acc-1', request)).resolves.toEqual({
+      id: 'acc-1',
+    });
+    await expect(controller.getMovements('acc-1', request)).resolves.toEqual(
+      [],
+    );
+    await expect(controller.getBalance('acc-1', request)).resolves.toEqual({
       balance: 100,
       lateFee: 0,
     });
+    expect(tenantAccountsService.findByLease).toHaveBeenCalledWith(
+      'lease-1',
+      'company-a',
+    );
+    expect(tenantAccountsService.findOne).toHaveBeenCalledWith(
+      'acc-1',
+      'company-a',
+    );
   });
 });

@@ -63,7 +63,7 @@ import * as path from 'node:path';
     }),
     AuthModule,
     UsersModule,
-    TestModule,
+    ...(process.env.NODE_ENV === 'test' ? [TestModule] : []),
     PropertiesModule,
     DocumentsModule,
     LeasesModule,

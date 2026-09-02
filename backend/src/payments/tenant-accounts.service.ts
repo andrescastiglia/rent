@@ -28,9 +28,12 @@ export class TenantAccountsService {
    * @param leaseId ID del contrato
    * @returns La cuenta creada
    */
-  async createForLease(leaseId: string): Promise<TenantAccount> {
+  async createForLease(
+    leaseId: string,
+    companyId: string = '',
+  ): Promise<TenantAccount> {
     const lease = await this.leasesRepository.findOne({
-      where: { id: leaseId },
+      where: { id: leaseId, companyId },
     });
 
     if (!lease) {
@@ -38,7 +41,7 @@ export class TenantAccountsService {
     }
 
     const existingAccount = await this.accountsRepository.findOne({
-      where: { leaseId },
+      where: { leaseId, companyId },
     });
 
     if (existingAccount) {
@@ -67,9 +70,9 @@ export class TenantAccountsService {
    * @param id ID de la cuenta
    * @returns La cuenta
    */
-  async findOne(id: string): Promise<TenantAccount> {
+  async findOne(id: string, companyId: string = ''): Promise<TenantAccount> {
     const account = await this.accountsRepository.findOne({
-      where: { id },
+      where: { id, companyId },
       relations: ['lease', 'lease.tenant', 'lease.property'],
     });
 
@@ -85,17 +88,21 @@ export class TenantAccountsService {
    * @param leaseId ID del contrato
    * @returns La cuenta
    */
-  async findByLease(leaseId: string): Promise<TenantAccount> {
+  async findByLease(
+    leaseId: string,
+    companyId: string = '',
+  ): Promise<TenantAccount> {
     const account = await this.accountsRepository.findOne({
-      where: { leaseId },
+      where: { leaseId, companyId },
       relations: ['lease', 'lease.tenant', 'lease.property'],
     });
 
-    if (account) {
-      return account;
+    if (!account) {
+      throw new NotFoundException(
+        `Tenant account for lease ${leaseId} not found`,
+      );
     }
-
-    return this.createForLease(leaseId);
+    return account;
   }
 
   /**
@@ -103,7 +110,11 @@ export class TenantAccountsService {
    * @param accountId ID de la cuenta
    * @returns Lista de movimientos
    */
-  async getMovements(accountId: string): Promise<TenantAccountMovement[]> {
+  async getMovements(
+    accountId: string,
+    companyId: string = '',
+  ): Promise<TenantAccountMovement[]> {
+    await this.findOne(accountId, companyId);
     return this.movementsRepository.find({
       where: { tenantAccountId: accountId },
       order: { createdAt: 'DESC' },
@@ -127,8 +138,14 @@ export class TenantAccountsService {
     referenceType?: string,
     referenceId?: string,
     description?: string,
+    companyId?: string,
   ): Promise<TenantAccountMovement> {
-    const account = await this.findOne(accountId);
+    if (!companyId) {
+      throw new NotFoundException(
+        `Tenant account with ID ${accountId} not found`,
+      );
+    }
+    const account = await this.findOne(accountId, companyId);
 
     // Actualizar balance
     const newBalance = Number(account.balance) + amount;
@@ -157,9 +174,12 @@ export class TenantAccountsService {
    * @param accountId ID de la cuenta
    * @returns Monto de mora calculado
    */
-  async calculateLateFee(accountId: string): Promise<number> {
+  async calculateLateFee(
+    accountId: string,
+    companyId: string = '',
+  ): Promise<number> {
     const account = await this.accountsRepository.findOne({
-      where: { id: accountId },
+      where: { id: accountId, companyId },
       relations: ['lease', 'invoices'],
     });
 
@@ -225,9 +245,10 @@ export class TenantAccountsService {
    */
   async getBalanceInfo(
     accountId: string,
+    companyId: string = '',
   ): Promise<{ balance: number; lateFee: number; total: number }> {
-    const account = await this.findOne(accountId);
-    const lateFee = await this.calculateLateFee(accountId);
+    const account = await this.findOne(accountId, companyId);
+    const lateFee = await this.calculateLateFee(accountId, companyId);
 
     return {
       balance: Number(account.balance),

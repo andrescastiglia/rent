@@ -241,6 +241,8 @@ describe('BankReconciliationService', () => {
         paymentDate: '2026-08-10',
         reference: 'sandbox:external-1',
       }),
+      undefined,
+      companyId,
     );
     expect(payments.confirm).toHaveBeenCalledWith(paymentId);
     expect(storedMovement.status).toBe(BankMovementStatus.RECONCILED);

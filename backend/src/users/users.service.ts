@@ -12,6 +12,7 @@ import { randomBytes } from 'node:crypto';
 import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 type CreateUserInput = CreateUserDto & {
   isActive?: boolean;
@@ -41,8 +42,10 @@ export class UsersService {
   async findAll(
     page: number = 1,
     limit: number = 10,
+    companyId: string = '',
   ): Promise<{ data: User[]; total: number; page: number; limit: number }> {
     const [data, total] = await this.usersRepository.findAndCount({
+      where: { companyId },
       skip: (page - 1) * limit,
       take: limit,
       order: { createdAt: 'DESC' },
@@ -62,12 +65,38 @@ export class UsersService {
     });
   }
 
+  async findOneByEmailWithPassword(email: string): Promise<User | null> {
+    return this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('LOWER(user.email) = :email', {
+        email: email.trim().toLowerCase(),
+      })
+      .getOne();
+  }
+
   async findOneById(id: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { id } });
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
-    const user = await this.findOneById(id);
+  async findOneByIdScoped(id: string, companyId: string): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { id, companyId } });
+  }
+
+  async findOneByIdWithPassword(id: string): Promise<User | null> {
+    return this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('user.id = :userId', { userId: id })
+      .getOne();
+  }
+
+  async update(
+    id: string,
+    updateUserDto: UpdateUserDto,
+    companyId: string = '',
+  ): Promise<User> {
+    const user = await this.findOneByIdScoped(id, companyId);
     if (!user) {
       throw new NotFoundException('user.notFound');
     }
@@ -76,15 +105,21 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
-  async updateProfile(id: string, updateUserDto: UpdateUserDto): Promise<User> {
+  async updateProfile(
+    id: string,
+    updateUserDto: UpdateProfileDto,
+  ): Promise<User> {
+    if ('permissions' in updateUserDto) {
+      throw new BadRequestException('Profile cannot change permissions');
+    }
     const user = await this.findOneById(id);
     if (!user) throw new NotFoundException('user.notFound');
     await this.applyUserUpdates(user, updateUserDto, true);
     return this.usersRepository.save(user);
   }
 
-  async remove(id: string): Promise<void> {
-    const user = await this.findOneById(id);
+  async remove(id: string, companyId: string = ''): Promise<void> {
+    const user = await this.findOneByIdScoped(id, companyId);
     if (!user) {
       throw new NotFoundException('user.notFound');
     }
@@ -97,7 +132,7 @@ export class UsersService {
     currentPassword: string,
     newPassword: string,
   ): Promise<void> {
-    const user = await this.findOneById(userId);
+    const user = await this.findOneByIdWithPassword(userId);
     if (!user) {
       throw new NotFoundException('user.notFound');
     }
@@ -120,8 +155,12 @@ export class UsersService {
     await this.usersRepository.save(user);
   }
 
-  async setActivation(userId: string, isActive: boolean): Promise<User> {
-    const user = await this.findOneById(userId);
+  async setActivation(
+    userId: string,
+    isActive: boolean,
+    companyId: string = '',
+  ): Promise<User> {
+    const user = await this.findOneByIdScoped(userId, companyId);
     if (!user) {
       throw new NotFoundException('user.notFound');
     }
@@ -133,8 +172,9 @@ export class UsersService {
   async resetPassword(
     userId: string,
     newPassword?: string,
+    companyId: string = '',
   ): Promise<{ user: User; temporaryPassword: string }> {
-    const user = await this.findOneById(userId);
+    const user = await this.findOneByIdScoped(userId, companyId);
     if (!user) {
       throw new NotFoundException('user.notFound');
     }

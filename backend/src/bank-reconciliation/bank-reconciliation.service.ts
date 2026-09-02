@@ -238,15 +238,19 @@ export class BankReconciliationService {
 
       let paymentId = reconciliation.paymentId;
       if (!paymentId) {
-        const payment = await this.paymentsService.create({
-          tenantAccountId: match.invoice.tenantAccountId,
-          amount: Number(movement.amount),
-          currencyCode: movement.currency,
-          paymentDate: this.toDateOnly(movement.occurredAt),
-          method: PaymentMethod.BANK_TRANSFER,
-          reference: `${movement.provider}:${movement.externalId}`,
-          notes: `Conciliación bancaria automática (${match.strategy})`,
-        });
+        const payment = await this.paymentsService.create(
+          {
+            tenantAccountId: match.invoice.tenantAccountId,
+            amount: Number(movement.amount),
+            currencyCode: movement.currency,
+            paymentDate: this.toDateOnly(movement.occurredAt),
+            method: PaymentMethod.BANK_TRANSFER,
+            reference: `${movement.provider}:${movement.externalId}`,
+            notes: `Conciliación bancaria automática (${match.strategy})`,
+          },
+          undefined,
+          companyId,
+        );
         paymentId = payment.id;
         reconciliation.paymentId = paymentId;
         await this.reconciliationsRepository.save(reconciliation);

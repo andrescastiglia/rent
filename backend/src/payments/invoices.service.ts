@@ -64,7 +64,10 @@ export class InvoicesService {
     }
 
     // Obtener o crear cuenta del inquilino
-    const account = await this.tenantAccountsService.findByLease(dto.leaseId);
+    const account = await this.tenantAccountsService.findByLease(
+      dto.leaseId,
+      lease.companyId,
+    );
 
     // Obtener propietario
     const ownerId = lease.property?.ownerId || lease.ownerId;
@@ -119,7 +122,10 @@ export class InvoicesService {
       throw new NotFoundException(`Lease with ID ${leaseId} not found`);
     }
 
-    const account = await this.tenantAccountsService.findByLease(leaseId);
+    const account = await this.tenantAccountsService.findByLease(
+      leaseId,
+      lease.companyId,
+    );
 
     const { periodStart, periodEnd, dueDate } = this.computeBillingPeriod(
       lease,
@@ -135,7 +141,10 @@ export class InvoicesService {
     const subtotal = Number(baseRent) + Number(lease.additionalExpenses || 0);
     const lateFee =
       dto.applyLateFee === true
-        ? await this.tenantAccountsService.calculateLateFee(account.id)
+        ? await this.tenantAccountsService.calculateLateFee(
+            account.id,
+            lease.companyId,
+          )
         : 0;
 
     const total = subtotal + Number(lateFee || 0);
@@ -198,6 +207,7 @@ export class InvoicesService {
       'invoice',
       invoice.id,
       `Factura ${invoice.invoiceNumber}`,
+      invoice.companyId,
     );
 
     // Crear factura de comisión si aplica
@@ -599,6 +609,7 @@ export class InvoicesService {
         'invoice',
         invoice.id,
         `Anulación factura ${invoice.invoiceNumber}`,
+        invoice.companyId,
       );
     }
 

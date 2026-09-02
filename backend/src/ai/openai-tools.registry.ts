@@ -1514,6 +1514,7 @@ export function buildAiToolDefinitions(
         deps.paymentsService.create(
           CreatePaymentDto.zodSchema.parse(args),
           context.userId,
+          context.companyId ?? '',
         ),
     },
     {
@@ -1879,11 +1880,14 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ leaseId: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { leaseId } = z
           .object({ leaseId: uuidSchema })
           .parse(args) as any;
-        return deps.tenantAccountsService.findByLease(leaseId);
+        return deps.tenantAccountsService.findByLease(
+          leaseId,
+          context.companyId ?? '',
+        );
       },
     },
     {
@@ -1895,9 +1899,9 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.tenantAccountsService.findOne(id);
+        return deps.tenantAccountsService.findOne(id, context.companyId ?? '');
       },
     },
     {
@@ -1909,9 +1913,12 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.tenantAccountsService.getMovements(id);
+        return deps.tenantAccountsService.getMovements(
+          id,
+          context.companyId ?? '',
+        );
       },
     },
     {
@@ -1923,9 +1930,12 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.tenantAccountsService.getBalanceInfo(id);
+        return deps.tenantAccountsService.getBalanceInfo(
+          id,
+          context.companyId ?? '',
+        );
       },
     },
 

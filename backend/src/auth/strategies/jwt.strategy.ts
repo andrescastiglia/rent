@@ -4,6 +4,14 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../../users/users.service';
 
+function requireJwtSecret(configService: ConfigService): string {
+  const secret = configService.get<string>('JWT_SECRET')?.trim();
+  if (!secret) {
+    throw new Error('JWT_SECRET is required');
+  }
+  return secret;
+}
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
@@ -13,13 +21,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET') || 'secret',
+      secretOrKey: requireJwtSecret(configService),
     });
   }
 
   async validate(payload: any) {
     const user = await this.usersService.findOneById(payload.sub);
-    if (!user) {
+    if (!user || !user.isActive) {
       throw new UnauthorizedException();
     }
     // Return user object which will be injected into Request object

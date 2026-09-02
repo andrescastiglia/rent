@@ -491,7 +491,10 @@ export class LeasesService {
     const savedLease = await this.leasesRepository.save(lease);
 
     if (savedLease.contractType === ContractType.RENTAL) {
-      await this.tenantAccountsService.createForLease(savedLease.id);
+      await this.tenantAccountsService.createForLease(
+        savedLease.id,
+        savedLease.companyId,
+      );
     }
 
     try {
@@ -1446,7 +1449,10 @@ export class LeasesService {
       await this.propertiesRepository.update(lease.propertyId, {
         operationState: PropertyOperationState.RENTED,
       });
-      await this.tenantAccountsService.createForLease(lease.id);
+      await this.tenantAccountsService.createForLease(
+        lease.id,
+        lease.companyId,
+      );
       return;
     }
 

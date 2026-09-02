@@ -37,7 +37,7 @@ export class PaymentsController {
   @Post()
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   create(@Body() dto: CreatePaymentDto, @Request() req: any) {
-    return this.paymentsService.create(dto, req.user.id);
+    return this.paymentsService.create(dto, req.user.id, req.user.companyId);
   }
 
   /**

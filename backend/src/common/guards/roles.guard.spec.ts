@@ -105,6 +105,34 @@ describe('RolesGuard', () => {
     expect(
       guard.canActivate(
         makeContext({
+          path: '/payments',
+          user: { role: UserRole.STAFF, permissions: {} },
+        }),
+      ),
+    ).toBe(false);
+
+    reflector.getAllAndOverride = jest
+      .fn()
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce([UserRole.ADMIN, UserRole.STAFF]);
+
+    expect(
+      guard.canActivate(
+        makeContext({
+          path: '/unmapped-resource',
+          user: { role: UserRole.STAFF, permissions: { dashboard: true } },
+        }),
+      ),
+    ).toBe(false);
+
+    reflector.getAllAndOverride = jest
+      .fn()
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce([UserRole.ADMIN, UserRole.STAFF]);
+
+    expect(
+      guard.canActivate(
+        makeContext({
           path: '/leases',
           user: { role: UserRole.STAFF, permissions: { leases: true } },
         }),

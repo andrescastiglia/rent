@@ -256,6 +256,7 @@ describe('PaymentsService', () => {
       'payment',
       'pay-1',
       expect.stringContaining('Pago recibido'),
+      'company-1',
     );
     expect(paymentsRepository.update).toHaveBeenCalledWith('pay-1', {
       status: PaymentStatus.COMPLETED,
@@ -344,6 +345,7 @@ describe('PaymentsService', () => {
       status: PaymentStatus.COMPLETED,
       amount: 150,
       tenantAccountId: 'acc-1',
+      companyId: 'company-1',
     } as Payment;
     const cancelled = {
       ...completed,
@@ -364,6 +366,7 @@ describe('PaymentsService', () => {
       'payment',
       'pay-2',
       'Anulación pago',
+      'company-1',
     );
     expect(result.status).toBe(PaymentStatus.CANCELLED);
   });
@@ -728,6 +731,7 @@ describe('PaymentsService', () => {
       'credit_note',
       'cn-1',
       expect.stringContaining('Nota de crédito'),
+      'company-1',
     );
   });
 

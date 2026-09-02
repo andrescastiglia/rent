@@ -41,13 +41,11 @@ export class RolesGuard implements CanActivate {
   ): boolean {
     const resource = this.resolveStaffResource(path);
     if (!resource) {
-      return true;
+      return false;
     }
 
-    // Backward compatibility for existing staff users: no permissions means full
-    // staff access until the admin explicitly narrows it down.
     if (!permissions || Object.keys(permissions).length === 0) {
-      return true;
+      return false;
     }
 
     return permissions[resource] === true;

@@ -109,6 +109,7 @@ describe('InvoicesService', () => {
 
     expect(tenantAccountsService.calculateLateFee).toHaveBeenCalledWith(
       'acc-1',
+      'company-1',
     );
     expect(invoicesRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -267,6 +268,7 @@ describe('InvoicesService', () => {
       periodStart: new Date('2025-01-01'),
       periodEnd: new Date('2025-01-31'),
       currencyCode: 'ARS',
+      companyId: 'company-1',
     } as any;
     jest.spyOn(service, 'findOne').mockResolvedValue(draft);
     invoicesRepository.save!.mockImplementation(async (d) => d);
@@ -284,6 +286,7 @@ describe('InvoicesService', () => {
       'invoice',
       'inv-1',
       'Factura INV-1',
+      'company-1',
     );
   });
 
@@ -416,6 +419,7 @@ describe('InvoicesService', () => {
       periodStart: new Date('2025-01-01'),
       periodEnd: new Date('2025-01-31'),
       invoiceNumber: 'INV-1',
+      companyId: 'company-1',
     } as any);
 
     expect(_commissionRepository.create).toHaveBeenCalledWith(
@@ -442,6 +446,7 @@ describe('InvoicesService', () => {
 
     const pending = {
       id: 'inv-1',
+      companyId: 'company-1',
       status: InvoiceStatus.PENDING,
       tenantAccountId: 'acc-1',
       total: 100,
@@ -459,6 +464,7 @@ describe('InvoicesService', () => {
       'invoice',
       'inv-1',
       'Anulación factura INV-1',
+      'company-1',
     );
   });
 });
