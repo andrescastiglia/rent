@@ -41,7 +41,6 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 ### WhatsApp seguro
 
 - [ ] Enviar respuestas y efectos mediante outbox transaccional e idempotencia del proveedor.
-- [ ] Definir retención, borrado, redacción y presupuesto de abuso; mantener inbound productivo deshabilitado hasta cerrar estos gates.
 - [ ] Mantener las propuestas inmutables, con expiración, hash, reautenticación, autorización recalculada y ejecución exactamente una vez.
 
 ## 3. Unificar contrato de producto

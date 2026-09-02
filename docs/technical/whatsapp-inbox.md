@@ -17,7 +17,34 @@ un lease de cinco minutos. Los fallos reintentan con backoff exponencial de 30 a
 `WHATSAPP_ENABLED` y `WHATSAPP_INBOUND_ENABLED` son opt-in y valen `false` si no
 se declaran. Mientras inbound esté deshabilitado, el endpoint verifica y conserva
 eventos pero no ejecuta IA ni respuestas. Debe mantenerse así en producción
-hasta cerrar outbox, retención/redacción y presupuesto de abuso.
+hasta cerrar el outbox de salida y la bandeja de propuestas.
+
+## Privacidad y abuso
+
+Los logs no incluyen teléfono, texto, transcripción ni detalle devuelto por el
+proveedor. Identifican al remitente o destinatario mediante un HMAC truncado,
+estable dentro del entorno, para permitir correlación operativa sin exponer el
+dato original.
+
+`WHATSAPP_INBOUND_DAILY_LIMIT` limita por usuario y empresa los mensajes
+recibidos en una ventana de 24 horas (50 por defecto). El consumo se registra
+atómicamente en la misma sentencia que deduplica el WAMID. Al excederlo se
+conservan el WAMID y un marcador `[rate-limited]`, pero no se almacena el texto,
+no se descarga/transcribe audio, no se invoca IA y no se responde. El control se
+aplica únicamente después de resolver de forma unívoca a un usuario con opt-in.
+
+La política de datos tiene estos valores por defecto, todos configurables como
+enteros positivos:
+
+- `WHATSAPP_INBOX_RETENTION_DAYS=7`: borra payloads ya procesados.
+- `WHATSAPP_DEAD_LETTER_RETENTION_DAYS=30`: borra dead letters vencidas.
+- `WHATSAPP_COMMUNICATION_RETENTION_DAYS=365`: redacta cuerpo y errores de
+  comunicaciones asociadas a WhatsApp.
+- `WHATSAPP_OUTBOUND_RETENTION_DAYS=90`: redacta teléfono, texto, URL de PDF,
+  error y payloads crudos del tracking de salida.
+
+Los estados pendientes, fallidos con reintentos disponibles o en procesamiento
+no se eliminan automáticamente.
 
 ## Operación
 
@@ -31,6 +58,16 @@ npm start -- process-whatsapp-inbox --limit 25
 El comando llama al backend mediante `BACKEND_INTERNAL_URL` y
 `BATCH_WHATSAPP_INTERNAL_TOKEN`. El límite efectivo está entre 1 y 100.
 
+Programar además una ejecución diaria de retención:
+
+```bash
+cd batch
+npm start -- apply-whatsapp-retention
+```
+
+Este comando usa el mismo canal interno autenticado y devuelve los conteos de
+filas borradas y redactadas. Las actualizaciones son idempotentes.
+
 Control operativo:
 
 ```sql
@@ -41,8 +78,9 @@ GROUP BY status;
 ```
 
 Alertar ante cualquier `dead_letter`, ante crecimiento sostenido de `failed` o
-si un `processing` supera `lease_expires_at`. La política de retención del payload
-y la redacción de logs continúan como gates pendientes.
+si un `processing` supera `lease_expires_at`. Alertar también cuando aparezcan
+mensajes con `metadata->>'abuseLimited' = 'true'`; revisar el límite antes de
+aumentarlo y mantener evidencia del motivo del cambio.
 
 ## Rollback y verificación
 
