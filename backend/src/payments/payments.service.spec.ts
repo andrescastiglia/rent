@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { PaymentsService } from './payments.service';
 import { Payment, PaymentStatus } from './entities/payment.entity';
 import { PaymentItem, PaymentItemType } from './entities/payment-item.entity';
+import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { Receipt } from './entities/receipt.entity';
 import { Invoice, InvoiceStatus } from './entities/invoice.entity';
 import { CreditNote, CreditNoteStatus } from './entities/credit-note.entity';
@@ -14,6 +15,7 @@ import { CreditNotePdfService } from './credit-note-pdf.service';
 import { UserRole } from '../users/entities/user.entity';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { CommunicationsService } from '../communications/communications.service';
+import { MovementType } from './entities/tenant-account-movement.entity';
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
@@ -22,6 +24,7 @@ describe('PaymentsService', () => {
   let receiptsRepository: MockRepository<Receipt>;
   let _invoicesRepository: MockRepository<Invoice>;
   let _creditNotesRepository: MockRepository<CreditNote>;
+  let paymentAllocationsRepository: MockRepository<PaymentAllocation>;
   let tenantAccountsService: Partial<TenantAccountsService>;
   let dataSource: { transaction: jest.Mock };
 
@@ -55,6 +58,8 @@ describe('PaymentsService', () => {
             if (entity === Invoice) return _invoicesRepository;
             if (entity === Receipt) return receiptsRepository;
             if (entity === CreditNote) return _creditNotesRepository;
+            if (entity === PaymentAllocation)
+              return paymentAllocationsRepository;
             throw new Error('Unexpected transaction repository');
           },
         }),
@@ -84,6 +89,10 @@ describe('PaymentsService', () => {
           provide: getRepositoryToken(CreditNote),
           useValue: createMockRepository(),
         },
+        {
+          provide: getRepositoryToken(PaymentAllocation),
+          useValue: createMockRepository(),
+        },
         { provide: TenantAccountsService, useValue: tenantAccountsService },
         { provide: ReceiptPdfService, useValue: { generate: jest.fn() } },
         { provide: CreditNotePdfService, useValue: { generate: jest.fn() } },
@@ -108,6 +117,12 @@ describe('PaymentsService', () => {
     receiptsRepository = module.get(getRepositoryToken(Receipt));
     _invoicesRepository = module.get(getRepositoryToken(Invoice));
     _creditNotesRepository = module.get(getRepositoryToken(CreditNote));
+    paymentAllocationsRepository = module.get(
+      getRepositoryToken(PaymentAllocation),
+    );
+    paymentAllocationsRepository.find!.mockResolvedValue([]);
+    _creditNotesRepository.find!.mockResolvedValue([]);
+    receiptsRepository.findOne!.mockResolvedValue(null);
   });
 
   it('should compute payment amount from variable items', async () => {
@@ -284,6 +299,7 @@ describe('PaymentsService', () => {
     expect(paymentsRepository.update).toHaveBeenCalledWith('pay-1', {
       status: PaymentStatus.COMPLETED,
       tenantAccountId: 'acc-from-invoice',
+      allocationsRecorded: true,
     });
     expect(result).toEqual(confirmedPayment);
   });
@@ -358,6 +374,7 @@ describe('PaymentsService', () => {
     expect(paymentsRepository.update).toHaveBeenCalledWith(payment.id, {
       tenantAccountId: 'acc-1',
       status: PaymentStatus.COMPLETED,
+      allocationsRecorded: true,
     });
     expect((service as any).receiptPdfService.generate).toHaveBeenCalled();
   });
@@ -452,6 +469,7 @@ describe('PaymentsService', () => {
       amount: 150,
       tenantAccountId: 'acc-1',
       companyId: 'company-1',
+      allocationsRecorded: true,
     } as Payment;
     const cancelled = {
       ...completed,
@@ -475,6 +493,21 @@ describe('PaymentsService', () => {
       'company-1',
     );
     expect(result.status).toBe(PaymentStatus.CANCELLED);
+  });
+
+  it('fails closed when a legacy payment has no allocation history', async () => {
+    paymentsRepository.findOne!.mockResolvedValue({
+      id: 'legacy-payment',
+      status: PaymentStatus.COMPLETED,
+      allocationsRecorded: false,
+      companyId: 'company-1',
+    } as Payment);
+
+    await expect(service.cancel('legacy-payment', 'company-1')).rejects.toThrow(
+      'requires manual reversal',
+    );
+    expect(tenantAccountsService.addMovementWithManager).not.toHaveBeenCalled();
+    expect(paymentsRepository.update).not.toHaveBeenCalled();
   });
 
   it('should list and resolve credit notes by id', async () => {
@@ -616,6 +649,82 @@ describe('PaymentsService', () => {
     expect(result.status).toBe(PaymentStatus.CANCELLED);
   });
 
+  it('reverses allocations, credit notes and receipt when cancelling', async () => {
+    const completed = {
+      id: 'pay-reverse',
+      status: PaymentStatus.COMPLETED,
+      amount: 150,
+      tenantAccountId: 'acc-1',
+      companyId: 'company-1',
+      allocationsRecorded: true,
+    } as Payment;
+    const allocation = {
+      id: 'allocation-1',
+      companyId: 'company-1',
+      paymentId: completed.id,
+      invoiceId: 'invoice-1',
+      amount: 100,
+      previousInvoiceStatus: InvoiceStatus.OVERDUE,
+      reversedAt: null,
+    } as PaymentAllocation;
+    const invoice = {
+      id: 'invoice-1',
+      companyId: 'company-1',
+      amountPaid: 100,
+      status: InvoiceStatus.PAID,
+    } as Invoice;
+    const note = {
+      id: 'note-1',
+      companyId: 'company-1',
+      paymentId: completed.id,
+      tenantAccountId: 'acc-1',
+      amount: 10,
+      noteNumber: 'NC-1',
+      status: CreditNoteStatus.ISSUED,
+    } as CreditNote;
+    const receipt = {
+      id: 'receipt-1',
+      companyId: 'company-1',
+      paymentId: completed.id,
+      cancelledAt: null,
+    } as Receipt;
+    paymentsRepository.findOne!.mockResolvedValue(completed);
+    paymentsRepository.update!.mockResolvedValue({ affected: 1 });
+    paymentAllocationsRepository.find!.mockResolvedValue([allocation]);
+    paymentAllocationsRepository.save!.mockImplementation(async (item) => item);
+    _invoicesRepository.findOne!.mockResolvedValue(invoice);
+    _invoicesRepository.save!.mockImplementation(async (item) => item);
+    _creditNotesRepository.find!.mockResolvedValue([note]);
+    _creditNotesRepository.save!.mockImplementation(async (item) => item);
+    receiptsRepository.findOne!.mockResolvedValue(receipt);
+    receiptsRepository.save!.mockImplementation(async (item) => item);
+    (
+      tenantAccountsService.addMovementWithManager as jest.Mock
+    ).mockResolvedValue({ id: 'movement-1' });
+    jest.spyOn(service, 'findOne').mockResolvedValue({
+      ...completed,
+      status: PaymentStatus.CANCELLED,
+    } as Payment);
+
+    await service.cancel(completed.id, completed.companyId);
+
+    expect(invoice.amountPaid).toBe(0);
+    expect(invoice.status).toBe(InvoiceStatus.OVERDUE);
+    expect(allocation.reversedAt).toBeInstanceOf(Date);
+    expect(note.status).toBe(CreditNoteStatus.CANCELLED);
+    expect(receipt.cancelledAt).toBeInstanceOf(Date);
+    expect(tenantAccountsService.addMovementWithManager).toHaveBeenCalledWith(
+      expect.anything(),
+      'acc-1',
+      MovementType.ADJUSTMENT,
+      10,
+      'credit_note_cancellation',
+      'note-1',
+      expect.stringContaining('NC-1'),
+      'company-1',
+    );
+  });
+
   it('should throw when item total is not greater than zero', async () => {
     (tenantAccountsService.findOne as jest.Mock).mockResolvedValue({
       id: 'acc-1',
@@ -715,6 +824,36 @@ describe('PaymentsService', () => {
     expect(invoices[1].status).toBe(InvoiceStatus.PARTIAL);
     expect(settled).toHaveLength(1);
     expect(settled[0].id).toBe('inv-paid');
+  });
+
+  it('records each FIFO invoice allocation for exact reversal', async () => {
+    const invoice = {
+      id: 'invoice-1',
+      total: 100,
+      amountPaid: 25,
+      lateFee: 0,
+      status: InvoiceStatus.PARTIAL,
+    } as Invoice;
+    _invoicesRepository.find!.mockResolvedValue([invoice]);
+    _invoicesRepository.save!.mockImplementation(async (item) => item);
+    paymentAllocationsRepository.create!.mockImplementation((item) => item);
+    paymentAllocationsRepository.save!.mockImplementation(async (item) => item);
+
+    await (service as any).applyPaymentToInvoices(
+      { id: 'payment-1', companyId: 'company-1', amount: 50 } as Payment,
+      'account-1',
+      _invoicesRepository,
+      paymentAllocationsRepository,
+    );
+
+    expect(paymentAllocationsRepository.create).toHaveBeenCalledWith({
+      companyId: 'company-1',
+      paymentId: 'payment-1',
+      invoiceId: 'invoice-1',
+      amount: 50,
+      previousInvoiceStatus: InvoiceStatus.PARTIAL,
+      reversedAt: null,
+    });
   });
 
   it('should return existing receipt when already generated', async () => {

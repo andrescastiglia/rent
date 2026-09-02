@@ -17,6 +17,7 @@ import { PaymentItem } from './payment-item.entity';
 import { Company } from '../../companies/entities/company.entity';
 import { Invoice } from './invoice.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
+import { PaymentAllocation } from './payment-allocation.entity';
 
 /**
  * Métodos de pago disponibles.
@@ -147,6 +148,9 @@ export class Payment {
   @Column({ type: 'enum', enum: PaymentStatus, default: PaymentStatus.PENDING })
   status: PaymentStatus;
 
+  @Column({ name: 'allocations_recorded', default: false })
+  allocationsRecorded: boolean;
+
   @Column({ type: 'text', nullable: true })
   notes: string;
 
@@ -155,6 +159,9 @@ export class Payment {
 
   @OneToMany(() => PaymentItem, (item) => item.payment)
   items: PaymentItem[];
+
+  @OneToMany(() => PaymentAllocation, (allocation) => allocation.payment)
+  allocations: PaymentAllocation[];
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

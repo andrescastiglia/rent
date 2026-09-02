@@ -8,6 +8,7 @@ import {
   DataSource,
   EntityManager,
   In,
+  IsNull,
   Repository,
   SelectQueryBuilder,
 } from 'typeorm';
@@ -17,6 +18,7 @@ import {
   PaymentStatus,
 } from './entities/payment.entity';
 import { PaymentItem, PaymentItemType } from './entities/payment-item.entity';
+import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { Receipt } from './entities/receipt.entity';
 import { Invoice, InvoiceStatus } from './entities/invoice.entity';
 import { CreditNote, CreditNoteStatus } from './entities/credit-note.entity';
@@ -175,6 +177,7 @@ export class PaymentsService {
       async (manager) => {
         const paymentsRepository = manager.getRepository(Payment);
         const invoicesRepository = manager.getRepository(Invoice);
+        const allocationsRepository = manager.getRepository(PaymentAllocation);
         const payment = await this.findPaymentForUpdate(
           paymentsRepository,
           id,
@@ -205,6 +208,7 @@ export class PaymentsService {
           payment,
           tenantAccountId,
           invoicesRepository,
+          allocationsRepository,
         );
         await this.createCreditNotesForSettledLateFees(
           payment,
@@ -218,6 +222,7 @@ export class PaymentsService {
         await paymentsRepository.update(payment.id, {
           tenantAccountId,
           status: PaymentStatus.COMPLETED,
+          allocationsRecorded: true,
         });
         return { tenantAccountId, settledInvoices };
       },
@@ -241,6 +246,7 @@ export class PaymentsService {
     payment: Payment,
     tenantAccountId: string,
     repository: Repository<Invoice> = this.invoicesRepository,
+    allocationsRepository?: Repository<PaymentAllocation>,
   ): Promise<Invoice[]> {
     // Obtener facturas pendientes ordenadas por fecha
     const pendingInvoices = await repository.find({
@@ -267,6 +273,7 @@ export class PaymentsService {
       if (pending <= 0) continue;
 
       const toApply = Math.min(remainingAmount, pending);
+      const previousInvoiceStatus = invoice.status;
 
       invoice.amountPaid = Number(invoice.amountPaid) + toApply;
 
@@ -280,6 +287,18 @@ export class PaymentsService {
       }
 
       await repository.save(invoice);
+      if (allocationsRepository) {
+        await allocationsRepository.save(
+          allocationsRepository.create({
+            companyId: payment.companyId,
+            paymentId: payment.id,
+            invoiceId: invoice.id,
+            amount: toApply,
+            previousInvoiceStatus,
+            reversedAt: null,
+          }),
+        );
+      }
       remainingAmount -= toApply;
     }
 
@@ -426,6 +445,7 @@ export class PaymentsService {
         'tenant',
         'tenant.user',
         'items',
+        'allocations',
         'receipt',
         'currency',
       ],
@@ -660,6 +680,11 @@ export class PaymentsService {
       }
 
       if (payment.status === PaymentStatus.COMPLETED) {
+        if (!payment.allocationsRecorded) {
+          throw new BadRequestException(
+            'Legacy payment lacks allocation history and requires manual reversal',
+          );
+        }
         await this.tenantAccountsService.addMovementWithManager(
           manager,
           payment.tenantAccountId,
@@ -670,6 +695,7 @@ export class PaymentsService {
           `Anulación pago`,
           payment.companyId,
         );
+        await this.reverseCompletedPayment(manager, payment);
       }
 
       await paymentsRepository.update(payment.id, {
@@ -837,6 +863,78 @@ export class PaymentsService {
       throw new NotFoundException(`Payment with ID ${id} not found`);
     }
     return payment;
+  }
+
+  private async reverseCompletedPayment(
+    manager: EntityManager,
+    payment: Payment,
+  ): Promise<void> {
+    const allocationsRepository = manager.getRepository(PaymentAllocation);
+    const invoicesRepository = manager.getRepository(Invoice);
+    const creditNotesRepository = manager.getRepository(CreditNote);
+    const receiptsRepository = manager.getRepository(Receipt);
+    const allocations = await allocationsRepository.find({
+      where: {
+        companyId: payment.companyId,
+        paymentId: payment.id,
+        reversedAt: IsNull(),
+      },
+      lock: { mode: 'pessimistic_write' },
+    });
+
+    for (const allocation of allocations) {
+      const invoice = await invoicesRepository.findOne({
+        where: { id: allocation.invoiceId, companyId: payment.companyId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!invoice) {
+        throw new NotFoundException(
+          `Invoice with ID ${allocation.invoiceId} not found`,
+        );
+      }
+      invoice.amountPaid = Math.max(
+        0,
+        Number(invoice.amountPaid) - Number(allocation.amount),
+      );
+      invoice.status = allocation.previousInvoiceStatus;
+      await invoicesRepository.save(invoice);
+      allocation.reversedAt = new Date();
+      await allocationsRepository.save(allocation);
+    }
+
+    const creditNotes = await creditNotesRepository.find({
+      where: {
+        companyId: payment.companyId,
+        paymentId: payment.id,
+        status: CreditNoteStatus.ISSUED,
+      },
+      lock: { mode: 'pessimistic_write' },
+    });
+    for (const note of creditNotes) {
+      if (note.tenantAccountId) {
+        await this.tenantAccountsService.addMovementWithManager(
+          manager,
+          note.tenantAccountId,
+          MovementType.ADJUSTMENT,
+          Number(note.amount),
+          'credit_note_cancellation',
+          note.id,
+          `Anulación nota de crédito ${note.noteNumber}`,
+          payment.companyId,
+        );
+      }
+      note.status = CreditNoteStatus.CANCELLED;
+      await creditNotesRepository.save(note);
+    }
+
+    const receipt = await receiptsRepository.findOne({
+      where: { paymentId: payment.id, companyId: payment.companyId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (receipt) {
+      receipt.cancelledAt = new Date();
+      await receiptsRepository.save(receipt);
+    }
   }
 
   private async sendTenantPdfWhatsapp(

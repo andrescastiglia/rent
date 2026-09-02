@@ -1559,6 +1559,9 @@ CREATE INDEX idx_tenant_account_movements_type ON tenant_account_movements(movem
 CREATE INDEX idx_tenant_account_movements_date ON tenant_account_movements(movement_date DESC);
 CREATE INDEX idx_tenant_account_movements_reference ON tenant_account_movements(reference_type, reference_id)
     WHERE reference_id IS NOT NULL;
+CREATE UNIQUE INDEX uq_tenant_movements_reference
+    ON tenant_account_movements(tenant_account_id, reference_type, reference_id, movement_type)
+    WHERE reference_type IS NOT NULL AND reference_id IS NOT NULL;
 
 COMMENT ON TABLE tenant_account_movements IS 'Individual movements in tenant current accounts';
 
@@ -1706,6 +1709,7 @@ CREATE TABLE payments (
     authorization_code VARCHAR(100),
     external_transaction_id VARCHAR(255),
     gateway_response JSONB DEFAULT '{}',
+    allocations_recorded BOOLEAN NOT NULL DEFAULT FALSE,
     notes TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1740,6 +1744,23 @@ CREATE TRIGGER update_payment_items_updated_at
     BEFORE UPDATE ON payment_items FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 COMMENT ON TABLE payment_items IS 'Variable items for payment receipts';
+
+CREATE TABLE payment_allocations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    payment_id UUID NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
+    invoice_id UUID NOT NULL REFERENCES invoices(id) ON DELETE RESTRICT,
+    amount DECIMAL(14, 2) NOT NULL CHECK (amount > 0),
+    previous_invoice_status invoice_status NOT NULL,
+    reversed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_payment_allocations_payment_invoice
+        UNIQUE (company_id, payment_id, invoice_id)
+);
+
+CREATE INDEX idx_payment_allocations_active
+    ON payment_allocations(company_id, payment_id)
+    WHERE reversed_at IS NULL;
 
 -- -----------------------------------------------------------------------------
 -- Sales & Installments (Loteos)
@@ -1880,6 +1901,7 @@ CREATE TABLE receipts (
     pdf_generated_at TIMESTAMPTZ,
     sent_to_email VARCHAR(255),
     sent_at TIMESTAMPTZ,
+    cancelled_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT receipts_number_company_unique UNIQUE (company_id, receipt_number),
@@ -1890,6 +1912,7 @@ CREATE TABLE receipts (
 
 CREATE INDEX idx_receipts_company ON receipts(company_id);
 CREATE INDEX idx_receipts_payment ON receipts(payment_id);
+CREATE UNIQUE INDEX uq_receipts_payment ON receipts(payment_id);
 CREATE INDEX idx_receipts_date ON receipts(issue_date DESC);
 
 CREATE TRIGGER update_receipts_updated_at
@@ -1926,6 +1949,9 @@ CREATE INDEX idx_credit_notes_invoice_id ON credit_notes(invoice_id);
 CREATE INDEX idx_credit_notes_payment_id ON credit_notes(payment_id);
 CREATE INDEX idx_credit_notes_tenant_account_id ON credit_notes(tenant_account_id);
 CREATE INDEX idx_credit_notes_deleted ON credit_notes(deleted_at) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX uq_credit_notes_payment_invoice
+    ON credit_notes(company_id, payment_id, invoice_id)
+    WHERE payment_id IS NOT NULL AND deleted_at IS NULL;
 
 CREATE TRIGGER update_credit_notes_updated_at
     BEFORE UPDATE ON credit_notes FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
