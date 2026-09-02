@@ -48,6 +48,29 @@ no se eliminan automáticamente.
 
 ## Operación
 
+Las comunicaciones creadas mediante `CommunicationsService` se persisten en
+`communication_deliveries` con estado `queued`; crear, aprobar o reintentar una
+entrega no llama al proveedor dentro de la petición. El procesador reclama hasta
+100 filas con `FOR UPDATE SKIP LOCKED`, incrementa intentos y asigna un lease de
+cinco minutos. Un worker caído se recupera al vencer el lease.
+
+Cada entrega usa su UUID como clave idempotente en `whatsapp_messages`. Si Meta
+respondió y el estado de la entrega no llegó a persistirse, el siguiente intento
+recupera el WAMID ya registrado sin volver a contactar al proveedor. La migración
+`104_harden_communication_delivery_outbox.sql` agrega el estado `processing`, el
+lease y el índice único de idempotencia.
+
+Programar el procesador de comunicaciones al menos una vez por minuto:
+
+```bash
+cd backend
+npx ts-node src/communications/retry-communications.cli.ts
+```
+
+Requiere `APP_URL` y `BATCH_COMMUNICATIONS_INTERNAL_TOKEN`. Las rutas de pagos,
+visitas y respuestas automáticas que todavía invocan WhatsApp directamente deben
+migrarse antes de considerar cerrado el outbox general.
+
 Programar cada minuto, con exclusión solapada si el scheduler no la ofrece:
 
 ```bash
