@@ -22,6 +22,7 @@ import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { Receipt } from './entities/receipt.entity';
 import { Invoice, InvoiceStatus } from './entities/invoice.entity';
 import { CreditNote, CreditNoteStatus } from './entities/credit-note.entity';
+import { TenantAccount } from './entities/tenant-account.entity';
 import { TenantAccountsService } from './tenant-accounts.service';
 import { MovementType } from './entities/tenant-account-movement.entity';
 import { CreatePaymentDto, PaymentFiltersDto, UpdatePaymentDto } from './dto';
@@ -42,6 +43,11 @@ type RequestUser = {
   role: UserRole;
   email?: string | null;
   phone?: string | null;
+};
+
+export type PaymentConfirmationTransactionResult = {
+  tenantAccountId: string;
+  settledInvoices: Invoice[];
 };
 
 /**
@@ -121,6 +127,54 @@ export class PaymentsService {
     return savedPayment;
   }
 
+  async createWithManager(
+    manager: EntityManager,
+    dto: CreatePaymentDto,
+    _userId: string | undefined,
+    companyId: string,
+  ): Promise<Payment> {
+    const account = await manager.getRepository(TenantAccount).findOne({
+      where: { id: dto.tenantAccountId, companyId },
+    });
+    if (!account) {
+      throw new NotFoundException(
+        `Tenant account with ID ${dto.tenantAccountId} not found`,
+      );
+    }
+
+    const paymentsRepository = manager.getRepository(Payment);
+    const paymentItemsRepository = manager.getRepository(PaymentItem);
+    const payment = paymentsRepository.create({
+      companyId: account.companyId,
+      tenantId: account.tenantId,
+      tenantAccountId: dto.tenantAccountId,
+      amount: this.computePaymentAmount(dto),
+      currencyCode: dto.currencyCode || 'ARS',
+      paymentDate: dto.paymentDate,
+      method: dto.method,
+      activityType: dto.activityType ?? PaymentActivityType.MONTHLY,
+      reference: dto.reference,
+      status: PaymentStatus.PENDING,
+      notes: dto.notes,
+    });
+    const savedPayment = await paymentsRepository.save(payment);
+
+    if (dto.items && dto.items.length > 0) {
+      const items = dto.items.map((item) =>
+        paymentItemsRepository.create({
+          paymentId: savedPayment.id,
+          description: item.description,
+          amount: item.amount,
+          quantity: item.quantity ?? 1,
+          type: item.type ?? PaymentItemType.CHARGE,
+        }),
+      );
+      await paymentItemsRepository.save(items);
+    }
+
+    return savedPayment;
+  }
+
   /**
    * Actualiza un pago pendiente antes de emitir el recibo.
    * @param id ID del pago
@@ -173,61 +227,75 @@ export class PaymentsService {
    * @returns El pago confirmado con recibo
    */
   async confirm(id: string, companyId: string): Promise<Payment> {
-    const transactionResult = await this.dataSource.transaction(
-      async (manager) => {
-        const paymentsRepository = manager.getRepository(Payment);
-        const invoicesRepository = manager.getRepository(Invoice);
-        const allocationsRepository = manager.getRepository(PaymentAllocation);
-        const payment = await this.findPaymentForUpdate(
-          paymentsRepository,
-          id,
-          companyId,
-        );
-
-        if (payment.status !== PaymentStatus.PENDING) {
-          throw new BadRequestException('Payment is not pending');
-        }
-
-        const tenantAccountId = await this.resolveTenantAccountId(
-          payment,
-          invoicesRepository,
-        );
-
-        await this.tenantAccountsService.addMovementWithManager(
-          manager,
-          tenantAccountId,
-          MovementType.PAYMENT,
-          -Number(payment.amount),
-          'payment',
-          payment.id,
-          `Pago recibido - ${payment.method}`,
-          payment.companyId,
-        );
-
-        const settledInvoices = await this.applyPaymentToInvoices(
-          payment,
-          tenantAccountId,
-          invoicesRepository,
-          allocationsRepository,
-        );
-        await this.createCreditNotesForSettledLateFees(
-          payment,
-          tenantAccountId,
-          settledInvoices,
-          manager,
-        );
-
-        await this.generateReceipt(payment, manager);
-
-        await paymentsRepository.update(payment.id, {
-          tenantAccountId,
-          status: PaymentStatus.COMPLETED,
-          allocationsRecorded: true,
-        });
-        return { tenantAccountId, settledInvoices };
-      },
+    const transactionResult = await this.dataSource.transaction((manager) =>
+      this.confirmWithManager(manager, id, companyId),
     );
 
+    return this.finalizeConfirmationEffects(id, companyId, transactionResult);
+  }
+
+  async confirmWithManager(
+    manager: EntityManager,
+    id: string,
+    companyId: string,
+  ): Promise<PaymentConfirmationTransactionResult> {
+    const paymentsRepository = manager.getRepository(Payment);
+    const invoicesRepository = manager.getRepository(Invoice);
+    const allocationsRepository = manager.getRepository(PaymentAllocation);
+    const payment = await this.findPaymentForUpdate(
+      paymentsRepository,
+      id,
+      companyId,
+    );
+
+    if (payment.status !== PaymentStatus.PENDING) {
+      throw new BadRequestException('Payment is not pending');
+    }
+
+    const tenantAccountId = await this.resolveTenantAccountId(
+      payment,
+      invoicesRepository,
+    );
+
+    await this.tenantAccountsService.addMovementWithManager(
+      manager,
+      tenantAccountId,
+      MovementType.PAYMENT,
+      -Number(payment.amount),
+      'payment',
+      payment.id,
+      `Pago recibido - ${payment.method}`,
+      payment.companyId,
+    );
+
+    const settledInvoices = await this.applyPaymentToInvoices(
+      payment,
+      tenantAccountId,
+      invoicesRepository,
+      allocationsRepository,
+    );
+    await this.createCreditNotesForSettledLateFees(
+      payment,
+      tenantAccountId,
+      settledInvoices,
+      manager,
+    );
+
+    await this.generateReceipt(payment, manager);
+
+    await paymentsRepository.update(payment.id, {
+      tenantAccountId,
+      status: PaymentStatus.COMPLETED,
+      allocationsRecorded: true,
+    });
+    return { tenantAccountId, settledInvoices };
+  }
+
+  async finalizeConfirmationEffects(
+    id: string,
+    companyId: string,
+    transactionResult: PaymentConfirmationTransactionResult,
+  ): Promise<Payment> {
     const confirmed = await this.findOne(id, companyId);
     await this.generateReceipt(confirmed);
     await this.createCreditNotesForSettledLateFees(
@@ -235,7 +303,7 @@ export class PaymentsService {
       transactionResult.tenantAccountId,
       transactionResult.settledInvoices,
     );
-    return confirmed;
+    return this.findOne(id, companyId);
   }
 
   /**

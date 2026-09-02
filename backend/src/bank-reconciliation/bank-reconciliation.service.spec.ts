@@ -2,15 +2,18 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { BankReconciliationService } from './bank-reconciliation.service';
 import {
   BankMatchStrategy,
+  BankReconciliation,
   BankReconciliationStatus,
 } from './entities/bank-reconciliation.entity';
 import {
+  BankMovement,
   BankMovementDirection,
   BankMovementStatus,
 } from './entities/bank-movement.entity';
-import { InvoiceStatus } from '../payments/entities/invoice.entity';
-import { PaymentStatus } from '../payments/entities/payment.entity';
+import { Invoice, InvoiceStatus } from '../payments/entities/invoice.entity';
+import { Payment, PaymentStatus } from '../payments/entities/payment.entity';
 import { BankReconciliationAlertStatus } from './entities/bank-reconciliation-alert.entity';
+import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 
 const fluentQuery = (result: { one?: unknown; many?: unknown[] }) => {
   const query: Record<string, jest.Mock> = {};
@@ -42,7 +45,10 @@ describe('BankReconciliationService', () => {
   let invoices: any;
   let alerts: any;
   let payments: any;
+  let paymentRecords: any;
   let dataSource: any;
+  let transactionManager: any;
+  let queryRunner: any;
   let service: BankReconciliationService;
 
   const movement = (overrides: Record<string, unknown> = {}) => ({
@@ -102,14 +108,26 @@ describe('BankReconciliationService', () => {
       save: jest.fn(async (value) => value),
     };
     payments = {
-      create: jest.fn(),
-      findOne: jest.fn(),
-      confirm: jest.fn(),
+      createWithManager: jest.fn(),
+      confirmWithManager: jest.fn(),
+      finalizeConfirmationEffects: jest.fn(),
     };
-    const queryRunner = {
+    paymentRecords = { findOne: jest.fn() };
+    transactionManager = {
+      query: jest.fn().mockResolvedValue(undefined),
+      getRepository: jest.fn((entity: unknown) => {
+        if (entity === BankMovement) return movements;
+        if (entity === BankReconciliation) return reconciliations;
+        if (entity === BankAccount) return bankAccounts;
+        if (entity === Invoice) return invoices;
+        if (entity === Payment) return paymentRecords;
+        throw new Error('Unexpected transaction repository');
+      }),
+    };
+    queryRunner = {
       connect: jest.fn().mockResolvedValue(undefined),
       startTransaction: jest.fn().mockResolvedValue(undefined),
-      query: jest.fn().mockResolvedValue(undefined),
+      manager: transactionManager,
       commitTransaction: jest.fn().mockResolvedValue(undefined),
       rollbackTransaction: jest.fn().mockResolvedValue(undefined),
       release: jest.fn().mockResolvedValue(undefined),
@@ -207,24 +225,29 @@ describe('BankReconciliationService', () => {
     movements.findOne
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(storedMovement);
-    bankAccounts.findOne.mockResolvedValue({ id: 'bank-1' });
+    bankAccounts.findOne.mockResolvedValue({
+      id: 'bank-1',
+      propertyId: storedMovement.bankAccount.propertyId,
+    });
     movements.create.mockReturnValue(storedMovement);
     reconciliations.findOne
       .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(result)
       .mockResolvedValueOnce(result);
     reconciliations.create.mockReturnValue(storedReconciliation);
     invoices.createQueryBuilder.mockReturnValue(
       fluentQuery({ one: invoice() }),
     );
-    payments.create.mockResolvedValue({ id: paymentId });
-    payments.findOne.mockResolvedValue({
+    payments.createWithManager.mockResolvedValue({ id: paymentId });
+    paymentRecords.findOne.mockResolvedValue({
       id: paymentId,
       status: PaymentStatus.PENDING,
     });
-    payments.confirm.mockResolvedValue({
-      id: paymentId,
-      status: PaymentStatus.COMPLETED,
+    payments.confirmWithManager.mockResolvedValue({
+      tenantAccountId: invoice().tenantAccountId,
+      settledInvoices: [],
     });
+    payments.finalizeConfirmationEffects.mockResolvedValue(undefined);
 
     await expect(
       service.ingestSandboxMovement(companyId, {
@@ -235,7 +258,8 @@ describe('BankReconciliationService', () => {
         bankAccountId: 'bank-1',
       }),
     ).resolves.toBe(result);
-    expect(payments.create).toHaveBeenCalledWith(
+    expect(payments.createWithManager).toHaveBeenCalledWith(
+      transactionManager,
       expect.objectContaining({
         amount: 1000,
         paymentDate: '2026-08-10',
@@ -244,7 +268,11 @@ describe('BankReconciliationService', () => {
       undefined,
       companyId,
     );
-    expect(payments.confirm).toHaveBeenCalledWith(paymentId, companyId);
+    expect(payments.confirmWithManager).toHaveBeenCalledWith(
+      transactionManager,
+      paymentId,
+      companyId,
+    );
     expect(storedMovement.status).toBe(BankMovementStatus.RECONCILED);
   });
 
@@ -270,7 +298,7 @@ describe('BankReconciliationService', () => {
       }),
     ).resolves.toEqual(expanded);
     expect(movements.create).not.toHaveBeenCalled();
-    expect(payments.create).not.toHaveBeenCalled();
+    expect(payments.createWithManager).not.toHaveBeenCalled();
   });
 
   it('recovers from concurrent movement ingestion through the unique key', async () => {
@@ -298,21 +326,106 @@ describe('BankReconciliationService', () => {
     ).resolves.toBe(matched);
   });
 
-  it('recovers from concurrent reconciliation creation through the unique key', async () => {
-    const storedMovement = movement();
-    const concurrent = reconciliation({
-      status: BankReconciliationStatus.MATCHED,
-    });
+  it('takes the advisory lock on the same manager used by every write', async () => {
+    const storedMovement = movement({ direction: BankMovementDirection.DEBIT });
+    const storedReconciliation = reconciliation();
     movements.findOne.mockResolvedValue(storedMovement);
-    reconciliations.findOne
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(concurrent)
-      .mockResolvedValueOnce(concurrent);
-    reconciliations.save.mockRejectedValueOnce({ code: '23505' });
+    reconciliations.findOne.mockResolvedValue(null);
+    reconciliations.create.mockReturnValue(storedReconciliation);
 
-    await expect(service.reconcile(movementId, companyId)).resolves.toBe(
-      concurrent,
+    await service.reconcile(movementId, companyId);
+
+    expect(transactionManager.query).toHaveBeenCalledWith(
+      'SELECT pg_advisory_xact_lock(hashtext($1))',
+      [movementId],
     );
+    expect(transactionManager.getRepository).toHaveBeenCalledWith(BankMovement);
+    expect(transactionManager.getRepository).toHaveBeenCalledWith(
+      BankReconciliation,
+    );
+    expect(queryRunner.commitTransaction).toHaveBeenCalledTimes(1);
+    expect(queryRunner.rollbackTransaction).not.toHaveBeenCalled();
+  });
+
+  it('rolls back when validation fails before the first write', async () => {
+    movements.findOne.mockResolvedValue(null);
+
+    await expect(service.reconcile(movementId, companyId)).rejects.toThrow(
+      'Bank movement not found',
+    );
+
+    expect(movements.save).not.toHaveBeenCalled();
+    expect(reconciliations.save).not.toHaveBeenCalled();
+    expect(queryRunner.rollbackTransaction).toHaveBeenCalledTimes(1);
+    expect(queryRunner.commitTransaction).not.toHaveBeenCalled();
+  });
+
+  it('rolls back reconciliation and payment writes when confirmation fails', async () => {
+    const storedMovement = movement();
+    const storedReconciliation = reconciliation();
+    movements.findOne.mockResolvedValue(storedMovement);
+    reconciliations.findOne.mockResolvedValue(null);
+    reconciliations.create.mockReturnValue(storedReconciliation);
+    invoices.createQueryBuilder.mockReturnValue(
+      fluentQuery({ one: invoice() }),
+    );
+    payments.createWithManager.mockResolvedValue({ id: paymentId });
+    paymentRecords.findOne.mockResolvedValue({
+      id: paymentId,
+      status: PaymentStatus.PENDING,
+    });
+    payments.confirmWithManager.mockRejectedValue(
+      new Error('ledger confirmation failed'),
+    );
+
+    await expect(service.reconcile(movementId, companyId)).rejects.toThrow(
+      'ledger confirmation failed',
+    );
+
+    expect(payments.createWithManager).toHaveBeenCalledWith(
+      transactionManager,
+      expect.anything(),
+      undefined,
+      companyId,
+    );
+    expect(payments.confirmWithManager).toHaveBeenCalledWith(
+      transactionManager,
+      paymentId,
+      companyId,
+    );
+    expect(queryRunner.rollbackTransaction).toHaveBeenCalledTimes(1);
+    expect(queryRunner.commitTransaction).not.toHaveBeenCalled();
+    expect(payments.finalizeConfirmationEffects).not.toHaveBeenCalled();
+  });
+
+  it('rolls back a confirmed payment when the final movement write fails', async () => {
+    const storedMovement = movement();
+    const storedReconciliation = reconciliation();
+    movements.findOne.mockResolvedValue(storedMovement);
+    movements.save.mockRejectedValueOnce(new Error('movement write failed'));
+    reconciliations.findOne.mockResolvedValue(null);
+    reconciliations.create.mockReturnValue(storedReconciliation);
+    invoices.createQueryBuilder.mockReturnValue(
+      fluentQuery({ one: invoice() }),
+    );
+    payments.createWithManager.mockResolvedValue({ id: paymentId });
+    paymentRecords.findOne.mockResolvedValue({
+      id: paymentId,
+      status: PaymentStatus.PENDING,
+    });
+    payments.confirmWithManager.mockResolvedValue({
+      tenantAccountId: invoice().tenantAccountId,
+      settledInvoices: [],
+    });
+
+    await expect(service.reconcile(movementId, companyId)).rejects.toThrow(
+      'movement write failed',
+    );
+
+    expect(payments.confirmWithManager).toHaveBeenCalledTimes(1);
+    expect(queryRunner.rollbackTransaction).toHaveBeenCalledTimes(1);
+    expect(queryRunner.commitTransaction).not.toHaveBeenCalled();
+    expect(payments.finalizeConfirmationEffects).not.toHaveBeenCalled();
   });
 
   it('ignores debit movements and records why they are unmatched', async () => {
@@ -362,14 +475,14 @@ describe('BankReconciliationService', () => {
     invoices.createQueryBuilder.mockReturnValue(
       fluentQuery({ many: [invoice()] }),
     );
-    payments.create.mockResolvedValue({ id: paymentId });
-    payments.findOne.mockResolvedValue({
+    payments.createWithManager.mockResolvedValue({ id: paymentId });
+    paymentRecords.findOne.mockResolvedValue({
       id: paymentId,
       status: PaymentStatus.COMPLETED,
     });
 
     await expect(service.reconcile(movementId, companyId)).resolves.toBe(final);
-    expect(payments.confirm).not.toHaveBeenCalled();
+    expect(payments.confirmWithManager).not.toHaveBeenCalled();
     expect(storedReconciliation.matchStrategy).toBe(
       BankMatchStrategy.EXACT_AMOUNT_DATE,
     );
@@ -390,17 +503,26 @@ describe('BankReconciliationService', () => {
     movements.findOne.mockResolvedValue(storedMovement);
     reconciliations.findOne
       .mockResolvedValueOnce(storedReconciliation)
+      .mockResolvedValueOnce(final)
       .mockResolvedValueOnce(final);
     invoices.findOne.mockResolvedValue(invoice());
-    payments.findOne.mockResolvedValue({
+    paymentRecords.findOne.mockResolvedValue({
       id: paymentId,
       status: PaymentStatus.PENDING,
     });
-    payments.confirm.mockResolvedValue({ status: PaymentStatus.COMPLETED });
+    payments.confirmWithManager.mockResolvedValue({
+      tenantAccountId: invoice().tenantAccountId,
+      settledInvoices: [],
+    });
+    payments.finalizeConfirmationEffects.mockResolvedValue(undefined);
 
     await expect(service.reconcile(movementId, companyId)).resolves.toBe(final);
-    expect(payments.create).not.toHaveBeenCalled();
-    expect(payments.confirm).toHaveBeenCalledWith(paymentId, companyId);
+    expect(payments.createWithManager).not.toHaveBeenCalled();
+    expect(payments.confirmWithManager).toHaveBeenCalledWith(
+      transactionManager,
+      paymentId,
+      companyId,
+    );
   });
 
   it('persists a failed status for a non-confirmable payment', async () => {
@@ -413,7 +535,7 @@ describe('BankReconciliationService', () => {
     movements.findOne.mockResolvedValue(storedMovement);
     reconciliations.findOne.mockResolvedValue(storedReconciliation);
     invoices.findOne.mockResolvedValue(invoice());
-    payments.findOne.mockResolvedValue({
+    paymentRecords.findOne.mockResolvedValue({
       id: paymentId,
       status: PaymentStatus.FAILED,
     });

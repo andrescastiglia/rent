@@ -7,14 +7,18 @@ import {
 } from '@nestjs/common';
 import { timingSafeEqual } from 'node:crypto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 import { Invoice, InvoiceStatus } from '../payments/entities/invoice.entity';
 import {
+  Payment,
   PaymentMethod,
   PaymentStatus,
 } from '../payments/entities/payment.entity';
-import { PaymentsService } from '../payments/payments.service';
+import {
+  PaymentConfirmationTransactionResult,
+  PaymentsService,
+} from '../payments/payments.service';
 import { CreateSandboxBankMovementDto } from './dto/create-sandbox-bank-movement.dto';
 import {
   BankReconciliationAlert,
@@ -34,6 +38,11 @@ import {
 type MatchResult = {
   invoice: Invoice;
   strategy: BankMatchStrategy;
+};
+
+type ReconcileLockedResult = {
+  reconciliation: BankReconciliation;
+  paymentConfirmation: PaymentConfirmationTransactionResult | null;
 };
 
 @Injectable()
@@ -168,77 +177,126 @@ export class BankReconciliationService {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
+    let result: ReconcileLockedResult;
     try {
-      await queryRunner.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+      await queryRunner.manager.query(
+        'SELECT pg_advisory_xact_lock(hashtext($1))',
+        [movementId],
+      );
+      result = await this.reconcileLocked(
+        queryRunner.manager,
         movementId,
-      ]);
-      const result = await this.reconcileLocked(movementId, companyId);
+        companyId,
+      );
       await queryRunner.commitTransaction();
-      return result;
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw error;
     } finally {
       await queryRunner.release();
     }
+
+    if (result.paymentConfirmation && result.reconciliation.paymentId) {
+      await this.paymentsService.finalizeConfirmationEffects(
+        result.reconciliation.paymentId,
+        companyId,
+        result.paymentConfirmation,
+      );
+      return this.findReconciliation(
+        this.reconciliationsRepository,
+        result.reconciliation.id,
+        companyId,
+      );
+    }
+    return result.reconciliation;
   }
 
   private async reconcileLocked(
+    manager: EntityManager,
     movementId: string,
     companyId: string,
-  ): Promise<BankReconciliation> {
-    const movement = await this.movementsRepository.findOne({
+  ): Promise<ReconcileLockedResult> {
+    const movementsRepository = manager.getRepository(BankMovement);
+    const reconciliationsRepository = manager.getRepository(BankReconciliation);
+    const bankAccountsRepository = manager.getRepository(BankAccount);
+    const invoicesRepository = manager.getRepository(Invoice);
+    const paymentsRepository = manager.getRepository(Payment);
+    const movement = await movementsRepository.findOne({
       where: { id: movementId, companyId },
-      relations: ['bankAccount'],
+      lock: { mode: 'pessimistic_write' },
     });
     if (!movement) {
       throw new NotFoundException('Bank movement not found');
     }
+    if (movement.bankAccountId) {
+      movement.bankAccount = await bankAccountsRepository.findOne({
+        where: { id: movement.bankAccountId, companyId },
+      });
+    }
 
-    const reconciliation = await this.getOrCreateReconciliation(movement);
+    const reconciliation = await this.getOrCreateReconciliation(
+      reconciliationsRepository,
+      movement,
+    );
     if (reconciliation.status === BankReconciliationStatus.MATCHED) {
-      return this.findReconciliation(reconciliation.id, companyId);
+      return {
+        reconciliation: await this.findReconciliation(
+          reconciliationsRepository,
+          reconciliation.id,
+          companyId,
+        ),
+        paymentConfirmation: null,
+      };
     }
 
     if (movement.direction !== BankMovementDirection.CREDIT) {
       movement.status = BankMovementStatus.IGNORED;
-      await this.movementsRepository.save(movement);
-      return this.markUnmatched(
-        reconciliation,
-        'Only incoming credit movements can be reconciled',
-      );
+      await movementsRepository.save(movement);
+      return {
+        reconciliation: await this.markUnmatched(
+          reconciliationsRepository,
+          reconciliation,
+          'Only incoming credit movements can be reconciled',
+        ),
+        paymentConfirmation: null,
+      };
     }
 
     try {
       let match: MatchResult | null = null;
       if (reconciliation.invoiceId && reconciliation.matchStrategy) {
-        const invoice = await this.invoicesRepository.findOne({
+        const invoice = await invoicesRepository.findOne({
           where: { id: reconciliation.invoiceId, companyId },
         });
         if (invoice) {
           match = { invoice, strategy: reconciliation.matchStrategy };
         }
       }
-      match ??= await this.findInvoiceMatch(movement);
+      match ??= await this.findInvoiceMatch(movement, invoicesRepository);
 
       if (!match) {
         movement.status = BankMovementStatus.UNMATCHED;
-        await this.movementsRepository.save(movement);
-        return this.markUnmatched(
-          reconciliation,
-          'No unique pending invoice matched the movement',
-        );
+        await movementsRepository.save(movement);
+        return {
+          reconciliation: await this.markUnmatched(
+            reconciliationsRepository,
+            reconciliation,
+            'No unique pending invoice matched the movement',
+          ),
+          paymentConfirmation: null,
+        };
       }
 
       reconciliation.invoiceId = match.invoice.id;
       reconciliation.matchStrategy = match.strategy;
       reconciliation.status = BankReconciliationStatus.PROCESSING;
       reconciliation.reason = null;
-      await this.reconciliationsRepository.save(reconciliation);
+      await reconciliationsRepository.save(reconciliation);
 
       let paymentId = reconciliation.paymentId;
       if (!paymentId) {
-        const payment = await this.paymentsService.create(
+        const payment = await this.paymentsService.createWithManager(
+          manager,
           {
             tenantAccountId: match.invoice.tenantAccountId,
             amount: Number(movement.amount),
@@ -253,12 +311,24 @@ export class BankReconciliationService {
         );
         paymentId = payment.id;
         reconciliation.paymentId = paymentId;
-        await this.reconciliationsRepository.save(reconciliation);
+        await reconciliationsRepository.save(reconciliation);
       }
 
-      const payment = await this.paymentsService.findOne(paymentId, companyId);
+      const payment = await paymentsRepository.findOne({
+        where: { id: paymentId, companyId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!payment) {
+        throw new NotFoundException(`Payment with ID ${paymentId} not found`);
+      }
+      let paymentConfirmation: PaymentConfirmationTransactionResult | null =
+        null;
       if (payment.status === PaymentStatus.PENDING) {
-        await this.paymentsService.confirm(paymentId, companyId);
+        paymentConfirmation = await this.paymentsService.confirmWithManager(
+          manager,
+          paymentId,
+          companyId,
+        );
       } else if (payment.status !== PaymentStatus.COMPLETED) {
         throw new BadRequestException(
           `Reconciliation payment has non-confirmable status: ${payment.status}`,
@@ -266,17 +336,28 @@ export class BankReconciliationService {
       }
 
       movement.status = BankMovementStatus.RECONCILED;
-      await this.movementsRepository.save(movement);
+      await movementsRepository.save(movement);
       reconciliation.status = BankReconciliationStatus.MATCHED;
       reconciliation.matchedAt = new Date();
       reconciliation.reason = null;
-      await this.reconciliationsRepository.save(reconciliation);
-      return this.findReconciliation(reconciliation.id, companyId);
+      await reconciliationsRepository.save(reconciliation);
+      return {
+        reconciliation: await this.findReconciliation(
+          reconciliationsRepository,
+          reconciliation.id,
+          companyId,
+        ),
+        paymentConfirmation,
+      };
     } catch (error) {
       reconciliation.status = BankReconciliationStatus.FAILED;
       reconciliation.reason =
         error instanceof Error ? error.message : 'Reconciliation failed';
-      await this.reconciliationsRepository.save(reconciliation);
+      try {
+        await reconciliationsRepository.save(reconciliation);
+      } catch {
+        // The transaction may already be aborted by a database error.
+      }
       throw error;
     }
   }
@@ -316,9 +397,13 @@ export class BankReconciliationService {
 
   private async findInvoiceMatch(
     movement: BankMovement,
+    invoicesRepository: Repository<Invoice>,
   ): Promise<MatchResult | null> {
     if (movement.bankAccount?.propertyId) {
-      const invoice = await this.basePendingInvoiceQuery(movement)
+      const invoice = await this.basePendingInvoiceQuery(
+        movement,
+        invoicesRepository,
+      )
         .andWhere('lease.property_id = :propertyId', {
           propertyId: movement.bankAccount.propertyId,
         })
@@ -330,7 +415,10 @@ export class BankReconciliationService {
       }
     }
 
-    const candidates = await this.basePendingInvoiceQuery(movement)
+    const candidates = await this.basePendingInvoiceQuery(
+      movement,
+      invoicesRepository,
+    )
       .andWhere('(invoice.total_amount - invoice.paid_amount) = :amount', {
         amount: Number(movement.amount),
       })
@@ -351,8 +439,11 @@ export class BankReconciliationService {
       : null;
   }
 
-  private basePendingInvoiceQuery(movement: BankMovement) {
-    return this.invoicesRepository
+  private basePendingInvoiceQuery(
+    movement: BankMovement,
+    invoicesRepository: Repository<Invoice>,
+  ) {
+    return invoicesRepository
       .createQueryBuilder('invoice')
       .innerJoin('invoice.lease', 'lease')
       .where('invoice.company_id = :companyId', {
@@ -373,51 +464,45 @@ export class BankReconciliationService {
   }
 
   private async getOrCreateReconciliation(
+    reconciliationsRepository: Repository<BankReconciliation>,
     movement: BankMovement,
   ): Promise<BankReconciliation> {
-    const existing = await this.reconciliationsRepository.findOne({
-      where: { movementId: movement.id },
+    const existing = await reconciliationsRepository.findOne({
+      where: { movementId: movement.id, companyId: movement.companyId },
     });
     if (existing) return existing;
 
-    try {
-      return await this.reconciliationsRepository.save(
-        this.reconciliationsRepository.create({
-          companyId: movement.companyId,
-          movementId: movement.id,
-          invoiceId: null,
-          paymentId: null,
-          matchStrategy: null,
-          status: BankReconciliationStatus.PROCESSING,
-          reason: null,
-          matchedAt: null,
-        }),
-      );
-    } catch (error) {
-      if (!this.isUniqueViolation(error)) throw error;
-      const concurrent = await this.reconciliationsRepository.findOne({
-        where: { movementId: movement.id },
-      });
-      if (!concurrent) throw error;
-      return concurrent;
-    }
+    return reconciliationsRepository.save(
+      reconciliationsRepository.create({
+        companyId: movement.companyId,
+        movementId: movement.id,
+        invoiceId: null,
+        paymentId: null,
+        matchStrategy: null,
+        status: BankReconciliationStatus.PROCESSING,
+        reason: null,
+        matchedAt: null,
+      }),
+    );
   }
 
   private async markUnmatched(
+    reconciliationsRepository: Repository<BankReconciliation>,
     reconciliation: BankReconciliation,
     reason: string,
   ): Promise<BankReconciliation> {
     reconciliation.status = BankReconciliationStatus.UNMATCHED;
     reconciliation.reason = reason;
     reconciliation.matchedAt = null;
-    return this.reconciliationsRepository.save(reconciliation);
+    return reconciliationsRepository.save(reconciliation);
   }
 
   private async findReconciliation(
+    reconciliationsRepository: Repository<BankReconciliation>,
     id: string,
     companyId: string,
   ): Promise<BankReconciliation> {
-    const reconciliation = await this.reconciliationsRepository.findOne({
+    const reconciliation = await reconciliationsRepository.findOne({
       where: { id, companyId },
       relations: ['movement', 'invoice', 'payment', 'payment.receipt'],
     });

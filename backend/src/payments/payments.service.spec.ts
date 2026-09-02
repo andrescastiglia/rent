@@ -16,6 +16,7 @@ import { UserRole } from '../users/entities/user.entity';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { CommunicationsService } from '../communications/communications.service';
 import { MovementType } from './entities/tenant-account-movement.entity';
+import { TenantAccount } from './entities/tenant-account.entity';
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
@@ -25,6 +26,7 @@ describe('PaymentsService', () => {
   let _invoicesRepository: MockRepository<Invoice>;
   let _creditNotesRepository: MockRepository<CreditNote>;
   let paymentAllocationsRepository: MockRepository<PaymentAllocation>;
+  let tenantAccountsRepository: MockRepository<TenantAccount>;
   let tenantAccountsService: Partial<TenantAccountsService>;
   let dataSource: { transaction: jest.Mock };
   let transactionManager: { query: jest.Mock; getRepository: jest.Mock };
@@ -55,10 +57,12 @@ describe('PaymentsService', () => {
       query: jest.fn().mockResolvedValue([]),
       getRepository: jest.fn((entity: unknown) => {
         if (entity === Payment) return paymentsRepository;
+        if (entity === PaymentItem) return paymentItemsRepository;
         if (entity === Invoice) return _invoicesRepository;
         if (entity === Receipt) return receiptsRepository;
         if (entity === CreditNote) return _creditNotesRepository;
         if (entity === PaymentAllocation) return paymentAllocationsRepository;
+        if (entity === TenantAccount) return tenantAccountsRepository;
         throw new Error('Unexpected transaction repository');
       }),
     };
@@ -122,6 +126,7 @@ describe('PaymentsService', () => {
     paymentAllocationsRepository = module.get(
       getRepositoryToken(PaymentAllocation),
     );
+    tenantAccountsRepository = createMockRepository();
     paymentAllocationsRepository.find!.mockResolvedValue([]);
     _creditNotesRepository.find!.mockResolvedValue([]);
     receiptsRepository.findOne!.mockResolvedValue(null);
@@ -173,6 +178,45 @@ describe('PaymentsService', () => {
       }),
     );
     expect(paymentItemsRepository.save).toHaveBeenCalled();
+  });
+
+  it('creates a pending payment with repositories from the supplied manager', async () => {
+    tenantAccountsRepository.findOne!.mockResolvedValue({
+      id: 'acc-1',
+      companyId: 'company-1',
+      tenantId: 'tenant-1',
+    });
+    paymentsRepository.create!.mockImplementation((data) => ({
+      id: 'pay-managed',
+      ...data,
+    }));
+    paymentsRepository.save!.mockImplementation(async (data) => data);
+
+    await expect(
+      service.createWithManager(
+        transactionManager as any,
+        {
+          tenantAccountId: 'acc-1',
+          amount: 100,
+          currencyCode: 'ARS',
+          paymentDate: '2026-09-02',
+          method: 'bank_transfer',
+        } as any,
+        undefined,
+        'company-1',
+      ),
+    ).resolves.toEqual(expect.objectContaining({ id: 'pay-managed' }));
+
+    expect(tenantAccountsRepository.findOne).toHaveBeenCalledWith({
+      where: { id: 'acc-1', companyId: 'company-1' },
+    });
+    expect(paymentsRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: 'company-1',
+        status: PaymentStatus.PENDING,
+      }),
+    );
+    expect(tenantAccountsService.findOne).not.toHaveBeenCalled();
   });
 
   it('should allow editing pending payments with new items', async () => {
