@@ -8,6 +8,7 @@
     "start": "next start",
     "start:newrelic": "NODE_OPTIONS=\"-r ./newrelic.js -r newrelic\" npm start",
     "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
+    "lint:check": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
     "type-check": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "test": "jest",

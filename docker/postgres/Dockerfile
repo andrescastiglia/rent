@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
-ARG POSTGIS_IMAGE=postgis/postgis:16-3.5-alpine
-ARG GO_IMAGE=golang:1.26.5-alpine
+ARG POSTGIS_IMAGE=postgis/postgis:16-3.5-alpine@sha256:47e961a569fd52ff31f0fe205ed91eeab17d9f5fff6722e6d7ea6b588748b293
+ARG GO_IMAGE=golang:1.26.6-alpine@sha256:3889b425f035be855a72fb4755265311293b6d414521f0a519d819df32222d83
 
 FROM ${POSTGIS_IMAGE} AS pgvector-builder
 
@@ -34,6 +34,8 @@ FROM ${POSTGIS_IMAGE}
 
 ARG PG_MAJOR=16
 ARG PGVECTOR_VERSION=0.8.5
+
+RUN apk upgrade --no-cache
 
 LABEL org.opencontainers.image.title="RentFlow PostgreSQL" \
       org.opencontainers.image.description="PostgreSQL 16 with PostGIS and pgvector" \

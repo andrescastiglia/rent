@@ -1,0 +1,144 @@
+name: Production release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  actions: read
+  contents: write
+  pull-requests: read
+  security-events: write
+
+concurrency:
+  group: production-release
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Validate immutable release
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.release.outputs.tag }}
+      release_sha: ${{ steps.release.outputs.sha }}
+    steps:
+      - name: Checkout complete history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag, SHA, branches and pull requests
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid release tag: $RELEASE_TAG" >&2
+            exit 1
+          fi
+
+          if [ "$(git cat-file -t "$RELEASE_TAG")" != tag ]; then
+            echo "Release tags must be annotated." >&2
+            exit 1
+          fi
+
+          git fetch --no-tags origin main
+          MAIN_SHA="$(git rev-parse origin/main)"
+          if [ "$RELEASE_SHA" != "$MAIN_SHA" ]; then
+            echo "Tag SHA $RELEASE_SHA is not the current main SHA $MAIN_SHA." >&2
+            exit 1
+          fi
+
+          OPEN_PRS="$(gh pr list --state open --limit 1 --json number --jq 'length')"
+          if [ "$OPEN_PRS" != 0 ]; then
+            echo "A production release requires zero open pull requests." >&2
+            exit 1
+          fi
+
+          mapfile -t BRANCHES < <(gh api "repos/${GITHUB_REPOSITORY}/branches" --paginate --jq '.[].name')
+          if [ "${#BRANCHES[@]}" -ne 1 ] || [ "${BRANCHES[0]}" != main ]; then
+            printf 'A production release requires main as the only remote branch. Found: %s\n' "${BRANCHES[*]}" >&2
+            exit 1
+          fi
+
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+
+  quality-gates:
+    name: Required quality gates
+    needs: preflight
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
+  deploy-server:
+    name: Deploy server
+    needs: [preflight, quality-gates]
+    runs-on: ubuntu-latest
+    environment: production-release
+    steps:
+      - name: Checkout immutable release
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.release_sha }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Install pinned Ansible
+        run: python -m pip install --disable-pip-version-check ansible-core==2.19.2
+
+      - name: Configure SSH trust
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_PRIVATE_KEY"
+          test -n "$SSH_KNOWN_HOSTS"
+          install -d -m 700 ~/.ssh
+          install -m 600 /dev/null ~/.ssh/deploy_key
+          printf '%s' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Run Ansible playbook for exact SHA
+        working-directory: ansible
+        env:
+          RELEASE_SHA: ${{ needs.preflight.outputs.release_sha }}
+        run: |
+          ansible-playbook -i inventory/production.yml deploy.yml \
+            --private-key ~/.ssh/deploy_key \
+            -e "ansible_host=${{ secrets.SSH_HOST }}" \
+            -e "ansible_user=${{ secrets.SSH_USER }}" \
+            -e "ansible_port=${{ secrets.SSH_PORT || 22 }}" \
+            -e "git_sha=${RELEASE_SHA}"
+
+  deploy-android:
+    name: Deploy Android
+    needs: [preflight, quality-gates]
+    uses: ./.github/workflows/eas.yml
+    secrets: inherit
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [preflight, deploy-server, deploy-android]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create immutable release record
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.preflight.outputs.release_tag }}
+          RELEASE_SHA: ${{ needs.preflight.outputs.release_sha }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --generate-notes \
+            --notes "Deployed SHA: ${RELEASE_SHA}\nWorkflow: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
