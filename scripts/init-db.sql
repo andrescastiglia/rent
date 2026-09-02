@@ -2620,6 +2620,16 @@ CREATE INDEX idx_payment_gateway_webhook_status
 CREATE INDEX idx_payment_gateway_webhook_company
     ON payment_gateway_webhook_events(company_id, received_at DESC);
 
+CREATE TABLE api_rate_limit_buckets (
+    bucket_key CHAR(64) PRIMARY KEY,
+    window_started_at TIMESTAMPTZ NOT NULL,
+    request_count INTEGER NOT NULL CHECK (request_count > 0),
+    expires_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX idx_api_rate_limit_expiry
+    ON api_rate_limit_buckets(expires_at);
+
 -- -----------------------------------------------------------------------------
 -- Portal Listings
 -- -----------------------------------------------------------------------------

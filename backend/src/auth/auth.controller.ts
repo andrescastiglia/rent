@@ -74,15 +74,14 @@ export class AuthController {
   }
 
   private getRequestIp(req: any): string | undefined {
-    const forwardedFor = req?.headers?.['x-forwarded-for'];
-    if (typeof forwardedFor === 'string') {
-      return forwardedFor.split(',')[0]?.trim() || undefined;
-    }
     return req?.ip;
   }
 
   private shouldBypassCaptchaForLocalDev(req: any): boolean {
-    if (process.env.ALLOW_LOCAL_DEV_CAPTCHA_BYPASS !== 'true') {
+    if (
+      process.env.NODE_ENV === 'production' ||
+      process.env.ALLOW_LOCAL_DEV_CAPTCHA_BYPASS !== 'true'
+    ) {
       return false;
     }
 
