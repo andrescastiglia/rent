@@ -60,6 +60,13 @@ recupera el WAMID ya registrado sin volver a contactar al proveedor. La migraci�
 `104_harden_communication_delivery_outbox.sql` agrega el estado `processing`, el
 lease y el índice único de idempotencia.
 
+La migración `105_expand_communication_outbox_events.sql` incorpora respuestas
+manuales y del asistente, amplía los roles destinatarios y vincula de forma única
+la comunicación de origen. La respuesta manual bloquea mensaje y consentimiento,
+y guarda respuesta, entrega y actividad en una sola transacción. La respuesta del
+asistente guarda entrega y metadatos juntos. Los avisos de visita y las notas de
+crédito también se encolan mediante `CommunicationsService`.
+
 Programar el procesador de comunicaciones al menos una vez por minuto:
 
 ```bash
@@ -67,9 +74,9 @@ cd backend
 npx ts-node src/communications/retry-communications.cli.ts
 ```
 
-Requiere `APP_URL` y `BATCH_COMMUNICATIONS_INTERNAL_TOKEN`. Las rutas de pagos,
-visitas y respuestas automáticas que todavía invocan WhatsApp directamente deben
-migrarse antes de considerar cerrado el outbox general.
+Requiere `APP_URL` y `BATCH_COMMUNICATIONS_INTERNAL_TOKEN`. El endpoint ad hoc de
+WhatsApp y las herramientas IA de envío todavía invocan al proveedor directamente;
+deben migrarse o retirarse antes de considerar cerrado el outbox general.
 
 Programar cada minuto, con exclusión solapada si el scheduler no la ofrece:
 
