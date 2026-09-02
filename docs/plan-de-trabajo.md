@@ -27,7 +27,7 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 
 - [ ] Propagar `actor + companyId + rol + permisos` y validar pertenencia en todas las lecturas y mutaciones restantes: tenants, properties/units, leases, payments/invoices, bank accounts, owners y staff.
 - [ ] Restringir owner, tenant y buyer a objetos relacionados, no solo a la misma compañía.
-- [ ] Hacer que toda ruta autenticada sin política explícita sea denegada; completar el mapa de permisos de staff y sus pruebas A/B.
+- [ ] Completar el mapa de permisos de staff y sus pruebas A/B por módulo.
 - [ ] Añadir fixtures de dos compañías y pruebas negativas por ID ajeno para cada controlador y herramienta IA.
 - [ ] Proteger métricas e ingestión frontend con credencial operativa, rate limit y redacción; no depender de JWT de usuario para Prometheus.
 
@@ -41,9 +41,9 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 ### Superficies públicas y sesiones
 
 - [ ] Autenticar y deduplicar webhooks de firma, pagos y comunicaciones; validar firma, timestamp, replay, compañía y transición de estado.
-- [ ] Mantener firma digital, portales y transferencias deshabilitados mientras usen proveedores simulados.
+- [ ] Mantener portales y transferencias deshabilitados mientras usen proveedores simulados.
 - [ ] Reemplazar uploads temporales públicos por claves opacas firmadas, límites de tamaño/tipo, cuarentena y autorización al promover/descargar.
-- [ ] Rehidratar la sesión web/mobile con perfil, compañía, rol y permisos; negar deep links no autorizados.
+- [ ] Rehidratar la sesión mobile y negar deep links no autorizados en web/mobile.
 - [ ] Aplicar rate limits distribuidos, CORS/proxy explícitos y secretos obligatorios en todos los entornos no test.
 
 ### WhatsApp seguro
