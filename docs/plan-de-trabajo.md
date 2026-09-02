@@ -8,10 +8,9 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 
 ## 1. Consolidar Git y habilitar releases
 
-- [ ] Obtener permiso de escritura para publicar la rama local `codex/main-tag-release`; GitHub responde `403` para la identidad actual.
-- [ ] Integrar en `main` los cambios locales ya verificados de documentación, CI/CD, seguridad y cuentas corrientes.
+- [ ] Obtener permiso de escritura para publicar la rama local `main`; GitHub responde `403` para la identidad actual.
 - [ ] Resolver los PR #163–#166 contra `main`; integrar cambios compatibles o cerrar cada PR con justificación.
-- [ ] Confirmar que ningún commit útil quede fuera de `main`; eliminar `develop`, `preview` y los heads resueltos. Dejar únicamente `main` como rama permanente local y remota.
+- [ ] En GitHub, confirmar que ningún commit útil quede fuera de `main`; eliminar `develop`, `preview` y los heads resueltos. Localmente ya existe únicamente `main`.
 - [ ] Cambiar el CI definitivo para aceptar PR solo hacia `main`; habilitar eliminación automática de ramas.
 - [ ] Exigir en `main` PR, conversaciones resueltas, checks estables y aprobación humana cuando exista otro revisor.
 - [ ] Proteger tags `vX.X.X` contra modificación o borrado y restringir su creación a responsables de release.
