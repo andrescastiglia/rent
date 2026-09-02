@@ -24,7 +24,7 @@
     "tunnel": "bash scripts/db-tunnel.sh",
     "rag:eval": "node -r dotenv/config scripts/run-rag-eval.js",
     "rag:shadow-report": "node -r dotenv/config scripts/run-rag-eval.js --shadow-report",
-    "openapi:generate": "nest build && node dist/openapi/generate-openapi.js && openapi-ts -i ../docs/api/openapi.v1.json -o ../frontend/src/generated/openapi -p @hey-api/typescript --no-log-file && openapi-ts -i ../docs/api/openapi.v1.json -o ../mobile/src/generated/openapi -p @hey-api/typescript --no-log-file && prettier --write ../frontend/src/generated/openapi ../mobile/src/generated/openapi",
+    "openapi:generate": "node scripts/clean-openapi-build.mjs && nest build && node dist/openapi/generate-openapi.js && openapi-ts -i ../docs/api/openapi.v1.json -o ../frontend/src/generated/openapi -p @hey-api/typescript --no-log-file && openapi-ts -i ../docs/api/openapi.v1.json -o ../mobile/src/generated/openapi -p @hey-api/typescript --no-log-file && prettier --write ../frontend/src/generated/openapi ../mobile/src/generated/openapi",
     "openapi:check": "npm run openapi:generate && git -C .. diff --exit-code -- docs/api/openapi.v1.json docs/api/capabilities.v1.json frontend/src/generated/openapi mobile/src/generated/openapi",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\""
   },

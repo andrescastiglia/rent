@@ -5,11 +5,19 @@ export type ClientOptions = {
 };
 
 export type LoginDto = {
-  [key: string]: unknown;
+  email: string;
+  password: string;
+  captchaToken?: string;
 };
 
 export type RegisterDto = {
-  [key: string]: unknown;
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  role?: "owner" | "tenant";
+  phone?: string;
+  captchaToken?: string;
 };
 
 export type ReauthenticateDto = {
@@ -17,103 +25,1103 @@ export type ReauthenticateDto = {
 };
 
 export type CreateUserDto = {
-  [key: string]: unknown;
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  role: "admin" | "owner" | "tenant" | "staff" | "buyer";
+  phone?: string;
+  permissions?: {
+    [key: string]: unknown;
+  };
 };
 
 export type UpdateProfileDto = {
-  [key: string]: unknown;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  avatarUrl?: string | null;
+  language?: string;
+  whatsappEnabled?: boolean;
 };
 
 export type ChangePasswordDto = {
-  [key: string]: unknown;
+  currentPassword: string;
+  newPassword: string;
 };
 
 export type UpdateUserDto = {
-  [key: string]: unknown;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  avatarUrl?: string | null;
+  language?: "es" | "en" | "pt";
+  permissions?: {
+    [key: string]: unknown;
+  };
+  whatsappEnabled?: boolean;
 };
 
 export type SetUserActivationDto = {
-  [key: string]: unknown;
+  isActive: boolean;
 };
 
 export type ResetUserPasswordDto = {
-  [key: string]: unknown;
+  newPassword?: string;
 };
 
 export type CreatePropertyDto = {
-  [key: string]: unknown;
+  companyId?: string;
+  ownerId?: string;
+  name: string;
+  ownerWhatsapp?: string;
+  propertyType:
+    | "apartment"
+    | "house"
+    | "commercial"
+    | "office"
+    | "warehouse"
+    | "land"
+    | "parking"
+    | "other";
+  addressStreet: string;
+  addressNumber?: string;
+  addressFloor?: string;
+  addressApartment?: string;
+  addressCity: string;
+  addressState: string;
+  addressCountry?: string;
+  addressPostalCode?: string;
+  latitude?: number;
+  longitude?: number;
+  totalArea?: number;
+  builtArea?: number;
+  yearBuilt?: number;
+  description?: string;
+  notes?: string;
+  rentPrice?: number;
+  salePrice?: number;
+  saleCurrency?: string;
+  operations?: Array<"rent" | "sale">;
+  operationState?: "available" | "rented" | "reserved" | "sold";
+  allowsPets?: boolean;
+  acceptedGuaranteeTypes?: Array<string>;
+  maxOccupants?: number;
+  images?: Array<string>;
+};
+
+export type Company = {
+  id: string;
+  name: string;
+  legalName: string;
+  taxId: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  postalCode: string;
+  logoUrl: string;
+  website: string;
+  plan: "free" | "basic" | "premium" | "enterprise";
+  planExpiresAt: string;
+  maxProperties: number;
+  maxUsers: number;
+  settings: {
+    [key: string]: unknown;
+  };
+  arcaEnabled: boolean;
+  arcaCuit: string;
+  arcaRazonSocial: string;
+  arcaCondicionIva: string;
+  arcaPuntoVenta: number;
+  arcaCertificatePath: string;
+  arcaCertificatePasswordHash: string;
+  arcaCertificateExpiresAt: string;
+  arcaProductionMode: boolean;
+  arcaLastSyncAt: string;
+  withholdingAgentIibb: boolean;
+  withholdingAgentGanancias: boolean;
+  withholdingRates: {
+    [key: string]: unknown;
+  };
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+};
+
+export type User = {
+  id: string;
+  companyId: string;
+  company: Company;
+  email: string | null;
+  passwordHash: string;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  whatsappEnabled: boolean;
+  whatsappEnabledAt: string | null;
+  avatarUrl: string | null;
+  permissions: {
+    [key: string]: unknown;
+  };
+  role: "admin" | "owner" | "tenant" | "staff" | "buyer";
+  language: string;
+  isActive: boolean;
+  isEmailVerified: boolean;
+  emailVerifiedAt: string;
+  lastLoginAt: string;
+  passwordResetToken: string;
+  passwordResetExpires: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+};
+
+export type Owner = {
+  id: string;
+  userId: string;
+  user: User;
+  companyId: string;
+  company: Company;
+  taxId: string;
+  taxIdType: string;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  postalCode: string;
+  bankName: string;
+  bankAccountType: string;
+  bankAccountNumber: string;
+  bankCbu: string;
+  bankAlias: string;
+  paymentMethod:
+    | "cash"
+    | "bank_transfer"
+    | "credit_card"
+    | "debit_card"
+    | "check"
+    | "digital_wallet"
+    | "crypto"
+    | "other";
+  commissionRate: number;
+  notes: string;
+  invoicePrefix: string;
+  nextInvoiceNumber: number;
+  contactConsent: boolean;
+  contactConsentRecordedAt: string | null;
+  preferredContactChannel: "whatsapp" | "email" | "sms";
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+};
+
+export type PropertyFeature = {
+  id: string;
+  propertyId: string;
+  property: Property;
+  category: string;
+  name: string;
+  value: string;
+  isHighlighted: boolean;
+  displayOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Property = {
+  id: string;
+  companyId: string;
+  company: Company;
+  ownerId: string;
+  owner: Owner;
+  ownerWhatsapp: string;
+  name: string;
+  propertyType:
+    | "apartment"
+    | "house"
+    | "commercial"
+    | "office"
+    | "warehouse"
+    | "land"
+    | "parking"
+    | "other";
+  status: "active" | "inactive" | "under_maintenance" | "pending_approval";
+  addressStreet: string;
+  addressNumber: string;
+  addressFloor: string;
+  addressApartment: string;
+  addressCity: string;
+  addressState: string;
+  addressCountry: string;
+  addressPostalCode: string;
+  latitude: number;
+  longitude: number;
+  totalArea: number;
+  builtArea: number;
+  yearBuilt: number;
+  totalUnits: number;
+  description: string;
+  rentPrice: number;
+  salePrice: number;
+  saleCurrency: string;
+  operations: Array<"rent" | "sale">;
+  operationState: "available" | "rented" | "reserved" | "sold";
+  allowsPets: boolean;
+  acceptedGuaranteeTypes: Array<string>;
+  maxOccupants: number;
+  amenities: Array<string>;
+  images: Array<{
+    [key: string]: unknown;
+  }>;
+  documents: Array<{
+    [key: string]: unknown;
+  }>;
+  notes: string;
+  units: Array<Unit>;
+  features: Array<PropertyFeature>;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+};
+
+export type Unit = {
+  id: string;
+  propertyId: string;
+  property: Property;
+  companyId: string;
+  company: Company;
+  unitNumber: string;
+  floor: string;
+  status: "available" | "occupied" | "maintenance" | "reserved";
+  unitType: string;
+  area: number;
+  bedrooms: number;
+  bathrooms: number;
+  hasParking: boolean;
+  parkingSpots: number;
+  hasStorage: boolean;
+  isFurnished: boolean;
+  baseRent: number;
+  currency: string;
+  expenses: number;
+  description: string;
+  features: Array<string>;
+  images: Array<{
+    [key: string]: unknown;
+  }>;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
 };
 
 export type UpdatePropertyDto = {
-  [key: string]: unknown;
+  status?: "active" | "inactive" | "under_maintenance" | "pending_approval";
+  companyId?: string;
+  ownerId?: string;
 };
 
 export type DiscardPropertyImagesDto = {
-  [key: string]: unknown;
+  images: Array<string>;
 };
 
 export type CreateUnitDto = {
-  [key: string]: unknown;
+  propertyId: string;
+  companyId?: string;
+  unitNumber: string;
+  floor?: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  area: number;
+  baseRent?: number;
+  currency?: string;
+  unitType?: string;
+  hasParking?: boolean;
+  parkingSpots?: number;
+  hasStorage?: boolean;
+  isFurnished?: boolean;
+  expenses?: number;
+  status?: "available" | "occupied" | "maintenance" | "reserved";
+  description?: string;
+  notes?: string;
 };
 
 export type UpdateUnitDto = {
-  [key: string]: unknown;
+  propertyId?: string;
+  companyId?: string;
 };
 
 export type CreatePropertyVisitDto = {
-  [key: string]: unknown;
+  visitedAt?: string;
+  interestedName?: string;
+  interestedProfileId?: string;
+  comments?: string;
+  hasOffer?: boolean;
+  offerAmount?: number;
+  offerCurrency?: string;
+};
+
+export type Tenant = {
+  id: string;
+  userId: string;
+  user: User;
+  companyId: string;
+  company: Company;
+  dni: string;
+  cuil: string;
+  dateOfBirth: string;
+  nationality: string;
+  occupation: string;
+  employer: string;
+  monthlyIncome: number;
+  employmentStatus:
+    "employed" | "self_employed" | "unemployed" | "retired" | "student";
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+  emergencyContactRelationship: string;
+  notes: string;
+  creditScore: number;
+  creditScoreDate: string;
+  contactConsent: boolean;
+  contactConsentRecordedAt: string | null;
+  preferredContactChannel: "whatsapp" | "email" | "sms";
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+};
+
+export type Buyer = {
+  id: string;
+  userId: string;
+  user: User;
+  companyId: string;
+  company: Company;
+  interestedProfileId: string | null;
+  interestedProfile: InterestedProfile | null;
+  dni: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
+
+export type SaleFolder = {
+  id: string;
+  companyId: string;
+  name: string;
+  description: string;
+  agreements: Array<SaleAgreement>;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+};
+
+export type SaleReceipt = {
+  id: string;
+  agreementId: string;
+  agreement: SaleAgreement;
+  receiptNumber: string;
+  installmentNumber: number;
+  amount: number;
+  currency: string;
+  paymentDate: string;
+  balanceAfter: number;
+  overdueAmount: number;
+  copyCount: number;
+  pdfUrl: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SaleAgreement = {
+  id: string;
+  companyId: string;
+  folderId: string;
+  folder: SaleFolder;
+  buyerId: string | null;
+  buyer: Buyer | null;
+  buyerName: string;
+  buyerPhone: string;
+  totalAmount: number;
+  currency: string;
+  installmentAmount: number;
+  installmentCount: number;
+  startDate: string;
+  dueDay: number;
+  paidAmount: number;
+  notes: string;
+  receipts: Array<SaleReceipt>;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+};
+
+export type InterestedActivity = {
+  id: string;
+  interestedProfileId: string;
+  interestedProfile: InterestedProfile;
+  type: "call" | "task" | "note" | "email" | "whatsapp" | "visit";
+  status: "pending" | "completed" | "cancelled";
+  subject: string;
+  body: string;
+  dueAt: string;
+  completedAt: string;
+  templateName: string;
+  metadata: {
+    [key: string]: unknown;
+  };
+  createdByUserId: string;
+  createdByUser: User;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type InterestedStageHistory = {
+  id: string;
+  interestedProfileId: string;
+  interestedProfile: InterestedProfile;
+  fromStatus: "interested" | "tenant" | "buyer";
+  toStatus: "interested" | "tenant" | "buyer";
+  reason: string;
+  changedByUserId: string;
+  changedByUser: User;
+  changedAt: string;
+  createdAt: string;
+};
+
+export type InterestedPropertyMatch = {
+  id: string;
+  companyId: string;
+  company: Company;
+  interestedProfileId: string;
+  interestedProfile: InterestedProfile;
+  propertyId: string;
+  property: Property;
+  status:
+    | "suggested"
+    | "contacted"
+    | "visit_scheduled"
+    | "accepted"
+    | "rejected"
+    | "expired";
+  score: number;
+  matchReasons: Array<string>;
+  firstMatchedAt: string;
+  lastMatchedAt: string;
+  contactedAt: string;
+  notes: string;
+  createdByUserId: string;
+  createdByUser: User;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+};
+
+export type InterestedProfile = {
+  id: string;
+  companyId: string;
+  company: Company;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+  peopleCount: number;
+  minAmount: number;
+  maxAmount: number;
+  hasPets: boolean;
+  guaranteeTypes: Array<string>;
+  preferredZones: Array<string>;
+  preferredCity: string;
+  desiredFeatures: Array<string>;
+  propertyTypePreference:
+    | "apartment"
+    | "house"
+    | "commercial"
+    | "office"
+    | "warehouse"
+    | "land"
+    | "parking"
+    | "other";
+  operation: "rent" | "sale";
+  operations: Array<"rent" | "sale">;
+  status: "interested" | "tenant" | "buyer";
+  qualificationLevel: "mql" | "sql" | "rejected";
+  qualificationNotes: string;
+  source: string;
+  assignedToUserId: string;
+  assignedToUser: User;
+  organizationName: string;
+  customFields: {
+    [key: string]: unknown;
+  };
+  lastContactAt: string;
+  nextContactAt: string;
+  lostReason: string;
+  consentContact: boolean;
+  consentRecordedAt: string;
+  registeredInOffice: boolean;
+  preferredContactChannel: "whatsapp" | "email" | "sms";
+  convertedToTenantId: string | null;
+  convertedToTenant: Tenant | null;
+  convertedToBuyerId: string | null;
+  convertedToBuyer: Buyer | null;
+  convertedToSaleAgreementId: string | null;
+  convertedToSaleAgreement: SaleAgreement | null;
+  notes: string;
+  activities: Array<InterestedActivity>;
+  stageHistory: Array<InterestedStageHistory>;
+  propertyMatches: Array<InterestedPropertyMatch>;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+};
+
+export type PropertyVisit = {
+  id: string;
+  propertyId: string;
+  property: Property;
+  kind: "visit" | "maintenance";
+  visitedAt: string;
+  interestedName: string;
+  interestedProfileId: string;
+  interestedProfile: InterestedProfile;
+  comments: string;
+  hasOffer: boolean;
+  offerAmount: number | null;
+  offerCurrency: string;
+  result: "pending" | "interested" | "not_interested" | "offer";
+  resultReason: string | null;
+  completedAt: string | null;
+  createdByUserId: string;
+  notifications: Array<PropertyVisitNotification>;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PropertyVisitNotification = {
+  id: string;
+  visitId: string;
+  visit: PropertyVisit;
+  channel: "whatsapp" | "email";
+  recipient: string;
+  message: string;
+  status: "queued" | "sent" | "failed";
+  error: string | null;
+  sentAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type UpdatePropertyVisitResultDto = {
-  [key: string]: unknown;
+  result: "pending" | "interested" | "not_interested" | "offer";
+  reason?: string;
+  offerAmount?: number;
+  offerCurrency?: string;
 };
 
 export type CreatePropertyMaintenanceTaskDto = {
-  [key: string]: unknown;
+  scheduledAt?: string;
+  title: string;
+  notes?: string;
+};
+
+export type CommunicationTemplate = {
+  id: string;
+  companyId: string;
+  company: Company;
+  name: string;
+  event:
+    | "whatsapp_ad_hoc"
+    | "whatsapp_manual_reply"
+    | "whatsapp_assistant_response"
+    | "credit_note_issued"
+    | "payment_received"
+    | "invoice_issued"
+    | "payment_reminder"
+    | "invoice_overdue"
+    | "rent_adjustment"
+    | "settlement_available"
+    | "settlement_paid"
+    | "office_prospect_welcome_rent"
+    | "office_prospect_welcome_sale"
+    | "property_visit_scheduled"
+    | "property_visit_completed"
+    | "property_visit_offer";
+  recipientRole:
+    "admin" | "staff" | "buyer" | "tenant" | "owner" | "interested";
+  channel: "whatsapp" | "email" | "sms";
+  locale: string;
+  subject: string | null;
+  body: string;
+  isActive: boolean;
+  autoSend: boolean;
+  requiresApproval: boolean;
+  variables: Array<string>;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type CreateCommunicationTemplateDto = {
-  [key: string]: unknown;
+  name: string;
+  event:
+    | "whatsapp_ad_hoc"
+    | "whatsapp_manual_reply"
+    | "whatsapp_assistant_response"
+    | "credit_note_issued"
+    | "payment_received"
+    | "invoice_issued"
+    | "payment_reminder"
+    | "invoice_overdue"
+    | "rent_adjustment"
+    | "settlement_available"
+    | "settlement_paid"
+    | "office_prospect_welcome_rent"
+    | "office_prospect_welcome_sale"
+    | "property_visit_scheduled"
+    | "property_visit_completed"
+    | "property_visit_offer";
+  recipientRole:
+    "admin" | "staff" | "buyer" | "tenant" | "owner" | "interested";
+  channel: "whatsapp" | "email" | "sms";
+  locale: string;
+  subject?: string | null;
+  body: string;
+  isActive?: boolean;
+  autoSend?: boolean;
+  requiresApproval?: boolean;
+  variables?: Array<string>;
 };
 
 export type UpdateCommunicationTemplateDto = {
-  [key: string]: unknown;
+  name?: string;
+  event?:
+    | "whatsapp_ad_hoc"
+    | "whatsapp_manual_reply"
+    | "whatsapp_assistant_response"
+    | "credit_note_issued"
+    | "payment_received"
+    | "invoice_issued"
+    | "payment_reminder"
+    | "invoice_overdue"
+    | "rent_adjustment"
+    | "settlement_available"
+    | "settlement_paid"
+    | "office_prospect_welcome_rent"
+    | "office_prospect_welcome_sale"
+    | "property_visit_scheduled"
+    | "property_visit_completed"
+    | "property_visit_offer";
+  recipientRole?:
+    "admin" | "staff" | "buyer" | "tenant" | "owner" | "interested";
+  channel?: "whatsapp" | "email" | "sms";
+  locale?: string;
+  subject?: string | null;
+  body?: string;
+  isActive?: boolean;
+  autoSend?: boolean;
+  requiresApproval?: boolean;
+  variables?: Array<string>;
 };
 
 export type PreviewCommunicationDto = {
-  [key: string]: unknown;
+  templateId?: string;
+  subject?: string;
+  body?: string;
+  variables: {
+    [key: string]: unknown;
+  };
 };
 
 export type TestCommunicationDto = {
-  [key: string]: unknown;
+  templateId?: string;
+  subject?: string;
+  body?: string;
+  variables: {
+    [key: string]: unknown;
+  };
+  channel: "whatsapp" | "email" | "sms";
+  recipient: string;
+};
+
+export type CommunicationDelivery = {
+  id: string;
+  companyId: string;
+  company: Company;
+  templateId: string | null;
+  template: CommunicationTemplate | null;
+  event:
+    | "whatsapp_ad_hoc"
+    | "whatsapp_manual_reply"
+    | "whatsapp_assistant_response"
+    | "credit_note_issued"
+    | "payment_received"
+    | "invoice_issued"
+    | "payment_reminder"
+    | "invoice_overdue"
+    | "rent_adjustment"
+    | "settlement_available"
+    | "settlement_paid"
+    | "office_prospect_welcome_rent"
+    | "office_prospect_welcome_sale"
+    | "property_visit_scheduled"
+    | "property_visit_completed"
+    | "property_visit_offer";
+  recipientRole:
+    "admin" | "staff" | "buyer" | "tenant" | "owner" | "interested";
+  recipientId: string | null;
+  channel: "whatsapp" | "email" | "sms";
+  recipient: string;
+  subject: string | null;
+  body: string;
+  status:
+    | "pending_approval"
+    | "queued"
+    | "processing"
+    | "sent"
+    | "failed"
+    | "blocked";
+  attempts: number;
+  maxAttempts: number;
+  nextAttemptAt: string | null;
+  leaseExpiresAt: string | null;
+  providerMessageId: string | null;
+  errorMessage: string | null;
+  relatedEntityType: string | null;
+  relatedEntityId: string | null;
+  sourceCommunicationId: string | null;
+  idempotencyKey: string | null;
+  metadata: {
+    [key: string]: unknown;
+  };
+  sentAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type ReplyCommunicationDto = {
-  [key: string]: unknown;
+  body: string;
 };
 
 export type SendWhatsappMessageDto = {
-  [key: string]: unknown;
+  to: string;
+  text: string;
+  pdfUrl?: string;
+  templateName?: string;
+  templateLanguage?: string;
+  templateParameters?: Array<string>;
+  activityEntity?: "tenant" | "owner" | "interested";
+  activityId?: string;
+  relatedEntityType?:
+    | "tenant"
+    | "owner"
+    | "interested"
+    | "property_visit"
+    | "invoice"
+    | "payment"
+    | "lease";
+  relatedEntityId?: string;
+  companyId?: string;
+  recipientRole?:
+    "admin" | "staff" | "buyer" | "tenant" | "owner" | "interested";
+  recipientId?: string;
+  idempotencyKey?: string;
 };
 
 export type CreateWhatsappActivityDto = {
-  [key: string]: unknown;
+  requestId: string;
+  personType: "tenant" | "interested";
+  personId: string;
+  subject: string;
+  body?: string;
+  dueAt?: string;
+  propertyId?: string;
+  markReserved?: boolean;
 };
 
 export type GenerateUploadUrlDto = {
-  [key: string]: unknown;
+  entityType:
+    | "property"
+    | "properties"
+    | "unit"
+    | "units"
+    | "lease"
+    | "leases"
+    | "tenant"
+    | "tenants"
+    | "owner"
+    | "owners"
+    | "maintenance"
+    | "maintenance_ticket";
+  entityId: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  documentType:
+    | "lease_contract"
+    | "id_document"
+    | "proof_of_income"
+    | "bank_statement"
+    | "utility_bill"
+    | "insurance"
+    | "inspection_report"
+    | "maintenance_record"
+    | "photo"
+    | "other";
+};
+
+export type Document = {
+  id: string;
+  companyId: string;
+  company: Company;
+  documentType:
+    | "lease_contract"
+    | "id_document"
+    | "proof_of_income"
+    | "bank_statement"
+    | "utility_bill"
+    | "insurance"
+    | "inspection_report"
+    | "maintenance_record"
+    | "photo"
+    | "other";
+  status: "pending" | "approved" | "rejected" | "expired";
+  name: string;
+  description: string;
+  fileUrl: string;
+  fileData: {
+    [key: string]: unknown;
+  } | null;
+  fileSize: number;
+  fileMimeType: string;
+  expiresAt: string;
+  entityType: string;
+  entityId: string;
+  verifiedBy: string;
+  verifier: User;
+  verifiedAt: string;
+  rejectionReason: string;
+  tags: Array<string>;
+  metadata: {
+    [key: string]: unknown;
+  };
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
 };
 
 export type CreateLeaseDto = {
-  [key: string]: unknown;
+  companyId: string;
+  propertyId: string;
+  tenantId?: string;
+  buyerId?: string;
+  buyerProfileId?: string;
+  ownerId?: string;
+  templateId?: string;
+  contractType?: "rental" | "sale";
+  leaseNumber?: string;
+  startDate?: string;
+  endDate?: string;
+  monthlyRent?: number;
+  fiscalValue?: number;
+  currency?: string;
+  securityDeposit?: number;
+  paymentFrequency?:
+    "monthly" | "bimonthly" | "quarterly" | "semiannual" | "annual";
+  paymentDueDay?: number;
+  renewalAlertEnabled?: boolean;
+  renewalAlertPeriodicity?: "monthly" | "four_months" | "custom";
+  renewalAlertCustomDays?: number;
+  billingFrequency?:
+    "first_of_month" | "last_of_month" | "contract_date" | "custom";
+  billingDay?: number;
+  lateFeeType?:
+    "none" | "fixed" | "percentage" | "daily_fixed" | "daily_percentage";
+  lateFeeValue?: number;
+  lateFeeGraceDays?: number;
+  lateFeeMax?: number;
+  autoGenerateInvoices?: boolean;
+  adjustmentType?: "fixed" | "percentage" | "inflation_index";
+  adjustmentValue?: number;
+  adjustmentFrequencyMonths?: number;
+  nextAdjustmentDate?: string;
+  inflationIndexType?: "icl" | "ipc" | "igp_m";
+  increaseClauseType?:
+    | "none"
+    | "annual_fixed"
+    | "annual_percentage"
+    | "inflation_linked"
+    | "custom_schedule";
+  increaseClauseValue?: number;
+  termsAndConditions?: string;
+  specialClauses?: string;
+  notes?: string;
+};
+
+export type Currency = {
+  code: string;
+  symbol: string;
+  decimalPlaces: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LeaseContractTemplate = {
+  id: string;
+  companyId: string;
+  company: Company;
+  name: string;
+  contractType: "rental" | "sale";
+  templateBody: string;
+  templateFormat: "plain_text" | "html";
+  sourceFileName: string | null;
+  sourceMimeType: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
+
+export type LeaseAmendment = {
+  id: string;
+  leaseId: string;
+  lease: Lease;
+  companyId: string;
+  company: Company;
+  amendmentNumber: number;
+  changeType:
+    | "rent_increase"
+    | "rent_decrease"
+    | "extension"
+    | "early_termination"
+    | "clause_modification"
+    | "guarantor_change"
+    | "other";
+  status: "draft" | "pending_approval" | "approved" | "rejected" | "cancelled";
+  effectiveDate: string;
+  description: string;
+  previousValues: {
+    [key: string]: unknown;
+  };
+  newValues: {
+    [key: string]: unknown;
+  };
+  requestedBy: string;
+  requester: User;
+  approvedBy: string;
+  approver: User;
+  approvedAt: string;
+  rejectionReason: string;
+  documentUrl: string;
+  signedByTenant: boolean;
+  signedByOwner: boolean;
+  signedAt: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+};
+
+export type Lease = {
+  id: string;
+  companyId: string;
+  company: Company;
+  propertyId: string | null;
+  property: Property | null;
+  tenantId: string | null;
+  tenant: Tenant | null;
+  buyerId: string | null;
+  buyer: Buyer | null;
+  ownerId: string;
+  owner: Owner;
+  leaseNumber: string;
+  contractType: "rental" | "sale";
+  status: "draft" | "pending_signature" | "signed" | "active" | "finalized";
+  startDate: string | null;
+  endDate: string | null;
+  monthlyRent: number | null;
+  currency: string;
+  currencyRef: Currency;
+  paymentFrequency:
+    "monthly" | "bimonthly" | "quarterly" | "semiannual" | "annual";
+  paymentDueDay: number;
+  renewalAlertEnabled: boolean;
+  renewalAlertPeriodicity: "monthly" | "four_months" | "custom";
+  renewalAlertCustomDays: number | null;
+  renewalAlertLastSentAt: string | null;
+  billingFrequency:
+    "first_of_month" | "last_of_month" | "contract_date" | "custom";
+  billingDay: number;
+  nextBillingDate: string;
+  lastBillingDate: string;
+  lateFeeType:
+    "none" | "fixed" | "percentage" | "daily_fixed" | "daily_percentage";
+  lateFeeValue: number;
+  lateFeeGraceDays: number;
+  lateFeeMax: number;
+  autoGenerateInvoices: boolean;
+  adjustmentType: "fixed" | "percentage" | "inflation_index";
+  adjustmentValue: number;
+  adjustmentFrequencyMonths: number;
+  lastAdjustmentDate: string;
+  nextAdjustmentDate: string;
+  increaseClauseType:
+    | "none"
+    | "annual_fixed"
+    | "annual_percentage"
+    | "inflation_linked"
+    | "custom_schedule";
+  increaseClauseValue: number;
+  increaseClauseSchedule: {
+    [key: string]: unknown;
+  };
+  inflationIndexType: "icl" | "ipc" | "igp_m";
+  securityDeposit: number;
+  fiscalValue: number | null;
+  depositCurrency: string;
+  expensesIncluded: boolean;
+  additionalExpenses: number;
+  termsAndConditions: string;
+  specialClauses: string;
+  contractPdfUrl: string | null;
+  templateId: string | null;
+  template: LeaseContractTemplate | null;
+  templateName: string | null;
+  draftContractText: string | null;
+  draftContractFormat: "plain_text" | "html";
+  confirmedContractText: string | null;
+  confirmedContractFormat: "plain_text" | "html";
+  confirmedAt: string | null;
+  previousLeaseId: string | null;
+  previousLease: Lease | null;
+  versionNumber: number;
+  notes: string;
+  signedAt: string;
+  signedByTenant: boolean;
+  signedByOwner: boolean;
+  amendments: Array<LeaseAmendment>;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
 };
 
 export type CreateLeaseContractTemplateDto = {
-  [key: string]: unknown;
+  name: string;
+  contractType: "rental" | "sale";
+  templateFormat?: "plain_text" | "html";
+  templateBody: string;
+  isActive?: boolean;
 };
 
 export type ImportLeaseTemplateDocxDto = {
-  [key: string]: unknown;
+  contractType: "rental" | "sale";
+  name?: string;
 };
 
 export type UpdateLeaseContractTemplateDto = {
@@ -125,19 +1133,21 @@ export type UpdateLeaseDto = {
 };
 
 export type RenderLeaseDraftDto = {
-  [key: string]: unknown;
+  templateId?: string;
 };
 
 export type UpdateLeaseDraftTextDto = {
-  [key: string]: unknown;
+  draftText: string;
+  draftFormat?: "plain_text" | "html";
 };
 
 export type ConfirmLeaseDraftDto = {
-  [key: string]: unknown;
+  finalText?: string;
+  finalFormat?: "plain_text" | "html";
 };
 
 export type LeaseStatusReasonDto = {
-  [key: string]: unknown;
+  reason?: string;
 };
 
 export type RenewLeaseDto = {
@@ -145,31 +1155,367 @@ export type RenewLeaseDto = {
 };
 
 export type ImportCurrentLeaseDto = {
-  [key: string]: unknown;
+  propertyId: string;
+  ownerId?: string;
+  contractType: "rental" | "sale";
+  tenantId?: string;
+  buyerId?: string;
+  buyerProfileId?: string;
+  startDate?: string;
+  endDate?: string;
+  monthlyRent?: string;
+  fiscalValue?: string;
+  securityDeposit?: string;
+  currency?: string;
+  notes?: string;
 };
 
 export type CreateAmendmentDto = {
-  [key: string]: unknown;
+  leaseId: string;
+  companyId: string;
+  effectiveDate: string;
+  changeType:
+    | "rent_increase"
+    | "rent_decrease"
+    | "extension"
+    | "early_termination"
+    | "clause_modification"
+    | "guarantor_change"
+    | "other";
+  description: string;
+  previousValues?: {
+    [key: string]: unknown;
+  };
+  newValues?: {
+    [key: string]: unknown;
+  };
+};
+
+export type Invoice = {
+  id: string;
+  companyId: string;
+  company: Company;
+  leaseId: string;
+  lease: Lease;
+  ownerId: string;
+  owner: Owner;
+  tenantAccountId: string;
+  tenantAccount: TenantAccount;
+  invoiceNumber: string;
+  periodStart: string;
+  periodEnd: string;
+  issuedAt: string;
+  dueDate: string;
+  subtotal: number;
+  taxAmount: number;
+  lateFee: number;
+  adjustments: number;
+  total: number;
+  netAmount: number;
+  currencyCode: string;
+  currency: Currency;
+  amountPaid: number;
+  balanceDue: number;
+  lastPaymentDate: string;
+  status:
+    | "draft"
+    | "pending"
+    | "sent"
+    | "partial"
+    | "paid"
+    | "overdue"
+    | "cancelled"
+    | "refunded";
+  pdfUrl: string;
+  notes: string;
+  internalNotes: string;
+  arcaCae: string;
+  arcaCaeExpiration: string;
+  arcaTipoComprobante:
+    | "factura_a"
+    | "factura_b"
+    | "factura_c"
+    | "nota_credito_a"
+    | "nota_credito_b"
+    | "nota_credito_c"
+    | "nota_debito_a"
+    | "nota_debito_b"
+    | "nota_debito_c"
+    | "recibo_a"
+    | "recibo_b"
+    | "recibo_c";
+  arcaPuntoVenta: number;
+  arcaNumeroComprobante: string;
+  arcaQrData: string;
+  arcaErrorMessage: string;
+  arcaRequestXml: string;
+  arcaResponseXml: string;
+  arcaSubmittedAt: string;
+  originalAmount: number;
+  originalCurrency: string;
+  exchangeRateUsed: number;
+  exchangeRateDate: string;
+  withholdingIibb: number;
+  withholdingIva: number;
+  withholdingGanancias: number;
+  withholdingOther: number;
+  adjustmentApplied: number;
+  adjustmentIndexType: string;
+  adjustmentIndexValue: number;
+  lineItems: Array<{
+    [key: string]: unknown;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+};
+
+export type Receipt = {
+  id: string;
+  companyId: string;
+  company: Company;
+  paymentId: string;
+  payment: Payment;
+  receiptNumber: string;
+  amount: number;
+  currencyCode: string;
+  currency: Currency;
+  pdfUrl: string;
+  description: string;
+  pdfGeneratedAt: string;
+  sentToEmail: string;
+  sentAt: string;
+  cancelledAt: string | null;
+  issuedAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PaymentItem = {
+  id: string;
+  paymentId: string;
+  payment: Payment;
+  description: string;
+  amount: number;
+  quantity: number;
+  type: "charge" | "discount";
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PaymentAllocation = {
+  id: string;
+  companyId: string;
+  company: Company;
+  paymentId: string;
+  payment: Payment;
+  invoiceId: string;
+  invoice: Invoice;
+  amount: number;
+  previousInvoiceStatus:
+    | "draft"
+    | "pending"
+    | "sent"
+    | "partial"
+    | "paid"
+    | "overdue"
+    | "cancelled"
+    | "refunded";
+  reversedAt: string | null;
+  createdAt: string;
+};
+
+export type Payment = {
+  id: string;
+  companyId: string;
+  company: Company;
+  invoiceId: string;
+  invoice: Invoice;
+  tenantAccountId: string;
+  tenantAccount: TenantAccount;
+  tenantId: string;
+  tenant: Tenant;
+  paymentNumber: string;
+  amount: number;
+  currencyCode: string;
+  currency: Currency;
+  paymentDate: string;
+  processedAt: string;
+  method:
+    | "cash"
+    | "bank_transfer"
+    | "credit_card"
+    | "debit_card"
+    | "check"
+    | "digital_wallet"
+    | "crypto"
+    | "other";
+  activityType:
+    "monthly" | "annual" | "adjustment" | "late_fee" | "extraordinary";
+  reference: string;
+  bankName: string;
+  accountLastDigits: string;
+  authorizationCode: string;
+  externalTransactionId: string;
+  gatewayResponse: {
+    [key: string]: unknown;
+  };
+  status:
+    | "pending"
+    | "processing"
+    | "completed"
+    | "failed"
+    | "refunded"
+    | "cancelled";
+  allocationsRecorded: boolean;
+  notes: string;
+  receipt: Receipt;
+  items: Array<PaymentItem>;
+  allocations: Array<PaymentAllocation>;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+};
+
+export type TenantAccount = {
+  id: string;
+  companyId: string;
+  company: Company;
+  tenantId: string;
+  tenant: Tenant;
+  leaseId: string;
+  lease: Lease;
+  balance: number;
+  currencyCode: string;
+  isActive: boolean;
+  lastMovementAt: string;
+  notes: string;
+  movements: Array<TenantAccountMovement>;
+  payments: Array<Payment>;
+  invoices: Array<Invoice>;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+};
+
+export type TenantAccountMovement = {
+  id: string;
+  tenantAccountId: string;
+  account: TenantAccount;
+  movementType:
+    | "charge"
+    | "payment"
+    | "adjustment"
+    | "refund"
+    | "interest"
+    | "late_fee"
+    | "discount";
+  amount: number;
+  balanceAfter: number;
+  referenceType: string;
+  referenceId: string;
+  description: string;
+  movementDate: string;
+  createdBy: string;
+  createdAt: string;
 };
 
 export type CreateInvoiceDto = {
-  [key: string]: unknown;
+  leaseId: string;
+  periodStart: string;
+  periodEnd: string;
+  subtotal: number;
+  lateFee?: number;
+  adjustments?: number;
+  dueDate: string;
+  invoiceNumber?: string;
+  notes?: string;
 };
 
 export type GenerateInvoiceDto = {
-  [key: string]: unknown;
+  issue?: boolean;
+  applyLateFee?: boolean;
+  applyAdjustment?: boolean;
+  periodStart?: string;
+  periodEnd?: string;
+  dueDate?: string;
+};
+
+export type CreditNote = {
+  id: string;
+  companyId: string;
+  company: Company;
+  invoiceId: string;
+  invoice: Invoice;
+  paymentId: string | null;
+  payment: Payment | null;
+  tenantAccountId: string | null;
+  tenantAccount: TenantAccount | null;
+  noteNumber: string;
+  amount: number;
+  currencyCode: string;
+  currency: Currency;
+  reason: string | null;
+  status: "draft" | "issued" | "cancelled";
+  pdfUrl: string | null;
+  issuedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
+
+export type PaymentItemDto = {
+  description: string;
+  amount: number;
+  quantity?: number;
+  type?: "charge" | "discount";
 };
 
 export type CreatePaymentDto = {
-  [key: string]: unknown;
+  tenantAccountId: string;
+  amount?: number;
+  currencyCode?: string;
+  paymentDate: string;
+  method:
+    | "cash"
+    | "bank_transfer"
+    | "credit_card"
+    | "debit_card"
+    | "check"
+    | "digital_wallet"
+    | "crypto"
+    | "other";
+  activityType?:
+    "monthly" | "annual" | "adjustment" | "late_fee" | "extraordinary";
+  reference?: string;
+  notes?: string;
+  items?: Array<PaymentItemDto>;
 };
 
 export type UpdatePaymentDto = {
   [key: string]: unknown;
 };
 
+export type PaymentDocumentTemplate = {
+  id: string;
+  companyId: string;
+  company: Company;
+  type: "receipt" | "invoice" | "credit_note";
+  name: string;
+  templateBody: string;
+  isActive: boolean;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
+
 export type CreatePaymentDocumentTemplateDto = {
-  [key: string]: unknown;
+  type: "receipt" | "invoice" | "credit_note";
+  name: string;
+  templateBody: string;
+  isActive?: boolean;
+  isDefault?: boolean;
 };
 
 export type UpdatePaymentDocumentTemplateDto = {
@@ -177,11 +1523,51 @@ export type UpdatePaymentDocumentTemplateDto = {
 };
 
 export type CreateTenantDto = {
-  [key: string]: unknown;
+  companyId: string;
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  dni: string;
+  emergencyContact?: string;
+  emergencyPhone?: string;
+  contactConsent?: boolean;
+  preferredContactChannel?: "whatsapp" | "email" | "sms";
+};
+
+export type TenantActivity = {
+  id: string;
+  companyId: string;
+  company: Company;
+  tenantId: string;
+  tenant: Tenant;
+  type: "call" | "task" | "note" | "email" | "whatsapp" | "visit";
+  status: "pending" | "completed" | "cancelled";
+  subject: string;
+  body: string | null;
+  dueAt: string | null;
+  completedAt: string | null;
+  metadata: {
+    [key: string]: unknown;
+  };
+  createdByUserId: string | null;
+  createdByUser: User | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
 };
 
 export type CreateTenantActivityDto = {
-  [key: string]: unknown;
+  type: "call" | "task" | "note" | "email" | "whatsapp" | "visit";
+  subject: string;
+  body?: string;
+  dueAt?: string;
+  completedAt?: string;
+  status?: "pending" | "completed" | "cancelled";
+  metadata?: {
+    [key: string]: unknown;
+  };
 };
 
 export type UpdateTenantActivityDto = {
@@ -189,11 +1575,41 @@ export type UpdateTenantActivityDto = {
 };
 
 export type UpdateTenantDto = {
-  [key: string]: unknown;
+  email?: string;
+  password?: string;
 };
 
 export type CreateOwnerDto = {
-  [key: string]: unknown;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  taxId?: string;
+  taxIdType?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+  bankName?: string;
+  bankAccountType?: string;
+  bankAccountNumber?: string;
+  bankCbu?: string;
+  bankAlias?: string;
+  paymentMethod?:
+    | "cash"
+    | "bank_transfer"
+    | "credit_card"
+    | "debit_card"
+    | "check"
+    | "digital_wallet"
+    | "crypto"
+    | "other";
+  commissionRate?: number;
+  notes?: string;
+  password?: string;
+  contactConsent?: boolean;
+  preferredContactChannel?: "whatsapp" | "email" | "sms";
 };
 
 export type UpdateOwnerDto = {
@@ -201,67 +1617,364 @@ export type UpdateOwnerDto = {
 };
 
 export type RegisterOwnerSettlementPaymentDto = {
-  [key: string]: unknown;
+  paymentDate?: string;
+  reference?: string;
+  notes?: string;
+  amount?: number;
+};
+
+export type OwnerActivity = {
+  id: string;
+  companyId: string;
+  company: Company;
+  ownerId: string;
+  owner: Owner;
+  propertyId: string | null;
+  property: Property | null;
+  type: "call" | "task" | "note" | "email" | "whatsapp" | "visit" | "reserve";
+  status: "pending" | "completed" | "cancelled";
+  subject: string;
+  body: string | null;
+  dueAt: string | null;
+  completedAt: string | null;
+  metadata: {
+    [key: string]: unknown;
+  };
+  createdByUserId: string | null;
+  createdByUser: User | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
 };
 
 export type CreateOwnerActivityDto = {
-  [key: string]: unknown;
+  type: "call" | "task" | "note" | "email" | "whatsapp" | "visit" | "reserve";
+  subject: string;
+  body?: string;
+  dueAt?: string;
+  completedAt?: string;
+  status?: "pending" | "completed" | "cancelled";
+  propertyId?: string;
+  metadata?: {
+    [key: string]: unknown;
+  };
 };
 
 export type UpdateOwnerActivityDto = {
   [key: string]: unknown;
 };
 
+export type Staff = {
+  id: string;
+  userId: string;
+  user: User;
+  companyId: string;
+  company: Company;
+  specialization:
+    | "maintenance"
+    | "cleaning"
+    | "security"
+    | "administration"
+    | "accounting"
+    | "legal"
+    | "other";
+  hourlyRate: number;
+  currency: string;
+  availabilitySchedule: {
+    [key: string]: unknown;
+  };
+  serviceAreas: Array<string>;
+  certifications: Array<string>;
+  notes: string;
+  rating: number;
+  totalJobs: number;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+};
+
 export type CreateStaffDto = {
-  [key: string]: unknown;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  specialization:
+    | "maintenance"
+    | "cleaning"
+    | "security"
+    | "administration"
+    | "accounting"
+    | "legal"
+    | "other";
+  hourlyRate?: number;
+  currency?: string;
+  serviceAreas?: Array<string>;
+  certifications?: Array<string>;
+  notes?: string;
 };
 
 export type UpdateStaffDto = {
   [key: string]: unknown;
 };
 
-export type CreateCurrencyDto = {
+export type Object = {
   [key: string]: unknown;
+};
+
+export type CreateCurrencyDto = {
+  code: string;
+  symbol: string;
+  decimalPlaces?: number;
+  isActive?: boolean;
 };
 
 export type UpdateCurrencyDto = {
-  [key: string]: unknown;
+  symbol?: string;
+  decimalPlaces?: number;
+  isActive?: boolean;
 };
 
 export type DashboardStatsDto = {
-  [key: string]: unknown;
+  totalProperties: number;
+  totalTenants: number;
+  activeLeases: number;
+  monthlyIncome: number;
+  monthlyExpenses: number;
+  currencyCode: string;
+  totalPayments: number;
+  totalInvoices: number;
+  monthlyCommissions: number;
+};
+
+export type DashboardSalePropertyItemDto = {
+  propertyId: string;
+  propertyName: string;
+  propertyAddress: string | null;
+  ownerId: string;
+  ownerName: string | null;
+  salePrice: number | null;
+  saleCurrency: string;
+  operationState: string;
+  updatedAt: string;
+};
+
+export type DashboardLeaseOperationItemDto = {
+  leaseId: string;
+  propertyId: string | null;
+  propertyName: string | null;
+  propertyAddress: string | null;
+  ownerId: string;
+  ownerName: string | null;
+  tenantId: string | null;
+  tenantName: string | null;
+  status: string;
+  contractType: string;
+  startDate: string | null;
+  endDate: string | null;
+  monthlyRent: number | null;
+  currency: string;
+  daysUntilEnd: number | null;
+  renewalAlertEnabled: boolean;
+  renewalAlertPeriodicity: string;
+  renewalAlertCustomDays: number | null;
+};
+
+export type DashboardPropertiesPanelDto = {
+  totalProperties: number;
+  saleCount: number;
+  rentalActiveCount: number;
+  rentalExpiredCount: number;
+  expiringThisMonthCount: number;
+  expiringNextFourMonthsCount: number;
+  saleHighlights: Array<DashboardSalePropertyItemDto>;
+  currentRentals: Array<DashboardLeaseOperationItemDto>;
+  expiringThisMonth: Array<DashboardLeaseOperationItemDto>;
+  expiringNextFourMonths: Array<DashboardLeaseOperationItemDto>;
+  expiredRentals: Array<DashboardLeaseOperationItemDto>;
+};
+
+export type DashboardPaymentOperationItemDto = {
+  paymentId: string;
+  propertyId: string | null;
+  propertyName: string | null;
+  leaseId: string | null;
+  tenantName: string | null;
+  amount: number;
+  currencyCode: string;
+  paymentDate: string;
+  status: string;
+  method: string;
+  activityType: string;
+  reference: string | null;
+};
+
+export type DashboardPaymentsPanelDto = {
+  totalPayments: number;
+  pendingPayments: number;
+  completedPayments: number;
+  overdueInvoices: number;
+  recentPayments: Array<DashboardPaymentOperationItemDto>;
 };
 
 export type DashboardOperationsOverviewDto = {
-  [key: string]: unknown;
+  generatedAt: string;
+  propertiesPanel: DashboardPropertiesPanelDto;
+  paymentsPanel: DashboardPaymentsPanelDto;
+};
+
+export type PersonActivityItemDto = {
+  id: string;
+  sourceType: "owner" | "interested" | "communication" | "pending_action";
+  personType: "admin" | "owner" | "tenant" | "staff" | "buyer" | "interested";
+  personId: string;
+  personName: string;
+  subject: string;
+  body: string | null;
+  status: {
+    [key: string]: unknown;
+  };
+  dueAt: string | null;
+  completedAt: string | null;
+  propertyId: string | null;
+  propertyName: string | null;
+  createdAt: string;
+  updatedAt: string;
+  actionKind?: "communication" | "pending_action" | "registration";
+  actionId?: string;
 };
 
 export type RecentActivityDto = {
-  [key: string]: unknown;
+  new: Array<PersonActivityItemDto>;
+  overdue: Array<PersonActivityItemDto>;
+  today: Array<PersonActivityItemDto>;
+  total: number;
+};
+
+export type ReportJobItemDto = {
+  id: string;
+  reportType: "monthly_summary" | "settlement";
+  status: "pending" | "running" | "completed" | "failed" | "partial_failure";
+  ownerId: string;
+  ownerName: string;
+  period: string | null;
+  recordsTotal: number;
+  recordsProcessed: number;
+  recordsFailed: number;
+  dryRun: boolean;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  errorMessage: string | null;
+  errorLog: Array<{
+    [key: string]: unknown;
+  }>;
 };
 
 export type ReportJobsDto = {
-  [key: string]: unknown;
+  data: Array<ReportJobItemDto>;
+  total: number;
+  page: number;
+  limit: number;
 };
 
 export type CreateInterestedProfileDto = {
-  [key: string]: unknown;
+  firstName?: string;
+  lastName?: string;
+  phone: string;
+  email?: string;
+  peopleCount?: number;
+  minAmount?: number;
+  maxAmount?: number;
+  hasPets?: boolean;
+  guaranteeTypes?: Array<string>;
+  preferredZones?: Array<string>;
+  preferredCity?: string;
+  desiredFeatures?: Array<string>;
+  propertyTypePreference?:
+    | "apartment"
+    | "house"
+    | "commercial"
+    | "office"
+    | "warehouse"
+    | "land"
+    | "parking"
+    | "other";
+  operation?: "rent" | "sale";
+  operations?: Array<"rent" | "sale">;
+  status?: "interested" | "tenant" | "buyer";
+  qualificationLevel?: "mql" | "sql" | "rejected";
+  qualificationNotes?: string;
+  source?: string;
+  assignedToUserId?: string;
+  organizationName?: string;
+  customFields?: {
+    [key: string]: unknown;
+  };
+  consentContact?: boolean;
+  consentRecordedAt?: string;
+  registeredInOffice?: boolean;
+  preferredContactChannel?: "whatsapp" | "email" | "sms";
+  lastContactAt?: string;
+  nextContactAt?: string;
+  lostReason?: string;
+  notes?: string;
 };
 
 export type UpdateInterestedMatchDto = {
-  [key: string]: unknown;
+  status:
+    | "suggested"
+    | "contacted"
+    | "visit_scheduled"
+    | "accepted"
+    | "rejected"
+    | "expired";
+  notes?: string;
 };
 
 export type ChangeInterestedStageDto = {
-  [key: string]: unknown;
+  toStatus: "interested" | "tenant" | "buyer";
+  reason?: string;
 };
 
 export type CreateInterestedActivityDto = {
-  [key: string]: unknown;
+  type: "call" | "task" | "note" | "email" | "whatsapp" | "visit";
+  subject: string;
+  body?: string;
+  dueAt?: string;
+  completedAt?: string;
+  templateName?: string;
+  metadata?: {
+    [key: string]: unknown;
+  };
+  propertyId?: string;
+  markReserved?: boolean;
+  status?: "pending" | "completed" | "cancelled";
 };
 
 export type CreatePropertyReservationDto = {
-  [key: string]: unknown;
+  propertyId: string;
+  notes?: string;
+  activitySource?: string;
+};
+
+export type PropertyReservation = {
+  id: string;
+  companyId: string;
+  company: Company;
+  propertyId: string;
+  property: Property;
+  interestedProfileId: string;
+  interestedProfile: InterestedProfile;
+  status: "active" | "released" | "converted";
+  activitySource: string;
+  notes: string | null;
+  reservedByUserId: string | null;
+  reservedByUser: User | null;
+  reservedAt: string;
+  releasedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
 };
 
 export type UpdateInterestedActivityDto = {
@@ -269,11 +1982,24 @@ export type UpdateInterestedActivityDto = {
 };
 
 export type ConvertInterestedToTenantDto = {
-  [key: string]: unknown;
+  email?: string;
+  password?: string;
+  dni?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
 };
 
 export type ConvertInterestedToBuyerDto = {
-  [key: string]: unknown;
+  email?: string;
+  password?: string;
+  dni?: string;
+  folderId: string;
+  totalAmount: number;
+  installmentAmount: number;
+  installmentCount: number;
+  startDate: string;
+  currency?: string;
+  notes?: string;
 };
 
 export type UpdateInterestedProfileDto = {
@@ -281,23 +2007,45 @@ export type UpdateInterestedProfileDto = {
 };
 
 export type CreateSaleFolderDto = {
-  [key: string]: unknown;
+  name: string;
+  description?: string;
 };
 
 export type CreateSaleAgreementDto = {
-  [key: string]: unknown;
+  folderId: string;
+  buyerId: string;
+  buyerName?: string;
+  buyerPhone?: string;
+  buyerEmail?: string;
+  totalAmount: number;
+  currency?: string;
+  installmentAmount: number;
+  installmentCount: number;
+  startDate: string;
+  dueDay?: number;
+  notes?: string;
 };
 
 export type CreateSaleReceiptDto = {
-  [key: string]: unknown;
+  amount: number;
+  paymentDate: string;
+  installmentNumber?: number;
 };
 
 export type ExecuteAiToolDto = {
-  [key: string]: unknown;
+  toolName: string;
+  arguments?: {
+    [key: string]: unknown;
+  };
+  conversationId?: string;
+  confirmationId?: string;
+  confirm?: boolean;
 };
 
 export type AiChatRequestDto = {
-  [key: string]: unknown;
+  prompt: string;
+  conversationId?: string;
+  messages?: Array<string>;
 };
 
 export type ApprovePendingActionDto = {
@@ -305,39 +2053,246 @@ export type ApprovePendingActionDto = {
 };
 
 export type RejectPendingActionDto = {
-  [key: string]: unknown;
+  reason?: string;
+};
+
+export type MaintenanceTicket = {
+  id: string;
+  companyId: string;
+  propertyId: string;
+  property: Property;
+  reportedByUserId: string;
+  reportedBy: User;
+  source: "tenant" | "owner" | "staff" | "admin" | "inspection";
+  assignedToStaffId: string | null;
+  assignedStaff: Staff | null;
+  assignedAt: string | null;
+  title: string;
+  description: string | null;
+  area:
+    | "kitchen"
+    | "bathroom"
+    | "bedroom"
+    | "living_room"
+    | "electrical"
+    | "plumbing"
+    | "heating_cooling"
+    | "exterior"
+    | "common_area"
+    | "other";
+  priority: "low" | "medium" | "high" | "urgent";
+  status:
+    | "open"
+    | "assigned"
+    | "in_progress"
+    | "pending_parts"
+    | "resolved"
+    | "closed"
+    | "cancelled";
+  scheduledAt: string | null;
+  resolvedAt: string | null;
+  resolutionNotes: string | null;
+  estimatedCost: number | null;
+  actualCost: number | null;
+  costCurrency: string;
+  externalRef: string | null;
+  metadata: {
+    [key: string]: unknown;
+  } | null;
+  comments: Array<MaintenanceTicketComment>;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
+
+export type MaintenanceTicketComment = {
+  id: string;
+  ticketId: string;
+  ticket: MaintenanceTicket;
+  userId: string;
+  user: User;
+  body: string;
+  isInternal: boolean;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type CreateMaintenanceTicketDto = {
-  [key: string]: unknown;
+  title: string;
+  description?: string;
+  propertyId: string;
+  area?:
+    | "kitchen"
+    | "bathroom"
+    | "bedroom"
+    | "living_room"
+    | "electrical"
+    | "plumbing"
+    | "heating_cooling"
+    | "exterior"
+    | "common_area"
+    | "other";
+  priority?: "low" | "medium" | "high" | "urgent";
+  source?: "tenant" | "owner" | "staff" | "admin" | "inspection";
+  scheduledAt?: string;
+  estimatedCost?: number;
+  costCurrency?: string;
 };
 
 export type UpdateMaintenanceTicketDto = {
-  [key: string]: unknown;
+  status?:
+    | "open"
+    | "assigned"
+    | "in_progress"
+    | "pending_parts"
+    | "resolved"
+    | "closed"
+    | "cancelled";
+  assignedToStaffId?: string;
+  resolvedAt?: string;
+  resolutionNotes?: string;
+  actualCost?: number;
+  externalRef?: string;
 };
 
 export type CreateCommentDto = {
-  [key: string]: unknown;
+  body: string;
+  isInternal?: boolean;
+};
+
+export type BankAccount = {
+  id: string;
+  userId: string | null;
+  user: User | null;
+  companyId: string;
+  company: Company;
+  ownerId: string | null;
+  owner: Owner | null;
+  propertyId: string | null;
+  property: Property | null;
+  bankName: string;
+  accountType: string;
+  accountNumber: string;
+  cbu: string | null;
+  cbuCvu: string | null;
+  alias: string | null;
+  holderName: string | null;
+  holderCuit: string | null;
+  currency: string;
+  isDefault: boolean;
+  isVirtualAlias: boolean;
+  isActive: boolean;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
 };
 
 export type CreateBankAccountDto = {
-  [key: string]: unknown;
+  bankName: string;
+  accountType: string;
+  accountNumber: string;
+  cbu?: string;
+  cbuCvu?: string;
+  alias?: string;
+  holderName?: string;
+  holderCuit?: string;
+  currency?: string;
+  isDefault?: boolean;
+  notes?: string;
+  ownerId?: string;
+  userId?: string;
+  propertyId?: string;
+  isVirtualAlias?: boolean;
+  isActive?: boolean;
 };
 
 export type UpdateBankAccountDto = {
   [key: string]: unknown;
 };
 
+export type Settlement = {
+  id: string;
+  ownerId: string;
+  owner: Owner;
+  period: string;
+  grossAmount: number;
+  commissionAmount: number;
+  withholdingsAmount: number;
+  netAmount: number;
+  status: "pending" | "processing" | "completed" | "failed";
+  scheduledDate: string | null;
+  processedAt: string | null;
+  transferReference: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NotificationPreference = {
+  id: string;
+  userId: string;
+  user: User;
+  companyId: string;
+  company: Company;
+  notificationType:
+    | "invoice_issued"
+    | "payment_reminder"
+    | "payment_received"
+    | "overdue_notice"
+    | "late_fee_applied"
+    | "monthly_report"
+    | "lease_expiring"
+    | "rent_adjustment";
+  channel: string;
+  frequency: "immediate" | "daily_digest" | "weekly_digest" | "disabled";
+  isEnabled: boolean;
+  customData: {
+    [key: string]: unknown;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NotificationPreferenceItemDto = {
+  notificationType:
+    | "invoice_issued"
+    | "payment_reminder"
+    | "payment_received"
+    | "overdue_notice"
+    | "late_fee_applied"
+    | "monthly_report"
+    | "lease_expiring"
+    | "rent_adjustment";
+  channel: string;
+  frequency: "immediate" | "daily_digest" | "weekly_digest" | "disabled";
+  isEnabled: boolean;
+};
+
 export type UpdateNotificationPreferencesDto = {
-  [key: string]: unknown;
+  preferences: Array<NotificationPreferenceItemDto>;
 };
 
 export type FrontendMetricDto = {
-  [key: string]: unknown;
+  type: "web_vital" | "client_error" | "api_error";
+  name?: string;
+  value?: number;
+  path?: string;
+  method?: string;
+  endpoint?: string;
+  statusCode?: number;
+  errorType?: string;
 };
 
 export type CreateBuyerDto = {
-  [key: string]: unknown;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  dni?: string;
+  interestedProfileId?: string;
+  notes?: string;
+  password?: string;
 };
 
 export type UpdateBuyerDto = {
@@ -345,23 +2300,173 @@ export type UpdateBuyerDto = {
 };
 
 export type CreateSandboxBankMovementDto = {
-  [key: string]: unknown;
+  externalId: string;
+  direction: "credit" | "debit";
+  amount: number;
+  currency?: string;
+  occurredAt: string;
+  bankAccountId?: string;
+  description?: string;
+  counterparty?: string;
+  rawPayload?: {
+    [key: string]: unknown;
+  };
+};
+
+export type BankMovement = {
+  id: string;
+  companyId: string;
+  company: Company;
+  bankAccountId: string | null;
+  bankAccount: BankAccount | null;
+  provider: string;
+  externalId: string;
+  direction: "credit" | "debit";
+  amount: number;
+  currency: string;
+  occurredAt: string;
+  description: string | null;
+  counterparty: string | null;
+  rawPayload: {
+    [key: string]: unknown;
+  };
+  status: "pending" | "reconciled" | "unmatched" | "ignored";
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BankReconciliation = {
+  id: string;
+  companyId: string;
+  company: Company;
+  movementId: string;
+  movement: BankMovement;
+  invoiceId: string | null;
+  invoice: Invoice | null;
+  paymentId: string | null;
+  payment: Payment | null;
+  matchStrategy: "virtual_alias" | "exact_amount_date" | "manual";
+  status: "processing" | "matched" | "unmatched" | "failed";
+  reason: string | null;
+  matchedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BankReconciliationAlert = {
+  id: string;
+  companyId: string;
+  company: Company;
+  movementId: string;
+  movement: BankMovement;
+  status: "open" | "resolved";
+  reason: string;
+  occurrenceCount: number;
+  firstDetectedAt: string;
+  lastDetectedAt: string;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
+  resolver: User | null;
+  metadata: {
+    [key: string]: unknown;
+  };
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type CreatePaymentPreferenceDto = {
-  [key: string]: unknown;
+  invoiceId: string;
+  successUrl?: string;
+  failureUrl?: string;
+  pendingUrl?: string;
+};
+
+export type PaymentGatewayTransaction = {
+  id: string;
+  companyId: string;
+  company: Company;
+  invoiceId: string;
+  invoice: Invoice;
+  tenantId: string | null;
+  gateway: string;
+  externalId: string | null;
+  externalPaymentId: string | null;
+  status: "pending" | "approved" | "rejected" | "cancelled" | "refunded";
+  amount: number;
+  currency: string;
+  paymentMethod: string | null;
+  installments: number;
+  initPoint: string | null;
+  sandboxInitPoint: string | null;
+  metadata: {
+    [key: string]: unknown;
+  };
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PortalListing = {
+  id: string;
+  companyId: string;
+  propertyId: string;
+  property: Property;
+  portal: "zonaprop" | "argenprop" | "mercadolibre" | "properati" | "navent";
+  status: "draft" | "published" | "paused" | "removed" | "error";
+  externalId: string | null;
+  externalUrl: string | null;
+  publishedAt: string | null;
+  lastSyncedAt: string | null;
+  errorMessage: string | null;
+  listingData: {
+    [key: string]: unknown;
+  };
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type CreatePortalListingDto = {
-  [key: string]: unknown;
+  propertyId: string;
+  portal: "zonaprop" | "argenprop" | "mercadolibre" | "properati" | "navent";
+  listingData?: {
+    [key: string]: unknown;
+  };
 };
 
 export type DigitalSignatureRequest = {
-  [key: string]: unknown;
+  id: string;
+  companyId: string;
+  company: Company;
+  leaseId: string;
+  lease: Lease;
+  provider: string;
+  externalEnvelopeId: string | null;
+  status: string;
+  tenantEmail: string;
+  tenantName: string;
+  ownerEmail: string | null;
+  ownerName: string | null;
+  sentAt: string | null;
+  completedAt: string | null;
+  voidedAt: string | null;
+  expiryDate: string | null;
+  signingUrl: string | null;
+  ownerSigningUrl: string | null;
+  certificateUrl: string | null;
+  webhookEvents: Array<{
+    [key: string]: unknown;
+  }>;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type CreateSignatureRequestDto = {
-  [key: string]: unknown;
+  leaseId: string;
+  tenantEmail: string;
+  tenantName: string;
+  ownerEmail?: string;
+  ownerName?: string;
+  provider?: "docusign" | "adobe_sign" | "efirma" | "mock";
+  expiryDays?: number;
 };
 
 export type WebhookEventDto = {
@@ -450,7 +2555,10 @@ export type AuthReauthenticateResponses = {
 export type UsersFindAllData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    page?: number;
+    limit?: number;
+  };
   url: "/users";
 };
 
@@ -477,8 +2585,13 @@ export type UsersGetProfileData = {
 };
 
 export type UsersGetProfileResponses = {
-  200: unknown;
+  200: {
+    [key: string]: unknown;
+  };
 };
+
+export type UsersGetProfileResponse =
+  UsersGetProfileResponses[keyof UsersGetProfileResponses];
 
 export type UsersUpdateProfileData = {
   body: UpdateProfileDto;
@@ -525,8 +2638,13 @@ export type UsersFindOneData = {
 };
 
 export type UsersFindOneResponses = {
-  200: unknown;
+  200: {
+    [key: string]: unknown;
+  };
 };
+
+export type UsersFindOneResponse =
+  UsersFindOneResponses[keyof UsersFindOneResponses];
 
 export type UsersUpdateData = {
   body: UpdateUserDto;
@@ -625,7 +2743,29 @@ export type TestCreateUserPermissionResponses = {
 export type PropertiesFindAllData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    ownerId?: string;
+    addressCity?: string;
+    addressState?: string;
+    propertyType?:
+      | "apartment"
+      | "house"
+      | "commercial"
+      | "office"
+      | "warehouse"
+      | "land"
+      | "parking"
+      | "other";
+    status?: "active" | "inactive" | "under_maintenance" | "pending_approval";
+    minRent?: number;
+    maxRent?: number;
+    minSalePrice?: number;
+    maxSalePrice?: number;
+    bedrooms?: number;
+    bathrooms?: number;
+    page?: number;
+    limit?: number;
+  };
   url: "/properties";
 };
 
@@ -641,8 +2781,11 @@ export type PropertiesCreateData = {
 };
 
 export type PropertiesCreateResponses = {
-  201: unknown;
+  201: Property;
 };
+
+export type PropertiesCreateResponse =
+  PropertiesCreateResponses[keyof PropertiesCreateResponses];
 
 export type PropertiesRemoveData = {
   body?: never;
@@ -667,8 +2810,11 @@ export type PropertiesFindOneData = {
 };
 
 export type PropertiesFindOneResponses = {
-  200: unknown;
+  200: Property;
 };
+
+export type PropertiesFindOneResponse =
+  PropertiesFindOneResponses[keyof PropertiesFindOneResponses];
 
 export type PropertiesUpdateData = {
   body: UpdatePropertyDto;
@@ -680,8 +2826,11 @@ export type PropertiesUpdateData = {
 };
 
 export type PropertiesUpdateResponses = {
-  200: unknown;
+  200: Property;
 };
+
+export type PropertiesUpdateResponse =
+  PropertiesUpdateResponses[keyof PropertiesUpdateResponses];
 
 export type PropertiesUploadPropertyImageData = {
   body?: never;
@@ -710,7 +2859,10 @@ export type PropertyImagesGetPropertyImageData = {
   path: {
     imageId: string;
   };
-  query?: never;
+  query?: {
+    signature?: unknown;
+    expires?: unknown;
+  };
   url: "/properties/images/{imageId}";
 };
 
@@ -726,8 +2878,11 @@ export type UnitsCreateData = {
 };
 
 export type UnitsCreateResponses = {
-  201: unknown;
+  201: Unit;
 };
+
+export type UnitsCreateResponse =
+  UnitsCreateResponses[keyof UnitsCreateResponses];
 
 export type UnitsFindByPropertyData = {
   body?: never;
@@ -739,8 +2894,11 @@ export type UnitsFindByPropertyData = {
 };
 
 export type UnitsFindByPropertyResponses = {
-  200: unknown;
+  200: Array<Unit>;
 };
+
+export type UnitsFindByPropertyResponse =
+  UnitsFindByPropertyResponses[keyof UnitsFindByPropertyResponses];
 
 export type UnitsRemoveData = {
   body?: never;
@@ -765,8 +2923,11 @@ export type UnitsFindOneData = {
 };
 
 export type UnitsFindOneResponses = {
-  200: unknown;
+  200: Unit;
 };
+
+export type UnitsFindOneResponse =
+  UnitsFindOneResponses[keyof UnitsFindOneResponses];
 
 export type UnitsUpdateData = {
   body: UpdateUnitDto;
@@ -778,8 +2939,11 @@ export type UnitsUpdateData = {
 };
 
 export type UnitsUpdateResponses = {
-  200: unknown;
+  200: Unit;
 };
+
+export type UnitsUpdateResponse =
+  UnitsUpdateResponses[keyof UnitsUpdateResponses];
 
 export type PropertyVisitsFindAllData = {
   body?: never;
@@ -791,8 +2955,11 @@ export type PropertyVisitsFindAllData = {
 };
 
 export type PropertyVisitsFindAllResponses = {
-  200: unknown;
+  200: Array<PropertyVisit>;
 };
+
+export type PropertyVisitsFindAllResponse =
+  PropertyVisitsFindAllResponses[keyof PropertyVisitsFindAllResponses];
 
 export type PropertyVisitsCreateData = {
   body: CreatePropertyVisitDto;
@@ -804,8 +2971,11 @@ export type PropertyVisitsCreateData = {
 };
 
 export type PropertyVisitsCreateResponses = {
-  201: unknown;
+  201: PropertyVisit;
 };
+
+export type PropertyVisitsCreateResponse =
+  PropertyVisitsCreateResponses[keyof PropertyVisitsCreateResponses];
 
 export type PropertyVisitsUpdateResultData = {
   body: UpdatePropertyVisitResultDto;
@@ -818,8 +2988,11 @@ export type PropertyVisitsUpdateResultData = {
 };
 
 export type PropertyVisitsUpdateResultResponses = {
-  200: unknown;
+  200: PropertyVisit;
 };
+
+export type PropertyVisitsUpdateResultResponse =
+  PropertyVisitsUpdateResultResponses[keyof PropertyVisitsUpdateResultResponses];
 
 export type PropertyVisitsFindAllMaintenanceTasksData = {
   body?: never;
@@ -831,8 +3004,11 @@ export type PropertyVisitsFindAllMaintenanceTasksData = {
 };
 
 export type PropertyVisitsFindAllMaintenanceTasksResponses = {
-  200: unknown;
+  200: Array<PropertyVisit>;
 };
+
+export type PropertyVisitsFindAllMaintenanceTasksResponse =
+  PropertyVisitsFindAllMaintenanceTasksResponses[keyof PropertyVisitsFindAllMaintenanceTasksResponses];
 
 export type PropertyVisitsCreateMaintenanceTaskData = {
   body: CreatePropertyMaintenanceTaskDto;
@@ -844,8 +3020,11 @@ export type PropertyVisitsCreateMaintenanceTaskData = {
 };
 
 export type PropertyVisitsCreateMaintenanceTaskResponses = {
-  201: unknown;
+  201: PropertyVisit;
 };
+
+export type PropertyVisitsCreateMaintenanceTaskResponse =
+  PropertyVisitsCreateMaintenanceTaskResponses[keyof PropertyVisitsCreateMaintenanceTaskResponses];
 
 export type CommunicationsListTemplatesData = {
   body?: never;
@@ -855,8 +3034,11 @@ export type CommunicationsListTemplatesData = {
 };
 
 export type CommunicationsListTemplatesResponses = {
-  200: unknown;
+  200: Array<CommunicationTemplate>;
 };
+
+export type CommunicationsListTemplatesResponse =
+  CommunicationsListTemplatesResponses[keyof CommunicationsListTemplatesResponses];
 
 export type CommunicationsCreateTemplateData = {
   body: CreateCommunicationTemplateDto;
@@ -866,8 +3048,11 @@ export type CommunicationsCreateTemplateData = {
 };
 
 export type CommunicationsCreateTemplateResponses = {
-  201: unknown;
+  201: CommunicationTemplate;
 };
+
+export type CommunicationsCreateTemplateResponse =
+  CommunicationsCreateTemplateResponses[keyof CommunicationsCreateTemplateResponses];
 
 export type CommunicationsUpdateTemplateData = {
   body: UpdateCommunicationTemplateDto;
@@ -879,8 +3064,11 @@ export type CommunicationsUpdateTemplateData = {
 };
 
 export type CommunicationsUpdateTemplateResponses = {
-  200: unknown;
+  200: CommunicationTemplate;
 };
+
+export type CommunicationsUpdateTemplateResponse =
+  CommunicationsUpdateTemplateResponses[keyof CommunicationsUpdateTemplateResponses];
 
 export type CommunicationsPreviewData = {
   body: PreviewCommunicationDto;
@@ -901,8 +3089,11 @@ export type CommunicationsSendTestData = {
 };
 
 export type CommunicationsSendTestResponses = {
-  201: unknown;
+  201: CommunicationDelivery;
 };
+
+export type CommunicationsSendTestResponse =
+  CommunicationsSendTestResponses[keyof CommunicationsSendTestResponses];
 
 export type CommunicationsListDeliveriesData = {
   body?: never;
@@ -912,8 +3103,11 @@ export type CommunicationsListDeliveriesData = {
 };
 
 export type CommunicationsListDeliveriesResponses = {
-  200: unknown;
+  200: Array<CommunicationDelivery>;
 };
+
+export type CommunicationsListDeliveriesResponse =
+  CommunicationsListDeliveriesResponses[keyof CommunicationsListDeliveriesResponses];
 
 export type CommunicationsListInboxData = {
   body?: never;
@@ -923,8 +3117,13 @@ export type CommunicationsListInboxData = {
 };
 
 export type CommunicationsListInboxResponses = {
-  200: unknown;
+  200: {
+    [key: string]: unknown;
+  };
 };
+
+export type CommunicationsListInboxResponse =
+  CommunicationsListInboxResponses[keyof CommunicationsListInboxResponses];
 
 export type CommunicationsMarkReadData = {
   body?: never;
@@ -936,8 +3135,13 @@ export type CommunicationsMarkReadData = {
 };
 
 export type CommunicationsMarkReadResponses = {
-  201: unknown;
+  201: {
+    [key: string]: unknown;
+  };
 };
+
+export type CommunicationsMarkReadResponse =
+  CommunicationsMarkReadResponses[keyof CommunicationsMarkReadResponses];
 
 export type CommunicationsReplyData = {
   body: ReplyCommunicationDto;
@@ -949,8 +3153,13 @@ export type CommunicationsReplyData = {
 };
 
 export type CommunicationsReplyResponses = {
-  201: unknown;
+  201: {
+    [key: string]: unknown;
+  };
 };
+
+export type CommunicationsReplyResponse =
+  CommunicationsReplyResponses[keyof CommunicationsReplyResponses];
 
 export type CommunicationsApproveData = {
   body?: never;
@@ -962,8 +3171,11 @@ export type CommunicationsApproveData = {
 };
 
 export type CommunicationsApproveResponses = {
-  201: unknown;
+  201: CommunicationDelivery;
 };
+
+export type CommunicationsApproveResponse =
+  CommunicationsApproveResponses[keyof CommunicationsApproveResponses];
 
 export type CommunicationsRetryData = {
   body?: never;
@@ -975,8 +3187,11 @@ export type CommunicationsRetryData = {
 };
 
 export type CommunicationsRetryResponses = {
-  201: unknown;
+  201: CommunicationDelivery;
 };
+
+export type CommunicationsRetryResponse =
+  CommunicationsRetryResponses[keyof CommunicationsRetryResponses];
 
 export type CommunicationsRetryDueData = {
   body?: never;
@@ -1105,7 +3320,9 @@ export type WhatsappDownloadDocumentData = {
   path: {
     documentId: string;
   };
-  query?: never;
+  query: {
+    token: string;
+  };
   url: "/whatsapp/documents/{documentId}";
 };
 
@@ -1134,8 +3351,11 @@ export type DocumentsConfirmUploadData = {
 };
 
 export type DocumentsConfirmUploadResponses = {
-  200: unknown;
+  200: Document;
 };
+
+export type DocumentsConfirmUploadResponse =
+  DocumentsConfirmUploadResponses[keyof DocumentsConfirmUploadResponses];
 
 export type DocumentsGenerateDownloadUrlData = {
   body?: never;
@@ -1161,8 +3381,11 @@ export type DocumentsFindByEntityData = {
 };
 
 export type DocumentsFindByEntityResponses = {
-  200: unknown;
+  200: Array<Document>;
 };
+
+export type DocumentsFindByEntityResponse =
+  DocumentsFindByEntityResponses[keyof DocumentsFindByEntityResponses];
 
 export type DocumentsRemoveData = {
   body?: never;
@@ -1180,7 +3403,18 @@ export type DocumentsRemoveResponses = {
 export type LeasesFindAllData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    propertyId?: string;
+    tenantId?: string;
+    buyerId?: string;
+    buyerProfileId?: string;
+    status?: "draft" | "pending_signature" | "signed" | "active" | "finalized";
+    contractType?: "rental" | "sale";
+    propertyAddress?: string;
+    includeFinalized?: boolean;
+    page?: number;
+    limit?: number;
+  };
   url: "/leases";
 };
 
@@ -1196,19 +3430,27 @@ export type LeasesCreateData = {
 };
 
 export type LeasesCreateResponses = {
-  201: unknown;
+  201: Lease;
 };
+
+export type LeasesCreateResponse =
+  LeasesCreateResponses[keyof LeasesCreateResponses];
 
 export type LeasesListTemplatesData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    contractType?: "rental" | "sale";
+  };
   url: "/leases/templates";
 };
 
 export type LeasesListTemplatesResponses = {
-  200: unknown;
+  200: Array<LeaseContractTemplate>;
 };
+
+export type LeasesListTemplatesResponse =
+  LeasesListTemplatesResponses[keyof LeasesListTemplatesResponses];
 
 export type LeasesCreateTemplateData = {
   body: CreateLeaseContractTemplateDto;
@@ -1218,8 +3460,11 @@ export type LeasesCreateTemplateData = {
 };
 
 export type LeasesCreateTemplateResponses = {
-  201: unknown;
+  201: LeaseContractTemplate;
 };
+
+export type LeasesCreateTemplateResponse =
+  LeasesCreateTemplateResponses[keyof LeasesCreateTemplateResponses];
 
 export type LeasesImportTemplateDocxData = {
   body: ImportLeaseTemplateDocxDto;
@@ -1229,8 +3474,13 @@ export type LeasesImportTemplateDocxData = {
 };
 
 export type LeasesImportTemplateDocxResponses = {
-  201: unknown;
+  201: {
+    [key: string]: unknown;
+  };
 };
+
+export type LeasesImportTemplateDocxResponse =
+  LeasesImportTemplateDocxResponses[keyof LeasesImportTemplateDocxResponses];
 
 export type LeasesUpdateTemplateData = {
   body: UpdateLeaseContractTemplateDto;
@@ -1242,8 +3492,11 @@ export type LeasesUpdateTemplateData = {
 };
 
 export type LeasesUpdateTemplateResponses = {
-  200: unknown;
+  200: LeaseContractTemplate;
 };
+
+export type LeasesUpdateTemplateResponse =
+  LeasesUpdateTemplateResponses[keyof LeasesUpdateTemplateResponses];
 
 export type LeasesRemoveData = {
   body?: never;
@@ -1268,8 +3521,11 @@ export type LeasesFindOneData = {
 };
 
 export type LeasesFindOneResponses = {
-  200: unknown;
+  200: Lease;
 };
+
+export type LeasesFindOneResponse =
+  LeasesFindOneResponses[keyof LeasesFindOneResponses];
 
 export type LeasesUpdateData = {
   body: UpdateLeaseDto;
@@ -1281,8 +3537,11 @@ export type LeasesUpdateData = {
 };
 
 export type LeasesUpdateResponses = {
-  200: unknown;
+  200: Lease;
 };
+
+export type LeasesUpdateResponse =
+  LeasesUpdateResponses[keyof LeasesUpdateResponses];
 
 export type LeasesRenderDraftData = {
   body: RenderLeaseDraftDto;
@@ -1294,8 +3553,11 @@ export type LeasesRenderDraftData = {
 };
 
 export type LeasesRenderDraftResponses = {
-  201: unknown;
+  201: Lease;
 };
+
+export type LeasesRenderDraftResponse =
+  LeasesRenderDraftResponses[keyof LeasesRenderDraftResponses];
 
 export type LeasesUpdateDraftTextData = {
   body: UpdateLeaseDraftTextDto;
@@ -1307,8 +3569,11 @@ export type LeasesUpdateDraftTextData = {
 };
 
 export type LeasesUpdateDraftTextResponses = {
-  200: unknown;
+  200: Lease;
 };
+
+export type LeasesUpdateDraftTextResponse =
+  LeasesUpdateDraftTextResponses[keyof LeasesUpdateDraftTextResponses];
 
 export type LeasesConfirmDraftData = {
   body: ConfirmLeaseDraftDto;
@@ -1320,8 +3585,11 @@ export type LeasesConfirmDraftData = {
 };
 
 export type LeasesConfirmDraftResponses = {
-  201: unknown;
+  201: Lease;
 };
+
+export type LeasesConfirmDraftResponse =
+  LeasesConfirmDraftResponses[keyof LeasesConfirmDraftResponses];
 
 export type LeasesActivateData = {
   body?: never;
@@ -1333,8 +3601,11 @@ export type LeasesActivateData = {
 };
 
 export type LeasesActivateResponses = {
-  200: unknown;
+  200: Lease;
 };
+
+export type LeasesActivateResponse =
+  LeasesActivateResponses[keyof LeasesActivateResponses];
 
 export type LeasesTerminateData = {
   body: LeaseStatusReasonDto;
@@ -1346,8 +3617,11 @@ export type LeasesTerminateData = {
 };
 
 export type LeasesTerminateResponses = {
-  200: unknown;
+  200: Lease;
 };
+
+export type LeasesTerminateResponse =
+  LeasesTerminateResponses[keyof LeasesTerminateResponses];
 
 export type LeasesFinalizeData = {
   body: LeaseStatusReasonDto;
@@ -1359,8 +3633,11 @@ export type LeasesFinalizeData = {
 };
 
 export type LeasesFinalizeResponses = {
-  200: unknown;
+  200: Lease;
 };
+
+export type LeasesFinalizeResponse =
+  LeasesFinalizeResponses[keyof LeasesFinalizeResponses];
 
 export type LeasesRenewData = {
   body: RenewLeaseDto;
@@ -1372,8 +3649,11 @@ export type LeasesRenewData = {
 };
 
 export type LeasesRenewResponses = {
-  200: unknown;
+  200: Lease;
 };
+
+export type LeasesRenewResponse =
+  LeasesRenewResponses[keyof LeasesRenewResponses];
 
 export type LeasesImportCurrentContractData = {
   body: ImportCurrentLeaseDto;
@@ -1383,8 +3663,11 @@ export type LeasesImportCurrentContractData = {
 };
 
 export type LeasesImportCurrentContractResponses = {
-  201: unknown;
+  201: Lease;
 };
+
+export type LeasesImportCurrentContractResponse =
+  LeasesImportCurrentContractResponses[keyof LeasesImportCurrentContractResponses];
 
 export type AmendmentsCreateData = {
   body: CreateAmendmentDto;
@@ -1394,8 +3677,11 @@ export type AmendmentsCreateData = {
 };
 
 export type AmendmentsCreateResponses = {
-  201: unknown;
+  201: LeaseAmendment;
 };
+
+export type AmendmentsCreateResponse =
+  AmendmentsCreateResponses[keyof AmendmentsCreateResponses];
 
 export type AmendmentsFindByLeaseData = {
   body?: never;
@@ -1407,8 +3693,11 @@ export type AmendmentsFindByLeaseData = {
 };
 
 export type AmendmentsFindByLeaseResponses = {
-  200: unknown;
+  200: Array<LeaseAmendment>;
 };
+
+export type AmendmentsFindByLeaseResponse =
+  AmendmentsFindByLeaseResponses[keyof AmendmentsFindByLeaseResponses];
 
 export type AmendmentsFindOneData = {
   body?: never;
@@ -1420,8 +3709,11 @@ export type AmendmentsFindOneData = {
 };
 
 export type AmendmentsFindOneResponses = {
-  200: unknown;
+  200: LeaseAmendment;
 };
+
+export type AmendmentsFindOneResponse =
+  AmendmentsFindOneResponses[keyof AmendmentsFindOneResponses];
 
 export type AmendmentsApproveData = {
   body?: never;
@@ -1433,8 +3725,11 @@ export type AmendmentsApproveData = {
 };
 
 export type AmendmentsApproveResponses = {
-  200: unknown;
+  200: LeaseAmendment;
 };
+
+export type AmendmentsApproveResponse =
+  AmendmentsApproveResponses[keyof AmendmentsApproveResponses];
 
 export type AmendmentsRejectData = {
   body?: never;
@@ -1446,8 +3741,11 @@ export type AmendmentsRejectData = {
 };
 
 export type AmendmentsRejectResponses = {
-  200: unknown;
+  200: LeaseAmendment;
 };
+
+export type AmendmentsRejectResponse =
+  AmendmentsRejectResponses[keyof AmendmentsRejectResponses];
 
 export type LeasesContractDownloadContractData = {
   body?: never;
@@ -1472,8 +3770,11 @@ export type TenantAccountsFindByLeaseData = {
 };
 
 export type TenantAccountsFindByLeaseResponses = {
-  200: unknown;
+  200: TenantAccount;
 };
+
+export type TenantAccountsFindByLeaseResponse =
+  TenantAccountsFindByLeaseResponses[keyof TenantAccountsFindByLeaseResponses];
 
 export type TenantAccountsFindOneData = {
   body?: never;
@@ -1485,8 +3786,11 @@ export type TenantAccountsFindOneData = {
 };
 
 export type TenantAccountsFindOneResponses = {
-  200: unknown;
+  200: TenantAccount;
 };
+
+export type TenantAccountsFindOneResponse =
+  TenantAccountsFindOneResponses[keyof TenantAccountsFindOneResponses];
 
 export type TenantAccountsGetMovementsData = {
   body?: never;
@@ -1498,8 +3802,11 @@ export type TenantAccountsGetMovementsData = {
 };
 
 export type TenantAccountsGetMovementsResponses = {
-  200: unknown;
+  200: Array<TenantAccountMovement>;
 };
+
+export type TenantAccountsGetMovementsResponse =
+  TenantAccountsGetMovementsResponses[keyof TenantAccountsGetMovementsResponses];
 
 export type TenantAccountsGetBalanceData = {
   body?: never;
@@ -1517,7 +3824,21 @@ export type TenantAccountsGetBalanceResponses = {
 export type InvoicesFindAllData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    leaseId?: string;
+    ownerId?: string;
+    status?:
+      | "draft"
+      | "pending"
+      | "sent"
+      | "partial"
+      | "paid"
+      | "overdue"
+      | "cancelled"
+      | "refunded";
+    page?: number;
+    limit?: number;
+  };
   url: "/invoices";
 };
 
@@ -1533,8 +3854,11 @@ export type InvoicesCreateData = {
 };
 
 export type InvoicesCreateResponses = {
-  201: unknown;
+  201: Invoice;
 };
+
+export type InvoicesCreateResponse =
+  InvoicesCreateResponses[keyof InvoicesCreateResponses];
 
 export type InvoicesGenerateForLeaseData = {
   body: GenerateInvoiceDto;
@@ -1546,8 +3870,11 @@ export type InvoicesGenerateForLeaseData = {
 };
 
 export type InvoicesGenerateForLeaseResponses = {
-  201: unknown;
+  201: Invoice;
 };
+
+export type InvoicesGenerateForLeaseResponse =
+  InvoicesGenerateForLeaseResponses[keyof InvoicesGenerateForLeaseResponses];
 
 export type InvoicesIssueData = {
   body?: never;
@@ -1559,8 +3886,11 @@ export type InvoicesIssueData = {
 };
 
 export type InvoicesIssueResponses = {
-  200: unknown;
+  200: Invoice;
 };
+
+export type InvoicesIssueResponse =
+  InvoicesIssueResponses[keyof InvoicesIssueResponses];
 
 export type InvoicesFindOneData = {
   body?: never;
@@ -1572,8 +3902,11 @@ export type InvoicesFindOneData = {
 };
 
 export type InvoicesFindOneResponses = {
-  200: unknown;
+  200: Invoice;
 };
+
+export type InvoicesFindOneResponse =
+  InvoicesFindOneResponses[keyof InvoicesFindOneResponses];
 
 export type InvoicesListCreditNotesData = {
   body?: never;
@@ -1585,8 +3918,11 @@ export type InvoicesListCreditNotesData = {
 };
 
 export type InvoicesListCreditNotesResponses = {
-  200: unknown;
+  200: Array<CreditNote>;
 };
+
+export type InvoicesListCreditNotesResponse =
+  InvoicesListCreditNotesResponses[keyof InvoicesListCreditNotesResponses];
 
 export type InvoicesCancelData = {
   body?: never;
@@ -1598,8 +3934,11 @@ export type InvoicesCancelData = {
 };
 
 export type InvoicesCancelResponses = {
-  200: unknown;
+  200: Invoice;
 };
+
+export type InvoicesCancelResponse =
+  InvoicesCancelResponses[keyof InvoicesCancelResponses];
 
 export type InvoicesGetPdfData = {
   body?: never;
@@ -1630,7 +3969,34 @@ export type InvoicesGetCreditNotePdfResponses = {
 export type PaymentsFindAllData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    tenantId?: string;
+    tenantAccountId?: string;
+    leaseId?: string;
+    propertyId?: string;
+    status?:
+      | "pending"
+      | "processing"
+      | "completed"
+      | "failed"
+      | "refunded"
+      | "cancelled";
+    method?:
+      | "cash"
+      | "bank_transfer"
+      | "credit_card"
+      | "debit_card"
+      | "check"
+      | "digital_wallet"
+      | "crypto"
+      | "other";
+    activityType?:
+      "monthly" | "annual" | "adjustment" | "late_fee" | "extraordinary";
+    fromDate?: string;
+    toDate?: string;
+    page?: number;
+    limit?: number;
+  };
   url: "/payments";
 };
 
@@ -1646,8 +4012,11 @@ export type PaymentsCreateData = {
 };
 
 export type PaymentsCreateResponses = {
-  201: unknown;
+  201: Payment;
 };
+
+export type PaymentsCreateResponse =
+  PaymentsCreateResponses[keyof PaymentsCreateResponses];
 
 export type PaymentsConfirmData = {
   body?: never;
@@ -1659,8 +4028,11 @@ export type PaymentsConfirmData = {
 };
 
 export type PaymentsConfirmResponses = {
-  200: unknown;
+  200: Payment;
 };
+
+export type PaymentsConfirmResponse =
+  PaymentsConfirmResponses[keyof PaymentsConfirmResponses];
 
 export type PaymentsFindOneData = {
   body?: never;
@@ -1672,8 +4044,11 @@ export type PaymentsFindOneData = {
 };
 
 export type PaymentsFindOneResponses = {
-  200: unknown;
+  200: Payment;
 };
+
+export type PaymentsFindOneResponse =
+  PaymentsFindOneResponses[keyof PaymentsFindOneResponses];
 
 export type PaymentsUpdateData = {
   body: UpdatePaymentDto;
@@ -1685,8 +4060,11 @@ export type PaymentsUpdateData = {
 };
 
 export type PaymentsUpdateResponses = {
-  200: unknown;
+  200: Payment;
 };
+
+export type PaymentsUpdateResponse =
+  PaymentsUpdateResponses[keyof PaymentsUpdateResponses];
 
 export type PaymentsFindReceiptsByTenantData = {
   body?: never;
@@ -1698,8 +4076,11 @@ export type PaymentsFindReceiptsByTenantData = {
 };
 
 export type PaymentsFindReceiptsByTenantResponses = {
-  200: unknown;
+  200: Array<Receipt>;
 };
+
+export type PaymentsFindReceiptsByTenantResponse =
+  PaymentsFindReceiptsByTenantResponses[keyof PaymentsFindReceiptsByTenantResponses];
 
 export type PaymentsCancelData = {
   body?: never;
@@ -1711,8 +4092,11 @@ export type PaymentsCancelData = {
 };
 
 export type PaymentsCancelResponses = {
-  200: unknown;
+  200: Payment;
 };
+
+export type PaymentsCancelResponse =
+  PaymentsCancelResponses[keyof PaymentsCancelResponses];
 
 export type PaymentsGetReceiptData = {
   body?: never;
@@ -1730,13 +4114,18 @@ export type PaymentsGetReceiptResponses = {
 export type PaymentDocumentTemplatesListData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    type?: "receipt" | "invoice" | "credit_note";
+  };
   url: "/payment-templates";
 };
 
 export type PaymentDocumentTemplatesListResponses = {
-  200: unknown;
+  200: Array<PaymentDocumentTemplate>;
 };
+
+export type PaymentDocumentTemplatesListResponse =
+  PaymentDocumentTemplatesListResponses[keyof PaymentDocumentTemplatesListResponses];
 
 export type PaymentDocumentTemplatesCreateData = {
   body: CreatePaymentDocumentTemplateDto;
@@ -1746,8 +4135,11 @@ export type PaymentDocumentTemplatesCreateData = {
 };
 
 export type PaymentDocumentTemplatesCreateResponses = {
-  201: unknown;
+  201: PaymentDocumentTemplate;
 };
+
+export type PaymentDocumentTemplatesCreateResponse =
+  PaymentDocumentTemplatesCreateResponses[keyof PaymentDocumentTemplatesCreateResponses];
 
 export type PaymentDocumentTemplatesUpdateData = {
   body: UpdatePaymentDocumentTemplateDto;
@@ -1759,13 +4151,22 @@ export type PaymentDocumentTemplatesUpdateData = {
 };
 
 export type PaymentDocumentTemplatesUpdateResponses = {
-  200: unknown;
+  200: PaymentDocumentTemplate;
 };
+
+export type PaymentDocumentTemplatesUpdateResponse =
+  PaymentDocumentTemplatesUpdateResponses[keyof PaymentDocumentTemplatesUpdateResponses];
 
 export type TenantsFindAllData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    name?: string;
+    dni?: string;
+    email?: string;
+    page?: number;
+    limit?: number;
+  };
   url: "/tenants";
 };
 
@@ -1781,8 +4182,11 @@ export type TenantsCreateData = {
 };
 
 export type TenantsCreateResponses = {
-  201: unknown;
+  201: User;
 };
+
+export type TenantsCreateResponse =
+  TenantsCreateResponses[keyof TenantsCreateResponses];
 
 export type TenantsGetMyProfileData = {
   body?: never;
@@ -1792,8 +4196,11 @@ export type TenantsGetMyProfileData = {
 };
 
 export type TenantsGetMyProfileResponses = {
-  200: unknown;
+  200: Tenant;
 };
+
+export type TenantsGetMyProfileResponse =
+  TenantsGetMyProfileResponses[keyof TenantsGetMyProfileResponses];
 
 export type TenantsGetMyProfileSummaryData = {
   body?: never;
@@ -1803,8 +4210,13 @@ export type TenantsGetMyProfileSummaryData = {
 };
 
 export type TenantsGetMyProfileSummaryResponses = {
-  200: unknown;
+  200: {
+    [key: string]: unknown;
+  };
 };
+
+export type TenantsGetMyProfileSummaryResponse =
+  TenantsGetMyProfileSummaryResponses[keyof TenantsGetMyProfileSummaryResponses];
 
 export type TenantsRemoveData = {
   body?: never;
@@ -1829,8 +4241,11 @@ export type TenantsFindOneData = {
 };
 
 export type TenantsFindOneResponses = {
-  200: unknown;
+  200: User;
 };
+
+export type TenantsFindOneResponse =
+  TenantsFindOneResponses[keyof TenantsFindOneResponses];
 
 export type TenantsUpdateData = {
   body: UpdateTenantDto;
@@ -1842,8 +4257,11 @@ export type TenantsUpdateData = {
 };
 
 export type TenantsUpdateResponses = {
-  200: unknown;
+  200: User;
 };
+
+export type TenantsUpdateResponse =
+  TenantsUpdateResponses[keyof TenantsUpdateResponses];
 
 export type TenantsGetLeaseHistoryData = {
   body?: never;
@@ -1855,8 +4273,11 @@ export type TenantsGetLeaseHistoryData = {
 };
 
 export type TenantsGetLeaseHistoryResponses = {
-  200: unknown;
+  200: Array<Lease>;
 };
+
+export type TenantsGetLeaseHistoryResponse =
+  TenantsGetLeaseHistoryResponses[keyof TenantsGetLeaseHistoryResponses];
 
 export type TenantsListActivitiesData = {
   body?: never;
@@ -1868,8 +4289,11 @@ export type TenantsListActivitiesData = {
 };
 
 export type TenantsListActivitiesResponses = {
-  200: unknown;
+  200: Array<TenantActivity>;
 };
+
+export type TenantsListActivitiesResponse =
+  TenantsListActivitiesResponses[keyof TenantsListActivitiesResponses];
 
 export type TenantsCreateActivityData = {
   body: CreateTenantActivityDto;
@@ -1881,8 +4305,11 @@ export type TenantsCreateActivityData = {
 };
 
 export type TenantsCreateActivityResponses = {
-  201: unknown;
+  201: TenantActivity;
 };
+
+export type TenantsCreateActivityResponse =
+  TenantsCreateActivityResponses[keyof TenantsCreateActivityResponses];
 
 export type TenantsUpdateActivityData = {
   body: UpdateTenantActivityDto;
@@ -1895,19 +4322,29 @@ export type TenantsUpdateActivityData = {
 };
 
 export type TenantsUpdateActivityResponses = {
-  200: unknown;
+  200: TenantActivity;
 };
+
+export type TenantsUpdateActivityResponse =
+  TenantsUpdateActivityResponses[keyof TenantsUpdateActivityResponses];
 
 export type OwnersListSettlementPaymentsData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    limit?: number;
+  };
   url: "/owners/settlements/payments";
 };
 
 export type OwnersListSettlementPaymentsResponses = {
-  200: unknown;
+  200: Array<{
+    [key: string]: unknown;
+  }>;
 };
+
+export type OwnersListSettlementPaymentsResponse =
+  OwnersListSettlementPaymentsResponses[keyof OwnersListSettlementPaymentsResponses];
 
 export type OwnersDownloadSettlementReceiptData = {
   body?: never;
@@ -1930,8 +4367,11 @@ export type OwnersFindAllData = {
 };
 
 export type OwnersFindAllResponses = {
-  200: unknown;
+  200: Array<Owner>;
 };
+
+export type OwnersFindAllResponse =
+  OwnersFindAllResponses[keyof OwnersFindAllResponses];
 
 export type OwnersCreateData = {
   body: CreateOwnerDto;
@@ -1941,8 +4381,11 @@ export type OwnersCreateData = {
 };
 
 export type OwnersCreateResponses = {
-  201: unknown;
+  201: Owner;
 };
+
+export type OwnersCreateResponse =
+  OwnersCreateResponses[keyof OwnersCreateResponses];
 
 export type OwnersGetMyProfileData = {
   body?: never;
@@ -1952,8 +4395,11 @@ export type OwnersGetMyProfileData = {
 };
 
 export type OwnersGetMyProfileResponses = {
-  200: unknown;
+  200: Owner;
 };
+
+export type OwnersGetMyProfileResponse =
+  OwnersGetMyProfileResponses[keyof OwnersGetMyProfileResponses];
 
 export type OwnersGetMyProfileSummaryData = {
   body?: never;
@@ -1963,8 +4409,13 @@ export type OwnersGetMyProfileSummaryData = {
 };
 
 export type OwnersGetMyProfileSummaryResponses = {
-  200: unknown;
+  200: {
+    [key: string]: unknown;
+  };
 };
+
+export type OwnersGetMyProfileSummaryResponse =
+  OwnersGetMyProfileSummaryResponses[keyof OwnersGetMyProfileSummaryResponses];
 
 export type OwnersFindOneData = {
   body?: never;
@@ -1976,8 +4427,11 @@ export type OwnersFindOneData = {
 };
 
 export type OwnersFindOneResponses = {
-  200: unknown;
+  200: Owner;
 };
+
+export type OwnersFindOneResponse =
+  OwnersFindOneResponses[keyof OwnersFindOneResponses];
 
 export type OwnersUpdateData = {
   body: UpdateOwnerDto;
@@ -1989,21 +4443,32 @@ export type OwnersUpdateData = {
 };
 
 export type OwnersUpdateResponses = {
-  200: unknown;
+  200: Owner;
 };
+
+export type OwnersUpdateResponse =
+  OwnersUpdateResponses[keyof OwnersUpdateResponses];
 
 export type OwnersListSettlementsData = {
   body?: never;
   path: {
     id: string;
   };
-  query?: never;
+  query?: {
+    status?: "all" | "pending" | "completed";
+    limit?: number;
+  };
   url: "/owners/{id}/settlements";
 };
 
 export type OwnersListSettlementsResponses = {
-  200: unknown;
+  200: Array<{
+    [key: string]: unknown;
+  }>;
 };
+
+export type OwnersListSettlementsResponse =
+  OwnersListSettlementsResponses[keyof OwnersListSettlementsResponses];
 
 export type OwnersRegisterSettlementPaymentData = {
   body: RegisterOwnerSettlementPaymentDto;
@@ -2016,8 +4481,13 @@ export type OwnersRegisterSettlementPaymentData = {
 };
 
 export type OwnersRegisterSettlementPaymentResponses = {
-  201: unknown;
+  201: {
+    [key: string]: unknown;
+  };
 };
+
+export type OwnersRegisterSettlementPaymentResponse =
+  OwnersRegisterSettlementPaymentResponses[keyof OwnersRegisterSettlementPaymentResponses];
 
 export type OwnersListActivitiesData = {
   body?: never;
@@ -2029,8 +4499,11 @@ export type OwnersListActivitiesData = {
 };
 
 export type OwnersListActivitiesResponses = {
-  200: unknown;
+  200: Array<OwnerActivity>;
 };
+
+export type OwnersListActivitiesResponse =
+  OwnersListActivitiesResponses[keyof OwnersListActivitiesResponses];
 
 export type OwnersCreateActivityData = {
   body: CreateOwnerActivityDto;
@@ -2042,8 +4515,11 @@ export type OwnersCreateActivityData = {
 };
 
 export type OwnersCreateActivityResponses = {
-  201: unknown;
+  201: OwnerActivity;
 };
+
+export type OwnersCreateActivityResponse =
+  OwnersCreateActivityResponses[keyof OwnersCreateActivityResponses];
 
 export type OwnersUpdateActivityData = {
   body: UpdateOwnerActivityDto;
@@ -2056,19 +4532,35 @@ export type OwnersUpdateActivityData = {
 };
 
 export type OwnersUpdateActivityResponses = {
-  200: unknown;
+  200: OwnerActivity;
 };
+
+export type OwnersUpdateActivityResponse =
+  OwnersUpdateActivityResponses[keyof OwnersUpdateActivityResponses];
 
 export type StaffFindAllData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    specialization?:
+      | "maintenance"
+      | "cleaning"
+      | "security"
+      | "administration"
+      | "accounting"
+      | "legal"
+      | "other";
+    search?: string;
+  };
   url: "/staff";
 };
 
 export type StaffFindAllResponses = {
-  200: unknown;
+  200: Array<Staff>;
 };
+
+export type StaffFindAllResponse =
+  StaffFindAllResponses[keyof StaffFindAllResponses];
 
 export type StaffCreateData = {
   body: CreateStaffDto;
@@ -2078,8 +4570,11 @@ export type StaffCreateData = {
 };
 
 export type StaffCreateResponses = {
-  201: unknown;
+  201: Staff;
 };
+
+export type StaffCreateResponse =
+  StaffCreateResponses[keyof StaffCreateResponses];
 
 export type StaffRemoveData = {
   body?: never;
@@ -2107,8 +4602,11 @@ export type StaffFindOneData = {
 };
 
 export type StaffFindOneResponses = {
-  200: unknown;
+  200: Staff;
 };
+
+export type StaffFindOneResponse =
+  StaffFindOneResponses[keyof StaffFindOneResponses];
 
 export type StaffUpdateData = {
   body: UpdateStaffDto;
@@ -2120,8 +4618,11 @@ export type StaffUpdateData = {
 };
 
 export type StaffUpdateResponses = {
-  200: unknown;
+  200: Staff;
 };
+
+export type StaffUpdateResponse =
+  StaffUpdateResponses[keyof StaffUpdateResponses];
 
 export type StaffActivateData = {
   body?: never;
@@ -2133,19 +4634,27 @@ export type StaffActivateData = {
 };
 
 export type StaffActivateResponses = {
-  200: unknown;
+  200: Staff;
 };
+
+export type StaffActivateResponse =
+  StaffActivateResponses[keyof StaffActivateResponses];
 
 export type CurrenciesFindAllData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    activeOnly?: Object;
+  };
   url: "/currencies";
 };
 
 export type CurrenciesFindAllResponses = {
-  200: unknown;
+  200: Array<Currency>;
 };
+
+export type CurrenciesFindAllResponse =
+  CurrenciesFindAllResponses[keyof CurrenciesFindAllResponses];
 
 export type CurrenciesCreateData = {
   body: CreateCurrencyDto;
@@ -2155,8 +4664,11 @@ export type CurrenciesCreateData = {
 };
 
 export type CurrenciesCreateResponses = {
-  201: unknown;
+  201: Currency;
 };
+
+export type CurrenciesCreateResponse =
+  CurrenciesCreateResponses[keyof CurrenciesCreateResponses];
 
 export type CurrenciesGetDefaultForLocaleData = {
   body?: never;
@@ -2168,8 +4680,11 @@ export type CurrenciesGetDefaultForLocaleData = {
 };
 
 export type CurrenciesGetDefaultForLocaleResponses = {
-  200: unknown;
+  200: Currency;
 };
+
+export type CurrenciesGetDefaultForLocaleResponse =
+  CurrenciesGetDefaultForLocaleResponses[keyof CurrenciesGetDefaultForLocaleResponses];
 
 export type CurrenciesRemoveData = {
   body?: never;
@@ -2194,8 +4709,11 @@ export type CurrenciesFindOneData = {
 };
 
 export type CurrenciesFindOneResponses = {
-  200: unknown;
+  200: Currency;
 };
+
+export type CurrenciesFindOneResponse =
+  CurrenciesFindOneResponses[keyof CurrenciesFindOneResponses];
 
 export type CurrenciesUpdateData = {
   body: UpdateCurrencyDto;
@@ -2207,8 +4725,11 @@ export type CurrenciesUpdateData = {
 };
 
 export type CurrenciesUpdateResponses = {
-  200: unknown;
+  200: Currency;
 };
+
+export type CurrenciesUpdateResponse =
+  CurrenciesUpdateResponses[keyof CurrenciesUpdateResponses];
 
 export type DashboardGetStatsData = {
   body?: never;
@@ -2241,7 +4762,9 @@ export type DashboardGetOperationsOverviewResponse =
 export type DashboardGetRecentActivityData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    limit?: 10 | 25 | 50;
+  };
   url: "/dashboard/recent-activity";
 };
 
@@ -2255,7 +4778,10 @@ export type DashboardGetRecentActivityResponse =
 export type DashboardGetReportsData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    page?: number;
+    limit?: number;
+  };
   url: "/dashboard/reports";
 };
 
@@ -2335,7 +4861,24 @@ export type HealthCheckResponse =
 export type InterestedFindAllData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    name?: string;
+    phone?: string;
+    operation?: "rent" | "sale";
+    propertyTypePreference?:
+      | "apartment"
+      | "house"
+      | "commercial"
+      | "office"
+      | "warehouse"
+      | "land"
+      | "parking"
+      | "other";
+    status?: "interested" | "tenant" | "buyer";
+    qualificationLevel?: "mql" | "sql" | "rejected";
+    page?: number;
+    limit?: number;
+  };
   url: "/interested";
 };
 
@@ -2351,8 +4894,11 @@ export type InterestedCreateData = {
 };
 
 export type InterestedCreateResponses = {
-  201: unknown;
+  201: InterestedProfile;
 };
+
+export type InterestedCreateResponse =
+  InterestedCreateResponses[keyof InterestedCreateResponses];
 
 export type InterestedGetMetricsData = {
   body?: never;
@@ -2362,8 +4908,13 @@ export type InterestedGetMetricsData = {
 };
 
 export type InterestedGetMetricsResponses = {
-  200: unknown;
+  200: {
+    [key: string]: unknown;
+  };
 };
+
+export type InterestedGetMetricsResponse =
+  InterestedGetMetricsResponses[keyof InterestedGetMetricsResponses];
 
 export type InterestedFindPotentialDuplicatesData = {
   body?: never;
@@ -2399,8 +4950,11 @@ export type InterestedFindOneData = {
 };
 
 export type InterestedFindOneResponses = {
-  200: unknown;
+  200: InterestedProfile;
 };
+
+export type InterestedFindOneResponse =
+  InterestedFindOneResponses[keyof InterestedFindOneResponses];
 
 export type InterestedUpdateData = {
   body: UpdateInterestedProfileDto;
@@ -2412,8 +4966,11 @@ export type InterestedUpdateData = {
 };
 
 export type InterestedUpdateResponses = {
-  200: unknown;
+  200: InterestedProfile;
 };
+
+export type InterestedUpdateResponse =
+  InterestedUpdateResponses[keyof InterestedUpdateResponses];
 
 export type InterestedGetSummaryData = {
   body?: never;
@@ -2438,8 +4995,13 @@ export type InterestedGetTimelineData = {
 };
 
 export type InterestedGetTimelineResponses = {
-  200: unknown;
+  200: {
+    [key: string]: unknown;
+  };
 };
+
+export type InterestedGetTimelineResponse =
+  InterestedGetTimelineResponses[keyof InterestedGetTimelineResponses];
 
 export type InterestedFindMatchesData = {
   body?: never;
@@ -2451,8 +5013,11 @@ export type InterestedFindMatchesData = {
 };
 
 export type InterestedFindMatchesResponses = {
-  200: unknown;
+  200: Array<InterestedPropertyMatch>;
 };
+
+export type InterestedFindMatchesResponse =
+  InterestedFindMatchesResponses[keyof InterestedFindMatchesResponses];
 
 export type InterestedRefreshMatchesData = {
   body?: never;
@@ -2464,8 +5029,11 @@ export type InterestedRefreshMatchesData = {
 };
 
 export type InterestedRefreshMatchesResponses = {
-  201: unknown;
+  201: Array<InterestedPropertyMatch>;
 };
+
+export type InterestedRefreshMatchesResponse =
+  InterestedRefreshMatchesResponses[keyof InterestedRefreshMatchesResponses];
 
 export type InterestedUpdateMatchData = {
   body: UpdateInterestedMatchDto;
@@ -2478,8 +5046,11 @@ export type InterestedUpdateMatchData = {
 };
 
 export type InterestedUpdateMatchResponses = {
-  200: unknown;
+  200: InterestedPropertyMatch;
 };
+
+export type InterestedUpdateMatchResponse =
+  InterestedUpdateMatchResponses[keyof InterestedUpdateMatchResponses];
 
 export type InterestedChangeStageData = {
   body: ChangeInterestedStageDto;
@@ -2491,8 +5062,11 @@ export type InterestedChangeStageData = {
 };
 
 export type InterestedChangeStageResponses = {
-  201: unknown;
+  201: InterestedProfile;
 };
+
+export type InterestedChangeStageResponse =
+  InterestedChangeStageResponses[keyof InterestedChangeStageResponses];
 
 export type InterestedCreateActivityData = {
   body: CreateInterestedActivityDto;
@@ -2504,8 +5078,11 @@ export type InterestedCreateActivityData = {
 };
 
 export type InterestedCreateActivityResponses = {
-  201: unknown;
+  201: InterestedActivity;
 };
+
+export type InterestedCreateActivityResponse =
+  InterestedCreateActivityResponses[keyof InterestedCreateActivityResponses];
 
 export type InterestedSendInitialMessageData = {
   body?: never;
@@ -2517,8 +5094,13 @@ export type InterestedSendInitialMessageData = {
 };
 
 export type InterestedSendInitialMessageResponses = {
-  201: unknown;
+  201: {
+    [key: string]: unknown;
+  };
 };
+
+export type InterestedSendInitialMessageResponse =
+  InterestedSendInitialMessageResponses[keyof InterestedSendInitialMessageResponses];
 
 export type InterestedListReservationsData = {
   body?: never;
@@ -2530,8 +5112,11 @@ export type InterestedListReservationsData = {
 };
 
 export type InterestedListReservationsResponses = {
-  200: unknown;
+  200: Array<PropertyReservation>;
 };
+
+export type InterestedListReservationsResponse =
+  InterestedListReservationsResponses[keyof InterestedListReservationsResponses];
 
 export type InterestedCreateReservationData = {
   body: CreatePropertyReservationDto;
@@ -2543,8 +5128,11 @@ export type InterestedCreateReservationData = {
 };
 
 export type InterestedCreateReservationResponses = {
-  201: unknown;
+  201: PropertyReservation;
 };
+
+export type InterestedCreateReservationResponse =
+  InterestedCreateReservationResponses[keyof InterestedCreateReservationResponses];
 
 export type InterestedUpdateActivityData = {
   body: UpdateInterestedActivityDto;
@@ -2557,8 +5145,11 @@ export type InterestedUpdateActivityData = {
 };
 
 export type InterestedUpdateActivityResponses = {
-  200: unknown;
+  200: InterestedActivity;
 };
+
+export type InterestedUpdateActivityResponse =
+  InterestedUpdateActivityResponses[keyof InterestedUpdateActivityResponses];
 
 export type InterestedConvertToTenantData = {
   body: ConvertInterestedToTenantDto;
@@ -2594,8 +5185,11 @@ export type SalesListFoldersData = {
 };
 
 export type SalesListFoldersResponses = {
-  200: unknown;
+  200: Array<SaleFolder>;
 };
+
+export type SalesListFoldersResponse =
+  SalesListFoldersResponses[keyof SalesListFoldersResponses];
 
 export type SalesCreateFolderData = {
   body: CreateSaleFolderDto;
@@ -2605,19 +5199,27 @@ export type SalesCreateFolderData = {
 };
 
 export type SalesCreateFolderResponses = {
-  201: unknown;
+  201: SaleFolder;
 };
+
+export type SalesCreateFolderResponse =
+  SalesCreateFolderResponses[keyof SalesCreateFolderResponses];
 
 export type SalesListAgreementsData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    folderId?: string;
+  };
   url: "/sales/agreements";
 };
 
 export type SalesListAgreementsResponses = {
-  200: unknown;
+  200: Array<SaleAgreement>;
 };
+
+export type SalesListAgreementsResponse =
+  SalesListAgreementsResponses[keyof SalesListAgreementsResponses];
 
 export type SalesCreateAgreementData = {
   body: CreateSaleAgreementDto;
@@ -2627,8 +5229,11 @@ export type SalesCreateAgreementData = {
 };
 
 export type SalesCreateAgreementResponses = {
-  201: unknown;
+  201: SaleAgreement;
 };
+
+export type SalesCreateAgreementResponse =
+  SalesCreateAgreementResponses[keyof SalesCreateAgreementResponses];
 
 export type SalesGetAgreementData = {
   body?: never;
@@ -2640,8 +5245,11 @@ export type SalesGetAgreementData = {
 };
 
 export type SalesGetAgreementResponses = {
-  200: unknown;
+  200: SaleAgreement;
 };
+
+export type SalesGetAgreementResponse =
+  SalesGetAgreementResponses[keyof SalesGetAgreementResponses];
 
 export type SalesListReceiptsData = {
   body?: never;
@@ -2653,8 +5261,11 @@ export type SalesListReceiptsData = {
 };
 
 export type SalesListReceiptsResponses = {
-  200: unknown;
+  200: Array<SaleReceipt>;
 };
+
+export type SalesListReceiptsResponse =
+  SalesListReceiptsResponses[keyof SalesListReceiptsResponses];
 
 export type SalesCreateReceiptData = {
   body: CreateSaleReceiptDto;
@@ -2666,8 +5277,11 @@ export type SalesCreateReceiptData = {
 };
 
 export type SalesCreateReceiptResponses = {
-  201: unknown;
+  201: SaleReceipt;
 };
+
+export type SalesCreateReceiptResponse =
+  SalesCreateReceiptResponses[keyof SalesCreateReceiptResponses];
 
 export type SalesDownloadReceiptData = {
   body?: never;
@@ -2756,8 +5370,13 @@ export type AiRagRespondData = {
 };
 
 export type AiRagRespondResponses = {
-  201: unknown;
+  201: {
+    [key: string]: unknown;
+  };
 };
+
+export type AiRagRespondResponse =
+  AiRagRespondResponses[keyof AiRagRespondResponses];
 
 export type PendingActionsListData = {
   body?: never;
@@ -2814,13 +5433,29 @@ export type PendingActionsRejectResponse =
 export type MaintenanceFindAllData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    propertyId?: string;
+    status?:
+      | "open"
+      | "assigned"
+      | "in_progress"
+      | "pending_parts"
+      | "resolved"
+      | "closed"
+      | "cancelled";
+    priority?: "low" | "medium" | "high" | "urgent";
+    assignedToStaffId?: string;
+    search?: string;
+  };
   url: "/maintenance/tickets";
 };
 
 export type MaintenanceFindAllResponses = {
-  200: unknown;
+  200: Array<MaintenanceTicket>;
 };
+
+export type MaintenanceFindAllResponse =
+  MaintenanceFindAllResponses[keyof MaintenanceFindAllResponses];
 
 export type MaintenanceCreateData = {
   body: CreateMaintenanceTicketDto;
@@ -2830,8 +5465,11 @@ export type MaintenanceCreateData = {
 };
 
 export type MaintenanceCreateResponses = {
-  201: unknown;
+  201: MaintenanceTicket;
 };
+
+export type MaintenanceCreateResponse =
+  MaintenanceCreateResponses[keyof MaintenanceCreateResponses];
 
 export type MaintenanceRemoveData = {
   body?: never;
@@ -2859,8 +5497,11 @@ export type MaintenanceFindOneData = {
 };
 
 export type MaintenanceFindOneResponses = {
-  200: unknown;
+  200: MaintenanceTicket;
 };
+
+export type MaintenanceFindOneResponse =
+  MaintenanceFindOneResponses[keyof MaintenanceFindOneResponses];
 
 export type MaintenanceUpdateData = {
   body: UpdateMaintenanceTicketDto;
@@ -2872,8 +5513,11 @@ export type MaintenanceUpdateData = {
 };
 
 export type MaintenanceUpdateResponses = {
-  200: unknown;
+  200: MaintenanceTicket;
 };
+
+export type MaintenanceUpdateResponse =
+  MaintenanceUpdateResponses[keyof MaintenanceUpdateResponses];
 
 export type MaintenanceGetCommentsData = {
   body?: never;
@@ -2885,8 +5529,11 @@ export type MaintenanceGetCommentsData = {
 };
 
 export type MaintenanceGetCommentsResponses = {
-  200: unknown;
+  200: Array<MaintenanceTicketComment>;
 };
+
+export type MaintenanceGetCommentsResponse =
+  MaintenanceGetCommentsResponses[keyof MaintenanceGetCommentsResponses];
 
 export type MaintenanceAddCommentData = {
   body: CreateCommentDto;
@@ -2898,21 +5545,27 @@ export type MaintenanceAddCommentData = {
 };
 
 export type MaintenanceAddCommentResponses = {
-  201: unknown;
+  201: MaintenanceTicketComment;
 };
+
+export type MaintenanceAddCommentResponse =
+  MaintenanceAddCommentResponses[keyof MaintenanceAddCommentResponses];
 
 export type BankAccountsFindAllData = {
   body?: never;
   path?: never;
-  query: {
-    ownerId: string;
+  query?: {
+    ownerId?: string;
   };
   url: "/bank-accounts";
 };
 
 export type BankAccountsFindAllResponses = {
-  200: unknown;
+  200: Array<BankAccount>;
 };
+
+export type BankAccountsFindAllResponse =
+  BankAccountsFindAllResponses[keyof BankAccountsFindAllResponses];
 
 export type BankAccountsCreateData = {
   body: CreateBankAccountDto;
@@ -2922,8 +5575,11 @@ export type BankAccountsCreateData = {
 };
 
 export type BankAccountsCreateResponses = {
-  201: unknown;
+  201: BankAccount;
 };
+
+export type BankAccountsCreateResponse =
+  BankAccountsCreateResponses[keyof BankAccountsCreateResponses];
 
 export type BankAccountsRemoveData = {
   body?: never;
@@ -2948,8 +5604,11 @@ export type BankAccountsFindOneData = {
 };
 
 export type BankAccountsFindOneResponses = {
-  200: unknown;
+  200: BankAccount;
 };
+
+export type BankAccountsFindOneResponse =
+  BankAccountsFindOneResponses[keyof BankAccountsFindOneResponses];
 
 export type BankAccountsUpdateData = {
   body: UpdateBankAccountDto;
@@ -2961,32 +5620,48 @@ export type BankAccountsUpdateData = {
 };
 
 export type BankAccountsUpdateResponses = {
-  200: unknown;
+  200: BankAccount;
 };
+
+export type BankAccountsUpdateResponse =
+  BankAccountsUpdateResponses[keyof BankAccountsUpdateResponses];
 
 export type SettlementsFindAllData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    ownerId?: string;
+    status?: "pending" | "processing" | "completed" | "failed";
+    periodStart?: string;
+    periodEnd?: string;
+  };
   url: "/settlements";
 };
 
 export type SettlementsFindAllResponses = {
-  200: unknown;
+  200: Array<Settlement>;
 };
+
+export type SettlementsFindAllResponse =
+  SettlementsFindAllResponses[keyof SettlementsFindAllResponses];
 
 export type SettlementsGetSummaryData = {
   body?: never;
   path?: never;
-  query: {
-    ownerId: string;
+  query?: {
+    ownerId?: string;
   };
   url: "/settlements/summary";
 };
 
 export type SettlementsGetSummaryResponses = {
-  200: unknown;
+  200: {
+    [key: string]: unknown;
+  };
 };
+
+export type SettlementsGetSummaryResponse =
+  SettlementsGetSummaryResponses[keyof SettlementsGetSummaryResponses];
 
 export type SettlementsFindOneData = {
   body?: never;
@@ -2998,8 +5673,11 @@ export type SettlementsFindOneData = {
 };
 
 export type SettlementsFindOneResponses = {
-  200: unknown;
+  200: Settlement;
 };
+
+export type SettlementsFindOneResponse =
+  SettlementsFindOneResponses[keyof SettlementsFindOneResponses];
 
 export type NotificationsGetMyPreferencesData = {
   body?: never;
@@ -3009,8 +5687,11 @@ export type NotificationsGetMyPreferencesData = {
 };
 
 export type NotificationsGetMyPreferencesResponses = {
-  200: unknown;
+  200: Array<NotificationPreference>;
 };
+
+export type NotificationsGetMyPreferencesResponse =
+  NotificationsGetMyPreferencesResponses[keyof NotificationsGetMyPreferencesResponses];
 
 export type NotificationsUpdateMyPreferencesData = {
   body: UpdateNotificationPreferencesDto;
@@ -3020,8 +5701,11 @@ export type NotificationsUpdateMyPreferencesData = {
 };
 
 export type NotificationsUpdateMyPreferencesResponses = {
-  200: unknown;
+  200: Array<NotificationPreference>;
 };
+
+export type NotificationsUpdateMyPreferencesResponse =
+  NotificationsUpdateMyPreferencesResponses[keyof NotificationsUpdateMyPreferencesResponses];
 
 export type NotificationsGetUserPreferencesData = {
   body?: never;
@@ -3033,8 +5717,11 @@ export type NotificationsGetUserPreferencesData = {
 };
 
 export type NotificationsGetUserPreferencesResponses = {
-  200: unknown;
+  200: Array<NotificationPreference>;
 };
+
+export type NotificationsGetUserPreferencesResponse =
+  NotificationsGetUserPreferencesResponses[keyof NotificationsGetUserPreferencesResponses];
 
 export type MetricsGetMetricsData = {
   body?: never;
@@ -3044,8 +5731,11 @@ export type MetricsGetMetricsData = {
 };
 
 export type MetricsGetMetricsResponses = {
-  200: unknown;
+  200: string;
 };
+
+export type MetricsGetMetricsResponse =
+  MetricsGetMetricsResponses[keyof MetricsGetMetricsResponses];
 
 export type MetricsRecordFrontendMetricData = {
   body: FrontendMetricDto;
@@ -3061,7 +5751,13 @@ export type MetricsRecordFrontendMetricResponses = {
 export type BuyersFindAllData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    page?: number;
+    limit?: number;
+  };
   url: "/buyers";
 };
 
@@ -3077,8 +5773,11 @@ export type BuyersCreateData = {
 };
 
 export type BuyersCreateResponses = {
-  201: unknown;
+  201: Buyer;
 };
+
+export type BuyersCreateResponse =
+  BuyersCreateResponses[keyof BuyersCreateResponses];
 
 export type BuyersFindOneData = {
   body?: never;
@@ -3090,8 +5789,11 @@ export type BuyersFindOneData = {
 };
 
 export type BuyersFindOneResponses = {
-  200: unknown;
+  200: Buyer;
 };
+
+export type BuyersFindOneResponse =
+  BuyersFindOneResponses[keyof BuyersFindOneResponses];
 
 export type BuyersUpdateData = {
   body: UpdateBuyerDto;
@@ -3103,8 +5805,11 @@ export type BuyersUpdateData = {
 };
 
 export type BuyersUpdateResponses = {
-  200: unknown;
+  200: Buyer;
 };
+
+export type BuyersUpdateResponse =
+  BuyersUpdateResponses[keyof BuyersUpdateResponses];
 
 export type BankReconciliationIngestSandboxMovementData = {
   body: CreateSandboxBankMovementDto;
@@ -3114,8 +5819,11 @@ export type BankReconciliationIngestSandboxMovementData = {
 };
 
 export type BankReconciliationIngestSandboxMovementResponses = {
-  201: unknown;
+  201: BankReconciliation;
 };
+
+export type BankReconciliationIngestSandboxMovementResponse =
+  BankReconciliationIngestSandboxMovementResponses[keyof BankReconciliationIngestSandboxMovementResponses];
 
 export type BankReconciliationReconcileData = {
   body?: never;
@@ -3127,8 +5835,11 @@ export type BankReconciliationReconcileData = {
 };
 
 export type BankReconciliationReconcileResponses = {
-  201: unknown;
+  201: BankReconciliation;
 };
+
+export type BankReconciliationReconcileResponse =
+  BankReconciliationReconcileResponses[keyof BankReconciliationReconcileResponses];
 
 export type BankReconciliationReconcileFromBatchData = {
   body?: never;
@@ -3143,21 +5854,27 @@ export type BankReconciliationReconcileFromBatchData = {
 };
 
 export type BankReconciliationReconcileFromBatchResponses = {
-  201: unknown;
+  201: BankReconciliation;
 };
+
+export type BankReconciliationReconcileFromBatchResponse =
+  BankReconciliationReconcileFromBatchResponses[keyof BankReconciliationReconcileFromBatchResponses];
 
 export type BankReconciliationFindAlertsData = {
   body?: never;
   path?: never;
-  query: {
-    status: string;
+  query?: {
+    status?: string;
   };
   url: "/bank-reconciliation/alerts";
 };
 
 export type BankReconciliationFindAlertsResponses = {
-  200: unknown;
+  200: Array<BankReconciliationAlert>;
 };
+
+export type BankReconciliationFindAlertsResponse =
+  BankReconciliationFindAlertsResponses[keyof BankReconciliationFindAlertsResponses];
 
 export type BankReconciliationResolveAlertData = {
   body?: never;
@@ -3169,8 +5886,11 @@ export type BankReconciliationResolveAlertData = {
 };
 
 export type BankReconciliationResolveAlertResponses = {
-  200: unknown;
+  200: BankReconciliationAlert;
 };
+
+export type BankReconciliationResolveAlertResponse =
+  BankReconciliationResolveAlertResponses[keyof BankReconciliationResolveAlertResponses];
 
 export type PaymentGatewayCreatePreferenceData = {
   body: CreatePaymentPreferenceDto;
@@ -3186,15 +5906,18 @@ export type PaymentGatewayCreatePreferenceResponses = {
 export type PaymentGatewayFindAllData = {
   body?: never;
   path?: never;
-  query: {
-    invoiceId: string;
+  query?: {
+    invoiceId?: string;
   };
   url: "/payment-gateway/transactions";
 };
 
 export type PaymentGatewayFindAllResponses = {
-  200: unknown;
+  200: Array<PaymentGatewayTransaction>;
 };
+
+export type PaymentGatewayFindAllResponse =
+  PaymentGatewayFindAllResponses[keyof PaymentGatewayFindAllResponses];
 
 export type PaymentGatewayFindOneData = {
   body?: never;
@@ -3206,8 +5929,11 @@ export type PaymentGatewayFindOneData = {
 };
 
 export type PaymentGatewayFindOneResponses = {
-  200: unknown;
+  200: PaymentGatewayTransaction;
 };
+
+export type PaymentGatewayFindOneResponse =
+  PaymentGatewayFindOneResponses[keyof PaymentGatewayFindOneResponses];
 
 export type PaymentGatewayProcessWebhookData = {
   body?: never;
@@ -3216,9 +5942,9 @@ export type PaymentGatewayProcessWebhookData = {
     "x-request-id": string;
   };
   path?: never;
-  query: {
-    "data.id": string;
-    data_id: string;
+  query?: {
+    "data.id"?: string;
+    data_id?: string;
   };
   url: "/payment-gateway/webhook";
 };
@@ -3230,15 +5956,18 @@ export type PaymentGatewayProcessWebhookResponses = {
 export type PortalsFindAllData = {
   body?: never;
   path?: never;
-  query: {
-    propertyId: string;
+  query?: {
+    propertyId?: string;
   };
   url: "/portals/listings";
 };
 
 export type PortalsFindAllResponses = {
-  200: unknown;
+  200: Array<PortalListing>;
 };
+
+export type PortalsFindAllResponse =
+  PortalsFindAllResponses[keyof PortalsFindAllResponses];
 
 export type PortalsCreateData = {
   body: CreatePortalListingDto;
@@ -3248,8 +5977,11 @@ export type PortalsCreateData = {
 };
 
 export type PortalsCreateResponses = {
-  201: unknown;
+  201: PortalListing;
 };
+
+export type PortalsCreateResponse =
+  PortalsCreateResponses[keyof PortalsCreateResponses];
 
 export type PortalsRemoveData = {
   body?: never;
@@ -3277,8 +6009,11 @@ export type PortalsFindOneData = {
 };
 
 export type PortalsFindOneResponses = {
-  200: unknown;
+  200: PortalListing;
 };
+
+export type PortalsFindOneResponse =
+  PortalsFindOneResponses[keyof PortalsFindOneResponses];
 
 export type PortalsPublishData = {
   body?: never;
@@ -3290,8 +6025,11 @@ export type PortalsPublishData = {
 };
 
 export type PortalsPublishResponses = {
-  201: unknown;
+  201: PortalListing;
 };
+
+export type PortalsPublishResponse =
+  PortalsPublishResponses[keyof PortalsPublishResponses];
 
 export type PortalsPauseData = {
   body?: never;
@@ -3303,8 +6041,11 @@ export type PortalsPauseData = {
 };
 
 export type PortalsPauseResponses = {
-  201: unknown;
+  201: PortalListing;
 };
+
+export type PortalsPauseResponse =
+  PortalsPauseResponses[keyof PortalsPauseResponses];
 
 export type PortalsSyncAllData = {
   body?: never;
@@ -3314,8 +6055,11 @@ export type PortalsSyncAllData = {
 };
 
 export type PortalsSyncAllResponses = {
-  201: unknown;
+  201: Array<PortalListing>;
 };
+
+export type PortalsSyncAllResponse =
+  PortalsSyncAllResponses[keyof PortalsSyncAllResponses];
 
 export type DigitalSignaturesFindAllData = {
   body?: never;
