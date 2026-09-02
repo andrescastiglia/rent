@@ -11,15 +11,26 @@ async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function loginAsAdmin(): Promise<void> {
-  const isAlreadyLoggedIn = await waitFor(element(by.id('tab.properties')))
+async function isVisible(testId: string, timeout: number): Promise<boolean> {
+  return waitFor(element(by.id(testId)))
     .toBeVisible()
-    .withTimeout(10000)
+    .withTimeout(timeout)
     .then(() => true)
     .catch(() => false);
+}
 
-  if (isAlreadyLoggedIn) {
+export async function loginAsAdmin(): Promise<void> {
+  if (await isVisible('tab.properties', 10000)) {
     return;
+  }
+
+  if (!(await isVisible('login.email', 30000))) {
+    // React Native/Hermes can terminate during a cold start on the CI emulator.
+    // Re-establish the Detox instrumentation before retrying the login flow.
+    await relaunchFreshApp();
+    if (await isVisible('tab.properties', 10000)) {
+      return;
+    }
   }
 
   await waitFor(element(by.id('login.email')))
@@ -34,6 +45,9 @@ export async function loginAsAdmin(): Promise<void> {
   await sleep(1500);
   await relaunchFreshApp();
 
+  if (!(await isVisible('tab.properties', 20000))) {
+    await relaunchFreshApp();
+  }
   await waitFor(element(by.id('tab.properties')))
     .toBeVisible()
     .withTimeout(20000);
