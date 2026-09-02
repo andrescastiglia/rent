@@ -40,7 +40,6 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 
 ### WhatsApp seguro
 
-- [ ] Persistir webhooks en inbox antes de responder 200; deduplicar por WAMID y procesar con lease, retry, backoff y dead-letter.
 - [ ] Enviar respuestas y efectos mediante outbox transaccional e idempotencia del proveedor.
 - [ ] Definir retención, borrado, redacción y presupuesto de abuso; mantener inbound productivo deshabilitado hasta cerrar estos gates.
 - [ ] Mantener las propuestas inmutables, con expiración, hash, reautenticación, autorización recalculada y ejecución exactamente una vez.

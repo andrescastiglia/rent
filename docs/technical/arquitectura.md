@@ -233,6 +233,7 @@ Consideraciones multi-tenant: separar datos por `company_id` en cada tabla o usa
 * **Protección de datos personales**: cumplir normativas locales (p. ej. Ley de Protección de Datos), anonimizar datos en backups si es requerido.
 * **Uploads**: el contrato de cuarentena, promoción, descarga y rollback se define en [Uploads seguros](uploads-seguros.md). No se sirve un directorio local de uploads.
 * **Runtime HTTP**: CORS, confianza de proxy, secretos fail-closed y rate limits compartidos se documentan en [Seguridad de runtime](seguridad-runtime.md).
+* **WhatsApp inbound**: persistencia antes del ACK, deduplicación, leases, reintentos y dead-letter se documentan en [Inbox de WhatsApp](whatsapp-inbox.md).
 
 ---
 
