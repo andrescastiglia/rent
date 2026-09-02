@@ -326,7 +326,10 @@ export class PaymentsService {
 
     let savedReceipt = existingReceipt;
     if (!savedReceipt) {
-      const receiptNumber = await this.generateReceiptNumber(repository);
+      const receiptNumber = await this.generateReceiptNumber(
+        repository,
+        manager,
+      );
       const receipt = repository.create({
         companyId: payment.companyId,
         paymentId: payment.id,
@@ -410,7 +413,9 @@ export class PaymentsService {
    */
   private async generateReceiptNumber(
     repository: Repository<Receipt> = this.receiptsRepository,
+    manager?: EntityManager,
   ): Promise<string> {
+    await this.lockDocumentNumber(manager, 'receipt-number');
     const [lastReceipt] = await repository.find({
       order: { createdAt: 'DESC' },
       take: 1,
@@ -730,6 +735,7 @@ export class PaymentsService {
       if (!savedNote) {
         const noteNumber = await this.generateCreditNoteNumber(
           creditNotesRepository,
+          manager,
         );
         const note = creditNotesRepository.create({
           companyId: payment.companyId,
@@ -809,7 +815,9 @@ export class PaymentsService {
 
   private async generateCreditNoteNumber(
     repository: Repository<CreditNote> = this.creditNotesRepository,
+    manager?: EntityManager,
   ): Promise<string> {
+    await this.lockDocumentNumber(manager, 'credit-note-number');
     const [lastNote] = await repository.find({
       order: { createdAt: 'DESC' },
       take: 1,
@@ -826,6 +834,17 @@ export class PaymentsService {
     }
 
     return `NC-${year}${month}-${String(sequence).padStart(4, '0')}`;
+  }
+
+  private async lockDocumentNumber(
+    manager: EntityManager | undefined,
+    namespace: string,
+  ): Promise<void> {
+    if (!manager) return;
+    await manager.query(
+      'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+      [namespace],
+    );
   }
 
   private async resolveTenantAccountId(

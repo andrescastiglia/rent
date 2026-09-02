@@ -27,6 +27,7 @@ describe('PaymentsService', () => {
   let paymentAllocationsRepository: MockRepository<PaymentAllocation>;
   let tenantAccountsService: Partial<TenantAccountsService>;
   let dataSource: { transaction: jest.Mock };
+  let transactionManager: { query: jest.Mock; getRepository: jest.Mock };
 
   type MockRepository<T extends Record<string, any> = any> = Partial<
     Record<keyof Repository<T>, jest.Mock>
@@ -50,19 +51,20 @@ describe('PaymentsService', () => {
       findByLease: jest.fn(),
       calculateLateFee: jest.fn(),
     };
+    transactionManager = {
+      query: jest.fn().mockResolvedValue([]),
+      getRepository: jest.fn((entity: unknown) => {
+        if (entity === Payment) return paymentsRepository;
+        if (entity === Invoice) return _invoicesRepository;
+        if (entity === Receipt) return receiptsRepository;
+        if (entity === CreditNote) return _creditNotesRepository;
+        if (entity === PaymentAllocation) return paymentAllocationsRepository;
+        throw new Error('Unexpected transaction repository');
+      }),
+    };
     dataSource = {
       transaction: jest.fn(async (callback: (manager: any) => unknown) =>
-        callback({
-          getRepository: (entity: unknown) => {
-            if (entity === Payment) return paymentsRepository;
-            if (entity === Invoice) return _invoicesRepository;
-            if (entity === Receipt) return receiptsRepository;
-            if (entity === CreditNote) return _creditNotesRepository;
-            if (entity === PaymentAllocation)
-              return paymentAllocationsRepository;
-            throw new Error('Unexpected transaction repository');
-          },
-        }),
+        callback(transactionManager),
       ),
     };
 
@@ -377,6 +379,10 @@ describe('PaymentsService', () => {
       allocationsRecorded: true,
     });
     expect((service as any).receiptPdfService.generate).toHaveBeenCalled();
+    expect(transactionManager.query).toHaveBeenCalledWith(
+      'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+      ['receipt-number'],
+    );
   });
 
   it('aborts confirmation before receipt and status when ledger write fails', async () => {
@@ -1019,6 +1025,20 @@ describe('PaymentsService', () => {
       'credit_note',
       expect.anything(),
       expect.anything(),
+    );
+  });
+
+  it('serializes credit note numbering inside the transaction', async () => {
+    _creditNotesRepository.find!.mockResolvedValue([]);
+
+    await (service as any).generateCreditNoteNumber(
+      _creditNotesRepository,
+      transactionManager,
+    );
+
+    expect(transactionManager.query).toHaveBeenCalledWith(
+      'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+      ['credit-note-number'],
     );
   });
 });
