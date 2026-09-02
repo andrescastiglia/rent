@@ -39,7 +39,6 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 
 - [ ] Autenticar y deduplicar webhooks de firma, pagos y comunicaciones; validar firma, timestamp, replay, compañía y transición de estado.
 - [ ] Reemplazar uploads temporales públicos por claves opacas firmadas, límites de tamaño/tipo, cuarentena y autorización al promover/descargar.
-- [ ] Rehidratar la sesión mobile y negar deep links no autorizados en web/mobile.
 - [ ] Aplicar rate limits distribuidos, CORS/proxy explícitos y secretos obligatorios en todos los entornos no test.
 
 ### WhatsApp seguro
