@@ -407,26 +407,14 @@ export class WhatsappService implements OnApplicationBootstrap {
         }
       }
 
-      if (created && input.personType === 'interested') {
-        await manager.query(
-          `UPDATE interested_profiles
-              SET last_contact_at = NOW(),
-                  next_contact_at = COALESCE($2::timestamptz, next_contact_at),
-                  updated_at = NOW()
-            WHERE id = $1::uuid AND company_id = $3::uuid`,
-          [recipient.profile_id, input.dueAt ?? null, actor.companyId],
-        );
-        if (input.markReserved && input.propertyId) {
-          await this.reservePropertyForWhatsappActivity(manager, {
-            companyId: actor.companyId,
-            propertyId: input.propertyId,
-            profileId: recipient.profile_id,
-            actorId: actor.id,
-            notes: body,
-            activityId: input.requestId,
-          });
-        }
-      }
+      await this.applyInterestedWhatsappActivityEffects(manager, {
+        created,
+        command: input,
+        companyId: actor.companyId,
+        profileId: recipient.profile_id,
+        actorId: actor.id,
+        notes: body,
+      });
 
       const deliveryRows = await manager.query(
         `INSERT INTO communication_deliveries (
@@ -471,6 +459,39 @@ export class WhatsappService implements OnApplicationBootstrap {
         },
       };
     });
+  }
+
+  private async applyInterestedWhatsappActivityEffects(
+    manager: { query: DataSource['query'] },
+    input: {
+      created: boolean;
+      command: CreateWhatsappActivityDto;
+      companyId: string;
+      profileId: string;
+      actorId: string;
+      notes: string | null;
+    },
+  ): Promise<void> {
+    if (!input.created || input.command.personType !== 'interested') return;
+
+    await manager.query(
+      `UPDATE interested_profiles
+          SET last_contact_at = NOW(),
+              next_contact_at = COALESCE($2::timestamptz, next_contact_at),
+              updated_at = NOW()
+        WHERE id = $1::uuid AND company_id = $3::uuid`,
+      [input.profileId, input.command.dueAt ?? null, input.companyId],
+    );
+    if (input.command.markReserved && input.command.propertyId) {
+      await this.reservePropertyForWhatsappActivity(manager, {
+        companyId: input.companyId,
+        propertyId: input.command.propertyId,
+        profileId: input.profileId,
+        actorId: input.actorId,
+        notes: input.notes,
+        activityId: input.command.requestId,
+      });
+    }
   }
 
   private async reservePropertyForWhatsappActivity(
