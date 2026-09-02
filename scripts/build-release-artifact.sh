@@ -20,7 +20,7 @@ mkdir -p "$stage_dir/backend" "$stage_dir/batch" "$stage_dir/frontend" \
 for app in backend batch frontend mobile; do
   (
     cd "$project_root/$app"
-    npm sbom --omit=dev --sbom-format=cyclonedx \
+    npm sbom --omit=dev --package-lock-only --sbom-format=cyclonedx \
       > "$stage_dir/sbom/$app.cdx.json"
   )
 done

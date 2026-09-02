@@ -118,7 +118,9 @@ jobs:
 
       - name: Retain production runtime dependencies
         run: |
-          npm prune --omit=dev --prefix backend
+          # The OpenAPI generator is dev-only and currently declares a TS 5 peer;
+          # ignore that omitted peer while retaining the TS 6 runtime lockfile.
+          npm prune --omit=dev --legacy-peer-deps --prefix backend
           npm prune --omit=dev --prefix batch
 
       - name: Package checksummed artifact and SBOMs

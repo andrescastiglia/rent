@@ -101,7 +101,7 @@ jobs:
             "$build_url" --output "rent-android-${GITHUB_SHA}.aab"
           sha256sum "rent-android-${GITHUB_SHA}.aab" \
             > "rent-android-${GITHUB_SHA}.aab.sha256"
-          npm sbom --omit=dev --sbom-format=cyclonedx > mobile.cdx.json
+          npm sbom --omit=dev --package-lock-only --sbom-format=cyclonedx > mobile.cdx.json
 
           eas submit \
             --platform android \
