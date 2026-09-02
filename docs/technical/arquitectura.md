@@ -218,7 +218,13 @@ Consideraciones multi-tenant: separar datos por `company_id` en cada tabla o usa
 ## 7. Seguridad
 
 * **Autenticación**: OAuth2 + JWT para APIs. Refresh tokens con revocación en DB.
-* **Autorización**: RBAC; claims en JWT con `role`, `company_id`, `scopes`.
+* **Autorización**: política default-deny; cada endpoint declara acceso público,
+  autenticado o por rol. El JWT propaga `role`, `companyId` y permisos modulares.
+  `staff` sin un permiso explícitamente igual a `true` no accede al módulo. La
+  matriz cubre dashboard, propiedades, propietarios, interesados, inquilinos,
+  contratos, plantillas, pagos, facturas, ventas, reportes, mantenimiento,
+  comunicaciones, conciliación, liquidaciones, aprobaciones e IA; la
+  administración de usuarios continúa reservada a `admin`.
 * **Cifrado**: TLS 1.2+ en tránsito; cifrado en reposo (DB TDE o cifrado a nivel storage). Archivos sensibles en S3 con claves KMS.
 * **Protección de endpoints**: WAF (AWS WAF / Cloudflare), rate limiting en API Gateway.
 * **Secret management**: Vault / AWS Secrets Manager / Azure Key Vault.
