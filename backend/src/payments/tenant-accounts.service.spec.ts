@@ -1,6 +1,9 @@
 import { NotFoundException } from '@nestjs/common';
 import { TenantAccountsService } from './tenant-accounts.service';
-import { MovementType } from './entities/tenant-account-movement.entity';
+import {
+  MovementType,
+  TenantAccountMovement,
+} from './entities/tenant-account-movement.entity';
 import { LateFeeType } from '../leases/entities/lease.entity';
 import { InvoiceStatus } from './entities/invoice.entity';
 
@@ -20,6 +23,16 @@ describe('TenantAccountsService', () => {
     findOne: jest.fn(),
     save: jest.fn(),
   };
+  const dataSource = {
+    transaction: jest.fn(async (callback: (manager: any) => unknown) =>
+      callback({
+        getRepository: (entity: unknown) =>
+          entity === TenantAccountMovement
+            ? movementsRepository
+            : accountsRepository,
+      }),
+    ),
+  };
 
   let service: TenantAccountsService;
 
@@ -29,6 +42,7 @@ describe('TenantAccountsService', () => {
       accountsRepository as any,
       movementsRepository as any,
       leasesRepository as any,
+      dataSource as any,
     );
   });
 
@@ -95,7 +109,7 @@ describe('TenantAccountsService', () => {
   });
 
   it('adds account movement and updates balance', async () => {
-    jest.spyOn(service, 'findOne').mockResolvedValue({
+    accountsRepository.findOne.mockResolvedValue({
       id: 'acc-1',
       balance: 100,
     } as any);
@@ -112,8 +126,13 @@ describe('TenantAccountsService', () => {
       'co1',
     );
 
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(accountsRepository.findOne).toHaveBeenCalledWith({
+      where: { id: 'acc-1', companyId: 'co1' },
+      lock: { mode: 'pessimistic_write' },
+    });
     expect(accountsRepository.update).toHaveBeenCalledWith(
-      'acc-1',
+      { id: 'acc-1', companyId: 'co1' },
       expect.objectContaining({ balance: 50 }),
     );
     expect(result.balanceAfter).toBe(50);

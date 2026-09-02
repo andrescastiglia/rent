@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { TenantAccount } from './entities/tenant-account.entity';
 import {
   TenantAccountMovement,
@@ -21,6 +21,8 @@ export class TenantAccountsService {
     private readonly movementsRepository: Repository<TenantAccountMovement>,
     @InjectRepository(Lease)
     private readonly leasesRepository: Repository<Lease>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -145,28 +147,42 @@ export class TenantAccountsService {
         `Tenant account with ID ${accountId} not found`,
       );
     }
-    const account = await this.findOne(accountId, companyId);
 
-    // Actualizar balance
-    const newBalance = Number(account.balance) + amount;
+    return this.dataSource.transaction(async (manager) => {
+      const accountsRepository = manager.getRepository(TenantAccount);
+      const movementsRepository = manager.getRepository(TenantAccountMovement);
+      const account = await accountsRepository.findOne({
+        where: { id: accountId, companyId },
+        lock: { mode: 'pessimistic_write' },
+      });
 
-    await this.accountsRepository.update(accountId, {
-      balance: newBalance,
-      lastMovementAt: new Date(),
+      if (!account) {
+        throw new NotFoundException(
+          `Tenant account with ID ${accountId} not found`,
+        );
+      }
+
+      const newBalance = Number(account.balance) + amount;
+      await accountsRepository.update(
+        { id: accountId, companyId },
+        {
+          balance: newBalance,
+          lastMovementAt: new Date(),
+        },
+      );
+
+      const movement = movementsRepository.create({
+        tenantAccountId: accountId,
+        movementType: type,
+        amount,
+        balanceAfter: newBalance,
+        referenceType,
+        referenceId,
+        description: description || '',
+      });
+
+      return movementsRepository.save(movement);
     });
-
-    // Crear movimiento
-    const movement = this.movementsRepository.create({
-      tenantAccountId: accountId,
-      movementType: type,
-      amount,
-      balanceAfter: newBalance,
-      referenceType,
-      referenceId,
-      description: description || '',
-    });
-
-    return this.movementsRepository.save(movement);
   }
 
   /**
