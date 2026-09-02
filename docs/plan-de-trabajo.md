@@ -26,7 +26,7 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 
 ### Autorización y aislamiento
 
-- [ ] Propagar `actor + companyId + rol + permisos` y validar pertenencia en todas las lecturas y mutaciones restantes: properties, leases, payments/invoices, bank accounts, owners y staff.
+- [ ] Propagar `actor + companyId + rol + permisos` y validar pertenencia en todas las lecturas y mutaciones restantes: leases, payments/invoices, bank accounts, owners y staff.
 - [ ] Restringir owner, tenant y buyer a objetos relacionados, no solo a la misma compañía.
 - [ ] Añadir fixtures de dos compañías y pruebas negativas por ID ajeno para cada controlador y herramienta IA.
 
