@@ -18,6 +18,7 @@ import {
 export enum CommunicationDeliveryStatus {
   PENDING_APPROVAL = 'pending_approval',
   QUEUED = 'queued',
+  PROCESSING = 'processing',
   SENT = 'sent',
   FAILED = 'failed',
   BLOCKED = 'blocked',
@@ -56,6 +57,8 @@ export class CommunicationDelivery {
   @Column({ name: 'max_attempts', default: 3 }) maxAttempts: number;
   @Column({ name: 'next_attempt_at', type: 'timestamptz', nullable: true })
   nextAttemptAt: Date | null;
+  @Column({ name: 'lease_expires_at', type: 'timestamptz', nullable: true })
+  leaseExpiresAt: Date | null;
   @Column({ name: 'provider_message_id', type: 'varchar', nullable: true })
   providerMessageId: string | null;
   @Column({ name: 'error_message', type: 'text', nullable: true })

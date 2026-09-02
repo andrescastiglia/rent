@@ -33,6 +33,7 @@ describe('CommunicationsService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    whatsappService.sendTextMessage.mockReset();
     templatesRepository.findOne.mockResolvedValue(null);
     deliveriesRepository.findOne.mockResolvedValue(null);
     whatsappService.sendTextMessage.mockResolvedValue({
@@ -92,36 +93,33 @@ describe('CommunicationsService', () => {
     expect(whatsappService.sendTextMessage).not.toHaveBeenCalled();
   });
 
-  it('sends immediately and records provider status', async () => {
+  it('persists an eligible delivery without calling the provider inline', async () => {
     const result = await service.dispatchEvent({
       ...dispatchInput,
       metadata: { attachmentUrl: 'db://document/document-1' },
     });
 
-    expect(whatsappService.sendTextMessage).toHaveBeenCalledWith(
-      '+5491111111111',
-      'Hola Ana, recibimos 100.',
-      'db://document/document-1',
-      expect.objectContaining({ companyId: 'company-1' }),
-    );
-    expect(result.status).toBe(CommunicationDeliveryStatus.SENT);
-    expect(result.providerMessageId).toBe('wamid-1');
+    expect(whatsappService.sendTextMessage).not.toHaveBeenCalled();
+    expect(result.status).toBe(CommunicationDeliveryStatus.QUEUED);
+    expect(result.providerMessageId).toBeNull();
+    expect(result.nextAttemptAt).toBeInstanceOf(Date);
   });
 
-  it('queues failed deliveries with exponential retry', async () => {
+  it('does not expose a provider failure path before the worker runs', async () => {
     whatsappService.sendTextMessage.mockRejectedValueOnce(
       new Error('provider unavailable'),
     );
 
     const result = await service.dispatchEvent(dispatchInput);
 
-    expect(result.status).toBe(CommunicationDeliveryStatus.FAILED);
-    expect(result.attempts).toBe(1);
+    expect(result.status).toBe(CommunicationDeliveryStatus.QUEUED);
+    expect(result.attempts).toBe(0);
     expect(result.nextAttemptAt).toBeInstanceOf(Date);
-    expect(result.errorMessage).toBe('provider unavailable');
+    expect(result.errorMessage).toBeNull();
+    expect(whatsappService.sendTextMessage).not.toHaveBeenCalled();
   });
 
-  it('requires approval for reviewed templates and sends after approval', async () => {
+  it('requires approval for reviewed templates and queues after approval', async () => {
     templatesRepository.findOne.mockResolvedValue({
       id: 'template-1',
       subject: null,
@@ -134,7 +132,9 @@ describe('CommunicationsService', () => {
 
     deliveriesRepository.findOne.mockResolvedValue(pending);
     const approved = await service.approve(pending.id, 'company-1');
-    expect(approved.status).toBe(CommunicationDeliveryStatus.SENT);
+    expect(approved.status).toBe(CommunicationDeliveryStatus.QUEUED);
+    expect(approved.nextAttemptAt).toBeInstanceOf(Date);
+    expect(whatsappService.sendTextMessage).not.toHaveBeenCalled();
   });
 
   it('rejects an invalid retry token', () => {
@@ -371,7 +371,7 @@ describe('CommunicationsService', () => {
       body: 'Hola {{nombre}}',
       variables: { nombre: 'Ana' },
     });
-    expect(delivery.status).toBe(CommunicationDeliveryStatus.SENT);
+    expect(delivery.status).toBe(CommunicationDeliveryStatus.QUEUED);
     expect(delivery.metadata).toEqual({ test: true });
   });
 
@@ -401,26 +401,44 @@ describe('CommunicationsService', () => {
     };
     deliveriesRepository.findOne.mockResolvedValueOnce(failedDelivery);
     await expect(service.retry('failed-1', 'company-1')).resolves.toEqual(
-      expect.objectContaining({ status: CommunicationDeliveryStatus.SENT }),
+      expect.objectContaining({ status: CommunicationDeliveryStatus.QUEUED }),
     );
+    expect(whatsappService.sendTextMessage).not.toHaveBeenCalled();
 
-    const dueToSend = { ...failedDelivery, id: 'due-1', attempts: 0 };
-    const dueToFail = { ...failedDelivery, id: 'due-2', attempts: 0 };
-    const exhausted = { ...failedDelivery, id: 'due-3', attempts: 3 };
-    deliveriesRepository.find.mockResolvedValueOnce([
-      dueToSend,
-      dueToFail,
-      exhausted,
-    ]);
+    const dueToSend = {
+      ...failedDelivery,
+      id: 'due-1',
+      status: CommunicationDeliveryStatus.PROCESSING,
+      attempts: 1,
+    };
+    const dueToFail = {
+      ...failedDelivery,
+      id: 'due-2',
+      status: CommunicationDeliveryStatus.PROCESSING,
+      attempts: 1,
+    };
+    dataSource.query.mockResolvedValueOnce([{ id: 'due-1' }, { id: 'due-2' }]);
+    deliveriesRepository.findOne
+      .mockResolvedValueOnce(dueToSend)
+      .mockResolvedValueOnce(dueToFail);
     whatsappService.sendTextMessage
       .mockResolvedValueOnce({ messageId: 'sent-due' })
       .mockRejectedValueOnce(new Error('still unavailable'));
 
     await expect(service.retryDue()).resolves.toEqual({
-      processed: 3,
+      processed: 2,
       sent: 1,
       failed: 1,
     });
+    expect(dataSource.query.mock.calls[0][0]).toContain(
+      'FOR UPDATE SKIP LOCKED',
+    );
+    expect(whatsappService.sendTextMessage).toHaveBeenCalledWith(
+      dueToSend.recipient,
+      dueToSend.body,
+      undefined,
+      expect.objectContaining({ idempotencyKey: 'due-1' }),
+    );
   });
 
   it('rejects email and SMS before contacting a provider', async () => {

@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, LessThanOrEqual, Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import {
   WhatsappRelatedEntityType,
   WhatsappService,
@@ -323,7 +323,7 @@ export class CommunicationsService {
     const bodyTemplate = template?.body ?? input.fallbackBody;
     const status = this.resolveInitialStatus(input, template);
 
-    let delivery = await this.deliveriesRepository.save(
+    const delivery = await this.deliveriesRepository.save(
       this.deliveriesRepository.create({
         companyId: input.companyId,
         templateId: template?.id ?? null,
@@ -341,6 +341,7 @@ export class CommunicationsService {
         maxAttempts: 3,
         nextAttemptAt:
           status === CommunicationDeliveryStatus.QUEUED ? new Date() : null,
+        leaseExpiresAt: null,
         providerMessageId: null,
         errorMessage:
           status === CommunicationDeliveryStatus.BLOCKED
@@ -353,9 +354,6 @@ export class CommunicationsService {
       }),
     );
 
-    if (delivery.status === CommunicationDeliveryStatus.QUEUED) {
-      delivery = await this.attemptDelivery(delivery);
-    }
     return delivery;
   }
 
@@ -366,8 +364,8 @@ export class CommunicationsService {
     }
     delivery.status = CommunicationDeliveryStatus.QUEUED;
     delivery.nextAttemptAt = new Date();
-    await this.deliveriesRepository.save(delivery);
-    return this.attemptDelivery(delivery);
+    delivery.leaseExpiresAt = null;
+    return this.deliveriesRepository.save(delivery);
   }
 
   async retry(id: string, companyId: string): Promise<CommunicationDelivery> {
@@ -377,8 +375,8 @@ export class CommunicationsService {
     }
     delivery.status = CommunicationDeliveryStatus.QUEUED;
     delivery.nextAttemptAt = new Date();
-    await this.deliveriesRepository.save(delivery);
-    return this.attemptDelivery(delivery);
+    delivery.leaseExpiresAt = null;
+    return this.deliveriesRepository.save(delivery);
   }
 
   async retryDue(): Promise<{
@@ -386,24 +384,39 @@ export class CommunicationsService {
     sent: number;
     failed: number;
   }> {
-    const deliveries = await this.deliveriesRepository.find({
-      where: {
-        status: CommunicationDeliveryStatus.FAILED,
-        nextAttemptAt: LessThanOrEqual(new Date()),
-      },
-      take: 100,
-      order: { nextAttemptAt: 'ASC' },
-    });
+    const claimed = await this.dataSource.query(
+      `WITH due AS (
+         SELECT id
+           FROM communication_deliveries
+          WHERE attempts < max_attempts
+            AND (
+              (status IN ('queued', 'failed') AND next_attempt_at <= NOW())
+              OR (status = 'processing' AND lease_expires_at < NOW())
+            )
+          ORDER BY next_attempt_at ASC NULLS FIRST, created_at ASC
+          FOR UPDATE SKIP LOCKED
+          LIMIT 100
+       )
+       UPDATE communication_deliveries delivery
+          SET status = 'processing', attempts = attempts + 1,
+              lease_expires_at = NOW() + INTERVAL '5 minutes',
+              updated_at = NOW()
+         FROM due
+        WHERE delivery.id = due.id
+       RETURNING delivery.id`,
+    );
     let sent = 0;
     let failed = 0;
-    for (const delivery of deliveries) {
-      if (delivery.attempts >= delivery.maxAttempts) continue;
-      delivery.status = CommunicationDeliveryStatus.QUEUED;
+    for (const claimedDelivery of claimed ?? []) {
+      const delivery = await this.deliveriesRepository.findOne({
+        where: { id: claimedDelivery.id },
+      });
+      if (!delivery) continue;
       const result = await this.attemptDelivery(delivery);
       if (result.status === CommunicationDeliveryStatus.SENT) sent += 1;
       else failed += 1;
     }
-    return { processed: deliveries.length, sent, failed };
+    return { processed: claimed?.length ?? 0, sent, failed };
   }
 
   private resolveInitialStatus(
@@ -423,12 +436,12 @@ export class CommunicationsService {
   private async attemptDelivery(
     delivery: CommunicationDelivery,
   ): Promise<CommunicationDelivery> {
-    delivery.attempts += 1;
     try {
       delivery.providerMessageId = await this.send(delivery);
       delivery.status = CommunicationDeliveryStatus.SENT;
       delivery.sentAt = new Date();
       delivery.nextAttemptAt = null;
+      delivery.leaseExpiresAt = null;
       delivery.errorMessage = null;
     } catch (error) {
       delivery.status = CommunicationDeliveryStatus.FAILED;
@@ -440,6 +453,7 @@ export class CommunicationsService {
         delivery.attempts < delivery.maxAttempts
           ? new Date(Date.now() + 2 ** delivery.attempts * 60_000)
           : null;
+      delivery.leaseExpiresAt = null;
     }
     return this.deliveriesRepository.save(delivery);
   }
@@ -454,6 +468,7 @@ export class CommunicationsService {
         : undefined,
       {
         companyId: delivery.companyId,
+        idempotencyKey: delivery.id,
         relatedEntityType: this.toWhatsappEntityType(
           delivery.relatedEntityType,
         ),

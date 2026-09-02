@@ -990,6 +990,28 @@ describe('WhatsappService', () => {
     );
   });
 
+  it('deduplicates a retried outbox delivery before calling Meta', async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValue([{ whatsapp_message_id: 'wamid-already-sent' }]);
+    const service = buildService(undefined, buildDataSource(query));
+
+    await expect(
+      service.sendTextMessage('+5491112345678', 'hola', undefined, {
+        companyId: '123e4567-e89b-12d3-a456-426614174000',
+        idempotencyKey: '123e4567-e89b-12d3-a456-426614174099',
+      }),
+    ).resolves.toEqual({
+      messageId: 'wamid-already-sent',
+      raw: { deduplicated: true },
+    });
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE idempotency_key = $1::uuid'),
+      ['123e4567-e89b-12d3-a456-426614174099'],
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('records sent messages without a provider message id or raw body', async () => {
     const query = jest.fn().mockResolvedValue([]);
     const service = buildService(undefined, buildDataSource(query));

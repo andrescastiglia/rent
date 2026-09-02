@@ -49,6 +49,7 @@ export type WhatsappRelatedEntityType =
 
 export type WhatsappMessageContext = {
   companyId?: string;
+  idempotencyKey?: string;
   relatedEntityType?: WhatsappRelatedEntityType;
   relatedEntityId?: string;
   activityEntity?: WhatsappActivityEntity;
@@ -879,6 +880,22 @@ export class WhatsappService implements OnApplicationBootstrap {
     payload: Record<string, unknown>,
     logInput: Omit<WhatsappOutboundLogInput, 'status' | 'raw' | 'errorMessage'>,
   ): Promise<WhatsappSendResult> {
+    const idempotencyKey = logInput.context?.idempotencyKey;
+    if (idempotencyKey && this.dataSource?.options.type === 'postgres') {
+      const existing = await this.dataSource.query(
+        `SELECT whatsapp_message_id
+           FROM whatsapp_messages
+          WHERE idempotency_key = $1::uuid AND status = 'sent'
+          LIMIT 1`,
+        [idempotencyKey],
+      );
+      if (existing?.[0]) {
+        return {
+          messageId: existing[0].whatsapp_message_id ?? null,
+          raw: { deduplicated: true },
+        };
+      }
+    }
     const url = `${this.apiBaseUrl.replace(/\/$/, '')}/${this.phoneNumberId}/messages`;
     const response = await fetch(url, {
       method: 'POST',
@@ -984,6 +1001,7 @@ export class WhatsappService implements OnApplicationBootstrap {
         `
           INSERT INTO whatsapp_messages (
             id,
+            idempotency_key,
             whatsapp_message_id,
             recipient_phone,
             message_type,
@@ -1005,7 +1023,7 @@ export class WhatsappService implements OnApplicationBootstrap {
           )
           VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-            $11, $12, $13, $14, $15, $16, $17, $18::jsonb, now()
+            $11, $12, $13, $14, $15, $16, $17, $18, $19::jsonb, now()
           )
           ON CONFLICT (whatsapp_message_id)
           DO UPDATE SET
@@ -1018,6 +1036,7 @@ export class WhatsappService implements OnApplicationBootstrap {
         `,
         [
           randomUUID(),
+          input.context?.idempotencyKey ?? null,
           input.messageId ?? null,
           input.to,
           input.messageType,
