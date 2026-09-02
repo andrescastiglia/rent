@@ -1,4 +1,6 @@
 import { InterestedController } from './interested.controller';
+import { ROLES_KEY } from '../common/decorators/roles.decorator';
+import { UserRole } from '../users/entities/user.entity';
 
 describe('InterestedController', () => {
   const interestedService = {
@@ -32,6 +34,40 @@ describe('InterestedController', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     controller = new InterestedController(interestedService as any);
+  });
+
+  it('restricts every CRM endpoint to administrators and staff', () => {
+    const endpointNames = [
+      'create',
+      'getMetrics',
+      'findPotentialDuplicates',
+      'findAll',
+      'findOne',
+      'getSummary',
+      'getTimeline',
+      'findMatches',
+      'refreshMatches',
+      'updateMatch',
+      'changeStage',
+      'createActivity',
+      'sendInitialMessage',
+      'createReservation',
+      'listReservations',
+      'updateActivity',
+      'convertToTenant',
+      'convertToBuyer',
+      'update',
+      'remove',
+    ] as const;
+
+    for (const endpointName of endpointNames) {
+      expect(
+        Reflect.getMetadata(
+          ROLES_KEY,
+          InterestedController.prototype[endpointName],
+        ),
+      ).toEqual([UserRole.ADMIN, UserRole.STAFF]);
+    }
   });
 
   it('delegates CRUD, metrics, activities, matches and conversions', async () => {

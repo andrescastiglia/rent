@@ -29,6 +29,7 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { useAuth } from "@/contexts/auth-context";
+import { canManageLeases } from "@/lib/permissions";
 
 const STATUS_COLORS: Record<string, string> = {
   ACTIVE: "bg-green-500",
@@ -95,12 +96,14 @@ function PropertyImageGallery({
 }
 
 function LeaseActionButton({
+  canManage,
   leaseAction,
   canCreateLease,
   createLeaseHref,
   renewingLeaseId,
   onRenew,
 }: Readonly<{
+  canManage: boolean;
   leaseAction:
     | { type: "view"; lease: Lease }
     | { type: "renew"; lease: Lease }
@@ -126,6 +129,7 @@ function LeaseActionButton({
   }
 
   if (leaseAction.type === "renew") {
+    if (!canManage) return null;
     const isRenewing = renewingLeaseId === leaseAction.lease.id;
     return (
       <button
@@ -144,7 +148,7 @@ function LeaseActionButton({
     );
   }
 
-  if (canCreateLease) {
+  if (canManage && canCreateLease) {
     return (
       <Link
         href={createLeaseHref}
@@ -160,7 +164,7 @@ function LeaseActionButton({
 }
 
 export default function PropertyDetailPage() {
-  const { loading: authLoading } = useAuth();
+  const { loading: authLoading, user } = useAuth();
   const t = useTranslations("properties");
   const tCommon = useTranslations("common");
   const locale = useLocale();
@@ -448,6 +452,7 @@ export default function PropertyDetailPage() {
             </div>
             <div className="text-right">
               <LeaseActionButton
+                canManage={canManageLeases(user?.role)}
                 leaseAction={leaseAction}
                 canCreateLease={canCreateLease}
                 createLeaseHref={createLeaseHref}

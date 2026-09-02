@@ -40,7 +40,7 @@ export class InterestedController {
   constructor(private readonly interestedService: InterestedService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   create(
     @Body() dto: CreateInterestedProfileDto,
     @Request() req: AuthenticatedRequest,
@@ -49,19 +49,19 @@ export class InterestedController {
   }
 
   @Get('metrics/overview')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   getMetrics(@Request() req: AuthenticatedRequest): Promise<unknown> {
     return this.interestedService.getMetrics(req.user);
   }
 
   @Get('duplicates')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   findPotentialDuplicates(@Request() req: AuthenticatedRequest) {
     return this.interestedService.findPotentialDuplicates(req.user);
   }
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   findAll(
     @Query() filters: InterestedFiltersDto,
     @Request() req: AuthenticatedRequest,
@@ -70,7 +70,7 @@ export class InterestedController {
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
@@ -79,7 +79,7 @@ export class InterestedController {
   }
 
   @Get(':id/summary')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   getSummary(
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
@@ -88,7 +88,7 @@ export class InterestedController {
   }
 
   @Get(':id/timeline')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   getTimeline(
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
@@ -97,7 +97,7 @@ export class InterestedController {
   }
 
   @Get(':id/matches')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   findMatches(
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
@@ -106,7 +106,7 @@ export class InterestedController {
   }
 
   @Post(':id/matches/refresh')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   refreshMatches(
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
@@ -115,7 +115,7 @@ export class InterestedController {
   }
 
   @Patch(':id/matches/:matchId')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   updateMatch(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('matchId', ParseUUIDPipe) matchId: string,
@@ -126,7 +126,7 @@ export class InterestedController {
   }
 
   @Post(':id/stage')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   changeStage(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ChangeInterestedStageDto,
@@ -136,7 +136,7 @@ export class InterestedController {
   }
 
   @Post(':id/activities')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   createActivity(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateInterestedActivityDto,
@@ -146,7 +146,7 @@ export class InterestedController {
   }
 
   @Post(':id/send-initial-message')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   sendInitialMessage(
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
@@ -155,7 +155,7 @@ export class InterestedController {
   }
 
   @Post(':id/reservations')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   createReservation(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreatePropertyReservationDto,
@@ -165,7 +165,7 @@ export class InterestedController {
   }
 
   @Get(':id/reservations')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   listReservations(
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
@@ -174,7 +174,7 @@ export class InterestedController {
   }
 
   @Patch(':id/activities/:activityId')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   updateActivity(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('activityId', ParseUUIDPipe) activityId: string,
@@ -185,7 +185,7 @@ export class InterestedController {
   }
 
   @Post(':id/convert/tenant')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   convertToTenant(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ConvertInterestedToTenantDto,
@@ -195,7 +195,7 @@ export class InterestedController {
   }
 
   @Post(':id/convert/buyer')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   convertToBuyer(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ConvertInterestedToBuyerDto,
@@ -205,7 +205,7 @@ export class InterestedController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateInterestedProfileDto,
@@ -215,7 +215,7 @@ export class InterestedController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,

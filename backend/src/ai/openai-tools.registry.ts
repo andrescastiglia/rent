@@ -2069,7 +2069,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The newly created interested profile with assigned UUID and initial pipeline stage.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: CreateInterestedProfileDto.zodSchema,
       execute: async (args, context) =>
         deps.interestedService.create(
@@ -2084,7 +2084,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Metrics object with lead counts by stage and conversion rate percentages.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: emptyObjectSchema,
       execute: async (_args, context) =>
         deps.interestedService.getMetrics(toScopedUser(context) as any),
@@ -2096,7 +2096,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Array of potential duplicate groups with similarity scores.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: emptyObjectSchema,
       execute: async (_args, context) =>
         deps.interestedService.findPotentialDuplicates(
@@ -2110,7 +2110,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Paginated list of interested profiles with total count.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: InterestedFiltersDto.zodSchema,
       execute: async (args, context) =>
         deps.interestedService.findAll(
@@ -2125,7 +2125,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Complete interested profile record with preferences and stage history.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
@@ -2139,7 +2139,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Summary object with counts for activities, matches, and reservations.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
@@ -2156,7 +2156,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Array of timeline entries ordered by date with type and description.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
@@ -2173,7 +2173,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Array of property match records with compatibility score and match status.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
@@ -2190,7 +2190,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Updated array of recalculated property matches with new scores.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
@@ -2206,7 +2206,7 @@ export function buildAiToolDefinitions(
         'Updates the status of a property match (e.g., contacted → visit_scheduled → accepted/rejected) by matchId.',
       responseDescription: 'The updated match record with new status.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: withParams(UpdateInterestedMatchDto.zodSchema, {
         id: uuidSchema,
         matchId: uuidSchema,
@@ -2231,7 +2231,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The updated interested profile with new stage and transition timestamp.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: withParams(ChangeInterestedStageDto.zodSchema, {
         id: uuidSchema,
       }),
@@ -2252,7 +2252,7 @@ export function buildAiToolDefinitions(
         'Creates a CRM activity for an interested profile. Types: call, task, note, email, whatsapp, visit.',
       responseDescription: 'The created activity record with assigned UUID.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: withParams(CreateInterestedActivityDto.zodSchema, {
         id: uuidSchema,
       }),
@@ -2274,7 +2274,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The created reservation record with property and date details.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: withParams(CreatePropertyReservationDto.zodSchema, {
         id: uuidSchema,
       }),
@@ -2296,7 +2296,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Array of reservation records with property, dates, and status.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
@@ -2312,7 +2312,7 @@ export function buildAiToolDefinitions(
         'Updates a CRM activity for an interested profile by activityId. Modify description, status, or scheduled date.',
       responseDescription: 'The updated activity record.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: withParams(UpdateInterestedActivityDto.zodSchema, {
         id: uuidSchema,
         activityId: uuidSchema,
@@ -2337,7 +2337,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The created tenant record and updated interested profile with converted status.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: withParams(ConvertInterestedToTenantDto.zodSchema, {
         id: uuidSchema,
       }),
@@ -2359,7 +2359,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The created sale agreement and updated interested profile with converted status.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: withParams(ConvertInterestedToBuyerDto.zodSchema, {
         id: uuidSchema,
       }),
@@ -2380,7 +2380,7 @@ export function buildAiToolDefinitions(
         "Updates an interested profile's fields (contact info, preferences, budget, qualification) by UUID.",
       responseDescription: 'The updated interested profile record.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: withParams(UpdateInterestedProfileDto.zodSchema, {
         id: uuidSchema,
       }),
@@ -2402,7 +2402,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Confirmation that the interested profile was deleted.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;

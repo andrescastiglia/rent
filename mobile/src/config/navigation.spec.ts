@@ -1,8 +1,19 @@
 import {
+  canManageLeases,
   canUserAccessPath,
   getNavigationForRole,
   getNavigationForUser,
 } from './navigation';
+
+describe('canManageLeases', () => {
+  it('only grants lease mutations to administrators and staff', () => {
+    expect(canManageLeases('admin')).toBe(true);
+    expect(canManageLeases('staff')).toBe(true);
+    expect(canManageLeases('owner')).toBe(false);
+    expect(canManageLeases('tenant')).toBe(false);
+    expect(canManageLeases('buyer')).toBe(false);
+  });
+});
 
 describe('getNavigationForRole', () => {
   it('returns admin-only routes for admins', () => {
@@ -70,6 +81,10 @@ describe('permission-aware navigation', () => {
       ),
     ).toBe(true);
     expect(canUserAccessPath({ role: 'owner' }, '/sales')).toBe(false);
+    expect(canUserAccessPath({ role: 'owner' }, '/interested')).toBe(false);
+    expect(canUserAccessPath({ role: 'owner' }, '/leases/new')).toBe(false);
+    expect(canUserAccessPath({ role: 'owner' }, '/leases/l1/edit')).toBe(false);
+    expect(canUserAccessPath({ role: 'owner' }, '/leases/l1')).toBe(true);
     expect(canUserAccessPath({ role: 'tenant' }, '/unknown')).toBe(false);
   });
 });

@@ -91,11 +91,15 @@ export class PaymentGatewayService {
       throw new NotFoundException(`Invoice with ID ${dto.invoiceId} not found`);
     }
 
-    if (userRole === UserRole.TENANT && invoice.tenantAccount?.tenantId) {
+    if (userRole === UserRole.TENANT) {
+      const invoiceTenantId = invoice.tenantAccount?.tenantId;
+      if (!invoiceTenantId) {
+        throw new ForbiddenException('Invoice does not belong to your account');
+      }
       const tenant = await this.tenantRepo.findOne({
         where: { userId, companyId },
       });
-      if (!tenant || tenant.id !== invoice.tenantAccount.tenantId) {
+      if (!tenant || tenant.id !== invoiceTenantId) {
         throw new ForbiddenException('Invoice does not belong to your account');
       }
     }
@@ -576,11 +580,11 @@ export class PaymentGatewayService {
         `Payment gateway transaction with ID ${id} not found`,
       );
     }
-    if (user?.role === UserRole.TENANT && tx.tenantId) {
+    if (user?.role === UserRole.TENANT) {
       const tenant = await this.tenantRepo.findOne({
         where: { userId: user.id, companyId },
       });
-      if (!tenant || tenant.id !== tx.tenantId) {
+      if (!tx.tenantId || !tenant || tenant.id !== tx.tenantId) {
         throw new ForbiddenException(
           'Transaction does not belong to your account',
         );

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { createHmac } from 'node:crypto';
 import {
   BadRequestException,
+  ForbiddenException,
   NotFoundException,
   InternalServerErrorException,
   UnauthorizedException,
@@ -19,6 +20,7 @@ import {
 } from './entities/payment-gateway-transaction.entity';
 import { Invoice, InvoiceStatus } from '../payments/entities/invoice.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
+import { UserRole } from '../users/entities/user.entity';
 import { CreatePaymentPreferenceDto } from './dto/create-payment-preference.dto';
 import { WebhookNotificationDto } from './dto/webhook-notification.dto';
 
@@ -175,6 +177,31 @@ describe('PaymentGatewayService', () => {
       await expect(
         service.createPreference(companyId, userId, dto),
       ).rejects.toThrow(InternalServerErrorException);
+    });
+
+    it('should deny a tenant when the invoice has no tenant account', async () => {
+      invoiceRepo.findOne!.mockResolvedValue({
+        ...mockInvoice,
+        tenantAccount: null,
+      });
+
+      await expect(
+        service.createPreference(companyId, userId, dto, UserRole.TENANT),
+      ).rejects.toThrow(ForbiddenException);
+      expect(tenantRepo.findOne).not.toHaveBeenCalled();
+      expect(httpService.post).not.toHaveBeenCalled();
+    });
+
+    it('should deny a tenant when the invoice belongs to another tenant', async () => {
+      invoiceRepo.findOne!.mockResolvedValue(mockInvoice);
+      tenantRepo.findOne!.mockResolvedValue({
+        id: 'another-tenant',
+      });
+
+      await expect(
+        service.createPreference(companyId, userId, dto, UserRole.TENANT),
+      ).rejects.toThrow(ForbiddenException);
+      expect(httpService.post).not.toHaveBeenCalled();
     });
   });
 
@@ -495,6 +522,35 @@ describe('PaymentGatewayService', () => {
       await expect(
         service.findOne('nonexistent-id', 'company-uuid-1234'),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should deny a tenant when the transaction has no tenant relation', async () => {
+      txRepo.findOne!.mockResolvedValue({
+        ...mockTransaction,
+        tenantId: null,
+      });
+      tenantRepo.findOne!.mockResolvedValue({ id: 'tenant-uuid-1234' });
+
+      await expect(
+        service.findOne('tx-uuid-1234', 'company-uuid-1234', {
+          id: 'user-uuid-1234',
+          companyId: 'company-uuid-1234',
+          role: UserRole.TENANT,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should deny a tenant when the transaction belongs to another tenant', async () => {
+      txRepo.findOne!.mockResolvedValue(mockTransaction);
+      tenantRepo.findOne!.mockResolvedValue({ id: 'another-tenant' });
+
+      await expect(
+        service.findOne('tx-uuid-1234', 'company-uuid-1234', {
+          id: 'user-uuid-1234',
+          companyId: 'company-uuid-1234',
+          role: UserRole.TENANT,
+        }),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

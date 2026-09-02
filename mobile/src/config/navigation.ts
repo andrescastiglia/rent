@@ -16,6 +16,10 @@ type RoutePolicy = {
   staffPermission?: string;
 };
 
+export function canManageLeases(role: string | undefined): boolean {
+  return role === 'admin' || role === 'staff';
+}
+
 const routePolicies: Record<string, RoutePolicy> = {
   dashboard: {
     roles: ['admin', 'owner', 'tenant'],
@@ -27,7 +31,7 @@ const routePolicies: Record<string, RoutePolicy> = {
   },
   owners: { roles: ['admin', 'owner'], staffPermission: 'owners' },
   interested: {
-    roles: ['admin', 'owner'],
+    roles: ['admin'],
     staffPermission: 'interested',
   },
   tenants: { roles: ['admin', 'owner'], staffPermission: 'tenants' },
@@ -97,7 +101,7 @@ export const navigationItems: NavItem[] = [
   {
     labelKey: 'interested',
     href: '/interested',
-    roles: ['admin', 'owner', 'staff'],
+    roles: ['admin', 'staff'],
   },
   {
     labelKey: 'users',
@@ -120,6 +124,14 @@ export function getNavigationForUser(user: NavigationUser): NavItem[] {
 }
 
 export function canUserAccessPath(user: NavigationUser, path: string): boolean {
+  const normalizedPath = path.split('?')[0].replace(/\/$/, '');
+  if (
+    !canManageLeases(user.role) &&
+    (/^\/leases\/new$/.test(normalizedPath) ||
+      /^\/leases\/[^/]+\/edit$/.test(normalizedPath))
+  ) {
+    return false;
+  }
   const segment = path
     .split('?')[0]
     .split('/')

@@ -15,6 +15,8 @@ import { leasesApi } from '@/api/leases';
 import { ownersApi } from '@/api/owners';
 import { propertiesApi } from '@/api/properties';
 import { Screen } from '@/components/screen';
+import { canManageLeases } from '@/config/navigation';
+import { useAuth } from '@/contexts/auth-context';
 import { i18n } from '@/i18n';
 import type { Lease } from '@/types/lease';
 import type { Owner, OwnerSettlementSummary } from '@/types/owner';
@@ -117,6 +119,8 @@ function ActionChip({ title, onPress, testID }: Readonly<ActionChipProps>) {
 
 export default function PropertiesScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const canManage = canManageLeases(user?.role);
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [expandedOwnerId, setExpandedOwnerId] = useState<string | null>(null);
@@ -387,7 +391,7 @@ export default function PropertiesScreen() {
                                 testID={`property.lease.view.${property.id}`}
                               />
                             ) : null}
-                            {leaseAction.type === 'create' ? (
+                            {canManage && leaseAction.type === 'create' ? (
                               <ActionChip
                                 title={t('properties.createLease')}
                                 onPress={() => {
@@ -419,7 +423,7 @@ export default function PropertiesScreen() {
                                 testID={`property.lease.create.${property.id}`}
                               />
                             ) : null}
-                            {leaseAction.type === 'renew' ? (
+                            {canManage && leaseAction.type === 'renew' ? (
                               <ActionChip
                                 title={t('properties.renewLease')}
                                 onPress={() => {

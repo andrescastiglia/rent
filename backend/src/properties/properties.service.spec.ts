@@ -529,6 +529,10 @@ describe('PropertiesService', () => {
       );
 
       expect(result.deleted).toBe(1);
+      expect(deleteQb.andWhere).toHaveBeenCalledWith(
+        'uploaded_by_user_id = :uploadedByUserId',
+        { uploadedByUserId: 'u1' },
+      );
     });
 
     it('should parse image ids safely', () => {
@@ -732,7 +736,7 @@ describe('PropertiesService', () => {
       propertyRepository.save!.mockImplementation(async (data) => data);
 
       propertyImagesRepository.find!.mockResolvedValue([
-        { id: newImageId, propertyId: null },
+        { id: newImageId, propertyId: null, uploadedByUserId: ownerActor.id },
       ]);
 
       const updateQb = {
@@ -767,6 +771,33 @@ describe('PropertiesService', () => {
         isTemporary: false,
       });
       expect(deleteQb.execute).toHaveBeenCalled();
+      expect(updateQb.andWhere).toHaveBeenCalledWith(
+        'uploaded_by_user_id = :uploadedByUserId',
+        { uploadedByUserId: ownerActor.id },
+      );
+    });
+
+    it('should reject an image uploaded by another owner', async () => {
+      const imageId = 'bbbbbbbb-bbbb-1bbb-9bbb-bbbbbbbbbbbc';
+      jest
+        .spyOn(service, 'findOneScoped')
+        .mockResolvedValue(propertyWithImages as any);
+      propertyImagesRepository.find!.mockResolvedValue([
+        {
+          id: imageId,
+          propertyId: null,
+          uploadedByUserId: 'another-owner-user',
+        },
+      ]);
+
+      await expect(
+        service.update(
+          '1',
+          { images: [`/properties/images/${imageId}`] },
+          ownerActor,
+        ),
+      ).rejects.toThrow('Some property images are invalid');
+      expect(propertyRepository.save).not.toHaveBeenCalled();
     });
 
     it('should throw when some images are invalid', async () => {
@@ -792,7 +823,11 @@ describe('PropertiesService', () => {
         .spyOn(service, 'findOneScoped')
         .mockResolvedValue(propertyWithImages as any);
       propertyImagesRepository.find!.mockResolvedValue([
-        { id: imgId, propertyId: 'other-property' },
+        {
+          id: imgId,
+          propertyId: 'other-property',
+          uploadedByUserId: ownerActor.id,
+        },
       ]);
 
       await expect(

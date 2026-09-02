@@ -85,7 +85,7 @@ export const navigationItems: NavItem[] = [
   {
     labelKey: "interested",
     href: "/interested",
-    roles: ["admin", "owner", "staff"],
+    roles: ["admin", "staff"],
     moduleKey: "interested",
     icon: UserSearch,
   },

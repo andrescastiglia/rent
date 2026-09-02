@@ -12,6 +12,8 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { leasesApi } from '@/api/leases';
+import { canUserAccessPath } from '@/config/navigation';
+import { useAuth } from '@/contexts/auth-context';
 import { Screen } from '@/components/screen';
 import { AppButton } from '@/components/ui';
 import { i18n } from '@/i18n';
@@ -107,6 +109,7 @@ function LeaseSection({
 
 export default function LeasesScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -189,12 +192,14 @@ export default function LeasesScreen() {
         </Text>
       </View>
 
-      <AppButton
-        title={t('leases.manageTemplates')}
-        variant="secondary"
-        onPress={() => router.push('/(app)/templates' as never)}
-        testID="leases.templates"
-      />
+      {user && canUserAccessPath(user, '/templates') ? (
+        <AppButton
+          title={t('leases.manageTemplates')}
+          variant="secondary"
+          onPress={() => router.push('/(app)/templates' as never)}
+          testID="leases.templates"
+        />
+      ) : null}
 
       <TextInput
         value={searchTerm}

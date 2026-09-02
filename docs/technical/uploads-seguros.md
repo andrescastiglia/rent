@@ -39,6 +39,8 @@ permite correlacionar documento y compañía sin registrar nombre ni contenido.
   de confiar sólo en el `Content-Type` enviado por el cliente.
 - La imagen temporal queda en `property_images`, ligada a compañía y cargador. Su
   vista previa pública necesita una firma HMAC con vencimiento de quince minutos.
+- Un propietario sólo puede descartar o adjuntar imágenes temporales cargadas por
+  su propio usuario. Administración y personal conservan alcance de compañía.
 - Al guardar una propiedad, el backend valida la compañía y que la imagen no esté
   asignada a otra propiedad; recién entonces quita el estado temporal. La URL
   persistida no conserva el token temporal.

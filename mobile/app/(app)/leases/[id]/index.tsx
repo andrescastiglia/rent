@@ -5,6 +5,8 @@ import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { leasesApi } from '@/api/leases';
+import { canManageLeases } from '@/config/navigation';
+import { useAuth } from '@/contexts/auth-context';
 import { propertiesApi } from '@/api/properties';
 import { tenantsApi } from '@/api/tenants';
 import { Screen } from '@/components/screen';
@@ -133,6 +135,7 @@ function LeaseDurationCard({
 }
 
 function LeaseDraftCard({
+  editable,
   lease,
   draftText,
   onChangeDraftText,
@@ -144,6 +147,7 @@ function LeaseDraftCard({
   confirmingDraft,
   t,
 }: Readonly<{
+  editable: boolean;
   lease: Lease;
   draftText: string;
   onChangeDraftText: (value: string) => void;
@@ -162,7 +166,7 @@ function LeaseDraftCard({
           ? t('leases.draft.title')
           : t('leases.confirmedTextTitle')}
       </Text>
-      {lease.status === 'DRAFT' ? (
+      {lease.status === 'DRAFT' && editable ? (
         <>
           <TextInput
             testID="leaseDetail.draftInput"
@@ -277,6 +281,7 @@ export default function LeaseDetailScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [draftText, setDraftText] = useState('');
 
   const leaseQuery = useQuery({
@@ -286,6 +291,7 @@ export default function LeaseDetailScreen() {
   });
 
   const lease = leaseQuery.data;
+  const canManage = canManageLeases(user?.role);
 
   const propertyQuery = useQuery({
     queryKey: ['properties', 'by-id', lease?.propertyId],
@@ -441,6 +447,7 @@ export default function LeaseDetailScreen() {
           <LeaseFinancialCard lease={lease} t={t} />
           <LeaseDurationCard lease={lease} t={t} />
           <LeaseDraftCard
+            editable={canManage}
             lease={lease}
             draftText={draftText}
             onChangeDraftText={setDraftText}
@@ -468,13 +475,15 @@ export default function LeaseDetailScreen() {
             onDownloadContract={() => downloadMutation.mutate()}
             t={t}
           />
-          <LeaseActions
-            leaseId={lease.id}
-            deleting={deleteMutation.isPending}
-            onEdit={handleEditLease}
-            onDelete={handleDeleteLease}
-            t={t}
-          />
+          {canManage ? (
+            <LeaseActions
+              leaseId={lease.id}
+              deleting={deleteMutation.isPending}
+              onEdit={handleEditLease}
+              onDelete={handleDeleteLease}
+              t={t}
+            />
+          ) : null}
         </>
       ) : null}
     </Screen>

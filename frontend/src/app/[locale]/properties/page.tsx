@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
+import { canManageLeases } from "@/lib/permissions";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 
 const byMostRecentDate = <T extends { updatedAt: string; createdAt: string }>(
@@ -237,6 +238,8 @@ function OwnerPropertyItem({
   onToggleMaintenance,
   onRenewLease,
 }: Readonly<OwnerPropertyItemProps>) {
+  const { user } = useAuth();
+  const canManage = canManageLeases(user?.role);
   const propertyOperations = property.operations ?? [];
   const canCreateContract =
     propertyOperations.includes("rent") || propertyOperations.includes("sale");
@@ -276,6 +279,7 @@ function OwnerPropertyItem({
     }
 
     if (leaseAction.type === "renew") {
+      if (!canManage) return null;
       const isRenewing = renewingLeaseId === leaseAction.lease.id;
       return (
         <button
@@ -294,7 +298,7 @@ function OwnerPropertyItem({
       );
     }
 
-    if (!canCreateContract) {
+    if (!canManage || !canCreateContract) {
       return null;
     }
 

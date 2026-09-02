@@ -38,6 +38,12 @@ describe("getNavigationForRole", () => {
   it("returns empty array for unknown role", () => {
     expect(getNavigationForRole("unknown")).toEqual([]);
   });
+
+  it("does not expose the company CRM to owners", () => {
+    expect(
+      getNavigationForRole("owner").map((item) => item.href),
+    ).not.toContain("/interested");
+  });
 });
 
 describe("getNavigationForUser", () => {

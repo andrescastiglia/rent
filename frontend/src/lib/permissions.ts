@@ -14,3 +14,7 @@ export function hasModuleAccess(
   }
   return moduleKey ? permissions?.[moduleKey] === true : false;
 }
+
+export function canManageLeases(role: User["role"] | undefined): boolean {
+  return role === "admin" || role === "staff";
+}
