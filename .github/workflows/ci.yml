@@ -874,6 +874,7 @@ jobs:
         run: npm run build
         env:
           NEXT_PUBLIC_MOCK_MODE: "true"
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: "e2e-test-turnstile-site-key"
 
       - name: Run E2E tests
         working-directory: frontend
