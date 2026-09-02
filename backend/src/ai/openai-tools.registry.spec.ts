@@ -865,4 +865,40 @@ describe('openai-tools.registry', () => {
     await find('patch_amendment_approve').execute({ id }, ctx);
     await find('patch_amendment_reject').execute({ id }, ctx);
   });
+
+  it('passes the authenticated actor to maintenance tools', async () => {
+    const maintenanceService = {
+      findAll: jest.fn().mockResolvedValue([]),
+      findOne: jest.fn().mockResolvedValue({}),
+      create: jest.fn().mockResolvedValue({}),
+    };
+    const definitions = buildAiToolDefinitions({ maintenanceService } as any);
+    const find = (name: string) =>
+      definitions.find((tool) => tool.name === name)!;
+    const id = '10000000-0000-4000-8000-000000000001';
+    const context = {
+      userId: '10000000-0000-0000-0000-000000000101',
+      companyId: '10000000-0000-0000-0000-000000000201',
+      role: UserRole.OWNER,
+    } as const;
+    const actor = expect.objectContaining({
+      id: context.userId,
+      companyId: context.companyId,
+      role: UserRole.OWNER,
+    });
+
+    await find('get_maintenance_tickets').execute({}, context);
+    await find('get_maintenance_ticket_by_id').execute({ id }, context);
+    await find('post_maintenance_ticket').execute(
+      { propertyId: id, title: 'Repair' },
+      context,
+    );
+
+    expect(maintenanceService.findAll).toHaveBeenCalledWith(actor, {});
+    expect(maintenanceService.findOne).toHaveBeenCalledWith(id, actor);
+    expect(maintenanceService.create).toHaveBeenCalledWith(
+      actor,
+      expect.objectContaining({ propertyId: id, title: 'Repair' }),
+    );
+  });
 });

@@ -6,10 +6,8 @@
 
 Este documento contiene solo trabajo pendiente. El historial Git conserva lo terminado y su evidencia.
 
-## 1. Consolidar Git y habilitar releases
+## 1. Completar releases y despliegue
 
-- [ ] Publicar la consolidación mediante PR hacia `main`; la regla `GH013` impide el push directo, como corresponde a la protección configurada.
-- [ ] En GitHub, confirmar que ningún commit útil quede fuera de `main`; eliminar `develop`, `preview` y los heads resueltos. Localmente ya existe únicamente `main`.
 - [ ] Revisar las GitHub Apps instaladas y cualquier autodeploy externo; el repositorio no tiene webhooks configurados.
 - [ ] Promover artefactos inmutables de backend, web, batch y mobile con checksums/SBOM; no recompilar en el servidor.
 - [ ] Convertir Ansible a releases versionados con cambio atómico, migraciones expand/contract, smoke tests y rollback probado.

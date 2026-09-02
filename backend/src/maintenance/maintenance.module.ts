@@ -7,9 +7,11 @@ import { MaintenanceService } from './maintenance.service';
 import { Property } from '../properties/entities/property.entity';
 import { Staff } from '../staff/entities/staff.entity';
 import { User } from '../users/entities/user.entity';
+import { PropertiesModule } from '../properties/properties.module';
 
 @Module({
   imports: [
+    PropertiesModule,
     TypeOrmModule.forFeature([
       MaintenanceTicket,
       MaintenanceTicketComment,

@@ -11,6 +11,8 @@ import {
   MaintenanceTicketSource,
 } from './entities/maintenance-ticket.entity';
 import { MaintenanceTicketComment } from './entities/maintenance-ticket-comment.entity';
+import { PropertiesService } from '../properties/properties.service';
+import { UserRole } from '../users/entities/user.entity';
 
 type MockRepository<T extends Record<string, any> = any> = Partial<
   Record<keyof Repository<T>, jest.Mock>
@@ -18,6 +20,7 @@ type MockRepository<T extends Record<string, any> = any> = Partial<
 
 const createMockQb = () => ({
   leftJoinAndSelect: jest.fn().mockReturnThis(),
+  innerJoin: jest.fn().mockReturnThis(),
   where: jest.fn().mockReturnThis(),
   andWhere: jest.fn().mockReturnThis(),
   orderBy: jest.fn().mockReturnThis(),
@@ -35,6 +38,24 @@ const createMockRepository = () => {
     createQueryBuilder: jest.fn().mockReturnValue(qb),
   };
   return repo;
+};
+
+const adminActor = {
+  id: 'user-uuid-1',
+  companyId: 'company-uuid-1',
+  role: UserRole.ADMIN,
+};
+
+const ownerActor = {
+  ...adminActor,
+  id: 'owner-user-uuid-1',
+  role: UserRole.OWNER,
+};
+
+const tenantActor = {
+  ...adminActor,
+  id: 'tenant-user-uuid-1',
+  role: UserRole.TENANT,
 };
 
 const mockTicket = (
@@ -91,6 +112,7 @@ describe('MaintenanceService', () => {
   let service: MaintenanceService;
   let ticketRepository: MockRepository<MaintenanceTicket>;
   let commentRepository: MockRepository<MaintenanceTicketComment>;
+  let propertiesService: { findOneScoped: jest.Mock };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -104,6 +126,10 @@ describe('MaintenanceService', () => {
           provide: getRepositoryToken(MaintenanceTicketComment),
           useValue: createMockRepository(),
         },
+        {
+          provide: PropertiesService,
+          useValue: { findOneScoped: jest.fn().mockResolvedValue({}) },
+        },
       ],
     }).compile();
 
@@ -112,6 +138,7 @@ describe('MaintenanceService', () => {
     commentRepository = module.get(
       getRepositoryToken(MaintenanceTicketComment),
     );
+    propertiesService = module.get(PropertiesService);
   });
 
   it('should be defined', () => {
@@ -124,7 +151,7 @@ describe('MaintenanceService', () => {
       const qb = ticketRepository.createQueryBuilder!();
       qb.getMany.mockResolvedValue(tickets);
 
-      const result = await service.findAll('company-uuid-1', {});
+      const result = await service.findAll(adminActor, {});
 
       expect(result).toEqual(tickets);
     });
@@ -133,7 +160,7 @@ describe('MaintenanceService', () => {
       const qb = ticketRepository.createQueryBuilder!();
       qb.getMany.mockResolvedValue([]);
 
-      await service.findAll('company-uuid-1', {
+      await service.findAll(adminActor, {
         status: MaintenanceTicketStatus.OPEN,
       });
 
@@ -146,7 +173,7 @@ describe('MaintenanceService', () => {
       const qb = ticketRepository.createQueryBuilder!();
       qb.getMany.mockResolvedValue([]);
 
-      await service.findAll('company-uuid-1', {
+      await service.findAll(adminActor, {
         priority: MaintenanceTicketPriority.HIGH,
       });
 
@@ -159,7 +186,7 @@ describe('MaintenanceService', () => {
       const qb = ticketRepository.createQueryBuilder!();
       qb.getMany.mockResolvedValue([]);
 
-      await service.findAll('company-uuid-1', {
+      await service.findAll(adminActor, {
         propertyId: 'property-uuid-1',
       });
 
@@ -173,7 +200,7 @@ describe('MaintenanceService', () => {
       const qb = ticketRepository.createQueryBuilder!();
       qb.getMany.mockResolvedValue([]);
 
-      await service.findAll('company-uuid-1', {
+      await service.findAll(adminActor, {
         assignedToStaffId: 'staff-uuid-1',
       });
 
@@ -187,11 +214,41 @@ describe('MaintenanceService', () => {
       const qb = ticketRepository.createQueryBuilder!();
       qb.getMany.mockResolvedValue([]);
 
-      await service.findAll('company-uuid-1', { search: 'Leak' });
+      await service.findAll(adminActor, { search: 'Leak' });
 
       expect(qb.andWhere).toHaveBeenCalledWith(
         'LOWER(ticket.title) LIKE :search',
         { search: '%leak%' },
+      );
+    });
+
+    it('scopes an owner to tickets for their properties', async () => {
+      const qb = ticketRepository.createQueryBuilder!();
+
+      await service.findAll(ownerActor, {});
+
+      expect(qb.innerJoin).toHaveBeenCalledWith('property.owner', 'scopeOwner');
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'scopeOwner.user_id = :actorId',
+        { actorId: ownerActor.id },
+      );
+    });
+
+    it('scopes a tenant to tickets for their active rental', async () => {
+      const qb = ticketRepository.createQueryBuilder!();
+
+      await service.findAll(tenantActor, {});
+
+      expect(qb.innerJoin).toHaveBeenCalledWith(
+        'scopeLease.tenant',
+        'scopeTenant',
+      );
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'scopeTenant.user_id = :actorId AND scopeTenant.company_id = :companyId AND scopeTenant.deleted_at IS NULL',
+        {
+          actorId: tenantActor.id,
+          companyId: tenantActor.companyId,
+        },
       );
     });
   });
@@ -201,16 +258,31 @@ describe('MaintenanceService', () => {
       const ticket = mockTicket();
       ticketRepository.findOne!.mockResolvedValue(ticket);
 
-      const result = await service.findOne('ticket-uuid-1', 'company-uuid-1');
+      const result = await service.findOne('ticket-uuid-1', adminActor);
 
       expect(result).toEqual(ticket);
+      expect(propertiesService.findOneScoped).toHaveBeenCalledWith(
+        ticket.propertyId,
+        adminActor,
+      );
     });
 
     it('throws NotFoundException when not found', async () => {
       ticketRepository.findOne!.mockResolvedValue(null);
 
+      await expect(service.findOne('missing-id', adminActor)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('hides a same-company ticket when its property is unrelated', async () => {
+      ticketRepository.findOne!.mockResolvedValue(mockTicket());
+      propertiesService.findOneScoped.mockRejectedValue(
+        new NotFoundException('Property not found'),
+      );
+
       await expect(
-        service.findOne('missing-id', 'company-uuid-1'),
+        service.findOne('ticket-uuid-1', ownerActor),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -230,10 +302,45 @@ describe('MaintenanceService', () => {
       ticketRepository.save!.mockResolvedValue(ticket);
       ticketRepository.findOne!.mockResolvedValue(ticket);
 
-      const result = await service.create('company-uuid-1', 'user-uuid-1', dto);
+      const result = await service.create(adminActor, dto);
 
       expect(ticketRepository.save).toHaveBeenCalled();
       expect(result.status).toBe(MaintenanceTicketStatus.OPEN);
+      expect(propertiesService.findOneScoped).toHaveBeenCalledWith(
+        dto.propertyId,
+        adminActor,
+      );
+    });
+
+    it('rejects creation for a property unrelated to the actor', async () => {
+      propertiesService.findOneScoped.mockRejectedValue(
+        new NotFoundException('Property not found'),
+      );
+
+      await expect(
+        service.create(ownerActor, {
+          title: 'Unauthorized ticket',
+          propertyId: 'other-property-uuid',
+        }),
+      ).rejects.toThrow(NotFoundException);
+      expect(ticketRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('derives the audit source from the actor role', async () => {
+      const ticket = mockTicket({ source: MaintenanceTicketSource.TENANT });
+      ticketRepository.create!.mockReturnValue(ticket);
+      ticketRepository.save!.mockResolvedValue(ticket);
+      ticketRepository.findOne!.mockResolvedValue(ticket);
+
+      await service.create(tenantActor, {
+        title: 'Leaking pipe',
+        propertyId: 'property-uuid-1',
+        source: MaintenanceTicketSource.ADMIN,
+      });
+
+      expect(ticketRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ source: MaintenanceTicketSource.TENANT }),
+      );
     });
   });
 
@@ -253,7 +360,7 @@ describe('MaintenanceService', () => {
       ticketRepository.save!.mockResolvedValue(updated);
       ticketRepository.findOne!.mockResolvedValueOnce(updated);
 
-      const result = await service.update('ticket-uuid-1', 'company-uuid-1', {
+      const result = await service.update('ticket-uuid-1', adminActor, {
         description: 'Fixed',
         scheduledAt: new Date('2025-01-01'),
         estimatedCost: 500,
@@ -276,7 +383,7 @@ describe('MaintenanceService', () => {
       ticketRepository.save!.mockResolvedValue(resolved);
       ticketRepository.findOne!.mockResolvedValueOnce(resolved);
 
-      await service.update('ticket-uuid-1', 'company-uuid-1', {
+      await service.update('ticket-uuid-1', adminActor, {
         resolvedAt: new Date('2025-06-01'),
       });
 
@@ -289,7 +396,7 @@ describe('MaintenanceService', () => {
       ticketRepository.save!.mockResolvedValue(ticket);
       ticketRepository.findOne!.mockResolvedValueOnce(ticket);
 
-      await service.update('ticket-uuid-1', 'company-uuid-1', {
+      await service.update('ticket-uuid-1', adminActor, {
         resolvedAt: undefined,
       });
 
@@ -308,7 +415,7 @@ describe('MaintenanceService', () => {
       ticketRepository.save!.mockResolvedValue(updated);
       ticketRepository.findOne!.mockResolvedValueOnce(updated);
 
-      const result = await service.update('ticket-uuid-1', 'company-uuid-1', {
+      const result = await service.update('ticket-uuid-1', adminActor, {
         assignedToStaffId: 'staff-uuid-1',
       });
 
@@ -330,7 +437,7 @@ describe('MaintenanceService', () => {
       ticketRepository.save!.mockResolvedValue(resolved);
       ticketRepository.findOne!.mockResolvedValueOnce(resolved);
 
-      const result = await service.update('ticket-uuid-1', 'company-uuid-1', {
+      const result = await service.update('ticket-uuid-1', adminActor, {
         status: MaintenanceTicketStatus.RESOLVED,
       });
 
@@ -345,7 +452,7 @@ describe('MaintenanceService', () => {
       ticketRepository.findOne!.mockResolvedValue(ticket);
       ticketRepository.softDelete!.mockResolvedValue({ affected: 1 });
 
-      await service.remove('ticket-uuid-1', 'company-uuid-1');
+      await service.remove('ticket-uuid-1', adminActor);
 
       expect(ticketRepository.softDelete).toHaveBeenCalledWith('ticket-uuid-1');
     });
@@ -353,9 +460,9 @@ describe('MaintenanceService', () => {
     it('throws NotFoundException when ticket not found', async () => {
       ticketRepository.findOne!.mockResolvedValue(null);
 
-      await expect(
-        service.remove('missing-id', 'company-uuid-1'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.remove('missing-id', adminActor)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -368,12 +475,10 @@ describe('MaintenanceService', () => {
       commentRepository.create!.mockReturnValue(comment);
       commentRepository.save!.mockResolvedValue(comment);
 
-      const result = await service.addComment(
-        'ticket-uuid-1',
-        'company-uuid-1',
-        'user-uuid-1',
-        { body: 'Working on it', isInternal: false },
-      );
+      const result = await service.addComment('ticket-uuid-1', adminActor, {
+        body: 'Working on it',
+        isInternal: false,
+      });
 
       expect(commentRepository.save).toHaveBeenCalled();
       expect(result.body).toBe('Working on it');
@@ -394,7 +499,7 @@ describe('MaintenanceService', () => {
 
       const result = await service.getComments(
         'ticket-uuid-1',
-        'company-uuid-1',
+        adminActor,
         true,
       );
 
@@ -414,7 +519,7 @@ describe('MaintenanceService', () => {
 
       const result = await service.getComments(
         'ticket-uuid-1',
-        'company-uuid-1',
+        tenantActor,
         false,
       );
 
