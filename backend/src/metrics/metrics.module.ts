@@ -7,9 +7,10 @@ import {
 import { HttpMetricsMiddleware } from './http-metrics.middleware';
 import { MetricsController } from './metrics.controller';
 import { MetricsService } from './metrics.service';
+import { MetricsScrapeGuard } from './metrics-scrape.guard';
 
 @Module({
-  providers: [MetricsService],
+  providers: [MetricsService, MetricsScrapeGuard],
   controllers: [MetricsController],
   exports: [MetricsService],
 })

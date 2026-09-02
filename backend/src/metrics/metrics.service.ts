@@ -303,7 +303,10 @@ export class MetricsService {
       return 'unknown';
     }
 
-    const safe = trimmed.replaceAll(/\s+/g, '_');
+    const safe = trimmed
+      .replaceAll(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi, ':redacted')
+      .replaceAll(/\b(?:[a-f0-9]{24,}|[a-z0-9_-]{32,})\b/gi, ':token')
+      .replaceAll(/\s+/g, '_');
     return safe.length <= maxLength ? safe : safe.slice(0, maxLength);
   }
 }

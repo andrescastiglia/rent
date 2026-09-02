@@ -1,3 +1,5 @@
+import { getToken } from "@/lib/auth";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const METRICS_URL = `${API_URL.replace(/\/$/, "")}/frontend-metrics`;
 
@@ -43,11 +45,18 @@ function sendMetric(payload: FrontendMetricPayload): void {
   if (process.env.NODE_ENV !== "production") {
     return;
   }
+  const token = getToken();
+  if (!token) {
+    return;
+  }
 
   const body = JSON.stringify(payload);
   void fetch(METRICS_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
     body,
     keepalive: true,
   }).catch(() => undefined);

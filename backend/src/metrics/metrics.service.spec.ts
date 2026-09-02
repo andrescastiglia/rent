@@ -55,6 +55,20 @@ describe('MetricsService', () => {
     expect(metrics).toContain('frontend_api_failures_total');
   });
 
+  it('redacts email addresses and token-like values from labels', async () => {
+    service.recordFrontendMetric({
+      type: 'client_error',
+      errorType: 'user@example.com 0123456789abcdef0123456789abcdef01234567',
+      path: '/users/user@example.com',
+    } as any);
+
+    const metrics = await service.getMetrics();
+    expect(metrics).not.toContain('user@example.com');
+    expect(metrics).not.toContain('0123456789abcdef0123456789abcdef01234567');
+    expect(metrics).toContain(':redacted');
+    expect(metrics).toContain(':token');
+  });
+
   it('records the complete RAG metrics contract', async () => {
     process.env.AI_RAG_INPUT_USD_PER_MILLION = '0.15';
     process.env.AI_RAG_OUTPUT_USD_PER_MILLION = '0.60';
