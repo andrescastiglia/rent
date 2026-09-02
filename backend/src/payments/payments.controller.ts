@@ -16,6 +16,7 @@ import { PaymentsService } from './payments.service';
 import { TenantAccountsService } from './tenant-accounts.service';
 import { CreatePaymentDto, PaymentFiltersDto, UpdatePaymentDto } from './dto';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { DocumentsService } from '../documents/documents.service';
 
@@ -24,6 +25,7 @@ import { DocumentsService } from '../documents/documents.service';
  */
 @UseGuards(AuthGuard('jwt'))
 @Controller('payments')
+@Authenticated('payments')
 export class PaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,

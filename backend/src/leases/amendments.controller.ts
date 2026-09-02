@@ -12,10 +12,12 @@ import { AuthGuard } from '@nestjs/passport';
 import { AmendmentsService } from './amendments.service';
 import { CreateAmendmentDto } from './dto/create-amendment.dto';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('amendments')
+@Authenticated('leases')
 export class AmendmentsController {
   constructor(private readonly amendmentsService: AmendmentsService) {}
 

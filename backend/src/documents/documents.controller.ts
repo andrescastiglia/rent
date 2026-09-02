@@ -13,10 +13,12 @@ import { AuthGuard } from '@nestjs/passport';
 import { DocumentsService } from './documents.service';
 import { GenerateUploadUrlDto } from './dto/generate-upload-url.dto';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('documents')
+@Authenticated('leases')
 export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 

@@ -20,11 +20,13 @@ import { SetUserActivationDto } from './dto/set-user-activation.dto';
 import { ResetUserPasswordDto } from './dto/reset-user-password.dto';
 import { UserListQueryDto } from './dto/user-list-query.dto';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from './entities/user.entity';
 import { I18n, I18nContext } from 'nestjs-i18n';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('users')
+@Authenticated()
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
@@ -59,11 +61,13 @@ export class UsersController {
   }
 
   @Get('profile/me')
+  @Authenticated('self-service')
   getProfile(@Request() req: any) {
     return req.user;
   }
 
   @Patch('profile/me')
+  @Authenticated('self-service')
   async updateProfile(
     @Request() req: any,
     @Body() updateUserDto: UpdateProfileDto,
@@ -78,6 +82,7 @@ export class UsersController {
   }
 
   @Post('profile/change-password')
+  @Authenticated('self-service')
   async changePassword(
     @Request() req: any,
     @Body() changePasswordDto: ChangePasswordDto,

@@ -13,10 +13,12 @@ import { UnitsService } from './units.service';
 import { CreateUnitDto } from './dto/create-unit.dto';
 import { UpdateUnitDto } from './dto/update-unit.dto';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('units')
+@Authenticated('properties')
 export class UnitsController {
   constructor(private readonly unitsService: UnitsService) {}
 

@@ -7,6 +7,7 @@ import {
   Request,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { Response } from 'express';
 import { PdfService } from './pdf.service';
 import { DocumentsService } from '../documents/documents.service';
@@ -24,6 +25,7 @@ interface AuthenticatedRequest {
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('leases')
+@Authenticated('leases')
 export class LeasesContractController {
   constructor(
     private readonly pdfService: PdfService,

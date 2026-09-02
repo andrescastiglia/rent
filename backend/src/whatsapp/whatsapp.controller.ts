@@ -15,6 +15,7 @@ import {
 import { RawBodyRequest } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { Public } from '../common/decorators/public.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { DocumentsService } from '../documents/documents.service';
 import { SendWhatsappMessageDto } from './dto/send-whatsapp-message.dto';
 import { WhatsappWebhookQueryDto } from './dto/whatsapp-webhook-query.dto';
@@ -22,6 +23,7 @@ import { WhatsappDocumentQueryDto } from './dto/whatsapp-document-query.dto';
 import { WhatsappService } from './whatsapp.service';
 
 @Controller('whatsapp')
+@Authenticated('tenants')
 export class WhatsappController {
   constructor(
     private readonly whatsappService: WhatsappService,

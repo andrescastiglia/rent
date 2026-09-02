@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { NotificationsService } from './notifications.service';
 import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
@@ -25,6 +26,7 @@ interface AuthenticatedRequest {
 
 @Controller('notifications')
 @UseGuards(JwtAuthGuard)
+@Authenticated('self-service')
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 

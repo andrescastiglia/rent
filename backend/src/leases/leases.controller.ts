@@ -21,6 +21,7 @@ import { CreateLeaseDto } from './dto/create-lease.dto';
 import { UpdateLeaseDto } from './dto/update-lease.dto';
 import { LeaseFiltersDto } from './dto/lease-filters.dto';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { ContractType } from './entities/lease.entity';
 import { CreateLeaseContractTemplateDto } from './dto/create-lease-contract-template.dto';
@@ -53,6 +54,7 @@ type UploadedLeaseFile = {
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('leases')
+@Authenticated('leases')
 export class LeasesController {
   constructor(private readonly leasesService: LeasesService) {}
 

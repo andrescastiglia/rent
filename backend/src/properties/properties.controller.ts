@@ -20,10 +20,12 @@ import { DiscardPropertyImagesDto } from './dto/discard-property-images.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
 import { PropertyFiltersDto } from './dto/property-filters.dto';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('properties')
+@Authenticated('properties')
 export class PropertiesController {
   constructor(private readonly propertiesService: PropertiesService) {}
 

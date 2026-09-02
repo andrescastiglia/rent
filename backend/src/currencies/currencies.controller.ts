@@ -14,9 +14,11 @@ import { CreateCurrencyDto, UpdateCurrencyDto } from './dto/currency.dto';
 import { CurrencyFiltersDto } from './dto/currency-filters.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
 @Controller('currencies')
+@Authenticated('self-service')
 export class CurrenciesController {
   constructor(private readonly currenciesService: CurrenciesService) {}
 

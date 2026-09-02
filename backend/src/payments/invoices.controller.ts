@@ -17,6 +17,7 @@ import { InvoicePdfService } from './invoice-pdf.service';
 import { CreateInvoiceDto, GenerateInvoiceDto } from './dto';
 import { InvoiceFiltersDto } from './dto/invoice-filters.dto';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { DocumentsService } from '../documents/documents.service';
 import { PaymentsService } from './payments.service';
@@ -26,6 +27,7 @@ import { PaymentsService } from './payments.service';
  */
 @UseGuards(AuthGuard('jwt'))
 @Controller('invoices')
+@Authenticated('invoices')
 export class InvoicesController {
   constructor(
     private readonly invoicesService: InvoicesService,

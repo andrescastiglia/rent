@@ -3,6 +3,10 @@ import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import {
+  AUTHENTICATED_KEY,
+  AuthenticatedPolicy,
+} from '../decorators/authenticated.decorator';
+import {
   UserModulePermissionKey,
   UserModulePermissions,
   UserRole,
@@ -38,8 +42,9 @@ export class RolesGuard implements CanActivate {
   private staffHasAccess(
     path: string,
     permissions: UserModulePermissions | undefined,
+    declaredResource?: UserModulePermissionKey,
   ): boolean {
-    const resource = this.resolveStaffResource(path);
+    const resource = declaredResource ?? this.resolveStaffResource(path);
     if (!resource) {
       return false;
     }
@@ -61,25 +66,40 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
+    const request = context.switchToHttp().getRequest();
+    const { user } = request;
+
+    const authenticatedPolicy =
+      this.reflector.getAllAndOverride<AuthenticatedPolicy>(AUTHENTICATED_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
+
     // Get required roles from decorator
     const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
       ROLES_KEY,
       [context.getHandler(), context.getClass()],
     );
 
-    // If no roles specified, allow access (authenticated users only)
     if (!requiredRoles) {
+      if (!authenticatedPolicy || !user) {
+        return false;
+      }
+      if (user.role === UserRole.STAFF) {
+        if (authenticatedPolicy === 'self-service') {
+          return true;
+        }
+        return this.staffHasAccess(
+          String(request.path ?? request.originalUrl ?? ''),
+          user.permissions,
+          authenticatedPolicy,
+        );
+      }
       return true;
     }
 
-    // Get user from request (injected by JwtStrategy)
-    const request = context.switchToHttp().getRequest();
-    const { user } = request;
-
-    // If no user found, allow the request to proceed
-    // The AuthGuard at controller level will handle authentication
     if (!user) {
-      return true;
+      return false;
     }
 
     // Staff inherits admin access except for user administration endpoints.
@@ -91,6 +111,9 @@ export class RolesGuard implements CanActivate {
       return this.staffHasAccess(
         String(request.path ?? request.originalUrl ?? ''),
         user.permissions,
+        authenticatedPolicy !== 'self-service'
+          ? authenticatedPolicy
+          : undefined,
       );
     }
 
@@ -103,6 +126,9 @@ export class RolesGuard implements CanActivate {
       return this.staffHasAccess(
         String(request.path ?? request.originalUrl ?? ''),
         user.permissions,
+        authenticatedPolicy !== 'self-service'
+          ? authenticatedPolicy
+          : undefined,
       );
     }
 
