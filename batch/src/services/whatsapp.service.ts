@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { logger } from "../shared/logger";
 
 export interface WhatsappSendResult {
@@ -17,6 +18,13 @@ export interface WhatsappInboxProcessResult {
   selected: number;
   processed: number;
   failed: number;
+}
+
+export interface WhatsappRetentionResult {
+  processedInboxDeleted: number;
+  deadLettersDeleted: number;
+  communicationsRedacted: number;
+  outboundMessagesRedacted: number;
 }
 
 export class WhatsappService {
@@ -71,6 +79,29 @@ export class WhatsappService {
     };
   }
 
+  async applyRetentionPolicy(): Promise<WhatsappRetentionResult> {
+    if (!this.internalToken) {
+      throw new Error("BATCH_WHATSAPP_INTERNAL_TOKEN not configured");
+    }
+    const endpoint = `${this.backendUrl.replace(/\/$/, "")}/whatsapp/internal/apply-retention`;
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "x-batch-whatsapp-token": this.internalToken },
+    });
+    const data = (await response.json().catch(() => ({}))) as Partial<
+      WhatsappRetentionResult & { message: string }
+    >;
+    if (!response.ok) {
+      throw new Error(data.message || `HTTP ${response.status}`);
+    }
+    return {
+      processedInboxDeleted: Number(data.processedInboxDeleted ?? 0),
+      deadLettersDeleted: Number(data.deadLettersDeleted ?? 0),
+      communicationsRedacted: Number(data.communicationsRedacted ?? 0),
+      outboundMessagesRedacted: Number(data.outboundMessagesRedacted ?? 0),
+    };
+  }
+
   private async sendMessage(payload: {
     to: string;
     text: string;
@@ -104,9 +135,8 @@ export class WhatsappService {
         const errorMsg =
           data?.message || data?.error || `HTTP ${response.status}`;
         logger.error("Batch WhatsApp send failed", {
-          to: payload.to,
+          recipientHash: this.hashLogSubject(payload.to),
           status: response.status,
-          error: errorMsg,
         });
         return { success: false, error: String(errorMsg) };
       }
@@ -122,10 +152,17 @@ export class WhatsappService {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       logger.error("Batch WhatsApp request failed", {
-        to: payload.to,
-        error: errorMsg,
+        recipientHash: this.hashLogSubject(payload.to),
+        errorType: error instanceof Error ? error.name : "UnknownError",
       });
       return { success: false, error: errorMsg };
     }
+  }
+
+  private hashLogSubject(value: string): string {
+    return createHmac("sha256", this.internalToken || "whatsapp-log-redaction")
+      .update(value)
+      .digest("hex")
+      .slice(0, 16);
   }
 }

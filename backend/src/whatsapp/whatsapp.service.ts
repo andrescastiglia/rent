@@ -61,6 +61,13 @@ export type WhatsappTemplateOptions = {
   context?: WhatsappMessageContext;
 };
 
+export type WhatsappRetentionResult = {
+  processedInboxDeleted: number;
+  deadLettersDeleted: number;
+  communicationsRedacted: number;
+  outboundMessagesRedacted: number;
+};
+
 type WhatsappOutboundLogInput = {
   to: string;
   messageType: 'text' | 'document' | 'template';
@@ -105,6 +112,33 @@ export class WhatsappService implements OnApplicationBootstrap {
     process.env.WHATSAPP_ENABLED?.toLowerCase() === 'true';
   private readonly inboundEnabled =
     process.env.WHATSAPP_INBOUND_ENABLED?.toLowerCase() === 'true';
+  private readonly inboundDailyLimit = Math.max(
+    1,
+    Number.parseInt(process.env.WHATSAPP_INBOUND_DAILY_LIMIT ?? '50', 10) || 50,
+  );
+  private readonly inboxRetentionDays = Math.max(
+    1,
+    Number.parseInt(process.env.WHATSAPP_INBOX_RETENTION_DAYS ?? '7', 10) || 7,
+  );
+  private readonly deadLetterRetentionDays = Math.max(
+    1,
+    Number.parseInt(
+      process.env.WHATSAPP_DEAD_LETTER_RETENTION_DAYS ?? '30',
+      10,
+    ) || 30,
+  );
+  private readonly communicationRetentionDays = Math.max(
+    1,
+    Number.parseInt(
+      process.env.WHATSAPP_COMMUNICATION_RETENTION_DAYS ?? '365',
+      10,
+    ) || 365,
+  );
+  private readonly outboundRetentionDays = Math.max(
+    1,
+    Number.parseInt(process.env.WHATSAPP_OUTBOUND_RETENTION_DAYS ?? '90', 10) ||
+      90,
+  );
 
   constructor(
     @Optional()
@@ -267,10 +301,9 @@ export class WhatsappService implements OnApplicationBootstrap {
   }
 
   logIncomingError(error: unknown): void {
-    this.logger.error(
-      'Failed to process incoming WhatsApp message',
-      error instanceof Error ? error.stack : String(error),
-    );
+    this.logger.error('Failed to process incoming WhatsApp message', {
+      errorType: error instanceof Error ? error.name : 'UnknownError',
+    });
   }
 
   async acceptIncomingWebhook(payload: unknown): Promise<{ received: true }> {
@@ -339,6 +372,70 @@ export class WhatsappService implements OnApplicationBootstrap {
       if (result === 'failed') failed += 1;
     }
     return { selected: due.length, processed, failed };
+  }
+
+  async applyRetentionPolicy(): Promise<WhatsappRetentionResult> {
+    if (!this.dataSource || this.dataSource.options.type !== 'postgres') {
+      throw new ServiceUnavailableException(
+        'WhatsApp retention storage is unavailable',
+      );
+    }
+
+    const rows = await this.dataSource.query(
+      `WITH processed_inbox AS (
+         DELETE FROM whatsapp_webhook_inbox
+          WHERE status = 'processed'
+            AND processed_at < NOW() - ($1::int * INTERVAL '1 day')
+         RETURNING 1
+       ), dead_letters AS (
+         DELETE FROM whatsapp_webhook_inbox
+          WHERE status = 'dead_letter'
+            AND updated_at < NOW() - ($2::int * INTERVAL '1 day')
+         RETURNING 1
+       ), communications AS (
+         UPDATE person_communications
+            SET body = '[redacted]',
+                metadata = (
+                  COALESCE(metadata, '{}'::jsonb)
+                  - 'processingError'
+                  - 'processingErrorType'
+                ) || '{"retentionRedacted":true}'::jsonb,
+                updated_at = NOW()
+          WHERE created_at < NOW() - ($3::int * INTERVAL '1 day')
+            AND body <> '[redacted]'
+            AND (
+              whatsapp_message_id IS NOT NULL
+              OR metadata->>'provider' = 'meta'
+            )
+         RETURNING 1
+       ), outbound_messages AS (
+         UPDATE whatsapp_messages
+            SET recipient_phone = '[redacted]', text = NULL, pdf_url = NULL,
+                error_message = NULL, raw_response = '{}'::jsonb,
+                raw_status = '{}'::jsonb, updated_at = NOW()
+          WHERE created_at < NOW() - ($4::int * INTERVAL '1 day')
+            AND recipient_phone <> '[redacted]'
+         RETURNING 1
+       )
+       SELECT
+         (SELECT COUNT(*)::int FROM processed_inbox) AS processed_inbox_deleted,
+         (SELECT COUNT(*)::int FROM dead_letters) AS dead_letters_deleted,
+         (SELECT COUNT(*)::int FROM communications) AS communications_redacted,
+         (SELECT COUNT(*)::int FROM outbound_messages) AS outbound_messages_redacted`,
+      [
+        this.inboxRetentionDays,
+        this.deadLetterRetentionDays,
+        this.communicationRetentionDays,
+        this.outboundRetentionDays,
+      ],
+    );
+    const result = rows?.[0] ?? {};
+    return {
+      processedInboxDeleted: Number(result.processed_inbox_deleted ?? 0),
+      deadLettersDeleted: Number(result.dead_letters_deleted ?? 0),
+      communicationsRedacted: Number(result.communications_redacted ?? 0),
+      outboundMessagesRedacted: Number(result.outbound_messages_redacted ?? 0),
+    };
   }
 
   private async processWebhookInboxItem(
@@ -488,11 +585,12 @@ export class WhatsappService implements OnApplicationBootstrap {
   private async processIncomingMessage(
     message: Record<string, any>,
   ): Promise<void> {
-    const loggedFrom = message.from ?? 'unknown';
-    const loggedText = message.text?.body ?? '[non-text-message]';
-    this.logger.log(
-      `WhatsApp webhook message from ${loggedFrom}: ${loggedText}`,
-    );
+    const senderHash = this.hashLogSubject(String(message.from ?? 'unknown'));
+    this.logger.log('WhatsApp webhook message received', {
+      senderHash,
+      messageId: String(message.id ?? '') || undefined,
+      messageType: String(message.type ?? 'unknown'),
+    });
     if (!this.dataSource || this.dataSource.options.type !== 'postgres') return;
     const whatsappMessageId = String(message.id ?? '').trim();
     const from = this.normalizePhone(String(message.from ?? ''));
@@ -508,9 +606,9 @@ export class WhatsappService implements OnApplicationBootstrap {
       [from],
     );
     if (users.length !== 1) {
-      this.logger.warn(
-        `Ignored WhatsApp message from unconsented or ambiguous phone ${from}`,
-      );
+      this.logger.warn('Ignored unconsented or ambiguous WhatsApp sender', {
+        senderHash,
+      });
       return;
     }
     const user = users[0] as {
@@ -519,18 +617,51 @@ export class WhatsappService implements OnApplicationBootstrap {
       role: UserRole;
       language: string;
     };
-    const content = await this.extractIncomingContent(message);
-    if (!content.body) return;
+    const text = String(message.text?.body ?? '')
+      .trim()
+      .slice(0, 10000);
+    const hasVoice = Boolean(String(message.audio?.id ?? '').trim());
+    if (!text && !hasVoice) return;
+    let content: { body: string; type: 'text' | 'voice' } = text
+      ? { body: text, type: 'text' }
+      : { body: '[pending-transcription]', type: 'voice' };
     const personId = await this.resolvePersonId(user.id, user.role);
     const isStaff = [UserRole.ADMIN, UserRole.STAFF].includes(user.role);
+    const budgetKey = createHash('sha256')
+      .update(`whatsapp-inbound:${user.company_id}:${user.id}`)
+      .digest('hex');
     const inserted = await this.dataSource.query(
-      `INSERT INTO person_communications (
-         company_id, user_id, person_type, person_id, direction, message_type,
-         body, whatsapp_message_id, status, metadata
-       ) VALUES ($1::uuid, $2::uuid, $3, $4::uuid, 'inbound', $5, $6, $7,
-                 $8, $9::jsonb)
-       ON CONFLICT (whatsapp_message_id) WHERE whatsapp_message_id IS NOT NULL
-       DO NOTHING RETURNING id`,
+      `WITH inserted AS (
+         INSERT INTO person_communications (
+           company_id, user_id, person_type, person_id, direction, message_type,
+           body, whatsapp_message_id, status, metadata
+         ) VALUES ($1::uuid, $2::uuid, $3, $4::uuid, 'inbound', $5, $6, $7,
+                   $8, $9::jsonb)
+         ON CONFLICT (whatsapp_message_id) WHERE whatsapp_message_id IS NOT NULL
+         DO NOTHING RETURNING id
+       ), budget AS (
+         INSERT INTO api_rate_limit_buckets (
+           bucket_key, window_started_at, request_count, expires_at
+         )
+         SELECT $10, NOW(), 1, NOW() + INTERVAL '24 hours' FROM inserted
+         ON CONFLICT (bucket_key) DO UPDATE
+         SET request_count = CASE
+               WHEN api_rate_limit_buckets.expires_at <= NOW() THEN 1
+               ELSE api_rate_limit_buckets.request_count + 1
+             END,
+             window_started_at = CASE
+               WHEN api_rate_limit_buckets.expires_at <= NOW() THEN NOW()
+               ELSE api_rate_limit_buckets.window_started_at
+             END,
+             expires_at = CASE
+               WHEN api_rate_limit_buckets.expires_at <= NOW()
+                 THEN NOW() + INTERVAL '24 hours'
+               ELSE api_rate_limit_buckets.expires_at
+             END
+         RETURNING request_count
+       )
+       SELECT inserted.id, budget.request_count
+         FROM inserted CROSS JOIN budget`,
       [
         user.company_id,
         user.id,
@@ -540,12 +671,42 @@ export class WhatsappService implements OnApplicationBootstrap {
         content.body,
         whatsappMessageId,
         isStaff ? 'read' : 'new',
-        JSON.stringify({ provider: 'meta', originalType: message.type }),
+        JSON.stringify({
+          provider: 'meta',
+          originalType: message.type,
+        }),
+        budgetKey,
       ],
     );
-    if (!inserted[0]) return;
+    if (!inserted?.[0]) return;
+    const budgetExceeded =
+      Number(inserted[0].request_count ?? 1) > this.inboundDailyLimit;
+    if (budgetExceeded) {
+      await this.dataSource.query(
+        `UPDATE person_communications
+            SET body = '[rate-limited]',
+                metadata = metadata || '{"abuseLimited":true}'::jsonb,
+                updated_at = NOW()
+          WHERE id = $1::uuid`,
+        [inserted[0].id],
+      );
+      this.logger.warn('WhatsApp inbound abuse budget reached', {
+        senderHash,
+      });
+      return;
+    }
 
     try {
+      if (content.type === 'voice') {
+        content = await this.extractIncomingContent(message);
+        if (!content.body) return;
+        await this.dataSource.query(
+          `UPDATE person_communications
+              SET body = $2, updated_at = NOW()
+            WHERE id = $1::uuid`,
+          [inserted[0].id, content.body],
+        );
+      }
       const rollout = this.moduleRef?.get<AiRagRollout>(AI_RAG_ROLLOUT, {
         strict: false,
       });
@@ -586,8 +747,8 @@ export class WhatsappService implements OnApplicationBootstrap {
         [
           inserted[0].id,
           JSON.stringify({
-            processingError:
-              error instanceof Error ? error.message : String(error),
+            processingErrorType:
+              error instanceof Error ? error.name : 'UnknownError',
           }),
         ],
       );
@@ -736,8 +897,7 @@ export class WhatsappService implements OnApplicationBootstrap {
         `WhatsApp API request failed (${response.status})`;
       this.logger.error('Failed to send WhatsApp message', {
         status: response.status,
-        errorMessage,
-        to: logInput.to,
+        recipientHash: this.hashLogSubject(logInput.to),
       });
       await this.recordOutboundMessage({
         ...logInput,
@@ -750,7 +910,7 @@ export class WhatsappService implements OnApplicationBootstrap {
 
     const messageId = (data?.messages?.[0]?.id as string | undefined) ?? null;
     this.logger.log('WhatsApp message sent', {
-      to: logInput.to,
+      recipientHash: this.hashLogSubject(logInput.to),
       messageId,
     });
     await this.recordOutboundMessage({
@@ -1011,5 +1171,12 @@ export class WhatsappService implements OnApplicationBootstrap {
       return '';
     }
     return digits;
+  }
+
+  private hashLogSubject(value: string): string {
+    return createHmac('sha256', this.appSecret || 'whatsapp-log-redaction')
+      .update(value)
+      .digest('hex')
+      .slice(0, 16);
   }
 }

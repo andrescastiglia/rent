@@ -109,4 +109,17 @@ describe('runtime security configuration', () => {
       ),
     ).toThrow('WHATSAPP_INBOUND_ENABLED requires WHATSAPP_ENABLED=true');
   });
+
+  it('rejects invalid WhatsApp retention and abuse limits', () => {
+    expect(() =>
+      validateRuntimeEnvironment(
+        completeEnvironment({ WHATSAPP_INBOX_RETENTION_DAYS: '0' }),
+      ),
+    ).toThrow('WHATSAPP_INBOX_RETENTION_DAYS must be a positive integer');
+    expect(() =>
+      validateRuntimeEnvironment(
+        completeEnvironment({ WHATSAPP_INBOUND_DAILY_LIMIT: 'many' }),
+      ),
+    ).toThrow('WHATSAPP_INBOUND_DAILY_LIMIT must be a positive integer');
+  });
 });

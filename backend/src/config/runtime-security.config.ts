@@ -24,6 +24,15 @@ function valueOf(environment: Environment, key: string): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function assertPositiveInteger(environment: Environment, key: string): void {
+  const raw = valueOf(environment, key);
+  if (!raw) return;
+  const parsed = Number(raw);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    throw new Error(`${key} must be a positive integer`);
+  }
+}
+
 function parseAllowedOrigins(environment: Environment): string[] {
   const raw = valueOf(environment, 'FRONTEND_URL');
   if (!raw) {
@@ -116,6 +125,13 @@ export function validateRuntimeEnvironment(
   ) {
     throw new Error('WHATSAPP_INBOUND_ENABLED requires WHATSAPP_ENABLED=true');
   }
+  [
+    'WHATSAPP_INBOUND_DAILY_LIMIT',
+    'WHATSAPP_INBOX_RETENTION_DAYS',
+    'WHATSAPP_DEAD_LETTER_RETENTION_DAYS',
+    'WHATSAPP_COMMUNICATION_RETENTION_DAYS',
+    'WHATSAPP_OUTBOUND_RETENTION_DAYS',
+  ].forEach((key) => assertPositiveInteger(environment, key));
   if (valueOf(environment, 'MERCADOPAGO_ACCESS_TOKEN')) {
     required.push('MERCADOPAGO_WEBHOOK_SECRET');
   }

@@ -151,6 +151,51 @@ describe("WhatsappService", () => {
     );
   });
 
+  it("applies WhatsApp retention through the authenticated backend", async () => {
+    process.env.BACKEND_INTERNAL_URL = "http://backend:3001/";
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        processedInboxDeleted: 2,
+        deadLettersDeleted: 1,
+        communicationsRedacted: 3,
+        outboundMessagesRedacted: 4,
+      }),
+    });
+    const service = new WhatsappService();
+
+    await expect(service.applyRetentionPolicy()).resolves.toEqual({
+      processedInboxDeleted: 2,
+      deadLettersDeleted: 1,
+      communicationsRedacted: 3,
+      outboundMessagesRedacted: 4,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://backend:3001/whatsapp/internal/apply-retention",
+      {
+        method: "POST",
+        headers: { "x-batch-whatsapp-token": "internal-token" },
+      },
+    );
+  });
+
+  it("requires a token and propagates retention backend failures", async () => {
+    delete process.env.BATCH_WHATSAPP_INTERNAL_TOKEN;
+    await expect(new WhatsappService().applyRetentionPolicy()).rejects.toThrow(
+      "BATCH_WHATSAPP_INTERNAL_TOKEN not configured",
+    );
+
+    process.env.BATCH_WHATSAPP_INTERNAL_TOKEN = "internal-token";
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({ message: "retention unavailable" }),
+    });
+    await expect(new WhatsappService().applyRetentionPolicy()).rejects.toThrow(
+      "retention unavailable",
+    );
+  });
+
   it("returns HTTP error detail from backend response", async () => {
     fetchMock.mockResolvedValue({
       ok: false,

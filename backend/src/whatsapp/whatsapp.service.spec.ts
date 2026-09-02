@@ -502,6 +502,21 @@ describe('WhatsappService', () => {
     );
   });
 
+  it('does not expose incoming error details in logs', () => {
+    const service = buildService();
+    const logger = (service as any).logger;
+    const errorSpy = jest.spyOn(logger, 'error').mockImplementation();
+
+    service.logIncomingError(new Error('message from 5491112345678: secreto'));
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Failed to process incoming WhatsApp message',
+      { errorType: 'Error' },
+    );
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain('5491112345678');
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain('secreto');
+  });
+
   it('handleIncomingWebhook logs both no-message and message cases', async () => {
     const service = buildService();
     const logger = (service as any).logger;
@@ -524,9 +539,13 @@ describe('WhatsappService', () => {
         },
       ],
     });
-    expect(logSpy).toHaveBeenCalledWith(
-      'WhatsApp webhook message from 54911: hola',
-    );
+    expect(logSpy).toHaveBeenCalledWith('WhatsApp webhook message received', {
+      senderHash: expect.stringMatching(/^[0-9a-f]{16}$/),
+      messageId: undefined,
+      messageType: 'unknown',
+    });
+    expect(JSON.stringify(logSpy.mock.calls)).not.toContain('hola');
+    expect(JSON.stringify(logSpy.mock.calls)).not.toContain('54911');
   });
 
   it('handleIncomingWebhook logs non-text messages and tolerates malformed changes', async () => {
@@ -547,9 +566,11 @@ describe('WhatsappService', () => {
       ],
     });
 
-    expect(logSpy).toHaveBeenCalledWith(
-      'WhatsApp webhook message from unknown: [non-text-message]',
-    );
+    expect(logSpy).toHaveBeenCalledWith('WhatsApp webhook message received', {
+      senderHash: expect.stringMatching(/^[0-9a-f]{16}$/),
+      messageId: undefined,
+      messageType: 'unknown',
+    });
   });
 
   it('processes an opted-in owner message through AI and replies', async () => {
@@ -732,6 +753,103 @@ describe('WhatsappService', () => {
           ),
       ),
     ).toBe(true);
+  });
+
+  it('records but does not process messages beyond the inbound abuse budget', async () => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('FROM users')) {
+        return [
+          {
+            id: 'staff-1',
+            company_id: 'company-1',
+            role: 'staff',
+            language: 'es',
+          },
+        ];
+      }
+      if (sql.includes('INSERT INTO person_communications')) {
+        return [{ id: 'communication-limited', request_count: 3 }];
+      }
+      return [];
+    });
+    const respond = jest.fn();
+    const service = buildService(
+      { WHATSAPP_INBOUND_DAILY_LIMIT: '2' },
+      buildDataSource(query),
+      { get: jest.fn(() => ({ respond })) },
+    );
+
+    await service.handleIncomingWebhook({
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                messages: [
+                  {
+                    id: 'wamid-limited',
+                    from: '5491112345678',
+                    type: 'audio',
+                    audio: { id: 'media-never-downloaded' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const insertCall = (query.mock.calls as unknown[][]).find(([sql]) =>
+      String(sql).includes('INSERT INTO person_communications'),
+    );
+    expect(insertCall?.[1]).toEqual(
+      expect.arrayContaining([
+        'voice',
+        '[pending-transcription]',
+        'wamid-limited',
+        expect.stringMatching(/^[0-9a-f]{64}$/),
+      ]),
+    );
+    expect(insertCall?.[0]).toContain('INSERT INTO api_rate_limit_buckets');
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("body = '[rate-limited]'"),
+      ['communication-limited'],
+    );
+    expect(respond).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('applies configured retention and reports affected records', async () => {
+    const query = jest.fn().mockResolvedValue([
+      {
+        processed_inbox_deleted: 3,
+        dead_letters_deleted: 1,
+        communications_redacted: 7,
+        outbound_messages_redacted: 4,
+      },
+    ]);
+    const service = buildService(
+      {
+        WHATSAPP_INBOX_RETENTION_DAYS: '8',
+        WHATSAPP_DEAD_LETTER_RETENTION_DAYS: '31',
+        WHATSAPP_COMMUNICATION_RETENTION_DAYS: '366',
+        WHATSAPP_OUTBOUND_RETENTION_DAYS: '91',
+      },
+      buildDataSource(query),
+    );
+
+    await expect(service.applyRetentionPolicy()).resolves.toEqual({
+      processedInboxDeleted: 3,
+      deadLettersDeleted: 1,
+      communicationsRedacted: 7,
+      outboundMessagesRedacted: 4,
+    });
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("body = '[redacted]'"),
+      [8, 31, 366, 91],
+    );
+    expect(query.mock.calls[0][0]).toContain("recipient_phone = '[redacted]'");
   });
 
   it('downloads and transcribes WhatsApp voice messages', async () => {

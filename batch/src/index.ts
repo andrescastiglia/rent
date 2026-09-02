@@ -206,6 +206,18 @@ program
     }),
   );
 
+program
+  .command("apply-whatsapp-retention")
+  .description("Delete or redact expired WhatsApp operational data")
+  .option("--log <file>", "Write logs to the given file (no rotation)")
+  .action(
+    withTracedAction("apply-whatsapp-retention", async () => {
+      const { WhatsappService } = await import("./services/whatsapp.service");
+      const result = await new WhatsappService().applyRetentionPolicy();
+      logger.info("WhatsApp retention completed", result);
+    }),
+  );
+
 type SyncIndicesSummary = {
   recordsTotal: number;
   recordsProcessed: number;

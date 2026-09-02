@@ -96,6 +96,13 @@ export class WhatsappController {
   }
 
   @Public()
+  @Post('internal/apply-retention')
+  applyRetention(@Headers('x-batch-whatsapp-token') token?: string) {
+    this.whatsappService.assertBatchToken(token);
+    return this.whatsappService.applyRetentionPolicy();
+  }
+
+  @Public()
   @Get('documents/:documentId')
   async downloadDocument(
     @Param('documentId') documentId: string,

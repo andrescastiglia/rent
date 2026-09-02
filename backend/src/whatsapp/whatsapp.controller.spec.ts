@@ -11,6 +11,7 @@ describe('WhatsappController', () => {
     verifyWebhookSignature: jest.fn(),
     acceptIncomingWebhook: jest.fn(),
     processDueWebhookInbox: jest.fn(),
+    applyRetentionPolicy: jest.fn(),
     logIncomingError: jest.fn(),
     isDocumentTokenValid: jest.fn(),
   };
@@ -229,6 +230,26 @@ describe('WhatsappController', () => {
       'batch-token',
     );
     expect(whatsappService.processDueWebhookInbox).toHaveBeenCalledWith(10);
+  });
+
+  it('applyRetention authenticates the batch request', async () => {
+    whatsappService.applyRetentionPolicy.mockResolvedValue({
+      processedInboxDeleted: 2,
+      deadLettersDeleted: 1,
+      communicationsRedacted: 3,
+      outboundMessagesRedacted: 4,
+    });
+
+    await expect(controller.applyRetention('batch-token')).resolves.toEqual({
+      processedInboxDeleted: 2,
+      deadLettersDeleted: 1,
+      communicationsRedacted: 3,
+      outboundMessagesRedacted: 4,
+    });
+    expect(whatsappService.assertBatchToken).toHaveBeenCalledWith(
+      'batch-token',
+    );
+    expect(whatsappService.applyRetentionPolicy).toHaveBeenCalled();
   });
 
   it('downloadDocument rejects invalid token', async () => {
