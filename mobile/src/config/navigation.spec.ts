@@ -1,5 +1,7 @@
 import {
   canManageLeases,
+  canManageOwners,
+  canManageTenants,
   canUserAccessPath,
   getLandingPathForRole,
   getNavigationForRole,
@@ -14,6 +16,21 @@ describe('canManageLeases', () => {
     expect(canManageLeases('tenant')).toBe(false);
     expect(canManageLeases('buyer')).toBe(false);
   });
+});
+
+describe('self-service mutation policy', () => {
+  it.each(['admin', 'staff'])('allows %s to manage people', (role) => {
+    expect(canManageTenants(role)).toBe(true);
+    expect(canManageOwners(role)).toBe(true);
+  });
+
+  it.each(['owner', 'tenant', 'buyer', undefined])(
+    'keeps %s out of backoffice people mutations',
+    (role) => {
+      expect(canManageTenants(role)).toBe(false);
+      expect(canManageOwners(role)).toBe(false);
+    },
+  );
 });
 
 describe('buyer navigation', () => {
@@ -40,8 +57,9 @@ describe('getNavigationForRole', () => {
     const hrefs = items.map((item) => item.href);
 
     expect(hrefs).toContain('/dashboard');
-    expect(hrefs).toContain('/payments');
     expect(hrefs).toContain('/ai');
+    expect(hrefs).not.toContain('/payments');
+    expect(hrefs).not.toContain('/invoices');
     expect(hrefs).not.toContain('/properties');
     expect(hrefs).not.toContain('/users');
   });
@@ -97,6 +115,18 @@ describe('permission-aware navigation', () => {
     expect(canUserAccessPath({ role: 'owner' }, '/leases/new')).toBe(false);
     expect(canUserAccessPath({ role: 'owner' }, '/leases/l1/edit')).toBe(false);
     expect(canUserAccessPath({ role: 'owner' }, '/leases/l1')).toBe(true);
+    expect(canUserAccessPath({ role: 'owner' }, '/tenants/new')).toBe(false);
+    expect(canUserAccessPath({ role: 'owner' }, '/tenants/t1/edit')).toBe(
+      false,
+    );
+    expect(
+      canUserAccessPath({ role: 'owner' }, '/tenants/t1/payments/new'),
+    ).toBe(false);
+    expect(canUserAccessPath({ role: 'owner' }, '/owners/new')).toBe(false);
+    expect(canUserAccessPath({ role: 'owner' }, '/owners/o1/pay')).toBe(false);
+    expect(canUserAccessPath({ role: 'owner' }, '/owners/o1/edit')).toBe(true);
+    expect(canUserAccessPath({ role: 'tenant' }, '/payments')).toBe(false);
+    expect(canUserAccessPath({ role: 'tenant' }, '/invoices/i1')).toBe(false);
     expect(canUserAccessPath({ role: 'tenant' }, '/unknown')).toBe(false);
   });
 });

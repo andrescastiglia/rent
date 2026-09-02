@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
-import { canManageLeases } from "@/lib/permissions";
+import { canManageLeases, canManageOwners } from "@/lib/permissions";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 
 const byMostRecentDate = <T extends { updatedAt: string; createdAt: string }>(
@@ -466,6 +466,7 @@ type OwnerListItemProps = {
   leasesByProperty: Record<string, Lease[]>;
   maintenanceByProperty: Record<string, PropertyMaintenanceTask[]>;
   loadingPaymentsOwnerId: string | null;
+  canManageOwnerBackoffice: boolean;
   t: (key: string) => string;
   tc: (key: string) => string;
   formatSalePrice: (property: Property) => string;
@@ -601,6 +602,7 @@ function OwnerListItem({
   leasesByProperty,
   maintenanceByProperty,
   loadingPaymentsOwnerId,
+  canManageOwnerBackoffice,
   t,
   tc,
   formatSalePrice,
@@ -650,13 +652,15 @@ function OwnerListItem({
             <Edit size={14} />
             {tc("edit")}
           </Link>
-          <Link
-            href={`/${locale}/properties/owners/${owner.id}/payments/new`}
-            className={ownerActionClass}
-          >
-            <Wallet size={14} />
-            {t("ownerPay")}
-          </Link>
+          {canManageOwnerBackoffice ? (
+            <Link
+              href={`/${locale}/properties/owners/${owner.id}/payments/new`}
+              className={ownerActionClass}
+            >
+              <Wallet size={14} />
+              {t("ownerPay")}
+            </Link>
+          ) : null}
           <span className="ml-auto text-gray-400 dark:text-gray-500 md:ml-0">
             <button
               type="button"
@@ -724,6 +728,7 @@ type OwnersResultsProps = {
   leasesByProperty: Record<string, Lease[]>;
   maintenanceByProperty: Record<string, PropertyMaintenanceTask[]>;
   loadingPaymentsOwnerId: string | null;
+  canManageOwnerBackoffice: boolean;
   t: (key: string) => string;
   tc: (key: string) => string;
   formatSalePrice: (property: Property) => string;
@@ -745,6 +750,7 @@ function OwnersResults({
   leasesByProperty,
   maintenanceByProperty,
   loadingPaymentsOwnerId,
+  canManageOwnerBackoffice,
   t,
   tc,
   formatSalePrice,
@@ -778,6 +784,7 @@ function OwnersResults({
           leasesByProperty={leasesByProperty}
           maintenanceByProperty={maintenanceByProperty}
           loadingPaymentsOwnerId={loadingPaymentsOwnerId}
+          canManageOwnerBackoffice={canManageOwnerBackoffice}
           t={t}
           tc={tc}
           formatSalePrice={formatSalePrice}
@@ -792,7 +799,8 @@ function OwnersResults({
 }
 
 export default function PropertiesPage() {
-  const { loading: authLoading } = useAuth();
+  const { loading: authLoading, user } = useAuth();
+  const canManageOwnerBackoffice = canManageOwners(user?.role);
   const t = useTranslations("properties");
   const tc = useTranslations("common");
   const locale = useLocale();
@@ -837,7 +845,7 @@ export default function PropertiesPage() {
     loadData().catch((error) => {
       console.error("Failed to load owner/property data", error);
     });
-  }, [authLoading]);
+  }, [authLoading, user?.role]);
 
   useEffect(() => {
     if (
@@ -854,7 +862,9 @@ export default function PropertiesPage() {
     try {
       const [propertiesResult, ownersResult] = await Promise.all([
         propertiesApi.getAll(),
-        ownersApi.getAll(),
+        user?.role === "owner"
+          ? ownersApi.getMyProfile().then((owner) => [owner])
+          : ownersApi.getAll(),
       ]);
       setProperties(propertiesResult);
       setOwners(ownersResult);
@@ -977,13 +987,15 @@ export default function PropertiesPage() {
             {t("ownerListSubtitle")}
           </p>
         </div>
-        <Link
-          href={`/${locale}/properties/owners/new`}
-          className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-        >
-          <Plus size={18} className="mr-2" />
-          {t("addOwner")}
-        </Link>
+        {canManageOwnerBackoffice ? (
+          <Link
+            href={`/${locale}/properties/owners/new`}
+            className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+          >
+            <Plus size={18} className="mr-2" />
+            {t("addOwner")}
+          </Link>
+        ) : null}
       </div>
 
       {loading ? (
@@ -1020,6 +1032,7 @@ export default function PropertiesPage() {
             leasesByProperty={leasesByProperty}
             maintenanceByProperty={maintenanceByProperty}
             loadingPaymentsOwnerId={loadingPaymentsOwnerId}
+            canManageOwnerBackoffice={canManageOwnerBackoffice}
             t={t}
             tc={tc}
             formatSalePrice={formatSalePrice}

@@ -41,10 +41,11 @@ describe('AiController', () => {
   });
 
   it('listTools returns mode and tools', () => {
-    expect(controller.listTools()).toEqual({
+    expect(controller.listTools(req)).toEqual({
       mode: 'FULL',
       tools: [{ name: 'tool-1' }],
     });
+    expect(executor.listTools).toHaveBeenCalledWith(UserRole.ADMIN);
   });
 
   it('listOpenAiTools forwards request context', () => {

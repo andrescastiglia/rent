@@ -15,7 +15,7 @@ import { leasesApi } from '@/api/leases';
 import { ownersApi } from '@/api/owners';
 import { propertiesApi } from '@/api/properties';
 import { Screen } from '@/components/screen';
-import { canManageLeases } from '@/config/navigation';
+import { canManageLeases, canManageOwners } from '@/config/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { i18n } from '@/i18n';
 import type { Lease } from '@/types/lease';
@@ -121,13 +121,18 @@ export default function PropertiesScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const canManage = canManageLeases(user?.role);
+  const canManageOwnerBackoffice = canManageOwners(user?.role);
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [expandedOwnerId, setExpandedOwnerId] = useState<string | null>(null);
 
   const ownersQuery = useQuery({
-    queryKey: ['owners'],
-    queryFn: ownersApi.getAll,
+    queryKey: ['owners', user?.id, user?.role],
+    queryFn: async () =>
+      user?.role === 'owner'
+        ? [await ownersApi.getMyProfile()]
+        : ownersApi.getAll(),
+    enabled: Boolean(user),
   });
 
   const propertiesQuery = useQuery({
@@ -298,13 +303,15 @@ export default function PropertiesScreen() {
                   }
                   testID={`owner.edit.${owner.id}`}
                 />
-                <ActionChip
-                  title={t('properties.ownerPay')}
-                  onPress={() =>
-                    router.push(`/(app)/owners/${owner.id}/pay` as never)
-                  }
-                  testID={`owner.pay.${owner.id}`}
-                />
+                {canManageOwnerBackoffice ? (
+                  <ActionChip
+                    title={t('properties.ownerPay')}
+                    onPress={() =>
+                      router.push(`/(app)/owners/${owner.id}/pay` as never)
+                    }
+                    testID={`owner.pay.${owner.id}`}
+                  />
+                ) : null}
               </View>
 
               {isExpanded ? (

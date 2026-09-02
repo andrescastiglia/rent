@@ -155,6 +155,15 @@ export const ownersApi = {
     return result.map(mapOwner);
   },
 
+  async getMyProfile(): Promise<Owner> {
+    if (IS_MOCK_MODE) {
+      return MOCK_OWNERS[0];
+    }
+
+    const result = await apiClient.get<BackendOwner>('/owners/me');
+    return mapOwner(result);
+  },
+
   async getById(id: string): Promise<Owner | null> {
     if (IS_MOCK_MODE) {
       return MOCK_OWNERS.find((owner) => owner.id === id) ?? null;

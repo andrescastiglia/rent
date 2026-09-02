@@ -10,7 +10,10 @@ export default function TenantsLayout({
 }) {
   return (
     <MainLayout>
-      <RoleGuard allowedRoles={["admin", "staff"]} requiredModule="tenants">
+      <RoleGuard
+        allowedRoles={["admin", "owner", "staff"]}
+        requiredModule="tenants"
+      >
         {children}
       </RoleGuard>
     </MainLayout>

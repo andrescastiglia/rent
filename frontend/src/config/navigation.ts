@@ -71,14 +71,14 @@ export const navigationItems: NavItem[] = [
   {
     labelKey: "payments",
     href: "/payments",
-    roles: ["admin", "owner", "tenant", "staff"],
+    roles: ["admin", "staff"],
     moduleKey: "payments",
     icon: CreditCard,
   },
   {
     labelKey: "invoices",
     href: "/invoices",
-    roles: ["admin", "owner", "tenant", "staff"],
+    roles: ["admin", "staff"],
     moduleKey: "invoices",
     icon: Receipt,
   },

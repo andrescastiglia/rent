@@ -6,12 +6,16 @@ import { useTranslation } from 'react-i18next';
 import { tenantsApi } from '@/api/tenants';
 import { Screen } from '@/components/screen';
 import { AppButton, H1 } from '@/components/ui';
+import { canManageTenants } from '@/config/navigation';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function TenantDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const canManage = canManageTenants(user?.role);
 
   const query = useQuery({
     queryKey: ['tenants', id],
@@ -46,7 +50,7 @@ export default function TenantDetailScreen() {
         <Text>{t('tenants.notFound')}</Text>
       ) : null}
 
-      {tenant ? (
+      {tenant && canManage ? (
         <View style={styles.card}>
           <Text
             style={styles.title}

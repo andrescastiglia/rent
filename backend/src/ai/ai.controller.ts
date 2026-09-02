@@ -48,10 +48,10 @@ export class AiController {
   ) {}
 
   @Get()
-  listTools() {
+  listTools(@Request() req: AuthenticatedRequest) {
     return {
       mode: this.executor.getMode(),
-      tools: this.executor.listTools(),
+      tools: this.executor.listTools(req.user.role),
     };
   }
 

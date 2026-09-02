@@ -13,6 +13,7 @@ import {
   AiToolDefinition,
   AiToolsMode,
 } from './types/ai-tool.types';
+import { canRoleUseAiTool } from './ai-tool-access-policy';
 
 @Injectable()
 export class AiToolExecutorService {
@@ -36,17 +37,20 @@ export class AiToolExecutorService {
     return 'NONE';
   }
 
-  listTools() {
+  listTools(role: UserRole) {
     const mode = this.getMode();
-    return this.catalog.getDefinitions().map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-      mutability: tool.mutability,
-      enabled:
-        mode === 'FULL' ||
-        (mode === 'READONLY' && tool.mutability === 'readonly'),
-      allowedRoles: tool.allowedRoles,
-    }));
+    return this.catalog
+      .getDefinitions()
+      .filter((tool) => canRoleUseAiTool(tool, role))
+      .map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        mutability: tool.mutability,
+        enabled:
+          mode === 'FULL' ||
+          (mode === 'READONLY' && tool.mutability === 'readonly'),
+        allowedRoles: tool.allowedRoles,
+      }));
   }
 
   async execute(
@@ -380,21 +384,7 @@ export class AiToolExecutorService {
     definition: AiToolDefinition,
     role: UserRole,
   ): void {
-    if (
-      definition.mutability === 'mutable' &&
-      ![UserRole.ADMIN, UserRole.STAFF].includes(role)
-    ) {
-      throw new ForbiddenException(
-        `Role ${role} can only query its own data or register a communication`,
-      );
-    }
-    if (
-      definition.mutability === 'mutable' &&
-      [UserRole.ADMIN, UserRole.STAFF].includes(role)
-    ) {
-      return;
-    }
-    if (!definition.allowedRoles.includes(role)) {
+    if (!canRoleUseAiTool(definition, role)) {
       throw new ForbiddenException(
         `Role ${role} is not allowed to execute ${definition.name}`,
       );

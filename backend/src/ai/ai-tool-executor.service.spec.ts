@@ -267,7 +267,7 @@ describe('AiToolExecutorService', () => {
 
   it('should list tools with enabled status based on mode', () => {
     process.env.AI_TOOLS_MODE = 'READONLY';
-    const tools = service.listTools();
+    const tools = service.listTools(UserRole.ADMIN);
     expect(tools).toEqual([
       {
         name: 'users_list',
@@ -282,8 +282,52 @@ describe('AiToolExecutorService', () => {
   it('should mark mutable tools as disabled in READONLY mode', () => {
     process.env.AI_TOOLS_MODE = 'READONLY';
     testTool.mutability = 'mutable';
-    const tools = service.listTools();
+    const tools = service.listTools(UserRole.ADMIN);
     expect(tools[0].enabled).toBe(false);
+  });
+
+  it('hides non-profile tools from self-service role listings', () => {
+    testTool.allowedRoles = [UserRole.BUYER];
+
+    expect(service.listTools(UserRole.BUYER)).toEqual([]);
+
+    testTool.name = 'get_auth_profile';
+    expect(service.listTools(UserRole.BUYER)).toHaveLength(1);
+  });
+
+  it('rejects direct self-service execution outside safe profile reads', async () => {
+    process.env.AI_TOOLS_MODE = 'FULL';
+    testTool.allowedRoles = [UserRole.BUYER];
+
+    await expect(
+      service.execute(
+        'users_list',
+        { page: 1 },
+        {
+          ...context,
+          role: UserRole.BUYER,
+        },
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(testTool.execute).not.toHaveBeenCalled();
+  });
+
+  it('allows direct self-service execution for safe profile reads', async () => {
+    process.env.AI_TOOLS_MODE = 'FULL';
+    testTool.name = 'get_auth_profile';
+    testTool.allowedRoles = [UserRole.BUYER];
+
+    await service.execute(
+      'get_auth_profile',
+      { page: 1 },
+      {
+        ...context,
+        role: UserRole.BUYER,
+      },
+    );
+
+    expect(testTool.execute).toHaveBeenCalled();
   });
 
   it('should apply defaults from Zod schema when args are empty', async () => {

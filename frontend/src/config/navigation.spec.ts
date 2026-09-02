@@ -42,6 +42,8 @@ describe("getNavigationForRole", () => {
     const tenantHrefs = result.map((i) => i.href);
     expect(tenantHrefs).toContain("/dashboard");
     expect(tenantHrefs).toContain("/leases");
+    expect(tenantHrefs).not.toContain("/payments");
+    expect(tenantHrefs).not.toContain("/invoices");
     expect(tenantHrefs).not.toContain("/users");
     expect(tenantHrefs).not.toContain("/properties");
   });
@@ -51,9 +53,10 @@ describe("getNavigationForRole", () => {
   });
 
   it("does not expose the company CRM to owners", () => {
-    expect(
-      getNavigationForRole("owner").map((item) => item.href),
-    ).not.toContain("/interested");
+    const ownerRoutes = getNavigationForRole("owner").map((item) => item.href);
+    expect(ownerRoutes).not.toContain("/interested");
+    expect(ownerRoutes).not.toContain("/payments");
+    expect(ownerRoutes).not.toContain("/invoices");
   });
 });
 

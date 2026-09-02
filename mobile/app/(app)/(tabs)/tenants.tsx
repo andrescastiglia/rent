@@ -14,6 +14,8 @@ import { useTranslation } from 'react-i18next';
 import { tenantsApi } from '@/api/tenants';
 import { Screen } from '@/components/screen';
 import { H1 } from '@/components/ui';
+import { canManageTenants } from '@/config/navigation';
+import { useAuth } from '@/contexts/auth-context';
 
 type ActionChipProps = Readonly<{
   title: string;
@@ -31,6 +33,8 @@ function ActionChip({ title, onPress, testID }: ActionChipProps) {
 
 export default function TenantsScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const canManage = canManageTenants(user?.role);
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -123,22 +127,26 @@ export default function TenantsScreen() {
             <Text style={styles.detail}>{tenant.phone || '-'}</Text>
 
             <View style={styles.actionsRow}>
-              <ActionChip
-                title={t('common.edit')}
-                onPress={() =>
-                  router.push(`/(app)/tenants/${tenant.id}/edit` as never)
-                }
-                testID={`tenant.edit.${tenant.id}`}
-              />
-              <ActionChip
-                title={t('tenants.paymentRegistration.title')}
-                onPress={() =>
-                  router.push(
-                    `/(app)/tenants/${tenant.id}/payments/new` as never,
-                  )
-                }
-                testID={`tenant.payment.new.${tenant.id}`}
-              />
+              {canManage ? (
+                <>
+                  <ActionChip
+                    title={t('common.edit')}
+                    onPress={() =>
+                      router.push(`/(app)/tenants/${tenant.id}/edit` as never)
+                    }
+                    testID={`tenant.edit.${tenant.id}`}
+                  />
+                  <ActionChip
+                    title={t('tenants.paymentRegistration.title')}
+                    onPress={() =>
+                      router.push(
+                        `/(app)/tenants/${tenant.id}/payments/new` as never,
+                      )
+                    }
+                    testID={`tenant.payment.new.${tenant.id}`}
+                  />
+                </>
+              ) : null}
               <ActionChip
                 title={t('tenants.activities.add')}
                 onPress={() =>
