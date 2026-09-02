@@ -10,16 +10,16 @@ import { forceLogout } from "./forceLogout";
 describe("forceLogout", () => {
   const originalLocation = (globalThis as any).location;
 
-  const setLocation = (pathname: string, assign = jest.fn()) => {
+  const setLocation = (pathname: string, replace = jest.fn()) => {
     Object.defineProperty(globalThis, "location", {
       configurable: true,
       writable: true,
       value: {
         pathname,
-        assign,
+        replace,
       },
     });
-    return assign;
+    return replace;
   };
 
   afterEach(() => {
@@ -32,28 +32,28 @@ describe("forceLogout", () => {
   });
 
   it("redirects to locale login path and clears auth", () => {
-    const assign = setLocation("/pt/dashboard");
+    const replace = setLocation("/pt/dashboard");
 
     forceLogout();
 
     expect(clearAuth).toHaveBeenCalled();
-    expect(assign).toHaveBeenCalledWith("/pt/login");
+    expect(replace).toHaveBeenCalledWith("/pt/login");
   });
 
   it("avoids redirect loop when already on login", () => {
-    const assign = setLocation("/es/login");
+    const replace = setLocation("/es/login");
 
     forceLogout();
 
     expect(clearAuth).toHaveBeenCalled();
-    expect(assign).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
   });
 
   it("falls back to default locale when path has no locale segment", () => {
-    const assign = setLocation("/dashboard");
+    const replace = setLocation("/dashboard");
 
     forceLogout();
 
-    expect(assign).toHaveBeenCalledWith("/es/login");
+    expect(replace).toHaveBeenCalledWith("/es/login");
   });
 });

@@ -19,5 +19,5 @@ export function forceLogout(): void {
   const loginPath = `/${locale}/login`;
   if (pathname.startsWith(loginPath)) return;
 
-  globalThis.location.assign(loginPath);
+  globalThis.location.replace(loginPath);
 }
