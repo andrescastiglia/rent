@@ -2,10 +2,10 @@ import { TenantAccountsController } from './tenant-accounts.controller';
 
 describe('TenantAccountsController', () => {
   const tenantAccountsService = {
-    findByLease: jest.fn(),
-    findOne: jest.fn(),
-    getMovements: jest.fn(),
-    getBalanceInfo: jest.fn(),
+    findByLeaseScoped: jest.fn(),
+    findOneScoped: jest.fn(),
+    getMovementsScoped: jest.fn(),
+    getBalanceInfoScoped: jest.fn(),
   };
   let controller: TenantAccountsController;
 
@@ -15,11 +15,13 @@ describe('TenantAccountsController', () => {
   });
 
   it('delegates account retrieval endpoints', async () => {
-    const request = { user: { companyId: 'company-a' } } as any;
-    tenantAccountsService.findByLease.mockResolvedValue({ id: 'acc-1' });
-    tenantAccountsService.findOne.mockResolvedValue({ id: 'acc-1' });
-    tenantAccountsService.getMovements.mockResolvedValue([]);
-    tenantAccountsService.getBalanceInfo.mockResolvedValue({
+    const request = {
+      user: { id: 'admin-1', companyId: 'company-a', role: 'admin' },
+    } as any;
+    tenantAccountsService.findByLeaseScoped.mockResolvedValue({ id: 'acc-1' });
+    tenantAccountsService.findOneScoped.mockResolvedValue({ id: 'acc-1' });
+    tenantAccountsService.getMovementsScoped.mockResolvedValue([]);
+    tenantAccountsService.getBalanceInfoScoped.mockResolvedValue({
       balance: 100,
       lateFee: 0,
     });
@@ -37,13 +39,13 @@ describe('TenantAccountsController', () => {
       balance: 100,
       lateFee: 0,
     });
-    expect(tenantAccountsService.findByLease).toHaveBeenCalledWith(
+    expect(tenantAccountsService.findByLeaseScoped).toHaveBeenCalledWith(
       'lease-1',
-      'company-a',
+      request.user,
     );
-    expect(tenantAccountsService.findOne).toHaveBeenCalledWith(
+    expect(tenantAccountsService.findOneScoped).toHaveBeenCalledWith(
       'acc-1',
-      'company-a',
+      request.user,
     );
   });
 });

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import {
@@ -266,6 +267,7 @@ export class InvoicesService {
   }
 
   async findOneScoped(id: string, user: RequestUser): Promise<Invoice> {
+    this.requireCompanyScope(user);
     const query = this.invoicesRepository
       .createQueryBuilder('invoice')
       .leftJoinAndSelect('invoice.lease', 'lease')
@@ -305,6 +307,7 @@ export class InvoicesService {
     },
     user: RequestUser,
   ): Promise<{ data: Invoice[]; total: number; page: number; limit: number }> {
+    this.requireCompanyScope(user);
     const { leaseId, ownerId, status, page = 1, limit = 10 } = filters;
 
     const query = this.invoicesRepository
@@ -353,30 +356,26 @@ export class InvoicesService {
       return;
     }
 
-    const email = (user.email ?? '').trim().toLowerCase();
-    const phone = (user.phone ?? '').trim();
-
     if (user.role === UserRole.OWNER) {
-      query.andWhere(
-        `(owner.user_id = :scopeUserId OR LOWER(ownerUser.email) = :scopeEmail OR (:scopePhone <> '' AND ownerUser.phone = :scopePhone))`,
-        {
-          scopeUserId: user.id,
-          scopeEmail: email,
-          scopePhone: phone,
-        },
-      );
+      query.andWhere('owner.user_id = :scopeUserId', {
+        scopeUserId: user.id,
+      });
       return;
     }
 
     if (user.role === UserRole.TENANT) {
-      query.andWhere(
-        `(tenant.user_id = :scopeUserId OR LOWER(tenantUser.email) = :scopeEmail OR (:scopePhone <> '' AND tenantUser.phone = :scopePhone))`,
-        {
-          scopeUserId: user.id,
-          scopeEmail: email,
-          scopePhone: phone,
-        },
-      );
+      query.andWhere('tenant.user_id = :scopeUserId', {
+        scopeUserId: user.id,
+      });
+      return;
+    }
+
+    throw new ForbiddenException('Unsupported invoice access role');
+  }
+
+  private requireCompanyScope(user: RequestUser): void {
+    if (!user.companyId) {
+      throw new ForbiddenException('Company scope required');
     }
   }
 

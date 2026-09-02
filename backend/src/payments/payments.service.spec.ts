@@ -604,10 +604,7 @@ describe('PaymentsService', () => {
     );
     expect(qb.andWhere).toHaveBeenCalledWith(
       expect.stringContaining('owner.user_id = :scopeUserId'),
-      expect.objectContaining({
-        scopeUserId: 'owner-1',
-        scopeEmail: 'owner@mail.com',
-      }),
+      { scopeUserId: 'owner-1' },
     );
     expect(qb.andWhere).toHaveBeenCalledWith(
       'payment.company_id = :companyId',

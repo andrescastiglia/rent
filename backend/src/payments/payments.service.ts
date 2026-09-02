@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import {
@@ -530,6 +531,7 @@ export class PaymentsService {
   }
 
   async findOneScoped(id: string, user: RequestUser): Promise<Payment> {
+    this.requireCompanyScope(user);
     const query = this.paymentsRepository
       .createQueryBuilder('payment')
       .leftJoinAndSelect('payment.tenantAccount', 'account')
@@ -560,6 +562,7 @@ export class PaymentsService {
     tenantId: string,
     user: RequestUser,
   ): Promise<Receipt[]> {
+    this.requireCompanyScope(user);
     const query = this.receiptsRepository
       .createQueryBuilder('receipt')
       .leftJoinAndSelect('receipt.payment', 'payment')
@@ -613,6 +616,7 @@ export class PaymentsService {
     filters: PaymentFiltersDto,
     user: RequestUser,
   ): Promise<{ data: Payment[]; total: number; page: number; limit: number }> {
+    this.requireCompanyScope(user);
     const {
       tenantId,
       tenantAccountId,
@@ -705,30 +709,26 @@ export class PaymentsService {
       return;
     }
 
-    const email = (user.email ?? '').trim().toLowerCase();
-    const phone = (user.phone ?? '').trim();
-
     if (user.role === UserRole.OWNER) {
-      query.andWhere(
-        `(owner.user_id = :scopeUserId OR LOWER(ownerUser.email) = :scopeEmail OR (:scopePhone <> '' AND ownerUser.phone = :scopePhone))`,
-        {
-          scopeUserId: user.id,
-          scopeEmail: email,
-          scopePhone: phone,
-        },
-      );
+      query.andWhere('owner.user_id = :scopeUserId', {
+        scopeUserId: user.id,
+      });
       return;
     }
 
     if (user.role === UserRole.TENANT) {
-      query.andWhere(
-        `(tenant.user_id = :scopeUserId OR LOWER(tenantUser.email) = :scopeEmail OR (:scopePhone <> '' AND tenantUser.phone = :scopePhone))`,
-        {
-          scopeUserId: user.id,
-          scopeEmail: email,
-          scopePhone: phone,
-        },
-      );
+      query.andWhere('tenant.user_id = :scopeUserId', {
+        scopeUserId: user.id,
+      });
+      return;
+    }
+
+    throw new ForbiddenException('Unsupported payment access role');
+  }
+
+  private requireCompanyScope(user: RequestUser): void {
+    if (!user.companyId) {
+      throw new ForbiddenException('Company scope required');
     }
   }
 

@@ -19,40 +19,31 @@ export class TenantAccountsController {
    * Obtiene la cuenta de un contrato.
    */
   @Get('lease/:leaseId')
-  findByLease(@Param('leaseId') leaseId: string, @Request() req?: any) {
-    return this.tenantAccountsService.findByLease(
-      leaseId,
-      req?.user?.companyId ?? '',
-    );
+  findByLease(@Param('leaseId') leaseId: string, @Request() req: any) {
+    return this.tenantAccountsService.findByLeaseScoped(leaseId, req.user);
   }
 
   /**
    * Obtiene una cuenta por ID.
    */
   @Get(':id')
-  findOne(@Param('id') id: string, @Request() req?: any) {
-    return this.tenantAccountsService.findOne(id, req?.user?.companyId ?? '');
+  findOne(@Param('id') id: string, @Request() req: any) {
+    return this.tenantAccountsService.findOneScoped(id, req.user);
   }
 
   /**
    * Obtiene los movimientos de una cuenta.
    */
   @Get(':id/movements')
-  getMovements(@Param('id') id: string, @Request() req?: any) {
-    return this.tenantAccountsService.getMovements(
-      id,
-      req?.user?.companyId ?? '',
-    );
+  getMovements(@Param('id') id: string, @Request() req: any) {
+    return this.tenantAccountsService.getMovementsScoped(id, req.user);
   }
 
   /**
    * Obtiene el balance y mora de una cuenta.
    */
   @Get(':id/balance')
-  getBalance(@Param('id') id: string, @Request() req?: any) {
-    return this.tenantAccountsService.getBalanceInfo(
-      id,
-      req?.user?.companyId ?? '',
-    );
+  getBalance(@Param('id') id: string, @Request() req: any) {
+    return this.tenantAccountsService.getBalanceInfoScoped(id, req.user);
   }
 }

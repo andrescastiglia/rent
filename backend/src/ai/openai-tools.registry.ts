@@ -1854,9 +1854,9 @@ export function buildAiToolDefinitions(
         const { leaseId } = z
           .object({ leaseId: uuidSchema })
           .parse(args) as any;
-        return deps.tenantAccountsService.findByLease(
+        return deps.tenantAccountsService.findByLeaseScoped(
           leaseId,
-          context.companyId ?? '',
+          toRequestUser(context) as any,
         );
       },
     },
@@ -1871,7 +1871,10 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.tenantAccountsService.findOne(id, context.companyId ?? '');
+        return deps.tenantAccountsService.findOneScoped(
+          id,
+          toRequestUser(context) as any,
+        );
       },
     },
     {
@@ -1885,9 +1888,9 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.tenantAccountsService.getMovements(
+        return deps.tenantAccountsService.getMovementsScoped(
           id,
-          context.companyId ?? '',
+          toRequestUser(context) as any,
         );
       },
     },
@@ -1902,9 +1905,9 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.tenantAccountsService.getBalanceInfo(
+        return deps.tenantAccountsService.getBalanceInfoScoped(
           id,
-          context.companyId ?? '',
+          toRequestUser(context) as any,
         );
       },
     },

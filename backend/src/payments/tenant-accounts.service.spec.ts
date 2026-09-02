@@ -13,6 +13,7 @@ describe('TenantAccountsService', () => {
     save: jest.fn(),
     findOne: jest.fn(),
     update: jest.fn(),
+    createQueryBuilder: jest.fn(),
   };
   const movementsRepository = {
     create: jest.fn(),
@@ -44,6 +45,51 @@ describe('TenantAccountsService', () => {
       leasesRepository as any,
       dataSource as any,
     );
+  });
+
+  it('scopes account reads by company and tenant identity', async () => {
+    const query = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue({ id: 'acc-1', balance: 0 }),
+    };
+    accountsRepository.createQueryBuilder.mockReturnValue(query);
+
+    await expect(
+      service.findOneScoped('acc-1', {
+        id: 'tenant-user-1',
+        companyId: 'company-a',
+        role: 'tenant',
+      } as any),
+    ).resolves.toEqual(expect.objectContaining({ id: 'acc-1' }));
+
+    expect(query.where).toHaveBeenCalledWith(
+      'account.company_id = :companyId',
+      { companyId: 'company-a' },
+    );
+    expect(query.andWhere).toHaveBeenCalledWith(
+      'tenant.user_id = :scopeUserId',
+      { scopeUserId: 'tenant-user-1' },
+    );
+  });
+
+  it('does not expose an account from another company', async () => {
+    const query = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    };
+    accountsRepository.createQueryBuilder.mockReturnValue(query);
+
+    await expect(
+      service.findOneScoped('foreign-account', {
+        id: 'admin-1',
+        companyId: 'company-a',
+        role: 'admin',
+      } as any),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('createForLease handles missing lease/existing account/missing tenant/success', async () => {

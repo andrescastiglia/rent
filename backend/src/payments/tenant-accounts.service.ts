@@ -1,6 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  Repository,
+  SelectQueryBuilder,
+} from 'typeorm';
 import { TenantAccount } from './entities/tenant-account.entity';
 import {
   TenantAccountMovement,
@@ -8,6 +17,13 @@ import {
 } from './entities/tenant-account-movement.entity';
 import { Lease, LateFeeType } from '../leases/entities/lease.entity';
 import { InvoiceStatus } from './entities/invoice.entity';
+import { UserRole } from '../users/entities/user.entity';
+
+type TenantAccountActor = {
+  id: string;
+  companyId: string;
+  role: UserRole;
+};
 
 /**
  * Servicio para gestionar cuentas corrientes de inquilinos.
@@ -85,6 +101,13 @@ export class TenantAccountsService {
     return account;
   }
 
+  async findOneScoped(
+    id: string,
+    user: TenantAccountActor,
+  ): Promise<TenantAccount> {
+    return this.findScoped({ id }, user, `Tenant account with ID ${id}`);
+  }
+
   /**
    * Obtiene la cuenta de un contrato.
    * @param leaseId ID del contrato
@@ -107,6 +130,17 @@ export class TenantAccountsService {
     return account;
   }
 
+  async findByLeaseScoped(
+    leaseId: string,
+    user: TenantAccountActor,
+  ): Promise<TenantAccount> {
+    return this.findScoped(
+      { leaseId },
+      user,
+      `Tenant account for lease ${leaseId}`,
+    );
+  }
+
   /**
    * Obtiene los movimientos de una cuenta.
    * @param accountId ID de la cuenta
@@ -117,6 +151,17 @@ export class TenantAccountsService {
     companyId: string = '',
   ): Promise<TenantAccountMovement[]> {
     await this.findOne(accountId, companyId);
+    return this.movementsRepository.find({
+      where: { tenantAccountId: accountId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async getMovementsScoped(
+    accountId: string,
+    user: TenantAccountActor,
+  ): Promise<TenantAccountMovement[]> {
+    await this.findOneScoped(accountId, user);
     return this.movementsRepository.find({
       where: { tenantAccountId: accountId },
       order: { createdAt: 'DESC' },
@@ -293,5 +338,81 @@ export class TenantAccountsService {
       lateFee,
       total: Number(account.balance) + lateFee,
     };
+  }
+
+  async getBalanceInfoScoped(
+    accountId: string,
+    user: TenantAccountActor,
+  ): Promise<{ balance: number; lateFee: number; total: number }> {
+    const account = await this.findOneScoped(accountId, user);
+    const lateFee = await this.calculateLateFee(accountId, user.companyId);
+    return {
+      balance: Number(account.balance),
+      lateFee,
+      total: Number(account.balance) + lateFee,
+    };
+  }
+
+  private async findScoped(
+    filters: { id?: string; leaseId?: string },
+    user: TenantAccountActor,
+    label: string,
+  ): Promise<TenantAccount> {
+    if (!user.companyId) {
+      throw new ForbiddenException('Company scope required');
+    }
+
+    const query = this.accountsRepository
+      .createQueryBuilder('account')
+      .leftJoinAndSelect('account.lease', 'lease')
+      .leftJoinAndSelect('lease.tenant', 'tenant')
+      .leftJoinAndSelect('tenant.user', 'tenantUser')
+      .leftJoinAndSelect('lease.property', 'property')
+      .leftJoinAndSelect('property.owner', 'owner')
+      .leftJoinAndSelect('owner.user', 'ownerUser')
+      .where('account.company_id = :companyId', { companyId: user.companyId });
+
+    this.applyScopedFilters(query, filters);
+    this.applyVisibilityScope(query, user);
+
+    const account = await query.getOne();
+    if (!account) {
+      throw new NotFoundException(`${label} not found`);
+    }
+    return account;
+  }
+
+  private applyScopedFilters(
+    query: SelectQueryBuilder<TenantAccount>,
+    filters: { id?: string; leaseId?: string },
+  ): void {
+    if (filters.id) {
+      query.andWhere('account.id = :accountId', { accountId: filters.id });
+    }
+    if (filters.leaseId) {
+      query.andWhere('account.lease_id = :leaseId', {
+        leaseId: filters.leaseId,
+      });
+    }
+  }
+
+  private applyVisibilityScope(
+    query: SelectQueryBuilder<TenantAccount>,
+    user: TenantAccountActor,
+  ): void {
+    if (user.role === UserRole.ADMIN || user.role === UserRole.STAFF) {
+      return;
+    }
+    if (user.role === UserRole.OWNER) {
+      query.andWhere('owner.user_id = :scopeUserId', { scopeUserId: user.id });
+      return;
+    }
+    if (user.role === UserRole.TENANT) {
+      query.andWhere('tenant.user_id = :scopeUserId', {
+        scopeUserId: user.id,
+      });
+      return;
+    }
+    throw new ForbiddenException('Unsupported tenant account access role');
   }
 }
