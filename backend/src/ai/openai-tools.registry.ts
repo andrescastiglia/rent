@@ -171,6 +171,7 @@ const ALL_ROLES = [
   UserRole.STAFF,
   UserRole.TENANT,
 ];
+const LEASE_READ_ROLES = [...ALL_ROLES, UserRole.BUYER];
 
 const asObjectSchema = (schema: z.ZodTypeAny): z.ZodObject<any> =>
   schema as unknown as z.ZodObject<any>;
@@ -1077,8 +1078,11 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: CreateLeaseDto.zodSchema,
-      execute: async (args) =>
-        deps.leasesService.create(CreateLeaseDto.zodSchema.parse(args)),
+      execute: async (args, context) =>
+        deps.leasesService.create(
+          CreateLeaseDto.zodSchema.parse(args),
+          toRequestUser(context) as any,
+        ),
     },
     {
       name: 'get_leases',
@@ -1086,7 +1090,7 @@ export function buildAiToolDefinitions(
         'Lists leases with optional filters: propertyId, ownerId, tenantId, status, page, limit. Role-scoped by user permissions.',
       responseDescription: 'Paginated list of lease records with total count.',
       mutability: 'readonly',
-      allowedRoles: ALL_ROLES,
+      allowedRoles: LEASE_READ_ROLES,
       parameters: LeaseFiltersDto.zodSchema,
       execute: async (args, context) =>
         deps.leasesService.findAll(
@@ -1152,7 +1156,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Complete lease record with nested property, tenant, and billing details.',
       mutability: 'readonly',
-      allowedRoles: ALL_ROLES,
+      allowedRoles: LEASE_READ_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
@@ -1170,11 +1174,15 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(UpdateLeaseDto.zodSchema, { id: uuidSchema }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(UpdateLeaseDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.leasesService.update(parsed.id, parsed);
+        return deps.leasesService.update(
+          parsed.id,
+          parsed,
+          toRequestUser(context) as any,
+        );
       },
     },
     {
@@ -1186,11 +1194,15 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(RenderLeaseDraftDto.zodSchema, { id: uuidSchema }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(RenderLeaseDraftDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.leasesService.renderDraft(parsed.id, parsed.templateId);
+        return deps.leasesService.renderDraft(
+          parsed.id,
+          toRequestUser(context) as any,
+          parsed.templateId,
+        );
       },
     },
     {
@@ -1203,11 +1215,16 @@ export function buildAiToolDefinitions(
       parameters: withParams(UpdateLeaseDraftTextDto.zodSchema, {
         id: uuidSchema,
       }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(UpdateLeaseDraftTextDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.leasesService.updateDraftText(parsed.id, parsed.draftText);
+        return deps.leasesService.updateDraftText(
+          parsed.id,
+          parsed.draftText,
+          toRequestUser(context) as any,
+          parsed.draftFormat,
+        );
       },
     },
     {
@@ -1228,7 +1245,9 @@ export function buildAiToolDefinitions(
         return deps.leasesService.confirmDraft(
           parsed.id,
           context.userId,
+          toRequestUser(context) as any,
           parsed.finalText,
+          parsed.finalFormat,
         );
       },
     },
@@ -1242,7 +1261,11 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.leasesService.activate(id, context.userId);
+        return deps.leasesService.activate(
+          id,
+          context.userId,
+          toRequestUser(context) as any,
+        );
       },
     },
     {
@@ -1256,11 +1279,15 @@ export function buildAiToolDefinitions(
       parameters: withParams(LeaseStatusReasonDto.zodSchema, {
         id: uuidSchema,
       }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(LeaseStatusReasonDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.leasesService.terminate(parsed.id, parsed.reason);
+        return deps.leasesService.terminate(
+          parsed.id,
+          toRequestUser(context) as any,
+          parsed.reason,
+        );
       },
     },
     {
@@ -1274,11 +1301,15 @@ export function buildAiToolDefinitions(
       parameters: withParams(LeaseStatusReasonDto.zodSchema, {
         id: uuidSchema,
       }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(LeaseStatusReasonDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.leasesService.terminate(parsed.id, parsed.reason);
+        return deps.leasesService.terminate(
+          parsed.id,
+          toRequestUser(context) as any,
+          parsed.reason,
+        );
       },
     },
     {
@@ -1290,11 +1321,15 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(RenewLeaseDto.zodSchema, { id: uuidSchema }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(RenewLeaseDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.leasesService.renew(parsed.id, parsed);
+        return deps.leasesService.renew(
+          parsed.id,
+          parsed,
+          toRequestUser(context) as any,
+        );
       },
     },
     {
@@ -1305,9 +1340,9 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        await deps.leasesService.remove(id);
+        await deps.leasesService.remove(id, toRequestUser(context) as any);
         return { message: 'Lease deleted successfully' };
       },
     },
@@ -1317,7 +1352,7 @@ export function buildAiToolDefinitions(
         'Downloads the signed lease contract as a PDF document by lease UUID.',
       responseDescription: 'PDF binary content of the lease contract.',
       mutability: 'readonly',
-      allowedRoles: ALL_ROLES,
+      allowedRoles: LEASE_READ_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
@@ -1351,7 +1386,7 @@ export function buildAiToolDefinitions(
       execute: async (args, context) =>
         deps.amendmentsService.create(
           CreateAmendmentDto.zodSchema.parse(args),
-          context.userId,
+          toRequestUser(context) as any,
         ),
     },
     {
@@ -1360,13 +1395,16 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Array of amendment records with type, status, and details.',
       mutability: 'readonly',
-      allowedRoles: ALL_ROLES,
+      allowedRoles: LEASE_READ_ROLES,
       parameters: z.object({ leaseId: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { leaseId } = z
           .object({ leaseId: uuidSchema })
           .parse(args) as any;
-        return deps.amendmentsService.findByLease(leaseId);
+        return deps.amendmentsService.findByLease(
+          leaseId,
+          toRequestUser(context) as any,
+        );
       },
     },
     {
@@ -1375,11 +1413,14 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Complete amendment record including lease reference and change details.',
       mutability: 'readonly',
-      allowedRoles: ALL_ROLES,
+      allowedRoles: LEASE_READ_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.amendmentsService.findOne(id);
+        return deps.amendmentsService.findOne(
+          id,
+          toRequestUser(context) as any,
+        );
       },
     },
     {
@@ -1393,7 +1434,10 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.amendmentsService.approve(id, context.userId);
+        return deps.amendmentsService.approve(
+          id,
+          toRequestUser(context) as any,
+        );
       },
     },
     {
@@ -1406,7 +1450,7 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.amendmentsService.reject(id, context.userId);
+        return deps.amendmentsService.reject(id, toRequestUser(context) as any);
       },
     },
 

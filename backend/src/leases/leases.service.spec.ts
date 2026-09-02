@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import * as mammoth from 'mammoth';
@@ -20,6 +21,7 @@ import { TenantAccountsService } from '../payments/tenant-accounts.service';
 import { UserRole } from '../users/entities/user.entity';
 import { Buyer } from '../buyers/entities/buyer.entity';
 import { Document } from '../documents/entities/document.entity';
+import { Tenant } from '../tenants/entities/tenant.entity';
 
 jest.mock('mammoth');
 
@@ -46,6 +48,12 @@ const createMockRepository = (): MockRepository => ({
   })),
 });
 
+const adminActor = {
+  id: 'admin-1',
+  role: UserRole.ADMIN,
+  companyId: 'company-1',
+};
+
 describe('LeasesService', () => {
   let service: LeasesService;
   let leaseRepository: MockRepository<Lease>;
@@ -53,6 +61,7 @@ describe('LeasesService', () => {
   let propertyRepository: MockRepository<Property>;
   let interestedRepository: MockRepository<InterestedProfile>;
   let buyerRepository: MockRepository<Buyer>;
+  let tenantRepository: MockRepository<Tenant>;
   let documentRepository: MockRepository<Document>;
   let pdfService: { generateContract: jest.Mock };
   let tenantAccountsService: { createForLease: jest.Mock };
@@ -89,6 +98,10 @@ describe('LeasesService', () => {
           useValue: createMockRepository(),
         },
         {
+          provide: getRepositoryToken(Tenant),
+          useValue: createMockRepository(),
+        },
+        {
           provide: getRepositoryToken(Document),
           useValue: createMockRepository(),
         },
@@ -103,6 +116,11 @@ describe('LeasesService', () => {
     propertyRepository = module.get(getRepositoryToken(Property));
     interestedRepository = module.get(getRepositoryToken(InterestedProfile));
     buyerRepository = module.get(getRepositoryToken(Buyer));
+    tenantRepository = module.get(getRepositoryToken(Tenant));
+    tenantRepository.findOne!.mockResolvedValue({
+      id: 'tenant-1',
+      companyId: 'company-1',
+    } as Tenant);
     documentRepository = module.get(getRepositoryToken(Document));
   });
 
@@ -130,19 +148,64 @@ describe('LeasesService', () => {
     leaseRepository.create!.mockReturnValue(payload);
     leaseRepository.save!.mockResolvedValue(payload);
 
-    const result = await service.create({
-      companyId: 'company-1',
-      propertyId: 'prop-1',
-      ownerId: 'owner-1',
-      tenantId: 'tenant-1',
-      contractType: ContractType.RENTAL,
-      startDate: '2025-01-01',
-      endDate: '2025-12-31',
-      monthlyRent: 1000,
-    } as any);
+    const result = await service.create(
+      {
+        companyId: 'company-1',
+        propertyId: 'prop-1',
+        ownerId: 'owner-1',
+        tenantId: 'tenant-1',
+        contractType: ContractType.RENTAL,
+        startDate: '2025-01-01',
+        endDate: '2025-12-31',
+        monthlyRent: 1000,
+      } as any,
+      adminActor,
+    );
 
     expect(result.status).toBe(LeaseStatus.DRAFT);
-    expect(leaseRepository.create).toHaveBeenCalled();
+    expect(propertyRepository.findOne).toHaveBeenCalledWith({
+      where: {
+        id: 'prop-1',
+        companyId: 'company-1',
+        deletedAt: expect.anything(),
+      },
+    });
+    expect(leaseRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ companyId: 'company-1' }),
+    );
+  });
+
+  it('rejects a property from another company without revealing it', async () => {
+    propertyRepository.findOne!.mockResolvedValue(null);
+
+    await expect(
+      service.create(
+        {
+          companyId: 'company-2',
+          propertyId: 'foreign-property',
+          tenantId: 'tenant-1',
+          contractType: ContractType.RENTAL,
+          startDate: '2025-01-01',
+          endDate: '2025-12-31',
+          monthlyRent: 1000,
+        } as any,
+        adminActor,
+      ),
+    ).rejects.toThrow(NotFoundException);
+
+    expect(propertyRepository.findOne).toHaveBeenCalledWith({
+      where: {
+        id: 'foreign-property',
+        companyId: 'company-1',
+        deletedAt: expect.anything(),
+      },
+    });
+  });
+
+  it('requires company scope for lease queries', async () => {
+    await expect(
+      service.findAll({} as any, { ...adminActor, companyId: '' }),
+    ).rejects.toThrow(ForbiddenException);
   });
 
   it('imports PDF contracts as rich text without writing uploads to disk', async () => {
@@ -203,7 +266,7 @@ describe('LeasesService', () => {
         contractType: ContractType.SALE,
         buyerId: buyer.id,
       } as any,
-      'company-1',
+      adminActor,
     );
 
     expect(result.draftContractFormat).toBe('html');
@@ -223,16 +286,19 @@ describe('LeasesService', () => {
     } as Lease);
 
     await expect(
-      service.create({
-        companyId: 'company-1',
-        propertyId: 'prop-1',
-        tenantId: 'tenant-1',
-        ownerId: 'owner-1',
-        contractType: ContractType.RENTAL,
-        startDate: '2025-01-01',
-        endDate: '2025-12-31',
-        monthlyRent: 1000,
-      } as any),
+      service.create(
+        {
+          companyId: 'company-1',
+          propertyId: 'prop-1',
+          tenantId: 'tenant-1',
+          ownerId: 'owner-1',
+          contractType: ContractType.RENTAL,
+          startDate: '2025-01-01',
+          endDate: '2025-12-31',
+          monthlyRent: 1000,
+        } as any,
+        adminActor,
+      ),
     ).rejects.toThrow(ConflictException);
   });
 
@@ -262,11 +328,12 @@ describe('LeasesService', () => {
       fileUrl: 'db://document/doc-1',
     });
 
-    const result = await service.activate('lease-1', 'user-1');
+    const result = await service.activate('lease-1', 'user-1', adminActor);
 
-    expect(propertyRepository.update).toHaveBeenCalledWith('prop-1', {
-      operationState: PropertyOperationState.RENTED,
-    });
+    expect(propertyRepository.update).toHaveBeenCalledWith(
+      { id: 'prop-1', companyId: 'company-1' },
+      { operationState: PropertyOperationState.RENTED },
+    );
     expect(result.status).toBe(LeaseStatus.ACTIVE);
   });
 
@@ -285,17 +352,20 @@ describe('LeasesService', () => {
     });
     propertyRepository.update!.mockResolvedValue({ affected: 1 });
 
-    const result = await service.terminate('lease-1', 'done');
+    const result = await service.terminate('lease-1', adminActor, 'done');
 
     expect(result.status).toBe(LeaseStatus.FINALIZED);
-    expect(propertyRepository.update).toHaveBeenCalledWith('prop-1', {
-      operationState: PropertyOperationState.AVAILABLE,
-    });
+    expect(propertyRepository.update).toHaveBeenCalledWith(
+      { id: 'prop-1', companyId: 'company-1' },
+      { operationState: PropertyOperationState.AVAILABLE },
+    );
   });
 
   it('throws not found when loading unknown lease', async () => {
     leaseRepository.findOne!.mockResolvedValue(null);
-    await expect(service.findOne('missing')).rejects.toThrow(NotFoundException);
+    await expect(service.findOne('missing', 'company-1')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('validates buyer exists for sale', async () => {
@@ -307,14 +377,17 @@ describe('LeasesService', () => {
     buyerRepository.findOne!.mockResolvedValue(null);
 
     await expect(
-      service.create({
-        companyId: 'company-1',
-        propertyId: 'prop-1',
-        ownerId: 'owner-1',
-        contractType: ContractType.SALE,
-        buyerId: 'buyer-1',
-        fiscalValue: 100000,
-      } as any),
+      service.create(
+        {
+          companyId: 'company-1',
+          propertyId: 'prop-1',
+          ownerId: 'owner-1',
+          contractType: ContractType.SALE,
+          buyerId: 'buyer-1',
+          fiscalValue: 100000,
+        } as any,
+        adminActor,
+      ),
     ).rejects.toThrow(NotFoundException);
   });
 
@@ -324,9 +397,9 @@ describe('LeasesService', () => {
       status: LeaseStatus.ACTIVE,
     } as Lease);
 
-    await expect(service.confirmDraft('lease-1', 'user-1')).rejects.toThrow(
-      'Only draft contracts can be confirmed',
-    );
+    await expect(
+      service.confirmDraft('lease-1', 'user-1', adminActor),
+    ).rejects.toThrow('Only draft contracts can be confirmed');
   });
 
   it('rejects confirmDraft when draft has no text', async () => {
@@ -336,9 +409,9 @@ describe('LeasesService', () => {
       draftContractText: '',
     } as Lease);
 
-    await expect(service.confirmDraft('lease-1', 'user-1')).rejects.toThrow(
-      'The contract content could not be interpreted',
-    );
+    await expect(
+      service.confirmDraft('lease-1', 'user-1', adminActor),
+    ).rejects.toThrow('The contract content could not be interpreted');
   });
 
   it('rejects terminate when lease is not active', async () => {
@@ -347,7 +420,7 @@ describe('LeasesService', () => {
       status: LeaseStatus.DRAFT,
     } as Lease);
 
-    await expect(service.terminate('lease-1', 'x')).rejects.toThrow(
+    await expect(service.terminate('lease-1', adminActor, 'x')).rejects.toThrow(
       'Only active contracts can be finalized',
     );
   });
@@ -358,7 +431,7 @@ describe('LeasesService', () => {
       status: LeaseStatus.DRAFT,
     } as Lease);
 
-    await expect(service.renew('lease-1', {})).rejects.toThrow(
+    await expect(service.renew('lease-1', {}, adminActor)).rejects.toThrow(
       'Only active or finalized contracts can be renewed',
     );
   });
@@ -368,7 +441,7 @@ describe('LeasesService', () => {
       id: 'lease-active',
       status: LeaseStatus.ACTIVE,
     } as Lease);
-    await expect(service.remove('lease-active')).rejects.toThrow(
+    await expect(service.remove('lease-active', adminActor)).rejects.toThrow(
       'Cannot delete an active contract. Finalize it first.',
     );
 
@@ -377,8 +450,13 @@ describe('LeasesService', () => {
       status: LeaseStatus.DRAFT,
     } as Lease);
     leaseRepository.softDelete!.mockResolvedValue({ affected: 1 });
-    await expect(service.remove('lease-draft')).resolves.toBeUndefined();
-    expect(leaseRepository.softDelete).toHaveBeenCalledWith('lease-draft');
+    await expect(
+      service.remove('lease-draft', adminActor),
+    ).resolves.toBeUndefined();
+    expect(leaseRepository.softDelete).toHaveBeenCalledWith({
+      id: 'lease-draft',
+      companyId: 'company-1',
+    });
   });
 
   it('listTemplates supports contractType filter and updateTemplate not-found branch', async () => {
@@ -423,6 +501,7 @@ describe('LeasesService', () => {
       } as any,
       {
         id: 'owner-user-1',
+        companyId: 'company-1',
         role: UserRole.OWNER,
         email: 'OWNER@MAIL.COM',
         phone: '1234',
@@ -438,10 +517,7 @@ describe('LeasesService', () => {
     );
     expect(qb.andWhere).toHaveBeenCalledWith(
       expect.stringContaining('owner.user_id = :scopeUserId'),
-      expect.objectContaining({
-        scopeUserId: 'owner-user-1',
-        scopeEmail: 'owner@mail.com',
-      }),
+      { scopeUserId: 'owner-user-1' },
     );
   });
 
@@ -465,6 +541,7 @@ describe('LeasesService', () => {
       } as any,
       {
         id: 'tenant-user-1',
+        companyId: 'company-1',
         role: UserRole.TENANT,
         email: 'tenant@test.dev',
         phone: '555',
@@ -476,10 +553,7 @@ describe('LeasesService', () => {
     });
     expect(qb.andWhere).toHaveBeenCalledWith(
       expect.stringContaining('tenant.user_id = :scopeUserId'),
-      expect.objectContaining({
-        scopeUserId: 'tenant-user-1',
-        scopeEmail: 'tenant@test.dev',
-      }),
+      { scopeUserId: 'tenant-user-1' },
     );
     expect(qb.skip).toHaveBeenCalledWith(5);
   });
@@ -496,6 +570,7 @@ describe('LeasesService', () => {
     await expect(
       service.findOneScoped('missing', {
         id: 'u1',
+        companyId: 'company-1',
         role: UserRole.ADMIN,
       }),
     ).rejects.toThrow(NotFoundException);
@@ -512,7 +587,7 @@ describe('LeasesService', () => {
     _templateRepository.findOne!.mockResolvedValue(null);
 
     await expect(
-      service.renderDraft('lease-1', 'missing-template'),
+      service.renderDraft('lease-1', adminActor, 'missing-template'),
     ).rejects.toThrow(NotFoundException);
   });
 
@@ -546,7 +621,7 @@ describe('LeasesService', () => {
     } as LeaseContractTemplate);
     leaseRepository.save!.mockResolvedValue(renderedLease);
 
-    const result = await service.renderDraft('lease-1', 'tpl-1');
+    const result = await service.renderDraft('lease-1', adminActor, 'tpl-1');
 
     expect(leaseRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -591,7 +666,11 @@ describe('LeasesService', () => {
     }));
     leaseRepository.save!.mockResolvedValue({ id: 'lease-2' } as Lease);
 
-    const result = await service.renew('lease-1', { monthlyRent: 150 });
+    const result = await service.renew(
+      'lease-1',
+      { monthlyRent: 150 },
+      adminActor,
+    );
 
     expect(leaseRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'lease-1', status: LeaseStatus.FINALIZED }),
@@ -638,7 +717,7 @@ describe('LeasesService', () => {
     }));
     leaseRepository.save!.mockResolvedValue({ id: 'lease-3' } as Lease);
 
-    await service.renew('lease-finalized', {});
+    await service.renew('lease-finalized', {}, adminActor);
 
     expect(leaseRepository.save).not.toHaveBeenCalledWith(
       expect.objectContaining({
@@ -707,17 +786,20 @@ describe('LeasesService', () => {
     _templateRepository.findOne!.mockResolvedValue(null);
 
     await expect(
-      service.create({
-        companyId: 'company-1',
-        propertyId: 'prop-1',
-        ownerId: 'owner-1',
-        tenantId: 'tenant-1',
-        contractType: ContractType.RENTAL,
-        startDate: '2025-01-01',
-        endDate: '2025-12-31',
-        monthlyRent: 1000,
-        templateId: 'missing-template',
-      } as any),
+      service.create(
+        {
+          companyId: 'company-1',
+          propertyId: 'prop-1',
+          ownerId: 'owner-1',
+          tenantId: 'tenant-1',
+          contractType: ContractType.RENTAL,
+          startDate: '2025-01-01',
+          endDate: '2025-12-31',
+          monthlyRent: 1000,
+          templateId: 'missing-template',
+        } as any,
+        adminActor,
+      ),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
@@ -728,7 +810,7 @@ describe('LeasesService', () => {
     } as Lease);
 
     await expect(
-      service.updateDraftText('lease-1', 'x'),
+      service.updateDraftText('lease-1', 'x', adminActor),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     const draft = {
@@ -745,7 +827,11 @@ describe('LeasesService', () => {
       draftContractText: 'Nuevo texto',
     } as Lease);
 
-    const result = await service.updateDraftText('lease-2', 'Nuevo texto');
+    const result = await service.updateDraftText(
+      'lease-2',
+      'Nuevo texto',
+      adminActor,
+    );
     expect(result.draftContractText).toBe('Nuevo texto');
   });
 
@@ -775,11 +861,16 @@ describe('LeasesService', () => {
       fileUrl: 'db://document/doc-1',
     });
 
-    const result = await service.confirmDraft('lease-sale-1', 'user-1');
+    const result = await service.confirmDraft(
+      'lease-sale-1',
+      'user-1',
+      adminActor,
+    );
 
-    expect(propertyRepository.update).toHaveBeenCalledWith('prop-1', {
-      operationState: PropertyOperationState.SOLD,
-    });
+    expect(propertyRepository.update).toHaveBeenCalledWith(
+      { id: 'prop-1', companyId: 'company-1' },
+      { operationState: PropertyOperationState.SOLD },
+    );
     expect(tenantAccountsService.createForLease).not.toHaveBeenCalled();
     expect(result.status).toBe(LeaseStatus.ACTIVE);
   });
@@ -831,7 +922,11 @@ describe('LeasesService', () => {
         draftContractText: 'texto confirmado',
       } as Lease);
 
-    const result = await service.update('lease-1', { monthlyRent: 150 } as any);
+    const result = await service.update(
+      'lease-1',
+      { monthlyRent: 150 } as any,
+      adminActor,
+    );
 
     expect(leaseRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1017,7 +1112,10 @@ describe('LeasesService', () => {
     it('throws when profile not found', async () => {
       interestedRepository.findOne!.mockResolvedValue(null);
       await expect(
-        (service as any).normalizeBuyerInputs({ buyerProfileId: 'p1' }),
+        (service as any).normalizeBuyerInputs(
+          { buyerProfileId: 'p1' },
+          'company-1',
+        ),
       ).rejects.toThrow('Interested buyer profile not found');
     });
 
@@ -1039,7 +1137,7 @@ describe('LeasesService', () => {
         convertedToBuyerId: 'buyer-from-profile',
       });
       const dto: any = { buyerProfileId: 'p1' };
-      await (service as any).normalizeBuyerInputs(dto);
+      await (service as any).normalizeBuyerInputs(dto, 'company-1');
       expect(dto.buyerId).toBe('buyer-from-profile');
     });
   });
@@ -1049,17 +1147,14 @@ describe('LeasesService', () => {
       const qb = { andWhere: jest.fn() };
       (service as any).applyVisibilityScope(qb, {
         id: 'buyer-user-1',
+        companyId: 'company-1',
         role: UserRole.BUYER,
         email: 'buyer@test.com',
         phone: '999',
       });
       expect(qb.andWhere).toHaveBeenCalledWith(
         expect.stringContaining('buyer.user_id = :scopeUserId'),
-        expect.objectContaining({
-          scopeUserId: 'buyer-user-1',
-          scopeEmail: 'buyer@test.com',
-          scopePhone: '999',
-        }),
+        { scopeUserId: 'buyer-user-1' },
       );
     });
 
@@ -1067,6 +1162,7 @@ describe('LeasesService', () => {
       const qb = { andWhere: jest.fn() };
       (service as any).applyVisibilityScope(qb, {
         id: 'u1',
+        companyId: 'company-1',
         role: UserRole.STAFF,
       });
       expect(qb.andWhere).not.toHaveBeenCalled();
@@ -1111,7 +1207,7 @@ describe('LeasesService', () => {
         fileUrl: 'db://document/doc-1',
       });
 
-      await service.confirmDraft('lease-new', 'user-1');
+      await service.confirmDraft('lease-new', 'user-1', adminActor);
 
       expect(leaseRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1263,15 +1359,18 @@ describe('LeasesService', () => {
       };
       leaseRepository.createQueryBuilder!.mockReturnValue(qb as any);
 
-      await service.findAll({
-        propertyId: 'p1',
-        tenantId: 't1',
-        buyerId: 'b1',
-        buyerProfileId: 'bp1',
-        contractType: ContractType.SALE,
-        page: 1,
-        limit: 10,
-      } as any);
+      await service.findAll(
+        {
+          propertyId: 'p1',
+          tenantId: 't1',
+          buyerId: 'b1',
+          buyerProfileId: 'bp1',
+          contractType: ContractType.SALE,
+          page: 1,
+          limit: 10,
+        } as any,
+        adminActor,
+      );
 
       expect(qb.andWhere).toHaveBeenCalledWith(
         'lease.property_id = :propertyId',
@@ -1305,7 +1404,7 @@ describe('LeasesService', () => {
       };
       leaseRepository.createQueryBuilder!.mockReturnValue(qb as any);
 
-      await service.findAll({ page: 1, limit: 10 } as any);
+      await service.findAll({ page: 1, limit: 10 } as any, adminActor);
 
       expect(qb.andWhere).toHaveBeenCalledWith('lease.status = :activeStatus', {
         activeStatus: LeaseStatus.ACTIVE,
@@ -1340,9 +1439,11 @@ describe('LeasesService', () => {
         .spyOn(service, 'renderDraft')
         .mockResolvedValue({ ...draft, monthlyRent: 200 } as Lease);
 
-      const result = await service.update('lease-draft', {
-        monthlyRent: 200,
-      } as any);
+      const result = await service.update(
+        'lease-draft',
+        { monthlyRent: 200 } as any,
+        adminActor,
+      );
 
       expect(result.monthlyRent).toBe(200);
     });
@@ -1376,7 +1477,11 @@ describe('LeasesService', () => {
       pdfService.generateContract.mockRejectedValue(new Error('PDF error'));
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
-      const result = await service.confirmDraft('lease-pdf-fail', 'user-1');
+      const result = await service.confirmDraft(
+        'lease-pdf-fail',
+        'user-1',
+        adminActor,
+      );
 
       expect(result.status).toBe(LeaseStatus.ACTIVE);
       expect(consoleSpy).toHaveBeenCalledWith(

@@ -17,6 +17,7 @@ import { UserRole } from '../users/entities/user.entity';
 interface AuthenticatedRequest {
   user: {
     id: string;
+    companyId: string;
     role: UserRole;
     email?: string | null;
     phone?: string | null;

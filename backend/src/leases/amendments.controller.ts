@@ -24,28 +24,28 @@ export class AmendmentsController {
   @Post()
   @Roles(UserRole.ADMIN, UserRole.OWNER)
   create(@Body() createAmendmentDto: CreateAmendmentDto, @Request() req: any) {
-    return this.amendmentsService.create(createAmendmentDto, req.user.id);
+    return this.amendmentsService.create(createAmendmentDto, req.user);
   }
 
   @Get('lease/:leaseId')
-  findByLease(@Param('leaseId') leaseId: string) {
-    return this.amendmentsService.findByLease(leaseId);
+  findByLease(@Param('leaseId') leaseId: string, @Request() req: any) {
+    return this.amendmentsService.findByLease(leaseId, req.user);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.amendmentsService.findOne(id);
+  findOne(@Param('id') id: string, @Request() req: any) {
+    return this.amendmentsService.findOne(id, req.user);
   }
 
   @Patch(':id/approve')
   @Roles(UserRole.ADMIN, UserRole.OWNER)
   approve(@Param('id') id: string, @Request() req: any) {
-    return this.amendmentsService.approve(id, req.user.id);
+    return this.amendmentsService.approve(id, req.user);
   }
 
   @Patch(':id/reject')
   @Roles(UserRole.ADMIN, UserRole.OWNER)
   reject(@Param('id') id: string, @Request() req: any) {
-    return this.amendmentsService.reject(id, req.user.id);
+    return this.amendmentsService.reject(id, req.user);
   }
 }
