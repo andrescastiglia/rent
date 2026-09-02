@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InvoicesService } from './invoices.service';
 import { Invoice, InvoiceStatus } from './entities/invoice.entity';
@@ -28,6 +28,7 @@ describe('InvoicesService', () => {
   let leasesRepository: MockRepository<Lease>;
   let inflationIndexRepository: MockRepository<InflationIndex>;
   let tenantAccountsService: Partial<TenantAccountsService>;
+  let dataSource: { transaction: jest.Mock };
 
   type MockRepository<T extends Record<string, any> = any> = Partial<
     Record<keyof Repository<T>, jest.Mock>
@@ -46,6 +47,19 @@ describe('InvoicesService', () => {
       findByLease: jest.fn(),
       calculateLateFee: jest.fn(),
       addMovement: jest.fn(),
+      addMovementWithManager: jest.fn(),
+    };
+    dataSource = {
+      transaction: jest.fn(async (callback: (manager: any) => unknown) =>
+        callback({
+          getRepository: (entity: unknown) => {
+            if (entity === Invoice) return invoicesRepository;
+            if (entity === CommissionInvoice) return _commissionRepository;
+            if (entity === Lease) return leasesRepository;
+            throw new Error('Unexpected transaction repository');
+          },
+        }),
+      ),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -68,6 +82,7 @@ describe('InvoicesService', () => {
           useValue: createMockRepository(),
         },
         { provide: TenantAccountsService, useValue: tenantAccountsService },
+        { provide: getDataSourceToken(), useValue: dataSource },
       ],
     }).compile();
 
@@ -264,7 +279,7 @@ describe('InvoicesService', () => {
   });
 
   it('issue rejects non-draft invoices', async () => {
-    jest.spyOn(service, 'findOne').mockResolvedValue({
+    invoicesRepository.findOne!.mockResolvedValue({
       id: 'inv-1',
       status: InvoiceStatus.PAID,
     } as any);
@@ -289,7 +304,7 @@ describe('InvoicesService', () => {
       currencyCode: 'ARS',
       companyId: 'company-1',
     } as any;
-    jest.spyOn(service, 'findOne').mockResolvedValue(draft);
+    invoicesRepository.findOne!.mockResolvedValue(draft);
     invoicesRepository.save!.mockImplementation(async (d) => d);
     jest
       .spyOn(service as any, 'createCommissionInvoice')
@@ -298,7 +313,13 @@ describe('InvoicesService', () => {
     const result = await service.issue('inv-1', 'company-1');
 
     expect(result.status).toBe(InvoiceStatus.PENDING);
-    expect(tenantAccountsService.addMovement).toHaveBeenCalledWith(
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(invoicesRepository.findOne).toHaveBeenCalledWith({
+      where: { id: 'inv-1', companyId: 'company-1' },
+      lock: { mode: 'pessimistic_write' },
+    });
+    expect(tenantAccountsService.addMovementWithManager).toHaveBeenCalledWith(
+      expect.anything(),
       'acc-1',
       MovementType.CHARGE,
       120,
@@ -307,6 +328,27 @@ describe('InvoicesService', () => {
       'Factura INV-1',
       'company-1',
     );
+  });
+
+  it('aborts invoice issue when the account movement fails', async () => {
+    invoicesRepository.findOne!.mockResolvedValue({
+      id: 'inv-rollback',
+      companyId: 'company-1',
+      status: InvoiceStatus.DRAFT,
+      tenantAccountId: 'acc-1',
+      total: 120,
+      invoiceNumber: 'INV-ROLLBACK',
+    } as any);
+    invoicesRepository.save!.mockImplementation(async (invoice) => invoice);
+    (
+      tenantAccountsService.addMovementWithManager as jest.Mock
+    ).mockRejectedValue(new Error('movement write failed'));
+    const commissionSpy = jest.spyOn(service as any, 'createCommissionInvoice');
+
+    await expect(service.issue('inv-rollback', 'company-1')).rejects.toThrow(
+      'movement write failed',
+    );
+    expect(commissionSpy).not.toHaveBeenCalled();
   });
 
   it('attachPdf updates invoice url', async () => {
@@ -473,7 +515,7 @@ describe('InvoicesService', () => {
   });
 
   it('cancel rejects paid invoices and reverts pending movement', async () => {
-    jest.spyOn(service, 'findOne').mockResolvedValueOnce({
+    invoicesRepository.findOne!.mockResolvedValueOnce({
       id: 'inv-paid',
       status: InvoiceStatus.PAID,
     } as any);
@@ -490,12 +532,13 @@ describe('InvoicesService', () => {
       total: 100,
       invoiceNumber: 'INV-1',
     } as any;
-    jest.spyOn(service, 'findOne').mockResolvedValueOnce(pending);
+    invoicesRepository.findOne!.mockResolvedValueOnce(pending);
     invoicesRepository.save!.mockImplementation(async (d) => d);
 
     const result = await service.cancel('inv-1', 'company-1');
     expect(result.status).toBe(InvoiceStatus.CANCELLED);
-    expect(tenantAccountsService.addMovement).toHaveBeenCalledWith(
+    expect(tenantAccountsService.addMovementWithManager).toHaveBeenCalledWith(
+      expect.anything(),
       'acc-1',
       MovementType.ADJUSTMENT,
       -100,
@@ -504,5 +547,24 @@ describe('InvoicesService', () => {
       'Anulación factura INV-1',
       'company-1',
     );
+  });
+
+  it('does not persist cancellation when its reversal fails', async () => {
+    invoicesRepository.findOne!.mockResolvedValue({
+      id: 'inv-rollback',
+      companyId: 'company-1',
+      status: InvoiceStatus.PENDING,
+      tenantAccountId: 'acc-1',
+      total: 100,
+      invoiceNumber: 'INV-ROLLBACK',
+    } as any);
+    (
+      tenantAccountsService.addMovementWithManager as jest.Mock
+    ).mockRejectedValue(new Error('reversal failed'));
+
+    await expect(service.cancel('inv-rollback', 'company-1')).rejects.toThrow(
+      'reversal failed',
+    );
+    expect(invoicesRepository.save).not.toHaveBeenCalled();
   });
 });

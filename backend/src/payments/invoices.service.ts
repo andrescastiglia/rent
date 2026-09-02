@@ -3,8 +3,13 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import {
+  DataSource,
+  EntityManager,
+  Repository,
+  SelectQueryBuilder,
+} from 'typeorm';
 import { Invoice, InvoiceStatus } from './entities/invoice.entity';
 import {
   CommissionInvoice,
@@ -47,6 +52,8 @@ export class InvoicesService {
     @InjectRepository(InflationIndex)
     private readonly inflationIndexRepository: Repository<InflationIndex>,
     private readonly tenantAccountsService: TenantAccountsService,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -190,32 +197,38 @@ export class InvoicesService {
    * @returns La factura emitida
    */
   async issue(id: string, companyId: string): Promise<Invoice> {
-    const invoice = await this.findOne(id, companyId);
+    return this.dataSource.transaction(async (manager) => {
+      const invoicesRepository = manager.getRepository(Invoice);
+      const invoice = await this.findOneForUpdate(
+        invoicesRepository,
+        id,
+        companyId,
+      );
 
-    if (invoice.status !== InvoiceStatus.DRAFT) {
-      throw new BadRequestException('Only draft invoices can be issued');
-    }
+      if (invoice.status !== InvoiceStatus.DRAFT) {
+        throw new BadRequestException('Only draft invoices can be issued');
+      }
 
-    invoice.status = InvoiceStatus.PENDING;
-    invoice.issuedAt = new Date();
+      invoice.status = InvoiceStatus.PENDING;
+      invoice.issuedAt = new Date();
 
-    const savedInvoice = await this.invoicesRepository.save(invoice);
+      const savedInvoice = await invoicesRepository.save(invoice);
 
-    // Registrar movimiento en cuenta corriente (aumenta deuda)
-    await this.tenantAccountsService.addMovement(
-      invoice.tenantAccountId,
-      MovementType.CHARGE,
-      Number(invoice.total),
-      'invoice',
-      invoice.id,
-      `Factura ${invoice.invoiceNumber}`,
-      invoice.companyId,
-    );
+      await this.tenantAccountsService.addMovementWithManager(
+        manager,
+        invoice.tenantAccountId,
+        MovementType.CHARGE,
+        Number(invoice.total),
+        'invoice',
+        invoice.id,
+        `Factura ${invoice.invoiceNumber}`,
+        invoice.companyId,
+      );
 
-    // Crear factura de comisión si aplica
-    await this.createCommissionInvoice(savedInvoice);
+      await this.createCommissionInvoice(savedInvoice, manager);
 
-    return savedInvoice;
+      return savedInvoice;
+    });
   }
 
   async attachPdf(
@@ -513,8 +526,17 @@ export class InvoicesService {
    * Crea la factura de comisión asociada.
    * @param invoice Factura del inquilino
    */
-  private async createCommissionInvoice(invoice: Invoice): Promise<void> {
-    const lease = await this.leasesRepository.findOne({
+  private async createCommissionInvoice(
+    invoice: Invoice,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const leasesRepository = manager
+      ? manager.getRepository(Lease)
+      : this.leasesRepository;
+    const commissionInvoicesRepository = manager
+      ? manager.getRepository(CommissionInvoice)
+      : this.commissionInvoicesRepository;
+    const lease = await leasesRepository.findOne({
       where: { id: invoice.leaseId },
       relations: ['property', 'property.company', 'owner'],
     });
@@ -531,7 +553,10 @@ export class InvoicesService {
     const taxAmount = (commissionAmount * taxRate) / 100;
     const totalAmount = commissionAmount + taxAmount;
 
-    const invoiceNumber = await this.generateCommissionInvoiceNumber(companyId);
+    const invoiceNumber = await this.generateCommissionInvoiceNumber(
+      companyId,
+      commissionInvoicesRepository,
+    );
 
     // Calcular fechas del período y vencimiento
     const issueDate = new Date();
@@ -540,7 +565,7 @@ export class InvoicesService {
     const dueDate = new Date(issueDate);
     dueDate.setDate(dueDate.getDate() + 15); // Vence en 15 días
 
-    const commissionInvoice = this.commissionInvoicesRepository.create({
+    const commissionInvoice = commissionInvoicesRepository.create({
       companyId,
       ownerId: invoice.ownerId,
       invoiceNumber,
@@ -560,7 +585,7 @@ export class InvoicesService {
       ],
     });
 
-    await this.commissionInvoicesRepository.save(commissionInvoice);
+    await commissionInvoicesRepository.save(commissionInvoice);
   }
 
   /**
@@ -570,8 +595,10 @@ export class InvoicesService {
    */
   private async generateCommissionInvoiceNumber(
     companyId: string,
+    repository: Repository<CommissionInvoice> = this
+      .commissionInvoicesRepository,
   ): Promise<string> {
-    const lastInvoice = await this.commissionInvoicesRepository.findOne({
+    const lastInvoice = await repository.findOne({
       where: { companyId },
       order: { createdAt: 'DESC' },
     });
@@ -597,33 +624,56 @@ export class InvoicesService {
    * @returns La factura cancelada
    */
   async cancel(id: string, companyId: string): Promise<Invoice> {
-    const invoice = await this.findOne(id, companyId);
-
-    if (invoice.status === InvoiceStatus.PAID) {
-      throw new BadRequestException('Cannot cancel a paid invoice');
-    }
-
-    // Si ya estaba emitida, revertir el movimiento en cuenta
-    if (
-      [
-        InvoiceStatus.PENDING,
-        InvoiceStatus.SENT,
-        InvoiceStatus.PARTIAL,
-        InvoiceStatus.OVERDUE,
-      ].includes(invoice.status)
-    ) {
-      await this.tenantAccountsService.addMovement(
-        invoice.tenantAccountId,
-        MovementType.ADJUSTMENT,
-        -Number(invoice.total),
-        'invoice',
-        invoice.id,
-        `Anulación factura ${invoice.invoiceNumber}`,
-        invoice.companyId,
+    return this.dataSource.transaction(async (manager) => {
+      const invoicesRepository = manager.getRepository(Invoice);
+      const invoice = await this.findOneForUpdate(
+        invoicesRepository,
+        id,
+        companyId,
       );
-    }
 
-    invoice.status = InvoiceStatus.CANCELLED;
-    return this.invoicesRepository.save(invoice);
+      if (invoice.status === InvoiceStatus.PAID) {
+        throw new BadRequestException('Cannot cancel a paid invoice');
+      }
+
+      // Si ya estaba emitida, revertir el movimiento en cuenta
+      if (
+        [
+          InvoiceStatus.PENDING,
+          InvoiceStatus.SENT,
+          InvoiceStatus.PARTIAL,
+          InvoiceStatus.OVERDUE,
+        ].includes(invoice.status)
+      ) {
+        await this.tenantAccountsService.addMovementWithManager(
+          manager,
+          invoice.tenantAccountId,
+          MovementType.ADJUSTMENT,
+          -Number(invoice.total),
+          'invoice',
+          invoice.id,
+          `Anulación factura ${invoice.invoiceNumber}`,
+          invoice.companyId,
+        );
+      }
+
+      invoice.status = InvoiceStatus.CANCELLED;
+      return invoicesRepository.save(invoice);
+    });
+  }
+
+  private async findOneForUpdate(
+    repository: Repository<Invoice>,
+    id: string,
+    companyId: string,
+  ): Promise<Invoice> {
+    const invoice = await repository.findOne({
+      where: { id, companyId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!invoice) {
+      throw new NotFoundException(`Invoice with ID ${id} not found`);
+    }
+    return invoice;
   }
 }
