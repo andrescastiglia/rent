@@ -46,7 +46,7 @@ function createMockAccessToken(user: User): string {
   )
     .replaceAll('+', '-')
     .replaceAll('/', '_')
-    .replace(/=+$/g, '');
+    .replaceAll('=', '');
 
   return `mock.${payload}.signature`;
 }
