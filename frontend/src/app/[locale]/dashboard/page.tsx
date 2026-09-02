@@ -37,6 +37,108 @@ function shouldShowEmptyState(
   return loading ? false : (items?.length ?? 0) === 0;
 }
 
+interface PendingActionDialogProps {
+  item: PersonActivityItem | null;
+  password: string;
+  error: string | null;
+  busy: boolean;
+  onPasswordChange: (password: string) => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+
+function PendingActionDialog({
+  item,
+  password,
+  error,
+  busy,
+  onPasswordChange,
+  onCancel,
+  onConfirm,
+}: PendingActionDialogProps) {
+  const t = useTranslations("dashboard");
+
+  if (!item) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <dialog
+        open
+        aria-modal="true"
+        aria-labelledby="dashboard-reauth-title"
+        className="relative m-0 w-full max-w-md rounded-lg border border-gray-200 bg-white p-0 shadow-xl dark:border-gray-700 dark:bg-gray-800"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") onCancel();
+        }}
+      >
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            onConfirm();
+          }}
+        >
+          <div className="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+            <h2
+              id="dashboard-reauth-title"
+              className="text-base font-semibold text-gray-900 dark:text-white"
+            >
+              {t("peopleActivity.reauthTitle")}
+            </h2>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {item.subject}
+            </p>
+          </div>
+          <div className="p-4">
+            <label
+              htmlFor="dashboard-reauth-password"
+              className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200"
+            >
+              {t("peopleActivity.reauthPassword")}
+            </label>
+            <input
+              id="dashboard-reauth-password"
+              type="password"
+              autoComplete="current-password"
+              autoFocus
+              required
+              aria-invalid={Boolean(error)}
+              aria-describedby={error ? "dashboard-reauth-error" : undefined}
+              value={password}
+              onChange={(event) => onPasswordChange(event.target.value)}
+              className="w-full rounded-md border border-gray-300 bg-white p-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            />
+            {error ? (
+              <p
+                id="dashboard-reauth-error"
+                role="alert"
+                className="mt-2 text-sm text-red-600 dark:text-red-400"
+              >
+                {error}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex justify-end gap-2 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 dark:border-gray-600 dark:text-gray-200"
+            >
+              {t("peopleActivity.actions.cancel")}
+            </button>
+            <button
+              type="submit"
+              disabled={!password || busy}
+              className="rounded-md bg-green-600 px-3 py-2 text-sm text-white disabled:opacity-50"
+            >
+              {t("peopleActivity.actions.approve")}
+            </button>
+          </div>
+        </form>
+      </dialog>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { loading: authLoading } = useAuth();
   const t = useTranslations("dashboard");
@@ -129,6 +231,12 @@ export default function DashboardPage() {
     setEditingComment("");
   };
 
+  const closeApprovalDialog = () => {
+    setApprovalItem(null);
+    setReauthPassword("");
+    setApprovalError(null);
+  };
+
   const handleEditComment = (activity: PersonActivityItem) => {
     setEditingActivity(activity);
     setEditingComment(activity.body ?? "");
@@ -190,9 +298,7 @@ export default function DashboardPage() {
         approvalItem.actionId,
         reauthToken,
       );
-      setApprovalItem(null);
-      setReauthPassword("");
-      setApprovalError(null);
+      closeApprovalDialog();
       await fetchPeopleActivity();
     } catch (error) {
       console.error("Failed to approve pending action", error);
@@ -767,92 +873,15 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      {approvalItem ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <form
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="dashboard-reauth-title"
-            className="w-full max-w-md rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void confirmPendingAction();
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                setApprovalItem(null);
-                setReauthPassword("");
-                setApprovalError(null);
-              }
-            }}
-          >
-            <div className="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-              <h2
-                id="dashboard-reauth-title"
-                className="text-base font-semibold text-gray-900 dark:text-white"
-              >
-                {t("peopleActivity.reauthTitle")}
-              </h2>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {approvalItem.subject}
-              </p>
-            </div>
-            <div className="p-4">
-              <label
-                htmlFor="dashboard-reauth-password"
-                className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200"
-              >
-                {t("peopleActivity.reauthPassword")}
-              </label>
-              <input
-                id="dashboard-reauth-password"
-                type="password"
-                autoComplete="current-password"
-                autoFocus
-                required
-                aria-invalid={Boolean(approvalError)}
-                aria-describedby={
-                  approvalError ? "dashboard-reauth-error" : undefined
-                }
-                value={reauthPassword}
-                onChange={(event) => setReauthPassword(event.target.value)}
-                className="w-full rounded-md border border-gray-300 bg-white p-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              />
-              {approvalError ? (
-                <p
-                  id="dashboard-reauth-error"
-                  role="alert"
-                  className="mt-2 text-sm text-red-600 dark:text-red-400"
-                >
-                  {approvalError}
-                </p>
-              ) : null}
-            </div>
-            <div className="flex justify-end gap-2 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
-              <button
-                type="button"
-                onClick={() => {
-                  setApprovalItem(null);
-                  setReauthPassword("");
-                  setApprovalError(null);
-                }}
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 dark:border-gray-600 dark:text-gray-200"
-              >
-                {t("peopleActivity.actions.cancel")}
-              </button>
-              <button
-                type="submit"
-                disabled={
-                  !reauthPassword || updatingActivityId === approvalItem.id
-                }
-                className="rounded-md bg-green-600 px-3 py-2 text-sm text-white disabled:opacity-50"
-              >
-                {t("peopleActivity.actions.approve")}
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : null}
+      <PendingActionDialog
+        item={approvalItem}
+        password={reauthPassword}
+        error={approvalError}
+        busy={updatingActivityId === approvalItem?.id}
+        onPasswordChange={setReauthPassword}
+        onCancel={closeApprovalDialog}
+        onConfirm={() => void confirmPendingAction()}
+      />
     </div>
   );
 }

@@ -19,37 +19,40 @@ export default function ReportsScreen() {
       subtitle={t('reports.subtitle')}
       queryKey={['reports', 'recent']}
       queryFn={reportsApi.getRecent}
-      renderItem={(report) => (
-        <View
-          style={styles.card}
-          accessible
-          accessibilityLabel={`${t(`reports.types.${report.reportType}`)}, ${t(`reports.status.${report.status}`)}`}
-        >
-          <View style={styles.row}>
-            <Text style={styles.title} accessibilityRole="header">
-              {t(`reports.types.${report.reportType}`)}
+      renderItem={(report) => {
+        const reportTypeLabel = t(`reports.types.${report.reportType}`);
+        const statusLabel = t(`reports.status.${report.status}`);
+
+        return (
+          <View
+            style={styles.card}
+            accessible
+            accessibilityLabel={`${reportTypeLabel}, ${statusLabel}`}
+          >
+            <View style={styles.row}>
+              <Text style={styles.title} accessibilityRole="header">
+                {reportTypeLabel}
+              </Text>
+              <Text style={styles.status}>{statusLabel}</Text>
+            </View>
+            <Text style={styles.detail}>{report.ownerName || '-'}</Text>
+            <Text style={styles.detail}>{report.period ?? '-'}</Text>
+            <Text style={styles.detail}>
+              {`${report.recordsProcessed}/${report.recordsTotal}`}
+              {report.recordsFailed
+                ? ` · ${t('reports.failedCount', { count: report.recordsFailed })}`
+                : ''}
             </Text>
-            <Text style={styles.status}>
-              {t(`reports.status.${report.status}`)}
-            </Text>
+            <Text style={styles.detail}>{formatDate(report.createdAt)}</Text>
+            {report.dryRun ? (
+              <Text style={styles.warning}>{t('reports.dryRun')}</Text>
+            ) : null}
+            {report.errorMessage ? (
+              <Text style={styles.error}>{report.errorMessage}</Text>
+            ) : null}
           </View>
-          <Text style={styles.detail}>{report.ownerName || '-'}</Text>
-          <Text style={styles.detail}>{report.period ?? '-'}</Text>
-          <Text style={styles.detail}>
-            {`${report.recordsProcessed}/${report.recordsTotal}`}
-            {report.recordsFailed
-              ? ` · ${t('reports.failedCount', { count: report.recordsFailed })}`
-              : ''}
-          </Text>
-          <Text style={styles.detail}>{formatDate(report.createdAt)}</Text>
-          {report.dryRun ? (
-            <Text style={styles.warning}>{t('reports.dryRun')}</Text>
-          ) : null}
-          {report.errorMessage ? (
-            <Text style={styles.error}>{report.errorMessage}</Text>
-          ) : null}
-        </View>
-      )}
+        );
+      }}
     />
   );
 }
