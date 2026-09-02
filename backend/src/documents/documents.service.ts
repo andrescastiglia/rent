@@ -27,6 +27,13 @@ import {
 } from './entities/document.entity';
 import { GenerateUploadUrlDto } from './dto/generate-upload-url.dto';
 import { getS3Config, S3_BUCKET_NAME } from '../config/s3.config';
+import { UserRole } from '../users/entities/user.entity';
+
+export type DocumentActor = {
+  id: string;
+  companyId?: string;
+  role: UserRole;
+};
 
 const UPLOAD_ENTITY_TABLES: Record<string, string> = {
   property: 'properties',
@@ -94,10 +101,10 @@ export class DocumentsService implements OnModuleInit {
 
   async generateUploadUrl(
     dto: GenerateUploadUrlDto,
-    _userId: string,
-    companyId: string,
+    actor: DocumentActor,
   ): Promise<{ uploadUrl: string; documentId: string }> {
-    await this.assertEntityInCompany(dto.entityType, dto.entityId, companyId);
+    const companyId = this.requireCompanyId(actor);
+    await this.assertEntityAccessible(dto.entityType, dto.entityId, actor);
     // Validate file size based on type
     const maxSize =
       dto.documentType === DocumentType.PHOTO ? 5242880 : 10485760; // 5MB for photos, 10MB for docs
@@ -194,8 +201,9 @@ export class DocumentsService implements OnModuleInit {
 
   async generateDownloadUrl(
     documentId: string,
-    companyId: string,
+    actor: DocumentActor,
   ): Promise<{ downloadUrl: string }> {
+    const companyId = this.requireCompanyId(actor);
     const document = await this.documentsRepository.findOne({
       where: {
         id: documentId,
@@ -207,6 +215,11 @@ export class DocumentsService implements OnModuleInit {
     if (!document) {
       throw new NotFoundException(`Document with ID ${documentId} not found`);
     }
+    await this.assertEntityAccessible(
+      document.entityType,
+      document.entityId,
+      actor,
+    );
 
     const command = new GetObjectCommand({
       Bucket: this.bucketName,
@@ -223,9 +236,9 @@ export class DocumentsService implements OnModuleInit {
 
   async confirmUpload(
     documentId: string,
-    companyId: string,
-    userId: string,
+    actor: DocumentActor,
   ): Promise<Document> {
+    const companyId = this.requireCompanyId(actor);
     const document = await this.documentsRepository.findOne({
       where: { id: documentId, companyId },
     });
@@ -233,6 +246,11 @@ export class DocumentsService implements OnModuleInit {
     if (!document) {
       throw new NotFoundException(`Document with ID ${documentId} not found`);
     }
+    await this.assertEntityAccessible(
+      document.entityType,
+      document.entityId,
+      actor,
+    );
 
     if (document.status === DocumentStatus.APPROVED) {
       return document;
@@ -280,7 +298,7 @@ export class DocumentsService implements OnModuleInit {
     );
     document.fileUrl = approvedKey;
     document.status = DocumentStatus.APPROVED;
-    document.verifiedBy = userId;
+    document.verifiedBy = actor.id;
     document.verifiedAt = new Date();
 
     const approvedDocument = await this.documentsRepository.save(document);
@@ -307,8 +325,10 @@ export class DocumentsService implements OnModuleInit {
   async findByEntity(
     entityType: string,
     entityId: string,
-    companyId: string,
+    actor: DocumentActor,
   ): Promise<Document[]> {
+    const companyId = this.requireCompanyId(actor);
+    await this.assertEntityAccessible(entityType, entityId, actor);
     const normalizedEntityType = this.normalizeEntityType(entityType);
     return this.documentsRepository.find({
       where: {
@@ -321,7 +341,8 @@ export class DocumentsService implements OnModuleInit {
     });
   }
 
-  async remove(documentId: string, companyId: string): Promise<void> {
+  async remove(documentId: string, actor: DocumentActor): Promise<void> {
+    const companyId = this.requireCompanyId(actor);
     const document = await this.documentsRepository.findOne({
       where: { id: documentId, companyId },
     });
@@ -329,6 +350,11 @@ export class DocumentsService implements OnModuleInit {
     if (!document) {
       throw new NotFoundException(`Document with ID ${documentId} not found`);
     }
+    await this.assertEntityAccessible(
+      document.entityType,
+      document.entityId,
+      actor,
+    );
 
     // Delete from S3
     try {
@@ -351,23 +377,78 @@ export class DocumentsService implements OnModuleInit {
     return CANONICAL_ENTITY_TYPES[normalized] ?? normalized;
   }
 
-  private async assertEntityInCompany(
+  private requireCompanyId(actor: DocumentActor): string {
+    if (!actor.companyId) {
+      throw new NotFoundException('Document parent entity not found');
+    }
+    return actor.companyId;
+  }
+
+  private async assertEntityAccessible(
     entityType: string,
     entityId: string,
-    companyId: string,
+    actor: DocumentActor,
   ): Promise<void> {
-    const normalized = entityType.trim().toLowerCase();
+    const companyId = this.requireCompanyId(actor);
+    const normalized = this.normalizeEntityType(entityType);
     const table = UPLOAD_ENTITY_TABLES[normalized];
     if (!table) {
       throw new BadRequestException('Unsupported document entity type');
     }
-    const rows = await this.dataSource.query(
-      `SELECT id FROM ${table} WHERE id = $1 AND company_id = $2 AND deleted_at IS NULL LIMIT 1`,
-      [entityId, companyId],
-    );
+
+    const query = this.buildEntityAccessQuery(normalized, table, actor.role);
+    const rows = query
+      ? await this.dataSource.query(query, [entityId, companyId, actor.id])
+      : [];
     if (!Array.isArray(rows) || rows.length !== 1) {
       throw new NotFoundException('Document parent entity not found');
     }
+  }
+
+  private buildEntityAccessQuery(
+    entityType: string,
+    table: string,
+    role: UserRole,
+  ): string | null {
+    if (role === UserRole.ADMIN || role === UserRole.STAFF) {
+      return `SELECT id FROM ${table} WHERE id = $1 AND company_id = $2 AND deleted_at IS NULL LIMIT 1`;
+    }
+
+    const queries: Partial<Record<UserRole, Record<string, string>>> = {
+      [UserRole.OWNER]: {
+        owner:
+          'SELECT o.id FROM owners o WHERE o.id = $1 AND o.company_id = $2 AND o.user_id = $3 AND o.deleted_at IS NULL LIMIT 1',
+        property:
+          'SELECT p.id FROM properties p JOIN owners o ON o.id = p.owner_id AND o.deleted_at IS NULL WHERE p.id = $1 AND p.company_id = $2 AND o.user_id = $3 AND p.deleted_at IS NULL LIMIT 1',
+        unit: 'SELECT u.id FROM units u JOIN properties p ON p.id = u.property_id AND p.deleted_at IS NULL JOIN owners o ON o.id = p.owner_id AND o.deleted_at IS NULL WHERE u.id = $1 AND u.company_id = $2 AND o.user_id = $3 AND u.deleted_at IS NULL LIMIT 1',
+        lease:
+          'SELECT l.id FROM leases l JOIN owners o ON o.id = l.owner_id AND o.deleted_at IS NULL WHERE l.id = $1 AND l.company_id = $2 AND o.user_id = $3 AND l.deleted_at IS NULL LIMIT 1',
+        tenant:
+          'SELECT t.id FROM tenants t JOIN leases l ON l.tenant_id = t.id AND l.deleted_at IS NULL JOIN owners o ON o.id = l.owner_id AND o.deleted_at IS NULL WHERE t.id = $1 AND t.company_id = $2 AND o.user_id = $3 AND t.deleted_at IS NULL LIMIT 1',
+        maintenance_ticket:
+          'SELECT mt.id FROM maintenance_tickets mt JOIN properties p ON p.id = mt.property_id AND p.deleted_at IS NULL JOIN owners o ON o.id = p.owner_id AND o.deleted_at IS NULL WHERE mt.id = $1 AND mt.company_id = $2 AND o.user_id = $3 AND mt.deleted_at IS NULL LIMIT 1',
+      },
+      [UserRole.TENANT]: {
+        tenant:
+          'SELECT t.id FROM tenants t WHERE t.id = $1 AND t.company_id = $2 AND t.user_id = $3 AND t.deleted_at IS NULL LIMIT 1',
+        lease:
+          'SELECT l.id FROM leases l JOIN tenants t ON t.id = l.tenant_id AND t.deleted_at IS NULL WHERE l.id = $1 AND l.company_id = $2 AND t.user_id = $3 AND l.deleted_at IS NULL LIMIT 1',
+        property:
+          "SELECT p.id FROM properties p JOIN leases l ON l.property_id = p.id AND l.contract_type = 'rental' AND l.status = 'active' AND l.deleted_at IS NULL JOIN tenants t ON t.id = l.tenant_id AND t.deleted_at IS NULL WHERE p.id = $1 AND p.company_id = $2 AND t.user_id = $3 AND p.deleted_at IS NULL LIMIT 1",
+        unit: "SELECT u.id FROM units u JOIN properties p ON p.id = u.property_id AND p.deleted_at IS NULL JOIN leases l ON l.property_id = p.id AND l.contract_type = 'rental' AND l.status = 'active' AND l.deleted_at IS NULL JOIN tenants t ON t.id = l.tenant_id AND t.deleted_at IS NULL WHERE u.id = $1 AND u.company_id = $2 AND t.user_id = $3 AND u.deleted_at IS NULL LIMIT 1",
+        maintenance_ticket:
+          "SELECT mt.id FROM maintenance_tickets mt JOIN properties p ON p.id = mt.property_id AND p.deleted_at IS NULL JOIN leases l ON l.property_id = p.id AND l.contract_type = 'rental' AND l.status = 'active' AND l.deleted_at IS NULL JOIN tenants t ON t.id = l.tenant_id AND t.deleted_at IS NULL WHERE mt.id = $1 AND mt.company_id = $2 AND t.user_id = $3 AND mt.deleted_at IS NULL LIMIT 1",
+      },
+      [UserRole.BUYER]: {
+        lease:
+          'SELECT l.id FROM leases l JOIN buyers b ON b.id = l.buyer_id AND b.deleted_at IS NULL WHERE l.id = $1 AND l.company_id = $2 AND b.user_id = $3 AND l.deleted_at IS NULL LIMIT 1',
+        property:
+          "SELECT p.id FROM properties p JOIN leases l ON l.property_id = p.id AND l.contract_type = 'sale' AND l.deleted_at IS NULL JOIN buyers b ON b.id = l.buyer_id AND b.deleted_at IS NULL WHERE p.id = $1 AND p.company_id = $2 AND b.user_id = $3 AND p.deleted_at IS NULL LIMIT 1",
+        unit: "SELECT u.id FROM units u JOIN properties p ON p.id = u.property_id AND p.deleted_at IS NULL JOIN leases l ON l.property_id = p.id AND l.contract_type = 'sale' AND l.deleted_at IS NULL JOIN buyers b ON b.id = l.buyer_id AND b.deleted_at IS NULL WHERE u.id = $1 AND u.company_id = $2 AND b.user_id = $3 AND u.deleted_at IS NULL LIMIT 1",
+      },
+    };
+
+    return queries[role]?.[entityType] ?? null;
   }
 
   /**

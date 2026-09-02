@@ -8,6 +8,7 @@ import {
   DeleteObjectCommand,
   HeadObjectCommand,
 } from '@aws-sdk/client-s3';
+import { UserRole } from '../users/entities/user.entity';
 
 jest.mock('@aws-sdk/s3-request-presigner', () => ({
   getSignedUrl: jest.fn(async () => 'https://signed.url'),
@@ -33,6 +34,11 @@ describe('DocumentsService', () => {
 
   let service: DocumentsService;
   let s3Client: { send: jest.Mock };
+  const adminActor = {
+    id: 'u1',
+    companyId: 'co1',
+    role: UserRole.ADMIN,
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -58,8 +64,7 @@ describe('DocumentsService', () => {
           mimeType: 'image/png',
           fileSize: 9_000_000,
         } as any,
-        'u1',
-        'co1',
+        adminActor,
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
 
@@ -73,8 +78,7 @@ describe('DocumentsService', () => {
           mimeType: 'image/png',
           fileSize: 1000,
         } as any,
-        'u1',
-        'co1',
+        adminActor,
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
@@ -89,8 +93,7 @@ describe('DocumentsService', () => {
         mimeType: 'application/pdf',
         fileSize: 1000,
       } as any,
-      'u1',
-      'co1',
+      adminActor,
     );
 
     expect(documentsRepository.create).toHaveBeenCalledWith(
@@ -108,16 +111,18 @@ describe('DocumentsService', () => {
   it('generateDownloadUrl throws when document not found and returns signed URL', async () => {
     documentsRepository.findOne.mockResolvedValueOnce(null);
     await expect(
-      service.generateDownloadUrl('missing', 'co1'),
+      service.generateDownloadUrl('missing', adminActor),
     ).rejects.toBeInstanceOf(NotFoundException);
 
     documentsRepository.findOne.mockResolvedValueOnce({
       id: 'doc-1',
       fileUrl: 'k',
+      entityType: 'lease',
+      entityId: 'l1',
     });
-    await expect(service.generateDownloadUrl('doc-1', 'co1')).resolves.toEqual({
-      downloadUrl: 'https://signed.url',
-    });
+    await expect(
+      service.generateDownloadUrl('doc-1', adminActor),
+    ).resolves.toEqual({ downloadUrl: 'https://signed.url' });
     expect(documentsRepository.findOne).toHaveBeenLastCalledWith({
       where: {
         id: 'doc-1',
@@ -130,7 +135,7 @@ describe('DocumentsService', () => {
   it('confirmUpload throws when document not found', async () => {
     documentsRepository.findOne.mockResolvedValueOnce(null);
     await expect(
-      service.confirmUpload('missing', 'co1', 'u1'),
+      service.confirmUpload('missing', adminActor),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
@@ -138,6 +143,8 @@ describe('DocumentsService', () => {
     documentsRepository.findOne.mockResolvedValueOnce({
       id: 'doc-1',
       companyId: 'co1',
+      entityType: 'lease',
+      entityId: 'l1',
       fileUrl: 'quarantine/co1/opaque',
       fileSize: 1000,
       fileMimeType: 'application/pdf',
@@ -151,7 +158,7 @@ describe('DocumentsService', () => {
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({});
     documentsRepository.save.mockImplementationOnce(async (x) => x);
-    const confirmed = await service.confirmUpload('doc-1', 'co1', 'u1');
+    const confirmed = await service.confirmUpload('doc-1', adminActor);
     expect(confirmed.status).toBe(DocumentStatus.APPROVED);
     expect(confirmed.fileUrl).toMatch(/^documents\/co1\/[a-f0-9]{64}$/);
     expect(confirmed.verifiedBy).toBe('u1');
@@ -169,9 +176,9 @@ describe('DocumentsService', () => {
     );
 
     documentsRepository.find.mockResolvedValue([{ id: 'doc-2' }]);
-    await expect(service.findByEntity('lease', 'l1', 'co1')).resolves.toEqual([
-      { id: 'doc-2' },
-    ]);
+    await expect(
+      service.findByEntity('lease', 'l1', adminActor),
+    ).resolves.toEqual([{ id: 'doc-2' }]);
     expect(documentsRepository.find).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -195,8 +202,7 @@ describe('DocumentsService', () => {
           mimeType: 'application/pdf',
           fileSize: 1000,
         } as any,
-        'u1',
-        'co1',
+        adminActor,
       ),
     ).rejects.toThrow('Document parent entity not found');
     expect(documentsRepository.save).not.toHaveBeenCalled();
@@ -206,6 +212,8 @@ describe('DocumentsService', () => {
     documentsRepository.findOne.mockResolvedValue({
       id: 'doc-1',
       companyId: 'co1',
+      entityType: 'lease',
+      entityId: 'l1',
       fileUrl: 'quarantine/co1/opaque',
       fileSize: 1000,
       fileMimeType: 'application/pdf',
@@ -216,7 +224,7 @@ describe('DocumentsService', () => {
       ContentType: 'application/pdf',
     });
 
-    await expect(service.confirmUpload('doc-1', 'co1', 'u1')).rejects.toThrow(
+    await expect(service.confirmUpload('doc-1', adminActor)).rejects.toThrow(
       'does not match',
     );
     expect(documentsRepository.save).not.toHaveBeenCalled();
@@ -226,6 +234,8 @@ describe('DocumentsService', () => {
     documentsRepository.findOne.mockResolvedValue({
       id: 'doc-1',
       companyId: 'co1',
+      entityType: 'lease',
+      entityId: 'l1',
       fileUrl: 'quarantine/co1/opaque',
       fileSize: 1000,
       fileMimeType: 'application/pdf',
@@ -239,7 +249,7 @@ describe('DocumentsService', () => {
       .mockResolvedValueOnce({});
     documentsRepository.save.mockRejectedValueOnce(new Error('db failure'));
 
-    await expect(service.confirmUpload('doc-1', 'co1', 'u1')).rejects.toThrow(
+    await expect(service.confirmUpload('doc-1', adminActor)).rejects.toThrow(
       'db failure',
     );
     expect(s3Client.send).toHaveBeenCalledTimes(2);
@@ -250,22 +260,59 @@ describe('DocumentsService', () => {
 
   it('remove handles not found and soft delete after S3 deletion attempt', async () => {
     documentsRepository.findOne.mockResolvedValueOnce(null);
-    await expect(service.remove('missing', 'co1')).rejects.toBeInstanceOf(
+    await expect(service.remove('missing', adminActor)).rejects.toBeInstanceOf(
       NotFoundException,
     );
 
     documentsRepository.findOne.mockResolvedValueOnce({
       id: 'doc-1',
       fileUrl: 'lease/l1/file.pdf',
+      entityType: 'lease',
+      entityId: 'l1',
     });
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
     s3Client.send.mockRejectedValueOnce(new Error('s3 error'));
 
-    await expect(service.remove('doc-1', 'co1')).resolves.toBeUndefined();
+    await expect(service.remove('doc-1', adminActor)).resolves.toBeUndefined();
     expect(documentsRepository.softDelete).toHaveBeenCalledWith({
       id: 'doc-1',
       companyId: 'co1',
     });
+  });
+
+  it('rejects a same-company entity unrelated to the authenticated owner', async () => {
+    dataSource.query.mockResolvedValue([]);
+    const ownerActor = {
+      id: 'owner-user-1',
+      companyId: 'co1',
+      role: UserRole.OWNER,
+    };
+
+    await expect(
+      service.findByEntity('property', 'property-2', ownerActor),
+    ).rejects.toThrow('Document parent entity not found');
+    expect(dataSource.query).toHaveBeenCalledWith(
+      expect.stringContaining('o.user_id = $3'),
+      ['property-2', 'co1', 'owner-user-1'],
+    );
+    expect(documentsRepository.find).not.toHaveBeenCalled();
+  });
+
+  it('allows tenants only through an active rental relationship', async () => {
+    const tenantActor = {
+      id: 'tenant-user-1',
+      companyId: 'co1',
+      role: UserRole.TENANT,
+    };
+    documentsRepository.find.mockResolvedValue([]);
+
+    await expect(
+      service.findByEntity('maintenance_ticket', 'ticket-1', tenantActor),
+    ).resolves.toEqual([]);
+    expect(dataSource.query).toHaveBeenCalledWith(
+      expect.stringContaining("l.status = 'active'"),
+      ['ticket-1', 'co1', 'tenant-user-1'],
+    );
   });
 
   it('downloadByS3Key reads DB-backed file and throws when absent', async () => {

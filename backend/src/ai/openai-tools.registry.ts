@@ -677,13 +677,12 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Pre-signed upload URL and the created document record with pending status.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_OWNER_STAFF,
       parameters: GenerateUploadUrlDto.zodSchema,
       execute: async (args, context) =>
         deps.documentsService.generateUploadUrl(
           GenerateUploadUrlDto.zodSchema.parse(args),
-          context.userId,
-          context.companyId ?? '',
+          toScopedUser(context),
         ),
     },
     {
@@ -692,15 +691,11 @@ export function buildAiToolDefinitions(
         'Confirms that a document was successfully uploaded by its UUID. Transitions document from pending to confirmed.',
       responseDescription: 'The confirmed document record with updated status.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.documentsService.confirmUpload(
-          id,
-          context.companyId ?? '',
-          context.userId,
-        );
+        return deps.documentsService.confirmUpload(id, toScopedUser(context));
       },
     },
     {
@@ -709,13 +704,13 @@ export function buildAiToolDefinitions(
         'Generates a download URL for a specific document by UUID. Use to retrieve stored files.',
       responseDescription: 'Pre-signed download URL for the document.',
       mutability: 'readonly',
-      allowedRoles: ALL_ROLES,
+      allowedRoles: LEASE_READ_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
         return deps.documentsService.generateDownloadUrl(
           id,
-          context.companyId ?? '',
+          toScopedUser(context),
         );
       },
     },
@@ -726,7 +721,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Array of document records for the specified entity.',
       mutability: 'readonly',
-      allowedRoles: ALL_ROLES,
+      allowedRoles: LEASE_READ_ROLES,
       parameters: z.object({ type: z.string().min(1), id: idSchema }).strict(),
       execute: async (args, context) => {
         const parsed = z
@@ -735,7 +730,7 @@ export function buildAiToolDefinitions(
         return deps.documentsService.findByEntity(
           parsed.type,
           parsed.id,
-          context.companyId ?? '',
+          toScopedUser(context),
         );
       },
     },
@@ -745,11 +740,11 @@ export function buildAiToolDefinitions(
         'Deletes a document by UUID, removing both the record and stored file.',
       responseDescription: 'Confirmation that the document was deleted.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        await deps.documentsService.remove(id, context.companyId ?? '');
+        await deps.documentsService.remove(id, toScopedUser(context));
         return { message: 'Document deleted successfully' };
       },
     },
@@ -2765,7 +2760,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The newly created sale folder record with assigned UUID.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: CreateSaleFolderDto.zodSchema,
       execute: async (args, context) =>
         deps.salesService.createFolder(
@@ -2779,7 +2774,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Array of sale folder records with name, agreement count, and status.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: emptyObjectSchema,
       execute: async (_args, context) =>
         deps.salesService.listFolders({ companyId: context.companyId }),
@@ -2791,7 +2786,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The newly created sale agreement record with assigned UUID.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: CreateSaleAgreementDto.zodSchema,
       execute: async (args, context) =>
         deps.salesService.createAgreement(
@@ -2806,7 +2801,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Array of sale agreement records with buyer, property, and status details.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: SaleAgreementsQueryDto.zodSchema,
       execute: async (args, context) => {
         const parsed = SaleAgreementsQueryDto.zodSchema.parse(args) as any;
@@ -2823,7 +2818,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Complete sale agreement record with nested details.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
@@ -2839,7 +2834,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Array of receipt records with amounts, dates, and payment method.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
@@ -2854,7 +2849,7 @@ export function buildAiToolDefinitions(
         'Creates a payment receipt for a sale agreement. Specify amount, date, and payment method.',
       responseDescription: 'The created receipt record with assigned UUID.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: withParams(CreateSaleReceiptDto.zodSchema, {
         id: uuidSchema,
       }),
@@ -2872,7 +2867,7 @@ export function buildAiToolDefinitions(
       description: 'Downloads a sale receipt as a PDF document by receiptId.',
       responseDescription: 'PDF binary content of the sale receipt.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: z.object({ receiptId: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { receiptId } = z

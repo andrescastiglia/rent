@@ -19,8 +19,8 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 
 ### Autorización y aislamiento
 
-- [ ] Restringir owner, tenant y buyer a objetos relacionados, no solo a la misma compañía.
-- [ ] Añadir fixtures de dos compañías y pruebas negativas por ID ajeno para cada controlador y herramienta IA.
+- [ ] Completar el aislamiento por relación de owner, tenant y buyer en las superficies aún no auditadas.
+- [ ] Completar fixtures de dos compañías y pruebas negativas por ID ajeno para cada controlador y herramienta IA restante.
 
 ### Consistencia financiera
 

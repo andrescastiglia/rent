@@ -35,7 +35,7 @@ export class SalesController {
   ) {}
 
   @Post('folders')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   createFolder(
     @Body() dto: CreateSaleFolderDto,
     @Request() req: AuthenticatedRequest,
@@ -44,13 +44,13 @@ export class SalesController {
   }
 
   @Get('folders')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   listFolders(@Request() req: AuthenticatedRequest) {
     return this.salesService.listFolders(req.user);
   }
 
   @Post('agreements')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   createAgreement(
     @Body() dto: CreateSaleAgreementDto,
     @Request() req: AuthenticatedRequest,
@@ -59,7 +59,7 @@ export class SalesController {
   }
 
   @Get('agreements')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   listAgreements(
     @Query() query: SaleAgreementsQueryDto,
     @Request() req: AuthenticatedRequest,
@@ -68,19 +68,19 @@ export class SalesController {
   }
 
   @Get('agreements/:id')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   getAgreement(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     return this.salesService.getAgreement(id, req.user);
   }
 
   @Get('agreements/:id/receipts')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   listReceipts(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     return this.salesService.listReceipts(id, req.user);
   }
 
   @Post('agreements/:id/receipts')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   createReceipt(
     @Param('id') id: string,
     @Body() dto: CreateSaleReceiptDto,
@@ -90,7 +90,7 @@ export class SalesController {
   }
 
   @Get('receipts/:receiptId/pdf')
-  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   async downloadReceipt(
     @Param('receiptId') receiptId: string,
     @Request() req: AuthenticatedRequest,

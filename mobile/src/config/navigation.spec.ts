@@ -69,7 +69,7 @@ describe('permission-aware navigation', () => {
         '/owners/123/edit',
       ),
     ).toBe(true);
-    expect(canUserAccessPath({ role: 'owner' }, '/sales')).toBe(true);
+    expect(canUserAccessPath({ role: 'owner' }, '/sales')).toBe(false);
     expect(canUserAccessPath({ role: 'tenant' }, '/unknown')).toBe(false);
   });
 });
