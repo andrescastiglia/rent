@@ -198,16 +198,15 @@ describe('TenantAccountsService', () => {
           : accountsRepository,
     } as any;
 
-    const result = await service.addMovementWithManager(
-      manager,
-      'acc-1',
-      MovementType.CHARGE,
-      75,
-      'invoice',
-      'inv-1',
-      'Factura INV-1',
-      'co1',
-    );
+    const result = await service.addMovementWithManager(manager, {
+      accountId: 'acc-1',
+      type: MovementType.CHARGE,
+      amount: 75,
+      referenceType: 'invoice',
+      referenceId: 'inv-1',
+      description: 'Factura INV-1',
+      companyId: 'co1',
+    });
 
     expect(dataSource.transaction).not.toHaveBeenCalled();
     expect(result.balanceAfter).toBe(100);

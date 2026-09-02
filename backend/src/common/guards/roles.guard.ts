@@ -12,6 +12,33 @@ import {
   UserRole,
 } from '../../users/entities/user.entity';
 
+const STAFF_RESOURCE_ROUTES: ReadonlyArray<
+  readonly [pathPrefix: string, resource: UserModulePermissionKey]
+> = [
+  ['/dashboard', 'dashboard'],
+  ['/properties', 'properties'],
+  ['/owners', 'owners'],
+  ['/interested', 'interested'],
+  ['/tenants', 'tenants'],
+  ['/leases', 'leases'],
+  ['/payments/document-templates', 'templates'],
+  ['/payment-templates', 'templates'],
+  ['/payments', 'payments'],
+  ['/tenant-accounts', 'payments'],
+  ['/invoices', 'invoices'],
+  ['/buyers', 'sales'],
+  ['/sales', 'sales'],
+  ['/reports', 'reports'],
+  ['/users', 'users'],
+  ['/templates', 'templates'],
+  ['/maintenance', 'maintenance'],
+  ['/communications', 'communications'],
+  ['/bank-reconciliation', 'reconciliation'],
+  ['/settlements', 'settlements'],
+  ['/pending-actions', 'approvals'],
+  ['/ai', 'ai'],
+];
+
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
@@ -20,31 +47,10 @@ export class RolesGuard implements CanActivate {
     pathname: string,
   ): UserModulePermissionKey | null {
     const path = pathname.toLowerCase();
-
-    if (path.startsWith('/dashboard')) return 'dashboard';
-    if (path.startsWith('/properties')) return 'properties';
-    if (path.startsWith('/owners')) return 'owners';
-    if (path.startsWith('/interested')) return 'interested';
-    if (path.startsWith('/tenants')) return 'tenants';
-    if (path.startsWith('/leases')) return 'leases';
-    if (path.startsWith('/payments/document-templates')) return 'templates';
-    if (path.startsWith('/payment-templates')) return 'templates';
-    if (path.startsWith('/payments')) return 'payments';
-    if (path.startsWith('/tenant-accounts')) return 'payments';
-    if (path.startsWith('/invoices')) return 'invoices';
-    if (path.startsWith('/buyers')) return 'sales';
-    if (path.startsWith('/sales')) return 'sales';
-    if (path.startsWith('/reports')) return 'reports';
-    if (path.startsWith('/users')) return 'users';
-    if (path.startsWith('/templates')) return 'templates';
-    if (path.startsWith('/maintenance')) return 'maintenance';
-    if (path.startsWith('/communications')) return 'communications';
-    if (path.startsWith('/bank-reconciliation')) return 'reconciliation';
-    if (path.startsWith('/settlements')) return 'settlements';
-    if (path.startsWith('/pending-actions')) return 'approvals';
-    if (path.startsWith('/ai')) return 'ai';
-
-    return null;
+    return (
+      STAFF_RESOURCE_ROUTES.find(([prefix]) => path.startsWith(prefix))?.[1] ??
+      null
+    );
   }
 
   private staffHasAccess(
@@ -64,6 +70,34 @@ export class RolesGuard implements CanActivate {
     return permissions[resource] === true;
   }
 
+  private canAccessAuthenticatedRoute(
+    user: { role: UserRole; permissions?: UserModulePermissions } | undefined,
+    path: string,
+    policy: AuthenticatedPolicy | undefined,
+  ): boolean {
+    if (!policy || !user) return false;
+    if (user.role !== UserRole.STAFF || policy === 'self-service') return true;
+    return this.staffHasAccess(path, user.permissions, policy);
+  }
+
+  private canStaffAccessRoleProtectedRoute(
+    requiredRoles: UserRole[],
+    path: string,
+    permissions: UserModulePermissions | undefined,
+    policy: AuthenticatedPolicy | undefined,
+  ): boolean {
+    const hasDirectRole = requiredRoles.includes(UserRole.STAFF);
+    const inheritsAdmin =
+      requiredRoles.includes(UserRole.ADMIN) && !path.startsWith('/users');
+    if (!hasDirectRole && !inheritsAdmin) return false;
+
+    return this.staffHasAccess(
+      path,
+      permissions,
+      policy === 'self-service' ? undefined : policy,
+    );
+  }
+
   canActivate(context: ExecutionContext): boolean {
     // Check if endpoint is public
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
@@ -76,6 +110,7 @@ export class RolesGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest();
     const { user } = request;
+    const path = String(request.path ?? request.originalUrl ?? '');
 
     const authenticatedPolicy =
       this.reflector.getAllAndOverride<AuthenticatedPolicy>(AUTHENTICATED_KEY, [
@@ -90,56 +125,23 @@ export class RolesGuard implements CanActivate {
     );
 
     if (!requiredRoles) {
-      if (!authenticatedPolicy || !user) {
-        return false;
-      }
-      if (user.role === UserRole.STAFF) {
-        if (authenticatedPolicy === 'self-service') {
-          return true;
-        }
-        return this.staffHasAccess(
-          String(request.path ?? request.originalUrl ?? ''),
-          user.permissions,
-          authenticatedPolicy,
-        );
-      }
-      return true;
+      return this.canAccessAuthenticatedRoute(user, path, authenticatedPolicy);
     }
 
     if (!user) {
       return false;
     }
 
-    // Staff inherits admin access except for user administration endpoints.
-    if (
-      user.role === UserRole.STAFF &&
-      requiredRoles.includes(UserRole.ADMIN) &&
-      !String(request.path ?? request.originalUrl ?? '').startsWith('/users')
-    ) {
-      return this.staffHasAccess(
-        String(request.path ?? request.originalUrl ?? ''),
+    if (user.role === UserRole.STAFF) {
+      return this.canStaffAccessRoleProtectedRoute(
+        requiredRoles,
+        path,
         user.permissions,
-        authenticatedPolicy !== 'self-service'
-          ? authenticatedPolicy
-          : undefined,
+        authenticatedPolicy,
       );
     }
 
     // Check if user has one of the required roles
-    if (!requiredRoles.includes(user.role)) {
-      return false;
-    }
-
-    if (user.role === UserRole.STAFF) {
-      return this.staffHasAccess(
-        String(request.path ?? request.originalUrl ?? ''),
-        user.permissions,
-        authenticatedPolicy !== 'self-service'
-          ? authenticatedPolicy
-          : undefined,
-      );
-    }
-
-    return true;
+    return requiredRoles.includes(user.role);
   }
 }

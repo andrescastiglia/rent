@@ -279,8 +279,7 @@ export class PaymentGatewayService {
     if (
       payment.transaction_amount === undefined ||
       Number(payment.transaction_amount) !== Number(tx.amount) ||
-      !payment.currency_id ||
-      payment.currency_id.toUpperCase() !== tx.currency.toUpperCase()
+      payment.currency_id?.toUpperCase() !== tx.currency.toUpperCase()
     ) {
       throw new BadRequestException(
         'MercadoPago payment amount or currency does not match the transaction',

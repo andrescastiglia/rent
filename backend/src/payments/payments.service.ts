@@ -256,16 +256,15 @@ export class PaymentsService {
       invoicesRepository,
     );
 
-    await this.tenantAccountsService.addMovementWithManager(
-      manager,
-      tenantAccountId,
-      MovementType.PAYMENT,
-      -Number(payment.amount),
-      'payment',
-      payment.id,
-      `Pago recibido - ${payment.method}`,
-      payment.companyId,
-    );
+    await this.tenantAccountsService.addMovementWithManager(manager, {
+      accountId: tenantAccountId,
+      type: MovementType.PAYMENT,
+      amount: -Number(payment.amount),
+      referenceType: 'payment',
+      referenceId: payment.id,
+      description: `Pago recibido - ${payment.method}`,
+      companyId: payment.companyId,
+    });
 
     const settledInvoices = await this.applyPaymentToInvoices(
       payment,
@@ -756,16 +755,15 @@ export class PaymentsService {
             'Legacy payment lacks allocation history and requires manual reversal',
           );
         }
-        await this.tenantAccountsService.addMovementWithManager(
-          manager,
-          payment.tenantAccountId,
-          MovementType.ADJUSTMENT,
-          Number(payment.amount),
-          'payment',
-          payment.id,
-          `Anulación pago`,
-          payment.companyId,
-        );
+        await this.tenantAccountsService.addMovementWithManager(manager, {
+          accountId: payment.tenantAccountId,
+          type: MovementType.ADJUSTMENT,
+          amount: Number(payment.amount),
+          referenceType: 'payment',
+          referenceId: payment.id,
+          description: `Anulación pago`,
+          companyId: payment.companyId,
+        });
         await this.reverseCompletedPayment(manager, payment);
       }
 
@@ -797,48 +795,16 @@ export class PaymentsService {
       const existing = await creditNotesRepository.findOne({
         where: { invoiceId: invoice.id, paymentId: payment.id },
       });
-      let savedNote = existing;
-      if (!savedNote) {
-        const noteNumber = await this.generateCreditNoteNumber(
+      const savedNote =
+        existing ??
+        (await this.issueLateFeeCreditNote({
+          payment,
+          tenantAccountId,
+          invoice,
+          lateFeeAmount,
           creditNotesRepository,
           manager,
-        );
-        const note = creditNotesRepository.create({
-          companyId: payment.companyId,
-          invoiceId: invoice.id,
-          paymentId: payment.id,
-          tenantAccountId,
-          noteNumber,
-          amount: lateFeeAmount,
-          currencyCode: invoice.currencyCode || payment.currencyCode || 'ARS',
-          reason: `Mora vinculada a factura ${invoice.invoiceNumber}`,
-          status: CreditNoteStatus.ISSUED,
-        });
-
-        savedNote = await creditNotesRepository.save(note);
-        if (manager) {
-          await this.tenantAccountsService.addMovementWithManager(
-            manager,
-            tenantAccountId,
-            MovementType.DISCOUNT,
-            -lateFeeAmount,
-            'credit_note',
-            savedNote.id,
-            `Nota de crédito ${savedNote.noteNumber} por mora`,
-            payment.companyId,
-          );
-        } else {
-          await this.tenantAccountsService.addMovement(
-            tenantAccountId,
-            MovementType.DISCOUNT,
-            -lateFeeAmount,
-            'credit_note',
-            savedNote.id,
-            `Nota de crédito ${savedNote.noteNumber} por mora`,
-            payment.companyId,
-          );
-        }
-      }
+        }));
 
       if (manager || savedNote.pdfUrl) {
         continue;
@@ -882,6 +848,65 @@ export class PaymentsService {
         console.error('Failed to generate credit note PDF:', error);
       }
     }
+  }
+
+  private async issueLateFeeCreditNote(input: {
+    payment: Payment;
+    tenantAccountId: string;
+    invoice: Invoice;
+    lateFeeAmount: number;
+    creditNotesRepository: Repository<CreditNote>;
+    manager?: EntityManager;
+  }): Promise<CreditNote> {
+    const {
+      payment,
+      tenantAccountId,
+      invoice,
+      lateFeeAmount,
+      creditNotesRepository,
+      manager,
+    } = input;
+    const noteNumber = await this.generateCreditNoteNumber(
+      creditNotesRepository,
+      manager,
+    );
+    const note = creditNotesRepository.create({
+      companyId: payment.companyId,
+      invoiceId: invoice.id,
+      paymentId: payment.id,
+      tenantAccountId,
+      noteNumber,
+      amount: lateFeeAmount,
+      currencyCode: invoice.currencyCode || payment.currencyCode || 'ARS',
+      reason: `Mora vinculada a factura ${invoice.invoiceNumber}`,
+      status: CreditNoteStatus.ISSUED,
+    });
+    const savedNote = await creditNotesRepository.save(note);
+    const description = `Nota de crédito ${savedNote.noteNumber} por mora`;
+
+    if (manager) {
+      await this.tenantAccountsService.addMovementWithManager(manager, {
+        accountId: tenantAccountId,
+        type: MovementType.DISCOUNT,
+        amount: -lateFeeAmount,
+        referenceType: 'credit_note',
+        referenceId: savedNote.id,
+        description,
+        companyId: payment.companyId,
+      });
+    } else {
+      await this.tenantAccountsService.addMovement(
+        tenantAccountId,
+        MovementType.DISCOUNT,
+        -lateFeeAmount,
+        'credit_note',
+        savedNote.id,
+        description,
+        payment.companyId,
+      );
+    }
+
+    return savedNote;
   }
 
   private async generateCreditNoteNumber(
@@ -1002,16 +1027,15 @@ export class PaymentsService {
     });
     for (const note of creditNotes) {
       if (note.tenantAccountId) {
-        await this.tenantAccountsService.addMovementWithManager(
-          manager,
-          note.tenantAccountId,
-          MovementType.ADJUSTMENT,
-          Number(note.amount),
-          'credit_note_cancellation',
-          note.id,
-          `Anulación nota de crédito ${note.noteNumber}`,
-          payment.companyId,
-        );
+        await this.tenantAccountsService.addMovementWithManager(manager, {
+          accountId: note.tenantAccountId,
+          type: MovementType.ADJUSTMENT,
+          amount: Number(note.amount),
+          referenceType: 'credit_note_cancellation',
+          referenceId: note.id,
+          description: `Anulación nota de crédito ${note.noteNumber}`,
+          companyId: payment.companyId,
+        });
       }
       note.status = CreditNoteStatus.CANCELLED;
       await creditNotesRepository.save(note);

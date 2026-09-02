@@ -25,6 +25,16 @@ type TenantAccountActor = {
   role: UserRole;
 };
 
+export type AddTenantAccountMovementInput = {
+  accountId: string;
+  type: MovementType;
+  amount: number;
+  referenceType?: string;
+  referenceId?: string;
+  description?: string;
+  companyId: string;
+};
+
 /**
  * Servicio para gestionar cuentas corrientes de inquilinos.
  */
@@ -194,8 +204,7 @@ export class TenantAccountsService {
     }
 
     return this.dataSource.transaction((manager) =>
-      this.addMovementWithManager(
-        manager,
+      this.addMovementWithManager(manager, {
         accountId,
         type,
         amount,
@@ -203,20 +212,23 @@ export class TenantAccountsService {
         referenceId,
         description,
         companyId,
-      ),
+      }),
     );
   }
 
   async addMovementWithManager(
     manager: EntityManager,
-    accountId: string,
-    type: MovementType,
-    amount: number,
-    referenceType: string | undefined,
-    referenceId: string | undefined,
-    description: string | undefined,
-    companyId: string,
+    input: AddTenantAccountMovementInput,
   ): Promise<TenantAccountMovement> {
+    const {
+      accountId,
+      type,
+      amount,
+      referenceType,
+      referenceId,
+      description,
+      companyId,
+    } = input;
     const accountsRepository = manager.getRepository(TenantAccount);
     const movementsRepository = manager.getRepository(TenantAccountMovement);
     const account = await accountsRepository.findOne({

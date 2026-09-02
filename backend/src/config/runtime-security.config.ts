@@ -141,11 +141,8 @@ export function validateRuntimeEnvironment(
 
   const missing = required.filter((key) => !valueOf(environment, key));
   if (missing.length > 0) {
-    throw new Error(
-      `Missing required secrets: ${missing
-        .sort((left, right) => left.localeCompare(right))
-        .join(', ')}`,
-    );
+    missing.sort((left, right) => left.localeCompare(right));
+    throw new Error(`Missing required secrets: ${missing.join(', ')}`);
   }
 
   if (valueOf(environment, 'NODE_ENV') === 'production') {
@@ -153,10 +150,9 @@ export function validateRuntimeEnvironment(
       PLACEHOLDER_SECRET.test(valueOf(environment, key)),
     );
     if (placeholders.length > 0) {
+      placeholders.sort((left, right) => left.localeCompare(right));
       throw new Error(
-        `Production secrets contain placeholder values: ${placeholders
-          .sort((left, right) => left.localeCompare(right))
-          .join(', ')}`,
+        `Production secrets contain placeholder values: ${placeholders.join(', ')}`,
       );
     }
   }

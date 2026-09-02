@@ -123,7 +123,7 @@ export function canUserAccessPath(user: NavigationUser, path: string): boolean {
   const segment = path
     .split('?')[0]
     .split('/')
-    .filter((part) => part && !part.startsWith('('))[0];
+    .find((part) => part !== '' && !part.startsWith('('));
   if (!segment || segment === 'settings') return true;
   const policy = routePolicies[segment];
   if (!policy) return false;

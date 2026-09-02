@@ -182,7 +182,7 @@ export class WhatsappService implements OnApplicationBootstrap {
   async enqueueMessage(
     input: QueueWhatsappMessageInput,
   ): Promise<QueueWhatsappMessageResult> {
-    if (!this.dataSource || this.dataSource.options.type !== 'postgres') {
+    if (this.dataSource?.options.type !== 'postgres') {
       throw new ServiceUnavailableException('WhatsApp outbox is unavailable');
     }
     const normalizedPhone = this.normalizePhone(input.to);
@@ -498,7 +498,7 @@ export class WhatsappService implements OnApplicationBootstrap {
   }
 
   async acceptIncomingWebhook(payload: unknown): Promise<{ received: true }> {
-    if (!this.dataSource || this.dataSource.options.type !== 'postgres') {
+    if (this.dataSource?.options.type !== 'postgres') {
       throw new ServiceUnavailableException(
         'WhatsApp webhook inbox is unavailable',
       );
@@ -536,7 +536,7 @@ export class WhatsappService implements OnApplicationBootstrap {
     if (!this.inboundEnabled) {
       return { selected: 0, processed: 0, failed: 0 };
     }
-    if (!this.dataSource || this.dataSource.options.type !== 'postgres') {
+    if (this.dataSource?.options.type !== 'postgres') {
       throw new ServiceUnavailableException(
         'WhatsApp webhook inbox is unavailable',
       );
@@ -566,7 +566,7 @@ export class WhatsappService implements OnApplicationBootstrap {
   }
 
   async applyRetentionPolicy(): Promise<WhatsappRetentionResult> {
-    if (!this.dataSource || this.dataSource.options.type !== 'postgres') {
+    if (this.dataSource?.options.type !== 'postgres') {
       throw new ServiceUnavailableException(
         'WhatsApp retention storage is unavailable',
       );
@@ -782,10 +782,10 @@ export class WhatsappService implements OnApplicationBootstrap {
       messageId: String(message.id ?? '') || undefined,
       messageType: String(message.type ?? 'unknown'),
     });
-    if (!this.dataSource || this.dataSource.options.type !== 'postgres') return;
-    const whatsappMessageId = String(message.id ?? '').trim();
-    const from = this.normalizePhone(String(message.from ?? ''));
-    if (!whatsappMessageId || !from) return;
+    if (this.dataSource?.options.type !== 'postgres') return;
+    const parsedMessage = this.parseIncomingMessage(message);
+    if (!parsedMessage) return;
+    const { whatsappMessageId, from } = parsedMessage;
 
     const users = await this.dataSource.query(
       `SELECT id, company_id, role, language, phone
@@ -808,14 +808,7 @@ export class WhatsappService implements OnApplicationBootstrap {
       role: UserRole;
       language: string;
     };
-    const text = String(message.text?.body ?? '')
-      .trim()
-      .slice(0, 10000);
-    const hasVoice = Boolean(String(message.audio?.id ?? '').trim());
-    if (!text && !hasVoice) return;
-    let content: { body: string; type: 'text' | 'voice' } = text
-      ? { body: text, type: 'text' }
-      : { body: '[pending-transcription]', type: 'voice' };
+    let content = parsedMessage.content;
     const personId = await this.resolvePersonId(user.id, user.role);
     const isStaff = [UserRole.ADMIN, UserRole.STAFF].includes(user.role);
     const budgetKey = createHash('sha256')
@@ -948,6 +941,28 @@ export class WhatsappService implements OnApplicationBootstrap {
         },
       );
     }
+  }
+
+  private parseIncomingMessage(message: Record<string, any>): {
+    whatsappMessageId: string;
+    from: string;
+    content: { body: string; type: 'text' | 'voice' };
+  } | null {
+    const whatsappMessageId = String(message.id ?? '').trim();
+    const from = this.normalizePhone(String(message.from ?? ''));
+    const text = String(message.text?.body ?? '')
+      .trim()
+      .slice(0, 10000);
+    const hasVoice = Boolean(String(message.audio?.id ?? '').trim());
+    if (!whatsappMessageId || !from || (!text && !hasVoice)) return null;
+
+    return {
+      whatsappMessageId,
+      from,
+      content: text
+        ? { body: text, type: 'text' }
+        : { body: '[pending-transcription]', type: 'voice' },
+    };
   }
 
   private async queueAssistantResponse(

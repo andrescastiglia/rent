@@ -326,13 +326,14 @@ describe('PaymentsService', () => {
     expect(service.findOne).toHaveBeenNthCalledWith(1, 'pay-1', 'company-1');
     expect(tenantAccountsService.addMovementWithManager).toHaveBeenCalledWith(
       expect.anything(),
-      'acc-from-invoice',
-      expect.anything(),
-      -100,
-      'payment',
-      'pay-1',
-      expect.stringContaining('Pago recibido'),
-      'company-1',
+      expect.objectContaining({
+        accountId: 'acc-from-invoice',
+        amount: -100,
+        referenceType: 'payment',
+        referenceId: 'pay-1',
+        description: expect.stringContaining('Pago recibido'),
+        companyId: 'company-1',
+      }),
     );
     expect(paymentsRepository.update).toHaveBeenCalledWith('pay-1', {
       status: PaymentStatus.COMPLETED,
@@ -526,13 +527,14 @@ describe('PaymentsService', () => {
     expect(service.findOne).toHaveBeenNthCalledWith(1, 'pay-2', 'company-1');
     expect(tenantAccountsService.addMovementWithManager).toHaveBeenCalledWith(
       expect.anything(),
-      'acc-1',
-      expect.anything(),
-      150,
-      'payment',
-      'pay-2',
-      'Anulación pago',
-      'company-1',
+      expect.objectContaining({
+        accountId: 'acc-1',
+        amount: 150,
+        referenceType: 'payment',
+        referenceId: 'pay-2',
+        description: 'Anulación pago',
+        companyId: 'company-1',
+      }),
     );
     expect(result.status).toBe(PaymentStatus.CANCELLED);
   });
@@ -754,13 +756,15 @@ describe('PaymentsService', () => {
     expect(receipt.cancelledAt).toBeInstanceOf(Date);
     expect(tenantAccountsService.addMovementWithManager).toHaveBeenCalledWith(
       expect.anything(),
-      'acc-1',
-      MovementType.ADJUSTMENT,
-      10,
-      'credit_note_cancellation',
-      'note-1',
-      expect.stringContaining('NC-1'),
-      'company-1',
+      expect.objectContaining({
+        accountId: 'acc-1',
+        type: MovementType.ADJUSTMENT,
+        amount: 10,
+        referenceType: 'credit_note_cancellation',
+        referenceId: 'note-1',
+        description: expect.stringContaining('NC-1'),
+        companyId: 'company-1',
+      }),
     );
   });
 

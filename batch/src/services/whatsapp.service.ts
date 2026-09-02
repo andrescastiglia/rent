@@ -135,7 +135,7 @@ export class WhatsappService {
     recipientRole?: WhatsappQueueContext["recipientRole"];
     recipientId?: string;
     idempotencyKey?: string;
-    relatedEntityType?: WhatsappQueueContext["relatedEntityType"];
+    relatedEntityType?: NonNullable<WhatsappQueueContext["relatedEntityType"]>;
     relatedEntityId?: string;
   }): Promise<WhatsappSendResult> {
     if (!this.internalToken) {

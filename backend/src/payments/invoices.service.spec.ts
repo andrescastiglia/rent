@@ -320,13 +320,15 @@ describe('InvoicesService', () => {
     });
     expect(tenantAccountsService.addMovementWithManager).toHaveBeenCalledWith(
       expect.anything(),
-      'acc-1',
-      MovementType.CHARGE,
-      120,
-      'invoice',
-      'inv-1',
-      'Factura INV-1',
-      'company-1',
+      {
+        accountId: 'acc-1',
+        type: MovementType.CHARGE,
+        amount: 120,
+        referenceType: 'invoice',
+        referenceId: 'inv-1',
+        description: 'Factura INV-1',
+        companyId: 'company-1',
+      },
     );
   });
 
@@ -539,13 +541,15 @@ describe('InvoicesService', () => {
     expect(result.status).toBe(InvoiceStatus.CANCELLED);
     expect(tenantAccountsService.addMovementWithManager).toHaveBeenCalledWith(
       expect.anything(),
-      'acc-1',
-      MovementType.ADJUSTMENT,
-      -100,
-      'invoice',
-      'inv-1',
-      'Anulación factura INV-1',
-      'company-1',
+      {
+        accountId: 'acc-1',
+        type: MovementType.ADJUSTMENT,
+        amount: -100,
+        referenceType: 'invoice',
+        referenceId: 'inv-1',
+        description: 'Anulación factura INV-1',
+        companyId: 'company-1',
+      },
     );
   });
 

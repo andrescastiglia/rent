@@ -215,16 +215,15 @@ export class InvoicesService {
 
       const savedInvoice = await invoicesRepository.save(invoice);
 
-      await this.tenantAccountsService.addMovementWithManager(
-        manager,
-        invoice.tenantAccountId,
-        MovementType.CHARGE,
-        Number(invoice.total),
-        'invoice',
-        invoice.id,
-        `Factura ${invoice.invoiceNumber}`,
-        invoice.companyId,
-      );
+      await this.tenantAccountsService.addMovementWithManager(manager, {
+        accountId: invoice.tenantAccountId,
+        type: MovementType.CHARGE,
+        amount: Number(invoice.total),
+        referenceType: 'invoice',
+        referenceId: invoice.id,
+        description: `Factura ${invoice.invoiceNumber}`,
+        companyId: invoice.companyId,
+      });
 
       await this.createCommissionInvoice(savedInvoice, manager);
 
@@ -644,16 +643,15 @@ export class InvoicesService {
           InvoiceStatus.OVERDUE,
         ].includes(invoice.status)
       ) {
-        await this.tenantAccountsService.addMovementWithManager(
-          manager,
-          invoice.tenantAccountId,
-          MovementType.ADJUSTMENT,
-          -Number(invoice.total),
-          'invoice',
-          invoice.id,
-          `Anulación factura ${invoice.invoiceNumber}`,
-          invoice.companyId,
-        );
+        await this.tenantAccountsService.addMovementWithManager(manager, {
+          accountId: invoice.tenantAccountId,
+          type: MovementType.ADJUSTMENT,
+          amount: -Number(invoice.total),
+          referenceType: 'invoice',
+          referenceId: invoice.id,
+          description: `Anulación factura ${invoice.invoiceNumber}`,
+          companyId: invoice.companyId,
+        });
       }
 
       invoice.status = InvoiceStatus.CANCELLED;

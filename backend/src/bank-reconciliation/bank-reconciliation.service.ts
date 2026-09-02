@@ -220,7 +220,6 @@ export class BankReconciliationService {
     const reconciliationsRepository = manager.getRepository(BankReconciliation);
     const bankAccountsRepository = manager.getRepository(BankAccount);
     const invoicesRepository = manager.getRepository(Invoice);
-    const paymentsRepository = manager.getRepository(Payment);
     const movement = await movementsRepository.findOne({
       where: { id: movementId, companyId },
       lock: { mode: 'pessimistic_write' },
@@ -263,16 +262,12 @@ export class BankReconciliationService {
     }
 
     try {
-      let match: MatchResult | null = null;
-      if (reconciliation.invoiceId && reconciliation.matchStrategy) {
-        const invoice = await invoicesRepository.findOne({
-          where: { id: reconciliation.invoiceId, companyId },
-        });
-        if (invoice) {
-          match = { invoice, strategy: reconciliation.matchStrategy };
-        }
-      }
-      match ??= await this.findInvoiceMatch(movement, invoicesRepository);
+      const match = await this.resolveInvoiceMatch(
+        reconciliation,
+        movement,
+        invoicesRepository,
+        companyId,
+      );
 
       if (!match) {
         movement.status = BankMovementStatus.UNMATCHED;
@@ -293,47 +288,19 @@ export class BankReconciliationService {
       reconciliation.reason = null;
       await reconciliationsRepository.save(reconciliation);
 
-      let paymentId = reconciliation.paymentId;
-      if (!paymentId) {
-        const payment = await this.paymentsService.createWithManager(
-          manager,
-          {
-            tenantAccountId: match.invoice.tenantAccountId,
-            amount: Number(movement.amount),
-            currencyCode: movement.currency,
-            paymentDate: this.toDateOnly(movement.occurredAt),
-            method: PaymentMethod.BANK_TRANSFER,
-            reference: `${movement.provider}:${movement.externalId}`,
-            notes: `Conciliación bancaria automática (${match.strategy})`,
-          },
-          undefined,
-          companyId,
-        );
-        paymentId = payment.id;
-        reconciliation.paymentId = paymentId;
-        await reconciliationsRepository.save(reconciliation);
-      }
-
-      const payment = await paymentsRepository.findOne({
-        where: { id: paymentId, companyId },
-        lock: { mode: 'pessimistic_write' },
+      const paymentId = await this.ensureReconciliationPayment({
+        manager,
+        movement,
+        match,
+        reconciliation,
+        reconciliationsRepository,
+        companyId,
       });
-      if (!payment) {
-        throw new NotFoundException(`Payment with ID ${paymentId} not found`);
-      }
-      let paymentConfirmation: PaymentConfirmationTransactionResult | null =
-        null;
-      if (payment.status === PaymentStatus.PENDING) {
-        paymentConfirmation = await this.paymentsService.confirmWithManager(
-          manager,
-          paymentId,
-          companyId,
-        );
-      } else if (payment.status !== PaymentStatus.COMPLETED) {
-        throw new BadRequestException(
-          `Reconciliation payment has non-confirmable status: ${payment.status}`,
-        );
-      }
+      const paymentConfirmation = await this.confirmReconciliationPayment(
+        manager,
+        paymentId,
+        companyId,
+      );
 
       movement.status = BankMovementStatus.RECONCILED;
       await movementsRepository.save(movement);
@@ -360,6 +327,88 @@ export class BankReconciliationService {
       }
       throw error;
     }
+  }
+
+  private async resolveInvoiceMatch(
+    reconciliation: BankReconciliation,
+    movement: BankMovement,
+    invoicesRepository: Repository<Invoice>,
+    companyId: string,
+  ): Promise<MatchResult | null> {
+    if (reconciliation.invoiceId && reconciliation.matchStrategy) {
+      const invoice = await invoicesRepository.findOne({
+        where: { id: reconciliation.invoiceId, companyId },
+      });
+      if (invoice) {
+        return { invoice, strategy: reconciliation.matchStrategy };
+      }
+    }
+
+    return this.findInvoiceMatch(movement, invoicesRepository);
+  }
+
+  private async ensureReconciliationPayment(input: {
+    manager: EntityManager;
+    movement: BankMovement;
+    match: MatchResult;
+    reconciliation: BankReconciliation;
+    reconciliationsRepository: Repository<BankReconciliation>;
+    companyId: string;
+  }): Promise<string> {
+    const {
+      manager,
+      movement,
+      match,
+      reconciliation,
+      reconciliationsRepository,
+      companyId,
+    } = input;
+    if (reconciliation.paymentId) return reconciliation.paymentId;
+
+    const payment = await this.paymentsService.createWithManager(
+      manager,
+      {
+        tenantAccountId: match.invoice.tenantAccountId,
+        amount: Number(movement.amount),
+        currencyCode: movement.currency,
+        paymentDate: this.toDateOnly(movement.occurredAt),
+        method: PaymentMethod.BANK_TRANSFER,
+        reference: `${movement.provider}:${movement.externalId}`,
+        notes: `Conciliación bancaria automática (${match.strategy})`,
+      },
+      undefined,
+      companyId,
+    );
+    reconciliation.paymentId = payment.id;
+    await reconciliationsRepository.save(reconciliation);
+    return payment.id;
+  }
+
+  private async confirmReconciliationPayment(
+    manager: EntityManager,
+    paymentId: string,
+    companyId: string,
+  ): Promise<PaymentConfirmationTransactionResult | null> {
+    const payment = await manager.getRepository(Payment).findOne({
+      where: { id: paymentId, companyId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!payment) {
+      throw new NotFoundException(`Payment with ID ${paymentId} not found`);
+    }
+    if (payment.status === PaymentStatus.PENDING) {
+      return this.paymentsService.confirmWithManager(
+        manager,
+        paymentId,
+        companyId,
+      );
+    }
+    if (payment.status !== PaymentStatus.COMPLETED) {
+      throw new BadRequestException(
+        `Reconciliation payment has non-confirmable status: ${payment.status}`,
+      );
+    }
+    return null;
   }
 
   private async resolveBankAccountId(
