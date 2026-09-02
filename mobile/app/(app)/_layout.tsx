@@ -1,9 +1,10 @@
 import type { Href } from 'expo-router';
-import { Redirect, Stack, useRouter } from 'expo-router';
+import { Redirect, Stack, usePathname, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '@/contexts/auth-context';
+import { canUserAccessPath } from '@/config/navigation';
 
 type NewHeaderActionProps = Readonly<{
   route: Href;
@@ -40,6 +41,7 @@ function TemplatesHeaderRight() {
 export default function ProtectedLayout() {
   const { t } = useTranslation();
   const { user, loading } = useAuth();
+  const pathname = usePathname();
 
   if (loading) {
     return (
@@ -51,6 +53,10 @@ export default function ProtectedLayout() {
 
   if (!user) {
     return <Redirect href="/(auth)/login" />;
+  }
+
+  if (!canUserAccessPath(user, pathname)) {
+    return <Redirect href="/(app)/(tabs)/settings" />;
   }
 
   return (

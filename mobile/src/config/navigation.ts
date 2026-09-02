@@ -6,6 +6,50 @@ export interface NavItem {
   disabled?: boolean;
 }
 
+export interface NavigationUser {
+  role: string;
+  permissions?: Record<string, boolean>;
+}
+
+type RoutePolicy = {
+  roles: string[];
+  staffPermission?: string;
+};
+
+const routePolicies: Record<string, RoutePolicy> = {
+  dashboard: {
+    roles: ['admin', 'owner', 'tenant'],
+    staffPermission: 'dashboard',
+  },
+  properties: {
+    roles: ['admin', 'owner'],
+    staffPermission: 'properties',
+  },
+  owners: { roles: ['admin', 'owner'], staffPermission: 'owners' },
+  interested: {
+    roles: ['admin', 'owner'],
+    staffPermission: 'interested',
+  },
+  tenants: { roles: ['admin', 'owner'], staffPermission: 'tenants' },
+  leases: {
+    roles: ['admin', 'owner', 'tenant'],
+    staffPermission: 'leases',
+  },
+  templates: { roles: ['admin'], staffPermission: 'templates' },
+  payments: {
+    roles: ['admin', 'owner', 'tenant'],
+    staffPermission: 'payments',
+  },
+  invoices: {
+    roles: ['admin', 'owner', 'tenant'],
+    staffPermission: 'invoices',
+  },
+  sales: { roles: ['admin', 'owner'], staffPermission: 'sales' },
+  reports: { roles: ['admin', 'owner'], staffPermission: 'reports' },
+  users: { roles: ['admin'] },
+  ai: { roles: ['admin', 'owner', 'tenant', 'buyer'] },
+};
+
 export const navigationItems: NavItem[] = [
   {
     labelKey: 'dashboard',
@@ -66,4 +110,24 @@ export const navigationItems: NavItem[] = [
 
 export function getNavigationForRole(role: string): NavItem[] {
   return navigationItems.filter((item) => item.roles.includes(role));
+}
+
+export function getNavigationForUser(user: NavigationUser): NavItem[] {
+  return navigationItems.filter((item) => canUserAccessPath(user, item.href));
+}
+
+export function canUserAccessPath(user: NavigationUser, path: string): boolean {
+  const segment = path
+    .split('?')[0]
+    .split('/')
+    .filter((part) => part && !part.startsWith('('))[0];
+  if (!segment || segment === 'settings') return true;
+  const policy = routePolicies[segment];
+  if (!policy) return false;
+  if (user.role === 'staff') {
+    return policy.staffPermission
+      ? user.permissions?.[policy.staffPermission] === true
+      : false;
+  }
+  return policy.roles.includes(user.role);
 }

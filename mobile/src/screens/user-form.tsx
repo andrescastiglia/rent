@@ -18,7 +18,7 @@ const createSchema = z.object({
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   phone: z.string().optional(),
-  role: z.enum(['admin', 'owner', 'tenant', 'staff']),
+  role: z.enum(['admin', 'owner', 'tenant', 'staff', 'buyer']),
 });
 
 const editSchema = createSchema.extend({
@@ -45,6 +45,7 @@ const roleOptions: Array<{ label: string; value: User['role'] }> = [
   { label: 'owner', value: 'owner' },
   { label: 'tenant', value: 'tenant' },
   { label: 'staff', value: 'staff' },
+  { label: 'buyer', value: 'buyer' },
 ];
 
 const getRoleLabel = (value: User['role'], t: (key: string) => string) => {

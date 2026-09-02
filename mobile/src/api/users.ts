@@ -47,6 +47,13 @@ export type ResetUserPasswordResult = {
 };
 
 export const usersApi = {
+  async getProfile(): Promise<User> {
+    if (IS_MOCK_MODE) {
+      return MOCK_USERS[0];
+    }
+    return apiClient.get<User>('/users/profile/me');
+  },
+
   async list(page = 1, limit = 20): Promise<UsersPage> {
     if (IS_MOCK_MODE) {
       return {

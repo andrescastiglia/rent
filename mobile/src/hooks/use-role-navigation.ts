@@ -1,4 +1,4 @@
-import { getNavigationForRole, type NavItem } from '@/config/navigation';
+import { getNavigationForUser, type NavItem } from '@/config/navigation';
 import { useAuth } from '@/contexts/auth-context';
 
 export function useRoleNavigation(): NavItem[] {
@@ -7,7 +7,7 @@ export function useRoleNavigation(): NavItem[] {
     return [];
   }
 
-  return getNavigationForRole(user.role);
+  return getNavigationForUser(user);
 }
 
 export function useCanAccess(path: string): boolean {
