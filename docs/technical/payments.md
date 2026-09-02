@@ -55,12 +55,34 @@ Los administradores y miembros de staff pueden consultar estas alertas con
    `POST /payment-gateway/preferences` indicando el UUID de la factura.
 2. El backend verifica que la factura pertenezca a la empresa y, para un
    inquilino, a su propia cuenta.
-3. MercadoPago devuelve las URLs de Checkout Pro y el backend registra una
-   transacción `pending` en `payment_gateway_transactions`.
+3. El backend genera primero un UUID de transacción y lo envía como
+   `external_reference`. MercadoPago devuelve las URLs de Checkout Pro y el
+   backend registra la transacción `pending` en
+   `payment_gateway_transactions`.
 4. MercadoPago envía eventos a `POST /payment-gateway/webhook`.
-5. El backend valida la firma HMAC, consulta el pago en la API de MercadoPago y
-   actualiza la transacción. Los reintentos sobre una transacción ya procesada
-   no vuelven a aplicar el cambio.
+5. El backend valida firma, timestamp e ID, reclama el evento en un inbox con
+   lease de cinco minutos y consulta el pago en la API de MercadoPago.
+6. ID externo, monto y moneda deben coincidir con la transacción. Una única
+   sentencia SQL aplica la transición permitida y, cuando corresponde, marca la
+   factura pagada dentro de la misma operación atómica.
+
+`payment_gateway_webhook_events` conserva sólo identificadores, hash del
+payload, intentos, estado y error clasificado. Un evento `processed` se reconoce
+sin volver a consultar al proveedor; un evento `failed` se puede reclamar y un
+worker caído libera implícitamente su lease. Transiciones duplicadas o tardías
+no vuelven a producir el efecto financiero.
+
+Control operativo del inbox:
+
+```sql
+SELECT status, count(*) AS events, max(attempts) AS max_attempts
+FROM payment_gateway_webhook_events
+WHERE received_at >= now() - interval '24 hours'
+GROUP BY status;
+```
+
+Alertar si aparece `failed`, si `max_attempts > 3` o si un registro permanece
+`processing` después de `lease_expires_at`.
 
 Las facturas pendientes exponen `Pagar con MercadoPago` en su detalle web. Los
 PDFs generados tanto por backend como por batch contienen un QR y un enlace a
@@ -100,6 +122,9 @@ La tabla de transacciones de la pasarela se crea en
 `migrations/079_add_payment_gateway_transactions.sql`. Toda modificación futura
 del contrato persistido debe agregarse como una migración numerada nueva; las
 migraciones existentes no se editan después de haber sido desplegadas.
+El inbox idempotente de MercadoPago se agrega mediante
+`migrations/101_add_payment_webhook_inbox.sql`; es aditivo y puede conservarse
+si se revierte el artefacto de aplicación.
 
 La unicidad de alias bancarios activos se incorpora en
 `migrations/092_enforce_active_bank_alias_uniqueness.sql`.
