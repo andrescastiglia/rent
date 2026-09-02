@@ -19,6 +19,7 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 - [ ] Promover artefactos inmutables de backend, web, batch y mobile con checksums/SBOM; no recompilar en el servidor.
 - [ ] Convertir Ansible a releases versionados con cambio atómico, migraciones expand/contract, smoke tests y rollback probado.
 - [ ] Reescribir y ensayar `docs/deployment/deployment.md` para el flujo por tag/SHA, TLS, secretos, rutas y recuperación vigentes.
+- [ ] Antes del despliegue, inventariar y migrar las referencias productivas legadas `/uploads/properties/` a `property_images`, validando conteos y checksums.
 - [ ] Crear el primer tag únicamente con `main` sincronizado, cero PR, cero heads adicionales y todos los gates verdes.
 
 ## 2. Cerrar bloqueantes P0
@@ -36,7 +37,6 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 ### Superficies públicas y sesiones
 
 - [ ] Autenticar y deduplicar webhooks de firma, pagos y comunicaciones; validar firma, timestamp, replay, compañía y transición de estado.
-- [ ] Reemplazar uploads temporales públicos por claves opacas firmadas, límites de tamaño/tipo, cuarentena y autorización al promover/descargar.
 - [ ] Aplicar rate limits distribuidos, CORS/proxy explícitos y secretos obligatorios en todos los entornos no test.
 
 ### WhatsApp seguro

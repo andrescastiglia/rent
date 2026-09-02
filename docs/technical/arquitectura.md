@@ -231,6 +231,7 @@ Consideraciones multi-tenant: separar datos por `company_id` en cada tabla o usa
 * **Auditoría**: loggear cambios en contratos, pagos y accesos con trazabilidad (who/when/what). Mantener logs inmutables y retención acorde a normativas.
 * **Seguridad operativa**: hardening de contenedores, escaneo de imágenes (Trivy), políticas de IAM mínimas.
 * **Protección de datos personales**: cumplir normativas locales (p. ej. Ley de Protección de Datos), anonimizar datos en backups si es requerido.
+* **Uploads**: el contrato de cuarentena, promoción, descarga y rollback se define en [Uploads seguros](uploads-seguros.md). No se sirve un directorio local de uploads.
 
 ---
 
