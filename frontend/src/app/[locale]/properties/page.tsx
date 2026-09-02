@@ -666,6 +666,8 @@ function OwnerListItem({
               type="button"
               data-testid="owner-row-toggle"
               onClick={() => onSelectOwner(owner)}
+              aria-expanded={isSelected}
+              aria-label={`${t("selectOwner")}: ${owner.firstName} ${owner.lastName}`}
               className="inline-flex items-center"
             >
               {isSelected ? <ChevronUp size={16} /> : <ChevronDown size={16} />}

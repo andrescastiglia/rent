@@ -1,5 +1,10 @@
 # Observabilidad con Prometheus
 
+Los SLO, responsables, respuesta y recuperación operativa están definidos en
+[`docs/deployment/operations-slo.md`](../deployment/operations-slo.md). Las
+reglas validadas por CI viven en `observability/prometheus/`; el bloque de abajo
+se conserva como ejemplos de consultas complementarias.
+
 ## Backend
 
 - Scrape: `GET /metrics`

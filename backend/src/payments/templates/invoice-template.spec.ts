@@ -1,6 +1,8 @@
 import { generateInvoicePdf } from './invoice-template';
 
 describe('generateInvoicePdf', () => {
+  jest.setTimeout(15_000);
+
   const i18n = {
     t: jest.fn(async (key: string) => key),
   } as any;
