@@ -46,7 +46,7 @@ export class MaintenanceController {
     @Request() req: AuthenticatedRequest,
     @Query() filters: MaintenanceTicketFiltersDto,
   ): Promise<MaintenanceTicket[]> {
-    return this.maintenanceService.findAll(req.user.companyId, filters);
+    return this.maintenanceService.findAll(req.user, filters);
   }
 
   @Get(':id')
@@ -55,7 +55,7 @@ export class MaintenanceController {
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
   ): Promise<MaintenanceTicket> {
-    return this.maintenanceService.findOne(id, req.user.companyId);
+    return this.maintenanceService.findOne(id, req.user);
   }
 
   @Post()
@@ -64,7 +64,7 @@ export class MaintenanceController {
     @Body() dto: CreateMaintenanceTicketDto,
     @Request() req: AuthenticatedRequest,
   ): Promise<MaintenanceTicket> {
-    return this.maintenanceService.create(req.user.companyId, req.user.id, dto);
+    return this.maintenanceService.create(req.user, dto);
   }
 
   @Patch(':id')
@@ -74,7 +74,7 @@ export class MaintenanceController {
     @Body() dto: UpdateMaintenanceTicketDto,
     @Request() req: AuthenticatedRequest,
   ): Promise<MaintenanceTicket> {
-    return this.maintenanceService.update(id, req.user.companyId, dto);
+    return this.maintenanceService.update(id, req.user, dto);
   }
 
   @Delete(':id')
@@ -84,7 +84,7 @@ export class MaintenanceController {
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
   ): Promise<void> {
-    return this.maintenanceService.remove(id, req.user.companyId);
+    return this.maintenanceService.remove(id, req.user);
   }
 
   @Get(':id/comments')
@@ -95,11 +95,7 @@ export class MaintenanceController {
   ): Promise<MaintenanceTicketComment[]> {
     const isAdminOrStaff =
       req.user.role === UserRole.ADMIN || req.user.role === UserRole.STAFF;
-    return this.maintenanceService.getComments(
-      id,
-      req.user.companyId,
-      isAdminOrStaff,
-    );
+    return this.maintenanceService.getComments(id, req.user, isAdminOrStaff);
   }
 
   @Post(':id/comments')
@@ -115,11 +111,6 @@ export class MaintenanceController {
       ...dto,
       isInternal: isAdminOrStaff ? dto.isInternal : false,
     };
-    return this.maintenanceService.addComment(
-      id,
-      req.user.companyId,
-      req.user.id,
-      safeDto,
-    );
+    return this.maintenanceService.addComment(id, req.user, safeDto);
   }
 }

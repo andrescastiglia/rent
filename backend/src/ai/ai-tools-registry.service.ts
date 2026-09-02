@@ -373,6 +373,20 @@ function sanitizeAnyOfBranches(anyOf: unknown[]): unknown[] {
   return flattenedAnyOf;
 }
 
+function normalizeTypeArray(node: Record<string, unknown>): void {
+  if (!Array.isArray(node.type)) {
+    return;
+  }
+
+  const branches = node.type
+    .filter((type): type is string => typeof type === 'string')
+    .map((type) => ({ type }));
+  delete node.type;
+  if (branches.length > 0) {
+    node.anyOf = branches;
+  }
+}
+
 function sanitizeOpenAiSchemaNode(schema: unknown): void {
   if (!schema || typeof schema !== 'object') {
     return;
@@ -385,6 +399,7 @@ function sanitizeOpenAiSchemaNode(schema: unknown): void {
   }
 
   const node = schema as Record<string, unknown>;
+  normalizeTypeArray(node);
   for (const key of OPENAI_DISALLOWED_SCHEMA_KEYS) {
     delete node[key];
   }

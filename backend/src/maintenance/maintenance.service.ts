@@ -1,8 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { IsNull, Repository, SelectQueryBuilder } from 'typeorm';
 import {
   MaintenanceTicket,
+  MaintenanceTicketSource,
   MaintenanceTicketStatus,
 } from './entities/maintenance-ticket.entity';
 import { MaintenanceTicketComment } from './entities/maintenance-ticket-comment.entity';
@@ -10,6 +15,19 @@ import { CreateMaintenanceTicketDto } from './dto/create-maintenance-ticket.dto'
 import { UpdateMaintenanceTicketDto } from './dto/update-maintenance-ticket.dto';
 import { MaintenanceTicketFiltersDto } from './dto/maintenance-ticket-filters.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { PropertiesService } from '../properties/properties.service';
+import {
+  Lease,
+  ContractType,
+  LeaseStatus,
+} from '../leases/entities/lease.entity';
+import { UserRole } from '../users/entities/user.entity';
+
+export interface MaintenanceActor {
+  id: string;
+  companyId: string;
+  role: UserRole;
+}
 
 @Injectable()
 export class MaintenanceService {
@@ -18,10 +36,11 @@ export class MaintenanceService {
     private readonly ticketRepository: Repository<MaintenanceTicket>,
     @InjectRepository(MaintenanceTicketComment)
     private readonly commentRepository: Repository<MaintenanceTicketComment>,
+    private readonly propertiesService: PropertiesService,
   ) {}
 
   async findAll(
-    companyId: string,
+    actor: MaintenanceActor,
     filters: MaintenanceTicketFiltersDto,
   ): Promise<MaintenanceTicket[]> {
     const qb = this.ticketRepository
@@ -30,8 +49,12 @@ export class MaintenanceService {
       .leftJoinAndSelect('ticket.assignedStaff', 'assignedStaff')
       .leftJoinAndSelect('assignedStaff.user', 'staffUser')
       .leftJoinAndSelect('ticket.reportedBy', 'reportedBy')
-      .where('ticket.company_id = :companyId', { companyId })
+      .where('ticket.company_id = :companyId', {
+        companyId: actor.companyId,
+      })
       .andWhere('ticket.deleted_at IS NULL');
+
+    this.applyActorScope(qb, actor);
 
     if (filters.propertyId) {
       qb.andWhere('ticket.property_id = :propertyId', {
@@ -63,9 +86,12 @@ export class MaintenanceService {
     return qb.orderBy('ticket.created_at', 'DESC').getMany();
   }
 
-  async findOne(id: string, companyId: string): Promise<MaintenanceTicket> {
+  async findOne(
+    id: string,
+    actor: MaintenanceActor,
+  ): Promise<MaintenanceTicket> {
     const ticket = await this.ticketRepository.findOne({
-      where: { id, companyId, deletedAt: IsNull() },
+      where: { id, companyId: actor.companyId, deletedAt: IsNull() },
       relations: [
         'property',
         'assignedStaff',
@@ -80,23 +106,25 @@ export class MaintenanceService {
       throw new NotFoundException(`Maintenance ticket with ID ${id} not found`);
     }
 
+    await this.propertiesService.findOneScoped(ticket.propertyId, actor);
     return ticket;
   }
 
   async create(
-    companyId: string,
-    userId: string,
+    actor: MaintenanceActor,
     dto: CreateMaintenanceTicketDto,
   ): Promise<MaintenanceTicket> {
+    await this.propertiesService.findOneScoped(dto.propertyId, actor);
+
     const ticket = this.ticketRepository.create({
-      companyId,
-      reportedByUserId: userId,
+      companyId: actor.companyId,
+      reportedByUserId: actor.id,
       propertyId: dto.propertyId,
       title: dto.title,
       description: dto.description ?? null,
       area: dto.area,
       priority: dto.priority,
-      source: dto.source,
+      source: this.resolveTicketSource(actor.role, dto.source),
       scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
       estimatedCost: dto.estimatedCost ?? null,
       costCurrency: dto.costCurrency ?? 'ARS',
@@ -104,15 +132,15 @@ export class MaintenanceService {
     });
 
     const saved = await this.ticketRepository.save(ticket);
-    return this.findOne(saved.id, companyId);
+    return this.findOne(saved.id, actor);
   }
 
   async update(
     id: string,
-    companyId: string,
+    actor: MaintenanceActor,
     dto: UpdateMaintenanceTicketDto,
   ): Promise<MaintenanceTicket> {
-    const ticket = await this.findOne(id, companyId);
+    const ticket = await this.findOne(id, actor);
 
     this.applyScalarFields(ticket, dto);
     this.applyAssignmentUpdate(ticket, dto);
@@ -122,7 +150,7 @@ export class MaintenanceService {
       ticket.resolvedAt = dto.resolvedAt ? new Date(dto.resolvedAt) : null;
 
     await this.ticketRepository.save(ticket);
-    return this.findOne(id, companyId);
+    return this.findOne(id, actor);
   }
 
   private applyScalarFields(
@@ -174,22 +202,21 @@ export class MaintenanceService {
     }
   }
 
-  async remove(id: string, companyId: string): Promise<void> {
-    const ticket = await this.findOne(id, companyId);
+  async remove(id: string, actor: MaintenanceActor): Promise<void> {
+    const ticket = await this.findOne(id, actor);
     await this.ticketRepository.softDelete(ticket.id);
   }
 
   async addComment(
     ticketId: string,
-    companyId: string,
-    userId: string,
+    actor: MaintenanceActor,
     dto: CreateCommentDto,
   ): Promise<MaintenanceTicketComment> {
-    await this.findOne(ticketId, companyId);
+    await this.findOne(ticketId, actor);
 
     const comment = this.commentRepository.create({
       ticketId,
-      userId,
+      userId: actor.id,
       body: dto.body,
       isInternal: dto.isInternal ?? false,
     });
@@ -199,10 +226,10 @@ export class MaintenanceService {
 
   async getComments(
     ticketId: string,
-    companyId: string,
+    actor: MaintenanceActor,
     isAdminOrStaff: boolean,
   ): Promise<MaintenanceTicketComment[]> {
-    await this.findOne(ticketId, companyId);
+    await this.findOne(ticketId, actor);
 
     const qb = this.commentRepository
       .createQueryBuilder('comment')
@@ -214,5 +241,69 @@ export class MaintenanceService {
     }
 
     return qb.orderBy('comment.created_at', 'ASC').getMany();
+  }
+
+  private applyActorScope(
+    query: SelectQueryBuilder<MaintenanceTicket>,
+    actor: MaintenanceActor,
+  ): void {
+    if (actor.role === UserRole.ADMIN || actor.role === UserRole.STAFF) {
+      return;
+    }
+
+    if (actor.role === UserRole.OWNER) {
+      query
+        .innerJoin('property.owner', 'scopeOwner')
+        .andWhere('scopeOwner.user_id = :actorId', { actorId: actor.id });
+      return;
+    }
+
+    if (actor.role === UserRole.TENANT) {
+      query
+        .innerJoin(
+          Lease,
+          'scopeLease',
+          'scopeLease.property_id = ticket.property_id AND scopeLease.company_id = :companyId AND scopeLease.contract_type = :rentalType AND scopeLease.status = :activeStatus AND scopeLease.deleted_at IS NULL',
+          {
+            companyId: actor.companyId,
+            rentalType: ContractType.RENTAL,
+            activeStatus: LeaseStatus.ACTIVE,
+          },
+        )
+        .innerJoin('scopeLease.tenant', 'scopeTenant')
+        .andWhere(
+          'scopeTenant.user_id = :actorId AND scopeTenant.company_id = :companyId AND scopeTenant.deleted_at IS NULL',
+          { actorId: actor.id, companyId: actor.companyId },
+        );
+      return;
+    }
+
+    throw new ForbiddenException('Maintenance ticket access is not allowed');
+  }
+
+  private resolveTicketSource(
+    role: UserRole,
+    requestedSource?: MaintenanceTicketSource,
+  ): MaintenanceTicketSource {
+    if (
+      requestedSource === MaintenanceTicketSource.INSPECTION &&
+      (role === UserRole.ADMIN || role === UserRole.STAFF)
+    ) {
+      return MaintenanceTicketSource.INSPECTION;
+    }
+
+    const sourceByRole: Partial<Record<UserRole, MaintenanceTicketSource>> = {
+      [UserRole.ADMIN]: MaintenanceTicketSource.ADMIN,
+      [UserRole.STAFF]: MaintenanceTicketSource.STAFF,
+      [UserRole.OWNER]: MaintenanceTicketSource.OWNER,
+      [UserRole.TENANT]: MaintenanceTicketSource.TENANT,
+    };
+    const source = sourceByRole[role];
+    if (!source) {
+      throw new ForbiddenException(
+        'Maintenance ticket creation is not allowed',
+      );
+    }
+    return source;
   }
 }

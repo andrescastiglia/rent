@@ -60,13 +60,13 @@ describe('MaintenanceController', () => {
   });
 
   describe('findAll', () => {
-    it('delegates to service with companyId and filters', async () => {
+    it('delegates to service with actor and filters', async () => {
       mockMaintenanceService.findAll.mockResolvedValue([mockTicket]);
 
       const result = await controller.findAll(mockRequest as any, {});
 
       expect(mockMaintenanceService.findAll).toHaveBeenCalledWith(
-        'company-uuid-1',
+        mockRequest.user,
         {},
       );
       expect(result).toEqual([mockTicket]);
@@ -74,7 +74,7 @@ describe('MaintenanceController', () => {
   });
 
   describe('findOne', () => {
-    it('delegates to service with id and companyId', async () => {
+    it('delegates to service with id and actor', async () => {
       mockMaintenanceService.findOne.mockResolvedValue(mockTicket);
 
       const result = await controller.findOne(
@@ -84,14 +84,14 @@ describe('MaintenanceController', () => {
 
       expect(mockMaintenanceService.findOne).toHaveBeenCalledWith(
         'ticket-uuid-1',
-        'company-uuid-1',
+        mockRequest.user,
       );
       expect(result).toEqual(mockTicket);
     });
   });
 
   describe('create', () => {
-    it('delegates to service with companyId and userId', async () => {
+    it('delegates to service with actor', async () => {
       const dto = {
         title: 'Leaking pipe',
         propertyId: 'property-uuid-1',
@@ -102,8 +102,7 @@ describe('MaintenanceController', () => {
       const result = await controller.create(dto, mockRequest as any);
 
       expect(mockMaintenanceService.create).toHaveBeenCalledWith(
-        'company-uuid-1',
-        'user-uuid-1',
+        mockRequest.user,
         dto,
       );
       expect(result).toEqual(mockTicket);
@@ -126,7 +125,7 @@ describe('MaintenanceController', () => {
 
       expect(mockMaintenanceService.update).toHaveBeenCalledWith(
         'ticket-uuid-1',
-        'company-uuid-1',
+        mockRequest.user,
         dto,
       );
       expect(result).toMatchObject({
@@ -143,7 +142,7 @@ describe('MaintenanceController', () => {
 
       expect(mockMaintenanceService.remove).toHaveBeenCalledWith(
         'ticket-uuid-1',
-        'company-uuid-1',
+        mockRequest.user,
       );
     });
   });
@@ -156,7 +155,7 @@ describe('MaintenanceController', () => {
 
       expect(mockMaintenanceService.getComments).toHaveBeenCalledWith(
         'ticket-uuid-1',
-        'company-uuid-1',
+        mockRequest.user,
         true,
       );
     });
@@ -171,7 +170,7 @@ describe('MaintenanceController', () => {
 
       expect(mockMaintenanceService.getComments).toHaveBeenCalledWith(
         'ticket-uuid-1',
-        'company-uuid-1',
+        tenantRequest.user,
         false,
       );
     });
@@ -191,8 +190,7 @@ describe('MaintenanceController', () => {
 
       expect(mockMaintenanceService.addComment).toHaveBeenCalledWith(
         'ticket-uuid-1',
-        'company-uuid-1',
-        'user-uuid-1',
+        mockRequest.user,
         dto,
       );
       expect(result).toEqual(comment);

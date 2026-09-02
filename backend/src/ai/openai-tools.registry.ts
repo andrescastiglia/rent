@@ -2983,7 +2983,7 @@ export function buildAiToolDefinitions(
       execute: async (args, context) => {
         const filters = maintenanceFiltersSchema.parse(args) as any;
         return deps.maintenanceService.findAll(
-          context.companyId ?? '',
+          toScopedUser(context) as any,
           filters,
         );
       },
@@ -2999,7 +2999,10 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.maintenanceService.findOne(id, context.companyId ?? '');
+        return deps.maintenanceService.findOne(
+          id,
+          toScopedUser(context) as any,
+        );
       },
     },
     {
@@ -3014,8 +3017,7 @@ export function buildAiToolDefinitions(
       execute: async (args, context) => {
         const dto = createMaintenanceTicketSchema.parse(args) as any;
         return deps.maintenanceService.create(
-          context.companyId ?? '',
-          context.userId ?? '',
+          toScopedUser(context) as any,
           dto,
         );
       },
@@ -3033,7 +3035,11 @@ export function buildAiToolDefinitions(
           id: uuidSchema,
         }).parse(args) as any;
         const { id, ...dto } = parsed;
-        return deps.maintenanceService.update(id, context.companyId ?? '', dto);
+        return deps.maintenanceService.update(
+          id,
+          toScopedUser(context) as any,
+          dto,
+        );
       },
     },
     {
@@ -3045,7 +3051,7 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        await deps.maintenanceService.remove(id, context.companyId ?? '');
+        await deps.maintenanceService.remove(id, toScopedUser(context) as any);
         return { message: 'Maintenance ticket deleted successfully' };
       },
     },
@@ -3063,7 +3069,7 @@ export function buildAiToolDefinitions(
           .parse(args) as any;
         return deps.maintenanceService.getComments(
           ticketId,
-          context.companyId ?? '',
+          toScopedUser(context) as any,
           true,
         );
       },
