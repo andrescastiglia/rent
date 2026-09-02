@@ -138,6 +138,35 @@ describe('TenantAccountsService', () => {
     expect(result.balanceAfter).toBe(50);
   });
 
+  it('joins an existing transaction without opening a nested one', async () => {
+    accountsRepository.findOne.mockResolvedValue({
+      id: 'acc-1',
+      balance: 25,
+    } as any);
+    movementsRepository.create.mockImplementation((x) => x);
+    movementsRepository.save.mockImplementation(async (x) => x);
+    const manager = {
+      getRepository: (entity: unknown) =>
+        entity === TenantAccountMovement
+          ? movementsRepository
+          : accountsRepository,
+    } as any;
+
+    const result = await service.addMovementWithManager(
+      manager,
+      'acc-1',
+      MovementType.CHARGE,
+      75,
+      'invoice',
+      'inv-1',
+      'Factura INV-1',
+      'co1',
+    );
+
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+    expect(result.balanceAfter).toBe(100);
+  });
+
   it('calculates late fee across configured modes', async () => {
     accountsRepository.findOne.mockResolvedValueOnce({
       lease: { lateFeeType: null, lateFeeValue: 1 },

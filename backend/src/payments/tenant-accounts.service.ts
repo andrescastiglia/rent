@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { TenantAccount } from './entities/tenant-account.entity';
 import {
   TenantAccountMovement,
@@ -148,41 +148,63 @@ export class TenantAccountsService {
       );
     }
 
-    return this.dataSource.transaction(async (manager) => {
-      const accountsRepository = manager.getRepository(TenantAccount);
-      const movementsRepository = manager.getRepository(TenantAccountMovement);
-      const account = await accountsRepository.findOne({
-        where: { id: accountId, companyId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!account) {
-        throw new NotFoundException(
-          `Tenant account with ID ${accountId} not found`,
-        );
-      }
-
-      const newBalance = Number(account.balance) + amount;
-      await accountsRepository.update(
-        { id: accountId, companyId },
-        {
-          balance: newBalance,
-          lastMovementAt: new Date(),
-        },
-      );
-
-      const movement = movementsRepository.create({
-        tenantAccountId: accountId,
-        movementType: type,
+    return this.dataSource.transaction((manager) =>
+      this.addMovementWithManager(
+        manager,
+        accountId,
+        type,
         amount,
-        balanceAfter: newBalance,
         referenceType,
         referenceId,
-        description: description || '',
-      });
+        description,
+        companyId,
+      ),
+    );
+  }
 
-      return movementsRepository.save(movement);
+  async addMovementWithManager(
+    manager: EntityManager,
+    accountId: string,
+    type: MovementType,
+    amount: number,
+    referenceType: string | undefined,
+    referenceId: string | undefined,
+    description: string | undefined,
+    companyId: string,
+  ): Promise<TenantAccountMovement> {
+    const accountsRepository = manager.getRepository(TenantAccount);
+    const movementsRepository = manager.getRepository(TenantAccountMovement);
+    const account = await accountsRepository.findOne({
+      where: { id: accountId, companyId },
+      lock: { mode: 'pessimistic_write' },
     });
+
+    if (!account) {
+      throw new NotFoundException(
+        `Tenant account with ID ${accountId} not found`,
+      );
+    }
+
+    const newBalance = Number(account.balance) + amount;
+    await accountsRepository.update(
+      { id: accountId, companyId },
+      {
+        balance: newBalance,
+        lastMovementAt: new Date(),
+      },
+    );
+
+    const movement = movementsRepository.create({
+      tenantAccountId: accountId,
+      movementType: type,
+      amount,
+      balanceAfter: newBalance,
+      referenceType,
+      referenceId,
+      description: description || '',
+    });
+
+    return movementsRepository.save(movement);
   }
 
   /**
