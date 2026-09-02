@@ -5,6 +5,8 @@ import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { interestedApi } from '@/api/interested';
+import { whatsappApi } from '@/api/whatsapp';
+import * as Crypto from 'expo-crypto';
 import { Screen } from '@/components/screen';
 import { AppButton, ChoiceGroup, DateField, H1 } from '@/components/ui';
 import type {
@@ -54,6 +56,16 @@ export default function NewInterestedActivityScreen() {
         throw new Error(t('interested.errors.activitySubjectRequired'));
       }
 
+      if (type === 'whatsapp') {
+        return whatsappApi.createActivity({
+          requestId: Crypto.randomUUID(),
+          personType: 'interested',
+          personId: id,
+          subject: subject.trim(),
+          body: body.trim() || undefined,
+          dueAt: dueAt || undefined,
+        });
+      }
       return interestedApi.addActivity(id, {
         type,
         status,

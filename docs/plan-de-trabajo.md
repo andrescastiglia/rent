@@ -19,7 +19,6 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 
 ### Autorización y aislamiento
 
-- [ ] Completar el aislamiento por relación de owner, tenant y buyer en las superficies aún no auditadas.
 - [ ] Completar fixtures de dos compañías y pruebas negativas por ID ajeno para cada controlador y herramienta IA restante.
 
 ### Consistencia financiera
@@ -32,7 +31,6 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 
 ### WhatsApp seguro
 
-- [ ] Hacer atómica la creación de actividad y su entrega WhatsApp; web/mobile todavía crean la actividad y encolan en dos requests separados.
 - [ ] Cerrar la ventana residual entre aceptación de Meta y persistencia local mediante idempotencia nativa verificable o reconciliación con el proveedor.
 - [ ] Mantener las propuestas inmutables, con expiración, hash, reautenticación, autorización recalculada y ejecución exactamente una vez.
 

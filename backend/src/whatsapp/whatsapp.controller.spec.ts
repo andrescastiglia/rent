@@ -5,6 +5,7 @@ import { WhatsappController } from './whatsapp.controller';
 describe('WhatsappController', () => {
   const whatsappService = {
     enqueueMessage: jest.fn(),
+    createActivityAndEnqueue: jest.fn(),
     sendTextMessage: jest.fn(),
     sendTemplateMessage: jest.fn(),
     assertBatchToken: jest.fn(),
@@ -59,6 +60,30 @@ describe('WhatsappController', () => {
       recipientRole: 'tenant',
       recipientId: '123e4567-e89b-12d3-a456-426614174002',
       idempotencyKey: 'activity:tenant:123e4567-e89b-12d3-a456-426614174001',
+    });
+  });
+
+  it('creates and enqueues a WhatsApp activity as one command', async () => {
+    const result = {
+      activity: { id: '123e4567-e89b-12d3-a456-426614174003' },
+      delivery: { deliveryId: 'delivery-1', status: 'queued', queued: true },
+    };
+    whatsappService.createActivityAndEnqueue.mockResolvedValue(result);
+    const dto = {
+      requestId: '123e4567-e89b-12d3-a456-426614174003',
+      personType: 'tenant',
+      personId: '123e4567-e89b-12d3-a456-426614174002',
+      subject: 'Recordatorio',
+    } as any;
+
+    await expect(
+      controller.createActivity(dto, {
+        user: { id: 'staff-1', companyId: 'company-1' },
+      }),
+    ).resolves.toBe(result);
+    expect(whatsappService.createActivityAndEnqueue).toHaveBeenCalledWith(dto, {
+      id: 'staff-1',
+      companyId: 'company-1',
     });
   });
 

@@ -111,26 +111,25 @@ export default function InterestedActivityCreatePage() {
 
     try {
       setSaving(true);
-      const activity = await interestedApi.addActivity(profile.id, {
-        type: form.type,
-        subject: form.subject.trim(),
-        body: form.body.trim() || undefined,
-        dueAt: form.dueAt || undefined,
-        propertyId: form.propertyId || undefined,
-        markReserved: form.markReserved,
-      });
-
       if (form.type === "whatsapp" && profile.phone?.trim()) {
-        const text = [form.subject.trim(), form.body.trim()]
-          .filter(Boolean)
-          .join("\n\n");
-        await whatsappApi.sendMessage({
-          to: profile.phone.trim(),
-          text,
-          activityEntity: "interested",
-          activityId: activity.id,
-          relatedEntityType: "interested",
-          relatedEntityId: profile.id,
+        await whatsappApi.createActivity({
+          requestId: crypto.randomUUID(),
+          personType: "interested",
+          personId: profile.id,
+          subject: form.subject.trim(),
+          body: form.body.trim() || undefined,
+          dueAt: form.dueAt || undefined,
+          propertyId: form.propertyId || undefined,
+          markReserved: form.markReserved,
+        });
+      } else {
+        await interestedApi.addActivity(profile.id, {
+          type: form.type,
+          subject: form.subject.trim(),
+          body: form.body.trim() || undefined,
+          dueAt: form.dueAt || undefined,
+          propertyId: form.propertyId || undefined,
+          markReserved: form.markReserved,
         });
       }
 

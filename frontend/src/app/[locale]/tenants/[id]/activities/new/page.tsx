@@ -138,24 +138,21 @@ export default function TenantActivityCreatePage() {
 
     try {
       setSaving(true);
-      const activity = await tenantsApi.createActivity(tenant.id, {
-        type: form.type,
-        subject: form.subject.trim(),
-        body: form.body.trim() || undefined,
-        dueAt: form.dueAt || undefined,
-      });
-
       if (form.type === "whatsapp" && tenant.phone?.trim()) {
-        const text = [form.subject.trim(), form.body.trim()]
-          .filter(Boolean)
-          .join("\n\n");
-        await whatsappApi.sendMessage({
-          to: tenant.phone.trim(),
-          text,
-          activityEntity: "tenant",
-          activityId: activity.id,
-          relatedEntityType: "tenant",
-          relatedEntityId: tenant.id,
+        await whatsappApi.createActivity({
+          requestId: crypto.randomUUID(),
+          personType: "tenant",
+          personId: tenant.id,
+          subject: form.subject.trim(),
+          body: form.body.trim() || undefined,
+          dueAt: form.dueAt || undefined,
+        });
+      } else {
+        await tenantsApi.createActivity(tenant.id, {
+          type: form.type,
+          subject: form.subject.trim(),
+          body: form.body.trim() || undefined,
+          dueAt: form.dueAt || undefined,
         });
       }
 

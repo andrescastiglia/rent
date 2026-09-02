@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 
 import { tenantsApi } from '@/api/tenants';
 import { whatsappApi } from '@/api/whatsapp';
+import * as Crypto from 'expo-crypto';
 import { Screen } from '@/components/screen';
 import { AppButton, ChoiceGroup, Field, H1 } from '@/components/ui';
 import type { TenantActivityType } from '@/types/tenant';
@@ -77,26 +78,22 @@ export default function NewTenantActivityScreen() {
         throw new Error(t('tenants.fields.phone'));
       }
 
-      const created = await tenantsApi.createActivity(id, {
+      if (type === 'whatsapp' && tenantQuery.data?.phone?.trim()) {
+        return whatsappApi.createActivity({
+          requestId: Crypto.randomUUID(),
+          personType: 'tenant',
+          personId: id,
+          subject: subject.trim(),
+          body: body.trim() || undefined,
+          dueAt: includeDueAt ? dueAt.toISOString() : undefined,
+        });
+      }
+      return tenantsApi.createActivity(id, {
         type,
         subject: subject.trim(),
         body: body.trim() || undefined,
         dueAt: includeDueAt ? dueAt.toISOString() : undefined,
       });
-
-      if (type === 'whatsapp' && tenantQuery.data?.phone?.trim()) {
-        const text = [subject.trim(), body.trim()].filter(Boolean).join('\n\n');
-        await whatsappApi.sendMessage({
-          to: tenantQuery.data.phone.trim(),
-          text,
-          activityEntity: 'tenant',
-          activityId: created.id,
-          relatedEntityType: 'tenant',
-          relatedEntityId: id,
-        });
-      }
-
-      return created;
     },
     onSuccess: () => {
       Alert.alert(t('common.success'));

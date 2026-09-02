@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   BadGatewayException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -21,6 +22,7 @@ import OpenAI, { toFile } from 'openai';
 import { DataSource } from 'typeorm';
 import { AI_RAG_ROLLOUT } from '../ai/ai.tokens';
 import { UserRole } from '../users/entities/user.entity';
+import { CreateWhatsappActivityDto } from './dto/create-whatsapp-activity.dto';
 
 type AiRagRollout = {
   respond(params: {
@@ -87,6 +89,11 @@ export type QueueWhatsappMessageResult = {
   deliveryId: string;
   status: string;
   queued: boolean;
+};
+
+export type CreateWhatsappActivityResult = {
+  activity: Record<string, unknown>;
+  delivery: QueueWhatsappMessageResult;
 };
 
 export type WhatsappRetentionResult = {
@@ -238,6 +245,316 @@ export class WhatsappService implements OnApplicationBootstrap {
       deliveryId: rows[0].id,
       status: rows[0].status,
       queued: rows[0].status === 'queued' || rows[0].status === 'processing',
+    };
+  }
+
+  async createActivityAndEnqueue(
+    input: CreateWhatsappActivityDto,
+    actor: { id: string; companyId: string },
+  ): Promise<CreateWhatsappActivityResult> {
+    if (this.dataSource?.options.type !== 'postgres') {
+      throw new ServiceUnavailableException('WhatsApp outbox is unavailable');
+    }
+
+    const subject = input.subject.trim();
+    if (!subject) {
+      throw new BadRequestException('WhatsApp activity subject is empty');
+    }
+    if (
+      input.personType !== 'interested' &&
+      (input.propertyId || input.markReserved)
+    ) {
+      throw new BadRequestException(
+        'Reservations are only supported for interested profiles',
+      );
+    }
+    if (input.markReserved && !input.propertyId) {
+      throw new BadRequestException(
+        'propertyId is required when markReserved is true',
+      );
+    }
+    const body = input.body?.trim() || null;
+    const message = [subject, body].filter(Boolean).join('\n\n');
+    const requestHash = createHash('sha256')
+      .update(
+        JSON.stringify({
+          personType: input.personType,
+          personId: input.personId,
+          subject,
+          body,
+          dueAt: input.dueAt ?? null,
+          propertyId: input.propertyId ?? null,
+          markReserved: input.markReserved ?? false,
+        }),
+      )
+      .digest('hex');
+
+    return this.dataSource.transaction(async (manager) => {
+      const recipientRows =
+        input.personType === 'tenant'
+          ? await manager.query(
+              `SELECT tenant.id AS profile_id, account.phone,
+                      account.whatsapp_enabled AS consented
+                 FROM tenants tenant
+                 JOIN users account ON account.id = tenant.user_id
+                WHERE tenant.user_id = $1::uuid
+                  AND tenant.company_id = $2::uuid
+                  AND tenant.deleted_at IS NULL
+                  AND account.deleted_at IS NULL
+                FOR UPDATE OF tenant, account`,
+              [input.personId, actor.companyId],
+            )
+          : await manager.query(
+              `SELECT profile.id AS profile_id, profile.phone,
+                      profile.consent_contact AS consented
+                 FROM interested_profiles profile
+                WHERE profile.id = $1::uuid
+                  AND profile.company_id = $2::uuid
+                  AND profile.deleted_at IS NULL
+                FOR UPDATE OF profile`,
+              [input.personId, actor.companyId],
+            );
+      const recipient = recipientRows[0] as
+        | { profile_id: string; phone: string | null; consented: boolean }
+        | undefined;
+      if (!recipient)
+        throw new NotFoundException('WhatsApp recipient not found');
+      if (!recipient.consented) {
+        throw new BadRequestException(
+          'The recipient has not consented to WhatsApp',
+        );
+      }
+      const phone = this.normalizePhone(recipient.phone ?? '');
+      if (!phone)
+        throw new BadRequestException('Invalid WhatsApp phone number');
+
+      const metadata = { requestId: input.requestId, requestHash };
+      const insertedRows =
+        input.personType === 'tenant'
+          ? await manager.query(
+              `INSERT INTO tenant_activities (
+                 id, company_id, tenant_id, type, status, subject, body,
+                 due_at, metadata, created_by_user_id
+               ) VALUES (
+                 $1::uuid, $2::uuid, $3::uuid, 'whatsapp', 'pending', $4, $5,
+                 $6::timestamptz, $7::jsonb, $8::uuid
+               )
+               ON CONFLICT (id) DO NOTHING
+               RETURNING *`,
+              [
+                input.requestId,
+                actor.companyId,
+                recipient.profile_id,
+                subject,
+                body,
+                input.dueAt ?? null,
+                JSON.stringify(metadata),
+                actor.id,
+              ],
+            )
+          : await manager.query(
+              `INSERT INTO interested_activities (
+                 id, interested_profile_id, type, status, subject, body,
+                 due_at, metadata, created_by_user_id
+               ) VALUES (
+                 $1::uuid, $2::uuid, 'whatsapp', 'pending', $3, $4,
+                 $5::timestamptz, $6::jsonb, $7::uuid
+               )
+               ON CONFLICT (id) DO NOTHING
+               RETURNING *`,
+              [
+                input.requestId,
+                recipient.profile_id,
+                subject,
+                body,
+                input.dueAt ?? null,
+                JSON.stringify({
+                  ...metadata,
+                  ...(input.propertyId ? { propertyId: input.propertyId } : {}),
+                }),
+                actor.id,
+              ],
+            );
+
+      let activity = insertedRows[0] as Record<string, unknown> | undefined;
+      const created = Boolean(activity);
+      if (!activity) {
+        const existingRows =
+          input.personType === 'tenant'
+            ? await manager.query(
+                `SELECT * FROM tenant_activities
+                  WHERE id = $1::uuid AND tenant_id = $2::uuid
+                    AND company_id = $3::uuid AND deleted_at IS NULL`,
+                [input.requestId, recipient.profile_id, actor.companyId],
+              )
+            : await manager.query(
+                `SELECT activity.*
+                   FROM interested_activities activity
+                   JOIN interested_profiles profile
+                     ON profile.id = activity.interested_profile_id
+                  WHERE activity.id = $1::uuid AND profile.id = $2::uuid
+                    AND profile.company_id = $3::uuid
+                    AND profile.deleted_at IS NULL`,
+                [input.requestId, recipient.profile_id, actor.companyId],
+              );
+        activity = existingRows[0] as Record<string, unknown> | undefined;
+        const existingMetadata = activity?.metadata as
+          Record<string, unknown> | undefined;
+        if (!activity || existingMetadata?.requestHash !== requestHash) {
+          throw new ConflictException(
+            'WhatsApp activity requestId was already used for another command',
+          );
+        }
+      }
+
+      if (created && input.personType === 'interested') {
+        await manager.query(
+          `UPDATE interested_profiles
+              SET last_contact_at = NOW(),
+                  next_contact_at = COALESCE($2::timestamptz, next_contact_at),
+                  updated_at = NOW()
+            WHERE id = $1::uuid AND company_id = $3::uuid`,
+          [recipient.profile_id, input.dueAt ?? null, actor.companyId],
+        );
+        if (input.markReserved && input.propertyId) {
+          await this.reservePropertyForWhatsappActivity(manager, {
+            companyId: actor.companyId,
+            propertyId: input.propertyId,
+            profileId: recipient.profile_id,
+            actorId: actor.id,
+            notes: body,
+            activityId: input.requestId,
+          });
+        }
+      }
+
+      const deliveryRows = await manager.query(
+        `INSERT INTO communication_deliveries (
+           company_id, event, recipient_role, recipient_id, channel, recipient,
+           body, status, attempts, max_attempts, next_attempt_at,
+           related_entity_type, related_entity_id, idempotency_key, metadata
+         ) VALUES (
+           $1::uuid, 'whatsapp_ad_hoc', $2::communication_recipient_role,
+           $3::uuid, 'whatsapp', $4, $5, 'queued', 0, 3, NOW(), $2,
+           $3::uuid, $6, $7::jsonb
+         )
+         ON CONFLICT (company_id, idempotency_key)
+           WHERE idempotency_key IS NOT NULL
+         DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
+         RETURNING id, status`,
+        [
+          actor.companyId,
+          input.personType,
+          recipient.profile_id,
+          phone,
+          message,
+          `activity:${input.personType}:${input.requestId}`,
+          JSON.stringify({
+            activityEntity: input.personType,
+            activityId: input.requestId,
+            requestHash,
+          }),
+        ],
+      );
+      const delivery = deliveryRows[0] as { id: string; status: string };
+      return {
+        activity: this.toWhatsappActivityResponse(
+          activity,
+          input.personType,
+          recipient.profile_id,
+        ),
+        delivery: {
+          deliveryId: delivery.id,
+          status: delivery.status,
+          queued:
+            delivery.status === 'queued' || delivery.status === 'processing',
+        },
+      };
+    });
+  }
+
+  private async reservePropertyForWhatsappActivity(
+    manager: { query: DataSource['query'] },
+    input: {
+      companyId: string;
+      propertyId: string;
+      profileId: string;
+      actorId: string;
+      notes: string | null;
+      activityId: string;
+    },
+  ): Promise<void> {
+    const properties = await manager.query(
+      `SELECT id FROM properties
+        WHERE id = $1::uuid AND company_id = $2::uuid AND deleted_at IS NULL
+        FOR UPDATE`,
+      [input.propertyId, input.companyId],
+    );
+    if (!properties[0]) throw new NotFoundException('Property not found');
+    const reservationRows = await manager.query(
+      `INSERT INTO property_reservations (
+         company_id, property_id, interested_profile_id, status,
+         activity_source, notes, reserved_by_user_id
+       ) VALUES ($1::uuid, $2::uuid, $3::uuid, 'active', 'activity', $4, $5::uuid)
+       ON CONFLICT (property_id, interested_profile_id)
+         WHERE status = 'active'::property_reservation_status
+           AND deleted_at IS NULL
+       DO UPDATE SET updated_at = NOW()
+       RETURNING id`,
+      [
+        input.companyId,
+        input.propertyId,
+        input.profileId,
+        input.notes,
+        input.actorId,
+      ],
+    );
+    await manager.query(
+      `UPDATE properties SET operation_state = 'reserved', updated_at = NOW()
+        WHERE id = $1::uuid AND company_id = $2::uuid`,
+      [input.propertyId, input.companyId],
+    );
+    await manager.query(
+      `INSERT INTO interested_activities (
+         interested_profile_id, type, status, subject, body, completed_at,
+         metadata, created_by_user_id
+       ) VALUES (
+         $1::uuid, 'note', 'completed', 'Propiedad reservada', $2, NOW(),
+         $3::jsonb, $4::uuid
+       )`,
+      [
+        input.profileId,
+        input.notes,
+        JSON.stringify({
+          propertyId: input.propertyId,
+          reservationId: reservationRows[0].id,
+          sourceActivityId: input.activityId,
+        }),
+        input.actorId,
+      ],
+    );
+  }
+
+  private toWhatsappActivityResponse(
+    row: Record<string, unknown>,
+    personType: 'tenant' | 'interested',
+    profileId: string,
+  ): Record<string, unknown> {
+    return {
+      id: row.id,
+      ...(personType === 'tenant'
+        ? { tenantId: profileId }
+        : { interestedProfileId: profileId }),
+      type: row.type,
+      status: row.status,
+      subject: row.subject,
+      body: row.body,
+      dueAt: row.due_at,
+      completedAt: row.completed_at,
+      metadata: row.metadata,
+      createdByUserId: row.created_by_user_id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 
