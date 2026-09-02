@@ -12,7 +12,11 @@ import { Tenant } from './entities/tenant.entity';
 import { TenantActivity } from './entities/tenant-activity.entity';
 import { Invoice, InvoiceStatus } from '../payments/entities/invoice.entity';
 import { TenantAccount } from '../payments/entities/tenant-account.entity';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { TenantActivityStatus } from './entities/tenant-activity.entity';
 
@@ -34,6 +38,7 @@ describe('TenantsService', () => {
   const createMockQueryBuilder = (): any => {
     return {
       innerJoin: jest.fn().mockReturnThis(),
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       distinct: jest.fn().mockReturnThis(),
@@ -41,6 +46,8 @@ describe('TenantsService', () => {
       take: jest.fn().mockReturnThis(),
       getOne: jest.fn(),
       getManyAndCount: jest.fn(),
+      getMany: jest.fn(),
+      orderBy: jest.fn().mockReturnThis(),
     };
   };
 
@@ -61,6 +68,11 @@ describe('TenantsService', () => {
     lastName: 'Tenant',
     role: UserRole.TENANT,
     isActive: true,
+  };
+  const adminContext = {
+    id: 'admin-1',
+    companyId: 'company-1',
+    role: UserRole.ADMIN,
   };
 
   beforeEach(async () => {
@@ -135,7 +147,7 @@ describe('TenantsService', () => {
       userRepository.save!.mockResolvedValue(mockUser);
       userRepository.query!.mockResolvedValue([]);
 
-      const result = await service.create(createDto);
+      const result = await service.create(createDto, adminContext);
 
       expect(userRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -149,7 +161,7 @@ describe('TenantsService', () => {
         expect.stringContaining('INSERT INTO tenants'),
         expect.arrayContaining([
           mockUser.id,
-          createDto.companyId,
+          adminContext.companyId,
           createDto.dni,
         ]),
       );
@@ -162,7 +174,7 @@ describe('TenantsService', () => {
 
       userRepository.createQueryBuilder!.mockReturnValue(mockQueryBuilder);
 
-      await expect(service.create(createDto)).rejects.toThrow(
+      await expect(service.create(createDto, adminContext)).rejects.toThrow(
         ConflictException,
       );
     });
@@ -174,7 +186,7 @@ describe('TenantsService', () => {
       userRepository.createQueryBuilder!.mockReturnValue(mockQueryBuilder);
       userRepository.findOne!.mockResolvedValue(mockUser);
 
-      await expect(service.create(createDto)).rejects.toThrow(
+      await expect(service.create(createDto, adminContext)).rejects.toThrow(
         ConflictException,
       );
     });
@@ -189,7 +201,7 @@ describe('TenantsService', () => {
       userRepository.save!.mockResolvedValue(mockUser);
       userRepository.query!.mockResolvedValue([]);
 
-      await service.create(createDto);
+      await service.create(createDto, adminContext);
 
       expect(bcrypt.genSalt).toHaveBeenCalled();
       expect(bcrypt.hash).toHaveBeenCalledWith(createDto.password, 'salt');
@@ -209,7 +221,7 @@ describe('TenantsService', () => {
 
       userRepository.createQueryBuilder!.mockReturnValue(mockQueryBuilder);
 
-      const result = await service.findAll(filters);
+      const result = await service.findAll(filters, adminContext);
 
       expect(result).toEqual({
         data: [mockUser],
@@ -217,6 +229,31 @@ describe('TenantsService', () => {
         page: 1,
         limit: 10,
       });
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'user.company_id = :companyId',
+        { companyId: 'company-1' },
+      );
+    });
+
+    it('limits an owner to tenants related through their leases', async () => {
+      const query = createMockQueryBuilder();
+      query.getManyAndCount.mockResolvedValue([[], 0]);
+      userRepository.createQueryBuilder!.mockReturnValue(query);
+
+      await service.findAll(
+        {},
+        { id: 'owner-user-1', companyId: 'company-1', role: UserRole.OWNER },
+      );
+
+      expect(query.innerJoin).toHaveBeenCalledWith(
+        'owners',
+        'scopeOwner',
+        expect.stringContaining('scopeOwner.user_id = :actorId'),
+        expect.objectContaining({
+          actorId: 'owner-user-1',
+          companyId: 'company-1',
+        }),
+      );
     });
 
     it('should filter tenants by name', async () => {
@@ -226,7 +263,7 @@ describe('TenantsService', () => {
 
       userRepository.createQueryBuilder!.mockReturnValue(mockQueryBuilder);
 
-      await service.findAll(filters);
+      await service.findAll(filters, adminContext);
 
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
         expect.stringContaining("coalesce(user.first_name, '')"),
@@ -241,7 +278,7 @@ describe('TenantsService', () => {
 
       userRepository.createQueryBuilder!.mockReturnValue(mockQueryBuilder);
 
-      await service.findAll(filters);
+      await service.findAll(filters, adminContext);
 
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
         expect.stringContaining("coalesce(user.first_name, '')"),
@@ -260,10 +297,14 @@ describe('TenantsService', () => {
       leaseRepository.findOne!.mockResolvedValue({ id: 'lease-1' });
       userRepository.findOne!.mockResolvedValue(mockUser);
 
-      const result = await service.findOne('user-1');
+      const result = await service.findOne('user-1', adminContext);
 
       expect(userRepository.findOne).toHaveBeenCalledWith({
-        where: { id: 'user-1', role: UserRole.TENANT },
+        where: expect.objectContaining({
+          id: 'user-1',
+          companyId: 'company-1',
+          role: UserRole.TENANT,
+        }),
       });
       expect(result).toEqual(mockUser);
     });
@@ -271,7 +312,40 @@ describe('TenantsService', () => {
     it('should throw NotFoundException when tenant not found', async () => {
       userRepository.findOne!.mockResolvedValue(null);
 
-      await expect(service.findOne('999')).rejects.toThrow(NotFoundException);
+      await expect(service.findOne('999', adminContext)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('does not resolve a tenant from another company', async () => {
+      _tenantRepository.findOne!.mockResolvedValue(null);
+
+      await expect(
+        service.findOne('tenant-company-b', adminContext),
+      ).rejects.toThrow(NotFoundException);
+      expect(_tenantRepository.findOne).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          userId: 'tenant-company-b',
+          companyId: 'company-1',
+        }),
+      });
+    });
+
+    it('limits a tenant actor to their own profile', async () => {
+      const query = createMockQueryBuilder();
+      query.getOne.mockResolvedValue(null);
+      _tenantRepository.createQueryBuilder!.mockReturnValue(query);
+
+      await expect(
+        service.findOne('other-tenant', {
+          id: 'tenant-user-1',
+          companyId: 'company-1',
+          role: UserRole.TENANT,
+        }),
+      ).rejects.toThrow(NotFoundException);
+      expect(query.andWhere).toHaveBeenCalledWith('tenant.user_id = :actorId', {
+        actorId: 'tenant-user-1',
+      });
     });
   });
 
@@ -288,10 +362,25 @@ describe('TenantsService', () => {
       userRepository.save!.mockResolvedValue({ ...mockUser, ...updateDto });
       userRepository.query!.mockResolvedValue([]);
 
-      const result = await service.update('user-1', updateDto);
+      const result = await service.update('user-1', updateDto, adminContext);
 
       expect(userRepository.save).toHaveBeenCalled();
       expect(result.firstName).toBe('Jane');
+    });
+
+    it('rejects owner mutations even within the same company', async () => {
+      await expect(
+        service.update(
+          'user-1',
+          {},
+          {
+            id: 'owner-user-1',
+            companyId: 'company-1',
+            role: UserRole.OWNER,
+          },
+        ),
+      ).rejects.toThrow(ForbiddenException);
+      expect(userRepository.save).not.toHaveBeenCalled();
     });
 
     it('should update tenant-specific fields via raw query', async () => {
@@ -306,7 +395,7 @@ describe('TenantsService', () => {
       userRepository.save!.mockResolvedValue(mockUser);
       userRepository.query!.mockResolvedValue([]);
 
-      await service.update('user-1', updateDto);
+      await service.update('user-1', updateDto, adminContext);
 
       expect(userRepository.query).toHaveBeenCalledWith(
         expect.stringContaining('UPDATE tenants'),
@@ -326,7 +415,7 @@ describe('TenantsService', () => {
       leaseRepository.findOne!.mockResolvedValue({ id: 'lease-1' });
       userRepository.softDelete = jest.fn().mockResolvedValue({ affected: 1 });
 
-      await service.remove('user-1');
+      await service.remove('user-1', adminContext);
 
       expect(userRepository.softDelete).toHaveBeenCalledWith('user-1');
     });
@@ -342,11 +431,12 @@ describe('TenantsService', () => {
       });
       leaseRepository.find!.mockResolvedValue(mockLeases);
 
-      const result = await service.getLeaseHistory('user-1');
+      const result = await service.getLeaseHistory('user-1', adminContext);
 
       expect(leaseRepository.find).toHaveBeenCalledWith({
         where: expect.objectContaining({
           tenantId: 'tenant-1',
+          companyId: 'company-1',
           contractType: 'rental',
         }),
         relations: ['property'],
@@ -358,9 +448,9 @@ describe('TenantsService', () => {
     it('should throw when tenant user id is not found', async () => {
       _tenantRepository.findOne!.mockResolvedValue(null);
 
-      await expect(service.getLeaseHistory('missing')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.getLeaseHistory('missing', adminContext),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -374,7 +464,7 @@ describe('TenantsService', () => {
       });
       _tenantActivityRepository.find!.mockResolvedValue(activities);
 
-      const result = await service.listActivities('user-1', 'company-1');
+      const result = await service.listActivities('user-1', adminContext);
 
       expect(result).toEqual(activities);
       expect(_tenantActivityRepository.find).toHaveBeenCalledWith(
@@ -390,7 +480,7 @@ describe('TenantsService', () => {
     it('throws NotFoundException when tenant not found', async () => {
       _tenantRepository.findOne!.mockResolvedValue(null);
       await expect(
-        service.listActivities('missing', 'company-1'),
+        service.listActivities('missing', adminContext),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -419,7 +509,7 @@ describe('TenantsService', () => {
           status: TenantActivityStatus.COMPLETED,
           subject: 'Follow up',
         } as any,
-        { id: 'admin-1', companyId: 'company-1' } as any,
+        adminContext,
       );
 
       expect(result.completedAt).toBeInstanceOf(Date);
@@ -449,7 +539,7 @@ describe('TenantsService', () => {
           subject: 'Review docs',
           dueAt: '2026-04-01',
         } as any,
-        { id: 'admin-1', companyId: 'company-1' } as any,
+        adminContext,
       );
 
       expect(_tenantActivityRepository.save).toHaveBeenCalled();
@@ -478,7 +568,7 @@ describe('TenantsService', () => {
         'user-1',
         'act-1',
         { subject: 'Updated', dueAt: '2026-05-01' } as any,
-        'company-1',
+        adminContext,
       );
 
       expect(result.subject).toBe('Updated');
@@ -493,7 +583,7 @@ describe('TenantsService', () => {
       _tenantActivityRepository.findOne!.mockResolvedValue(null);
 
       await expect(
-        service.updateActivity('user-1', 'missing', {} as any, 'company-1'),
+        service.updateActivity('user-1', 'missing', {} as any, adminContext),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -518,7 +608,7 @@ describe('TenantsService', () => {
         'user-1',
         'act-1',
         { status: TenantActivityStatus.COMPLETED } as any,
-        'company-1',
+        adminContext,
       );
 
       expect(result.completedAt).toBeInstanceOf(Date);
@@ -545,7 +635,7 @@ describe('TenantsService', () => {
         'user-1',
         'act-1',
         { completedAt: null } as any,
-        'company-1',
+        adminContext,
       );
 
       expect(result.completedAt).toBeNull();
@@ -573,7 +663,7 @@ describe('TenantsService', () => {
         'user-1',
         'act-1',
         { subject: 'Renamed' } as any,
-        'company-1',
+        adminContext,
       );
 
       expect(result.completedAt).toEqual(existingDate);

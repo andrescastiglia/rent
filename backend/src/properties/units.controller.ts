@@ -6,6 +6,7 @@ import {
   Patch,
   Param,
   Delete,
+  Request,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -24,30 +25,34 @@ export class UnitsController {
 
   @Post()
   @Roles(UserRole.ADMIN, UserRole.OWNER)
-  create(@Body() createUnitDto: CreateUnitDto) {
-    return this.unitsService.create(createUnitDto);
+  create(@Body() createUnitDto: CreateUnitDto, @Request() req: any) {
+    return this.unitsService.create(createUnitDto, req.user);
   }
 
   @Get('property/:propertyId')
-  findByProperty(@Param('propertyId') propertyId: string) {
-    return this.unitsService.findByProperty(propertyId);
+  findByProperty(@Param('propertyId') propertyId: string, @Request() req: any) {
+    return this.unitsService.findByProperty(propertyId, req.user);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.unitsService.findOne(id);
+  findOne(@Param('id') id: string, @Request() req: any) {
+    return this.unitsService.findOne(id, req.user);
   }
 
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.OWNER)
-  update(@Param('id') id: string, @Body() updateUnitDto: UpdateUnitDto) {
-    return this.unitsService.update(id, updateUnitDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateUnitDto: UpdateUnitDto,
+    @Request() req: any,
+  ) {
+    return this.unitsService.update(id, updateUnitDto, req.user);
   }
 
   @Delete(':id')
   @Roles(UserRole.ADMIN, UserRole.OWNER)
-  async remove(@Param('id') id: string) {
-    await this.unitsService.remove(id);
+  async remove(@Param('id') id: string, @Request() req: any) {
+    await this.unitsService.remove(id, req.user);
     return { message: 'Unit deleted successfully' };
   }
 }

@@ -999,8 +999,11 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: CreateUnitDto.zodSchema,
-      execute: async (args) =>
-        deps.unitsService.create(CreateUnitDto.zodSchema.parse(args)),
+      execute: async (args, context) =>
+        deps.unitsService.create(
+          CreateUnitDto.zodSchema.parse(args),
+          toScopedUser(context) as any,
+        ),
     },
     {
       name: 'get_units_by_property',
@@ -1010,11 +1013,14 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ propertyId: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { propertyId } = z
           .object({ propertyId: uuidSchema })
           .parse(args) as any;
-        return deps.unitsService.findByProperty(propertyId);
+        return deps.unitsService.findByProperty(
+          propertyId,
+          toScopedUser(context) as any,
+        );
       },
     },
     {
@@ -1024,9 +1030,9 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.unitsService.findOne(id);
+        return deps.unitsService.findOne(id, toScopedUser(context) as any);
       },
     },
     {
@@ -1037,11 +1043,15 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: withParams(UpdateUnitDto.zodSchema, { id: uuidSchema }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(UpdateUnitDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.unitsService.update(parsed.id, parsed);
+        return deps.unitsService.update(
+          parsed.id,
+          parsed,
+          toScopedUser(context) as any,
+        );
       },
     },
     {
@@ -1052,9 +1062,9 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        await deps.unitsService.remove(id);
+        await deps.unitsService.remove(id, toScopedUser(context) as any);
         return { message: 'Unit deleted successfully' };
       },
     },
@@ -1863,10 +1873,13 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The newly created tenant record with assigned UUID and linked user account.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_STAFF,
       parameters: CreateTenantDto.zodSchema,
-      execute: async (args) =>
-        deps.tenantsService.create(CreateTenantDto.zodSchema.parse(args)),
+      execute: async (args, context) =>
+        deps.tenantsService.create(
+          CreateTenantDto.zodSchema.parse(args),
+          toScopedUser(context) as any,
+        ),
     },
     {
       name: 'get_tenants',
@@ -1874,10 +1887,13 @@ export function buildAiToolDefinitions(
         'Lists tenants with optional filters: name (text search), page, limit.',
       responseDescription: 'Paginated list of tenant records with total count.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_OWNER_STAFF,
       parameters: TenantFiltersDto.zodSchema,
-      execute: async (args) =>
-        deps.tenantsService.findAll(TenantFiltersDto.zodSchema.parse(args)),
+      execute: async (args, context) =>
+        deps.tenantsService.findAll(
+          TenantFiltersDto.zodSchema.parse(args),
+          toScopedUser(context) as any,
+        ),
     },
     {
       name: 'get_tenant_by_id',
@@ -1888,9 +1904,9 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.tenantsService.findOne(id);
+        return deps.tenantsService.findOne(id, toScopedUser(context) as any);
       },
     },
     {
@@ -1901,9 +1917,12 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.tenantsService.getLeaseHistory(id);
+        return deps.tenantsService.getLeaseHistory(
+          id,
+          toScopedUser(context) as any,
+        );
       },
     },
     {
@@ -1917,7 +1936,10 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.tenantsService.listActivities(id, context.companyId ?? '');
+        return deps.tenantsService.listActivities(
+          id,
+          toScopedUser(context) as any,
+        );
       },
     },
     {
@@ -1937,6 +1959,7 @@ export function buildAiToolDefinitions(
         return deps.tenantsService.createActivity(parsed.id, parsed, {
           id: context.userId,
           companyId: context.companyId ?? '',
+          role: context.role,
         });
       },
     },
@@ -1960,7 +1983,7 @@ export function buildAiToolDefinitions(
           parsed.id,
           parsed.activityId,
           parsed,
-          context.companyId ?? '',
+          toScopedUser(context) as any,
         );
       },
     },
@@ -1970,13 +1993,17 @@ export function buildAiToolDefinitions(
         "Updates a tenant's profile fields (name, phone, address, etc.) by UUID.",
       responseDescription: 'The updated tenant record.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_STAFF,
       parameters: withParams(UpdateTenantDto.zodSchema, { id: uuidSchema }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(UpdateTenantDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.tenantsService.update(parsed.id, parsed);
+        return deps.tenantsService.update(
+          parsed.id,
+          parsed,
+          toScopedUser(context) as any,
+        );
       },
     },
     {
@@ -1985,11 +2012,11 @@ export function buildAiToolDefinitions(
         'Deletes a tenant by UUID. Fails if the tenant has active leases.',
       responseDescription: 'Confirmation that the tenant was deleted.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        await deps.tenantsService.remove(id);
+        await deps.tenantsService.remove(id, toScopedUser(context) as any);
         return { message: 'Tenant deleted successfully' };
       },
     },

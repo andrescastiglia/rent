@@ -31,10 +31,14 @@ describe('TenantsController', () => {
     tenantsService.updateActivity.mockResolvedValue({ id: 'a1' });
     tenantsService.update.mockResolvedValue({ id: 't1', firstName: 'A' });
 
-    await expect(controller.create({} as any)).resolves.toEqual({ id: 't1' });
-    await expect(controller.findAll({} as any)).resolves.toEqual({ data: [] });
-    await expect(controller.findOne('t1')).resolves.toEqual({ id: 't1' });
-    await expect(controller.getLeaseHistory('t1')).resolves.toEqual([]);
+    await expect(controller.create({} as any, req)).resolves.toEqual({
+      id: 't1',
+    });
+    await expect(controller.findAll({} as any, req)).resolves.toEqual({
+      data: [],
+    });
+    await expect(controller.findOne('t1', req)).resolves.toEqual({ id: 't1' });
+    await expect(controller.getLeaseHistory('t1', req)).resolves.toEqual([]);
     await expect(controller.listActivities('t1', req)).resolves.toEqual([]);
     await expect(
       controller.createActivity('t1', {} as any, req),
@@ -42,7 +46,7 @@ describe('TenantsController', () => {
     await expect(
       controller.updateActivity('t1', 'a1', {} as any, req),
     ).resolves.toEqual({ id: 'a1' });
-    await expect(controller.update('t1', {} as any)).resolves.toEqual({
+    await expect(controller.update('t1', {} as any, req)).resolves.toEqual({
       id: 't1',
       firstName: 'A',
     });
@@ -50,7 +54,7 @@ describe('TenantsController', () => {
 
   it('remove returns success message', async () => {
     tenantsService.remove.mockResolvedValue(undefined);
-    await expect(controller.remove('t1')).resolves.toEqual({
+    await expect(controller.remove('t1', req)).resolves.toEqual({
       message: 'Tenant deleted successfully',
     });
   });

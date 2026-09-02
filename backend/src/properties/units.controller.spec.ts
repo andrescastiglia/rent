@@ -10,6 +10,9 @@ describe('UnitsController', () => {
   };
 
   let controller: UnitsController;
+  const req = {
+    user: { id: 'admin-1', companyId: 'company-1', role: 'admin' },
+  } as any;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -22,12 +25,12 @@ describe('UnitsController', () => {
     unitsService.findOne.mockResolvedValue({ id: 'u1' });
     unitsService.update.mockResolvedValue({ id: 'u1', floor: '2' });
 
-    expect(await controller.create({ unitNumber: '101' } as any)).toEqual({
+    expect(await controller.create({ unitNumber: '101' } as any, req)).toEqual({
       id: 'u1',
     });
-    expect(await controller.findByProperty('p1')).toEqual([{ id: 'u1' }]);
-    expect(await controller.findOne('u1')).toEqual({ id: 'u1' });
-    expect(await controller.update('u1', { floor: '2' } as any)).toEqual({
+    expect(await controller.findByProperty('p1', req)).toEqual([{ id: 'u1' }]);
+    expect(await controller.findOne('u1', req)).toEqual({ id: 'u1' });
+    expect(await controller.update('u1', { floor: '2' } as any, req)).toEqual({
       id: 'u1',
       floor: '2',
     });
@@ -36,9 +39,9 @@ describe('UnitsController', () => {
   it('removes unit and returns static message', async () => {
     unitsService.remove.mockResolvedValue(undefined);
 
-    await expect(controller.remove('u1')).resolves.toEqual({
+    await expect(controller.remove('u1', req)).resolves.toEqual({
       message: 'Unit deleted successfully',
     });
-    expect(unitsService.remove).toHaveBeenCalledWith('u1');
+    expect(unitsService.remove).toHaveBeenCalledWith('u1', req.user);
   });
 });
