@@ -29,7 +29,6 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 - [ ] Restringir owner, tenant y buyer a objetos relacionados, no solo a la misma compañía.
 - [ ] Completar el mapa de permisos de staff y sus pruebas A/B por módulo.
 - [ ] Añadir fixtures de dos compañías y pruebas negativas por ID ajeno para cada controlador y herramienta IA.
-- [ ] Proteger métricas e ingestión frontend con credencial operativa, rate limit y redacción; no depender de JWT de usuario para Prometheus.
 
 ### Consistencia financiera
 
