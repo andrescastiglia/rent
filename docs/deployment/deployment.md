@@ -1,535 +1,184 @@
-# Guía de Deployment - Real Estate Management System
+# Despliegue productivo por artefacto inmutable
 
-**Versión**: 1.0  
-**Última Actualización**: Diciembre 2025
+**Estado:** operativo
 
----
+**Última actualización:** 2026-09-02
 
-## Índice
+**Autoridad:** `.github/workflows/release.yml`, `.github/workflows/eas.yml` y `ansible/deploy.yml`
 
-1. [Arquitectura de Deployment](#1-arquitectura-de-deployment)
-2. [Requisitos del Servidor](#2-requisitos-del-servidor)
-3. [Preparación del Servidor](#3-preparación-del-servidor)
-4. [Configuración de Cloudflare](#4-configuración-de-cloudflare)
-5. [Configuración de GitHub Secrets](#5-configuración-de-github-secrets)
-6. [Proceso de Deployment](#6-proceso-de-deployment)
-7. [Crontab para Batch](#7-crontab-para-batch)
-8. [Comandos Útiles](#8-comandos-útiles)
-9. [Troubleshooting](#9-troubleshooting)
+Rent se publica desde un tag SemVer anotado que apunta exactamente al `HEAD` de
+`main`. GitHub Actions compila una vez, genera SBOM y checksums, despliega ese
+mismo artefacto y lo adjunta a la GitHub Release. El servidor nunca clona ni
+compila el repositorio.
 
----
+## Condiciones de entrada
 
-## 1. Arquitectura de Deployment
+Antes de crear el tag deben cumplirse todas estas condiciones:
 
-```mermaid
-flowchart TB
-    subgraph CLOUDFLARE["☁️ CLOUDFLARE"]
-        CF[DNS + SSL + CDN + WAF]
-    end
+- `main` está sincronizada y es la única rama remota.
+- No hay pull requests abiertos.
+- CI está verde en el SHA que se va a etiquetar.
+- El tag anotado cumple `vMAJOR.MINOR.PATCH`.
+- Existe una copia de seguridad restaurable de PostgreSQL.
+- `/var/www/rent/shared/.env` está completo y tiene modo `0600`.
+- La migración legada de imágenes fue ejecutada y verificada cuando aplique.
 
-    subgraph VPS["🖥️ VPS SERVER"]
-        subgraph NGINX_BLOCK["NGINX - Reverse Proxy"]
-            NGINX[":80 / :443"]
-        end
-        
-        subgraph APPS["Applications"]
-            FRONTEND["🌐 FRONTEND<br/>Next.js + PM2<br/>:3000"]
-            BACKEND["⚙️ BACKEND<br/>NestJS + PM2<br/>:3001"]
-        end
-        
-        subgraph DATA["Data Layer"]
-            POSTGRES[("🐘 PostgreSQL<br/>:5432")]
-            REDIS[("🔴 Redis<br/>:6379")]
-        end
-    end
+El job `preflight` vuelve a comprobar tag, SHA, ramas y PR antes de construir.
+No se debe relajar esa comprobación para destrabar un release.
 
-    CF -->|HTTPS 443| NGINX
-    NGINX -->|proxy_pass| FRONTEND
-    NGINX -->|/api/*| BACKEND
-    BACKEND --> POSTGRES
-    BACKEND --> REDIS
+## Estructura del servidor
+
+```text
+/var/www/rent/
+├── current -> releases/server-<sha>
+├── releases/
+│   └── server-<sha>/
+└── shared/
+    └── .env
 ```
 
----
+El usuario SSH de despliegue debe poder escribir en `/var/www/rent` y
+`/var/log/rent`, ejecutar `pm2`, y conectarse a PostgreSQL con las credenciales
+del archivo compartido. Se requieren Node.js según `.node-version`, PM2,
+`sha256sum`, `tar` y el cliente PostgreSQL. Git y npm no son necesarios para el
+despliegue.
 
-## 2. Requisitos del Servidor
+## Secretos y variables de GitHub
 
-### Hardware Mínimo (Staging)
-- **CPU**: 2 vCPUs
-- **RAM**: 4 GB
-- **Disco**: 40 GB SSD
-- **SO**: Ubuntu 22.04 LTS
+Configurar el environment protegido `production-release` con aprobación manual
+y estos secretos:
 
-### Hardware Recomendado (Production)
-- **CPU**: 4 vCPUs
-- **RAM**: 8 GB
-- **Disco**: 80 GB SSD
-- **SO**: Ubuntu 22.04 LTS
+- `SSH_PRIVATE_KEY`: clave dedicada, sin passphrase, de alcance mínimo.
+- `SSH_KNOWN_HOSTS`: salida validada de `ssh-keyscan`, no generada durante CI.
+- `SSH_HOST`, `SSH_USER` y `SSH_PORT`.
+- `EXPO_TOKEN`, `GOOGLE_SERVICE_ACCOUNT_KEY_JSON` y credenciales Android.
 
-### Software Requerido
+Configurar `NEXT_PUBLIC_TURNSTILE_SITE_KEY` como variable del repositorio o del
+environment. Los secretos de runtime viven solo en
+`/var/www/rent/shared/.env`; nunca se incluyen en el artefacto.
 
-| Software   | Versión  | Propósito        |
-|------------|----------|------------------|
-| Node.js    | 20.x LTS | Runtime          |
-| PM2        | Latest   | Process Manager  |
-| Nginx      | Latest   | Reverse Proxy    |
-| PostgreSQL | 16.x     | Base de datos    |
-| Redis      | 7.x      | Cache y sesiones |
-| Git        | Latest   | Deployments      |
+Variables mínimas de runtime:
 
----
-
-## 3. Preparación del Servidor
-
-### 3.1 Acceso Inicial
-
-```bash
-# Conectar al servidor
-ssh root@YOUR_SERVER_IP
-
-# Crear usuario de deploy (no usar root)
-adduser deploy
-usermod -aG sudo deploy
-
-# Configurar SSH key para el usuario deploy
-su - deploy
-mkdir -p ~/.ssh
-chmod 700 ~/.ssh
-echo "TU_CLAVE_PUBLICA_SSH" >> ~/.ssh/authorized_keys
-chmod 600 ~/.ssh/authorized_keys
-```
-
-### 3.2 Instalación de Dependencias Base
-
-```bash
-# Actualizar sistema
-sudo apt update && sudo apt upgrade -y
-
-# Instalar dependencias básicas
-sudo apt install -y curl wget git build-essential
-
-# Instalar Node.js 20.x
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs
-
-# Verificar instalación
-node --version  # v20.x.x
-npm --version   # 10.x.x
-
-# Instalar PM2 globalmente
-sudo npm install -g pm2
-
-# Configurar PM2 para iniciar con el sistema
-pm2 startup systemd -u deploy --hp /home/deploy
-```
-
-### 3.3 Instalación de PostgreSQL
-
-```bash
-# Instalar PostgreSQL 16
-sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
-sudo apt update
-sudo apt install -y postgresql-16
-
-# Iniciar y habilitar servicio
-sudo systemctl start postgresql
-sudo systemctl enable postgresql
-
-# Crear base de datos y usuario
-sudo -u postgres psql << EOF
-CREATE USER rent_user WITH PASSWORD 'CHANGE_THIS_PASSWORD';
-CREATE DATABASE rent_db OWNER rent_user;
-GRANT ALL PRIVILEGES ON DATABASE rent_db TO rent_user;
-EOF
-```
-
-### 3.4 Instalación de Redis
-
-```bash
-# Instalar Redis
-sudo apt install -y redis-server
-
-# Configurar Redis
-sudo sed -i 's/supervised no/supervised systemd/' /etc/redis/redis.conf
-sudo sed -i 's/# requirepass foobared/requirepass CHANGE_THIS_PASSWORD/' /etc/redis/redis.conf
-
-# Reiniciar Redis
-sudo systemctl restart redis
-sudo systemctl enable redis
-
-# Verificar
-redis-cli -a CHANGE_THIS_PASSWORD ping  # PONG
-```
-
-### 3.5 Instalación y Configuración de Nginx
-
-```bash
-# Instalar Nginx
-sudo apt install -y nginx
-```
-
-Crear `/etc/nginx/sites-available/rent`:
-
-```nginx
-upstream frontend {
-    server 127.0.0.1:3000;
-    keepalive 64;
-}
-
-upstream backend {
-    server 127.0.0.1:3001;
-    keepalive 64;
-}
-
-server {
-    listen 80;
-    listen [::]:80;
-    server_name YOUR_DOMAIN.com www.YOUR_DOMAIN.com;
-
-    # Cloudflare Real IP
-    set_real_ip_from 103.21.244.0/22;
-    set_real_ip_from 103.22.200.0/22;
-    set_real_ip_from 103.31.4.0/22;
-    set_real_ip_from 104.16.0.0/13;
-    set_real_ip_from 104.24.0.0/14;
-    set_real_ip_from 108.162.192.0/18;
-    set_real_ip_from 131.0.72.0/22;
-    set_real_ip_from 141.101.64.0/18;
-    set_real_ip_from 162.158.0.0/15;
-    set_real_ip_from 172.64.0.0/13;
-    set_real_ip_from 173.245.48.0/20;
-    set_real_ip_from 188.114.96.0/20;
-    set_real_ip_from 190.93.240.0/20;
-    set_real_ip_from 197.234.240.0/22;
-    set_real_ip_from 198.41.128.0/17;
-    real_ip_header CF-Connecting-IP;
-
-    # Gzip
-    gzip on;
-    gzip_vary on;
-    gzip_min_length 1024;
-    gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
-
-    # Security headers
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-
-    # API Backend
-    location /api {
-        rewrite ^/api/(.*)$ /$1 break;
-        proxy_pass http://backend;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    # Frontend
-    location / {
-        proxy_pass http://frontend;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    location /_next/static {
-        proxy_pass http://frontend;
-        add_header Cache-Control "public, max-age=31536000, immutable";
-    }
-}
-```
-
-```bash
-# Habilitar sitio
-sudo ln -sf /etc/nginx/sites-available/rent /etc/nginx/sites-enabled/
-sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t && sudo systemctl restart nginx
-```
-
-### 3.6 Crear Estructura de Directorios
-
-```bash
-sudo mkdir -p /var/www/rent/{backend,frontend,shared}
-sudo chown -R deploy:deploy /var/www/rent
-
-# Crear archivo .env
-cat > /var/www/rent/shared/.env << 'EOF'
-DATABASE_URL=postgresql://rent_user:CHANGE_PASSWORD@localhost:5432/rent_db
-REDIS_URL=redis://:CHANGE_PASSWORD@localhost:6379
-JWT_SECRET=your-super-secret-jwt-key
-JWT_REFRESH_SECRET=your-refresh-secret
-METRICS_SCRAPE_TOKEN=your-dedicated-prometheus-bearer-token
+```dotenv
 NODE_ENV=production
 PORT=3001
-FRONTEND_URL=https://YOUR_DOMAIN.com
-EOF
-chmod 600 /var/www/rent/shared/.env
+DATABASE_URL=postgresql://...
+JWT_SECRET=...
+JWT_REFRESH_SECRET=...
+FRONTEND_URL=https://rent.maese.com.ar
+DOCUSIGN_WEBHOOK_SECRET=...
+WHATSAPP_APP_SECRET=...
 ```
 
-### 3.7 Configurar Firewall
+## TLS y rutas
+
+Nginx o el proxy administrado termina TLS y solo expone HTTPS. Usar TLS 1.2 o
+superior, redirigir HTTP a HTTPS y no cachear `/api/`.
+
+```nginx
+location /api/ {
+    proxy_pass http://127.0.0.1:3001/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+location / {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+Los puertos 3000, 3001, PostgreSQL y métricas no deben ser públicos. Validar
+`nginx -t`, la cadena completa del certificado y el endpoint externo `/health`
+antes del primer tag.
+
+## Migración previa de imágenes legadas
+
+Primero ejecutar en modo lectura con el directorio real que contiene el
+contenido histórico de `uploads/properties`:
 
 ```bash
-# Configurar UFW
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
-sudo ufw allow 22/tcp
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw enable
+node scripts/migrate-legacy-property-images.cjs \
+  --uploads-root=/ruta/validada/uploads/properties
 ```
 
----
+El comando carga todos los archivos, valida que no escapen del directorio,
+comprueba el tipo por magic bytes y calcula SHA-256. Revisar los conteos; luego
+repetir con `--apply`. La escritura ocurre en una transacción y termina solo si
+ya no quedan referencias `/uploads/properties/`. Conservar salida, conteos y
+backup como evidencia del tag.
 
-## 4. Configuración de Cloudflare
+## Crear el release
 
-### DNS Records
-
-| Tipo | Nombre | Contenido       | Proxy      |
-|------|--------|-----------------|------------|
-| A    | @      | YOUR_SERVER_IP  | ✅ Proxied |
-| A    | www    | YOUR_SERVER_IP  | ✅ Proxied |
-
-### SSL/TLS
-
-1. Ir a **SSL/TLS** → **Overview**
-2. Seleccionar modo: **Full (strict)**
-3. En **Edge Certificates**:
-   - Always Use HTTPS: ✅ On
-   - Automatic HTTPS Rewrites: ✅ On
-   - Minimum TLS Version: TLS 1.2
-
-### Seguridad
-
-1. **Security** → **Settings**:
-   - Security Level: Medium
-   - Browser Integrity Check: ✅ On
-
-2. **Caching** → **Configuration**:
-   - Page Rule para API: `*YOUR_DOMAIN.com/api/*` → Cache Level: Bypass
-
----
-
-## 5. Configuración de GitHub Secrets
-
-Ir a **Settings** → **Secrets and variables** → **Actions**.
-
-| Secret            | Descripción                    | Ejemplo               |
-|-------------------|--------------------------------|-----------------------|
-| `SSH_PRIVATE_KEY` | Clave privada SSH para deploy  | `-----BEGIN...`       |
-| `SSH_HOST`        | IP o dominio del servidor      | `123.45.67.89`        |
-| `SSH_USER`        | Usuario de deploy              | `deploy`              |
-| `SSH_PORT`        | Puerto SSH                     | `22`                  |
-
-### Generar SSH Key para deploy
+Desde una copia limpia y sincronizada:
 
 ```bash
-# En tu máquina local
-ssh-keygen -t ed25519 -C "github-actions-deploy" -f ~/.ssh/github_deploy
-
-# Copiar la clave pública al servidor
-ssh-copy-id -i ~/.ssh/github_deploy.pub deploy@YOUR_SERVER_IP
-
-# El contenido de ~/.ssh/github_deploy (clave privada) va en SSH_PRIVATE_KEY
-cat ~/.ssh/github_deploy
+git switch main
+git pull --ff-only origin main
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+git push origin vX.Y.Z
 ```
 
----
+El workflow realiza:
 
-## 6. Proceso de Deployment
+1. todos los gates de CI;
+2. build único de backend, batch y Next standalone;
+3. SBOM CycloneDX de backend, batch, frontend y mobile;
+4. empaquetado y checksum `rent-server-<sha>.tar.gz`;
+5. build EAS, descarga y checksum del AAB exacto;
+6. migraciones forward-compatible antes del cambio de enlace;
+7. cambio atómico de `current` y `pm2 startOrReload`;
+8. smoke tests de backend y frontend;
+9. publicación de ambos artefactos y SBOM en la GitHub Release.
 
-### Flujo de CI/CD
+## Migraciones expand/contract
 
-```mermaid
-flowchart LR
-    A[📤 Push] --> B[🔍 Lint]
-    B --> C[🧪 Test]
-    C --> D[🔨 Build]
-    D --> E[🎭 E2E Tests]
-    E --> F{Branch?}
-    F -->|develop| G[🚀 Deploy Staging]
-    F -->|main| H[🚀 Deploy Production]
-```
+Un release solo puede contener cambios compatibles con la versión anterior:
 
-### Triggers de Deployment
+1. **expand:** agregar tablas/columnas/índices y código compatible;
+2. migrar o rellenar datos de forma reanudable;
+3. cambiar lectores y escritores en un release posterior;
+4. **contract:** eliminar lo antiguo únicamente cuando no haya procesos que lo
+   usen y el rollback ya no dependa de ello.
 
-| Branch    | Entorno    | Automático                        |
-|-----------|------------|-----------------------------------|
-| `develop` | Staging    | ✅ Sí                             |
-| `main`    | Production | ⚠️ Requiere aprobación en GitHub |
+El rollback de aplicación no revierte SQL. Cada migración debe ser idempotente
+cuando sea posible y estar envuelta en transacción. Un cambio destructivo exige
+backup/restore ensayado y release separado.
 
----
+## Verificación y rollback
 
-## 7. Crontab para Batch
+Durante el despliegue, Ansible verifica `SHA256SUMS` y que `RELEASE_SHA`
+coincida con el SHA solicitado. Si falla un smoke test restaura el enlace previo
+y recarga PM2 automáticamente.
 
-El proyecto `batch/` se ejecuta por cron como CLI. Usar el ejemplo oficial en `batch/scripts/crontab.example` o el detalle completo en `batch/docs/OPERATIONS.md`.
-
-Pasos recomendados:
-
-1. Compilar el batch y asegurar el link de `.env` (ver `ansible/deploy.yml` o proceso de deploy).
-2. Crear directorio de logs (ej: `/var/log/batch`) y permisos de escritura para el usuario que corre cron.
-3. Editar crontab del usuario de deploy.
-
-Ejemplo:
+Verificación manual posterior:
 
 ```bash
-sudo mkdir -p /var/log/batch
-sudo chown deploy:deploy /var/log/batch
-sudo crontab -e
-```
-
-Crontab de ejemplo (ajustar paths si tu deploy es distinto a `/opt/rent`):
-
-```cron
-# Batch Billing System
-BATCH_DIR=/opt/rent/batch
-LOG_DIR=/var/log/batch
-
-# Sincronizar índices (diario 06:00)
-0 6 * * * cd $BATCH_DIR && node index.js sync-indices --log $LOG_DIR/sync-indices.log
-
-# Sincronizar tipos de cambio (diario 06:30)
-30 6 * * * cd $BATCH_DIR && node index.js sync-rates --log $LOG_DIR/sync-rates.log
-
-# Facturación (diario 07:00)
-0 7 * * * cd $BATCH_DIR && node index.js billing --log $LOG_DIR/billing.log
-
-# Marcar vencidas (diario 08:00)
-0 8 * * * cd $BATCH_DIR && node index.js overdue --log $LOG_DIR/overdue.log
-
-# Intereses por mora (diario 08:30)
-30 8 * * * cd $BATCH_DIR && node index.js late-fees --log $LOG_DIR/late-fees.log
-
-# Recordatorios (diario 09:00)
-0 9 * * * cd $BATCH_DIR && node index.js reminders --log $LOG_DIR/reminders.log
-
-# Reportes mensuales (día 1, 10:00)
-0 10 1 * * cd $BATCH_DIR && ./scripts/generate-all-reports.sh --log $LOG_DIR/reports.log
-```
-
-Notas:
-- Si preferís npm, reemplazá `node index.js` por `npm run start -- <comando>`.
-- Asegurá que el `PATH` del cron tenga Node disponible o usá ruta absoluta a `node`.
-- Para agregar jobs adicionales, revisar `batch/docs/OPERATIONS.md`.
-
----
-
-## 8. Comandos Útiles
-
-### PM2
-
-```bash
-pm2 status              # Ver estado de aplicaciones
-pm2 logs                # Ver logs
-pm2 logs backend        # Logs solo del backend
-pm2 reload all          # Reload sin downtime
-pm2 monit               # Monitoreo en tiempo real
-pm2 save                # Guardar configuración actual
-```
-
-### Nginx
-
-```bash
-sudo nginx -t                              # Verificar configuración
-sudo systemctl restart nginx               # Reiniciar
-sudo tail -f /var/log/nginx/error.log      # Ver logs de error
-```
-
-### PostgreSQL
-
-```bash
-psql -h localhost -U rent_user -d rent_db                    # Conectar
-pg_dump -h localhost -U rent_user rent_db > backup.sql       # Backup
-psql -h localhost -U rent_user -d rent_db < backup.sql       # Restore
-```
-
-### Redis
-
-```bash
-redis-cli -a YOUR_PASSWORD ping       # Test conexión
-redis-cli -a YOUR_PASSWORD INFO       # Estadísticas
-redis-cli -a YOUR_PASSWORD FLUSHALL   # Limpiar caché
-```
-
----
-
-## 9. Troubleshooting
-
-### Error 502 Bad Gateway
-
-```bash
-# Verificar que las apps están corriendo
+readlink -f /var/www/rent/current
+cat /var/www/rent/current/RELEASE_SHA
 pm2 status
-
-# Verificar configuración de Nginx
-sudo nginx -t
-
-# Ver logs de Nginx
-sudo tail -f /var/log/nginx/error.log
+curl --fail http://127.0.0.1:3001/health
+curl --fail http://127.0.0.1:3000/health
+sha256sum --check /var/www/rent/current/SHA256SUMS
 ```
 
-### La aplicación no inicia
+Para un rollback manual de emergencia, seleccionar un directorio existente y
+verificado, cambiar primero un enlace temporal y luego reemplazarlo de forma
+atómica:
 
 ```bash
-# Ver logs de PM2
-pm2 logs --lines 100
-
-# Verificar puertos
-sudo lsof -i :3000
-sudo lsof -i :3001
-
-# Verificar variables de entorno
-cat /var/www/rent/shared/.env
+ln -s /var/www/rent/releases/server-<sha-anterior> /var/www/rent/current.next
+mv -Tf /var/www/rent/current.next /var/www/rent/current
+cd /var/www/rent/current
+RENT_CURRENT_PATH=/var/www/rent/current \
+RENT_SHARED_ENV=/var/www/rent/shared/.env \
+pm2 startOrReload deploy/ecosystem.config.cjs --update-env
 ```
 
-### No se puede conectar a PostgreSQL
-
-```bash
-# Verificar estado
-sudo systemctl status postgresql
-
-# Test de conexión
-psql -h localhost -U rent_user -d rent_db -c "SELECT 1"
-```
-
-### Redis no responde
-
-```bash
-# Verificar estado
-sudo systemctl status redis
-
-# Test conexión
-redis-cli -a YOUR_PASSWORD ping
-
-# Reiniciar
-sudo systemctl restart redis
-```
-
----
-
-## Checklist de Deploy
-
-- [ ] Servidor provisionado con Ubuntu 22.04
-- [ ] Usuario `deploy` creado con acceso SSH
-- [ ] Node.js 20.x instalado
-- [ ] PM2 instalado y configurado
-- [ ] PostgreSQL instalado y base de datos creada
-- [ ] Redis instalado y configurado
-- [ ] Nginx instalado y configurado
-- [ ] Firewall configurado (UFW)
-- [ ] Cloudflare configurado (DNS + SSL)
-- [ ] GitHub Secrets configurados
-- [ ] Variables de entorno en `/var/www/rent/shared/.env`
-- [ ] Primer deploy exitoso
-- [ ] Aplicación accesible vía HTTPS
-
----
-
-**Contacto**: acastiglia@gmail.com  
-**Repositorio**: https://github.com/andrescastiglia/rent
+Después, repetir healthchecks y documentar SHA, motivo, hora, operador y estado
+de base de datos. Si el problema proviene de una migración incompatible, no se
+debe improvisar un downgrade: aislar tráfico y seguir el procedimiento de
+restore ensayado.

@@ -30,6 +30,7 @@ function getApiProxyUrl() {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    output: 'standalone',
     outputFileTracingRoot: frontendRoot,
     turbopack: {
         root: frontendRoot,
