@@ -13,6 +13,7 @@ jest.mock("next/navigation", () => ({
 
 jest.mock("@/lib/api", () => ({
   apiClient: {
+    get: jest.fn(),
     post: jest.fn(),
   },
 }));
@@ -78,8 +79,43 @@ describe("AuthProvider", () => {
 
   it("provides loading state", () => {
     const ctx = getAuthContext();
-    // loading = !getHydratedSnapshot() => !true => false in client env
     expect(ctx.loading).toBe(false);
+  });
+
+  it("rehydrates the complete profile from a durable token", async () => {
+    const profile = {
+      id: "staff-1",
+      companyId: "company-1",
+      role: "staff",
+      permissions: { payments: true },
+      firstName: "Staff",
+      lastName: "User",
+      email: "staff@example.com",
+      isActive: true,
+    };
+    (getToken as jest.Mock).mockReturnValue("durable-token");
+    (getUser as jest.Mock).mockReturnValue(null);
+    (apiClient.get as jest.Mock).mockResolvedValue(profile);
+
+    renderWithAuth();
+
+    await act(async () => {});
+    expect(apiClient.get).toHaveBeenCalledWith(
+      "/users/profile/me",
+      "durable-token",
+    );
+    expect(setUser).toHaveBeenCalledWith(profile);
+  });
+
+  it("clears an invalid durable session", async () => {
+    (getToken as jest.Mock).mockReturnValue("invalid-token");
+    (getUser as jest.Mock).mockReturnValue(null);
+    (apiClient.get as jest.Mock).mockRejectedValue(new Error("unauthorized"));
+
+    renderWithAuth();
+
+    await act(async () => {});
+    expect(clearAuth).toHaveBeenCalled();
   });
 
   describe("login", () => {

@@ -15,15 +15,26 @@ function sanitizeUserForStorage(
 ): Record<string, unknown> {
   const role = getOptionalString(user.role);
   const language = getOptionalString(user.language);
+  const permissions =
+    user.permissions && typeof user.permissions === "object"
+      ? Object.fromEntries(
+          Object.entries(user.permissions).filter(
+            ([, value]) => typeof value === "boolean",
+          ),
+        )
+      : {};
 
   return {
     id: getOptionalString(user.id) ?? "",
-    email: null,
+    companyId: getOptionalString(user.companyId),
+    email: getOptionalString(user.email) ?? null,
     firstName: getOptionalString(user.firstName) ?? "",
     lastName: getOptionalString(user.lastName) ?? "",
+    phone: getOptionalString(user.phone) ?? null,
     avatarUrl: getOptionalString(user.avatarUrl) ?? null,
     language: language && USER_LANGUAGES.has(language) ? language : undefined,
     role: role && USER_ROLES.has(role) ? role : "staff",
+    permissions,
     isActive: typeof user.isActive === "boolean" ? user.isActive : undefined,
   };
 }
