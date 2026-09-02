@@ -34,7 +34,6 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 ### Consistencia financiera
 
 - [ ] Ejecutar conciliación bancaria con el mismo `EntityManager`; probar rollback antes y después de cada escritura.
-- [ ] Completar idempotencia de webhooks y bloquear carreras en numeración de recibos/notas.
 - [ ] Asegurar que PDF, S3, WhatsApp y proveedores se ejecuten desde outbox después del commit.
 
 ### Superficies públicas y sesiones
