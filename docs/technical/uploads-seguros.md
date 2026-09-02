@@ -10,14 +10,19 @@ del proceso. La ruta global `/uploads/` está deshabilitada.
 - La compañía se toma exclusivamente del actor autenticado. El cliente no puede
   elegir `companyId`.
 - `entityType` usa una lista cerrada y la entidad padre debe existir, pertenecer a
-  la compañía y no estar eliminada.
+  la compañía, no estar eliminada y estar vinculada al actor autenticado.
+- Administración y personal con permiso de contratos operan sobre la compañía.
+  El propietario queda limitado a sus inmuebles y relaciones; el inquilino, a su
+  alquiler activo o contratos propios; y el comprador, a su compraventa. Inquilino
+  y comprador sólo tienen lectura.
 - La URL `PUT` vence en cinco minutos, firma tipo y tamaño, y apunta a una clave
   aleatoria bajo `quarantine/<companyId>/`.
 - La confirmación vuelve a validar compañía, estado, clave, tamaño y MIME del
   objeto. Después copia a una clave opaca determinista, persiste la aprobación y
   elimina la copia en cuarentena.
 - Sólo los documentos aprobados se listan o reciben una URL `GET`; esa URL también
-  vence en cinco minutos y la consulta está limitada a la compañía autenticada.
+  vence en cinco minutos y vuelve a validar compañía, rol y relación con la entidad
+  padre.
 - Una confirmación ya aprobada es idempotente. Si falla la persistencia, la copia
   en cuarentena se conserva y la promoción se puede reintentar sobre la misma
   clave final.
@@ -68,6 +73,7 @@ npm test -- --runInBand \
   src/main.spec.ts
 ```
 
-La cobertura incluye ID de otra compañía, metadata S3 distinta, fallo de DB durante
+La cobertura incluye ID de otra compañía, entidad no relacionada dentro de la misma
+compañía, alquiler activo del inquilino, metadata S3 distinta, fallo de DB durante
 la promoción, token temporal ausente/inválido/vencido, MIME falsificado y exceso de
 tamaño.

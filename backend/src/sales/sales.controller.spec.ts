@@ -1,4 +1,6 @@
 import { SalesController } from './sales.controller';
+import { ROLES_KEY } from '../common/decorators/roles.decorator';
+import { UserRole } from '../users/entities/user.entity';
 
 describe('SalesController', () => {
   const salesService = {
@@ -24,6 +26,25 @@ describe('SalesController', () => {
       salesService as any,
       documentsService as any,
     );
+  });
+
+  it('restricts every sales endpoint to admin and staff', () => {
+    const endpoints: Array<keyof SalesController> = [
+      'createFolder',
+      'listFolders',
+      'createAgreement',
+      'listAgreements',
+      'getAgreement',
+      'listReceipts',
+      'createReceipt',
+      'downloadReceipt',
+    ];
+
+    for (const endpoint of endpoints) {
+      expect(
+        Reflect.getMetadata(ROLES_KEY, SalesController.prototype[endpoint]),
+      ).toEqual([UserRole.ADMIN, UserRole.STAFF]);
+    }
   });
 
   it('delegates folder/agreement/receipt operations to service', async () => {

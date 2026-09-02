@@ -44,7 +44,7 @@ const routePolicies: Record<string, RoutePolicy> = {
     roles: ['admin', 'owner', 'tenant'],
     staffPermission: 'invoices',
   },
-  sales: { roles: ['admin', 'owner'], staffPermission: 'sales' },
+  sales: { roles: ['admin'], staffPermission: 'sales' },
   reports: { roles: ['admin', 'owner'], staffPermission: 'reports' },
   users: { roles: ['admin'] },
   ai: {

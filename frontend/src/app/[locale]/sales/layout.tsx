@@ -10,10 +10,7 @@ export default function SalesLayout({
 }) {
   return (
     <MainLayout>
-      <RoleGuard
-        allowedRoles={["admin", "owner", "staff"]}
-        requiredModule="sales"
-      >
+      <RoleGuard allowedRoles={["admin", "staff"]} requiredModule="sales">
         {children}
       </RoleGuard>
     </MainLayout>

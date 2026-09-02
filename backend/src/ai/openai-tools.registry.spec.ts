@@ -901,4 +901,38 @@ describe('openai-tools.registry', () => {
       expect.objectContaining({ propertyId: id, title: 'Repair' }),
     );
   });
+
+  it('keeps owners out of sales tools and passes actors to document tools', async () => {
+    const documentsService = {
+      generateDownloadUrl: jest.fn().mockResolvedValue({ downloadUrl: 'url' }),
+    };
+    const definitions = buildAiToolDefinitions({ documentsService } as any);
+    const salesTools = definitions.filter((tool) =>
+      tool.name.includes('sales_'),
+    );
+    expect(salesTools).not.toHaveLength(0);
+    for (const tool of salesTools) {
+      expect(tool.allowedRoles).toEqual([UserRole.ADMIN, UserRole.STAFF]);
+    }
+
+    const documentTool = definitions.find(
+      (tool) => tool.name === 'get_documents_download_url_by_id',
+    )!;
+    expect(documentTool.allowedRoles).toContain(UserRole.BUYER);
+    const context = {
+      userId: '10000000-0000-4000-8000-000000000101',
+      companyId: '10000000-0000-4000-8000-000000000201',
+      role: UserRole.BUYER,
+    };
+    const id = '10000000-0000-4000-8000-000000000001';
+    await documentTool.execute({ id }, context);
+    expect(documentsService.generateDownloadUrl).toHaveBeenCalledWith(
+      id,
+      expect.objectContaining({
+        id: context.userId,
+        companyId: context.companyId,
+        role: context.role,
+      }),
+    );
+  });
 });
