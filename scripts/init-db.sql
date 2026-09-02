@@ -2595,6 +2595,31 @@ CREATE TRIGGER update_pgt_updated_at
     BEFORE UPDATE ON payment_gateway_transactions
     FOR EACH ROW EXECUTE FUNCTION functions.update_updated_at_column();
 
+CREATE TABLE payment_gateway_webhook_events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
+    provider VARCHAR(50) NOT NULL,
+    event_key CHAR(64) NOT NULL,
+    notification_id VARCHAR(255) NOT NULL,
+    data_id VARCHAR(255) NOT NULL,
+    request_id VARCHAR(255),
+    payload_sha256 CHAR(64) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'processing'
+        CHECK (status IN ('processing', 'processed', 'failed')),
+    attempts INTEGER NOT NULL DEFAULT 1 CHECK (attempts > 0),
+    lease_expires_at TIMESTAMPTZ,
+    processed_at TIMESTAMPTZ,
+    last_error VARCHAR(120),
+    received_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(provider, event_key)
+);
+
+CREATE INDEX idx_payment_gateway_webhook_status
+    ON payment_gateway_webhook_events(status, lease_expires_at);
+CREATE INDEX idx_payment_gateway_webhook_company
+    ON payment_gateway_webhook_events(company_id, received_at DESC);
+
 -- -----------------------------------------------------------------------------
 -- Portal Listings
 -- -----------------------------------------------------------------------------

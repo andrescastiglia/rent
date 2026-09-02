@@ -118,15 +118,15 @@ describe('PaymentGatewayService', () => {
       httpService.post.mockReturnValue(
         of({ data: mpResponse } as AxiosResponse),
       );
-      txRepo.create!.mockReturnValue(mockTransaction);
-      txRepo.save!.mockResolvedValue(mockTransaction);
+      txRepo.create!.mockImplementation((value) => value);
+      txRepo.save!.mockImplementation(async (value) => value);
 
       const result = await service.createPreference(companyId, userId, dto);
 
       expect(result).toEqual({
         initPoint: mpResponse.init_point,
         sandboxInitPoint: mpResponse.sandbox_init_point,
-        transactionId: mockTransaction.id,
+        transactionId: expect.any(String),
       });
 
       expect(httpService.post).toHaveBeenCalledWith(
@@ -138,7 +138,7 @@ describe('PaymentGatewayService', () => {
               unit_price: Number(mockInvoice.total),
             }),
           ],
-          external_reference: mockInvoice.id,
+          external_reference: expect.any(String),
         }),
         expect.objectContaining({
           headers: expect.objectContaining({
@@ -147,6 +147,15 @@ describe('PaymentGatewayService', () => {
         }),
       );
 
+      const preferenceBody = httpService.post.mock.calls[0][1];
+      expect(result.transactionId).toBe(preferenceBody.external_reference);
+      expect(txRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: preferenceBody.external_reference,
+          invoiceId: mockInvoice.id,
+          companyId,
+        }),
+      );
       expect(txRepo.save).toHaveBeenCalled();
     });
 
@@ -181,6 +190,11 @@ describe('PaymentGatewayService', () => {
         if (key === 'MERCADOPAGO_ACCESS_TOKEN') return 'TEST_TOKEN';
         return undefined;
       });
+      dataSource.query.mockImplementation(async (sql: string) =>
+        sql.includes('INSERT INTO payment_gateway_webhook_events')
+          ? [{ id: 'webhook-event-1' }]
+          : [],
+      );
     });
 
     it('should skip non-payment notifications', async () => {
@@ -198,31 +212,29 @@ describe('PaymentGatewayService', () => {
       const mpPayment = {
         id: 'payment-456',
         status: 'approved',
-        external_reference: 'invoice-uuid-1234',
+        external_reference: mockTransaction.id,
+        transaction_amount: 50000,
+        currency_id: 'ARS',
         payment_method_id: 'credit_card',
         installments: 1,
       };
 
       httpService.get.mockReturnValue(of({ data: mpPayment } as AxiosResponse));
       txRepo.findOne!.mockResolvedValue(mockTransaction);
-      txRepo.update!.mockResolvedValue({ affected: 1 });
-      dataSource.query.mockResolvedValue([]);
 
       await service.processWebhook(baseNotification);
 
-      expect(txRepo.update).toHaveBeenCalledWith(
-        mockTransaction.id,
-        expect.objectContaining({
-          status: PaymentGatewayTransactionStatus.APPROVED,
-        }),
-      );
-
       expect(dataSource.query).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE invoices'),
+        expect.stringContaining('WITH transitioned AS'),
         [
-          InvoiceStatus.PAID,
-          mpPayment.external_reference,
+          PaymentGatewayTransactionStatus.APPROVED,
+          mpPayment.id,
+          mpPayment.payment_method_id,
+          mpPayment.installments,
+          mockTransaction.id,
           mockTransaction.companyId,
+          InvoiceStatus.PAID,
+          mockTransaction.invoiceId,
         ],
       );
     });
@@ -231,25 +243,27 @@ describe('PaymentGatewayService', () => {
       const mpPayment = {
         id: 'payment-456',
         status: 'rejected',
-        external_reference: 'invoice-uuid-1234',
+        external_reference: mockTransaction.id,
+        transaction_amount: 50000,
+        currency_id: 'ARS',
       };
 
       httpService.get.mockReturnValue(of({ data: mpPayment } as AxiosResponse));
       txRepo.findOne!.mockResolvedValue(mockTransaction);
-      txRepo.update!.mockResolvedValue({ affected: 1 });
 
       await service.processWebhook(baseNotification);
 
-      expect(txRepo.update).toHaveBeenCalledWith(
-        mockTransaction.id,
-        expect.objectContaining({
-          status: PaymentGatewayTransactionStatus.REJECTED,
-        }),
+      expect(dataSource.query).toHaveBeenCalledWith(
+        expect.stringContaining('WITH transitioned AS'),
+        expect.arrayContaining([
+          PaymentGatewayTransactionStatus.REJECTED,
+          mockTransaction.id,
+          mockTransaction.companyId,
+        ]),
       );
-      expect(dataSource.query).not.toHaveBeenCalled();
     });
 
-    it('should do nothing when no pending transaction found', async () => {
+    it('should finish safely when no matching transaction is found', async () => {
       const mpPayment = {
         id: 'payment-456',
         status: 'approved',
@@ -262,7 +276,10 @@ describe('PaymentGatewayService', () => {
       await service.processWebhook(baseNotification);
 
       expect(txRepo.update).not.toHaveBeenCalled();
-      expect(dataSource.query).not.toHaveBeenCalled();
+      expect(dataSource.query).toHaveBeenCalledWith(
+        expect.stringContaining("SET status = 'processed'"),
+        expect.any(Array),
+      );
     });
 
     it('should accept a valid signed notification with numeric ids', async () => {
@@ -309,6 +326,75 @@ describe('PaymentGatewayService', () => {
       expect(httpService.get).toHaveBeenCalledWith(
         `https://api.mercadopago.com/v1/payments/${dataId}`,
         expect.any(Object),
+      );
+    });
+
+    it('should acknowledge an already processed event without another provider call', async () => {
+      dataSource.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('INSERT INTO payment_gateway_webhook_events')) {
+          return [];
+        }
+        if (sql.includes('SELECT status FROM')) {
+          return [{ status: 'processed' }];
+        }
+        return [];
+      });
+
+      await service.processWebhook(baseNotification);
+
+      expect(httpService.get).not.toHaveBeenCalled();
+      expect(txRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('should reject concurrent processing until the inbox lease can be reclaimed', async () => {
+      dataSource.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('INSERT INTO payment_gateway_webhook_events')) {
+          return [];
+        }
+        if (sql.includes('SELECT status FROM')) {
+          return [{ status: 'processing' }];
+        }
+        return [];
+      });
+
+      await expect(service.processWebhook(baseNotification)).rejects.toThrow(
+        'already being processed',
+      );
+      expect(httpService.get).not.toHaveBeenCalled();
+    });
+
+    it('should reject provider data that does not match the signed event or transaction', async () => {
+      httpService.get.mockReturnValueOnce(
+        of({
+          data: {
+            id: 'other-payment',
+            status: 'approved',
+            external_reference: mockTransaction.invoiceId,
+          },
+        } as AxiosResponse),
+      );
+      await expect(service.processWebhook(baseNotification)).rejects.toThrow(
+        'does not match the signed notification',
+      );
+
+      httpService.get.mockReturnValueOnce(
+        of({
+          data: {
+            id: 'payment-456',
+            status: 'approved',
+            external_reference: mockTransaction.invoiceId,
+            transaction_amount: 49999,
+            currency_id: 'ARS',
+          },
+        } as AxiosResponse),
+      );
+      txRepo.findOne!.mockResolvedValue(mockTransaction);
+      await expect(service.processWebhook(baseNotification)).rejects.toThrow(
+        'amount or currency does not match',
+      );
+      expect(dataSource.query).toHaveBeenCalledWith(
+        expect.stringContaining("SET status = 'failed'"),
+        expect.any(Array),
       );
     });
 
