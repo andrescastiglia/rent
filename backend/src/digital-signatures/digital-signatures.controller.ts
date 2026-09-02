@@ -13,7 +13,6 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
-import { Public } from '../common/decorators/public.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { DigitalSignaturesService } from './digital-signatures.service';
 import { DigitalSignatureRequest } from './entities/digital-signature-request.entity';
@@ -73,7 +72,7 @@ export class DigitalSignaturesController {
   }
 
   @Post('webhook')
-  @Public()
+  @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
   async processWebhook(@Body() dto: WebhookEventDto): Promise<void> {
     return this.digitalSignaturesService.processWebhook(dto);

@@ -1,7 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DigitalSignaturesService } from './digital-signatures.service';
 import {
@@ -91,7 +95,7 @@ describe('DigitalSignaturesService', () => {
   });
 
   describe('create', () => {
-    it('creates a signature request and transitions lease to PENDING_SIGNATURE', async () => {
+    it('creates a mock signature request only in test mode', async () => {
       const lease = mockLease();
       leaseRepo.findOne!.mockResolvedValue(lease);
 
@@ -120,6 +124,36 @@ describe('DigitalSignaturesService', () => {
         expect.objectContaining({ status: LeaseStatus.PENDING_SIGNATURE }),
       );
       expect(result).toEqual(savedRequest);
+    });
+
+    it('fails closed outside test until a real provider exists', async () => {
+      const productionModule = await Test.createTestingModule({
+        providers: [
+          DigitalSignaturesService,
+          {
+            provide: getRepositoryToken(DigitalSignatureRequest),
+            useValue: createMockRepository(),
+          },
+          {
+            provide: getRepositoryToken(Lease),
+            useValue: createMockRepository(),
+          },
+          {
+            provide: ConfigService,
+            useValue: { get: jest.fn().mockReturnValue('production') },
+          },
+        ],
+      }).compile();
+
+      await expect(
+        productionModule
+          .get(DigitalSignaturesService)
+          .create('company-uuid-1', {
+            leaseId: 'lease-uuid-1',
+            tenantEmail: 'a@b.com',
+            tenantName: 'A',
+          }),
+      ).rejects.toBeInstanceOf(ServiceUnavailableException);
     });
 
     it('throws NotFoundException when lease not found', async () => {
@@ -195,7 +229,7 @@ describe('DigitalSignaturesService', () => {
   });
 
   describe('processWebhook', () => {
-    it('completes request and sets lease to SIGNED then ACTIVE for mock provider', async () => {
+    it('completes request and leaves lease signed for explicit activation', async () => {
       const request = mockRequest({ provider: SignatureProvider.MOCK });
       const lease = mockLease({ status: LeaseStatus.PENDING_SIGNATURE });
 
@@ -221,10 +255,8 @@ describe('DigitalSignaturesService', () => {
       expect(sigRequestRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({ status: SignatureStatus.COMPLETED }),
       );
-      // For mock provider, lease is first set to SIGNED then ACTIVE (2 saves)
-      expect(leaseRepo.save).toHaveBeenCalledTimes(2);
+      expect(leaseRepo.save).toHaveBeenCalledTimes(1);
       expect(capturedStatuses[0]).toBe(LeaseStatus.SIGNED);
-      expect(capturedStatuses[1]).toBe(LeaseStatus.ACTIVE);
     });
 
     it('voids request and reverts lease to DRAFT', async () => {
