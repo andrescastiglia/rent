@@ -3,6 +3,11 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { DocumentsService } from './documents.service';
 import { DocumentStatus, DocumentType } from './entities/document.entity';
 import { getS3Config } from '../config/s3.config';
+import {
+  CopyObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+} from '@aws-sdk/client-s3';
 
 jest.mock('@aws-sdk/s3-request-presigner', () => ({
   getSignedUrl: jest.fn(async () => 'https://signed.url'),
@@ -24,6 +29,7 @@ describe('DocumentsService', () => {
     softDelete: jest.fn(),
   };
   const configService = { get: jest.fn() };
+  const dataSource = { query: jest.fn() };
 
   let service: DocumentsService;
   let s3Client: { send: jest.Mock };
@@ -33,17 +39,18 @@ describe('DocumentsService', () => {
     service = new DocumentsService(
       documentsRepository as any,
       configService as any,
+      dataSource as any,
     );
     s3Client = { send: jest.fn() };
     (service as any).s3Client = s3Client;
     (service as any).bucketName = 'bucket-test';
+    dataSource.query.mockResolvedValue([{ id: 'l1' }]);
   });
 
   it('generateUploadUrl validates size and mime type', async () => {
     await expect(
       service.generateUploadUrl(
         {
-          companyId: 'co1',
           entityType: 'lease',
           entityId: 'l1',
           documentType: DocumentType.PHOTO,
@@ -52,13 +59,13 @@ describe('DocumentsService', () => {
           fileSize: 9_000_000,
         } as any,
         'u1',
+        'co1',
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     await expect(
       service.generateUploadUrl(
         {
-          companyId: 'co1',
           entityType: 'lease',
           entityId: 'l1',
           documentType: DocumentType.BANK_STATEMENT,
@@ -67,6 +74,7 @@ describe('DocumentsService', () => {
           fileSize: 1000,
         } as any,
         'u1',
+        'co1',
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
@@ -74,7 +82,6 @@ describe('DocumentsService', () => {
   it('generateUploadUrl stores pending document and returns signed URL', async () => {
     const result = await service.generateUploadUrl(
       {
-        companyId: 'co1',
         entityType: 'lease',
         entityId: 'l1',
         documentType: DocumentType.OTHER,
@@ -83,10 +90,16 @@ describe('DocumentsService', () => {
         fileSize: 1000,
       } as any,
       'u1',
+      'co1',
     );
 
     expect(documentsRepository.create).toHaveBeenCalledWith(
-      expect.objectContaining({ status: DocumentStatus.PENDING }),
+      expect.objectContaining({
+        companyId: 'co1',
+        entityType: 'lease',
+        status: DocumentStatus.PENDING,
+        fileUrl: expect.stringMatching(/^quarantine\/co1\/[a-f0-9]{48}$/),
+      }),
     );
     expect(result.uploadUrl).toContain('https://signed.url');
     expect(documentsRepository.save).toHaveBeenCalled();
@@ -94,44 +107,150 @@ describe('DocumentsService', () => {
 
   it('generateDownloadUrl throws when document not found and returns signed URL', async () => {
     documentsRepository.findOne.mockResolvedValueOnce(null);
-    await expect(service.generateDownloadUrl('missing')).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.generateDownloadUrl('missing', 'co1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
 
     documentsRepository.findOne.mockResolvedValueOnce({
       id: 'doc-1',
       fileUrl: 'k',
     });
-    await expect(service.generateDownloadUrl('doc-1')).resolves.toEqual({
+    await expect(service.generateDownloadUrl('doc-1', 'co1')).resolves.toEqual({
       downloadUrl: 'https://signed.url',
+    });
+    expect(documentsRepository.findOne).toHaveBeenLastCalledWith({
+      where: {
+        id: 'doc-1',
+        companyId: 'co1',
+        status: DocumentStatus.APPROVED,
+      },
     });
   });
 
   it('confirmUpload throws when document not found', async () => {
     documentsRepository.findOne.mockResolvedValueOnce(null);
-    await expect(service.confirmUpload('missing')).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.confirmUpload('missing', 'co1', 'u1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('confirmUpload updates status and findByEntity lists documents', async () => {
     documentsRepository.findOne.mockResolvedValueOnce({
       id: 'doc-1',
+      companyId: 'co1',
+      fileUrl: 'quarantine/co1/opaque',
+      fileSize: 1000,
+      fileMimeType: 'application/pdf',
       status: DocumentStatus.PENDING,
     });
+    s3Client.send
+      .mockResolvedValueOnce({
+        ContentLength: 1000,
+        ContentType: 'application/pdf',
+      })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({});
     documentsRepository.save.mockImplementationOnce(async (x) => x);
-    const confirmed = await service.confirmUpload('doc-1');
+    const confirmed = await service.confirmUpload('doc-1', 'co1', 'u1');
     expect(confirmed.status).toBe(DocumentStatus.APPROVED);
+    expect(confirmed.fileUrl).toMatch(/^documents\/co1\/[a-f0-9]{64}$/);
+    expect(confirmed.verifiedBy).toBe('u1');
+    expect(s3Client.send).toHaveBeenNthCalledWith(
+      1,
+      expect.any(HeadObjectCommand),
+    );
+    expect(s3Client.send).toHaveBeenNthCalledWith(
+      2,
+      expect.any(CopyObjectCommand),
+    );
+    expect(s3Client.send).toHaveBeenNthCalledWith(
+      3,
+      expect.any(DeleteObjectCommand),
+    );
 
     documentsRepository.find.mockResolvedValue([{ id: 'doc-2' }]);
-    await expect(service.findByEntity('lease', 'l1')).resolves.toEqual([
+    await expect(service.findByEntity('lease', 'l1', 'co1')).resolves.toEqual([
       { id: 'doc-2' },
     ]);
+    expect(documentsRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          companyId: 'co1',
+          status: DocumentStatus.APPROVED,
+        }),
+      }),
+    );
+  });
+
+  it('rejects a parent entity outside the authenticated company', async () => {
+    dataSource.query.mockResolvedValue([]);
+
+    await expect(
+      service.generateUploadUrl(
+        {
+          entityType: 'lease',
+          entityId: 'l1',
+          documentType: DocumentType.OTHER,
+          fileName: 'file.pdf',
+          mimeType: 'application/pdf',
+          fileSize: 1000,
+        } as any,
+        'u1',
+        'co1',
+      ),
+    ).rejects.toThrow('Document parent entity not found');
+    expect(documentsRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('rejects quarantine promotion when object metadata differs', async () => {
+    documentsRepository.findOne.mockResolvedValue({
+      id: 'doc-1',
+      companyId: 'co1',
+      fileUrl: 'quarantine/co1/opaque',
+      fileSize: 1000,
+      fileMimeType: 'application/pdf',
+      status: DocumentStatus.PENDING,
+    });
+    s3Client.send.mockResolvedValue({
+      ContentLength: 999,
+      ContentType: 'application/pdf',
+    });
+
+    await expect(service.confirmUpload('doc-1', 'co1', 'u1')).rejects.toThrow(
+      'does not match',
+    );
+    expect(documentsRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('keeps quarantine intact when persisting approval fails', async () => {
+    documentsRepository.findOne.mockResolvedValue({
+      id: 'doc-1',
+      companyId: 'co1',
+      fileUrl: 'quarantine/co1/opaque',
+      fileSize: 1000,
+      fileMimeType: 'application/pdf',
+      status: DocumentStatus.PENDING,
+    });
+    s3Client.send
+      .mockResolvedValueOnce({
+        ContentLength: 1000,
+        ContentType: 'application/pdf',
+      })
+      .mockResolvedValueOnce({});
+    documentsRepository.save.mockRejectedValueOnce(new Error('db failure'));
+
+    await expect(service.confirmUpload('doc-1', 'co1', 'u1')).rejects.toThrow(
+      'db failure',
+    );
+    expect(s3Client.send).toHaveBeenCalledTimes(2);
+    expect(s3Client.send).not.toHaveBeenCalledWith(
+      expect.any(DeleteObjectCommand),
+    );
   });
 
   it('remove handles not found and soft delete after S3 deletion attempt', async () => {
     documentsRepository.findOne.mockResolvedValueOnce(null);
-    await expect(service.remove('missing')).rejects.toBeInstanceOf(
+    await expect(service.remove('missing', 'co1')).rejects.toBeInstanceOf(
       NotFoundException,
     );
 
@@ -142,8 +261,11 @@ describe('DocumentsService', () => {
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
     s3Client.send.mockRejectedValueOnce(new Error('s3 error'));
 
-    await expect(service.remove('doc-1')).resolves.toBeUndefined();
-    expect(documentsRepository.softDelete).toHaveBeenCalledWith('doc-1');
+    await expect(service.remove('doc-1', 'co1')).resolves.toBeUndefined();
+    expect(documentsRepository.softDelete).toHaveBeenCalledWith({
+      id: 'doc-1',
+      companyId: 'co1',
+    });
   });
 
   it('downloadByS3Key reads DB-backed file and throws when absent', async () => {

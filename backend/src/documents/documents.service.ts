@@ -1,12 +1,13 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   OnModuleInit,
 } from '@nestjs/common';
-import { randomBytes } from 'node:crypto';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { createHash, randomBytes } from 'node:crypto';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import {
   S3Client,
@@ -15,6 +16,8 @@ import {
   DeleteObjectCommand,
   CreateBucketCommand,
   HeadBucketCommand,
+  HeadObjectCommand,
+  CopyObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import {
@@ -25,8 +28,33 @@ import {
 import { GenerateUploadUrlDto } from './dto/generate-upload-url.dto';
 import { getS3Config, S3_BUCKET_NAME } from '../config/s3.config';
 
+const UPLOAD_ENTITY_TABLES: Record<string, string> = {
+  property: 'properties',
+  properties: 'properties',
+  unit: 'units',
+  units: 'units',
+  lease: 'leases',
+  leases: 'leases',
+  tenant: 'tenants',
+  tenants: 'tenants',
+  owner: 'owners',
+  owners: 'owners',
+  maintenance: 'maintenance_tickets',
+  maintenance_ticket: 'maintenance_tickets',
+};
+
+const CANONICAL_ENTITY_TYPES: Record<string, string> = {
+  properties: 'property',
+  units: 'unit',
+  leases: 'lease',
+  tenants: 'tenant',
+  owners: 'owner',
+  maintenance: 'maintenance_ticket',
+};
+
 @Injectable()
 export class DocumentsService implements OnModuleInit {
+  private readonly logger = new Logger(DocumentsService.name);
   private s3Client!: S3Client;
   private bucketName!: string;
 
@@ -34,6 +62,8 @@ export class DocumentsService implements OnModuleInit {
     @InjectRepository(Document)
     private readonly documentsRepository: Repository<Document>,
     private readonly configService: ConfigService,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -65,7 +95,9 @@ export class DocumentsService implements OnModuleInit {
   async generateUploadUrl(
     dto: GenerateUploadUrlDto,
     _userId: string,
+    companyId: string,
   ): Promise<{ uploadUrl: string; documentId: string }> {
+    await this.assertEntityInCompany(dto.entityType, dto.entityId, companyId);
     // Validate file size based on type
     const maxSize =
       dto.documentType === DocumentType.PHOTO ? 5242880 : 10485760; // 5MB for photos, 10MB for docs
@@ -124,15 +156,13 @@ export class DocumentsService implements OnModuleInit {
       );
     }
 
-    // Generate unique file URL (S3 key)
-    const timestamp = Date.now();
-    const randomString = randomBytes(4).toString('hex');
-    const fileUrl = `${dto.entityType}/${dto.entityId}/${timestamp}-${randomString}-${dto.fileName}`;
+    const entityType = this.normalizeEntityType(dto.entityType);
+    const fileUrl = `quarantine/${companyId}/${randomBytes(24).toString('hex')}`;
 
     // Create document record
     const document = this.documentsRepository.create({
-      companyId: dto.companyId,
-      entityType: dto.entityType,
+      companyId,
+      entityType,
       entityId: dto.entityId,
       documentType: dto.documentType,
       name: dto.fileName,
@@ -142,30 +172,36 @@ export class DocumentsService implements OnModuleInit {
       status: DocumentStatus.PENDING,
     });
 
-    await this.documentsRepository.save(document);
+    const savedDocument = await this.documentsRepository.save(document);
 
     // Generate pre-signed URL for upload
     const command = new PutObjectCommand({
       Bucket: this.bucketName,
       Key: fileUrl,
       ContentType: dto.mimeType,
+      ContentLength: dto.fileSize,
     });
 
     const uploadUrl = await getSignedUrl(this.s3Client, command, {
-      expiresIn: 3600,
-    }); // 1 hour
+      expiresIn: 300,
+    });
 
     return {
       uploadUrl,
-      documentId: document.id,
+      documentId: savedDocument.id,
     };
   }
 
   async generateDownloadUrl(
     documentId: string,
+    companyId: string,
   ): Promise<{ downloadUrl: string }> {
     const document = await this.documentsRepository.findOne({
-      where: { id: documentId },
+      where: {
+        id: documentId,
+        companyId,
+        status: DocumentStatus.APPROVED,
+      },
     });
 
     if (!document) {
@@ -175,42 +211,119 @@ export class DocumentsService implements OnModuleInit {
     const command = new GetObjectCommand({
       Bucket: this.bucketName,
       Key: document.fileUrl,
+      ResponseContentDisposition: `attachment; filename*=UTF-8''${encodeURIComponent(document.name)}`,
     });
 
     const downloadUrl = await getSignedUrl(this.s3Client, command, {
-      expiresIn: 3600,
+      expiresIn: 300,
     });
 
     return { downloadUrl };
   }
 
-  async confirmUpload(documentId: string): Promise<Document> {
+  async confirmUpload(
+    documentId: string,
+    companyId: string,
+    userId: string,
+  ): Promise<Document> {
     const document = await this.documentsRepository.findOne({
-      where: { id: documentId },
+      where: { id: documentId, companyId },
     });
 
     if (!document) {
       throw new NotFoundException(`Document with ID ${documentId} not found`);
     }
 
-    document.status = DocumentStatus.APPROVED;
+    if (document.status === DocumentStatus.APPROVED) {
+      return document;
+    }
+    if (
+      document.status !== DocumentStatus.PENDING ||
+      !document.fileUrl.startsWith(`quarantine/${companyId}/`)
+    ) {
+      throw new BadRequestException('Document is not pending quarantine');
+    }
 
-    return this.documentsRepository.save(document);
+    let uploaded: { ContentLength?: number; ContentType?: string };
+    try {
+      uploaded = await this.s3Client.send(
+        new HeadObjectCommand({
+          Bucket: this.bucketName,
+          Key: document.fileUrl,
+        }),
+      );
+    } catch {
+      throw new BadRequestException('Quarantined upload was not found');
+    }
+    if (
+      uploaded.ContentLength !== document.fileSize ||
+      uploaded.ContentType !== document.fileMimeType
+    ) {
+      throw new BadRequestException(
+        'Uploaded object does not match declared size and MIME type',
+      );
+    }
+
+    const quarantineKey = document.fileUrl;
+    const opaqueObjectId = createHash('sha256')
+      .update(quarantineKey)
+      .digest('hex');
+    const approvedKey = `documents/${companyId}/${opaqueObjectId}`;
+    await this.s3Client.send(
+      new CopyObjectCommand({
+        Bucket: this.bucketName,
+        CopySource: `${this.bucketName}/${quarantineKey}`,
+        Key: approvedKey,
+        ContentType: document.fileMimeType,
+        MetadataDirective: 'REPLACE',
+      }),
+    );
+    document.fileUrl = approvedKey;
+    document.status = DocumentStatus.APPROVED;
+    document.verifiedBy = userId;
+    document.verifiedAt = new Date();
+
+    const approvedDocument = await this.documentsRepository.save(document);
+
+    try {
+      await this.s3Client.send(
+        new DeleteObjectCommand({
+          Bucket: this.bucketName,
+          Key: quarantineKey,
+        }),
+      );
+    } catch (error) {
+      this.logger.warn(
+        `document_quarantine_cleanup_failed documentId=${documentId} companyId=${companyId}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+    this.logger.log(
+      `document_upload_approved documentId=${documentId} companyId=${companyId}`,
+    );
+    return approvedDocument;
   }
 
   async findByEntity(
     entityType: string,
     entityId: string,
+    companyId: string,
   ): Promise<Document[]> {
+    const normalizedEntityType = this.normalizeEntityType(entityType);
     return this.documentsRepository.find({
-      where: { entityType, entityId },
+      where: {
+        entityType: normalizedEntityType,
+        entityId,
+        companyId,
+        status: DocumentStatus.APPROVED,
+      },
       order: { createdAt: 'DESC' },
     });
   }
 
-  async remove(documentId: string): Promise<void> {
+  async remove(documentId: string, companyId: string): Promise<void> {
     const document = await this.documentsRepository.findOne({
-      where: { id: documentId },
+      where: { id: documentId, companyId },
     });
 
     if (!document) {
@@ -230,7 +343,31 @@ export class DocumentsService implements OnModuleInit {
     }
 
     // Soft delete from DB
-    await this.documentsRepository.softDelete(documentId);
+    await this.documentsRepository.softDelete({ id: documentId, companyId });
+  }
+
+  private normalizeEntityType(entityType: string): string {
+    const normalized = entityType.trim().toLowerCase();
+    return CANONICAL_ENTITY_TYPES[normalized] ?? normalized;
+  }
+
+  private async assertEntityInCompany(
+    entityType: string,
+    entityId: string,
+    companyId: string,
+  ): Promise<void> {
+    const normalized = entityType.trim().toLowerCase();
+    const table = UPLOAD_ENTITY_TABLES[normalized];
+    if (!table) {
+      throw new BadRequestException('Unsupported document entity type');
+    }
+    const rows = await this.dataSource.query(
+      `SELECT id FROM ${table} WHERE id = $1 AND company_id = $2 AND deleted_at IS NULL LIMIT 1`,
+      [entityId, companyId],
+    );
+    if (!Array.isArray(rows) || rows.length !== 1) {
+      throw new NotFoundException('Document parent entity not found');
+    }
   }
 
   /**

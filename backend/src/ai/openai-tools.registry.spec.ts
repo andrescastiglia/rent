@@ -617,7 +617,6 @@ describe('openai-tools.registry', () => {
 
     await find('post_documents_upload_url').execute(
       {
-        companyId: id,
         entityType: 'leases',
         entityId: id,
         fileName: 'a.pdf',

@@ -107,7 +107,7 @@ export function ImageUpload({
         ref={fileInputRef}
         onChange={handleFileChange}
         className="hidden"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp"
         multiple
       />
     </div>

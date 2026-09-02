@@ -6,7 +6,6 @@ if (process.env.NEW_RELIC_LICENSE_KEY) {
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { join } from 'node:path';
 import { AppModule } from './app.module';
 import { ZodValidationPipe } from './common/pipes/zod-validation.pipe';
 import { startProfiling, stopProfiling } from './profiling';
@@ -59,10 +58,6 @@ async function bootstrap() {
       transform: true, // Automatically transform payloads to DTO instances
     }),
   );
-
-  app.useStaticAssets(join(process.cwd(), 'uploads'), {
-    prefix: '/uploads/',
-  });
 
   const port = Number(process.env.PORT ?? 3001);
   const host = process.env.HOST ?? '0.0.0.0';

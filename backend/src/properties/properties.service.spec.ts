@@ -18,6 +18,8 @@ import {
 import { UserRole } from '../users/entities/user.entity';
 
 describe('PropertiesService', () => {
+  const originalPropertyImageSigningSecret =
+    process.env.PROPERTY_IMAGE_SIGNING_SECRET;
   let service: PropertiesService;
   let propertyRepository: MockRepository<Property>;
   let propertyImagesRepository: MockRepository<PropertyImage>;
@@ -62,6 +64,7 @@ describe('PropertiesService', () => {
   };
 
   beforeEach(async () => {
+    process.env.PROPERTY_IMAGE_SIGNING_SECRET = 'test-property-image-secret';
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PropertiesService,
@@ -89,6 +92,15 @@ describe('PropertiesService', () => {
     propertyImagesRepository = module.get(getRepositoryToken(PropertyImage));
     unitRepository = module.get(getRepositoryToken(Unit));
     ownerRepository = module.get(getRepositoryToken(Owner));
+  });
+
+  afterAll(() => {
+    if (originalPropertyImageSigningSecret === undefined) {
+      delete process.env.PROPERTY_IMAGE_SIGNING_SECRET;
+      return;
+    }
+    process.env.PROPERTY_IMAGE_SIGNING_SECRET =
+      originalPropertyImageSigningSecret;
   });
 
   it('should be defined', () => {
@@ -448,12 +460,12 @@ describe('PropertiesService', () => {
       expect(normalized).toEqual([`/properties/images/${id}`]);
     });
 
-    it('should normalize legacy upload refs with API prefix path', () => {
+    it('should reject legacy public upload refs', () => {
       const normalized = (service as any).normalizePropertyImages([
         'https://example.com/api/uploads/properties/house-1.jpg',
       ]);
 
-      expect(normalized).toEqual(['/uploads/properties/house-1.jpg']);
+      expect(normalized).toEqual([]);
     });
 
     it('should validate upload and image lookup branches', async () => {
@@ -512,7 +524,7 @@ describe('PropertiesService', () => {
       expect(result.deleted).toBe(1);
     });
 
-    it('should parse image ids and legacy file names safely', () => {
+    it('should parse image ids safely', () => {
       const validId = '123e4567-e89b-42d3-a456-426614174000';
 
       expect(
@@ -529,19 +541,6 @@ describe('PropertiesService', () => {
       expect(
         (service as any).toPropertyImageId('/properties/images/not-a-uuid'),
       ).toBe(null);
-      expect(
-        (service as any).toPropertyImageFileName('/uploads/properties/a.png'),
-      ).toBe('a.png');
-      expect(
-        (service as any).toPropertyImageFileName(
-          'https://site/api/uploads/properties/a%20b.png',
-        ),
-      ).toBe('a b.png');
-      expect(
-        (service as any).toPropertyImageFileName(
-          '/uploads/properties/../../etc/passwd',
-        ),
-      ).toBeNull();
     });
   });
 
@@ -800,39 +799,116 @@ describe('PropertiesService', () => {
   });
 
   describe('uploadPropertyImage success', () => {
-    it('should save image and return url', async () => {
-      const savedImage = { id: 'img-uuid-1' };
+    it('should save a verified image and return a signed temporary URL', async () => {
+      const imageId = '123e4567-e89b-42d3-a456-426614174000';
+      const savedImage = { id: imageId };
       propertyImagesRepository.create!.mockReturnValue(savedImage);
       propertyImagesRepository.save!.mockResolvedValue(savedImage);
+      const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
       const result = await service.uploadPropertyImage(
         {
-          buffer: Buffer.from('PNG'),
+          buffer: png,
           mimetype: 'image/png',
           originalname: 'photo.png',
-          size: 3,
+          size: 1,
         },
         { id: 'u1', role: 'admin', companyId: 'company-1' },
       );
 
-      expect(result).toEqual({ url: '/properties/images/img-uuid-1' });
+      expect(result.url).toMatch(
+        new RegExp(
+          `^/properties/images/${imageId}\\?expires=\\d+&signature=[0-9a-f]{64}$`,
+        ),
+      );
       expect(propertyImagesRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
           companyId: 'company-1',
           mimeType: 'image/png',
+          sizeBytes: png.length,
           isTemporary: true,
         }),
       );
     });
+
+    it('should reject oversized, unsupported and spoofed images', async () => {
+      const user = { id: 'u1', role: 'admin', companyId: 'company-1' };
+
+      await expect(
+        service.uploadPropertyImage(
+          {
+            buffer: Buffer.alloc(5 * 1024 * 1024 + 1),
+            mimetype: 'image/png',
+          },
+          user,
+        ),
+      ).rejects.toThrow('Image must not exceed 5 MiB');
+
+      await expect(
+        service.uploadPropertyImage(
+          { buffer: Buffer.from('<svg/>'), mimetype: 'image/svg+xml' },
+          user,
+        ),
+      ).rejects.toThrow('Only JPEG, PNG and WebP images are allowed');
+
+      await expect(
+        service.uploadPropertyImage(
+          { buffer: Buffer.from('not-a-png'), mimetype: 'image/png' },
+          user,
+        ),
+      ).rejects.toThrow('Image content does not match its MIME type');
+    });
   });
 
   describe('getPropertyImage success', () => {
-    it('should return the image when found', async () => {
-      const image = { id: 'img-1', data: Buffer.from('data') };
+    it('should return a permanent image without a temporary signature', async () => {
+      const image = {
+        id: 'img-1',
+        data: Buffer.from('data'),
+        isTemporary: false,
+      };
       propertyImagesRepository.findOne!.mockResolvedValue(image);
 
       const result = await service.getPropertyImage('img-1');
       expect(result).toEqual(image);
+    });
+
+    it('should require a valid, unexpired signature for a temporary image', async () => {
+      const imageId = '123e4567-e89b-42d3-a456-426614174000';
+      const image = {
+        id: imageId,
+        data: Buffer.from('data'),
+        isTemporary: true,
+      };
+      propertyImagesRepository.findOne!.mockResolvedValue(image);
+
+      await expect(service.getPropertyImage(imageId)).rejects.toThrow(
+        NotFoundException,
+      );
+      await expect(
+        service.getPropertyImage(imageId, '9999999999', '0'.repeat(64)),
+      ).rejects.toThrow(NotFoundException);
+
+      const signedUrl = (service as any).createTemporaryPropertyImageUrl(
+        imageId,
+      );
+      const query = new URL(`https://example.test${signedUrl}`).searchParams;
+      await expect(
+        service.getPropertyImage(
+          imageId,
+          query.get('expires') ?? undefined,
+          query.get('signature') ?? undefined,
+        ),
+      ).resolves.toEqual(image);
+
+      const expired = Math.floor(Date.now() / 1000) - 1;
+      const expiredSignature = (service as any).signTemporaryPropertyImage(
+        imageId,
+        expired,
+      );
+      await expect(
+        service.getPropertyImage(imageId, String(expired), expiredSignature),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -915,31 +991,10 @@ describe('PropertiesService', () => {
       expect((service as any).toPropertyImageId(null)).toBeNull();
       expect((service as any).toPropertyImageId(123)).toBeNull();
       expect((service as any).toPropertyImageId('   ')).toBeNull();
-      expect((service as any).toPropertyImageFileName('')).toBeNull();
-      expect((service as any).toPropertyImageFileName(null)).toBeNull();
-      expect((service as any).toPropertyImageFileName(123)).toBeNull();
-      expect((service as any).toPropertyImageFileName('   ')).toBeNull();
     });
 
     it('should return null for paths without matching prefix', () => {
       expect((service as any).toPropertyImageId('/other/path/uuid')).toBeNull();
-      expect(
-        (service as any).toPropertyImageFileName('/other/path/file.jpg'),
-      ).toBeNull();
-    });
-
-    it('should reject filename with backslash', () => {
-      expect(
-        (service as any).toPropertyImageFileName(
-          '/uploads/properties/path\\file.jpg',
-        ),
-      ).toBeNull();
-    });
-
-    it('should handle URL parsing error for legacy filenames', () => {
-      expect(
-        (service as any).toPropertyImageFileName('https://%%invalid-url'),
-      ).toBeNull();
     });
   });
 

@@ -10,7 +10,6 @@ const appMock = {
   set: jest.fn(),
   enableCors: jest.fn(),
   useGlobalPipes: jest.fn(),
-  useStaticAssets: jest.fn(),
   listen: jest.fn().mockResolvedValue(undefined),
 };
 
@@ -66,7 +65,7 @@ describe('main bootstrap', () => {
     });
   }
 
-  it('boots app with configured CORS, pipes, static assets and listeners', async () => {
+  it('boots app with configured CORS, pipes and listeners', async () => {
     process.env.FRONTEND_URL = 'https://a.dev, https://b.dev';
     process.env.PORT = '4100';
     process.env.HOST = '127.0.0.1';
@@ -113,10 +112,6 @@ describe('main bootstrap', () => {
     expect(blockedCall?.[1]).toBeUndefined();
 
     expect(appMock.useGlobalPipes).toHaveBeenCalledTimes(1);
-    expect(appMock.useStaticAssets).toHaveBeenCalledWith(
-      expect.stringContaining('/uploads'),
-      { prefix: '/uploads/' },
-    );
     expect(appMock.listen).toHaveBeenCalledWith(4100, '127.0.0.1');
     expect(logSpy).toHaveBeenCalledWith(
       'Backend running on http://127.0.0.1:4100',

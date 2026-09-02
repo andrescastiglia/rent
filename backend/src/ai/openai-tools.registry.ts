@@ -686,6 +686,7 @@ export function buildAiToolDefinitions(
         deps.documentsService.generateUploadUrl(
           GenerateUploadUrlDto.zodSchema.parse(args),
           context.userId,
+          context.companyId ?? '',
         ),
     },
     {
@@ -696,9 +697,13 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.documentsService.confirmUpload(id);
+        return deps.documentsService.confirmUpload(
+          id,
+          context.companyId ?? '',
+          context.userId,
+        );
       },
     },
     {
@@ -709,9 +714,12 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.documentsService.generateDownloadUrl(id);
+        return deps.documentsService.generateDownloadUrl(
+          id,
+          context.companyId ?? '',
+        );
       },
     },
     {
@@ -723,11 +731,15 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ type: z.string().min(1), id: idSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = z
           .object({ type: z.string().min(1), id: idSchema })
           .parse(args) as any;
-        return deps.documentsService.findByEntity(parsed.type, parsed.id);
+        return deps.documentsService.findByEntity(
+          parsed.type,
+          parsed.id,
+          context.companyId ?? '',
+        );
       },
     },
     {
@@ -738,9 +750,9 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        await deps.documentsService.remove(id);
+        await deps.documentsService.remove(id, context.companyId ?? '');
         return { message: 'Document deleted successfully' };
       },
     },

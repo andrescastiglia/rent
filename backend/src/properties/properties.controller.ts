@@ -73,7 +73,11 @@ export class PropertiesController {
 
   @Post('upload')
   @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+    }),
+  )
   uploadPropertyImage(@UploadedFile() file: any, @Request() req: any) {
     return this.propertiesService.uploadPropertyImage(file, {
       id: req.user.id,

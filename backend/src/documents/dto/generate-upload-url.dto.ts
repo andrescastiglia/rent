@@ -1,9 +1,11 @@
 import {
   IsEnum,
+  IsIn,
   IsNotEmpty,
   IsNumber,
   IsString,
   IsUUID,
+  MaxLength,
   Max,
   Min,
 } from 'class-validator';
@@ -12,13 +14,22 @@ import { z } from 'zod';
 
 const generateUploadUrlZodSchema = z
   .object({
-    companyId: z.uuid().describe('UUID of the company'),
-    entityType: z
-      .string()
-      .min(1)
-      .describe('Entity type the document belongs to (e.g. lease, tenant)'),
+    entityType: z.enum([
+      'property',
+      'properties',
+      'unit',
+      'units',
+      'lease',
+      'leases',
+      'tenant',
+      'tenants',
+      'owner',
+      'owners',
+      'maintenance',
+      'maintenance_ticket',
+    ]),
     entityId: z.uuid().describe('UUID of the parent entity'),
-    fileName: z.string().min(1),
+    fileName: z.string().min(1).max(255),
     mimeType: z.string().min(1),
     fileSize: z.coerce
       .number()
@@ -36,12 +47,22 @@ const generateUploadUrlZodSchema = z
 export class GenerateUploadUrlDto {
   static readonly zodSchema = generateUploadUrlZodSchema;
 
-  @IsUUID()
-  @IsNotEmpty()
-  companyId: string;
-
   @IsString()
   @IsNotEmpty()
+  @IsIn([
+    'property',
+    'properties',
+    'unit',
+    'units',
+    'lease',
+    'leases',
+    'tenant',
+    'tenants',
+    'owner',
+    'owners',
+    'maintenance',
+    'maintenance_ticket',
+  ])
   entityType: string;
 
   @IsUUID()
@@ -50,6 +71,7 @@ export class GenerateUploadUrlDto {
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(255)
   fileName: string;
 
   @IsString()

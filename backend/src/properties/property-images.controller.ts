@@ -3,6 +3,7 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
+  Query,
   Res,
   StreamableFile,
 } from '@nestjs/common';
@@ -18,9 +19,15 @@ export class PropertyImagesController {
   @Public()
   async getPropertyImage(
     @Param('imageId', ParseUUIDPipe) imageId: string,
+    @Query('expires') expires: string | undefined,
+    @Query('signature') signature: string | undefined,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
-    const image = await this.propertiesService.getPropertyImage(imageId);
+    const image = await this.propertiesService.getPropertyImage(
+      imageId,
+      expires,
+      signature,
+    );
 
     res.setHeader('Content-Type', image.mimeType || 'application/octet-stream');
     res.setHeader(
