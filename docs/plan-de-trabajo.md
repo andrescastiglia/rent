@@ -1,924 +1,892 @@
-# Plan de Trabajo - Sistema de Gestión Inmobiliaria
-
----
-
-## Resumen Ejecutivo
-
-Este plan de trabajo detalla la implementación completa del Sistema de Gestión Inmobiliaria, basándose en:
-- **Documento de Requerimientos Funcionales (DRF)**
-- **Documento de Arquitectura Técnica (DAT)**
-- **Diagramas C4** (Contexto, Contenedores, Componentes, Código)
-- **Modelo de Datos (ERD)**
-- **Diagramas de Secuencia**
-
-## Ajuste Funcional 2026-03-26
-
-- Reorganización del ingreso operativo en dos paneles principales: `Propiedades` y `Pagos`.
-- Incorporación de vistas operativas para `Venta`, `Alquileres vigentes`, `Vencen este mes`, `Próximos cuatro meses` y `Vencidos`.
-- Registro estructurado de pagos por propiedad y contrato con clasificación por actividad.
-- Alta de alertas automáticas de renovación y job batch diario para seguimiento de vencimientos.
-- Registro de visitas comerciales a propiedades con preparación para notificación al propietario.
-
-El proyecto se divide en **9 fases principales**:
-- Fases 0-6: Core de la plataforma
-- Fase 7: Sistema de Facturación por Lotes
-- Fase 8: Sistema de Cobranzas y Liquidaciones
-
----
-
-## Fase 0: Preparación e Infraestructura ✅ COMPLETADA
-
-### Objetivo
-Establecer la base técnica y organizativa del proyecto.
-
-### Tareas
-
-#### 0.1 Configuración del Proyecto
-- ✅ **T001**: Crear repositorios Git (frontend, backend, infrastructure)
-  - Estructura de mono-repo
-  - Configuración de ramas (main, develop, feature/*)
-  - Políticas de commits y PR
-  
-- ✅ **T002**: Configurar herramientas de gestión de proyecto
-  - GitHub Projects
-  - Tableros Kanban
-  - Definir workflow de tareas
-
-- ✅ **T003**: Establecer estándares de código
-  - Guías de estilo (ESLint, Prettier)
-  - Convenciones de nombrado
-  - Documentación de código
-
-#### 0.2 Infraestructura Base (IaC)
-
-- ✅ **T021**: Configurar entorno de desarrollo local
-  - Docker Compose para servicios locales
-  - PostgreSQL + Redis + RabbitMQ + MinIO
-  - Scripts de inicialización
-
-- ⏸️ **T022**: Crear infraestructura cloud con Terraform (SUSPENDIDO)
-  - VPC, subnets, security groups
-  - RDS PostgreSQL (staging + prod)
-  - ElastiCache Redis
-  - S3 buckets para documentos
-  - SQS/RabbitMQ para mensajería
-  
-- ⏸️ **T023**: Configurar Kubernetes (EKS/GKE/AKS) (SUSPENDIDO)
-  - Cluster staging y production
-  - Namespaces por entorno
-  - Ingress controller
-  - Helm charts base
-
-#### 0.3 CI/CD Pipeline
-
-- ✅ **T031**: Configurar GitHub Actions
-  - Pipeline de build
-  - Tests unitarios automáticos
-  - Análisis de código (SonarQube)
-  - Build y push de imágenes Docker
-
-- ✅ **T032**: Implementar CD con Ansible
-  - Deploy automático
-  - Playbooks de deployment
-  - Configuración de inventarios
-
-#### 0.4 Observabilidad
-
-- **T041**: Implementar stack de logging
-  - Fluentd/Logstash → Elasticsearch
-  - Kibana para visualización
-  - Configurar índices y retención
-
-- ⏸️ **T042**: Configurar métricas y monitoreo (SUSPENDIDO)
-  - Prometheus para métricas
-  - Grafana dashboards
-  - Alertas básicas (CPU, memoria, disco)
-
-**Criterios de Éxito**:
-- ✅ Pipeline CI/CD funcional
-- ✅ Entorno local de desarrollo documentado
-- ⏳ Infraestructura cloud operativa (staging)
-- ⏳ Logs y métricas básicas funcionando
-
----
-
-## Fase 1: MVP - Core Business ✅ COMPLETADA
-
-### Objetivo
-Implementar la funcionalidad mínima viable con los módulos core del negocio.
-
-### 1.1 Backend Core - Autenticación y Usuarios
-
-- ✅ **T111**: Diseño e implementación del modelo de datos core
-  - Migrations de PostgreSQL
-  - Entidades: User, Role, Permission
-  - Índices y constraints
-
-- ✅ **T112**: Módulo de Autenticación
-  - Registro de usuarios
-  - Login con JWT
-  - Refresh tokens
-  - Recuperación de contraseña
-  - Tests unitarios e integración
-
-- ✅ **T113**: Sistema RBAC (Control de Acceso)
-  - Definición de roles y permisos
-  - Guards y decorators
-  - Middleware de autorización
-  - Tests de autorización
-
-- ✅ **T114**: API de gestión de usuarios
-  - CRUD de usuarios
-  - Cambio de contraseña
-  - Perfil de usuario
-  - Validaciones
-
-### 1.2 Backend Core - Propiedades
-
-- ✅ **T121**: Modelo de datos de propiedades
-  - Entidades: Property, Unit, PropertyFeature
-  - Tipos de propiedades
-  - Migrations y seeds de prueba
-
-- ✅ **T123**: API de Propiedades
-  - CRUD de propiedades
-  - Gestión de unidades
-  - Búsqueda y filtros
-  - Validaciones de negocio
-
-- ✅ **T124**: Gestión de imágenes y documentos
-  - Upload a S3/MinIO con pre-signed URLs
-  - Asociación con propiedades
-  - Límites de tamaño y formatos
-
-### 1.3 Backend Core - Inquilinos
-
-- ✅ **T131**: Modelo de datos de inquilinos
-  - Entidad Tenant con datos personales
-  - Documentos de identidad
-  - Historial y referencias
-
-- ✅ **T132**: API de Inquilinos
-  - CRUD de inquilinos
-  - Búsqueda por nombre/documento
-  - Historial de pagos (vista)
-
-### 1.4 Backend Core - Contratos (Leases)
-
-- ✅ **T141**: Modelo de datos de contratos
-  - Entidades: Lease, LeaseAmendment
-  - Estados del contrato
-  - Cláusulas y condiciones
-  - Migrations
-
-- ✅ **T142**: API de Contratos
-  - Crear contrato (draft)
-  - Activar contrato
-  - Renovar contrato
-  - Terminar contrato
-  - Enmiendas al contrato
-
-- ✅ **T143**: Generación de documentos PDF (contratos)
-  - Integración con PDFKit
-  - Templates de contrato
-  - Variables dinámicas
-  - API para descargar contrato
-
-### 1.5 Frontend Base - Portal Web
-
-- ✅ **T151**: Setup del proyecto frontend
-  - Next.js + React
-  - Tailwind CSS
-  - Estructura de carpetas
-  - Routing
-
-- ✅ **T152**: Sistema de autenticación frontend
-  - Páginas de login/registro
-  - Manejo de tokens
-  - Rutas protegidas
-  - Refresh token automático
-
-- ✅ **T153**: Layout y navegación principal
-  - ✅ Header con menú
-  - ✅ Sidebar de navegación
-  - ✅ Breadcrumbs
-  - ✅ Responsive design
-
-- ✅ **T154**: Módulo de Propiedades (UI)
-  - Lista de propiedades
-  - Detalle de propiedad
-  - Formulario crear/editar
-  - Upload de imágenes
-  - Integración con API
-
-- ✅ **T155**: Módulo de Inquilinos (UI)
-  - Lista de inquilinos
-  - Detalle de inquilino
-  - Formulario crear/editar
-  - Búsqueda y filtros
-
-- ✅ **T156**: Módulo de Contratos (UI)
-  - Lista de contratos
-  - Detalle de contrato
-  - Wizard de creación
-  - Previsualización de PDF
-  - Estados y alertas
-
-### 1.6 Base de Datos y Seeds
-
-- ✅ **T161**: Scripts de seeds de datos de prueba
-  - Usuarios de diferentes roles
-  - Propiedades de ejemplo
-  - Inquilinos de prueba
-  - Contratos activos y vencidos
-
-### 1.7 Testing MVP
-
-- ✅ **T171**: Tests unitarios backend (70% coverage)
-  - Tests de servicios
-  - Tests de controladores
-  - Tests de autenticación/autorización
-
-- ✅ **T172**: Tests de integración API
-  - Tests end-to-end de flujos principales
-  - Tests de creación de propiedad
-  - Tests de creación de contrato
-
-- ✅ **T173**: Tests E2E frontend críticos
-  - Login flow
-  - Crear propiedad
-  - Crear inquilino
-  - Crear contrato
-  - Flujos de facturas
-  - Flujos de pagos
-  - Playwright
-
-**Criterios de Éxito**:
-- ✅ Usuarios pueden autenticarse
-- ✅ CRUD completo de Propiedades, Inquilinos y Contratos
-- ✅ Generación básica de PDF de contrato
-- ✅ Portal web funcional con navegación
-- ✅ Tests con >70% coverage
-
----
-
-## Fase 2: Integraciones Externas (EN PROGRESO)
-
-### Objetivo
-Integrar servicios externos críticos para el negocio.
-
-### 2.1 Módulo de Pagos Básico
-
-- ✅ **T211**: Modelo de datos de pagos
-  - Entidades: Payment, Invoice, TenantAccount, TenantAccountMovement
-  - Estados de pago
-  - Métodos de pago
-  - Migrations
-
-- ⏸️ **T212**: Integración con Stripe (SUSPENDIDO)
-  - Configuración de cuenta Stripe
-  - Implementar Strategy pattern para PSPs
-  - Crear payment intents
-  - Webhooks de confirmación
-  - Manejo de errores y reintentos
-
-- 🔄 **T213**: Integración con MercadoPago (EN PROGRESO)
-  - Implementación de Strategy para MP
-  - ✅ Checkout Pro
-  - ✅ Webhooks con validación HMAC e idempotencia de transacción
-  - Testing en sandbox
-
-- ✅ **T214**: API de Pagos
-  - Registrar pago manual
-  - Consultar estado de pago
-  - Historial de pagos
-  - Cuenta corriente de inquilinos
-
-- ✅ **T215**: Generación de facturas/recibos PDF
-  - Template de factura/recibo
-  - Numeración automática
-  - API para descargar
-
-### 2.2 Firma Digital
-
-- **T221**: Integración con DocuSign
-  - Configuración de cuenta
-  - API de creación de sobres
-  - Envío de documentos para firma
-  - Webhook de firma completada
-  - Descarga de documento firmado
-
-- **T222**: Flujo de firma de contrato
-  - Generar PDF de contrato
-  - Enviar para firma
-  - Actualizar estado cuando se firma
-  - Notificaciones a las partes
-
-### 2.3 Notificaciones
-
-- **T231**: Servicio de notificaciones
-  - Abstraer NotificationService
-  - Plantillas de mensajes de WhatsApp
-  - Sistema de cola para notificaciones
-
-- **T232**: Integración con WhatsApp Cloud API (Email)
-  - Configuración de API key
-  - Templates en WhatsApp Cloud API
-  - Envío de mensajes transaccionales por WhatsApp
-  - Tracking de envíos
-
-- **T233**: Integración con WhatsApp Cloud API (SMS)
-  - Configuración de cuenta
-  - Envío de SMS
-  - Log de mensajes enviados
-
-- **T234**: Push Notifications setup (Firebase)
-  - Configuración básica
-  - Registro de dispositivos
-  - Envío de notificaciones (preparación para mobile)
-
-### 2.4 UI Módulo de Pagos
-
-- ✅ **T241**: Módulo de Pagos (Frontend)
-  - Lista de pagos por contrato
-  - Registrar pago manual
-  - Visualizar recibo
-  - Historial de transacciones
-
-### 2.5 Testing Integraciones
-
-- **T251**: Tests de integración con PSPs
-  - Mocks de Stripe/MercadoPago
-  - Tests de webhooks
-  - Tests de errores de pago
-
-- **T252**: Tests de notificaciones
-  - Mocks de WhatsApp Cloud API
-  - Verificar envío correcto
-  - Templates rendering
-
-**Criterios de Éxito**:
-- ⏳ Pagos online funcionales con Stripe
-- ⏳ Firma digital de contratos con DocuSign
-- ⏳ Notificaciones por email y SMS operativas
-- ✅ Generación automática de recibos
-
----
-
-## Fase 3: Funcionalidades Avanzadas
-
-### Objetivo
-Completar módulos restantes y funcionalidades avanzadas.
-
-### 3.1 CRM y Gestión Comercial
-
-- **T311**: Modelo de datos CRM
-- **T312**: API de CRM
-- **T313**: UI de CRM
-
-### 3.2 Mantenimiento
+# Plan de trabajo — pendientes de producto, seguridad y operación
 
-- **T321**: Modelo de datos de mantenimiento
-- **T322**: API de Mantenimiento
-- **T323**: UI de Mantenimiento
+**Vigencia:** desde 2026-08-27
 
-### 3.3 Reportes
+**Última revalidación:** 2026-09-02 contra `5105768` (`origin/main`), el worktree local y el estado de GitHub
 
-- **T331**: Modelo de datos de reportes
-- **T332**: Motor de generación de reportes
-- **T333**: Reportes predefinidos
-- **T334**: UI de Reportes
+**Estado:** vigente
 
-### 3.4 Portal de Propietarios
+**Responsable:** producto e ingeniería
 
-- **T341**: Portal específico para propietarios
+**Consolida y reemplaza:** los dos planes anteriores, archivados en el historial de Git
 
-### 3.5 Portal de Inquilinos
+**Baseline:** [Auditoría integral 2026-08-27](auditoria-integral-2026-08-27.md)
 
-- **T351**: Portal específico para inquilinos
+Este documento contiene únicamente trabajo pendiente. Las capacidades que la auditoría verificó como existentes —aunque deban endurecerse, integrarse mejor o validarse por canal— no se vuelven a planificar como desarrollos desde cero.
 
-### 3.6 Mobile App (PWA básica)
+Quedan fuera hasta que exista una necesidad de negocio y un ADR aprobado: Kubernetes, Elasticsearch, Stripe, PayPal, cripto, Qdrant y una reescritura en Rust. No son pendientes comprometidos.
 
-- **T361**: Convertir web a PWA
+## 0. Resultado de la revalidación 2026-09-02
 
-### 3.7 Auditoría
+La auditoría de este corte confirma que el plan sigue siendo necesario, pero agrega dependencias que no estaban explicitadas y corrige prioridades.
 
-- **T371**: Sistema de auditoría
+### Estado Git y release observado
 
-### 3.8 Testing Fase 3
+- GitHub tiene `main` como rama por defecto y protegida en `5105768`; el checkout local está en `develop` (`08aaa77`) y contiene cambios sin commit que deben preservarse antes de cualquier migración de ramas.
+- `develop` y `preview` no tienen commits exclusivos: ambos son ancestros de `main`. Aun así, no deben eliminarse hasta resolver los PR, volver a consultar el remoto y demostrar que no existe ningún commit aceptado fuera de `main`.
+- Existen cuatro PR abiertos contra `develop`: [#163](https://github.com/andrescastiglia/rent/pull/163), [#164](https://github.com/andrescastiglia/rent/pull/164), [#165](https://github.com/andrescastiglia/rent/pull/165) y [#166](https://github.com/andrescastiglia/rent/pull/166). Todos están `UNSTABLE` por el mismo scan de la imagen PostgreSQL; el corte detectó tres CVE `HIGH` corregibles en Alpine y ocho en el binario `gosu` compilado con Go 1.26.5.
+- El remoto tiene siete heads vivos: `main`, `develop`, `preview` y los cuatro heads de Dependabot. No existen tags ni GitHub Releases.
+- `.github/workflows/ci.yml` despliega backend/web/batch ante cualquier push a `main`; `.github/workflows/eas.yml` publica Android ante push a `main` y también permite un despacho manual equivalente. Ninguno cumple el release por tag solicitado.
+- El deploy actual toma nuevamente la rama `main` en Ansible, no el SHA/tag que fue validado. Además, el job de producción no depende del scan de imagen, CodeQL, SonarQube ni Detox; Detox está marcado `continue-on-error` y el build web en CI está comentado.
+- Dependabot apunta a `develop` en todos los ecosistemas y CI solo ejecuta validaciones de PR dirigidos a `preview` o `develop`. El ruleset de `main` exige PR, pero no exige aprobaciones, conversaciones resueltas ni checks concretos.
 
-- **T381**: Tests de CRM, Mantenimiento, Reportes
-- **T382**: Tests E2E de flujos completos
+### Correcciones de alcance y prioridad
 
----
+- Type-check y las 1.302 pruebas unitarias pasan en los cuatro paquetes (backend 937, frontend 191, batch 157, mobile 17), pero esos verdes no cubren aislamiento A/B, fallas transaccionales, webhooks hostiles, backend real web, iOS ni gran parte de la app mobile. Son baseline, no criterio de cierre.
+- Inbox durable, deduplicación, outbox, redacción y retención mínima de WhatsApp pasan a Etapa 0. Mientras no existan, el inbound productivo debe permanecer deshabilitado; mientras no exista la bandeja segura de Etapa 2, ninguna propuesta puede ejecutarse.
+- Los documentos fuente contienen requisitos concretos de cobros, cuotas, visitas, contratos, documentos y CRM que el plan resumía demasiado. Se incorporan como criterios a inventariar y validar, no como desarrollos supuestamente inexistentes.
+- El contrato generado para web/mobile, mencionado en el backlog, pasa a tener tareas y gate propios en Etapa 1.
+- La documentación operativa de setup y despliegue está desactualizada y, en algunos puntos, es insegura o contradictoria. Debe reescribirse y probarse antes del primer release por tag.
+- Los SLO históricos, la arquitectura de navegación y los modelos de persona/contrato se contradicen entre documentos. No se hereda ninguno por omisión: deben decidirse, registrarse y marcarse como vigente, reemplazado o rechazado.
 
-## Fase 4: Optimización y Escalamiento
+## 1. Norte del producto
 
-### Objetivo
-Mejorar performance, escalabilidad y experiencia de usuario.
+Rent debe permitir que una persona con poca experiencia en sistemas complete las tareas inmobiliarias habituales sin conocer la estructura interna del negocio ni del software.
 
-### 4.1 Performance y Caching
-- **T411**: Implementar caché con Redis
-- **T412**: Optimización de queries DB
-- **T413**: Implementar paginación eficiente
+La misma capacidad debe sentirse coherente en tres superficies:
 
-### 4.2 Búsqueda Avanzada
-- **T421**: Integración con Elasticsearch
-- **T422**: UI de búsqueda avanzada
+- **Web:** operación completa, tareas masivas y configuración.
+- **Mobile nativo:** operación diaria, consulta, captura en campo y confirmaciones.
+- **WhatsApp con IA:** consulta conversacional e inicio de cualquier acción permitida.
 
-### 4.3 Workers Asíncronos
-- **T431**: Implementar workers para tareas pesadas
-- **T432**: Cobros recurrentes automáticos
+El backend es la única autoridad para datos, políticas y cambios. WhatsApp nunca confirma ni ejecuta una mutación. Toda acción iniciada allí termina en una propuesta revisable y requiere confirmación explícita desde web o mobile.
 
-### 4.4 Mejoras de UX
-- **T441**: Dashboards interactivos
-- **T442**: Notificaciones en tiempo real
+## 2. Qué significa “toda la funcionalidad por WhatsApp”
 
-### 4.5 Seguridad Avanzada
-- **T451**: Implementar 2FA
-- **T452**: Rate limiting y throttling
-- **T453**: Security headers y WAF básico
+La paridad conversacional se define por capacidad, no por cantidad de endpoints ni por intentar reproducir formularios complejos dentro del chat.
 
-### 4.6 Testing y Load Testing
-- **T461**: Load testing con k6/Gatling
-- **T462**: Security testing básico
+Para cada capacidad aplicable, WhatsApp debe permitir:
 
----
+1. Descubrirla en lenguaje natural.
+2. Consultar su estado según rol, compañía y relación con los datos.
+3. Explicar la respuesta con evidencia y fecha.
+4. Reunir datos faltantes y resolver ambigüedades.
+5. Crear una propuesta de cambio, si el rol puede solicitarla.
+6. Entregar un deep link seguro para revisar en web/mobile.
+7. Informar ejecución, rechazo, vencimiento o conflicto.
 
-## Fase 5: Preparación para Producción
+Una tarea visual, masiva o documental puede iniciarse por WhatsApp y continuar en una pantalla específica. Ejemplos: importar contratos, diseñar plantillas, comparar muchos registros o adjuntar documentación compleja.
 
-### Objetivo
-Endurecer el sistema para producción y establecer procesos operativos.
+## 3. Invariantes no negociables
 
-### 5.1 Hardening de Seguridad
-- **T511**: Auditoría de seguridad completa
-- **T512**: Gestión de secrets con Vault
-- **T513**: Backups automatizados
+### Seguridad y datos
 
-### 5.2 Documentación
-- **T521**: Documentación técnica completa
-- **T522**: Documentación de API (OpenAPI/Swagger)
-- **T523**: Manual de usuario
+- Toda query y command recibe `userId`, `companyId`, rol, permisos, canal y nivel de autenticación.
+- Toda lectura aplica compañía, permiso y relación con el objeto.
+- Toda autorización niega por defecto.
+- Ocultar navegación nunca reemplaza una validación backend.
+- El asistente recibe solo los campos necesarios para responder.
+- Login, registro, health, webhooks, tests y transportes internos no son herramientas de negocio de IA.
+- No se registran mensajes, teléfonos, tokens, contraseñas ni payloads sensibles sin redacción y política de retención.
 
-### 5.3 Monitoreo y Alertas
-- **T531**: Configurar alertas de producción
-- **T532**: Dashboards de producción
+### Mutaciones conversacionales
 
-### 5.4 Disaster Recovery
-- **T541**: Plan de DR y tests
+- WhatsApp solo crea propuestas; nunca ejecuta ni confirma.
+- Una propuesta es inmutable, expira y tiene versión, hash e idempotency key.
+- El aprobador vuelve a autenticarse según riesgo.
+- La autorización se recalcula al aprobar.
+- La entidad se relee y sus precondiciones se comparan antes de ejecutar.
+- La ejecución es transaccional y ocurre exactamente una vez.
+- Efectos externos usan outbox y una idempotency key del proveedor.
+- El resultado se audita y se comunica al solicitante.
 
-### 5.5 Ambiente de Producción
-- **T551**: Configurar ambiente de producción
-- **T552**: Pipeline de CD a producción
+### Producto y experiencia
 
-### 5.6 UAT
-- **T561**: Sesiones de UAT con usuarios reales
-
-### 5.7 Capacitación
-- **T571**: Capacitación a usuarios
-
----
-
-## Fase 6: Go-Live y Estabilización
-
-### Objetivo
-Lanzar a producción y estabilizar el sistema.
-
-### 6.1 Migración de Datos
-- **T611**: Scripts de migración de datos existentes
-
-### 6.2 Go-Live
-- **T621**: Deployment a producción
-- **T622**: Comunicación de lanzamiento
-
-### 6.3 Estabilización
-- **T631**: Monitoreo y corrección de bugs críticos
-- **T632**: Optimizaciones post-lanzamiento
-
-### 6.4 Retrospectiva
-- **T641**: Retrospectiva del proyecto
-- **T642**: Plan de roadmap futuro
-
----
-
-## Fase 7: Sistema de Facturación por Lotes ✅ COMPLETADA
-
-> **Especificación Técnica**: Ver [billing.md](./technical/billing.md)
-
-### Objetivo
-Implementar sistema de facturación automatizada ejecutado por crontab.
-
-### 7.1 Infraestructura Batch
-
-- ✅ **T711**: Setup proyecto `/batch`
-  - Proyecto Node.js CLI independiente
-  - Estructura de carpetas (commands, services, shared)
-  - Configuración TypeScript
-  - Logger (Winston)
-
-- ✅ **T712**: Conexión a base de datos compartida
-  - Pool de conexiones PostgreSQL
-  - Manejo de transacciones
-  - Variables de entorno
-
-### 7.2 Modelo de Datos Facturación
-
-- ✅ **T721**: Migraciones para ajustes por inflación
-  - Campos en `leases`: adjustment_index, adjustment_month, etc.
-  - Tabla `inflation_indices` (ICL, IGP-M)
-  - Tabla `exchange_rates` (USD, BRL → ARS)
-
-- **T722**: Migraciones para ARCA/factura electrónica
-  - Campos en `companies`: arca_cuit, arca_certificate, etc.
-  - Campos en `invoices`: arca_cae, arca_qr_data, etc.
-  - Campos para retenciones (IIBB, IVA, Ganancias)
-
-- ✅ **T723**: Migraciones para reportes
-  - Tabla `billing_jobs` (auditoría)
-
-### 7.3 Servicios de Índices
-
-- ✅ **T731**: Servicio BCRA (Argentina)
-  - API de índices (ICL - variable 41)
-  - API de tipos de cambio (USD, BRL)
-  - Cache de valores diarios
-  - Manejo de errores y reintentos
-
-- ✅ **T732**: Servicio BCB/FGV (Brasil)
-  - API de IGP-M
-  - Parsing de respuestas
-  - Sincronización diaria
-
-### 7.4 Multi-Moneda
-
-- ✅ **T741**: Servicio de tipos de cambio
-  - ExchangeRateService
-  - Cache en base de datos
-  - Conversión USD/BRL → ARS
-
-- ✅ **T742**: Lógica de facturación multi-moneda
-  - Contratos en USD/BRL
-  - Conversión al facturar
-  - Guardar monto original y convertido
-
-### 7.5 Billing Core
-
-- ✅ **T751**: Servicio de ajustes
-  - AdjustmentService
-  - Cálculo por índice (ICL, IGP-M)
-  - Cláusulas de aumento personalizadas
-  - Actualización de monto de alquiler
-
-- ✅ **T752**: Comando `billing`
-  - Generar facturas según frecuencia
-  - Aplicar ajustes si corresponde
-  - Cargar a cuenta corriente
-  - Opción --dry-run
-
-- ✅ **T753**: Comando `overdue`
-  - Marcar facturas vencidas
-  - Cambiar estado invoice.status
-
-- ✅ **T754**: Comando `late-fees`
-  - Calcular intereses por mora
-  - Crear movimiento en cuenta corriente
-  - Notificar al inquilino
-
-- ✅ **T755**: Comando `reminders`
-  - Enviar recordatorios N días antes
-  - Respetar preferencias de notificación
-
-### 7.6 Integración ARCA (ex AFIP)
-
-- ✅ **T761**: Servicio ARCA
-  - Autenticación WSAA (LoginCMS)
-  - Emisión de factura (FECAESolicitar)
-  - Manejo de token y sign
-  - Generación de QR
-
-- ✅ **T762**: Cálculo de retenciones
-  - WithholdingsService
-  - IIBB, IVA, Ganancias
-  - Según configuración de company
-
-### 7.7 Notificaciones Facturación
-
-- ✅ **T771**: Templates de email facturación
-  - Factura emitida (Handlebars)
-  - Recordatorio de pago
-  - Aviso de mora
-
-- ✅ **T772**: Comando `sync-indices`
-  - Sincronizar ICL, IGP-M diariamente
-  - Guardar en inflation_indices
-
-- ✅ **T773**: Comando `sync-rates`
-  - Sincronizar tipos de cambio
-  - Guardar en exchange_rates
-
-### 7.8 Reportes Automáticos
-
-- ✅ **T781**: Servicio de reportes
-  - ReportService
-  - Generación de PDF (Puppeteer)
-  - Templates Handlebars
-
-- ✅ **T782**: Comando `reports`
-  - Generar reportes programados
-  - Envío por email
-  - Resumen mensual propietarios
-
-### 7.9 Testing Facturación
-
-- ✅ **T791**: Tests unitarios servicios
-  - Tests de AdjustmentService
-  - Tests de BillingService
-  - Mocks de APIs externas
-
-- **T792**: Tests de integración
-  - Flujo completo de facturación
-  - Tests de ARCA en sandbox
-  - Tests de notificaciones
-
-**Criterios de Éxito**:
-- ✅ Facturas se generan automáticamente por crontab
-- ✅ Ajustes por ICL/IGP-M aplican correctamente
-- ✅ Multi-moneda funciona (USD, BRL → ARS)
-- ⏳ ARCA emite CAE correctamente
-- ✅ Retenciones calculadas para agentes
-- ✅ Reportes mensuales se envían a propietarios
-
-### Configuración Crontab (Fase 7)
-
-```bash
-# Sincronizar índices (diario 6:00)
-0 6 * * * cd /opt/rent/batch && npm start -- sync-indices
-
-# Sincronizar tipos de cambio (diario 6:30)
-30 6 * * * cd /opt/rent/batch && npm start -- sync-rates
-
-# Facturación (diario 7:00)
-0 7 * * * cd /opt/rent/batch && npm start -- billing
-
-# Marcar vencidas (diario 8:00)
-0 8 * * * cd /opt/rent/batch && npm start -- overdue
-
-# Cargos por mora (diario 8:30)
-30 8 * * * cd /opt/rent/batch && npm start -- late-fees
-
-# Recordatorios (diario 9:00)
-0 9 * * * cd /opt/rent/batch && npm start -- reminders
-
-# Reportes mensuales (día 1, 10:00)
-0 10 1 * * cd /opt/rent/batch && npm start -- reports --type monthly
+- Una pantalla tiene una acción primaria evidente.
+- La navegación principal tiene como máximo cinco grupos conceptuales.
+- El inicio responde “qué requiere mi atención hoy”.
+- Web y mobile usan el mismo vocabulario y orden mental.
+- El usuario ve nombres y consecuencias, no UUID, enums o nombres de endpoints.
+- Toda operación riesgosa muestra un resumen antes de confirmar.
+- Accesibilidad WCAG 2.2 AA y soporte de lector de pantalla forman parte de Definition of Done.
+
+### Ingeniería y documentación
+
+- API, web, mobile e IA invocan los mismos casos de uso y políticas.
+- Los clientes web/mobile se generan desde un contrato versionado.
+- Agregar una capacidad obliga a clasificar roles, canales, riesgo y aprobación.
+- No se marca “terminado” sin evidencia por rol y canal.
+- La documentación se actualiza en la misma entrega que el código.
+
+### Git, CI/CD y releases
+
+- `main` es la única rama permanente local y remota. Las ramas de trabajo existen solo mientras haya un PR, parten de `main` y se eliminan automáticamente al resolverlo.
+- Un merge o push a `main` valida, pero nunca despliega ni publica mobile.
+- Producción se despliega únicamente por un tag nuevo, inmutable y exacto `vMAJOR.MINOR.PATCH`, creado sobre un commit alcanzable desde `origin/main` y con todos los gates requeridos verdes.
+- Antes del primer tag se resuelven todos los PR abiertos y se reconcilian todos los branches. Al momento de cualquier release no puede quedar un PR abierto ni un head remoto distinto de `main`.
+- El tag, el checkout, los artefactos, las migraciones, el deploy y la evidencia de release refieren al mismo SHA. Nunca se reconstruye desde una rama móvil ni se reutiliza o mueve un tag publicado.
+- Un fallo de seguridad, build, test, migración, smoke test o aprobación de environment bloquea el deploy. Un `workflow_dispatch` solo puede reintentar un tag existente y no crear una vía alternativa a producción.
+- Cada release conserva versión, SHA, artefactos, checks, aprobación, resultado de migraciones y smoke tests, y procedimiento probado de rollback.
+
+## 4. Modelo operativo del plan
+
+Este plan abandona las listas históricas de cientos de tareas y story points sin evidencia. El trabajo se entrega en recorridos verticales verificables.
+
+Cada capacidad se registra en un manifiesto canónico con una forma equivalente a:
+
+```yaml
+id: payment.register
+actor_goal: Registrar un cobro y entregar comprobante
+roles: [admin, staff]
+permissions: [payments.write]
+scope: company
+channels:
+  web: complete
+  mobile: complete
+  whatsapp_read: supported
+  whatsapp_propose: supported
+confirmation_policy: staff_review
+risk: financial
+owner: payments-team
+status: validated
+evidence:
+  - contract-test
+  - web-e2e
+  - mobile-e2e
+  - whatsapp-eval
 ```
 
----
+Estados permitidos:
 
-## Fase 8: Sistema de Cobranzas y Liquidaciones
+- **Inventariada:** existe necesidad o implementación, sin contrato validado.
+- **Parcial:** algún canal o regla está implementado.
+- **Implementada:** código completo, todavía sin validación integral.
+- **Validada:** cumple Definition of Done y pasó pruebas por rol/canal.
+- **Productiva:** observada en producción con métricas y rollback.
+- **Bloqueada:** depende de una decisión explícita registrada.
 
-> **Especificación Técnica**: Ver [payments.md](./technical/payments.md)
+Ningún estado se deriva de que exista una ruta o archivo.
 
-### Objetivo
-Implementar sistema de cobranza multicanal y liquidación a propietarios.
+## 5. Matriz provisional de actores
 
-### 8.1 Modelo de Datos Cobranzas
+La matriz definitiva es el primer entregable. Mientras tanto se trabaja con estos límites conservadores.
 
-- ✅ **T811**: Migraciones cuentas bancarias
-  - Tabla `bank_accounts` (CBU/CVU)
-  - Alias virtuales por propiedad
-  - Cuentas de propietarios
+### Admin
 
-- ✅ **T812**: Migraciones crypto
-  - Tabla `crypto_wallets`
-  - Tabla `lightning_invoices`
-  - Hot/cold wallet flags
+- Administra una compañía, no todo el sistema por omisión.
+- Gestiona usuarios, permisos, configuración y operaciones de alto riesgo.
+- Puede aprobar según permiso; no se asume que pueda aprobar su propia propuesta.
 
-- ✅ **T813**: Migraciones pagos y liquidaciones
-  - Tabla `payments` (extendida)
-  - Tabla `receipts`
+### Staff
 
-- ✅ **T814**: Migraciones conciliación
-  - Tabla `tenant_accounts` (cuenta corriente)
-  - Tabla `tenant_account_movements`
+- Solo accede a módulos y acciones concedidos explícitamente.
+- Una lista vacía significa sin acceso adicional, nunca acceso total.
+- Puede operar o aprobar según permisos separados.
 
-### 8.2 Integración MercadoPago
+### Owner
 
-- 🔄 **T821**: Servicio MercadoPago (EN PROGRESO)
-  - ✅ PaymentGatewayService
-  - ✅ Crear preferencia de pago
-  - ✅ Webhooks con validación de origen
-  - Testing sandbox
+- Consulta exclusivamente propiedades, contratos, liquidaciones, documentos, comunicaciones y mantenimiento propios.
+- Puede proponer cambios propios o solicitudes operativas.
+- Confirma cambios personales de bajo riesgo; cambios financieros/contractuales requieren revisión autorizada.
 
-- ✅ **T822**: Link de pago en facturas
-  - Link de Checkout Pro en la notificación de factura
-  - QR code y enlace accesible en PDFs backend y batch
-  - Inicio de pago desde el detalle web o desde el QR
+### Tenant
 
-### 8.3 Integración Bancaria
+- Consulta exclusivamente contrato, cuenta, cobros, facturas, recibos, documentos y mantenimiento propios.
+- Puede proponer mantenimiento, actualización propia o entrega de información.
+- No modifica directamente estados financieros o contractuales.
 
-- 🔄 **T831**: Servicio de transferencias (EN PROGRESO)
-  - ✅ Persistencia neutral e idempotente de movimientos bancarios
-  - ⏳ Integración con proveedor (Bind/Pomelo)
-  - ⏳ Webhooks de movimientos
+### Buyer
 
-- 🔄 **T832**: Cuentas virtuales por propiedad (EN PROGRESO)
-  - 🔄 Crear alias virtual (persistencia y validación listas; proveedor pendiente)
-  - ✅ Asociar a propiedad con aislamiento por compañía/propietario
-  - ✅ Identificación automática por alias en movimientos normalizados
+- Consulta exclusivamente acuerdos, cuotas, recibos, documentos y gestiones propias.
+- Tiene portal, navegación y contexto IA explícitos.
+- Sus propuestas siguen la misma política de riesgo que tenant/owner.
 
-### 8.4 Integración Crypto
+### Interested/contact
 
-- **T841**: Servicio de wallets crypto
-  - WalletService
-  - Derivación de direcciones HD (Bitcoin)
-  - Smart contract Ethereum
+- No es automáticamente una identidad autenticada.
+- Antes de entregar datos sensibles se exige vinculación verificable.
+- El alcance por WhatsApp y la transición a buyer/tenant quedan como decisión de producto de la Etapa 1.
 
-- **T842**: Lightning Network
-  - Generación de invoices
-  - Verificación de pagos
-  - Integración con LND
+## 6. Políticas de confirmación
 
-- **T843**: Verificación de confirmaciones
-  - Bitcoin: 3 confirmaciones
-  - Ethereum: 12 confirmaciones
-  - Actualizar estado de pago
+Todas las propuestas originadas en WhatsApp se confirman en frontend. La política determina quién puede hacerlo.
 
-### 8.5 Conciliación
+### `same_actor`
 
-- ✅ **T851**: Servicio de conciliación
-  - ✅ BankReconciliationService idempotente y aislado por compañía
-  - ✅ Matching por alias/propiedad
-  - ✅ Matching único por monto/fecha
-  - ✅ Alertas operativas idempotentes de no conciliados, con revisión y resolución
+Para cambios propios, reversibles y de bajo riesgo. El solicitante abre un enlace autenticado en web/mobile, revisa y confirma.
 
-- ✅ **T852**: Comando `reconcile-bank`
-  - ✅ Procesar y reintentar movimientos bancarios pendientes
-  - ✅ Match contable mediante el backend y confirmación de pagos
-  - ✅ Generar y resolver alertas persistentes
-  - ✅ Flujo integrado batch → backend → pago/factura/recibo en CI
+### `staff_review`
 
-### 8.6 Cuenta Corriente
+Para solicitudes que un rol externo puede iniciar pero no ejecutar. Un staff con permiso del módulo revisa y confirma.
 
-- ✅ **T861**: Servicio de cuenta corriente
-  - TenantAccountService
-  - Aplicación FIFO de pagos
-  - Cálculo de balance
+### `dual_control`
 
-- **T862**: Comando `process-payments`
-  - Procesar webhooks pendientes
-  - Confirmar pagos
+Para dinero, cuentas bancarias, usuarios/permisos, contratos, eliminaciones y seguridad. El aprobador debe ser distinto del solicitante y tener autenticación reforzada.
 
-### 8.7 Recibos
+La política no se decide en el prompt. Es un atributo versionado del command de negocio.
 
-- ✅ **T871**: Servicio de recibos
-  - ReceiptService
-  - Generación de PDF
-  - Numeración automática
+## 7. Arquitectura objetivo
 
-- **T872**: Comando `send-receipts`
-  - Enviar recibos pendientes
-  - Mensaje de WhatsApp con referencia al PDF
+Flujo de lectura:
 
-### 8.8 Liquidaciones
-
-- ✅ **T881**: Servicio de liquidaciones
-  - SettlementService
-  - Cálculo de comisión (% o fijo)
-  - Descuento de retenciones
-  - Programación según vencimiento
-
-- ✅ **T882**: Comando `process-settlements`
-  - Procesar liquidaciones programadas
-  - Transferir fondos
-  - Notificar a propietario
-
-- ✅ **T883**: Lógica de fecha de liquidación
-  - Si pago antes de vencimiento → liquidar en vencimiento
-  - Si pago después → liquidar mismo día
-
-### 8.9 Testing Cobranzas
-
-- ✅ **T891**: Tests unitarios servicios
-  - ✅ Tests de PaymentService
-  - ✅ Tests de SettlementService
-  - ✅ Mocks de MercadoPago
-  - ✅ Mocks de conciliación bancaria neutral y del backend interno
-
-- ✅ **T892**: Tests de integración
-  - ✅ Flujo completo de pago: confirmación, cuenta corriente, factura, recibo y PDF
-    (`backend/test/payment-flow.e2e-spec.ts`)
-  - ✅ Conciliación bancaria sandbox: alias, pago contable, factura, recibo e idempotencia
-    (`backend/test/payment-flow.e2e-spec.ts`)
-  - ✅ Liquidación: cálculo, comisión, persistencia, transferencia simulada y estado final
-    (`Batch E2E` en `.github/workflows/ci.yml`)
-
-**Criterios de Éxito**:
-- ⏳ Pagos MP se confirman automáticamente
-- ⏳ Transferencias bancarias se concilian <24h
-- ✅ Recibos se envían automáticamente
-- ✅ Liquidaciones respetan fecha de vencimiento
-- ✅ Propietarios reciben notificación de liquidación
-
-### Configuración Crontab (Fase 8)
-
-```bash
-# Procesar webhooks (cada 5 min)
-*/5 * * * * cd /opt/rent/batch && npm start -- process-payments
-
-# Conciliación bancaria (cada 10 min; reintenta movimientos con 5 min de antigüedad)
-*/10 * * * * cd /opt/rent/batch && npm start -- reconcile-bank --min-age-minutes 5
-
-# Verificar crypto (cada 15 min)
-*/15 * * * * cd /opt/rent/batch && npm start -- check-crypto
-
-# Liquidaciones (diario 10:00)
-0 10 * * * cd /opt/rent/batch && npm start -- process-settlements
-
-# Recibos pendientes (cada hora)
-0 * * * * cd /opt/rent/batch && npm start -- send-receipts
+```text
+Web / Mobile / WhatsApp
+        ↓
+Query de negocio + ActorContext
+        ↓
+Policy central → scope por compañía/objeto → minimización
+        ↓
+Respuesta estructurada + evidencia
 ```
 
----
+Flujo de cambio iniciado por WhatsApp:
 
-## Resumen de Estado por Fase
-
-| Fase | Descripción | Estado |
-|------|-------------|--------|
-| **Fase 0** | Preparación e Infraestructura | ✅ Completada |
-| **Fase 1** | MVP Core Business | ✅ Completada |
-| **Fase 2** | Integraciones Externas | 🔄 En Progreso |
-| **Fase 3** | Funcionalidades Avanzadas | ⏳ Pendiente |
-| **Fase 4** | Optimización y Escalamiento | ⏳ Pendiente |
-| **Fase 5** | Preparación para Producción | ⏳ Pendiente |
-| **Fase 6** | Go-Live y Estabilización | ⏳ Pendiente |
-| **Fase 7** | Sistema de Facturación por Lotes | ✅ Completada |
-| **Fase 8** | Sistema de Cobranzas y Liquidaciones | 🔄 En Progreso |
-
----
-
-## Diagrama de Dependencias entre Fases
-
-```mermaid
-flowchart LR
-    F0[Fase 0: Infra] --> F1[Fase 1: MVP]
-    F1 --> F2[Fase 2: Integraciones]
-    F2 --> F3[Fase 3: Avanzadas]
-    F3 --> F4[Fase 4: Optimización]
-    F4 --> F5[Fase 5: Pre-Prod]
-    F5 --> F6[Fase 6: Go-Live]
-    
-    F2 --> F7[Fase 7: Facturación]
-    F2 --> F8[Fase 8: Cobranzas]
-    
-    F7 --> F5
-    F8 --> F5
+```text
+Mensaje texto/voz
+        ↓
+Inbox durable → identidad/consentimiento → intención
+        ↓
+Command draft → validación → ActionProposal inmutable
+        ↓
+Deep link y notificación a Web/Mobile
+        ↓
+Diff + impacto + reautorización + confirmación
+        ↓
+Claim atómico → command idempotente → auditoría/outbox
+        ↓
+Resultado en Web/Mobile y WhatsApp
 ```
 
----
+El catálogo de IA se organiza por dominios y casos de uso. Primero se selecciona dominio, rol e intención; luego se exponen pocas queries/commands relevantes. Se elimina la dependencia de un catálogo plano mayor al límite de herramientas del proveedor.
 
-## Riesgos y Mitigaciones
+## 8. Arquitectura de información objetivo
 
-| Riesgo | Probabilidad | Impacto | Mitigación |
-|--------|--------------|---------|------------|
-| Complejidad de integraciones externas | Alta | Alto | Sandboxes, fallbacks, empezar temprano |
-| Cambios en requerimientos | Media | Alto | Metodología ágil, sprints cortos |
-| API BCRA/BCB no disponible | Media | Medio | Cache de índices, reintentos |
-| Cambios en ARCA/AFIP | Media | Alto | Abstracción de servicios |
-| Pagos no conciliados | Media | Medio | Alertas, revisión manual diaria |
-| Volatilidad crypto | Baja | Medio | Conversión inmediata a stablecoin |
-| Webhook perdido | Baja | Alto | Polling de respaldo, idempotencia |
-| Fuga de datos / seguridad | Baja | Crítico | Auditorías, pentesting |
+### Admin y staff
 
----
+La navegación principal se reduce a:
 
-## Hitos Clave (Milestones)
+1. **Inicio:** tareas, riesgos, próximos vencimientos y accesos frecuentes.
+2. **Personas:** interesados, propietarios, inquilinos, compradores y comunicaciones.
+3. **Propiedades y contratos:** inventario, visitas, contratos, renovaciones y mantenimiento.
+4. **Dinero:** cobros, facturas, liquidaciones, cuotas, cuentas y conciliación.
+5. **Más:** reportes, plantillas, usuarios y configuración, filtrados por permiso.
 
-| # | Hito | Fin de Fase | Estado |
-|---|------|-------------|--------|
-| M1 | Infraestructura base operativa | Fase 0 | ✅ |
-| M2 | MVP funcional - Demo interno | Fase 1 | ✅ |
-| M3 | Integraciones externas funcionando | Fase 2 | 🔄 |
-| M4 | Funcionalidades completas - Beta cerrada | Fase 3 | ⏳ |
-| M5 | Sistema optimizado - Beta pública | Fase 4 | ⏳ |
-| M6 | UAT aprobado - Pre-producción | Fase 5 | ⏳ |
-| M7 | Go-Live - Producción | Fase 6 | ⏳ |
-| M8 | Facturación automatizada operativa | Fase 7 | ✅ |
-| M9 | Cobranzas y liquidaciones operativas | Fase 8 | 🔄 |
+“Revisar” tiene acceso persistente y badge en header/mobile; puede ser tab principal mientras existan tareas pendientes.
 
----
+### Owner, tenant y buyer
 
-## Features Futuras (Post-Implementación)
+Se toma el portal de propietario actual como patrón: resumen breve, pocas acciones y navegación inferior estable.
 
-| Feature | Descripción |
-|---------|-------------|
-| **Facturación electrónica Brasil** | NF-e para operaciones en Brasil |
-| **Stripe** | Tarjetas internacionales |
-| **PayPal** | Pagos desde exterior |
-| **Wise** | Liquidaciones internacionales |
-| **Fireblocks** | Custody crypto enterprise |
-| **Portal inquilino** | Ver estado de cuenta, pagar online |
-| **App móvil nativa** | React Native o Flutter |
-| **IA para pricing** | ML para sugerir rentas óptimas |
-| **Integración IoT** | Sensores para mantenimiento preventivo |
-| **Dashboard BI avanzado** | Análisis predictivo y tendencias |
+- Inicio.
+- Bienes/contratos o acuerdo.
+- Dinero/documentos.
+- Solicitudes/revisiones.
+- Más/perfil.
+
+### Pantalla Inicio
+
+Orden recomendado:
+
+1. “Para hacer hoy”.
+2. “Necesita atención”.
+3. Tres acciones frecuentes según rol.
+4. Resumen breve de negocio.
+5. Actividad reciente.
+
+No se mezclan múltiples “paneles principales” ni grandes tablas vacías.
+
+### Patrones de interacción
+
+- Búsqueda global por apellido, teléfono, dirección, contrato o comprobante.
+- Cards en mobile; tablas a partir de breakpoint desktop.
+- Formularios largos divididos en pasos con resumen final.
+- Opciones infrecuentes bajo “Avanzado”.
+- Autosave de borrador y prevención de duplicados.
+- Vacío con siguiente acción; error con explicación y reintento.
+- Estados y roles traducidos a lenguaje de negocio.
+
+## 9. Etapas de entrega
+
+Las duraciones son ventanas orientativas y deben recalibrarse después del inventario. Los gates son obligatorios; las fechas no justifican saltarlos.
+
+### Etapa -1 — consolidación Git y release por tag
+
+**Objetivo:** llegar de forma recuperable a una única rama permanente `main` y eliminar cualquier despliegue provocado por branches.
+
+**Ventana orientativa:** inmediata, antes de continuar el roadmap o crear el primer tag.
+
+**Regla de transición:** se congela el deploy productivo y la creación automática de nuevos PR hasta terminar el inventario. No se borra un branch, se cierra un PR ni se crea el primer tag sin registrar antes su decisión y demostrar que no se pierde trabajo aceptado.
+
+Preparación y preservación:
+
+- [ ] Actualizar y podar referencias; guardar SHA de cada head local/remoto, merge-base, ahead/behind, PR asociado, autor y última actividad.
+- [ ] Preservar el worktree local sucio —incluidos este plan, README y la auditoría— en commits revisables o un respaldo verificable antes de cambiar de branch.
+- [ ] Crear una matriz branch/PR → `integrar`, `reemplazar` o `cerrar`, con motivo, dueño y evidencia; “cerrado” no equivale a “resuelto” sin esa decisión.
+- [ ] Pausar Dependabot durante la ventana o cambiar primero su target para que no regenere branches contra `develop`.
+
+Corrección del pipeline, mediante un cambio transitorio validado:
+
+- [ ] Como el CI vigente no escucha PR hacia `main`, validar primero el cambio en un PR efímero hacia `develop`; promover el mismo cambio, sin agregar contenido, por `preview` y luego `main`, revalidando cada SHA/merge resultante. Antes de cada merge comprobar que el workflow nuevo ya impide los deploy por push. Esta es la última promoción por ramas largas.
+- [ ] Hacer que CI valide `pull_request` hacia `main` y push a `main`, sin ejecutar deploy, submit ni OTA.
+- [ ] Separar CI de CD; el único trigger productivo será un tag que además pase una validación estricta `^v[0-9]+\.[0-9]+\.[0-9]+$`.
+- [ ] Cambiar los seis targets de `.github/dependabot.yml` de `develop` a `main` y habilitar eliminación automática del head al resolver el PR.
+- [ ] Eliminar de EAS los releases por push a `main`/`preview` y el bypass manual; build, submit y OTA productivos deben usar el tag y SHA validados.
+- [ ] Hacer que Ansible reciba y verifique el tag/SHA inmutable, en vez de volver a leer `main`; registrar esa versión en health/version y en el resumen de deploy.
+- [ ] Convertir en bloqueantes el scan de imagen, CodeQL, lint/type-check/format, builds, tests unitarios, integración/E2E, SonarQube cuando esté disponible y mobile E2E. Quitar `continue-on-error` de cualquier gate requerido.
+- [ ] Crear comandos `lint:check` que no usen `--fix`; CI debe validar el contenido exacto y fallar si un formatter/linter ensucia el checkout.
+- [ ] Activar build reproducible de backend, frontend, batch y mobile antes de desplegar; promover exactamente esos artefactos, con checksums y SBOM, sin recompilar desde una rama en el servidor.
+- [ ] Derivar una única versión desde el tag y comprobar consistencia de packages, artefactos, health y EAS; alinear Node con `.node-version`/CI y fijar EAS e imágenes productivas, sin `latest`.
+- [ ] Fijar Actions, Ansible/Python y CLIs por versión/digest con lock verificable; reemplazar `ssh-keyscan` durante el deploy por fingerprints `known_hosts` preaprobados y rotación documentada.
+- [ ] Corregir el scan PostgreSQL actual actualizando imágenes/paquetes y `gosu`; una excepción/VEX debe demostrar no explotabilidad, tener owner y vencimiento, nunca silenciarse sin evidencia.
+- [ ] Crear los labels que Dependabot referencia o alinear su configuración; comprobar también por qué el update semanal de Docker no genera un PR utilizable.
+
+Resolución de PR y branches:
+
+- [ ] Revisar #163, #164, #165 y #166 contra `main`; actualizar o recrear cada branch desde `main` y resolverlos de a uno para evitar mezclar lockfiles.
+- [ ] Corregir los checks compartidos antes de integrar. Para cada PR, mergear si aporta un cambio compatible o cerrarlo con una justificación versionada y, si aplica, una tarea de reemplazo.
+- [ ] Reconsultar PRs y refs luego de cada merge/cierre; incorporar mediante PR cualquier commit aceptado que todavía no sea alcanzable desde `main`.
+- [ ] Verificar nuevamente que `develop` y `preview` no tengan commits útiles exclusivos; solo entonces eliminarlos del remoto junto con heads resueltos.
+- [ ] Crear/actualizar la rama local `main`, hacerla trackear exclusivamente `origin/main`, confirmar igualdad de SHA, eliminar `develop`/restantes locales y ejecutar prune.
+- [ ] Mantener un solo branch permanente. Todo branch futuro debe nacer de `main`, corresponder a un PR activo y borrarse automáticamente al mergear o cerrar.
+
+Protección y release:
+
+- [ ] Endurecer el ruleset de `main`: sin force-push ni borrado, conversaciones resueltas, checks requeridos estables, PR obligatorio y aprobación humana definida según el tamaño del equipo.
+- [ ] Crear ruleset de tags `v*` que impida mover, sobrescribir o borrar tags publicados; usar tags anotados y, cuando la gestión de claves esté resuelta, firmados.
+- [ ] Habilitar `deleteBranchOnMerge`; crear un environment `production-release` restringido a tags y sin bypass, separado de `production-ops` para los jobs batch manuales. EAS debe usar el environment de release.
+- [ ] Revisar con permisos administrativos webhooks, GitHub Apps y servicios externos que puedan autodesplegar; la ausencia de otro trigger debe verificarse fuera de los YAML del repositorio.
+- [ ] Validar que el tag sea nuevo, exacto, apunte a un commit de `origin/main`, sea el mismo SHA probado y no exista otro run/deploy activo (`concurrency`).
+- [ ] Antes del primer tag —y como preflight de cada release— exigir cero PR abiertos y ningún head remoto distinto de `main`.
+- [ ] Ejecutar migraciones con inventario de checksums/colisiones, dry-run, backup y restore probado; validar tanto instalación limpia como upgrade desde la versión productiva anterior.
+- [ ] Desplegar a un directorio de release versionado y conmutar un symlink de forma atómica solo después de preflight y migraciones expand/contract; ejecutar health y smoke tests, y hacer rollback automático a la versión anterior si falla. Un rollback de código no intenta revertir destructivamente una migración incompatible.
+- [ ] Endurecer operaciones batch manuales: compilar una vez, eliminar el fallback `dist || ts-node`, tipar/allowlist de argumentos, restringir ref y actor, agregar `concurrency` e idempotencia, y versionar el scheduling productivo que hoy vive solo en crontab.
+- [ ] Publicar GitHub Release solo después del deploy: changelog, tag, SHA, artefactos/checksums, SBOM, evidencias de gates, migraciones, aprobador, smoke tests y enlace al run. Definir retención del bundle.
+- [ ] Reescribir y ensayar `docs/deployment/deployment.md`: Node vigente, TLS de origen para Cloudflare Full (strict), rutas únicas, manejo de secretos sin imprimirlos y rollback por tag.
+
+Criterios de salida:
+
+- `git branch --format='%(refname:short)'` devuelve únicamente `main` y `git rev-parse main` coincide con `origin/main`.
+- `git ls-remote --heads origin` devuelve únicamente `refs/heads/main` en el estado estable; `gh pr list --state open` devuelve cero antes del primer release.
+- Todos los commits aceptados están contenidos en `main`; cada PR/branch descartado tiene motivo registrado.
+- Un push/merge a `main`, un tag inválido y un despacho manual no despliegan. Un tag válido sobre el SHA verde sí despliega exactamente una vez.
+- El ambiente informa el tag y SHA esperados; smoke, observabilidad y rollback ensayado dejan evidencia recuperable.
+
+### Etapa 0 — release gate de seguridad y control
+
+**Objetivo:** impedir fuga multiempresa, escalada de permisos, pérdida/duplicación de mensajes y ejecución duplicada.
+
+**Ventana orientativa:** 1–2 sprints.
+
+**Regla:** mientras este gate no esté verde, todo inbound de WhatsApp permanece deshabilitado en producción. Luego puede habilitarse lectura segura; las propuestas siguen siendo no ejecutables fuera de entornos aislados hasta que también estén verdes la Etapa 2 y el gate individual del command.
+
+Trabajo:
+
+- [ ] Incorporar `companyId` y scope de objeto a usuarios, inquilinos, contratos, pagos, cuentas, movimientos y demás servicios.
+- [ ] Corregir los GET que generan datos; separar command de creación.
+- [ ] Eliminar `permissions` del perfil propio.
+- [ ] Cambiar guards backend y frontend a deny-by-default.
+- [ ] Completar recursos/acciones de staff; separar permiso de operar y aprobar.
+- [ ] Exigir `JWT_SECRET` al arranque y rechazar usuarios inactivos.
+- [ ] Definir revocación/rotación de sesión.
+- [ ] Transaccionar confirmación de pagos y movimientos financieros.
+- [ ] Agregar constraints e idempotencia para recibos, movimientos y operaciones.
+- [ ] Crear `pending_actions` v2 con expiry, version, preconditions e idempotency key.
+- [ ] Hacer claim atómico y verificar resultado antes de ejecutar.
+- [ ] Recalcular rol, permiso, compañía, objeto y policy al aprobar.
+- [ ] Redactar o cifrar payloads sensibles.
+- [ ] Excluir auth, webhooks, tests y endpoints internos del catálogo IA.
+- [ ] Excluir `TestModule` y `/test/*` del build productivo; inventariar y cerrar cualquier superficie de diagnóstico equivalente.
+- [ ] Deshabilitar firma digital productiva mientras use `MockAdapter`/`sign.example.com`; su webhook público debe verificar firma y replay, resolver compañía, aceptar solo transiciones permitidas y actualizar solicitud/contrato en una transacción idempotente.
+- [ ] Crear DTOs/serialización de respuesta con allowlist y marcar secretos `select: false`; impedir que password hash/reset tokens, permisos internos y datos bancarios viajen al cliente por relaciones TypeORM.
+- [ ] Corregir scopes de owner/staff y bancos: un rol externo no lista todos los propietarios ni cuentas de la compañía y una respuesta autorizada contiene solo campos necesarios.
+- [ ] Endurecer uploads: límites de tamaño/dimensión, magic bytes, protección contra decompression bombs/malware, cuotas, retención y almacenamiento seguro; imágenes temporales/privadas requieren policy o URL firmada, no un UUID público.
+- [ ] Rehidratar sesión web de forma segura tras reload/multitab/expiración y conservar compañía/permisos sin hacer default-allow; decidir cookie HttpOnly/BFF frente al token actual y probar la alternativa elegida.
+- [ ] Implementar rate limit distribuido para auth/OTP/webhooks, resolver IP solo desde proxies confiables, hacer fail-closed cualquier bypass local en producción y eliminar `localhost` del CORS productivo.
+- [ ] Proteger `/metrics` en red/borde y autenticar/rate-limit/allowlist de `/frontend-metrics`; ninguna etiqueta controlada por cliente puede crear cardinalidad o costos sin límite.
+- [ ] Persistir cada webhook en un inbox durable antes de responder 200 y deduplicar por WAMID.
+- [ ] Procesar inbox con leases, reintentos acotados, backoff, dead-letter y recuperación después de reinicio.
+- [ ] Enviar respuestas, documentos y efectos externos mediante outbox transaccional e idempotencia del proveedor.
+- [ ] Aplicar antes de habilitar inbound una política mínima de consentimiento, retención/borrado, redacción de teléfono/texto/audio/transcripción, rate limiting y presupuesto por compañía.
+- [ ] Extender transacciones/idempotencia a recibos de venta, conciliación, numeraciones y cualquier efecto financiero multi-escritura.
+- [ ] En conciliación, propagar un único `QueryRunner.manager`/unidad de trabajo hasta `PaymentsService`; el advisory lock y rollback no sirven si los repositorios escriben fuera de esa transacción.
+
+Pruebas de gate:
+
+- Empresa A no puede leer ni mutar UUID de empresa B en cada dominio.
+- Owner/tenant/buyer solo ven objetos relacionados.
+- Staff sin permisos no accede a ningún módulo adicional.
+- Staff no puede editar sus propios permisos.
+- Veinte aprobaciones concurrentes producen una ejecución.
+- Replay devuelve el mismo resultado sin duplicar efectos.
+- Una propuesta vencida, obsoleta o ya reclamada no ejecuta.
+- Una falla intermedia no desalineará pago, saldo, factura, movimiento y recibo.
+- Inyectar una falla antes/después de cada escritura de conciliación demuestra rollback completo; solo el outbox confirmado puede ejecutar I/O externo.
+- Reentregar el mismo WAMID no duplica mensaje, propuesta, respuesta ni efecto; responder 200 implica que el inbox ya sobrevivirá una caída.
+- Logs, traces, métricas, dead-letter y evidencias no exponen PII ni payloads crudos.
+- Ninguna respuesta serializa hashes/tokens de credenciales o bancos ajenos; tests negativos cubren relaciones cargadas, errores y cada rol.
+- Uploads inválidos, sobredimensionados, privados o temporales se rechazan sin quedar públicamente accesibles.
+- Reiniciar/recargar clientes no eleva permisos ni rompe una sesión válida; rate limits funcionan con más de una instancia y no confían en headers arbitrarios.
+- Un webhook de firma falso, repetido, concurrente, de otra compañía o con transición inválida no cambia solicitud ni contrato.
+
+### Etapa 1 — baseline de producto, roles y lenguaje
+
+**Objetivo:** establecer una fuente única de verdad y aprender cómo operan usuarios no técnicos.
+
+**Ventana orientativa:** 2–3 semanas, en paralelo con Etapa 0 donde no haya dependencia.
+
+Trabajo:
+
+- [ ] Inventariar cada capacidad existente de backend, web, mobile y WhatsApp.
+- [ ] Crear el manifiesto canónico y un validador en CI; cada historia fuente debe apuntar a una capacidad, estado, owner y evidencia o a una decisión de rechazo.
+- [ ] Reconciliar `SISTEMA DE ALQUILERES.docx` → `raw.md` → historias → manifiesto. Recuperar o decidir explícitamente el requisito sensible “ingresos en blanco” y no almacenarlo sin base legal, minimización y retención.
+- [ ] Corregir IDs duplicados —hoy `US-PAY-01..04` describen historias distintas— y prohibir duplicados/referencias huérfanas en CI.
+- [ ] Cerrar matriz rol × permiso × relación × acción × canal.
+- [ ] Resolver buyer, interested/contact y staff especializado.
+- [ ] Decidir persona de negocio multirol frente a identidades separadas y login; cubrir owner operativo sin email/cuenta, unificación de duplicados y transición interested → tenant/buyer sin pérdida de historial.
+- [ ] Unificar consentimiento, vinculación OTP, revocación y número por compañía.
+- [ ] Validar glosario con usuarios: cobro, pago, liquidación, factura, recibo, comprobante y cuota.
+- [ ] Resolver el contrato canónico: estados de borrador/firma/activo/finalizado, reglas distintas rental/sale, ausencia de `unitId`, carga de contratos vigentes, import DOCX y compatibilidad/migración de datos existentes.
+- [ ] Publicar OpenAPI versionado y generar de forma reproducible los clientes web/mobile; agregar CI anti-drift y retirar DTO/mappers manuales una vez migrado cada consumidor.
+- [ ] Crear fixtures reproducibles con al menos dos compañías, los cinco roles, staff sin/con permisos y objetos propios/ajenos; los datos demo actuales de una sola compañía no prueban aislamiento.
+- [ ] Observar al menos cinco sesiones de tareas reales con personas no técnicas.
+- [ ] Medir tiempo, errores, dudas y vocabulario de los seis recorridos prioritarios.
+- [ ] Decidir y validar una sola arquitectura de información: Inicio por tareas/cinco grupos, dos paneles Propiedades/Pagos o dashboard Ventas/Alquileres. Marcar las alternativas reemplazadas; no mantener tres diseños “vigentes”.
+- [ ] Prototipar y validar la navegación elegida e Inicio por rol.
+- [ ] Crear ADR “arquitectura as-is” y clasificar el 100% de los documentos como canónicos, operativos, requisitos fuente, evidencia, históricos o rechazados.
+- [ ] Actualizar privacidad para inbound, audio, transcripción, OpenAI, retención y auditoría.
+
+Criterios de salida:
+
+- El 100% de capacidades tiene clasificación provisional.
+- El 100% de historias fuente tiene ID único y trazabilidad a capacidad/decisión; no hay IDs ni referencias huérfanas.
+- No hay una ruta sin política explícita.
+- OpenAPI y clientes generados son reproducibles y CI falla ante drift.
+- Los fixtures A/B demuestran aislamiento por compañía, rol, permiso y relación.
+- Cinco usuarios objetivo entienden la navegación sin explicación previa.
+- Glosario, roles, identidad/persona, estados contractuales, arquitectura de información y consentimiento tienen decisión versionada y migración cuando corresponda.
+
+### Etapa 2 — bandeja “Revisar” web y mobile
+
+**Objetivo:** convertir la confirmación técnica actual en una decisión informada y segura.
+
+**Ventana orientativa:** 2–3 sprints.
+
+Backend:
+
+- [ ] API dedicada de propuestas con payload seguro, diff, riesgo, policy, vencimiento y fuente.
+- [ ] Estados `NEEDS_INFO`, `PENDING_APPROVAL`, `APPROVING`, `EXECUTED`, `REJECTED`, `EXPIRED`, `CONFLICT`, `FAILED`.
+- [ ] Editar significa crear una nueva versión/propuesta; nunca mutar silenciosamente la original.
+- [ ] Autorización por permiso y relación, no solo admin/staff.
+- [ ] Auditoría append-only y outbox de notificaciones.
+
+Web:
+
+- [ ] Entrada persistente “Revisar” con contador.
+- [ ] Lista por prioridad, vencimiento y riesgo.
+- [ ] Detalle con solicitante, rol, WhatsApp de origen, fecha y entidad.
+- [ ] Resumen en lenguaje de negocio y diff campo por campo.
+- [ ] Impacto financiero/contractual y advertencias.
+- [ ] Aprobar, proponer corrección o rechazar con motivo.
+- [ ] Reautenticación/step-up según policy.
+- [ ] Resultado visible, historial y recuperación.
+
+Mobile:
+
+- [ ] Tab o CTA persistente con badge.
+- [ ] Push notification y deep link autenticado.
+- [ ] Mismo detalle, diff y policy que web, adaptado a cards.
+- [ ] Estados offline, reintento y propuesta ya procesada.
+- [ ] Accesibilidad de lector de pantalla y targets táctiles.
+
+Criterios de salida:
+
+- Una persona no técnica puede explicar qué cambiará antes de aprobar.
+- Web y mobile completan el mismo E2E.
+- No se usa `window.confirm` o `window.prompt` para decisiones de negocio.
+- Toda ejecución queda vinculada al mensaje y propuesta de origen.
+- WhatsApp informa resultado, pero no acepta confirmación.
+
+### Etapa 3 — Inicio y navegación centrados en tareas
+
+**Objetivo:** hacer simple el uso cotidiano antes de sumar más módulos.
+
+**Ventana orientativa:** 2 sprints.
+
+Trabajo:
+
+- [ ] Aplicar los cinco grupos de navegación y permisos derivados del manifiesto.
+- [ ] Crear Inicio por rol con “Para hacer hoy”.
+- [ ] Integrar comunicaciones, propuestas, vencimientos y alertas en una bandeja accionable.
+- [ ] Agregar búsqueda global y recientes/favoritos.
+- [ ] Corregir enlaces visibles que terminan en “Acceso denegado”.
+- [ ] Implementar destino correcto de login para buyer.
+- [ ] Alinear portales owner/tenant y crear experiencia buyer.
+- [ ] Hacer que mobile dirija cada rol a su inicio correspondiente.
+- [ ] Eliminar estados crudos, UUID y etiquetas técnicas.
+- [ ] Convertir tablas mobile en cards y corregir drawer/foco/responsive web.
+- [ ] Revalidar y remediar `FT-WCAG-001..010`: labels/nombres accesibles, filtros, landmarks y `h1`, jerarquía, estado de menús, acciones por teclado, errores asociados y contraste. No archivar la auditoría WCAG hasta transferir y cerrar cada hallazgo con evidencia.
+
+Criterios de salida:
+
+- Máximo cinco grupos primarios por rol.
+- Cero enlaces visibles a rutas no autorizadas.
+- Cero rutas sensibles accesibles por deep link sin policy backend.
+- Al menos 90% de éxito en tareas de orientación y búsqueda.
+- Los diez hallazgos WCAG tienen estado y evidencia actualizados; axe, teclado, foco, zoom y lector de pantalla se prueban con contenido real y no solo estados vacíos/Unauthorized.
+
+### Etapa 4 — recorridos verticales prioritarios
+
+**Objetivo:** validar la paridad por capacidad en orden de valor, no por módulo.
+
+**Ventana orientativa:** 4–8 sprints, entregando un recorrido por vez.
+
+#### Recorrido A — buscar persona y entender situación
+
+- Buscar por apellido, teléfono o documento.
+- Ver una persona sin duplicar identidad aunque tenga varios roles; mostrar relación, contratos, deuda, tareas y comunicaciones permitidas.
+- Registrar y consultar actividades de owner/tenant/buyer/interested en una línea de tiempo autorizada, incluida la reserva persona–propiedad visible desde ambos lados.
+- Web y mobile con el mismo resumen.
+- WhatsApp responde con datos scoped y evidencia.
+
+#### Recorrido B — registrar cobro y compartir comprobante
+
+- Seleccionar persona/contrato sin UUID.
+- Mostrar monto esperado, período, vencimiento, deuda y moneda, calculados desde contrato/facturación.
+- Permitir en el borrador previo a emisión agregar o corregir alquiler, impuestos, servicios y otros ítems variables; mostrar total y consecuencias.
+- Aplicar o eximir mora por cobro solo con permiso, motivo y auditoría, sin alterar silenciosamente la regla contractual.
+- Registrar de forma transaccional e idempotente; numeración, cuenta corriente, factura, nota de crédito, documento y notificación no pueden quedar desalineados.
+- Generar, persistir, descargar, reimprimir y compartir un recibo inmutable sin sobrescribir períodos anteriores.
+- WhatsApp consulta estado o propone; frontend confirma.
+
+#### Recorrido C — contrato, vencimiento y renovación
+
+- Resumen legible y línea de tiempo.
+- Alertas y siguiente acción.
+- Formulario por pasos y sección avanzada según rental/sale; estados, firma, anexos, finalización y solapamientos siguen el contrato canónico.
+- Carga de contratos vigentes, importación DOCX y renovación con preview/versionado y revisión explícita.
+- Calcular ajustes opcionales IPC, ICL y Casa Propia con fuente, períodos, fórmula, redondeo y fallback visibles; permitir override autorizado y auditado.
+- Calcular comisión variable configurada —incluidos 3% y 5%— sin porcentajes hardcodeados y mostrar su efecto en cobro/liquidación.
+- Al activar, generar y persistir el PDF contractual exacto; cambios posteriores crean versión/anexo, no reescriben el documento firmado.
+- WhatsApp explica y crea propuesta con diff.
+
+#### Recorrido D — propiedad, interesado y visita
+
+- Búsqueda de propiedad/dirección.
+- Filtrar propiedades de venta por rango de inversión y cruzarlas con perfiles de compra/alquiler por presupuesto, grupo, mascotas, garantías y tipo de inmueble.
+- Captura de interesado, visita, resultado/oferta y siguiente tarea; detectar duplicados y conservar sugerencias, reservas, visitas y respuestas en la línea de tiempo.
+- Mobile optimizado para campo.
+- Al registrar/completar una visita, notificar automáticamente al owner según consentimiento con propiedad, fecha, resultado y, si existe, moneda/valor de oferta; persistir entrega, reintento y error.
+- Conversión de interesado con identidad bien definida.
+- Clasificar y validar el alcance CRM fuente: importación/captura multicanal, campos configurables, calificación, embudo e historial/motivo de pérdida, recordatorios, matching trazable, cierre automático, plantillas/log de envíos, métricas por embudo/agente, auditoría y consentimiento.
+
+#### Recorrido E — mantenimiento
+
+- Owner/tenant solicita con texto, voz y fotos.
+- Staff prioriza, asigna, comenta y cierra.
+- Solicitante ve estado propio.
+- WhatsApp inicia solicitud; web/mobile confirma datos y cambios de estado según policy.
+
+#### Recorrido F — venta, cuota y comprobante
+
+- Buyer ve acuerdo, cuotas y documentos propios.
+- Staff registra cuota de forma transaccional e idempotente; dos solicitudes concurrentes no repiten numeración, pago ni PDF.
+- El comprobante muestra cuota, atraso, saldo restante y saldo a favor; no permite sobrepago ambiguo ni valores negativos silenciosos.
+- Web/mobile generan, persisten, reimprimen y comparten un PDF con original y duplicado realmente verificables.
+- WhatsApp consulta y propone sin exponer otros compradores.
+
+Documentos transversales:
+
+- Facturas batch, recibos, notas de crédito y contratos activos persisten su PDF, metadata, checksum y versión; se consultan desde el módulo y relación autorizados.
+- Generar o enviar un documento es idempotente y usa outbox; un fallo de S3/proveedor no deja la operación de negocio falsamente completa ni se oculta con un `console.error`.
+- Los PDFs se prueban con render real —contenido, cantidad de páginas/copias, caracteres, importes y accesibilidad— además de mocks del generador.
+
+Cada recorrido se libera solo al cumplir la Definition of Done transversal y cerrar la trazabilidad de sus historias fuente.
+
+### Etapa 5 — WhatsApp de lectura con cobertura por rol
+
+**Objetivo:** ofrecer información útil, exacta y segura antes de ampliar comandos.
+
+**Ventana orientativa:** incremental junto a cada recorrido.
+
+Trabajo:
+
+- [ ] Reusar y observar el inbox/worker/outbox cerrados en Etapa 0; ningún dominio implementa un segundo camino en memoria o fire-and-forget.
+- [ ] Vinculación OTP y reverificación de teléfono.
+- [ ] Step-up mediante deep link para información sensible.
+- [ ] Enrutador por dominio/rol/intención.
+- [ ] Queries de negocio versionadas con policy central.
+- [ ] Evidencia estructurada en respuestas: fuente, entidad, fecha y alcance.
+- [ ] Abstención y aclaración ante identidad, empresa o intención ambigua.
+- [ ] Minimización y redacción antes de invocar el modelo.
+- [ ] Evals por rol, dominio, idioma, audio y adversarial prompt injection.
+- [ ] Pruebas anti-fuga empresa A/B y objetos no relacionados.
+- [ ] Métricas de respuesta, abstención, costo y satisfacción sin PII en logs.
+- [ ] Aplicar borrado/exportación, revocación de consentimiento y límites de consumo también al corpus, chunks, audio, transcripciones, evals y dead-letter.
+- [ ] Conservar evals y reportes operativos como evidencia inmutable del tag/SHA, con ambiente, muestra, fecha, owner y retención; archivos efímeros en `/tmp` no prueban un gate.
+
+Criterios de salida por dominio:
+
+- Cobertura de preguntas definida y medida.
+- Cero fugas en evals de rol/compañía.
+- Respuesta con evidencia o abstención; nunca invención silenciosa.
+- Reiniciar el proceso en cualquier etapa no pierde ni duplica el mensaje.
+- Cuando RAG esté habilitado: cero chunks faltantes/stale/huérfanos o de dimensión inválida, recall ≥ 0,95, errores < 1%, p95 de respuesta < 8 s y p95 de frescura < 60 s bajo la carga acordada.
+- Alertas RAG/inbox/outbox se dispararon y recuperaron en staging; restore y rollback a `TOOLS` fueron ensayados. La promoción es por compañía y `AI_RAG_ENABLED_COMPANY_IDS=*` permanece prohibido sin evidencia para todas.
+
+### Etapa 6 — propuestas WhatsApp para todas las capacidades aplicables
+
+**Objetivo:** completar la paridad conversacional de cambios usando el circuito seguro de Etapa 2.
+
+**Ventana orientativa:** incremental, después de que cada command pase el gate.
+
+Orden:
+
+1. Cambios propios de bajo riesgo.
+2. Solicitudes operativas reversibles.
+3. Mantenimiento y comunicaciones.
+4. CRM, visitas y contratos no financieros.
+5. Cobros, cuotas, liquidaciones y contratos con `dual_control`.
+6. Usuarios, permisos, bancos y eliminaciones solo con controles reforzados.
+
+Cada command requiere:
+
+- Schema versionado y summary/diff específico.
+- Policy y riesgo declarados.
+- Handler idempotente compartido con REST.
+- Precondiciones/versiones de entidad.
+- E2E WhatsApp → propuesta → web/mobile → ejecución → notificación.
+- Caso de rechazo, vencimiento, conflicto, replay y doble aprobación.
+
+No se libera un command mediante una herramienta genérica de endpoint.
+
+### Etapa 7 — paridad restante e integraciones
+
+**Objetivo:** completar capacidades con valor comprobado sin volver a una expansión horizontal indiscriminada.
+
+Orden provisional:
+
+- Comunicaciones y preferencias unificadas.
+- Reportes mobile útiles, no pantallas placeholder.
+- Endurecer la conciliación bancaria neutral existente y validar revisión manual, alertas, replay, concurrencia y contabilidad de extremo a extremo.
+- Endurecer el adapter MercadoPago existente: unicidad por ID externo, validación de monto/moneda/factura, replay/concurrencia y conexión al mismo command transaccional de pago, cuenta corriente, recibo y notificación. Sandbox verde no equivale a producción.
+- Proveedor bancario productivo: movimientos, webhooks y cuentas virtuales por propiedad. El job de liquidaciones permanece fail-closed mientras la “transferencia” sea una referencia `TRF-*` simulada.
+- Reemplazar/endurecer la firma digital mock existente con un proveedor real: identidad, firma de webhook, estados/transiciones, company scope, inbox/replay, idempotencia, transacción y reconciliación validados antes de habilitarla.
+- ARCA/facturación según necesidad regulatoria validada.
+- Push notifications para mobile con registro, revocación y preferencias por usuario.
+- Envío durable de recibos y notificaciones, con reintentos e idempotencia del proveedor.
+- Reemplazar el adapter siempre-mock de portales por un proveedor real y validado; bloquear publicación productiva hasta entonces, conservando el dominio/API scoped ya implementado.
+- Configuración y operaciones masivas web-only, accesibles desde WhatsApp mediante deep link.
+
+Cripto, Qdrant o reescritura en Rust no entran al roadmap sin caso de negocio, prototipo, costo total y ADR aprobada.
+
+### Etapa 8 — confiabilidad, cumplimiento y rollout
+
+**Objetivo:** operar en producción con evidencia y límites claros.
+
+Trabajo:
+
+- [ ] Política de privacidad y retención implementada, no solo documentada.
+- [ ] Exportación/borrado de datos que incluya IA y WhatsApp.
+- [ ] Gestión y rotación de secretos sin defaults inseguros.
+- [ ] Backup/restore probado y plan de recuperación con responsables y objetivos RPO/RTO.
+- [ ] Observabilidad de inbox, outbox, propuestas, commands y proveedores.
+- [ ] Alertas sin PII, con runbook y ensayo de estado firing/recovery.
+- [ ] Rate limiting, protección contra abuso y presupuestos de consumo por compañía/canal.
+- [ ] Headers de seguridad y controles de borde verificados en el entorno productivo; endurecer la CSP existente y retirar `unsafe-inline` mediante nonces/hashes cuando sea viable.
+- [ ] Definir y aprobar SLI/SLO, error budgets, disponibilidad, latencia, RPO/RTO, escalamiento y on-call; los números aspiracionales de documentos históricos no son compromisos vigentes por omisión.
+- [ ] Presupuestos de rendimiento y capacidad; optimizar queries, índices, paginación y caché solo a partir de mediciones.
+- [ ] Pruebas de carga, seguridad, concurrencia y recuperación.
+- [ ] WCAG 2.2 AA web y mobile con tecnologías asistivas.
+- [ ] E2E real por rol, navegador, viewport, Android/iOS y conectividad.
+- [ ] UAT con personas no técnicas.
+- [ ] Documentación OpenAPI, runbooks, manual de usuario y capacitación alineados con el producto vigente.
+- [ ] Setup reproducible desde un clon limpio: dependencias, env de ejemplo, infraestructura, migraciones, seed/demo, builds, tests y smoke de backend/frontend/batch; mobile se valida con su matriz nativa.
+- [ ] Estrategia y ensayo de migración de datos para cada compañía que ingrese al rollout.
+- [ ] Feature flags por compañía/capacidad.
+- [ ] Despliegue gradual, kill switch y rollback.
+
+## 10. Backlog inmediato ordenado
+
+### Ahora — bloqueantes
+
+1. Congelar releases; resolver #163–#166, unificar branches en `main` y reemplazar todo deploy por branch con tag exacto `vMAJOR.MINOR.PATCH`.
+2. Corregir las vulnerabilidades de la imagen PostgreSQL y convertir todos los controles de CI/CD en gates reales sobre el SHA desplegado.
+3. Aislamiento multiempresa, scope de objeto, datos bancarios y RBAC deny-by-default en backend/frontend/mobile/IA.
+4. Serialización segura, cierre de `/test/*`, protección de métricas, uploads privados y límites de abuso/auth.
+5. Integridad transaccional e idempotencia de pagos, cuentas, conciliación, recibos, ventas y efectos externos.
+6. Pending actions exactamente una vez, reautorizadas, versionadas y expirables.
+7. Inbox/outbox WhatsApp durable, deduplicación, privacidad/retención mínima y presupuestos antes de habilitar inbound.
+8. JWT fail-closed, usuarios inactivos, revocación y rehidratación de sesión sin perder compañía/permisos.
+9. Deshabilitar firma digital mock y cualquier adapter productivo simulado hasta implementar sus controles de webhook.
+10. Matriz de capacidades/roles/canales e historias fuente trazables con IDs únicos.
+11. OpenAPI canónico y clientes web/mobile generados con gate anti-drift.
+12. Mantener inbound y ejecución mutable por WhatsApp deshabilitados hasta los gates indicados en Etapas 0 y 2.
+
+### Siguiente — producto utilizable
+
+1. Bandeja Revisar web/mobile.
+2. Inicio y navegación por tareas/rol.
+3. Buyer y portales coherentes.
+4. Buscar persona y registrar cobro.
+5. Contrato/vencimiento y mantenimiento.
+6. Accesibilidad mobile base y responsive web.
+7. E2E real por rol/dispositivo con mocks completos o entorno aislado.
+
+### Después — escala multicanal
+
+1. Vinculación OTP y cobertura de lectura IA por dominio sobre el inbox/outbox ya validado.
+2. Commands progresivos con proposal/confirmation policy.
+3. Ventas/cuotas y capacidades CRM trazadas, no un bloque ambiguo “CRM completo”.
+4. Integraciones reales priorizadas y rollout gradual.
+
+## 11. Pruebas obligatorias
+
+### Contrato y autorización
+
+- Matriz generada contra rutas, navegación y tools.
+- Empresa A/B para cada query/command.
+- E2E REST A/B por cada controller y caso de uso sensible; no inferir aislamiento por pruebas unitarias de servicios vecinos.
+- IDs válidos pero no relacionados.
+- Staff con cada combinación de permisos, incluida lista vacía.
+- Reemplazar el test actual que consagra `RolesGuard` default-allow por casos deny-by-default para ruta sin metadata, recurso no mapeado y lista vacía.
+- Owner, tenant y buyer con objetos propios y ajenos.
+- Respuestas con relaciones cargadas nunca incluyen password hash/reset token, permisos no autorizados, PII innecesaria ni bancos ajenos.
+
+### Superficies públicas, archivos y webhooks
+
+- `/test/*` no existe en el artefacto productivo; métricas solo aceptan scrapers/orígenes y etiquetas acotados.
+- Upload por tipo real, tamaño, dimensión, decompression bomb, malware, cuota, autorización, expiración y acceso a temporales.
+- Auth distribuida ante fuerza bruta, spoof de `X-Forwarded-For`, bypass local, CORS no permitido, revocación y reload/multitab.
+- Webhooks WhatsApp, MercadoPago, firma y proveedores ante firma falsa, timestamp, replay, reorder, concurrencia, entidad/compañía ajena y transición inválida.
+
+### Propuestas y concurrencia
+
+- Doble click, reintento de red y veinte aprobadores concurrentes.
+- Proposal vencida, rechazada, obsoleta o ya ejecutada.
+- Cambio de permisos entre propuesta y aprobación.
+- Cambio de entidad entre preview y aprobación.
+- Falla antes/después de cada escritura o efecto externo.
+
+### Canales
+
+- Web desktop y mobile responsive.
+- Mobile Android e iOS.
+- Texto y audio WhatsApp.
+- Links vencidos, usados por otra cuenta o de otra compañía.
+- Offline/reconexión y push/deep link.
+- PDF/documentos renderizados realmente: contenido, checksum, persistencia, caracteres, importes y original/duplicado; no basta un PDFKit mock.
+
+### IA
+
+- Preguntas canónicas por rol/dominio.
+- Ambigüedad de personas, compañías, monedas y vocabulario.
+- Prompt injection en mensajes, documentos y notas.
+- Solicitudes fuera de rol y extracción masiva.
+- Respuesta con evidencia, fecha y abstención.
+
+### Usabilidad y accesibilidad
+
+- Pruebas moderadas con personas no técnicas desde Etapa 1.
+- Navegación por teclado y lector de pantalla web.
+- VoiceOver/TalkBack, tamaño de fuente y targets mobile.
+- Estados con datos, vacíos, loading, error y conflicto.
+- No aceptar un verde Axe sobre páginas vacías o Unauthorized.
+
+### CI, release, migraciones y recuperación
+
+- Lint/format en modo check y worktree limpio; ningún gate modifica el código que está validando.
+- Builds instalables de los cuatro paquetes y versión derivada del tag; no depender de `latest` ni de herramientas flotantes.
+- Cobertura sobre páginas, API/UI mobile y lógica financiera; retirar exclusiones que oculten negocio crítico y fijar umbrales por riesgo.
+- Playwright con datos reales y navegadores/viewport acordados; Detox Android/iOS bloqueante para recorridos críticos.
+- Instalación limpia y upgrade desde la versión productiva anterior, con checksums de migración, backup, restore y rollback expand/contract.
+- Tag inválido/fuera de `main`, push a `main`, despacho manual, dos releases concurrentes y fallo de smoke no pueden producir un deploy incorrecto.
+
+## 12. Definition of Done transversal
+
+Una capacidad está `Validada` solo si:
+
+- Tiene actor, objetivo, términos, estados e historia fuente/decisión trazable con ID único.
+- Tiene query/command de dominio y API versionada.
+- El cliente generado coincide con OpenAPI y CI no detecta drift.
+- Aísla compañía y objeto; política deny-by-default probada.
+- Está disponible en web y mobile según clasificación.
+- Tiene lectura y/o propuesta WhatsApp según clasificación.
+- Toda propuesta WhatsApp confirma en web/mobile.
+- Tiene policy de riesgo y aprobador explícito.
+- Es transaccional, idempotente y auditable cuando muta.
+- Tiene errores comprensibles, loading, vacío y recuperación.
+- Cumple accesibilidad e i18n.
+- Tiene contract, integration y E2E por rol/canal.
+- Tiene observabilidad y runbook.
+- Actualiza manifiesto y documentación canónica.
+- No depende de mocks/adapters simulados en producción ni expone secretos/PII fuera de la allowlist de respuesta.
+
+## 13. Métricas y gates de producto
+
+Objetivos iniciales:
+
+- Al menos 90% de éxito en tareas críticas con usuarios no técnicos.
+- Persona/contrato localizado en menos de 15 segundos.
+- Cobro habitual registrado en menos de 60 segundos.
+- Propuesta de bajo riesgo comprendida y revisada en menos de 60 segundos.
+- Cero accesos cruzados en la matriz automatizada.
+- Cero duplicaciones ante replay o concurrencia.
+- 100% de mutaciones WhatsApp representadas como propuestas auditables.
+- 100% de capacidades P0 con clasificación y evidencia web/mobile.
+- 100% de respuestas sensibles con evidencia o abstención.
+- Reducción progresiva de soporte requerido y abandono por recorrido.
+
+Gate de release por capacidad:
+
+1. Seguridad verde.
+2. Contrato y policy verdes.
+3. Web/mobile verdes.
+4. WhatsApp/evals verdes.
+5. Usabilidad/accesibilidad verdes.
+6. Observabilidad y rollback verdes.
+
+Gate de release productivo:
+
+1. Etapa -1 cerrada; cero PR/head temporal y `main == origin/main`.
+2. Tag exacto, nuevo e inmutable sobre el mismo SHA verde.
+3. Artefactos/checksums/SBOM y migraciones asociados a ese SHA.
+4. Aprobación de `production-release`, deploy único y smoke verde.
+5. GitHub Release y bundle de evidencia publicados; versión previa recuperable.
+
+## 14. Gobierno documental
+
+### Fuente de verdad objetivo
+
+- `docs/plan-de-trabajo.md`: único plan vigente, prioridades y gates.
+- `docs/auditoria-integral-2026-08-27.md`: baseline fechado; debe agregar owner, estado, commit de corte y documento reemplazado antes de considerarse canónico completo.
+- Manifiesto de capacidades: a crear en Etapa 1.
+- ADR de arquitectura as-is: a crear en Etapa 1.
+- `rag_plan.md`: workstream técnico subordinado mientras siga alineado.
+
+### Requisitos fuente, no descripción del estado actual
+
+- `docs/user/SISTEMA DE ALQUILERES.docx` y `docs/user/raw.md`: voz original del negocio; deben conservarse y reconciliarse sin perder requisitos.
+- `docs/user/historias-de-usuario*.md`: requisitos derivados; requieren IDs únicos, estado y links al manifiesto.
+- `docs/functional/drf-original.md`: necesidad/diseño original; sus opciones técnicas, integraciones y navegación no son decisiones vigentes.
+- `docs/user/casos-de-uso-datos-demo.md`: fixture de demostración, no evidencia multiempresa hasta incorporar compañía A/B y matriz de roles.
+
+### Documentos operativos a revalidar
+
+- `docs/deployment/deployment.md`: reescribir para un solo `main`, release por tag/SHA y operación real; eliminar flujo develop/preview, Node 20, rutas `/opt`/`/var` contradictorias y comandos que imprimen secretos.
+- `docs/development/local-setup.md`: completar setup ejecutable desde clon limpio y retirar “próximos pasos” anteriores a la implementación.
+- `docs/deployment/rag-production-readiness.md`: mantener sus umbrales, pero persistir evidencia asociada a tag/ambiente en vez de dejarla en `/tmp`.
+- `docs/technical/payments.md`: conservar como estado parcial fechado; quitar cripto como pendiente, resolver referencias `T213/T821` y separar adapters implementados de validación productiva.
+- `docs/technical/observability-prometheus.md`: ampliar métricas/alertas/runbooks para inbox, outbox, propuestas, commands y proveedores, con prueba firing/recovery.
+
+### Evidencia temporal
+
+- `docs/technical/frontend-wcag22-nielsen-audit.md`: evidencia fechada con hallazgos abiertos. Solo pasa a histórico después de revalidar y transferir `FT-WCAG-001..010` con resultado por cada uno.
+
+### Históricos hasta su reescritura
+
+- `docs/technical/arquitectura.md`.
+- `docs/technical/c4-model.md`.
+- `docs/technical/der.md`.
+- `docs/technical/sequence.md`.
+
+`qdrant_plan.md` se considera propuesta no aprobada. Debe archivarse o transformarse en ADR rechazado cuando se tome la decisión formal.
+
+### Reglas y trabajo pendiente
+
+- [ ] Crear un índice que clasifique el 100% de `docs/` y documentos raíz relacionados; ningún archivo queda con vigencia implícita.
+- [ ] Agregar a cada documento owner, estado, fecha de revisión, commit/tag de corte, audiencia y qué reemplaza; expresiones como “actual” caducan sin corte verificable.
+- [ ] Agregar banner visible y enlace a ADR/plan a todo documento histórico, reemplazado o rechazado; moverlo a una ubicación inequívoca cuando no se rompan referencias.
+- [ ] Validar enlaces, IDs de historias, referencias a tareas, comandos y rutas en CI.
+- [ ] Registrar decisiones explícitas para navegación, modelo de persona/contrato, SLO e integraciones; no resolver contradicciones borrando la fuente original.
+- [ ] Alinear README y `.github/copilot-instructions.md` con runtime, arquitectura y política Git/release vigentes. README actúa solo como portada operativa y no duplica roadmaps.
+- [ ] Actualizar documentación y manifiesto en el mismo PR que cambia comportamiento; el bundle de release demuestra qué versión documental acompaña al tag.
