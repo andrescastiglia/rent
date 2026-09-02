@@ -20,6 +20,7 @@ describe('DistributedRateLimitGuard', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    delete process.env.E2E_PUBLIC_RATE_LIMIT;
     guard = new DistributedRateLimitGuard(reflector as any, dataSource as any);
   });
 
@@ -54,6 +55,30 @@ describe('DistributedRateLimitGuard', () => {
       status: HttpStatus.TOO_MANY_REQUESTS,
     });
     expect(response.setHeader).toHaveBeenCalledWith('Retry-After', '37');
+  });
+
+  it('accepts an explicit higher limit for deterministic E2E runs', async () => {
+    reflector.getAllAndOverride.mockReturnValue(true);
+    process.env.E2E_PUBLIC_RATE_LIMIT = '1000';
+    dataSource.query.mockResolvedValue([{ requestCount: 11, retryAfter: 37 }]);
+
+    await expect(guard.canActivate(context())).resolves.toBe(true);
+  });
+
+  it('ignores the E2E override outside the test environment', async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    process.env.E2E_PUBLIC_RATE_LIMIT = '1000';
+    reflector.getAllAndOverride.mockReturnValue(true);
+    dataSource.query.mockResolvedValue([{ requestCount: 11, retryAfter: 37 }]);
+
+    try {
+      await expect(guard.canActivate(context())).rejects.toMatchObject({
+        status: HttpStatus.TOO_MANY_REQUESTS,
+      });
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
   });
 
   it('fails closed when the shared store returns no counter', async () => {

@@ -33,6 +33,18 @@ const DEFAULT_PUBLIC_POLICY: RateLimitPolicy = {
   windowSeconds: 60,
 };
 
+function resolveRateLimitPolicy(routeKey: string): RateLimitPolicy {
+  const policy = PUBLIC_RATE_LIMITS[routeKey] ?? DEFAULT_PUBLIC_POLICY;
+  if (process.env.NODE_ENV !== 'test') return policy;
+
+  const testLimit = Number(process.env.E2E_PUBLIC_RATE_LIMIT);
+  if (!Number.isSafeInteger(testLimit) || testLimit < policy.limit) {
+    return policy;
+  }
+
+  return { ...policy, limit: testLimit };
+}
+
 const SKIPPED_CONTROLLERS = new Set(['HealthController', 'MetricsController']);
 
 @Injectable()
@@ -54,7 +66,7 @@ export class DistributedRateLimitGuard implements CanActivate {
     }
 
     const routeKey = `${controller.name}.${handler.name}`;
-    const policy = PUBLIC_RATE_LIMITS[routeKey] ?? DEFAULT_PUBLIC_POLICY;
+    const policy = resolveRateLimitPolicy(routeKey);
     const request = context.switchToHttp().getRequest();
     const response = context.switchToHttp().getResponse();
     const clientAddress = String(
