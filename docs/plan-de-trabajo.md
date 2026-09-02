@@ -37,7 +37,6 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 ### Superficies públicas y sesiones
 
 - [ ] Autenticar y deduplicar los webhooks de proveedores reales de firma y comunicaciones; validar firma, timestamp, replay, compañía y transición de estado.
-- [ ] Aplicar rate limits distribuidos, CORS/proxy explícitos y secretos obligatorios en todos los entornos no test.
 
 ### WhatsApp seguro
 

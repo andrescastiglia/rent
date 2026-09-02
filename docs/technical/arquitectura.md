@@ -232,6 +232,7 @@ Consideraciones multi-tenant: separar datos por `company_id` en cada tabla o usa
 * **Seguridad operativa**: hardening de contenedores, escaneo de imágenes (Trivy), políticas de IAM mínimas.
 * **Protección de datos personales**: cumplir normativas locales (p. ej. Ley de Protección de Datos), anonimizar datos en backups si es requerido.
 * **Uploads**: el contrato de cuarentena, promoción, descarga y rollback se define en [Uploads seguros](uploads-seguros.md). No se sirve un directorio local de uploads.
+* **Runtime HTTP**: CORS, confianza de proxy, secretos fail-closed y rate limits compartidos se documentan en [Seguridad de runtime](seguridad-runtime.md).
 
 ---
 

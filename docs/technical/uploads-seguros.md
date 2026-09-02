@@ -37,8 +37,8 @@ permite correlacionar documento y compañía sin registrar nombre ni contenido.
 - Al guardar una propiedad, el backend valida la compañía y que la imagen no esté
   asignada a otra propiedad; recién entonces quita el estado temporal. La URL
   persistida no conserva el token temporal.
-- Definir `PROPERTY_IMAGE_SIGNING_SECRET` con un valor aleatorio dedicado. Durante
-  la transición existe fallback a `JWT_SECRET`; no reutilizarlo en producción.
+- Definir `PROPERTY_IMAGE_SIGNING_SECRET` con un valor aleatorio dedicado. La
+  validación de arranque lo exige en todo entorno que no sea de prueba.
 
 ## Despliegue y rollback
 
