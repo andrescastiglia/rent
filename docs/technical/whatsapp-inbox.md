@@ -74,9 +74,10 @@ cd backend
 npx ts-node src/communications/retry-communications.cli.ts
 ```
 
-Requiere `APP_URL` y `BATCH_COMMUNICATIONS_INTERNAL_TOKEN`. El endpoint ad hoc de
-WhatsApp y las herramientas IA de envío todavía invocan al proveedor directamente;
-deben migrarse o retirarse antes de considerar cerrado el outbox general.
+Requiere `APP_URL` y `BATCH_COMMUNICATIONS_INTERNAL_TOKEN`. Los endpoints ad hoc
+público e interno de WhatsApp todavía invocan al proveedor directamente; deben
+migrarse antes de considerar cerrado el outbox general. Las herramientas
+administrativas de WhatsApp ya no se exponen al catálogo de IA.
 
 Programar cada minuto, con exclusión solapada si el scheduler no la ofrece:
 
