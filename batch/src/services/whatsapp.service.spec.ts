@@ -112,6 +112,45 @@ describe("WhatsappService", () => {
     });
   });
 
+  it("processes the webhook inbox through the authenticated backend", async () => {
+    process.env.BACKEND_INTERNAL_URL = "http://backend:3001/";
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ selected: 2, processed: 1, failed: 1 }),
+    });
+    const service = new WhatsappService();
+
+    await expect(service.processWebhookInbox(500)).resolves.toEqual({
+      selected: 2,
+      processed: 1,
+      failed: 1,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://backend:3001/whatsapp/internal/process-inbox?limit=100",
+      {
+        method: "POST",
+        headers: { "x-batch-whatsapp-token": "internal-token" },
+      },
+    );
+  });
+
+  it("fails inbox processing when token is absent or backend rejects it", async () => {
+    delete process.env.BATCH_WHATSAPP_INTERNAL_TOKEN;
+    await expect(new WhatsappService().processWebhookInbox()).rejects.toThrow(
+      "BATCH_WHATSAPP_INTERNAL_TOKEN not configured",
+    );
+
+    process.env.BATCH_WHATSAPP_INTERNAL_TOKEN = "internal-token";
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({ message: "inbox unavailable" }),
+    });
+    await expect(new WhatsappService().processWebhookInbox()).rejects.toThrow(
+      "inbox unavailable",
+    );
+  });
+
   it("returns HTTP error detail from backend response", async () => {
     fetchMock.mockResolvedValue({
       ok: false,

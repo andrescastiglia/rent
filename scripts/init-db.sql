@@ -2630,6 +2630,24 @@ CREATE TABLE api_rate_limit_buckets (
 CREATE INDEX idx_api_rate_limit_expiry
     ON api_rate_limit_buckets(expires_at);
 
+CREATE TABLE whatsapp_webhook_inbox (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    event_key CHAR(64) NOT NULL UNIQUE,
+    payload JSONB NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'queued'
+        CHECK (status IN ('queued', 'processing', 'processed', 'failed', 'dead_letter')),
+    attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+    available_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    lease_expires_at TIMESTAMPTZ,
+    processed_at TIMESTAMPTZ,
+    last_error VARCHAR(120),
+    received_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_whatsapp_webhook_inbox_due
+    ON whatsapp_webhook_inbox(status, available_at, lease_expires_at);
+
 -- -----------------------------------------------------------------------------
 -- Portal Listings
 -- -----------------------------------------------------------------------------

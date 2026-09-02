@@ -188,6 +188,24 @@ async function runReminders(
   return { total: pendingInvoices.length, sent, failed };
 }
 
+program
+  .command("process-whatsapp-inbox")
+  .description("Process due WhatsApp webhook inbox records")
+  .option("--limit <count>", "Maximum records to process", positiveInteger, 25)
+  .option("--log <file>", "Write logs to the given file (no rotation)")
+  .action(
+    withTracedAction("process-whatsapp-inbox", async (options) => {
+      const { WhatsappService } = await import("./services/whatsapp.service");
+      const result = await new WhatsappService().processWebhookInbox(
+        options.limit,
+      );
+      logger.info("WhatsApp inbox process completed", result);
+      if (result.failed > 0) {
+        process.exitCode = 1;
+      }
+    }),
+  );
+
 type SyncIndicesSummary = {
   recordsTotal: number;
   recordsProcessed: number;

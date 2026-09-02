@@ -110,6 +110,12 @@ export function validateRuntimeEnvironment(
       'WHATSAPP_DOCUMENT_LINK_SECRET',
     );
   }
+  if (
+    valueOf(environment, 'WHATSAPP_INBOUND_ENABLED').toLowerCase() === 'true' &&
+    valueOf(environment, 'WHATSAPP_ENABLED').toLowerCase() !== 'true'
+  ) {
+    throw new Error('WHATSAPP_INBOUND_ENABLED requires WHATSAPP_ENABLED=true');
+  }
   if (valueOf(environment, 'MERCADOPAGO_ACCESS_TOKEN')) {
     required.push('MERCADOPAGO_WEBHOOK_SECRET');
   }

@@ -13,8 +13,16 @@ export interface WhatsappTemplatePayload {
   templateParameters?: string[];
 }
 
+export interface WhatsappInboxProcessResult {
+  selected: number;
+  processed: number;
+  failed: number;
+}
+
 export class WhatsappService {
-  private readonly backendUrl = `http://localhost:${process.env.PORT ?? "3001"}`;
+  private readonly backendUrl =
+    process.env.BACKEND_INTERNAL_URL ??
+    `http://localhost:${process.env.PORT ?? "3001"}`;
   private readonly internalToken =
     process.env.BATCH_WHATSAPP_INTERNAL_TOKEN ?? "";
 
@@ -38,6 +46,29 @@ export class WhatsappService {
       pdfUrl,
       ...template,
     });
+  }
+
+  async processWebhookInbox(limit = 25): Promise<WhatsappInboxProcessResult> {
+    if (!this.internalToken) {
+      throw new Error("BATCH_WHATSAPP_INTERNAL_TOKEN not configured");
+    }
+    const boundedLimit = Math.max(1, Math.min(100, Math.floor(limit) || 25));
+    const endpoint = `${this.backendUrl.replace(/\/$/, "")}/whatsapp/internal/process-inbox?limit=${boundedLimit}`;
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "x-batch-whatsapp-token": this.internalToken },
+    });
+    const data = (await response.json().catch(() => ({}))) as Partial<
+      WhatsappInboxProcessResult & { message: string }
+    >;
+    if (!response.ok) {
+      throw new Error(data.message || `HTTP ${response.status}`);
+    }
+    return {
+      selected: Number(data.selected ?? 0),
+      processed: Number(data.processed ?? 0),
+      failed: Number(data.failed ?? 0),
+    };
   }
 
   private async sendMessage(payload: {

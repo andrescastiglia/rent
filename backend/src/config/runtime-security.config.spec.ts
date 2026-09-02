@@ -98,4 +98,15 @@ describe('runtime security configuration', () => {
       NODE_ENV: 'test',
     });
   });
+
+  it('does not allow inbound WhatsApp while the provider is disabled', () => {
+    expect(() =>
+      validateRuntimeEnvironment(
+        completeEnvironment({
+          WHATSAPP_ENABLED: 'false',
+          WHATSAPP_INBOUND_ENABLED: 'true',
+        }),
+      ),
+    ).toThrow('WHATSAPP_INBOUND_ENABLED requires WHATSAPP_ENABLED=true');
+  });
 });

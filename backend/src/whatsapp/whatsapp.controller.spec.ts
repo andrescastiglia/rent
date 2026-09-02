@@ -9,7 +9,8 @@ describe('WhatsappController', () => {
     assertBatchToken: jest.fn(),
     verifyWebhookToken: jest.fn(),
     verifyWebhookSignature: jest.fn(),
-    handleIncomingWebhook: jest.fn(),
+    acceptIncomingWebhook: jest.fn(),
+    processDueWebhookInbox: jest.fn(),
     logIncomingError: jest.fn(),
     isDocumentTokenValid: jest.fn(),
   };
@@ -199,18 +200,35 @@ describe('WhatsappController', () => {
     expect(res.sendStatus).toHaveBeenCalledWith(HttpStatus.FORBIDDEN);
   });
 
-  it('receiveWebhook verifies signature, delegates and returns ack', () => {
+  it('receiveWebhook verifies signature, persists and then returns ack', async () => {
     const payload = { entry: [] } as any;
     whatsappService.verifyWebhookSignature.mockReturnValue(true);
-    expect(
+    whatsappService.acceptIncomingWebhook.mockResolvedValue({ received: true });
+    await expect(
       controller.receiveWebhook(payload, 'sha256=test', {
         rawBody: Buffer.from('{}'),
       } as any),
-    ).toEqual({
+    ).resolves.toEqual({
       received: true,
     });
     expect(whatsappService.verifyWebhookSignature).toHaveBeenCalled();
-    expect(whatsappService.handleIncomingWebhook).toHaveBeenCalledWith(payload);
+    expect(whatsappService.acceptIncomingWebhook).toHaveBeenCalledWith(payload);
+  });
+
+  it('processWebhookInbox authenticates the batch request', async () => {
+    whatsappService.processDueWebhookInbox.mockResolvedValue({
+      selected: 1,
+      processed: 1,
+      failed: 0,
+    });
+
+    await expect(
+      controller.processWebhookInbox('batch-token', '10'),
+    ).resolves.toEqual({ selected: 1, processed: 1, failed: 0 });
+    expect(whatsappService.assertBatchToken).toHaveBeenCalledWith(
+      'batch-token',
+    );
+    expect(whatsappService.processDueWebhookInbox).toHaveBeenCalledWith(10);
   });
 
   it('downloadDocument rejects invalid token', async () => {

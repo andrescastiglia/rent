@@ -72,7 +72,7 @@ export class WhatsappController {
   @Public()
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
-  receiveWebhook(
+  async receiveWebhook(
     @Body() payload: unknown,
     @Headers('x-hub-signature-256') signature: string | undefined,
     @Req() request: RawBodyRequest<Request>,
@@ -82,10 +82,17 @@ export class WhatsappController {
     ) {
       throw new ForbiddenException('Invalid WhatsApp webhook signature');
     }
-    void Promise.resolve(
-      this.whatsappService.handleIncomingWebhook(payload),
-    ).catch((error) => this.whatsappService.logIncomingError(error));
-    return { received: true };
+    return this.whatsappService.acceptIncomingWebhook(payload);
+  }
+
+  @Public()
+  @Post('internal/process-inbox')
+  processWebhookInbox(
+    @Headers('x-batch-whatsapp-token') token?: string,
+    @Query('limit') limit?: string,
+  ) {
+    this.whatsappService.assertBatchToken(token);
+    return this.whatsappService.processDueWebhookInbox(Number(limit ?? 25));
   }
 
   @Public()

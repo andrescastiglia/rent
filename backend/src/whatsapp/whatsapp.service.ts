@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   BadGatewayException,
   Injectable,
   Logger,
@@ -8,7 +9,12 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import {
+  createHash,
+  createHmac,
+  randomUUID,
+  timingSafeEqual,
+} from 'node:crypto';
 import { ModuleRef } from '@nestjs/core';
 import OpenAI, { toFile } from 'openai';
 import { DataSource } from 'typeorm';
@@ -96,7 +102,9 @@ export class WhatsappService implements OnApplicationBootstrap {
     ) || 604800,
   );
   private readonly enabled =
-    (process.env.WHATSAPP_ENABLED ?? 'true').toLowerCase() !== 'false';
+    process.env.WHATSAPP_ENABLED?.toLowerCase() === 'true';
+  private readonly inboundEnabled =
+    process.env.WHATSAPP_INBOUND_ENABLED?.toLowerCase() === 'true';
 
   constructor(
     @Optional()
@@ -263,6 +271,132 @@ export class WhatsappService implements OnApplicationBootstrap {
       'Failed to process incoming WhatsApp message',
       error instanceof Error ? error.stack : String(error),
     );
+  }
+
+  async acceptIncomingWebhook(payload: unknown): Promise<{ received: true }> {
+    if (!this.dataSource || this.dataSource.options.type !== 'postgres') {
+      throw new ServiceUnavailableException(
+        'WhatsApp webhook inbox is unavailable',
+      );
+    }
+    if (!payload || typeof payload !== 'object') {
+      throw new BadRequestException('Invalid WhatsApp webhook payload');
+    }
+
+    const serialized = JSON.stringify(payload);
+    if (Buffer.byteLength(serialized, 'utf8') > 256 * 1024) {
+      throw new BadRequestException('WhatsApp webhook payload is too large');
+    }
+    const eventKey = createHash('sha256').update(serialized).digest('hex');
+    const inserted = await this.dataSource.query(
+      `INSERT INTO whatsapp_webhook_inbox (
+         event_key, payload, status, attempts, available_at
+       ) VALUES ($1, $2::jsonb, 'queued', 0, NOW())
+       ON CONFLICT (event_key) DO NOTHING
+       RETURNING id`,
+      [eventKey, serialized],
+    );
+
+    const inboxId = inserted?.[0]?.id as string | undefined;
+    if (inboxId && this.inboundEnabled) {
+      void this.processWebhookInboxItem(inboxId).catch((error) =>
+        this.logIncomingError(error),
+      );
+    }
+    return { received: true };
+  }
+
+  async processDueWebhookInbox(
+    requestedLimit = 25,
+  ): Promise<{ selected: number; processed: number; failed: number }> {
+    if (!this.inboundEnabled) {
+      return { selected: 0, processed: 0, failed: 0 };
+    }
+    if (!this.dataSource || this.dataSource.options.type !== 'postgres') {
+      throw new ServiceUnavailableException(
+        'WhatsApp webhook inbox is unavailable',
+      );
+    }
+    const limit = Math.max(1, Math.min(100, Math.floor(requestedLimit) || 25));
+    const due = await this.dataSource.query(
+      `SELECT id
+         FROM whatsapp_webhook_inbox
+        WHERE attempts < 5
+          AND (
+            (status IN ('queued', 'failed') AND available_at <= NOW())
+            OR (status = 'processing' AND lease_expires_at < NOW())
+          )
+        ORDER BY available_at ASC, received_at ASC
+        LIMIT $1`,
+      [limit],
+    );
+
+    let processed = 0;
+    let failed = 0;
+    for (const row of due) {
+      const result = await this.processWebhookInboxItem(String(row.id));
+      if (result === 'processed') processed += 1;
+      if (result === 'failed') failed += 1;
+    }
+    return { selected: due.length, processed, failed };
+  }
+
+  private async processWebhookInboxItem(
+    inboxId: string,
+  ): Promise<'processed' | 'failed' | 'skipped'> {
+    if (!this.dataSource) return 'skipped';
+    const claimed = await this.dataSource.query(
+      `UPDATE whatsapp_webhook_inbox
+          SET status = 'processing', attempts = attempts + 1,
+              lease_expires_at = NOW() + INTERVAL '5 minutes',
+              updated_at = NOW()
+        WHERE id = $1::uuid
+          AND attempts < 5
+          AND (
+            (status IN ('queued', 'failed') AND available_at <= NOW())
+            OR (status = 'processing' AND lease_expires_at < NOW())
+          )
+      RETURNING payload, attempts`,
+      [inboxId],
+    );
+    if (!claimed?.[0]) return 'skipped';
+
+    try {
+      await this.handleIncomingWebhook(claimed[0].payload);
+      await this.dataSource.query(
+        `UPDATE whatsapp_webhook_inbox
+            SET status = 'processed', processed_at = NOW(),
+                lease_expires_at = NULL, last_error = NULL, updated_at = NOW()
+          WHERE id = $1::uuid`,
+        [inboxId],
+      );
+      return 'processed';
+    } catch (error) {
+      const attempts = Number(claimed[0].attempts);
+      const isDeadLetter = attempts >= 5;
+      const backoffSeconds = Math.min(
+        3600,
+        30 * 2 ** Math.max(0, attempts - 1),
+      );
+      await this.dataSource.query(
+        `UPDATE whatsapp_webhook_inbox
+            SET status = $2,
+                available_at = CASE
+                  WHEN $2 = 'dead_letter' THEN available_at
+                  ELSE NOW() + ($3 * INTERVAL '1 second')
+                END,
+                lease_expires_at = NULL, last_error = $4, updated_at = NOW()
+          WHERE id = $1::uuid`,
+        [
+          inboxId,
+          isDeadLetter ? 'dead_letter' : 'failed',
+          backoffSeconds,
+          error instanceof Error ? error.name : 'UnknownError',
+        ],
+      );
+      this.logIncomingError(error);
+      return 'failed';
+    }
   }
 
   isDocumentTokenValid(documentId: string, token?: string): boolean {

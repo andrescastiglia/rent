@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   BadGatewayException,
   ServiceUnavailableException,
   UnauthorizedException,
@@ -160,9 +161,10 @@ describe('WhatsappService', () => {
     (Date.now as jest.Mock).mockRestore();
   });
 
-  it('uses environment defaults for API base, enabled flag and document URL settings', async () => {
+  it('uses environment defaults for API base and document URL settings', async () => {
     const service = buildServiceWithExactEnv({
       PORT: '3456',
+      WHATSAPP_ENABLED: 'true',
       WHATSAPP_PHONE_NUMBER_ID: 'phone-1',
       WHATSAPP_ACCESS_TOKEN: 'token-1',
       WHATSAPP_DOCUMENT_LINK_SECRET: 'doc-secret',
@@ -407,6 +409,84 @@ describe('WhatsappService', () => {
       false,
     );
     expect(service.isDocumentTokenValid(documentId, 'badformat')).toBe(false);
+  });
+
+  it('persists a bounded webhook payload before acknowledging it', async () => {
+    const query = jest.fn().mockResolvedValue([{ id: 'inbox-1' }]);
+    const service = buildService(
+      { WHATSAPP_INBOUND_ENABLED: 'false' },
+      buildDataSource(query),
+    );
+    const payload = { entry: [{ changes: [] }] };
+
+    await expect(service.acceptIncomingWebhook(payload)).resolves.toEqual({
+      received: true,
+    });
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO whatsapp_webhook_inbox'),
+      [expect.stringMatching(/^[0-9a-f]{64}$/), JSON.stringify(payload)],
+    );
+
+    await expect(service.acceptIncomingWebhook(null)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it('processes due inbox records with an atomic lease', async () => {
+    const query = jest.fn().mockImplementation(async (sql: string) => {
+      if (sql.includes('SELECT id') && sql.includes('whatsapp_webhook_inbox')) {
+        return [{ id: '10000000-0000-0000-0000-000000000001' }];
+      }
+      if (sql.includes('RETURNING payload, attempts')) {
+        return [{ payload: { entry: [] }, attempts: 1 }];
+      }
+      return [];
+    });
+    const service = buildService(
+      { WHATSAPP_INBOUND_ENABLED: 'true' },
+      buildDataSource(query),
+    );
+
+    await expect(service.processDueWebhookInbox(500)).resolves.toEqual({
+      selected: 1,
+      processed: 1,
+      failed: 0,
+    });
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('LIMIT $1'),
+      [100],
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("SET status = 'processed'"),
+      ['10000000-0000-0000-0000-000000000001'],
+    );
+  });
+
+  it('moves an inbox record to dead-letter after five failed attempts', async () => {
+    const query = jest.fn().mockImplementation(async (sql: string) => {
+      if (sql.includes('RETURNING payload, attempts')) {
+        return [{ payload: { entry: [] }, attempts: 5 }];
+      }
+      return [];
+    });
+    const service = buildService(
+      { WHATSAPP_INBOUND_ENABLED: 'true' },
+      buildDataSource(query),
+    );
+    jest
+      .spyOn(service, 'handleIncomingWebhook')
+      .mockRejectedValue(new Error('processor failed'));
+    jest.spyOn(service, 'logIncomingError').mockImplementation(() => undefined);
+
+    await expect(
+      (service as any).processWebhookInboxItem(
+        '10000000-0000-0000-0000-000000000001',
+      ),
+    ).resolves.toBe('failed');
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('available_at = CASE'),
+      ['10000000-0000-0000-0000-000000000001', 'dead_letter', 480, 'Error'],
+    );
   });
 
   it('assertBatchToken enforces internal token', () => {
