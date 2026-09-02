@@ -9,10 +9,9 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 ## 1. Completar releases y despliegue
 
 - [ ] Revisar las GitHub Apps instaladas y cualquier autodeploy externo; el repositorio no tiene webhooks configurados.
-- [ ] Promover artefactos inmutables de backend, web, batch y mobile con checksums/SBOM; no recompilar en el servidor.
-- [ ] Convertir Ansible a releases versionados con cambio atómico, migraciones expand/contract, smoke tests y rollback probado.
-- [ ] Reescribir y ensayar `docs/deployment/deployment.md` para el flujo por tag/SHA, TLS, secretos, rutas y recuperación vigentes.
-- [ ] Antes del despliegue, inventariar y migrar las referencias productivas legadas `/uploads/properties/` a `property_images`, validando conteos y checksums.
+- [ ] Ensayar en un entorno equivalente a producción el cambio atómico y rollback de Ansible, incluidas migraciones expand/contract y smoke tests.
+- [ ] Ensayar `docs/deployment/deployment.md` de punta a punta con TLS, secretos, rutas y recuperación vigentes.
+- [ ] Antes del despliegue, ejecutar sobre producción el inventario y la migración asistida de referencias legadas `/uploads/properties/` a `property_images`, validando conteos y checksums.
 - [ ] Crear el primer tag únicamente con `main` sincronizado, cero PR, cero heads adicionales y todos los gates verdes.
 
 ## 2. Cerrar bloqueantes P0
@@ -25,22 +24,15 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 
 - [ ] Asegurar que PDF, S3, WhatsApp y proveedores se ejecuten desde outbox después del commit.
 
-### Superficies públicas y sesiones
-
-- [ ] Autenticar y deduplicar los webhooks de proveedores reales de firma y comunicaciones; validar firma, timestamp, replay, compañía y transición de estado.
-
 ### WhatsApp seguro
 
-- [ ] Cerrar la ventana residual entre aceptación de Meta y persistencia local mediante idempotencia nativa verificable o reconciliación con el proveedor.
-- [ ] Mantener las propuestas inmutables, con expiración, hash, reautenticación, autorización recalculada y ejecución exactamente una vez.
+- [ ] Garantizar ejecución exactamente una vez para cada herramienta mutable aprobada, incluso si el proceso cae después del efecto de dominio y antes de persistir el resultado.
 
 ## 3. Unificar contrato de producto
 
-- [ ] Publicar un manifiesto canónico de capacidades con roles, permisos, compañía, canales, riesgo, confirmación, estado y evidencia.
 - [ ] Reconciliar DOCX, `raw.md` e historias; renumerar IDs duplicados y registrar aceptación/rechazo sin perder requisitos sensibles.
 - [ ] Resolver mediante ADR las contradicciones de persona/roles, owner sin login, contratos alquiler/venta, `unitId`, estados e importación DOCX.
 - [ ] Elegir una única arquitectura de información y navegación para web/mobile; marcar alternativas históricas como reemplazadas.
-- [ ] Publicar OpenAPI versionado, generar clientes web/mobile de forma reproducible y bloquear drift en CI.
 - [ ] Homologar vocabulario, permisos y contratos entre backend, web, mobile e IA.
 
 ## 4. Completar recorridos de producto
@@ -51,7 +43,6 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 - [ ] Propiedades: filtros útiles, interesados, visitas y aviso consentido al propietario con fecha, oferta y valor.
 - [ ] Ventas: cuotas transaccionales, atrasos, saldo a favor/crédito y original/duplicado verificables.
 - [ ] Mantenimiento: solicitud, asignación, seguimiento, cierre, adjuntos, auditoría y notificaciones idempotentes.
-- [ ] Implementar bandeja única “Revisar” y un Inicio orientado a tareas en web/mobile.
 - [ ] Corregir `FT-WCAG-001..010` y validar WCAG 2.2 AA, teclado, lector de pantalla, contraste y estados de error.
 
 ## 5. Completar canales e integraciones
@@ -64,8 +55,7 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 
 ## 6. Operación, calidad y documentación
 
-- [ ] Definir SLI/SLO, error budgets, on-call y alertas con pruebas de disparo/recuperación.
-- [ ] Elevar cobertura mobile y E2E real: navegadores soportados, backend real, Android e iOS.
+- [ ] Completar E2E con backend real en Android e iOS y conservar evidencia por plataforma.
 - [ ] Validar instalación limpia y upgrade desde la versión productiva anterior con backup/restore ensayado.
 - [ ] Cerrar gates RAG: integridad, recall ≥ 0,95, errores < 1 %, respuesta p95 < 8 s y frescura p95 < 60 s; conservar evidencia por tag/compañía.
 - [ ] Clasificar el 100 % de `docs/` como fuente, vigente, operativo, evidencia o histórico; agregar owner, corte, estado y reemplazo.
