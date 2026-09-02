@@ -30,6 +30,7 @@ import {
 
 type RequestUser = {
   id: string;
+  companyId: string;
   role: UserRole;
   email?: string | null;
   phone?: string | null;
@@ -66,8 +67,8 @@ export class PaymentsService {
    */
   async create(
     dto: CreatePaymentDto,
-    _userId?: string,
-    companyId: string = '',
+    _userId: string | undefined,
+    companyId: string,
   ): Promise<Payment> {
     // Verificar que la cuenta existe (throws NotFoundException if not found)
     const account = await this.tenantAccountsService.findOne(
@@ -115,8 +116,12 @@ export class PaymentsService {
    * @param id ID del pago
    * @param dto Datos a actualizar
    */
-  async update(id: string, dto: UpdatePaymentDto): Promise<Payment> {
-    const payment = await this.findOne(id);
+  async update(
+    id: string,
+    dto: UpdatePaymentDto,
+    companyId: string,
+  ): Promise<Payment> {
+    const payment = await this.findOne(id, companyId);
 
     if (payment.status !== PaymentStatus.PENDING) {
       throw new BadRequestException('Only pending payments can be edited');
@@ -149,7 +154,7 @@ export class PaymentsService {
     }
 
     await this.paymentsRepository.save(payment);
-    return this.findOne(id);
+    return this.findOne(id, companyId);
   }
 
   /**
@@ -157,8 +162,8 @@ export class PaymentsService {
    * @param id ID del pago
    * @returns El pago confirmado con recibo
    */
-  async confirm(id: string): Promise<Payment> {
-    const payment = await this.findOne(id);
+  async confirm(id: string, companyId: string): Promise<Payment> {
+    const payment = await this.findOne(id, companyId);
 
     if (payment.status !== PaymentStatus.PENDING) {
       throw new BadRequestException('Payment is not pending');
@@ -196,7 +201,7 @@ export class PaymentsService {
       status: PaymentStatus.COMPLETED,
     });
 
-    return this.findOne(id);
+    return this.findOne(id, companyId);
   }
 
   /**
@@ -367,9 +372,9 @@ export class PaymentsService {
    * @param id ID del pago
    * @returns El pago
    */
-  async findOne(id: string): Promise<Payment> {
+  async findOne(id: string, companyId: string): Promise<Payment> {
     const payment = await this.paymentsRepository.findOne({
-      where: { id },
+      where: { id, companyId },
       relations: [
         'tenantAccount',
         'tenantAccount.lease',
@@ -403,6 +408,9 @@ export class PaymentsService {
       .leftJoinAndSelect('payment.receipt', 'receipt')
       .leftJoinAndSelect('payment.items', 'items')
       .where('payment.id = :id', { id })
+      .andWhere('payment.company_id = :companyId', {
+        companyId: user.companyId,
+      })
       .andWhere('payment.deleted_at IS NULL');
 
     this.applyVisibilityScope(query, user);
@@ -431,6 +439,9 @@ export class PaymentsService {
       .where('(payment.tenant_id = :tenantId OR tenant.user_id = :tenantId)', {
         tenantId,
       })
+      .andWhere('payment.company_id = :companyId', {
+        companyId: user.companyId,
+      })
       .andWhere('payment.deleted_at IS NULL')
       .orderBy('receipt.issuedAt', 'DESC');
 
@@ -438,16 +449,19 @@ export class PaymentsService {
     return query.getMany();
   }
 
-  async listCreditNotesByInvoice(invoiceId: string): Promise<CreditNote[]> {
+  async listCreditNotesByInvoice(
+    invoiceId: string,
+    companyId: string,
+  ): Promise<CreditNote[]> {
     return this.creditNotesRepository.find({
-      where: { invoiceId },
+      where: { invoiceId, companyId },
       order: { issuedAt: 'DESC' },
     });
   }
 
-  async findCreditNoteById(id: string): Promise<CreditNote> {
+  async findCreditNoteById(id: string, companyId: string): Promise<CreditNote> {
     const note = await this.creditNotesRepository.findOne({
-      where: { id },
+      where: { id, companyId },
       relations: ['invoice'],
     });
     if (!note) {
@@ -463,7 +477,7 @@ export class PaymentsService {
    */
   async findAll(
     filters: PaymentFiltersDto,
-    user?: RequestUser,
+    user: RequestUser,
   ): Promise<{ data: Payment[]; total: number; page: number; limit: number }> {
     const {
       tenantId,
@@ -490,7 +504,10 @@ export class PaymentsService {
       .leftJoinAndSelect('tenant.user', 'tenantUser')
       .leftJoinAndSelect('payment.receipt', 'receipt')
       .leftJoinAndSelect('payment.items', 'items')
-      .where('payment.deleted_at IS NULL');
+      .where('payment.deleted_at IS NULL')
+      .andWhere('payment.company_id = :companyId', {
+        companyId: user.companyId,
+      });
 
     if (tenantId) {
       query.andWhere(
@@ -533,9 +550,7 @@ export class PaymentsService {
       query.andWhere('payment.payment_date <= :toDate', { toDate });
     }
 
-    if (user) {
-      this.applyVisibilityScope(query, user);
-    }
+    this.applyVisibilityScope(query, user);
 
     query
       .orderBy('payment.paymentDate', 'DESC')
@@ -588,8 +603,8 @@ export class PaymentsService {
    * @param id ID del pago
    * @returns El pago cancelado
    */
-  async cancel(id: string): Promise<Payment> {
-    const payment = await this.findOne(id);
+  async cancel(id: string, companyId: string): Promise<Payment> {
+    const payment = await this.findOne(id, companyId);
 
     if (payment.status === PaymentStatus.CANCELLED) {
       throw new BadRequestException('Payment is already cancelled');
@@ -611,7 +626,7 @@ export class PaymentsService {
     await this.paymentsRepository.update(payment.id, {
       status: PaymentStatus.CANCELLED,
     });
-    return this.findOne(id);
+    return this.findOne(id, companyId);
   }
 
   private async createCreditNotesForSettledLateFees(

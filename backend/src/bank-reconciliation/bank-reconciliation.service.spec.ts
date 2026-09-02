@@ -244,7 +244,7 @@ describe('BankReconciliationService', () => {
       undefined,
       companyId,
     );
-    expect(payments.confirm).toHaveBeenCalledWith(paymentId);
+    expect(payments.confirm).toHaveBeenCalledWith(paymentId, companyId);
     expect(storedMovement.status).toBe(BankMovementStatus.RECONCILED);
   });
 
@@ -400,7 +400,7 @@ describe('BankReconciliationService', () => {
 
     await expect(service.reconcile(movementId, companyId)).resolves.toBe(final);
     expect(payments.create).not.toHaveBeenCalled();
-    expect(payments.confirm).toHaveBeenCalledWith(paymentId);
+    expect(payments.confirm).toHaveBeenCalledWith(paymentId, companyId);
   });
 
   it('persists a failed status for a non-confirmable payment', async () => {

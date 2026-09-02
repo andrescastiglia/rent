@@ -195,6 +195,7 @@ const toScopedUser = (context: AiExecutionContext) => ({
 
 const toRequestUser = (context: AiExecutionContext) => ({
   id: context.userId,
+  companyId: context.companyId,
   role: context.role,
   email: null,
   phone: null,
@@ -1526,9 +1527,9 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.paymentsService.confirm(id);
+        return deps.paymentsService.confirm(id, context.companyId ?? '');
       },
     },
     {
@@ -1539,11 +1540,15 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(UpdatePaymentDto.zodSchema, { id: uuidSchema }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(UpdatePaymentDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.paymentsService.update(parsed.id, parsed);
+        return deps.paymentsService.update(
+          parsed.id,
+          parsed,
+          context.companyId ?? '',
+        );
       },
     },
     {
@@ -1606,9 +1611,9 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.paymentsService.cancel(id);
+        return deps.paymentsService.cancel(id, context.companyId ?? '');
       },
     },
     {
@@ -1743,7 +1748,10 @@ export function buildAiToolDefinitions(
           id,
           toRequestUser(context) as any,
         );
-        return deps.paymentsService.listCreditNotesByInvoice(id);
+        return deps.paymentsService.listCreditNotesByInvoice(
+          id,
+          context.companyId ?? '',
+        );
       },
     },
     {
@@ -1797,8 +1805,10 @@ export function buildAiToolDefinitions(
         const { creditNoteId } = z
           .object({ creditNoteId: uuidSchema })
           .parse(args) as any;
-        const note =
-          await deps.paymentsService.findCreditNoteById(creditNoteId);
+        const note = await deps.paymentsService.findCreditNoteById(
+          creditNoteId,
+          context.companyId ?? '',
+        );
         await deps.invoicesService.findOneScoped(
           note.invoiceId,
           toRequestUser(context) as any,

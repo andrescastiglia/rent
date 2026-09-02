@@ -131,7 +131,7 @@ describe('PaymentsService', () => {
     paymentItemsRepository.create!.mockImplementation((data) => ({ ...data }));
     paymentItemsRepository.save!.mockResolvedValue([]);
 
-    await service.create(dto as any);
+    await service.create(dto as any, undefined, 'company-1');
 
     expect(paymentsRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -156,16 +156,20 @@ describe('PaymentsService', () => {
     paymentsRepository.save!.mockResolvedValue(payment);
     paymentsRepository.findOne!.mockResolvedValue(payment);
 
-    const result = await service.update('pay-1', {
-      items: [
-        {
-          description: 'Alquiler',
-          amount: 200,
-          quantity: 1,
-          type: PaymentItemType.CHARGE,
-        },
-      ],
-    } as any);
+    const result = await service.update(
+      'pay-1',
+      {
+        items: [
+          {
+            description: 'Alquiler',
+            amount: 200,
+            quantity: 1,
+            type: PaymentItemType.CHARGE,
+          },
+        ],
+      } as any,
+      'company-1',
+    );
 
     expect(paymentItemsRepository.delete).toHaveBeenCalledWith({
       paymentId: 'pay-1',
@@ -187,6 +191,7 @@ describe('PaymentsService', () => {
 
     await service.findReceiptsByTenant('tenant-1', {
       id: 'admin-1',
+      companyId: 'company-1',
       role: UserRole.ADMIN,
     });
 
@@ -200,6 +205,10 @@ describe('PaymentsService', () => {
     );
     expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
       'payment.deleted_at IS NULL',
+    );
+    expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+      'payment.company_id = :companyId',
+      { companyId: 'company-1' },
     );
   });
 
@@ -247,8 +256,9 @@ describe('PaymentsService', () => {
 
     paymentsRepository.update!.mockResolvedValue({ affected: 1 });
 
-    const result = await service.confirm('pay-1');
+    const result = await service.confirm('pay-1', 'company-1');
 
+    expect(service.findOne).toHaveBeenNthCalledWith(1, 'pay-1', 'company-1');
     expect(tenantAccountsService.addMovement).toHaveBeenCalledWith(
       'acc-from-invoice',
       expect.anything(),
@@ -277,7 +287,7 @@ describe('PaymentsService', () => {
 
     jest.spyOn(service, 'findOne').mockResolvedValue(payment);
 
-    await expect(service.confirm('pay-1')).rejects.toBeInstanceOf(
+    await expect(service.confirm('pay-1', 'company-1')).rejects.toBeInstanceOf(
       BadRequestException,
     );
     expect(paymentsRepository.update).not.toHaveBeenCalled();
@@ -292,13 +302,17 @@ describe('PaymentsService', () => {
     });
 
     await expect(
-      service.create({
-        tenantAccountId: 'acc-1',
-        amount: undefined as any,
-        currencyCode: 'ARS',
-        paymentDate: '2025-01-10',
-        method: 'cash',
-      } as any),
+      service.create(
+        {
+          tenantAccountId: 'acc-1',
+          amount: undefined as any,
+          currencyCode: 'ARS',
+          paymentDate: '2025-01-10',
+          method: 'cash',
+        } as any,
+        undefined,
+        'company-1',
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -310,21 +324,25 @@ describe('PaymentsService', () => {
     });
 
     await expect(
-      service.create({
-        tenantAccountId: 'acc-1',
-        amount: 999,
-        currencyCode: 'ARS',
-        paymentDate: '2025-01-10',
-        method: 'cash',
-        items: [
-          {
-            description: 'Alquiler',
-            amount: 100,
-            quantity: 1,
-            type: PaymentItemType.CHARGE,
-          },
-        ],
-      } as any),
+      service.create(
+        {
+          tenantAccountId: 'acc-1',
+          amount: 999,
+          currencyCode: 'ARS',
+          paymentDate: '2025-01-10',
+          method: 'cash',
+          items: [
+            {
+              description: 'Alquiler',
+              amount: 100,
+              quantity: 1,
+              type: PaymentItemType.CHARGE,
+            },
+          ],
+        } as any,
+        undefined,
+        'company-1',
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -334,7 +352,7 @@ describe('PaymentsService', () => {
       status: PaymentStatus.CANCELLED,
     } as Payment);
 
-    await expect(service.cancel('pay-1')).rejects.toBeInstanceOf(
+    await expect(service.cancel('pay-1', 'company-1')).rejects.toBeInstanceOf(
       BadRequestException,
     );
   });
@@ -357,8 +375,9 @@ describe('PaymentsService', () => {
       .mockResolvedValueOnce(cancelled);
     paymentsRepository.update!.mockResolvedValue({ affected: 1 });
 
-    const result = await service.cancel('pay-2');
+    const result = await service.cancel('pay-2', 'company-1');
 
+    expect(service.findOne).toHaveBeenNthCalledWith(1, 'pay-2', 'company-1');
     expect(tenantAccountsService.addMovement).toHaveBeenCalledWith(
       'acc-1',
       expect.anything(),
@@ -373,14 +392,14 @@ describe('PaymentsService', () => {
 
   it('should list and resolve credit notes by id', async () => {
     _creditNotesRepository.find!.mockResolvedValue([{ id: 'cn-1' }]);
-    await expect(service.listCreditNotesByInvoice('inv-1')).resolves.toEqual([
-      { id: 'cn-1' },
-    ]);
+    await expect(
+      service.listCreditNotesByInvoice('inv-1', 'company-1'),
+    ).resolves.toEqual([{ id: 'cn-1' }]);
 
     _creditNotesRepository.findOne!.mockResolvedValueOnce(null);
-    await expect(service.findCreditNoteById('missing')).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.findCreditNoteById('missing', 'company-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('should apply filters and owner visibility scope in findAll', async () => {
@@ -410,6 +429,7 @@ describe('PaymentsService', () => {
       } as any,
       {
         id: 'owner-1',
+        companyId: 'company-1',
         role: UserRole.OWNER,
         email: 'OWNER@MAIL.COM',
         phone: '123',
@@ -426,6 +446,10 @@ describe('PaymentsService', () => {
         scopeUserId: 'owner-1',
         scopeEmail: 'owner@mail.com',
       }),
+    );
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      'payment.company_id = :companyId',
+      { companyId: 'company-1' },
     );
     expect(qb.skip).toHaveBeenCalledWith(10);
   });
@@ -445,6 +469,7 @@ describe('PaymentsService', () => {
 
     await service.findAll({} as any, {
       id: 'tenant-user-1',
+      companyId: 'company-1',
       role: UserRole.TENANT,
       email: 'tenant@test.dev',
       phone: '555',
@@ -468,6 +493,7 @@ describe('PaymentsService', () => {
     await expect(
       service.findOneScoped('missing', {
         id: 'admin-1',
+        companyId: 'company-1',
         role: UserRole.ADMIN,
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
@@ -479,7 +505,7 @@ describe('PaymentsService', () => {
       status: PaymentStatus.COMPLETED,
     } as Payment);
 
-    await expect(service.confirm('pay-1')).rejects.toBeInstanceOf(
+    await expect(service.confirm('pay-1', 'company-1')).rejects.toBeInstanceOf(
       BadRequestException,
     );
   });
@@ -499,7 +525,7 @@ describe('PaymentsService', () => {
       .mockResolvedValueOnce(cancelled);
     paymentsRepository.update!.mockResolvedValue({ affected: 1 });
 
-    const result = await service.cancel('pay-3');
+    const result = await service.cancel('pay-3', 'company-1');
 
     expect(tenantAccountsService.addMovement).not.toHaveBeenCalled();
     expect(result.status).toBe(PaymentStatus.CANCELLED);
@@ -513,19 +539,23 @@ describe('PaymentsService', () => {
     });
 
     await expect(
-      service.create({
-        tenantAccountId: 'acc-1',
-        paymentDate: '2025-01-10',
-        method: 'cash',
-        items: [
-          {
-            description: 'Descuento total',
-            amount: 100,
-            quantity: 1,
-            type: PaymentItemType.DISCOUNT,
-          },
-        ],
-      } as any),
+      service.create(
+        {
+          tenantAccountId: 'acc-1',
+          paymentDate: '2025-01-10',
+          method: 'cash',
+          items: [
+            {
+              description: 'Descuento total',
+              amount: 100,
+              quantity: 1,
+              type: PaymentItemType.DISCOUNT,
+            },
+          ],
+        } as any,
+        undefined,
+        'company-1',
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -542,7 +572,11 @@ describe('PaymentsService', () => {
       .mockResolvedValueOnce(updated);
     paymentsRepository.save!.mockResolvedValue(updated);
 
-    const result = await service.update('pay-4', { amount: 250 } as any);
+    const result = await service.update(
+      'pay-4',
+      { amount: 250 } as any,
+      'company-1',
+    );
 
     expect(paymentsRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'pay-4', amount: 250 }),
@@ -552,8 +586,13 @@ describe('PaymentsService', () => {
 
   it('should throw not found when findOne misses payment', async () => {
     paymentsRepository.findOne!.mockResolvedValue(null);
-    await expect(service.findOne('missing')).rejects.toBeInstanceOf(
-      NotFoundException,
+    await expect(
+      service.findOne('missing', 'company-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(paymentsRepository.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'missing', companyId: 'company-1' },
+      }),
     );
   });
 

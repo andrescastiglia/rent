@@ -256,9 +256,9 @@ export class BankReconciliationService {
         await this.reconciliationsRepository.save(reconciliation);
       }
 
-      const payment = await this.paymentsService.findOne(paymentId);
+      const payment = await this.paymentsService.findOne(paymentId, companyId);
       if (payment.status === PaymentStatus.PENDING) {
-        await this.paymentsService.confirm(paymentId);
+        await this.paymentsService.confirm(paymentId, companyId);
       } else if (payment.status !== PaymentStatus.COMPLETED) {
         throw new BadRequestException(
           `Reconciliation payment has non-confirmable status: ${payment.status}`,

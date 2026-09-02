@@ -106,7 +106,10 @@ export class InvoicesController {
   @Get(':id/credit-notes')
   async listCreditNotes(@Param('id') id: string, @Request() req: any) {
     await this.invoicesService.findOneScoped(id, req.user);
-    return this.paymentsService.listCreditNotesByInvoice(id);
+    return this.paymentsService.listCreditNotesByInvoice(
+      id,
+      req.user.companyId,
+    );
   }
 
   /**
@@ -154,7 +157,10 @@ export class InvoicesController {
     @Request() req: any,
     @Res() res: Response,
   ) {
-    const note = await this.paymentsService.findCreditNoteById(creditNoteId);
+    const note = await this.paymentsService.findCreditNoteById(
+      creditNoteId,
+      req.user.companyId,
+    );
     await this.invoicesService.findOneScoped(note.invoiceId, req.user);
 
     if (!note.pdfUrl) {

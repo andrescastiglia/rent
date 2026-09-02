@@ -44,12 +44,12 @@ describe('PaymentsController', () => {
     ).resolves.toEqual({
       id: 'p1',
     });
-    await expect(controller.confirm('p1')).resolves.toEqual({
+    await expect(controller.confirm('p1', req)).resolves.toEqual({
       id: 'p1',
       status: 'confirmed',
     });
     await expect(
-      controller.update('p1', { amount: 11 } as any),
+      controller.update('p1', { amount: 11 } as any, req),
     ).resolves.toEqual({
       id: 'p1',
       amount: 10,
@@ -61,10 +61,17 @@ describe('PaymentsController', () => {
       [],
     );
     await expect(controller.findOne('p1', req)).resolves.toEqual({ id: 'p1' });
-    await expect(controller.cancel('p1')).resolves.toEqual({
+    await expect(controller.cancel('p1', req)).resolves.toEqual({
       id: 'p1',
       status: 'cancelled',
     });
+    expect(paymentsService.confirm).toHaveBeenCalledWith('p1', 'c1');
+    expect(paymentsService.update).toHaveBeenCalledWith(
+      'p1',
+      expect.anything(),
+      'c1',
+    );
+    expect(paymentsService.cancel).toHaveBeenCalledWith('p1', 'c1');
   });
 
   it('getReceipt returns 404 when missing and streams file when available', async () => {
