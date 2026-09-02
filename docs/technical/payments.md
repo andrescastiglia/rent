@@ -26,7 +26,11 @@ Una coincidencia crea y confirma un pago mediante `PaymentsService`, por lo que
 aplica el mismo flujo contable FIFO y genera el mismo recibo PDF que un pago
 registrado desde el API. El movimiento y su conciliación quedan vinculados a la
 factura y al pago. Un bloqueo transaccional por movimiento serializa reintentos
-concurrentes y evita pagos duplicados.
+concurrentes y evita pagos duplicados. La conciliación, la creación y
+confirmación del pago, las imputaciones, el recibo y el estado del movimiento
+usan el mismo `EntityManager`: cualquier error revierte el conjunto completo.
+La generación del PDF se ejecuta después del commit y la respuesta se recarga
+para reflejar su URL persistida.
 
 Para desarrollo y CI existe `POST /bank-reconciliation/sandbox/movements`. El
 endpoint está deshabilitado cuando `NODE_ENV=production`; no representa un
