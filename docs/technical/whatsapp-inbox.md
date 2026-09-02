@@ -67,6 +67,13 @@ y guarda respuesta, entrega y actividad en una sola transacción. La respuesta d
 asistente guarda entrega y metadatos juntos. Los avisos de visita y las notas de
 crédito también se encolan mediante `CommunicationsService`.
 
+La migración `106_queue_ad_hoc_whatsapp_messages.sql` agrega el evento ad hoc y
+una clave idempotente única por compañía. Los endpoints público e interno sólo
+encolan después de validar compañía, destinatario, consentimiento y teléfono. El
+endpoint autenticado exige una actividad relacionada; batch envía empresa, rol,
+destinatario y una clave estable del evento. Templates con PDF derivan claves
+distintas y estables para cada componente.
+
 Programar el procesador de comunicaciones al menos una vez por minuto:
 
 ```bash
@@ -74,10 +81,10 @@ cd backend
 npx ts-node src/communications/retry-communications.cli.ts
 ```
 
-Requiere `APP_URL` y `BATCH_COMMUNICATIONS_INTERNAL_TOKEN`. Los endpoints ad hoc
-público e interno de WhatsApp todavía invocan al proveedor directamente; deben
-migrarse antes de considerar cerrado el outbox general. Las herramientas
-administrativas de WhatsApp ya no se exponen al catálogo de IA.
+Requiere `APP_URL` y `BATCH_COMMUNICATIONS_INTERNAL_TOKEN`. Ningún controlador ni
+productor de dominio invoca al proveedor directamente; sólo el worker usa el
+adaptador de Meta. Las herramientas administrativas de WhatsApp tampoco se
+exponen al catálogo de IA.
 
 Programar cada minuto, con exclusión solapada si el scheduler no la ofrece:
 

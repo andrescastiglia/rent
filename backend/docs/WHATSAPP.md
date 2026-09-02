@@ -6,8 +6,8 @@ Endpoints expuestos:
 
 | Endpoint | Método | Auth | Uso |
 | :--- | :--- | :--- | :--- |
-| `/whatsapp/messages` | `POST` | JWT | Envío de WhatsApp desde frontend/backend autenticado |
-| `/whatsapp/messages/internal` | `POST` | `x-batch-whatsapp-token` | Envío interno desde batch |
+| `/whatsapp/messages` | `POST` | JWT admin/staff | Encola una actividad de WhatsApp validada |
+| `/whatsapp/messages/internal` | `POST` | `x-batch-whatsapp-token` | Encola un mensaje batch idempotente |
 | `/whatsapp/documents/:documentId?token=...` | `GET` | Público (token firmado) | Descarga pública temporal para PDFs guardados en DB (`db://document/...`) |
 | `/whatsapp/webhook` | `GET` | Público | Verificación de webhook de Meta |
 | `/whatsapp/webhook` | `POST` | Público | Recepción de eventos de webhook |
@@ -45,6 +45,12 @@ Las altas y modificaciones solicitadas por staff/admin no se ejecutan desde la
 conversación: se guardan en `pending_actions` y requieren aprobación de un
 staff/admin. Email y SMS están deshabilitados tanto en API como en plantillas y
 notificaciones; WhatsApp es el único canal permitido.
+
+Los endpoints de salida responden con `deliveryId`, `status` y `queued`; no
+esperan la respuesta de Meta. El endpoint JWT deriva la idempotencia desde
+`activityEntity` y `activityId`, y exige `relatedEntityId`. El endpoint batch
+exige además `companyId`, `recipientRole`, `recipientId` e `idempotencyKey`.
+El worker de comunicaciones es el único componente que llama a Meta.
 
 ### Configuración de Endpoint
 

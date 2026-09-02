@@ -40,7 +40,8 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 
 ### WhatsApp seguro
 
-- [ ] Enviar respuestas y efectos mediante outbox transaccional e idempotencia del proveedor.
+- [ ] Hacer atómica la creación de actividad y su entrega WhatsApp; web/mobile todavía crean la actividad y encolan en dos requests separados.
+- [ ] Cerrar la ventana residual entre aceptación de Meta y persistencia local mediante idempotencia nativa verificable o reconciliación con el proveedor.
 - [ ] Mantener las propuestas inmutables, con expiración, hash, reautenticación, autorización recalculada y ejecución exactamente una vez.
 
 ## 3. Unificar contrato de producto
