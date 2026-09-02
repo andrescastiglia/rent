@@ -9,13 +9,8 @@ export function hasModuleAccess(
   permissions: UserModulePermissions | undefined,
   moduleKey?: UserModulePermissionKey,
 ): boolean {
-  if (role !== "staff" || !moduleKey) {
+  if (role !== "staff") {
     return true;
   }
-
-  if (!permissions || Object.keys(permissions).length === 0) {
-    return true;
-  }
-
-  return permissions[moduleKey] === true;
+  return moduleKey ? permissions?.[moduleKey] === true : false;
 }

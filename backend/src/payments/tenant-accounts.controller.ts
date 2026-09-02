@@ -2,6 +2,7 @@ import { Controller, Get, Param, Request, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { TenantAccountsService } from './tenant-accounts.service';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
 /**
@@ -9,6 +10,7 @@ import { UserRole } from '../users/entities/user.entity';
  */
 @UseGuards(AuthGuard('jwt'))
 @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.OWNER, UserRole.TENANT)
+@Authenticated('payments')
 @Controller('tenant-accounts')
 export class TenantAccountsController {
   constructor(private readonly tenantAccountsService: TenantAccountsService) {}

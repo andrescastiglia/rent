@@ -163,6 +163,47 @@ describe('RolesGuard', () => {
     ).toBe(true);
   });
 
+  it.each([
+    ['/dashboard/stats', 'dashboard'],
+    ['/properties', 'properties'],
+    ['/owners', 'owners'],
+    ['/interested', 'interested'],
+    ['/tenants', 'tenants'],
+    ['/leases', 'leases'],
+    ['/payment-templates', 'templates'],
+    ['/payments', 'payments'],
+    ['/tenant-accounts/account-1', 'payments'],
+    ['/invoices', 'invoices'],
+    ['/buyers', 'sales'],
+    ['/reports', 'reports'],
+    ['/maintenance/tickets', 'maintenance'],
+    ['/communications/templates', 'communications'],
+    ['/bank-reconciliation/alerts', 'reconciliation'],
+    ['/settlements', 'settlements'],
+    ['/pending-actions', 'approvals'],
+    ['/ai/respond', 'ai'],
+  ])('applies staff permission A/B for %s', (path, permission) => {
+    const guard = new RolesGuard(reflector);
+    setPolicy({ roles: [UserRole.ADMIN, UserRole.STAFF] });
+
+    expect(
+      guard.canActivate(
+        makeContext({
+          path,
+          user: { role: UserRole.STAFF, permissions: { [permission]: true } },
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      guard.canActivate(
+        makeContext({
+          path,
+          user: { role: UserRole.STAFF, permissions: { [permission]: false } },
+        }),
+      ),
+    ).toBe(false);
+  });
+
   it('rejects a role that is not explicitly allowed', () => {
     const guard = new RolesGuard(reflector);
     setPolicy({ roles: [UserRole.ADMIN] });

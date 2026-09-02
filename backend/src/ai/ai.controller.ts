@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserModulePermissions, UserRole } from '../users/entities/user.entity';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { ExecuteAiToolDto } from './dto/execute-ai-tool.dto';
@@ -37,6 +38,7 @@ interface AuthenticatedRequest {
   UserRole.TENANT,
   UserRole.BUYER,
 )
+@Authenticated('ai')
 export class AiController {
   constructor(
     private readonly executor: AiToolExecutorService,

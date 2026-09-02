@@ -15,6 +15,7 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { MaintenanceService } from './maintenance.service';
 import { MaintenanceTicket } from './entities/maintenance-ticket.entity';
@@ -35,6 +36,7 @@ interface AuthenticatedRequest {
 
 @Controller('maintenance/tickets')
 @UseGuards(JwtAuthGuard)
+@Authenticated('maintenance')
 export class MaintenanceController {
   constructor(private readonly maintenanceService: MaintenanceService) {}
 

@@ -30,7 +30,13 @@ export type UserModulePermissionKey =
   | 'invoices'
   | 'sales'
   | 'reports'
-  | 'users';
+  | 'users'
+  | 'maintenance'
+  | 'communications'
+  | 'reconciliation'
+  | 'settlements'
+  | 'approvals'
+  | 'ai';
 
 export type UserModulePermissions = Partial<
   Record<UserModulePermissionKey, boolean>

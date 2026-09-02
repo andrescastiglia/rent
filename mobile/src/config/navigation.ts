@@ -47,7 +47,10 @@ const routePolicies: Record<string, RoutePolicy> = {
   sales: { roles: ['admin', 'owner'], staffPermission: 'sales' },
   reports: { roles: ['admin', 'owner'], staffPermission: 'reports' },
   users: { roles: ['admin'] },
-  ai: { roles: ['admin', 'owner', 'tenant', 'buyer'] },
+  ai: {
+    roles: ['admin', 'owner', 'tenant', 'buyer'],
+    staffPermission: 'ai',
+  },
 };
 
 export const navigationItems: NavItem[] = [

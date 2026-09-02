@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { BankReconciliationService } from './bank-reconciliation.service';
 import { CreateSandboxBankMovementDto } from './dto/create-sandbox-bank-movement.dto';
@@ -25,6 +26,7 @@ interface AuthenticatedRequest {
 
 @Controller('bank-reconciliation')
 @Roles(UserRole.ADMIN, UserRole.STAFF)
+@Authenticated('reconciliation')
 export class BankReconciliationController {
   constructor(private readonly service: BankReconciliationService) {}
 

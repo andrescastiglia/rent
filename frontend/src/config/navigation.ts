@@ -36,21 +36,21 @@ export const navigationItems: NavItem[] = [
   {
     labelKey: "properties",
     href: "/properties",
-    roles: ["admin", "owner"],
+    roles: ["admin", "owner", "staff"],
     moduleKey: "properties",
     icon: Building2,
   },
   {
     labelKey: "tenants",
     href: "/tenants",
-    roles: ["admin", "owner"],
+    roles: ["admin", "owner", "staff"],
     moduleKey: "tenants",
     icon: Users,
   },
   {
     labelKey: "leases",
     href: "/leases",
-    roles: ["admin", "owner", "tenant"],
+    roles: ["admin", "owner", "tenant", "staff"],
     moduleKey: "leases",
     icon: FileText,
   },
@@ -106,6 +106,7 @@ export const navigationItems: NavItem[] = [
     labelKey: "maintenance",
     href: "/maintenance",
     roles: ["admin", "staff"],
+    moduleKey: "maintenance",
     icon: Wrench,
   },
 ];

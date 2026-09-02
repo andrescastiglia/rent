@@ -28,13 +28,21 @@ export class RolesGuard implements CanActivate {
     if (path.startsWith('/tenants')) return 'tenants';
     if (path.startsWith('/leases')) return 'leases';
     if (path.startsWith('/payments/document-templates')) return 'templates';
+    if (path.startsWith('/payment-templates')) return 'templates';
     if (path.startsWith('/payments')) return 'payments';
+    if (path.startsWith('/tenant-accounts')) return 'payments';
     if (path.startsWith('/invoices')) return 'invoices';
     if (path.startsWith('/buyers')) return 'sales';
     if (path.startsWith('/sales')) return 'sales';
     if (path.startsWith('/reports')) return 'reports';
     if (path.startsWith('/users')) return 'users';
     if (path.startsWith('/templates')) return 'templates';
+    if (path.startsWith('/maintenance')) return 'maintenance';
+    if (path.startsWith('/communications')) return 'communications';
+    if (path.startsWith('/bank-reconciliation')) return 'reconciliation';
+    if (path.startsWith('/settlements')) return 'settlements';
+    if (path.startsWith('/pending-actions')) return 'approvals';
+    if (path.startsWith('/ai')) return 'ai';
 
     return null;
   }
