@@ -41,6 +41,12 @@ export function AppButton({
       ]}
       onPress={onPress}
       disabled={isDisabled}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{
+        disabled: Boolean(isDisabled),
+        busy: Boolean(loading),
+      }}
     >
       {loading ? (
         <ActivityIndicator
@@ -96,6 +102,8 @@ export function Field({
         secureTextEntry={secureTextEntry}
         autoCapitalize={autoCapitalize}
         keyboardType={keyboardType}
+        accessibilityLabel={label}
+        accessibilityState={{ disabled: !editable }}
       />
     </View>
   );
@@ -167,6 +175,10 @@ export function DateField({
         testID={testID}
         style={styles.input}
         onPress={() => setShowPicker(true)}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityHint={value || placeholder}
+        accessibilityState={{ expanded: showPicker }}
       >
         <Text style={value ? styles.inputValue : styles.inputPlaceholder}>
           {value || placeholder}
@@ -191,7 +203,11 @@ export function H1({ children }: Readonly<{ children: React.ReactNode }>) {
   if (segments.includes('(app)')) {
     return null;
   }
-  return <Text style={styles.h1}>{children}</Text>;
+  return (
+    <Text style={styles.h1} accessibilityRole="header">
+      {children}
+    </Text>
+  );
 }
 
 export function Body({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -221,7 +237,11 @@ export function ChoiceGroup<T extends string>({
   return (
     <View style={styles.fieldContainer}>
       <Text style={styles.fieldLabel}>{label}</Text>
-      <View style={styles.choicesContainer}>
+      <View
+        style={styles.choicesContainer}
+        accessibilityRole="radiogroup"
+        accessibilityLabel={label}
+      >
         {options.map((option) => {
           const selected = option.value === value;
           return (
@@ -230,6 +250,9 @@ export function ChoiceGroup<T extends string>({
               key={option.value}
               style={[styles.choiceChip, selected && styles.choiceChipSelected]}
               onPress={() => onChange(option.value)}
+              accessibilityRole="radio"
+              accessibilityLabel={option.label}
+              accessibilityState={{ checked: selected }}
             >
               <Text
                 style={[

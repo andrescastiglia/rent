@@ -146,6 +146,22 @@
     },
     "recentActivity": "Recent Activity",
     "noRecentActivity": "No recent activity to display.",
+    "review": {
+      "title": "Review",
+      "empty": "There are no new communications or tasks.",
+      "approve": "Approve",
+      "approving": "Approving…",
+      "reject": "Reject",
+      "markRead": "Mark as read",
+      "cancel": "Cancel",
+      "securityTitle": "Security confirmation",
+      "rejectTitle": "Reject proposal",
+      "rejectConfirm": "Do you confirm the rejection?",
+      "approveError": "Could not approve",
+      "rejectError": "Could not reject",
+      "readError": "Could not mark as read",
+      "unexpectedError": "Unexpected error"
+    },
     "activity": {
       "show": "Show {count}",
       "totalJobs": "Showing {shown} of {total} executions",

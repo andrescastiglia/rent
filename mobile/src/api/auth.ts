@@ -84,4 +84,13 @@ export const authApi = {
 
     return apiClient.post<RegisterResponse>('/auth/register', payload);
   },
+
+  async reauthenticate(password: string): Promise<string> {
+    if (IS_MOCK_MODE) return 'mock-reauth-token';
+    const result = await apiClient.post<{ reauthToken: string }>(
+      '/auth/reauthenticate',
+      { password },
+    );
+    return result.reauthToken;
+  },
 };

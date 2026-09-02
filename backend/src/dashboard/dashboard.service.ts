@@ -740,8 +740,8 @@ export class DashboardService {
           [companyId, effectiveLimit],
         ),
         this.dataSource.query(
-          `SELECT pa.id, pa.action_type, pa.entity_type, pa.summary, pa.created_at,
-                  pa.updated_at,
+          `SELECT pa.id, pa.action_type, pa.entity_type, pa.summary, pa.payload,
+                  pa.created_at, pa.updated_at,
                   concat_ws(' ', u.first_name, u.last_name) AS person_name
              FROM pending_actions pa
              JOIN users u ON u.id = pa.requested_by
@@ -779,7 +779,7 @@ export class DashboardService {
           personId: item.id,
           personName: item.person_name || 'WhatsApp',
           subject: `${item.action_type}: ${item.entity_type}`,
-          body: item.summary,
+          body: `${item.summary}\n${JSON.stringify(item.payload)}`,
           status: OwnerActivityStatus.PENDING,
           dueAt: item.created_at ? new Date(item.created_at) : null,
           completedAt: null,

@@ -85,7 +85,8 @@ export type DashboardOperationsOverview = {
   };
 };
 
-export type PersonActivitySource = 'interested' | 'owner';
+export type PersonActivitySource =
+  'interested' | 'owner' | 'communication' | 'pending_action';
 export type PersonActivityStatus = 'pending' | 'completed' | 'cancelled';
 
 export type PersonActivityItem = {
@@ -103,9 +104,12 @@ export type PersonActivityItem = {
   propertyName: string | null;
   createdAt: string;
   updatedAt: string;
+  actionKind?: 'communication' | 'pending_action' | 'registration';
+  actionId?: string;
 };
 
 export type PeopleActivityResponse = {
+  new: PersonActivityItem[];
   overdue: PersonActivityItem[];
   today: PersonActivityItem[];
   total: number;
@@ -183,6 +187,7 @@ const todayDate = new Date(startOfToday);
 todayDate.setHours(16, 30, 0, 0);
 
 const MOCK_RECENT_ACTIVITY: PeopleActivityResponse = {
+  new: [],
   overdue: [
     {
       id: 'act-overdue-1',
@@ -249,6 +254,7 @@ export const dashboardApi = {
       const remaining = Math.max(0, limit - cappedOverdue.length);
       const cappedToday = MOCK_RECENT_ACTIVITY.today.slice(0, remaining);
       return {
+        new: MOCK_RECENT_ACTIVITY.new.slice(0, limit),
         overdue: cappedOverdue,
         today: cappedToday,
         total: cappedOverdue.length + cappedToday.length,
@@ -258,5 +264,20 @@ export const dashboardApi = {
     return apiClient.get<PeopleActivityResponse>(
       `/dashboard/recent-activity?limit=${limit}`,
     );
+  },
+
+  approvePendingAction(id: string, reauthToken: string): Promise<void> {
+    if (IS_MOCK_MODE) return Promise.resolve();
+    return apiClient.post(`/pending-actions/${id}/approve`, { reauthToken });
+  },
+
+  rejectPendingAction(id: string): Promise<void> {
+    if (IS_MOCK_MODE) return Promise.resolve();
+    return apiClient.post(`/pending-actions/${id}/reject`, {});
+  },
+
+  markCommunicationRead(id: string): Promise<void> {
+    if (IS_MOCK_MODE) return Promise.resolve();
+    return apiClient.post(`/communications/inbox/${id}/read`, {});
   },
 };

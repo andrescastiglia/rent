@@ -55,6 +55,11 @@ export default function DashboardPage() {
   const [editingActivity, setEditingActivity] =
     useState<PersonActivityItem | null>(null);
   const [editingComment, setEditingComment] = useState("");
+  const [approvalItem, setApprovalItem] = useState<PersonActivityItem | null>(
+    null,
+  );
+  const [reauthPassword, setReauthPassword] = useState("");
+  const [approvalError, setApprovalError] = useState<string | null>(null);
 
   const fetchOverview = useCallback(async () => {
     try {
@@ -160,8 +165,9 @@ export default function DashboardPage() {
       } else if (action === "read") {
         await dashboardApi.markCommunicationRead(item.actionId);
       } else if (action === "approve") {
-        if (!window.confirm(t("peopleActivity.approvePrompt"))) return;
-        await dashboardApi.approvePendingAction(item.actionId);
+        setApprovalError(null);
+        setApprovalItem(item);
+        return;
       } else {
         const reason =
           window.prompt(t("peopleActivity.rejectPrompt")) ?? undefined;
@@ -170,6 +176,31 @@ export default function DashboardPage() {
       await fetchPeopleActivity();
     } catch (error) {
       console.error("Failed to process queued action", error);
+    } finally {
+      setUpdatingActivityId(null);
+    }
+  };
+
+  const confirmPendingAction = async () => {
+    if (!approvalItem?.actionId || !reauthPassword) return;
+    try {
+      setUpdatingActivityId(approvalItem.id);
+      const reauthToken = await dashboardApi.reauthenticate(reauthPassword);
+      await dashboardApi.approvePendingAction(
+        approvalItem.actionId,
+        reauthToken,
+      );
+      setApprovalItem(null);
+      setReauthPassword("");
+      setApprovalError(null);
+      await fetchPeopleActivity();
+    } catch (error) {
+      console.error("Failed to approve pending action", error);
+      setApprovalError(
+        error instanceof Error
+          ? error.message
+          : t("peopleActivity.approveError"),
+      );
     } finally {
       setUpdatingActivityId(null);
     }
@@ -733,6 +764,93 @@ export default function DashboardPage() {
               </button>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {approvalItem ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="dashboard-reauth-title"
+            className="w-full max-w-md rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void confirmPendingAction();
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                setApprovalItem(null);
+                setReauthPassword("");
+                setApprovalError(null);
+              }
+            }}
+          >
+            <div className="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+              <h2
+                id="dashboard-reauth-title"
+                className="text-base font-semibold text-gray-900 dark:text-white"
+              >
+                {t("peopleActivity.reauthTitle")}
+              </h2>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {approvalItem.subject}
+              </p>
+            </div>
+            <div className="p-4">
+              <label
+                htmlFor="dashboard-reauth-password"
+                className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200"
+              >
+                {t("peopleActivity.reauthPassword")}
+              </label>
+              <input
+                id="dashboard-reauth-password"
+                type="password"
+                autoComplete="current-password"
+                autoFocus
+                required
+                aria-invalid={Boolean(approvalError)}
+                aria-describedby={
+                  approvalError ? "dashboard-reauth-error" : undefined
+                }
+                value={reauthPassword}
+                onChange={(event) => setReauthPassword(event.target.value)}
+                className="w-full rounded-md border border-gray-300 bg-white p-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              />
+              {approvalError ? (
+                <p
+                  id="dashboard-reauth-error"
+                  role="alert"
+                  className="mt-2 text-sm text-red-600 dark:text-red-400"
+                >
+                  {approvalError}
+                </p>
+              ) : null}
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+              <button
+                type="button"
+                onClick={() => {
+                  setApprovalItem(null);
+                  setReauthPassword("");
+                  setApprovalError(null);
+                }}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 dark:border-gray-600 dark:text-gray-200"
+              >
+                {t("peopleActivity.actions.cancel")}
+              </button>
+              <button
+                type="submit"
+                disabled={
+                  !reauthPassword || updatingActivityId === approvalItem.id
+                }
+                className="rounded-md bg-green-600 px-3 py-2 text-sm text-white disabled:opacity-50"
+              >
+                {t("peopleActivity.actions.approve")}
+              </button>
+            </div>
+          </form>
         </div>
       ) : null}
     </div>
