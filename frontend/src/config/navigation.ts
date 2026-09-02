@@ -71,21 +71,21 @@ export const navigationItems: NavItem[] = [
   {
     labelKey: "payments",
     href: "/payments",
-    roles: ["admin", "owner", "tenant", "staff"],
+    roles: ["admin", "staff"],
     moduleKey: "payments",
     icon: CreditCard,
   },
   {
     labelKey: "invoices",
     href: "/invoices",
-    roles: ["admin", "owner", "tenant", "staff"],
+    roles: ["admin", "staff"],
     moduleKey: "invoices",
     icon: Receipt,
   },
   {
     labelKey: "interested",
     href: "/interested",
-    roles: ["admin", "owner", "staff"],
+    roles: ["admin", "staff"],
     moduleKey: "interested",
     icon: UserSearch,
   },
@@ -113,6 +113,13 @@ export const navigationItems: NavItem[] = [
 
 export function getNavigationForRole(role: string): NavItem[] {
   return navigationItems.filter((item) => item.roles.includes(role));
+}
+
+export function getLandingPathForRole(role: User["role"] | undefined): string {
+  if (role === "tenant") return "/portal/tenant";
+  if (role === "owner") return "/portal/owner";
+  if (role === "buyer") return "/settings";
+  return "/dashboard";
 }
 
 export function getNavigationForUser(

@@ -8,6 +8,7 @@ import { Search, Loader2, Edit, Wallet, Plus } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
 import { encodeRouteSegment } from "@/lib/safe-url";
+import { canManageTenants } from "@/lib/permissions";
 
 function TenantsList({
   tenants,
@@ -15,12 +16,14 @@ function TenantsList({
   t,
   tc,
   getStatusLabel,
+  canManage,
 }: Readonly<{
   tenants: Tenant[];
   locale: string;
   t: (key: string) => string;
   tc: (key: string) => string;
   getStatusLabel: (status: string) => string;
+  canManage: boolean;
 }>) {
   if (tenants.length === 0) {
     return (
@@ -77,20 +80,24 @@ function TenantsList({
                 >
                   {getStatusLabel(tenant.status)}
                 </span>
-                <Link
-                  href={`/${locale}/tenants/${tenantId}/edit`}
-                  className="action-link action-link-primary"
-                >
-                  <Edit size={14} />
-                  {tc("edit")}
-                </Link>
-                <Link
-                  href={`/${locale}/tenants/${tenantId}/payments/new`}
-                  className="action-link action-link-success"
-                >
-                  <Wallet size={14} />
-                  {t("paymentRegistration.submit")}
-                </Link>
+                {canManage ? (
+                  <>
+                    <Link
+                      href={`/${locale}/tenants/${tenantId}/edit`}
+                      className="action-link action-link-primary"
+                    >
+                      <Edit size={14} />
+                      {tc("edit")}
+                    </Link>
+                    <Link
+                      href={`/${locale}/tenants/${tenantId}/payments/new`}
+                      className="action-link action-link-success"
+                    >
+                      <Wallet size={14} />
+                      {t("paymentRegistration.submit")}
+                    </Link>
+                  </>
+                ) : null}
                 <Link
                   href={`/${locale}/tenants/${tenantId}/activities/new`}
                   className="action-link action-link-primary"
@@ -108,7 +115,7 @@ function TenantsList({
 }
 
 export default function TenantsPage() {
-  const { loading: authLoading } = useAuth();
+  const { loading: authLoading, user } = useAuth();
   const t = useTranslations("tenants");
   const tc = useTranslations("common");
   const locale = useLocale();
@@ -185,6 +192,7 @@ export default function TenantsPage() {
           t={t}
           tc={tc}
           getStatusLabel={getStatusLabel}
+          canManage={canManageTenants(user?.role)}
         />
       )}
     </div>

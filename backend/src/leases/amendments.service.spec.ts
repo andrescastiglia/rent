@@ -81,7 +81,7 @@ describe('AmendmentsService', () => {
     it('should create an amendment for active lease', async () => {
       const createDto = {
         leaseId: 'lease-1',
-        companyId: 'company-1',
+        companyId: 'untrusted-company',
         effectiveDate: '2024-02-01',
         changeType: AmendmentChangeType.RENT_INCREASE,
         description: 'Rent increase',
@@ -100,6 +100,8 @@ describe('AmendmentsService', () => {
       expect(amendmentRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
           leaseId: createDto.leaseId,
+          companyId: 'company-1',
+          requestedBy: 'user-1',
           effectiveDate: createDto.effectiveDate,
           changeType: createDto.changeType,
           status: AmendmentStatus.DRAFT,
@@ -155,7 +157,7 @@ describe('AmendmentsService', () => {
       const result = await service.findByLease('lease-1', adminActor);
 
       expect(amendmentRepository.find).toHaveBeenCalledWith({
-        where: { leaseId: 'lease-1' },
+        where: { leaseId: 'lease-1', companyId: 'company-1' },
         order: { createdAt: 'DESC' },
       });
       expect(result).toEqual(amendments);
@@ -168,6 +170,10 @@ describe('AmendmentsService', () => {
 
       const result = await service.findOne('amendment-1', adminActor);
 
+      expect(amendmentRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 'amendment-1', companyId: 'company-1' },
+        relations: ['lease'],
+      });
       expect(result).toEqual(mockAmendment);
     });
 

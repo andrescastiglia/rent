@@ -1,5 +1,6 @@
 import {
   navigationItems,
+  getLandingPathForRole,
   getNavigationForRole,
   getNavigationForUser,
 } from "./navigation";
@@ -17,6 +18,16 @@ describe("navigationItems", () => {
   });
 });
 
+describe("getLandingPathForRole", () => {
+  it("routes relationship roles to a safe landing page", () => {
+    expect(getLandingPathForRole("owner")).toBe("/portal/owner");
+    expect(getLandingPathForRole("tenant")).toBe("/portal/tenant");
+    expect(getLandingPathForRole("buyer")).toBe("/settings");
+    expect(getLandingPathForRole("admin")).toBe("/dashboard");
+    expect(getLandingPathForRole("staff")).toBe("/dashboard");
+  });
+});
+
 describe("getNavigationForRole", () => {
   it("returns items that include admin in roles array", () => {
     const result = getNavigationForRole("admin");
@@ -31,12 +42,21 @@ describe("getNavigationForRole", () => {
     const tenantHrefs = result.map((i) => i.href);
     expect(tenantHrefs).toContain("/dashboard");
     expect(tenantHrefs).toContain("/leases");
+    expect(tenantHrefs).not.toContain("/payments");
+    expect(tenantHrefs).not.toContain("/invoices");
     expect(tenantHrefs).not.toContain("/users");
     expect(tenantHrefs).not.toContain("/properties");
   });
 
   it("returns empty array for unknown role", () => {
     expect(getNavigationForRole("unknown")).toEqual([]);
+  });
+
+  it("does not expose the company CRM to owners", () => {
+    const ownerRoutes = getNavigationForRole("owner").map((item) => item.href);
+    expect(ownerRoutes).not.toContain("/interested");
+    expect(ownerRoutes).not.toContain("/payments");
+    expect(ownerRoutes).not.toContain("/invoices");
   });
 });
 

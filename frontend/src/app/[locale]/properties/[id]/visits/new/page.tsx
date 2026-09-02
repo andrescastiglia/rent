@@ -13,7 +13,7 @@ import { interestedApi } from "@/lib/api/interested";
 import { InterestedProfile } from "@/types/interested";
 
 export default function CreatePropertyVisitPage() {
-  const { loading: authLoading } = useAuth();
+  const { loading: authLoading, user } = useAuth();
   const t = useTranslations("properties");
   const tc = useTranslations("common");
   const locale = useLocale();
@@ -50,12 +50,15 @@ export default function CreatePropertyVisitPage() {
 
     const loadProperty = async () => {
       try {
-        const [data, profiles] = await Promise.all([
-          propertiesApi.getById(propertyId),
-          interestedApi.getAll({ operation: "sale", limit: 100 }),
-        ]);
+        const data = await propertiesApi.getById(propertyId);
         setProperty(data);
-        setInterestedProfiles(profiles.data);
+        if (user && ["admin", "staff"].includes(user.role)) {
+          const profiles = await interestedApi.getAll({
+            operation: "sale",
+            limit: 100,
+          });
+          setInterestedProfiles(profiles.data);
+        }
       } catch (loadError) {
         console.error("Failed to load property for visit creation", loadError);
       } finally {
@@ -66,7 +69,7 @@ export default function CreatePropertyVisitPage() {
     loadProperty().catch((loadError) => {
       console.error("Failed to load property for visit creation", loadError);
     });
-  }, [authLoading, propertyId]);
+  }, [authLoading, propertyId, user]);
 
   const handleSubmit = async (event: React.SyntheticEvent) => {
     event.preventDefault();

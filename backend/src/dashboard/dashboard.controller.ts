@@ -13,6 +13,7 @@ import { UserRole } from '../users/entities/user.entity';
 
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard)
+@Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.OWNER, UserRole.TENANT)
 @Authenticated('dashboard')
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}

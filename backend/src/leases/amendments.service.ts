@@ -43,6 +43,8 @@ export class AmendmentsService {
     const { companyId: _companyId, ...amendmentDto } = createAmendmentDto;
     const amendment = this.amendmentsRepository.create({
       ...amendmentDto,
+      companyId: user.companyId,
+      requestedBy: user.id,
       status: AmendmentStatus.DRAFT,
       amendmentNumber: 1, // This should be calculated based on existing amendments
     });
@@ -56,14 +58,14 @@ export class AmendmentsService {
   ): Promise<LeaseAmendment[]> {
     await this.findLeaseScoped(leaseId, user);
     return this.amendmentsRepository.find({
-      where: { leaseId },
+      where: { leaseId, companyId: user.companyId },
       order: { createdAt: 'DESC' },
     });
   }
 
   async findOne(id: string, user: AmendmentActor): Promise<LeaseAmendment> {
     const amendment = await this.amendmentsRepository.findOne({
-      where: { id },
+      where: { id, companyId: user.companyId },
       relations: ['lease'],
     });
 

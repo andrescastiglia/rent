@@ -183,6 +183,27 @@ describe("AuthProvider", () => {
       expect(mockPush).toHaveBeenCalledWith("/es/dashboard");
     });
 
+    it("keeps buyers away from company dashboard aggregates", async () => {
+      (usePathname as jest.Mock).mockReturnValue("/es/login");
+      (apiClient.post as jest.Mock).mockResolvedValue({
+        accessToken: "tok",
+        user: {
+          role: "buyer",
+          id: "1",
+          email: "buyer@example.com",
+          firstName: "B",
+          lastName: "Y",
+        },
+      });
+
+      const ctx = getAuthContext();
+      await act(async () => {
+        await ctx.login({ email: "buyer@example.com", password: "pass" });
+      });
+
+      expect(mockPush).toHaveBeenCalledWith("/es/settings");
+    });
+
     it('uses "es" fallback when locale in path is invalid', async () => {
       (usePathname as jest.Mock).mockReturnValue("/xyz/something");
       (apiClient.post as jest.Mock).mockResolvedValue({

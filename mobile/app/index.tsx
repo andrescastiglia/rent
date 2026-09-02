@@ -1,7 +1,8 @@
-import { Redirect } from 'expo-router';
+import { Redirect, type Href } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 
 import { useAuth } from '@/contexts/auth-context';
+import { getLandingPathForRole } from '@/config/navigation';
 
 export default function IndexRoute() {
   const { user, loading } = useAuth();
@@ -15,7 +16,8 @@ export default function IndexRoute() {
   }
 
   if (user) {
-    return <Redirect href="/(app)/(tabs)/dashboard" />;
+    const landingPath = getLandingPathForRole(user.role);
+    return <Redirect href={`/(app)/(tabs)${landingPath}` as Href} />;
   }
 
   return <Redirect href="/(auth)/login" />;

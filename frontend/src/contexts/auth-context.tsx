@@ -25,6 +25,7 @@ import type {
   AuthResponse,
   RegisterResponse,
 } from "@/types/auth";
+import { getLandingPathForRole } from "@/config/navigation";
 
 interface AuthContextType {
   user: User | null;
@@ -164,14 +165,7 @@ export function AuthProvider({
       emitAuthStoreChange();
 
       const locale = getLocaleFromPath();
-      const role = (response.user as unknown as { role?: string }).role;
-      if (role === "tenant") {
-        router.push(`/${locale}/portal/tenant`);
-      } else if (role === "owner") {
-        router.push(`/${locale}/portal/owner`);
-      } else {
-        router.push(`/${locale}/dashboard`);
-      }
+      router.push(`/${locale}${getLandingPathForRole(response.user.role)}`);
     },
     [getLocaleFromPath, router],
   );

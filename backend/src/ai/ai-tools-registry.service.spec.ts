@@ -177,6 +177,60 @@ describe('AiToolsRegistryService', () => {
     expect(tools.map((tool) => tool.function.name)).toEqual(['post_owners']);
   });
 
+  it('limits buyers to safe profile reads', () => {
+    const catalog = {
+      getDefinitions: jest.fn().mockReturnValue([
+        {
+          name: 'get_auth_profile',
+          description: 'Reads the authenticated profile',
+          mutability: 'readonly',
+          allowedRoles: [UserRole.BUYER],
+          parameters: z.object({}).strict(),
+          execute: jest.fn(),
+        },
+        {
+          name: 'get_users_profile_me',
+          description: 'Reads the current user profile',
+          mutability: 'readonly',
+          allowedRoles: [UserRole.BUYER],
+          parameters: z.object({}).strict(),
+          execute: jest.fn(),
+        },
+        {
+          name: 'patch_users_profile_me',
+          description: 'Updates the current user profile',
+          mutability: 'mutable',
+          allowedRoles: [UserRole.BUYER],
+          parameters: z.object({ firstName: z.string() }).strict(),
+          execute: jest.fn(),
+        },
+        {
+          name: 'get_currencies',
+          description: 'Lists currencies',
+          mutability: 'readonly',
+          allowedRoles: [UserRole.BUYER],
+          parameters: z.object({}).strict(),
+          execute: jest.fn(),
+        },
+      ]),
+    } as unknown as AiToolCatalogService;
+    const executor = {
+      execute: jest.fn(),
+      getMode: jest.fn().mockReturnValue('FULL'),
+    } as unknown as AiToolExecutorService;
+
+    const tools = new AiToolsRegistryService(catalog, executor).getOpenAiTools({
+      userId: 'buyer-1',
+      companyId: 'company-1',
+      role: UserRole.BUYER,
+    }) as any[];
+
+    expect(tools.map((tool) => tool.function.name)).toEqual([
+      'get_auth_profile',
+      'get_users_profile_me',
+    ]);
+  });
+
   it('keeps typed anyOf branches for transformed union fields', () => {
     const catalog = {
       getDefinitions: jest.fn().mockReturnValue([

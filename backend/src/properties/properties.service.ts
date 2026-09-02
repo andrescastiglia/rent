@@ -71,6 +71,8 @@ export class PropertiesService {
     const imageIds = await this.ensureUsablePropertyImageIds(
       normalizedImages,
       user.companyId,
+      undefined,
+      user.role === UserRole.OWNER ? user.id : undefined,
     );
 
     const property = this.propertiesRepository.create({
@@ -84,6 +86,7 @@ export class PropertiesService {
       imageIds,
       createdProperty.id,
       user.companyId,
+      user.role === UserRole.OWNER ? user.id : undefined,
     );
 
     return createdProperty;
@@ -290,6 +293,7 @@ export class PropertiesService {
         updatePropertyDto.images,
         property.companyId,
         property.id,
+        user.role === UserRole.OWNER ? user.id : undefined,
       );
     }
 
@@ -301,6 +305,7 @@ export class PropertiesService {
         nextImageIds,
         property.id,
         property.companyId,
+        user.role === UserRole.OWNER ? user.id : undefined,
       );
       const removedImageRefs = this.findRemovedImageRefs(
         previousImageRefs,
@@ -351,6 +356,7 @@ export class PropertiesService {
     const deleted = await this.deleteTemporaryPropertyImages(
       images,
       user.companyId,
+      user.role === UserRole.OWNER ? user.id : undefined,
     );
     return { deleted };
   }
@@ -601,6 +607,7 @@ export class PropertiesService {
     imageRefs: string[],
     companyId: string,
     currentPropertyId?: string,
+    uploadedByUserId?: string,
   ): Promise<string[]> {
     const imageIds = Array.from(
       new Set(
@@ -622,10 +629,18 @@ export class PropertiesService {
       select: {
         id: true,
         propertyId: true,
+        uploadedByUserId: true,
       },
     });
 
     if (images.length !== imageIds.length) {
+      throw new BadRequestException('Some property images are invalid');
+    }
+
+    if (
+      uploadedByUserId &&
+      images.some((image) => image.uploadedByUserId !== uploadedByUserId)
+    ) {
       throw new BadRequestException('Some property images are invalid');
     }
 
@@ -649,12 +664,13 @@ export class PropertiesService {
     imageIds: string[],
     propertyId: string,
     companyId: string,
+    uploadedByUserId?: string,
   ): Promise<void> {
     if (!Array.isArray(imageIds) || imageIds.length === 0) {
       return;
     }
 
-    await this.propertyImagesRepository
+    const query = this.propertyImagesRepository
       .createQueryBuilder()
       .update(PropertyImage)
       .set({
@@ -663,7 +679,15 @@ export class PropertiesService {
       })
       .where('id IN (:...imageIds)', { imageIds })
       .andWhere('company_id = :companyId', { companyId })
-      .execute();
+      .andWhere('(property_id IS NULL OR property_id = :propertyId)', {
+        propertyId,
+      });
+    if (uploadedByUserId) {
+      query.andWhere('uploaded_by_user_id = :uploadedByUserId', {
+        uploadedByUserId,
+      });
+    }
+    await query.execute();
   }
 
   private findRemovedImageRefs(
@@ -682,6 +706,7 @@ export class PropertiesService {
   private async deleteTemporaryPropertyImages(
     imageRefs: string[],
     companyId: string,
+    uploadedByUserId?: string,
   ): Promise<number> {
     if (!Array.isArray(imageRefs) || imageRefs.length === 0) {
       return 0;
@@ -699,15 +724,20 @@ export class PropertiesService {
       return 0;
     }
 
-    const deleteResult = await this.propertyImagesRepository
+    const query = this.propertyImagesRepository
       .createQueryBuilder()
       .delete()
       .from(PropertyImage)
       .where('id IN (:...imageIds)', { imageIds })
       .andWhere('company_id = :companyId', { companyId })
       .andWhere('is_temporary = true')
-      .andWhere('property_id IS NULL')
-      .execute();
+      .andWhere('property_id IS NULL');
+    if (uploadedByUserId) {
+      query.andWhere('uploaded_by_user_id = :uploadedByUserId', {
+        uploadedByUserId,
+      });
+    }
+    const deleteResult = await query.execute();
 
     return deleteResult.affected ?? 0;
   }

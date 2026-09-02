@@ -26,6 +26,7 @@ import {
 import { useTranslations, useLocale } from "next-intl";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { useAuth } from "@/contexts/auth-context";
+import { canManageLeases } from "@/lib/permissions";
 import { formatMoneyByCode } from "@/lib/format-money";
 import {
   buildPathWithQuery,
@@ -187,12 +188,14 @@ function getCollectionsSubtitle({
 }
 
 function LeaseHeader({
+  canManage,
   lease,
   locale,
   onDelete,
   t,
   tCommon,
 }: Readonly<{
+  canManage: boolean;
   lease: Lease;
   locale: string;
   onDelete: () => void;
@@ -216,7 +219,7 @@ function LeaseHeader({
         </p>
       </div>
       <div className="flex space-x-2">
-        {lease.contractType === "rental" ? (
+        {canManage && lease.contractType === "rental" ? (
           <Link
             href={buildPathWithQuery(`/${locale}/payments/new`, {
               leaseId: lease.id,
@@ -226,17 +229,21 @@ function LeaseHeader({
             Registrar pago
           </Link>
         ) : null}
-        <Link
-          href={`/${locale}/leases/${encodeRouteSegment(lease.id)}/edit`}
-          className="btn btn-secondary"
-        >
-          <Edit size={16} className="mr-2" />
-          {editLabel}
-        </Link>
-        <button onClick={onDelete} className="btn btn-danger">
-          <Trash2 size={16} className="mr-2" />
-          {tCommon("delete")}
-        </button>
+        {canManage ? (
+          <>
+            <Link
+              href={`/${locale}/leases/${encodeRouteSegment(lease.id)}/edit`}
+              className="btn btn-secondary"
+            >
+              <Edit size={16} className="mr-2" />
+              {editLabel}
+            </Link>
+            <button onClick={onDelete} className="btn btn-danger">
+              <Trash2 size={16} className="mr-2" />
+              {tCommon("delete")}
+            </button>
+          </>
+        ) : null}
       </div>
     </div>
   );
@@ -445,6 +452,7 @@ function ConfirmedContractView({
 }
 
 function DraftSection({
+  canManage,
   confirmedFormat,
   confirmingDraft,
   draftFormat,
@@ -461,6 +469,7 @@ function DraftSection({
   t,
   tCommon,
 }: Readonly<{
+  canManage: boolean;
   confirmedFormat: LeaseTemplateFormat;
   confirmingDraft: boolean;
   draftFormat: LeaseTemplateFormat;
@@ -489,7 +498,7 @@ function DraftSection({
         <p className="text-xs text-gray-500 dark:text-gray-400">
           {t("templateInUse")}: {lease.templateName || t("templates.none")}
         </p>
-        {lease.status === "DRAFT" ? (
+        {lease.status === "DRAFT" && canManage ? (
           <>
             {draftFormat === "html" ? (
               <DraftEditor
@@ -791,7 +800,7 @@ function RecentPaymentsSection({
 }
 
 export default function LeaseDetailPage() {
-  const { loading: authLoading } = useAuth();
+  const { loading: authLoading, user } = useAuth();
   const t = useTranslations("leases");
   const tCommon = useTranslations("common");
   const locale = useLocale();
@@ -985,6 +994,7 @@ export default function LeaseDetailPage() {
     lease?.confirmedContractFormat ??
     lease?.draftContractFormat ??
     "plain_text";
+  const canManage = canManageLeases(user?.role);
   const handleDraftInput = (event: React.SyntheticEvent<HTMLDivElement>) => {
     setDraftText(event.currentTarget.innerHTML);
   };
@@ -1028,6 +1038,7 @@ export default function LeaseDetailPage() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xs border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="p-6 md:p-8">
           <LeaseHeader
+            canManage={canManage}
             lease={lease}
             locale={locale}
             onDelete={() => {
@@ -1056,6 +1067,7 @@ export default function LeaseDetailPage() {
               />
 
               <DraftSection
+                canManage={canManage}
                 confirmedFormat={confirmedFormat}
                 confirmingDraft={confirmingDraft}
                 draftFormat={draftFormat}

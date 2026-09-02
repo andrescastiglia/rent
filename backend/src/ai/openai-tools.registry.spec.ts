@@ -4,6 +4,35 @@ import { UserListQueryDto } from '../users/dto/user-list-query.dto';
 import { UserRole } from '../users/entities/user.entity';
 
 describe('openai-tools.registry', () => {
+  it('exposes only safe profile reads from the base catalog to buyers', () => {
+    const definitions = buildAiToolDefinitions({} as any);
+    const buyerProfileTools = definitions.filter((definition) =>
+      ['get_auth_profile', 'get_users_profile_me'].includes(definition.name),
+    );
+
+    expect(buyerProfileTools).toHaveLength(2);
+    for (const definition of buyerProfileTools) {
+      expect(definition.allowedRoles).toContain(UserRole.BUYER);
+    }
+    expect(
+      definitions.find(
+        (definition) => definition.name === 'patch_users_profile_me',
+      )?.allowedRoles,
+    ).not.toContain(UserRole.BUYER);
+  });
+
+  it('restricts interested CRM tools to administrators and staff', () => {
+    const definitions = buildAiToolDefinitions({} as any);
+    const interestedTools = definitions.filter((definition) =>
+      definition.name.includes('interested'),
+    );
+
+    expect(interestedTools.length).toBeGreaterThan(0);
+    for (const definition of interestedTools) {
+      expect(definition.allowedRoles).toEqual([UserRole.ADMIN, UserRole.STAFF]);
+    }
+  });
+
   it('should reuse DTO zod schemas as single source of truth', () => {
     const deps = {
       authService: {

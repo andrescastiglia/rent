@@ -8,6 +8,7 @@ import { leasesApi } from "@/lib/api/leases";
 import { Search, Loader2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
+import { canManageLeases } from "@/lib/permissions";
 import { formatMoneyByCode } from "@/lib/format-money";
 import { normalizeSearchText } from "@/lib/search";
 
@@ -138,7 +139,7 @@ function LeaseSection({
 }
 
 export default function LeasesPage() {
-  const { loading: authLoading } = useAuth();
+  const { loading: authLoading, user } = useAuth();
   const t = useTranslations("leases");
   const locale = useLocale();
   const [leases, setLeases] = useState<Lease[]>([]);
@@ -228,20 +229,22 @@ export default function LeasesPage() {
             Vencimientos organizados por prioridad de renovación.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Link
-            href={`/${locale}/leases/import`}
-            className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-200"
-          >
-            Cargar contrato actual
-          </Link>
-          <Link
-            href={`/${locale}/templates`}
-            className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-200"
-          >
-            {t("manageTemplates")}
-          </Link>
-        </div>
+        {canManageLeases(user?.role) ? (
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/${locale}/leases/import`}
+              className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-200"
+            >
+              Cargar contrato actual
+            </Link>
+            <Link
+              href={`/${locale}/templates`}
+              className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-200"
+            >
+              {t("manageTemplates")}
+            </Link>
+          </div>
+        ) : null}
       </div>
 
       <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">

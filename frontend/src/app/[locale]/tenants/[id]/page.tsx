@@ -24,9 +24,11 @@ import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
 import { IS_MOCK_MODE } from "@/lib/api";
 import { encodeRouteSegment } from "@/lib/safe-url";
+import { canManageTenants } from "@/lib/permissions";
 
 export default function TenantDetailPage() {
-  const { loading: authLoading, token } = useAuth();
+  const { loading: authLoading, token, user } = useAuth();
+  const canManage = canManageTenants(user?.role);
   const t = useTranslations("tenants");
   const tPayments = useTranslations("payments");
   const tCommon = useTranslations("common");
@@ -95,36 +97,37 @@ export default function TenantDetailPage() {
           return;
         }
 
-        const [leaseHistoryResult, paymentsResult, activitiesResult] =
-          await Promise.allSettled([
+        const [leaseHistoryResult, activitiesResult] = await Promise.allSettled(
+          [
             tenantsApi.getLeaseHistory(data.id),
-            paymentsApi.getAll({ tenantId: data.id, limit: 100 }),
             tenantsApi.getActivities(data.id),
-          ]);
+          ] as const,
+        );
 
         const leaseHistory =
           leaseHistoryResult.status === "fulfilled"
             ? leaseHistoryResult.value
             : [];
 
-        const invoicesByLease = await Promise.allSettled(
-          leaseHistory.map((lease) =>
-            invoicesApi.getAll({ leaseId: lease.id, limit: 100 }),
-          ),
-        );
+        const paymentsResult = canManage
+          ? await paymentsApi
+              .getAll({ tenantId: data.id, limit: 100 })
+              .catch(() => null)
+          : null;
+        const invoicesByLease = canManage
+          ? await Promise.allSettled(
+              leaseHistory.map((lease) =>
+                invoicesApi.getAll({ leaseId: lease.id, limit: 100 }),
+              ),
+            )
+          : [];
 
         const nextInvoicesById = buildInvoicesById(invoicesByLease);
 
         setTenant(data);
         setLeases(leaseHistory);
         setInvoicesById(nextInvoicesById);
-        setPayments(
-          paymentsByDateDesc(
-            paymentsResult.status === "fulfilled"
-              ? paymentsResult.value.data
-              : [],
-          ),
-        );
+        setPayments(paymentsByDateDesc(paymentsResult?.data ?? []));
         setActivities(
           activitiesResult.status === "fulfilled"
             ? activitiesByDateDesc(activitiesResult.value)
@@ -141,7 +144,7 @@ export default function TenantDetailPage() {
         setLoading(false);
       }
     },
-    [token],
+    [canManage, token],
   );
 
   useEffect(() => {
@@ -309,20 +312,24 @@ export default function TenantDetailPage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link
-                href={`/${locale}/tenants/${tenantRouteId}/edit`}
-                className="btn btn-secondary"
-              >
-                <Edit size={16} className="mr-2" />
-                {tCommon("edit")}
-              </Link>
-              <Link
-                href={`/${locale}/tenants/${tenantRouteId}/payments/new`}
-                className="btn btn-success"
-              >
-                <Wallet size={16} className="mr-2" />
-                {t("paymentRegistration.submit")}
-              </Link>
+              {canManage ? (
+                <>
+                  <Link
+                    href={`/${locale}/tenants/${tenantRouteId}/edit`}
+                    className="btn btn-secondary"
+                  >
+                    <Edit size={16} className="mr-2" />
+                    {tCommon("edit")}
+                  </Link>
+                  <Link
+                    href={`/${locale}/tenants/${tenantRouteId}/payments/new`}
+                    className="btn btn-success"
+                  >
+                    <Wallet size={16} className="mr-2" />
+                    {t("paymentRegistration.submit")}
+                  </Link>
+                </>
+              ) : null}
               <Link
                 href={`/${locale}/tenants/${tenantRouteId}/activities/new`}
                 className="btn btn-primary"
