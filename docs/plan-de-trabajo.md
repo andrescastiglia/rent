@@ -33,9 +33,8 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 
 ### Consistencia financiera
 
-- [ ] Completar la reversión atómica de asignaciones, recibos y notas de crédito al cancelar pagos.
 - [ ] Ejecutar conciliación bancaria con el mismo `EntityManager`; probar rollback antes y después de cada escritura.
-- [ ] Agregar idempotencia y constraints para movimientos, webhooks y asignaciones; bloquear carreras en numeración de recibos/notas.
+- [ ] Completar idempotencia de webhooks y bloquear carreras en numeración de recibos/notas.
 - [ ] Asegurar que PDF, S3, WhatsApp y proveedores se ejecuten desde outbox después del commit.
 
 ### Superficies públicas y sesiones
