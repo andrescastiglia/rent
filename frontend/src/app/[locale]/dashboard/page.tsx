@@ -55,7 +55,7 @@ function PendingActionDialog({
   onPasswordChange,
   onCancel,
   onConfirm,
-}: PendingActionDialogProps) {
+}: Readonly<PendingActionDialogProps>) {
   const t = useTranslations("dashboard");
 
   if (!item) return null;
