@@ -171,6 +171,7 @@ const ALL_ROLES = [
   UserRole.STAFF,
   UserRole.TENANT,
 ];
+const PROFILE_READ_ROLES = [...ALL_ROLES, UserRole.BUYER];
 const LEASE_READ_ROLES = [...ALL_ROLES, UserRole.BUYER];
 
 const asObjectSchema = (schema: z.ZodTypeAny): z.ZodObject<any> =>
@@ -325,7 +326,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Current user profile including id, email, name, role, and company info.',
       mutability: 'readonly',
-      allowedRoles: ALL_ROLES,
+      allowedRoles: PROFILE_READ_ROLES,
       parameters: emptyObjectSchema,
       execute: async (_args, context) => {
         const user = await deps.usersService.findOneById(context.userId);
@@ -385,7 +386,7 @@ export function buildAiToolDefinitions(
         "Returns the current authenticated user's own profile. Available to any logged-in user.",
       responseDescription: "Current user's full profile details.",
       mutability: 'readonly',
-      allowedRoles: ALL_ROLES,
+      allowedRoles: PROFILE_READ_ROLES,
       parameters: emptyObjectSchema,
       execute: async (_args, context) => {
         const user = await deps.usersService.findOneById(context.userId);
