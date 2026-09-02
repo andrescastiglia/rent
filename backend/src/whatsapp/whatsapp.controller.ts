@@ -1,5 +1,6 @@
 import {
   Body,
+  BadRequestException,
   Controller,
   ForbiddenException,
   Get,
@@ -9,6 +10,7 @@ import {
   Param,
   Post,
   Query,
+  Request as NestRequest,
   Req,
   Res,
 } from '@nestjs/common';
@@ -16,7 +18,9 @@ import { RawBodyRequest } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { Public } from '../common/decorators/public.decorator';
 import { Authenticated } from '../common/decorators/authenticated.decorator';
+import { Roles } from '../common/decorators/roles.decorator';
 import { DocumentsService } from '../documents/documents.service';
+import { UserRole } from '../users/entities/user.entity';
 import { SendWhatsappMessageDto } from './dto/send-whatsapp-message.dto';
 import { WhatsappWebhookQueryDto } from './dto/whatsapp-webhook-query.dto';
 import { WhatsappDocumentQueryDto } from './dto/whatsapp-document-query.dto';
@@ -31,8 +35,23 @@ export class WhatsappController {
   ) {}
 
   @Post('messages')
-  async sendMessage(@Body() dto: SendWhatsappMessageDto) {
-    return this.sendMessageFromDto(dto);
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  async sendMessage(
+    @Body() dto: SendWhatsappMessageDto,
+    @NestRequest() req: { user: { companyId: string } },
+  ) {
+    if (!dto.activityEntity || !dto.activityId || !dto.relatedEntityId) {
+      throw new BadRequestException(
+        'Activity entity, activity id and recipient id are required',
+      );
+    }
+    return this.whatsappService.enqueueMessage({
+      ...dto,
+      companyId: req.user.companyId,
+      recipientRole: dto.activityEntity,
+      recipientId: dto.relatedEntityId,
+      idempotencyKey: `activity:${dto.activityEntity}:${dto.activityId}`,
+    });
   }
 
   @Public()
@@ -42,7 +61,23 @@ export class WhatsappController {
     @Headers('x-batch-whatsapp-token') token?: string,
   ) {
     this.whatsappService.assertBatchToken(token);
-    return this.sendMessageFromDto(dto);
+    if (
+      !dto.companyId ||
+      !dto.recipientRole ||
+      !dto.recipientId ||
+      !dto.idempotencyKey
+    ) {
+      throw new BadRequestException(
+        'Company, recipient and idempotency key are required',
+      );
+    }
+    return this.whatsappService.enqueueMessage({
+      ...dto,
+      companyId: dto.companyId,
+      recipientRole: dto.recipientRole,
+      recipientId: dto.recipientId,
+      idempotencyKey: dto.idempotencyKey,
+    });
   }
 
   @Public()
@@ -125,36 +160,5 @@ export class WhatsappController {
     });
 
     return res.send(buffer);
-  }
-
-  private sendMessageFromDto(dto: SendWhatsappMessageDto) {
-    const context = {
-      companyId: dto.companyId,
-      relatedEntityType: dto.relatedEntityType,
-      relatedEntityId: dto.relatedEntityId,
-      activityEntity: dto.activityEntity,
-      activityId: dto.activityId,
-    };
-
-    if (dto.templateName) {
-      return this.whatsappService.sendTemplateMessage(
-        dto.to,
-        dto.templateName,
-        dto.templateLanguage ?? 'es',
-        dto.templateParameters ?? [],
-        {
-          textFallback: dto.text,
-          pdfUrl: dto.pdfUrl,
-          context,
-        },
-      );
-    }
-
-    return this.whatsappService.sendTextMessage(
-      dto.to,
-      dto.text,
-      dto.pdfUrl,
-      context,
-    );
   }
 }

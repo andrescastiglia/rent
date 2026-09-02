@@ -14,6 +14,7 @@ type LeaseRenewalRecord = {
   ownerName: string | null;
   ownerPhone: string | null;
   ownerLanguage: string | null;
+  ownerWhatsappEnabled: boolean;
   tenantName: string | null;
   endDate: Date;
   renewalAlertPeriodicity: RenewalAlertPeriodicity;
@@ -110,6 +111,7 @@ export class LeaseRenewalService {
           CONCAT_WS(' ', ou.first_name, ou.last_name) AS owner_name,
           ou.phone AS owner_phone,
           ou.language AS owner_language,
+          ou.whatsapp_enabled AS owner_whatsapp_enabled,
           CONCAT_WS(' ', tu.first_name, tu.last_name) AS tenant_name,
           l.end_date,
           l.renewal_alert_periodicity,
@@ -153,6 +155,7 @@ export class LeaseRenewalService {
         owner_name: string | null;
         owner_phone: string | null;
         owner_language: string | null;
+        owner_whatsapp_enabled: boolean;
         tenant_name: string | null;
         end_date: string | Date;
         renewal_alert_periodicity: RenewalAlertPeriodicity;
@@ -168,6 +171,7 @@ export class LeaseRenewalService {
         ownerName: row.owner_name?.trim() || null,
         ownerPhone: row.owner_phone,
         ownerLanguage: row.owner_language ?? null,
+        ownerWhatsappEnabled: row.owner_whatsapp_enabled === true,
         tenantName: row.tenant_name?.trim() || null,
         endDate: new Date(row.end_date),
         renewalAlertPeriodicity: row.renewal_alert_periodicity,
@@ -268,7 +272,7 @@ export class LeaseRenewalService {
   }
 
   private async sendOwnerWhatsapp(lease: LeaseRenewalRecord): Promise<boolean> {
-    if (!lease.ownerPhone) {
+    if (!lease.ownerPhone || !lease.ownerWhatsappEnabled) {
       return false;
     }
 
@@ -297,6 +301,15 @@ export class LeaseRenewalService {
         ],
       },
       text,
+      undefined,
+      {
+        companyId: lease.companyId,
+        recipientRole: "owner",
+        recipientId: lease.ownerId,
+        idempotencyKey: `lease-renewal:${lease.leaseId}:${endDate}`,
+        relatedEntityType: "lease",
+        relatedEntityId: lease.leaseId,
+      },
     );
 
     return response.success;

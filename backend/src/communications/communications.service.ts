@@ -384,6 +384,7 @@ export class CommunicationsService {
         relatedEntityType: input.relatedEntityType ?? null,
         relatedEntityId: input.relatedEntityId ?? null,
         sourceCommunicationId: null,
+        idempotencyKey: null,
         metadata: input.metadata ?? {},
         sentAt: null,
       }),
@@ -495,20 +496,48 @@ export class CommunicationsService {
 
   private async send(delivery: CommunicationDelivery): Promise<string | null> {
     this.assertWhatsappOnly(delivery.channel);
+    const context = {
+      companyId: delivery.companyId,
+      idempotencyKey: delivery.id,
+      relatedEntityType: this.toWhatsappEntityType(delivery.relatedEntityType),
+      relatedEntityId: delivery.relatedEntityId ?? undefined,
+      activityEntity: this.toWhatsappActivityEntity(
+        delivery.metadata?.activityEntity,
+      ),
+      activityId:
+        typeof delivery.metadata?.activityId === 'string'
+          ? delivery.metadata.activityId
+          : undefined,
+    };
+    const templateName = delivery.metadata?.templateName;
+    if (typeof templateName === 'string') {
+      const result = await this.whatsappService.sendTemplateMessage(
+        delivery.recipient,
+        templateName,
+        typeof delivery.metadata?.templateLanguage === 'string'
+          ? delivery.metadata.templateLanguage
+          : 'es',
+        Array.isArray(delivery.metadata?.templateParameters)
+          ? delivery.metadata.templateParameters.map(String)
+          : [],
+        {
+          textFallback: delivery.body,
+          pdfUrl:
+            typeof delivery.metadata?.attachmentUrl === 'string'
+              ? delivery.metadata.attachmentUrl
+              : undefined,
+          context,
+        },
+      );
+      return result.messageId;
+    }
     const result = await this.whatsappService.sendTextMessage(
       delivery.recipient,
       delivery.body,
       typeof delivery.metadata?.attachmentUrl === 'string'
         ? delivery.metadata.attachmentUrl
         : undefined,
-      {
-        companyId: delivery.companyId,
-        idempotencyKey: delivery.id,
-        relatedEntityType: this.toWhatsappEntityType(
-          delivery.relatedEntityType,
-        ),
-        relatedEntityId: delivery.relatedEntityId ?? undefined,
-      },
+      context,
     );
     return result.messageId;
   }
@@ -534,6 +563,14 @@ export class CommunicationsService {
       'lease',
     ];
     return allowed.find((item) => item === value);
+  }
+
+  private toWhatsappActivityEntity(
+    value: unknown,
+  ): 'tenant' | 'owner' | 'interested' | undefined {
+    return value === 'tenant' || value === 'owner' || value === 'interested'
+      ? value
+      : undefined;
   }
 
   private render(

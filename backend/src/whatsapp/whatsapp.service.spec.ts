@@ -3,6 +3,7 @@ import {
   BadGatewayException,
   ServiceUnavailableException,
   UnauthorizedException,
+  NotFoundException,
 } from '@nestjs/common';
 import { createHmac } from 'node:crypto';
 import OpenAI from 'openai';
@@ -87,6 +88,102 @@ describe('WhatsappService', () => {
 
   afterAll(() => {
     process.env = originalEnv;
+  });
+
+  it('enqueues a consented tenant activity idempotently', async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([{ phone: '+54 9 11 1234-5678', consented: true }])
+      .mockResolvedValueOnce([{ id: 'activity-1' }])
+      .mockResolvedValueOnce([{ id: 'delivery-1', status: 'queued' }]);
+    const service = buildService(undefined, buildDataSource(query));
+
+    await expect(
+      service.enqueueMessage({
+        companyId: '123e4567-e89b-12d3-a456-426614174001',
+        recipientRole: 'tenant',
+        recipientId: '123e4567-e89b-12d3-a456-426614174002',
+        idempotencyKey: 'activity:tenant:123e4567-e89b-12d3-a456-426614174003',
+        to: '+5491112345678',
+        text: ' Hola ',
+        activityEntity: 'tenant',
+        activityId: '123e4567-e89b-12d3-a456-426614174003',
+        relatedEntityType: 'tenant',
+        relatedEntityId: '123e4567-e89b-12d3-a456-426614174002',
+      }),
+    ).resolves.toEqual({
+      deliveryId: 'delivery-1',
+      status: 'queued',
+      queued: true,
+    });
+    expect(query.mock.calls[2][0]).toContain(
+      'ON CONFLICT (company_id, idempotency_key)',
+    );
+    expect(query.mock.calls[2][1][4]).toBe('Hola');
+  });
+
+  it('rejects unconsented, unknown and mismatched recipients', async () => {
+    const unconsented = buildService(
+      undefined,
+      buildDataSource(
+        jest
+          .fn()
+          .mockResolvedValue([{ phone: '+5491112345678', consented: false }]),
+      ),
+    );
+    const input = {
+      companyId: '123e4567-e89b-12d3-a456-426614174001',
+      recipientRole: 'owner' as const,
+      recipientId: '123e4567-e89b-12d3-a456-426614174002',
+      idempotencyKey: 'owner-message-1',
+      to: '+5491112345678',
+      text: 'Hola',
+    };
+    await expect(unconsented.enqueueMessage(input)).rejects.toThrow(
+      BadRequestException,
+    );
+
+    const unknown = buildService(
+      undefined,
+      buildDataSource(jest.fn().mockResolvedValue([])),
+    );
+    await expect(unknown.enqueueMessage(input)).rejects.toThrow(
+      NotFoundException,
+    );
+
+    const mismatched = buildService(
+      undefined,
+      buildDataSource(
+        jest
+          .fn()
+          .mockResolvedValue([{ phone: '+5491199999999', consented: true }]),
+      ),
+    );
+    await expect(mismatched.enqueueMessage(input)).rejects.toThrow(
+      'Recipient phone does not match the record',
+    );
+  });
+
+  it('derives distinct stable UUID keys for multipart deliveries', () => {
+    const service = buildService();
+    const context = {
+      idempotencyKey: '123e4567-e89b-12d3-a456-426614174001',
+    };
+    const template = (service as any).withIdempotencyComponent(
+      context,
+      'template',
+    );
+    const document = (service as any).withIdempotencyComponent(
+      context,
+      'document',
+    );
+    expect(template.idempotencyKey).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+    expect(template.idempotencyKey).not.toBe(document.idempotencyKey);
+    expect(
+      (service as any).withIdempotencyComponent(context, 'template'),
+    ).toEqual(template);
   });
 
   it('sendTextMessage throws when whatsapp is disabled', async () => {

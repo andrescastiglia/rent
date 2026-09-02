@@ -128,6 +128,7 @@ describe("LeaseRenewalService", () => {
           owner_id: "owner-1",
           owner_name: "Owner 1",
           owner_phone: "+5491111111111",
+          owner_whatsapp_enabled: true,
           tenant_name: "Tenant 1",
           end_date: "2026-02-14T00:00:00.000Z",
           renewal_alert_periodicity: "monthly",
@@ -172,6 +173,15 @@ describe("LeaseRenewalService", () => {
         templateParameters: ["Owner 1", "Casa 1", "2026-02-14", "Tenant 1"],
       },
       expect.stringContaining("Casa 1 vence el 2026-02-14"),
+      undefined,
+      {
+        companyId: "company-1",
+        recipientRole: "owner",
+        recipientId: "owner-1",
+        idempotencyKey: "lease-renewal:lease-1:2026-02-14",
+        relatedEntityType: "lease",
+        relatedEntityId: "lease-1",
+      },
     );
     expect(queryMock).toHaveBeenNthCalledWith(
       3,

@@ -74,6 +74,13 @@ export class CommunicationDelivery {
   relatedEntityId: string | null;
   @Column({ name: 'source_communication_id', type: 'uuid', nullable: true })
   sourceCommunicationId: string | null;
+  @Column({
+    name: 'idempotency_key',
+    type: 'varchar',
+    length: 200,
+    nullable: true,
+  })
+  idempotencyKey: string | null;
   @Column({ type: 'jsonb', default: () => "'{}'" }) metadata: Record<
     string,
     unknown

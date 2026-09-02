@@ -4,6 +4,7 @@ import { WhatsappController } from './whatsapp.controller';
 
 describe('WhatsappController', () => {
   const whatsappService = {
+    enqueueMessage: jest.fn(),
     sendTextMessage: jest.fn(),
     sendTemplateMessage: jest.fn(),
     assertBatchToken: jest.fn(),
@@ -30,82 +31,75 @@ describe('WhatsappController', () => {
     );
   });
 
-  it('sendMessage delegates to whatsapp service', async () => {
-    whatsappService.sendTextMessage.mockResolvedValue({ messageId: 'x' });
-    const dto = { to: '54911', text: 'hola', pdfUrl: undefined } as any;
-
-    await expect(controller.sendMessage(dto)).resolves.toEqual({
-      messageId: 'x',
+  it('sendMessage enqueues a company-scoped activity', async () => {
+    whatsappService.enqueueMessage.mockResolvedValue({
+      deliveryId: 'delivery-1',
+      status: 'queued',
+      queued: true,
     });
-    expect(whatsappService.sendTextMessage).toHaveBeenCalledWith(
-      '54911',
-      'hola',
-      undefined,
-      {
-        activityEntity: undefined,
-        activityId: undefined,
-        companyId: undefined,
-        relatedEntityId: undefined,
-        relatedEntityType: undefined,
-      },
-    );
+    const dto = {
+      to: '54911',
+      text: 'hola',
+      activityEntity: 'tenant',
+      activityId: '123e4567-e89b-12d3-a456-426614174001',
+      relatedEntityType: 'tenant',
+      relatedEntityId: '123e4567-e89b-12d3-a456-426614174002',
+    } as any;
+
+    await expect(
+      controller.sendMessage(dto, { user: { companyId: 'company-1' } }),
+    ).resolves.toEqual({
+      deliveryId: 'delivery-1',
+      status: 'queued',
+      queued: true,
+    });
+    expect(whatsappService.enqueueMessage).toHaveBeenCalledWith({
+      ...dto,
+      companyId: 'company-1',
+      recipientRole: 'tenant',
+      recipientId: '123e4567-e89b-12d3-a456-426614174002',
+      idempotencyKey: 'activity:tenant:123e4567-e89b-12d3-a456-426614174001',
+    });
   });
 
-  it('sendMessageFromBatch validates token then sends', async () => {
-    whatsappService.sendTextMessage.mockResolvedValue({ messageId: 'y' });
-    const dto = { to: '54911', text: 'hola', pdfUrl: 'db://document/1' } as any;
+  it('sendMessageFromBatch validates token then enqueues', async () => {
+    whatsappService.enqueueMessage.mockResolvedValue({
+      deliveryId: 'delivery-2',
+      status: 'queued',
+      queued: true,
+    });
+    const dto = {
+      to: '54911',
+      text: 'hola',
+      companyId: '123e4567-e89b-12d3-a456-426614174010',
+      recipientRole: 'tenant',
+      recipientId: '123e4567-e89b-12d3-a456-426614174011',
+      idempotencyKey: 'invoice-issued:invoice-1',
+    } as any;
 
     await expect(
       controller.sendMessageFromBatch(dto, 'batch-token'),
-    ).resolves.toEqual({ messageId: 'y' });
+    ).resolves.toEqual({
+      deliveryId: 'delivery-2',
+      status: 'queued',
+      queued: true,
+    });
     expect(whatsappService.assertBatchToken).toHaveBeenCalledWith(
       'batch-token',
     );
-    expect(whatsappService.sendTextMessage).toHaveBeenCalledWith(
-      '54911',
-      'hola',
-      'db://document/1',
-      {
-        activityEntity: undefined,
-        activityId: undefined,
-        companyId: undefined,
-        relatedEntityId: undefined,
-        relatedEntityType: undefined,
-      },
-    );
+    expect(whatsappService.enqueueMessage).toHaveBeenCalledWith(dto);
   });
 
-  it('sendMessage delegates template payloads to whatsapp service', async () => {
-    whatsappService.sendTemplateMessage.mockResolvedValue({ messageId: 'tpl' });
+  it('requires activity context for authenticated sends', async () => {
     const dto = {
       to: '54911',
       text: 'fallback',
-      templateName: 'invoice_available',
-      templateLanguage: 'es_AR',
-      templateParameters: ['Juan', 'F-1', '2026-07-15', 'ARS 1000,00'],
-      activityEntity: 'tenant',
-      activityId: '123e4567-e89b-12d3-a456-426614174000',
     } as any;
 
-    await expect(controller.sendMessage(dto)).resolves.toEqual({
-      messageId: 'tpl',
-    });
-    expect(whatsappService.sendTemplateMessage).toHaveBeenCalledWith(
-      '54911',
-      'invoice_available',
-      'es_AR',
-      ['Juan', 'F-1', '2026-07-15', 'ARS 1000,00'],
-      {
-        textFallback: 'fallback',
-        pdfUrl: undefined,
-        context: {
-          activityEntity: 'tenant',
-          activityId: '123e4567-e89b-12d3-a456-426614174000',
-          companyId: undefined,
-          relatedEntityId: undefined,
-          relatedEntityType: undefined,
-        },
-      },
+    await expect(
+      controller.sendMessage(dto, { user: { companyId: 'company-1' } }),
+    ).rejects.toThrow(
+      'Activity entity, activity id and recipient id are required',
     );
   });
 

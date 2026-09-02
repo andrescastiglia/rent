@@ -152,8 +152,13 @@ export class BillingService {
       }
 
       const contact = await this.invoiceService.getReminderContact(invoice.id);
-      if (!contact.tenantPhone) {
-        logger.warn("Skipping invoice WhatsApp without tenant phone", {
+      if (
+        !contact.tenantPhone ||
+        !contact.tenantId ||
+        !contact.whatsappEnabled ||
+        !invoice.companyId
+      ) {
+        logger.warn("Skipping invoice WhatsApp without consent or recipient", {
           invoiceId: invoice.id,
           invoiceNumber: invoice.invoiceNumber,
         });
@@ -192,6 +197,14 @@ export class BillingService {
         },
         text,
         invoice.pdfUrl,
+        {
+          companyId: invoice.companyId,
+          recipientRole: "tenant",
+          recipientId: contact.tenantId,
+          idempotencyKey: `invoice-issued:${invoice.id}`,
+          relatedEntityType: "invoice",
+          relatedEntityId: invoice.id,
+        },
       );
 
       if (!sendResult.success) {

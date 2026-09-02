@@ -25,6 +25,7 @@ export enum CommunicationRecipientRole {
 }
 
 export enum CommunicationEvent {
+  WHATSAPP_AD_HOC = 'whatsapp_ad_hoc',
   WHATSAPP_MANUAL_REPLY = 'whatsapp_manual_reply',
   WHATSAPP_ASSISTANT_RESPONSE = 'whatsapp_assistant_response',
   CREDIT_NOTE_ISSUED = 'credit_note_issued',

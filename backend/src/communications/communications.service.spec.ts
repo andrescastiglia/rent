@@ -27,6 +27,7 @@ describe('CommunicationsService', () => {
   };
   const whatsappService = {
     sendTextMessage: jest.fn(),
+    sendTemplateMessage: jest.fn(),
   };
   const dataSourceQuery = jest.fn();
   const dataSource = {
@@ -40,10 +41,14 @@ describe('CommunicationsService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     whatsappService.sendTextMessage.mockReset();
+    whatsappService.sendTemplateMessage.mockReset();
     templatesRepository.findOne.mockResolvedValue(null);
     deliveriesRepository.findOne.mockResolvedValue(null);
     whatsappService.sendTextMessage.mockResolvedValue({
       messageId: 'wamid-1',
+    });
+    whatsappService.sendTemplateMessage.mockResolvedValue({
+      messageId: 'wamid-template',
     });
     service = new CommunicationsService(
       templatesRepository as any,
@@ -445,6 +450,52 @@ describe('CommunicationsService', () => {
       undefined,
       expect.objectContaining({ idempotencyKey: 'due-1' }),
     );
+  });
+
+  it('delivers queued WhatsApp templates and attachments through the worker', async () => {
+    const delivery = {
+      ...deliveriesRepository.create(dispatchInput),
+      id: 'due-template',
+      companyId: 'company-1',
+      channel: CommunicationChannel.WHATSAPP,
+      recipient: '+5491111111111',
+      body: 'Factura disponible',
+      status: CommunicationDeliveryStatus.PROCESSING,
+      attempts: 1,
+      maxAttempts: 3,
+      metadata: {
+        templateName: 'invoice_available',
+        templateLanguage: 'es_AR',
+        templateParameters: ['Ana', 'F-1'],
+        attachmentUrl: 'db://document/document-1',
+      },
+      relatedEntityType: 'invoice',
+      relatedEntityId: '00000000-0000-4000-8000-000000000001',
+    };
+    dataSource.query.mockResolvedValueOnce([{ id: delivery.id }]);
+    deliveriesRepository.findOne.mockResolvedValueOnce(delivery);
+
+    await expect(service.retryDue()).resolves.toEqual({
+      processed: 1,
+      sent: 1,
+      failed: 0,
+    });
+    expect(whatsappService.sendTemplateMessage).toHaveBeenCalledWith(
+      delivery.recipient,
+      'invoice_available',
+      'es_AR',
+      ['Ana', 'F-1'],
+      {
+        textFallback: delivery.body,
+        pdfUrl: 'db://document/document-1',
+        context: expect.objectContaining({
+          companyId: 'company-1',
+          idempotencyKey: 'due-template',
+          relatedEntityType: 'invoice',
+        }),
+      },
+    );
+    expect(whatsappService.sendTextMessage).not.toHaveBeenCalled();
   });
 
   it('rejects email and SMS before contacting a provider', async () => {

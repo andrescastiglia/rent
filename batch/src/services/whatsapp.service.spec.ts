@@ -43,7 +43,10 @@ describe("WhatsappService", () => {
   it("sends message successfully and returns messageId", async () => {
     fetchMock.mockResolvedValue({
       ok: true,
-      json: async () => ({ messageId: "msg-123" }),
+      json: async () => ({
+        deliveryId: "delivery-123",
+        status: "queued",
+      }),
     });
     const service = new WhatsappService();
 
@@ -51,6 +54,12 @@ describe("WhatsappService", () => {
       "54911",
       "hola",
       "https://files/doc.pdf",
+      {
+        companyId: "company-1",
+        recipientRole: "tenant",
+        recipientId: "tenant-1",
+        idempotencyKey: "message-1",
+      },
     );
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -65,10 +74,19 @@ describe("WhatsappService", () => {
           to: "54911",
           text: "hola",
           pdfUrl: "https://files/doc.pdf",
+          companyId: "company-1",
+          recipientRole: "tenant",
+          recipientId: "tenant-1",
+          idempotencyKey: "message-1",
         }),
       },
     );
-    expect(result).toEqual({ success: true, messageId: "msg-123" });
+    expect(result).toEqual({
+      success: true,
+      deliveryId: "delivery-123",
+      status: "queued",
+      messageId: null,
+    });
   });
 
   it("sends template payloads successfully", async () => {
@@ -90,6 +108,12 @@ describe("WhatsappService", () => {
       },
       "fallback",
       "db://document/123e4567-e89b-12d3-a456-426614174000",
+      {
+        companyId: "company-1",
+        recipientRole: "tenant",
+        recipientId: "tenant-1",
+        idempotencyKey: "invoice-issued:invoice-1",
+      },
     );
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -102,6 +126,10 @@ describe("WhatsappService", () => {
           templateName: "invoice_available",
           templateLanguage: "es_AR",
           templateParameters: ["Juan", "F-1", "2026-07-15", "ARS 1000,00"],
+          companyId: "company-1",
+          recipientRole: "tenant",
+          recipientId: "tenant-1",
+          idempotencyKey: "invoice-issued:invoice-1",
         }),
       }),
     );

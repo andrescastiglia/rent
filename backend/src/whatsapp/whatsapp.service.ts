@@ -3,6 +3,7 @@ import {
   BadGatewayException,
   Injectable,
   Logger,
+  NotFoundException,
   OnApplicationBootstrap,
   Optional,
   ServiceUnavailableException,
@@ -60,6 +61,32 @@ export type WhatsappTemplateOptions = {
   textFallback?: string;
   pdfUrl?: string;
   context?: WhatsappMessageContext;
+};
+
+export type WhatsappRecipientRole =
+  'admin' | 'staff' | 'buyer' | 'tenant' | 'owner' | 'interested';
+
+export type QueueWhatsappMessageInput = {
+  companyId: string;
+  recipientRole: WhatsappRecipientRole;
+  recipientId: string;
+  idempotencyKey: string;
+  to: string;
+  text: string;
+  pdfUrl?: string;
+  templateName?: string;
+  templateLanguage?: string;
+  templateParameters?: string[];
+  activityEntity?: WhatsappActivityEntity;
+  activityId?: string;
+  relatedEntityType?: WhatsappRelatedEntityType;
+  relatedEntityId?: string;
+};
+
+export type QueueWhatsappMessageResult = {
+  deliveryId: string;
+  status: string;
+  queued: boolean;
 };
 
 export type WhatsappRetentionResult = {
@@ -150,6 +177,166 @@ export class WhatsappService implements OnApplicationBootstrap {
 
   async onApplicationBootstrap(): Promise<void> {
     await this.ensureTrackingTable();
+  }
+
+  async enqueueMessage(
+    input: QueueWhatsappMessageInput,
+  ): Promise<QueueWhatsappMessageResult> {
+    if (!this.dataSource || this.dataSource.options.type !== 'postgres') {
+      throw new ServiceUnavailableException('WhatsApp outbox is unavailable');
+    }
+    const normalizedPhone = this.normalizePhone(input.to);
+    if (!normalizedPhone) {
+      throw new BadRequestException('Invalid WhatsApp phone number');
+    }
+    const body = input.text.trim();
+    if (!body) throw new BadRequestException('WhatsApp message is empty');
+
+    await this.assertRecipientConsent(input, normalizedPhone);
+    await this.assertActivityScope(input);
+
+    const metadata = {
+      ...(input.pdfUrl ? { attachmentUrl: input.pdfUrl } : {}),
+      ...(input.templateName ? { templateName: input.templateName } : {}),
+      ...(input.templateLanguage
+        ? { templateLanguage: input.templateLanguage }
+        : {}),
+      ...(input.templateParameters
+        ? { templateParameters: input.templateParameters }
+        : {}),
+      ...(input.activityEntity
+        ? { activityEntity: input.activityEntity, activityId: input.activityId }
+        : {}),
+    };
+    const rows = await this.dataSource.query(
+      `INSERT INTO communication_deliveries (
+         company_id, event, recipient_role, recipient_id, channel, recipient,
+         body, status, attempts, max_attempts, next_attempt_at,
+         related_entity_type, related_entity_id, idempotency_key, metadata
+       ) VALUES (
+         $1::uuid, 'whatsapp_ad_hoc', $2::communication_recipient_role,
+         $3::uuid, 'whatsapp', $4, $5, 'queued', 0, 3, NOW(), $6, $7::uuid,
+         $8, $9::jsonb
+       )
+       ON CONFLICT (company_id, idempotency_key)
+         WHERE idempotency_key IS NOT NULL
+       DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
+       RETURNING id, status`,
+      [
+        input.companyId,
+        input.recipientRole,
+        input.recipientId,
+        normalizedPhone,
+        body,
+        input.relatedEntityType ?? null,
+        input.relatedEntityId ?? null,
+        input.idempotencyKey,
+        JSON.stringify(metadata),
+      ],
+    );
+    return {
+      deliveryId: rows[0].id,
+      status: rows[0].status,
+      queued: rows[0].status === 'queued' || rows[0].status === 'processing',
+    };
+  }
+
+  private async assertRecipientConsent(
+    input: QueueWhatsappMessageInput,
+    normalizedPhone: string,
+  ): Promise<void> {
+    let rows: Array<{ phone: string | null; consented: boolean }>;
+    if (input.recipientRole === 'tenant' || input.recipientRole === 'owner') {
+      const table = input.recipientRole === 'tenant' ? 'tenants' : 'owners';
+      rows = await this.dataSource!.query(
+        `SELECT u.phone, u.whatsapp_enabled AS consented
+           FROM ${table} profile
+           JOIN users u ON u.id = profile.user_id AND u.deleted_at IS NULL
+          WHERE profile.id = $1::uuid AND profile.company_id = $2::uuid
+            AND profile.deleted_at IS NULL`,
+        [input.recipientId, input.companyId],
+      );
+    } else if (input.recipientRole === 'interested') {
+      rows = await this.dataSource!.query(
+        `SELECT phone, consent_contact AS consented
+           FROM interested_profiles
+          WHERE id = $1::uuid AND company_id = $2::uuid AND deleted_at IS NULL`,
+        [input.recipientId, input.companyId],
+      );
+    } else {
+      rows = await this.dataSource!.query(
+        `SELECT phone, whatsapp_enabled AS consented
+           FROM users
+          WHERE id = $1::uuid AND company_id = $2::uuid AND role = $3::user_role
+            AND deleted_at IS NULL`,
+        [input.recipientId, input.companyId, input.recipientRole],
+      );
+    }
+    const recipient = rows[0];
+    if (!recipient) throw new NotFoundException('WhatsApp recipient not found');
+    if (!recipient.consented) {
+      throw new BadRequestException(
+        'The recipient has not consented to WhatsApp',
+      );
+    }
+    if (this.normalizePhone(recipient.phone ?? '') !== normalizedPhone) {
+      throw new BadRequestException(
+        'Recipient phone does not match the record',
+      );
+    }
+  }
+
+  private async assertActivityScope(
+    input: QueueWhatsappMessageInput,
+  ): Promise<void> {
+    if (!input.activityEntity && !input.activityId) return;
+    if (!input.activityEntity || !input.activityId) {
+      throw new BadRequestException(
+        'WhatsApp activity entity and id must be provided together',
+      );
+    }
+    if (
+      input.activityEntity !== input.recipientRole ||
+      (input.relatedEntityType &&
+        input.relatedEntityType !== input.recipientRole) ||
+      (input.relatedEntityId && input.relatedEntityId !== input.recipientId)
+    ) {
+      throw new BadRequestException('WhatsApp activity recipient mismatch');
+    }
+    const rows =
+      input.activityEntity === 'interested'
+        ? await this.dataSource!.query(
+            `SELECT activity.id
+               FROM interested_activities activity
+               JOIN interested_profiles profile
+                 ON profile.id = activity.interested_profile_id
+              WHERE activity.id = $1::uuid AND profile.id = $2::uuid
+                AND profile.company_id = $3::uuid AND profile.deleted_at IS NULL`,
+            [input.activityId, input.recipientId, input.companyId],
+          )
+        : await this.dataSource!.query(
+            `SELECT id FROM ${input.activityEntity}_activities
+              WHERE id = $1::uuid AND ${input.activityEntity}_id = $2::uuid
+                AND company_id = $3::uuid`,
+            [input.activityId, input.recipientId, input.companyId],
+          );
+    if (!rows[0]) throw new NotFoundException('WhatsApp activity not found');
+  }
+
+  private withIdempotencyComponent(
+    context: WhatsappMessageContext | undefined,
+    component: string,
+  ): WhatsappMessageContext | undefined {
+    if (!context?.idempotencyKey) return context;
+    const hex = createHash('sha256')
+      .update(`${context.idempotencyKey}:${component}`)
+      .digest('hex')
+      .slice(0, 32)
+      .split('');
+    hex[12] = '5';
+    hex[16] = ((Number.parseInt(hex[16], 16) & 0x3) | 0x8).toString(16);
+    const uuid = `${hex.slice(0, 8).join('')}-${hex.slice(8, 12).join('')}-${hex.slice(12, 16).join('')}-${hex.slice(16, 20).join('')}-${hex.slice(20).join('')}`;
+    return { ...context, idempotencyKey: uuid };
   }
 
   async sendTextMessage(
@@ -259,13 +446,16 @@ export class WhatsappService implements OnApplicationBootstrap {
       },
     };
 
+    const templateContext = options.pdfUrl
+      ? this.withIdempotencyComponent(options.context, 'template')
+      : options.context;
     const templateResult = await this.postOutboundPayload(payload, {
       to: normalizedPhone,
       messageType: 'template',
       text: options.textFallback,
       templateName: normalizedTemplateName,
       templateLanguage: normalizedLanguage,
-      context: options.context,
+      context: templateContext,
     });
 
     if (!options.pdfUrl) {
@@ -276,7 +466,7 @@ export class WhatsappService implements OnApplicationBootstrap {
       normalizedPhone,
       options.textFallback ?? 'Documento disponible.',
       options.pdfUrl,
-      options.context,
+      this.withIdempotencyComponent(options.context, 'document'),
     );
 
     return {
@@ -942,6 +1132,11 @@ export class WhatsappService implements OnApplicationBootstrap {
           raw: { deduplicated: true },
         };
       }
+      await this.dataSource.query(
+        `DELETE FROM whatsapp_messages
+          WHERE idempotency_key = $1::uuid AND status <> 'sent'`,
+        [idempotencyKey],
+      );
     }
     const url = `${this.apiBaseUrl.replace(/\/$/, '')}/${this.phoneNumberId}/messages`;
     const response = await fetch(url, {
@@ -998,6 +1193,7 @@ export class WhatsappService implements OnApplicationBootstrap {
     await this.dataSource.query(`
       CREATE TABLE IF NOT EXISTS whatsapp_messages (
         id uuid PRIMARY KEY,
+        idempotency_key uuid,
         whatsapp_message_id varchar(255) UNIQUE,
         recipient_phone varchar(32) NOT NULL,
         direction varchar(16) NOT NULL DEFAULT 'outbound',

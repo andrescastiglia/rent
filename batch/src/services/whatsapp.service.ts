@@ -3,6 +3,8 @@ import { logger } from "../shared/logger";
 
 export interface WhatsappSendResult {
   success: boolean;
+  deliveryId?: string;
+  status?: string;
   messageId?: string | null;
   documentMessageId?: string | null;
   error?: string;
@@ -12,6 +14,23 @@ export interface WhatsappTemplatePayload {
   templateName: string;
   templateLanguage?: string;
   templateParameters?: string[];
+}
+
+export interface WhatsappQueueContext {
+  companyId: string;
+  recipientRole:
+    "admin" | "staff" | "buyer" | "tenant" | "owner" | "interested";
+  recipientId: string;
+  idempotencyKey: string;
+  relatedEntityType?:
+    | "tenant"
+    | "owner"
+    | "interested"
+    | "property_visit"
+    | "invoice"
+    | "payment"
+    | "lease";
+  relatedEntityId?: string;
 }
 
 export interface WhatsappInboxProcessResult {
@@ -38,8 +57,9 @@ export class WhatsappService {
     to: string,
     text: string,
     pdfUrl?: string,
+    context?: WhatsappQueueContext,
   ): Promise<WhatsappSendResult> {
-    return this.sendMessage({ to, text, pdfUrl });
+    return this.sendMessage({ to, text, pdfUrl, ...context });
   }
 
   async sendTemplateMessage(
@@ -47,12 +67,14 @@ export class WhatsappService {
     template: WhatsappTemplatePayload,
     text: string,
     pdfUrl?: string,
+    context?: WhatsappQueueContext,
   ): Promise<WhatsappSendResult> {
     return this.sendMessage({
       to,
       text,
       pdfUrl,
       ...template,
+      ...context,
     });
   }
 
@@ -109,6 +131,12 @@ export class WhatsappService {
     templateName?: string;
     templateLanguage?: string;
     templateParameters?: string[];
+    companyId?: string;
+    recipientRole?: WhatsappQueueContext["recipientRole"];
+    recipientId?: string;
+    idempotencyKey?: string;
+    relatedEntityType?: WhatsappQueueContext["relatedEntityType"];
+    relatedEntityId?: string;
   }): Promise<WhatsappSendResult> {
     if (!this.internalToken) {
       return {
@@ -146,6 +174,8 @@ export class WhatsappService {
 
       return {
         success: true,
+        deliveryId: data?.deliveryId as string | undefined,
+        status: data?.status as string | undefined,
         messageId: (data?.messageId as string | null | undefined) ?? null,
         ...(documentMessageId ? { documentMessageId } : {}),
       };
