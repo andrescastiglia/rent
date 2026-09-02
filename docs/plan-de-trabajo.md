@@ -33,7 +33,7 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 
 ### Consistencia financiera
 
-- [ ] Ejecutar confirmación/cancelación de pagos, facturas, saldos, movimientos, recibos y notas de crédito en una única transacción.
+- [ ] Completar la reversión atómica de asignaciones, recibos y notas de crédito al cancelar pagos.
 - [ ] Ejecutar conciliación bancaria con el mismo `EntityManager`; probar rollback antes y después de cada escritura.
 - [ ] Agregar idempotencia y constraints para movimientos, webhooks y asignaciones; bloquear carreras en numeración de recibos/notas.
 - [ ] Asegurar que PDF, S3, WhatsApp y proveedores se ejecuten desde outbox después del commit.
