@@ -120,8 +120,10 @@ test.describe('Tenant Creation Flow', () => {
         await expect(firstTenantDetailLink).toBeVisible({ timeout: 5000 });
         await firstTenantDetailLink.click({ force: true });
 
-        // Click edit button
-        await page.locator('a[href*="/tenants/"][href*="/edit"]').first().click({ force: true });
+        // Click the visible edit button (desktop and mobile variants coexist).
+        const editLink = page.locator('a[href*="/tenants/"][href*="/edit"]:visible').first();
+        await expect(editLink).toBeVisible();
+        await editLink.click();
 
         // Should navigate to edit page
         await expect(page).toHaveURL(/\/es\/tenants\/[^/]+\/edit$/);
