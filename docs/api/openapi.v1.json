@@ -1,0 +1,6168 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "App_getHello",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/capabilities/v1": {
+      "get": {
+        "operationId": "App_getCapabilities",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "Auth_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "operationId": "Auth_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/profile": {
+      "get": {
+        "operationId": "Auth_getProfile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/reauthenticate": {
+      "post": {
+        "operationId": "Auth_reauthenticate",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReauthenticateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/users": {
+      "post": {
+        "operationId": "Users_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      },
+      "get": {
+        "operationId": "Users_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/profile/me": {
+      "get": {
+        "operationId": "Users_getProfile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      },
+      "patch": {
+        "operationId": "Users_updateProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/profile/change-password": {
+      "post": {
+        "operationId": "Users_changePassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "operationId": "Users_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      },
+      "patch": {
+        "operationId": "Users_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      },
+      "delete": {
+        "operationId": "Users_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/{id}/activation": {
+      "patch": {
+        "operationId": "Users_setActivation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetUserActivationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/{id}/reset-password": {
+      "post": {
+        "operationId": "Users_resetPassword",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetUserPasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/test/admin-only": {
+      "get": {
+        "operationId": "Test_adminOnly",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Test"
+        ]
+      }
+    },
+    "/test/owner-only": {
+      "get": {
+        "operationId": "Test_ownerOnly",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Test"
+        ]
+      }
+    },
+    "/test/tenant-only": {
+      "get": {
+        "operationId": "Test_tenantOnly",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Test"
+        ]
+      }
+    },
+    "/test/admin-or-owner": {
+      "get": {
+        "operationId": "Test_adminOrOwner",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Test"
+        ]
+      }
+    },
+    "/test/create-user-permission": {
+      "get": {
+        "operationId": "Test_createUserPermission",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Test"
+        ]
+      }
+    },
+    "/properties": {
+      "post": {
+        "operationId": "Properties_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePropertyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Properties"
+        ]
+      },
+      "get": {
+        "operationId": "Properties_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Properties"
+        ]
+      }
+    },
+    "/properties/{id}": {
+      "get": {
+        "operationId": "Properties_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Properties"
+        ]
+      },
+      "patch": {
+        "operationId": "Properties_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePropertyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Properties"
+        ]
+      },
+      "delete": {
+        "operationId": "Properties_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Properties"
+        ]
+      }
+    },
+    "/properties/upload": {
+      "post": {
+        "operationId": "Properties_uploadPropertyImage",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Properties"
+        ]
+      }
+    },
+    "/properties/uploads/discard": {
+      "post": {
+        "operationId": "Properties_discardUploadedImages",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscardPropertyImagesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Properties"
+        ]
+      }
+    },
+    "/properties/images/{imageId}": {
+      "get": {
+        "operationId": "PropertyImages_getPropertyImage",
+        "parameters": [
+          {
+            "name": "imageId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PropertyImages"
+        ]
+      }
+    },
+    "/units": {
+      "post": {
+        "operationId": "Units_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUnitDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Units"
+        ]
+      }
+    },
+    "/units/property/{propertyId}": {
+      "get": {
+        "operationId": "Units_findByProperty",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Units"
+        ]
+      }
+    },
+    "/units/{id}": {
+      "get": {
+        "operationId": "Units_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Units"
+        ]
+      },
+      "patch": {
+        "operationId": "Units_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUnitDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Units"
+        ]
+      },
+      "delete": {
+        "operationId": "Units_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Units"
+        ]
+      }
+    },
+    "/properties/{propertyId}/visits": {
+      "post": {
+        "operationId": "PropertyVisits_create",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePropertyVisitDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PropertyVisits"
+        ]
+      },
+      "get": {
+        "operationId": "PropertyVisits_findAll",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PropertyVisits"
+        ]
+      }
+    },
+    "/properties/{propertyId}/visits/{visitId}/result": {
+      "patch": {
+        "operationId": "PropertyVisits_updateResult",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "visitId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePropertyVisitResultDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PropertyVisits"
+        ]
+      }
+    },
+    "/properties/{propertyId}/visits/maintenance-tasks": {
+      "post": {
+        "operationId": "PropertyVisits_createMaintenanceTask",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePropertyMaintenanceTaskDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PropertyVisits"
+        ]
+      },
+      "get": {
+        "operationId": "PropertyVisits_findAllMaintenanceTasks",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PropertyVisits"
+        ]
+      }
+    },
+    "/communications/templates": {
+      "get": {
+        "operationId": "Communications_listTemplates",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Communications"
+        ]
+      },
+      "post": {
+        "operationId": "Communications_createTemplate",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCommunicationTemplateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Communications"
+        ]
+      }
+    },
+    "/communications/templates/{id}": {
+      "patch": {
+        "operationId": "Communications_updateTemplate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCommunicationTemplateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Communications"
+        ]
+      }
+    },
+    "/communications/preview": {
+      "post": {
+        "operationId": "Communications_preview",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewCommunicationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Communications"
+        ]
+      }
+    },
+    "/communications/test": {
+      "post": {
+        "operationId": "Communications_sendTest",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestCommunicationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Communications"
+        ]
+      }
+    },
+    "/communications/deliveries": {
+      "get": {
+        "operationId": "Communications_listDeliveries",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Communications"
+        ]
+      }
+    },
+    "/communications/inbox": {
+      "get": {
+        "operationId": "Communications_listInbox",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Communications"
+        ]
+      }
+    },
+    "/communications/inbox/{id}/read": {
+      "post": {
+        "operationId": "Communications_markRead",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Communications"
+        ]
+      }
+    },
+    "/communications/inbox/{id}/reply": {
+      "post": {
+        "operationId": "Communications_reply",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplyCommunicationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Communications"
+        ]
+      }
+    },
+    "/communications/deliveries/{id}/approve": {
+      "post": {
+        "operationId": "Communications_approve",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Communications"
+        ]
+      }
+    },
+    "/communications/deliveries/{id}/retry": {
+      "post": {
+        "operationId": "Communications_retry",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Communications"
+        ]
+      }
+    },
+    "/communications/internal/retry-due": {
+      "post": {
+        "operationId": "Communications_retryDue",
+        "parameters": [
+          {
+            "name": "x-batch-communications-token",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Communications"
+        ]
+      }
+    },
+    "/whatsapp/messages": {
+      "post": {
+        "operationId": "Whatsapp_sendMessage",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendWhatsappMessageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Whatsapp"
+        ]
+      }
+    },
+    "/whatsapp/activities": {
+      "post": {
+        "operationId": "Whatsapp_createActivity",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWhatsappActivityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Whatsapp"
+        ]
+      }
+    },
+    "/whatsapp/messages/internal": {
+      "post": {
+        "operationId": "Whatsapp_sendMessageFromBatch",
+        "parameters": [
+          {
+            "name": "x-batch-whatsapp-token",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendWhatsappMessageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Whatsapp"
+        ]
+      }
+    },
+    "/whatsapp/webhook": {
+      "get": {
+        "operationId": "Whatsapp_verifyWebhook",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Whatsapp"
+        ]
+      },
+      "post": {
+        "operationId": "Whatsapp_receiveWebhook",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Whatsapp"
+        ]
+      }
+    },
+    "/whatsapp/internal/process-inbox": {
+      "post": {
+        "operationId": "Whatsapp_processWebhookInbox",
+        "parameters": [
+          {
+            "name": "x-batch-whatsapp-token",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Whatsapp"
+        ]
+      }
+    },
+    "/whatsapp/internal/apply-retention": {
+      "post": {
+        "operationId": "Whatsapp_applyRetention",
+        "parameters": [
+          {
+            "name": "x-batch-whatsapp-token",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Whatsapp"
+        ]
+      }
+    },
+    "/whatsapp/documents/{documentId}": {
+      "get": {
+        "operationId": "Whatsapp_downloadDocument",
+        "parameters": [
+          {
+            "name": "documentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Whatsapp"
+        ]
+      }
+    },
+    "/documents/upload-url": {
+      "post": {
+        "operationId": "Documents_generateUploadUrl",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateUploadUrlDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/documents/{id}/confirm": {
+      "patch": {
+        "operationId": "Documents_confirmUpload",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/documents/{id}/download-url": {
+      "get": {
+        "operationId": "Documents_generateDownloadUrl",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/documents/entity/{type}/{id}": {
+      "get": {
+        "operationId": "Documents_findByEntity",
+        "parameters": [
+          {
+            "name": "type",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/documents/{id}": {
+      "delete": {
+        "operationId": "Documents_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/leases": {
+      "post": {
+        "operationId": "Leases_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLeaseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      },
+      "get": {
+        "operationId": "Leases_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/leases/templates": {
+      "get": {
+        "operationId": "Leases_listTemplates",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      },
+      "post": {
+        "operationId": "Leases_createTemplate",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLeaseContractTemplateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/leases/templates/import-docx": {
+      "post": {
+        "operationId": "Leases_importTemplateDocx",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportLeaseTemplateDocxDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/leases/templates/{templateId}": {
+      "patch": {
+        "operationId": "Leases_updateTemplate",
+        "parameters": [
+          {
+            "name": "templateId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLeaseContractTemplateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/leases/{id}": {
+      "get": {
+        "operationId": "Leases_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      },
+      "patch": {
+        "operationId": "Leases_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLeaseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      },
+      "delete": {
+        "operationId": "Leases_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/leases/{id}/draft/render": {
+      "post": {
+        "operationId": "Leases_renderDraft",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenderLeaseDraftDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/leases/{id}/draft-text": {
+      "patch": {
+        "operationId": "Leases_updateDraftText",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLeaseDraftTextDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/leases/{id}/confirm": {
+      "post": {
+        "operationId": "Leases_confirmDraft",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmLeaseDraftDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/leases/{id}/activate": {
+      "patch": {
+        "operationId": "Leases_activate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/leases/{id}/terminate": {
+      "patch": {
+        "operationId": "Leases_terminate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaseStatusReasonDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/leases/{id}/finalize": {
+      "patch": {
+        "operationId": "Leases_finalize",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaseStatusReasonDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/leases/{id}/renew": {
+      "patch": {
+        "operationId": "Leases_renew",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenewLeaseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/leases/import-current": {
+      "post": {
+        "operationId": "Leases_importCurrentContract",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportCurrentLeaseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/amendments": {
+      "post": {
+        "operationId": "Amendments_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAmendmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Amendments"
+        ]
+      }
+    },
+    "/amendments/lease/{leaseId}": {
+      "get": {
+        "operationId": "Amendments_findByLease",
+        "parameters": [
+          {
+            "name": "leaseId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Amendments"
+        ]
+      }
+    },
+    "/amendments/{id}": {
+      "get": {
+        "operationId": "Amendments_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Amendments"
+        ]
+      }
+    },
+    "/amendments/{id}/approve": {
+      "patch": {
+        "operationId": "Amendments_approve",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Amendments"
+        ]
+      }
+    },
+    "/amendments/{id}/reject": {
+      "patch": {
+        "operationId": "Amendments_reject",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Amendments"
+        ]
+      }
+    },
+    "/leases/{id}/contract": {
+      "get": {
+        "operationId": "LeasesContract_downloadContract",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "LeasesContract"
+        ]
+      }
+    },
+    "/tenant-accounts/lease/{leaseId}": {
+      "get": {
+        "operationId": "TenantAccounts_findByLease",
+        "parameters": [
+          {
+            "name": "leaseId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TenantAccounts"
+        ]
+      }
+    },
+    "/tenant-accounts/{id}": {
+      "get": {
+        "operationId": "TenantAccounts_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TenantAccounts"
+        ]
+      }
+    },
+    "/tenant-accounts/{id}/movements": {
+      "get": {
+        "operationId": "TenantAccounts_getMovements",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TenantAccounts"
+        ]
+      }
+    },
+    "/tenant-accounts/{id}/balance": {
+      "get": {
+        "operationId": "TenantAccounts_getBalance",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TenantAccounts"
+        ]
+      }
+    },
+    "/invoices": {
+      "post": {
+        "operationId": "Invoices_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInvoiceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invoices"
+        ]
+      },
+      "get": {
+        "operationId": "Invoices_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invoices"
+        ]
+      }
+    },
+    "/invoices/lease/{leaseId}/generate": {
+      "post": {
+        "operationId": "Invoices_generateForLease",
+        "parameters": [
+          {
+            "name": "leaseId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateInvoiceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invoices"
+        ]
+      }
+    },
+    "/invoices/{id}/issue": {
+      "patch": {
+        "operationId": "Invoices_issue",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invoices"
+        ]
+      }
+    },
+    "/invoices/{id}": {
+      "get": {
+        "operationId": "Invoices_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invoices"
+        ]
+      }
+    },
+    "/invoices/{id}/credit-notes": {
+      "get": {
+        "operationId": "Invoices_listCreditNotes",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invoices"
+        ]
+      }
+    },
+    "/invoices/{id}/cancel": {
+      "patch": {
+        "operationId": "Invoices_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invoices"
+        ]
+      }
+    },
+    "/invoices/{id}/pdf": {
+      "get": {
+        "operationId": "Invoices_getPdf",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invoices"
+        ]
+      }
+    },
+    "/invoices/credit-notes/{creditNoteId}/pdf": {
+      "get": {
+        "operationId": "Invoices_getCreditNotePdf",
+        "parameters": [
+          {
+            "name": "creditNoteId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invoices"
+        ]
+      }
+    },
+    "/payments": {
+      "post": {
+        "operationId": "Payments_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payments"
+        ]
+      },
+      "get": {
+        "operationId": "Payments_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/payments/{id}/confirm": {
+      "patch": {
+        "operationId": "Payments_confirm",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/payments/{id}": {
+      "patch": {
+        "operationId": "Payments_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePaymentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payments"
+        ]
+      },
+      "get": {
+        "operationId": "Payments_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/payments/tenant/{tenantId}/receipts": {
+      "get": {
+        "operationId": "Payments_findReceiptsByTenant",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/payments/{id}/cancel": {
+      "patch": {
+        "operationId": "Payments_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/payments/{id}/receipt": {
+      "get": {
+        "operationId": "Payments_getReceipt",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/payment-templates": {
+      "get": {
+        "operationId": "PaymentDocumentTemplates_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PaymentDocumentTemplates"
+        ]
+      },
+      "post": {
+        "operationId": "PaymentDocumentTemplates_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentDocumentTemplateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PaymentDocumentTemplates"
+        ]
+      }
+    },
+    "/payment-templates/{templateId}": {
+      "patch": {
+        "operationId": "PaymentDocumentTemplates_update",
+        "parameters": [
+          {
+            "name": "templateId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePaymentDocumentTemplateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PaymentDocumentTemplates"
+        ]
+      }
+    },
+    "/tenants": {
+      "post": {
+        "operationId": "Tenants_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTenantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenants"
+        ]
+      },
+      "get": {
+        "operationId": "Tenants_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenants"
+        ]
+      }
+    },
+    "/tenants/me": {
+      "get": {
+        "operationId": "Tenants_getMyProfile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenants"
+        ]
+      }
+    },
+    "/tenants/me/summary": {
+      "get": {
+        "operationId": "Tenants_getMyProfileSummary",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenants"
+        ]
+      }
+    },
+    "/tenants/{id}": {
+      "get": {
+        "operationId": "Tenants_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenants"
+        ]
+      },
+      "patch": {
+        "operationId": "Tenants_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTenantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenants"
+        ]
+      },
+      "delete": {
+        "operationId": "Tenants_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenants"
+        ]
+      }
+    },
+    "/tenants/{id}/leases": {
+      "get": {
+        "operationId": "Tenants_getLeaseHistory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenants"
+        ]
+      }
+    },
+    "/tenants/{id}/activities": {
+      "get": {
+        "operationId": "Tenants_listActivities",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenants"
+        ]
+      },
+      "post": {
+        "operationId": "Tenants_createActivity",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTenantActivityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenants"
+        ]
+      }
+    },
+    "/tenants/{id}/activities/{activityId}": {
+      "patch": {
+        "operationId": "Tenants_updateActivity",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "activityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTenantActivityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenants"
+        ]
+      }
+    },
+    "/owners/settlements/payments": {
+      "get": {
+        "operationId": "Owners_listSettlementPayments",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Owners"
+        ]
+      }
+    },
+    "/owners/settlements/{settlementId}/receipt": {
+      "get": {
+        "operationId": "Owners_downloadSettlementReceipt",
+        "parameters": [
+          {
+            "name": "settlementId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Owners"
+        ]
+      }
+    },
+    "/owners": {
+      "get": {
+        "operationId": "Owners_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Owners"
+        ]
+      },
+      "post": {
+        "operationId": "Owners_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOwnerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Owners"
+        ]
+      }
+    },
+    "/owners/me": {
+      "get": {
+        "operationId": "Owners_getMyProfile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Owners"
+        ]
+      }
+    },
+    "/owners/me/summary": {
+      "get": {
+        "operationId": "Owners_getMyProfileSummary",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Owners"
+        ]
+      }
+    },
+    "/owners/{id}": {
+      "get": {
+        "operationId": "Owners_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Owners"
+        ]
+      },
+      "patch": {
+        "operationId": "Owners_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOwnerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Owners"
+        ]
+      }
+    },
+    "/owners/{id}/settlements": {
+      "get": {
+        "operationId": "Owners_listSettlements",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Owners"
+        ]
+      }
+    },
+    "/owners/{id}/settlements/{settlementId}/pay": {
+      "post": {
+        "operationId": "Owners_registerSettlementPayment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "settlementId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterOwnerSettlementPaymentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Owners"
+        ]
+      }
+    },
+    "/owners/{id}/activities": {
+      "get": {
+        "operationId": "Owners_listActivities",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Owners"
+        ]
+      },
+      "post": {
+        "operationId": "Owners_createActivity",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOwnerActivityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Owners"
+        ]
+      }
+    },
+    "/owners/{id}/activities/{activityId}": {
+      "patch": {
+        "operationId": "Owners_updateActivity",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "activityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOwnerActivityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Owners"
+        ]
+      }
+    },
+    "/staff": {
+      "get": {
+        "operationId": "Staff_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Staff"
+        ]
+      },
+      "post": {
+        "operationId": "Staff_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateStaffDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Staff"
+        ]
+      }
+    },
+    "/staff/{id}": {
+      "get": {
+        "operationId": "Staff_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Staff"
+        ]
+      },
+      "patch": {
+        "operationId": "Staff_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStaffDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Staff"
+        ]
+      },
+      "delete": {
+        "operationId": "Staff_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Staff"
+        ]
+      }
+    },
+    "/staff/{id}/activate": {
+      "patch": {
+        "operationId": "Staff_activate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Staff"
+        ]
+      }
+    },
+    "/currencies": {
+      "get": {
+        "operationId": "Currencies_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Currencies"
+        ]
+      },
+      "post": {
+        "operationId": "Currencies_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCurrencyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Currencies"
+        ]
+      }
+    },
+    "/currencies/default/{locale}": {
+      "get": {
+        "operationId": "Currencies_getDefaultForLocale",
+        "parameters": [
+          {
+            "name": "locale",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Currencies"
+        ]
+      }
+    },
+    "/currencies/{code}": {
+      "get": {
+        "operationId": "Currencies_findOne",
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Currencies"
+        ]
+      },
+      "put": {
+        "operationId": "Currencies_update",
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCurrencyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Currencies"
+        ]
+      },
+      "delete": {
+        "operationId": "Currencies_remove",
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Currencies"
+        ]
+      }
+    },
+    "/dashboard/stats": {
+      "get": {
+        "operationId": "Dashboard_getStats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardStatsDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/dashboard/operations-overview": {
+      "get": {
+        "operationId": "Dashboard_getOperationsOverview",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardOperationsOverviewDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/dashboard/recent-activity": {
+      "get": {
+        "operationId": "Dashboard_getRecentActivity",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecentActivityDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/dashboard/reports": {
+      "get": {
+        "operationId": "Dashboard_getReports",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportJobsDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "Health_check",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The Health Check is successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "info": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "error": {
+                      "type": "object",
+                      "example": {},
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "details": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The Health Check is not successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "info": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "error": {
+                      "type": "object",
+                      "example": {
+                        "redis": {
+                          "status": "down",
+                          "message": "Could not connect"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "details": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        },
+                        "redis": {
+                          "status": "down",
+                          "message": "Could not connect"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/interested": {
+      "post": {
+        "operationId": "Interested_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInterestedProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Interested"
+        ]
+      },
+      "get": {
+        "operationId": "Interested_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Interested"
+        ]
+      }
+    },
+    "/interested/metrics/overview": {
+      "get": {
+        "operationId": "Interested_getMetrics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Interested"
+        ]
+      }
+    },
+    "/interested/duplicates": {
+      "get": {
+        "operationId": "Interested_findPotentialDuplicates",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Interested"
+        ]
+      }
+    },
+    "/interested/{id}": {
+      "get": {
+        "operationId": "Interested_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Interested"
+        ]
+      },
+      "patch": {
+        "operationId": "Interested_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateInterestedProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Interested"
+        ]
+      },
+      "delete": {
+        "operationId": "Interested_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Interested"
+        ]
+      }
+    },
+    "/interested/{id}/summary": {
+      "get": {
+        "operationId": "Interested_getSummary",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Interested"
+        ]
+      }
+    },
+    "/interested/{id}/timeline": {
+      "get": {
+        "operationId": "Interested_getTimeline",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Interested"
+        ]
+      }
+    },
+    "/interested/{id}/matches": {
+      "get": {
+        "operationId": "Interested_findMatches",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Interested"
+        ]
+      }
+    },
+    "/interested/{id}/matches/refresh": {
+      "post": {
+        "operationId": "Interested_refreshMatches",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Interested"
+        ]
+      }
+    },
+    "/interested/{id}/matches/{matchId}": {
+      "patch": {
+        "operationId": "Interested_updateMatch",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "matchId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateInterestedMatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Interested"
+        ]
+      }
+    },
+    "/interested/{id}/stage": {
+      "post": {
+        "operationId": "Interested_changeStage",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeInterestedStageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Interested"
+        ]
+      }
+    },
+    "/interested/{id}/activities": {
+      "post": {
+        "operationId": "Interested_createActivity",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInterestedActivityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Interested"
+        ]
+      }
+    },
+    "/interested/{id}/send-initial-message": {
+      "post": {
+        "operationId": "Interested_sendInitialMessage",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Interested"
+        ]
+      }
+    },
+    "/interested/{id}/reservations": {
+      "post": {
+        "operationId": "Interested_createReservation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePropertyReservationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Interested"
+        ]
+      },
+      "get": {
+        "operationId": "Interested_listReservations",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Interested"
+        ]
+      }
+    },
+    "/interested/{id}/activities/{activityId}": {
+      "patch": {
+        "operationId": "Interested_updateActivity",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "activityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateInterestedActivityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Interested"
+        ]
+      }
+    },
+    "/interested/{id}/convert/tenant": {
+      "post": {
+        "operationId": "Interested_convertToTenant",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConvertInterestedToTenantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Interested"
+        ]
+      }
+    },
+    "/interested/{id}/convert/buyer": {
+      "post": {
+        "operationId": "Interested_convertToBuyer",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConvertInterestedToBuyerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Interested"
+        ]
+      }
+    },
+    "/sales/folders": {
+      "post": {
+        "operationId": "Sales_createFolder",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSaleFolderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Sales"
+        ]
+      },
+      "get": {
+        "operationId": "Sales_listFolders",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Sales"
+        ]
+      }
+    },
+    "/sales/agreements": {
+      "post": {
+        "operationId": "Sales_createAgreement",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSaleAgreementDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Sales"
+        ]
+      },
+      "get": {
+        "operationId": "Sales_listAgreements",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Sales"
+        ]
+      }
+    },
+    "/sales/agreements/{id}": {
+      "get": {
+        "operationId": "Sales_getAgreement",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Sales"
+        ]
+      }
+    },
+    "/sales/agreements/{id}/receipts": {
+      "get": {
+        "operationId": "Sales_listReceipts",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Sales"
+        ]
+      },
+      "post": {
+        "operationId": "Sales_createReceipt",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSaleReceiptDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Sales"
+        ]
+      }
+    },
+    "/sales/receipts/{receiptId}/pdf": {
+      "get": {
+        "operationId": "Sales_downloadReceipt",
+        "parameters": [
+          {
+            "name": "receiptId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Sales"
+        ]
+      }
+    },
+    "/ai/tools": {
+      "get": {
+        "operationId": "Ai_listTools",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Ai"
+        ]
+      }
+    },
+    "/ai/tools/openai": {
+      "get": {
+        "operationId": "Ai_listOpenAiTools",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Ai"
+        ]
+      }
+    },
+    "/ai/tools/execute": {
+      "post": {
+        "operationId": "Ai_executeTool",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecuteAiToolDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Ai"
+        ]
+      }
+    },
+    "/ai/tools/conversations/{conversationId}": {
+      "get": {
+        "operationId": "Ai_getConversation",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Ai"
+        ]
+      }
+    },
+    "/ai/tools/respond": {
+      "post": {
+        "operationId": "Ai_respond",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiChatRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Ai"
+        ]
+      }
+    },
+    "/ai/respond": {
+      "post": {
+        "operationId": "AiRag_respond",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiChatRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiRag"
+        ]
+      }
+    },
+    "/pending-actions": {
+      "get": {
+        "operationId": "PendingActions_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "PendingActions"
+        ]
+      }
+    },
+    "/pending-actions/{id}/approve": {
+      "post": {
+        "operationId": "PendingActions_approve",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovePendingActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "PendingActions"
+        ]
+      }
+    },
+    "/pending-actions/{id}/reject": {
+      "post": {
+        "operationId": "PendingActions_reject",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectPendingActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "PendingActions"
+        ]
+      }
+    },
+    "/maintenance/tickets": {
+      "get": {
+        "operationId": "Maintenance_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Maintenance"
+        ]
+      },
+      "post": {
+        "operationId": "Maintenance_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMaintenanceTicketDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Maintenance"
+        ]
+      }
+    },
+    "/maintenance/tickets/{id}": {
+      "get": {
+        "operationId": "Maintenance_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Maintenance"
+        ]
+      },
+      "patch": {
+        "operationId": "Maintenance_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMaintenanceTicketDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Maintenance"
+        ]
+      },
+      "delete": {
+        "operationId": "Maintenance_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Maintenance"
+        ]
+      }
+    },
+    "/maintenance/tickets/{id}/comments": {
+      "get": {
+        "operationId": "Maintenance_getComments",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Maintenance"
+        ]
+      },
+      "post": {
+        "operationId": "Maintenance_addComment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCommentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Maintenance"
+        ]
+      }
+    },
+    "/bank-accounts": {
+      "get": {
+        "operationId": "BankAccounts_findAll",
+        "parameters": [
+          {
+            "name": "ownerId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "BankAccounts"
+        ]
+      },
+      "post": {
+        "operationId": "BankAccounts_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBankAccountDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "BankAccounts"
+        ]
+      }
+    },
+    "/bank-accounts/{id}": {
+      "get": {
+        "operationId": "BankAccounts_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "BankAccounts"
+        ]
+      },
+      "patch": {
+        "operationId": "BankAccounts_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBankAccountDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "BankAccounts"
+        ]
+      },
+      "delete": {
+        "operationId": "BankAccounts_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "BankAccounts"
+        ]
+      }
+    },
+    "/settlements": {
+      "get": {
+        "operationId": "Settlements_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Settlements"
+        ]
+      }
+    },
+    "/settlements/summary": {
+      "get": {
+        "operationId": "Settlements_getSummary",
+        "parameters": [
+          {
+            "name": "ownerId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Settlements"
+        ]
+      }
+    },
+    "/settlements/{id}": {
+      "get": {
+        "operationId": "Settlements_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Settlements"
+        ]
+      }
+    },
+    "/notifications/preferences": {
+      "get": {
+        "operationId": "Notifications_getMyPreferences",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Notifications"
+        ]
+      },
+      "patch": {
+        "operationId": "Notifications_updateMyPreferences",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateNotificationPreferencesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/notifications/preferences/{userId}": {
+      "get": {
+        "operationId": "Notifications_getUserPreferences",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/metrics": {
+      "get": {
+        "operationId": "Metrics_getMetrics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Metrics"
+        ]
+      }
+    },
+    "/frontend-metrics": {
+      "post": {
+        "operationId": "Metrics_recordFrontendMetric",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FrontendMetricDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Metrics"
+        ]
+      }
+    },
+    "/buyers": {
+      "get": {
+        "operationId": "Buyers_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Buyers"
+        ]
+      },
+      "post": {
+        "operationId": "Buyers_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBuyerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Buyers"
+        ]
+      }
+    },
+    "/buyers/{id}": {
+      "get": {
+        "operationId": "Buyers_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Buyers"
+        ]
+      },
+      "patch": {
+        "operationId": "Buyers_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBuyerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Buyers"
+        ]
+      }
+    },
+    "/bank-reconciliation/sandbox/movements": {
+      "post": {
+        "operationId": "BankReconciliation_ingestSandboxMovement",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSandboxBankMovementDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "BankReconciliation"
+        ]
+      }
+    },
+    "/bank-reconciliation/movements/{id}/reconcile": {
+      "post": {
+        "operationId": "BankReconciliation_reconcile",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "BankReconciliation"
+        ]
+      }
+    },
+    "/bank-reconciliation/internal/movements/{id}/reconcile": {
+      "post": {
+        "operationId": "BankReconciliation_reconcileFromBatch",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-batch-bank-token",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "BankReconciliation"
+        ]
+      }
+    },
+    "/bank-reconciliation/alerts": {
+      "get": {
+        "operationId": "BankReconciliation_findAlerts",
+        "parameters": [
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "BankReconciliation"
+        ]
+      }
+    },
+    "/bank-reconciliation/alerts/{id}/resolve": {
+      "patch": {
+        "operationId": "BankReconciliation_resolveAlert",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "BankReconciliation"
+        ]
+      }
+    },
+    "/payment-gateway/preferences": {
+      "post": {
+        "operationId": "PaymentGateway_createPreference",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentPreferenceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PaymentGateway"
+        ]
+      }
+    },
+    "/payment-gateway/transactions": {
+      "get": {
+        "operationId": "PaymentGateway_findAll",
+        "parameters": [
+          {
+            "name": "invoiceId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PaymentGateway"
+        ]
+      }
+    },
+    "/payment-gateway/transactions/{id}": {
+      "get": {
+        "operationId": "PaymentGateway_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PaymentGateway"
+        ]
+      }
+    },
+    "/payment-gateway/webhook": {
+      "post": {
+        "operationId": "PaymentGateway_processWebhook",
+        "parameters": [
+          {
+            "name": "x-signature",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-request-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "data.id",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "data_id",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PaymentGateway"
+        ]
+      }
+    },
+    "/portals/listings": {
+      "get": {
+        "operationId": "Portals_findAll",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Portals"
+        ]
+      },
+      "post": {
+        "operationId": "Portals_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePortalListingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Portals"
+        ]
+      }
+    },
+    "/portals/listings/{id}": {
+      "get": {
+        "operationId": "Portals_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Portals"
+        ]
+      },
+      "delete": {
+        "operationId": "Portals_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Portals"
+        ]
+      }
+    },
+    "/portals/listings/{id}/publish": {
+      "post": {
+        "operationId": "Portals_publish",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Portals"
+        ]
+      }
+    },
+    "/portals/listings/{id}/pause": {
+      "post": {
+        "operationId": "Portals_pause",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Portals"
+        ]
+      }
+    },
+    "/portals/sync": {
+      "post": {
+        "operationId": "Portals_syncAll",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Portals"
+        ]
+      }
+    },
+    "/digital-signatures": {
+      "get": {
+        "operationId": "DigitalSignatures_findAll",
+        "parameters": [
+          {
+            "name": "leaseId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DigitalSignatureRequest"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "DigitalSignatures"
+        ]
+      },
+      "post": {
+        "operationId": "DigitalSignatures_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSignatureRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DigitalSignatureRequest"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "DigitalSignatures"
+        ]
+      }
+    },
+    "/digital-signatures/{id}": {
+      "get": {
+        "operationId": "DigitalSignatures_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DigitalSignatureRequest"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "DigitalSignatures"
+        ]
+      }
+    },
+    "/digital-signatures/{id}/void": {
+      "post": {
+        "operationId": "DigitalSignatures_void",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DigitalSignatureRequest"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "DigitalSignatures"
+        ]
+      }
+    },
+    "/digital-signatures/webhook/{provider}": {
+      "post": {
+        "operationId": "DigitalSignatures_processWebhook",
+        "parameters": [
+          {
+            "name": "provider",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-docusign-signature-1",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookEventDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "DigitalSignatures"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Rent API",
+    "description": "Contrato canónico para backend, web, mobile e integraciones",
+    "version": "1.0.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "LoginDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "RegisterDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ReauthenticateDto": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ]
+      },
+      "CreateUserDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateProfileDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ChangePasswordDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "SetUserActivationDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ResetUserPasswordDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreatePropertyDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdatePropertyDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "DiscardPropertyImagesDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateUnitDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateUnitDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreatePropertyVisitDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdatePropertyVisitResultDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreatePropertyMaintenanceTaskDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateCommunicationTemplateDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateCommunicationTemplateDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "PreviewCommunicationDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "TestCommunicationDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ReplyCommunicationDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "SendWhatsappMessageDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateWhatsappActivityDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "GenerateUploadUrlDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateLeaseDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateLeaseContractTemplateDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ImportLeaseTemplateDocxDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateLeaseContractTemplateDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateLeaseDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "RenderLeaseDraftDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateLeaseDraftTextDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ConfirmLeaseDraftDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "LeaseStatusReasonDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "RenewLeaseDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ImportCurrentLeaseDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateAmendmentDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateInvoiceDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "GenerateInvoiceDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreatePaymentDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdatePaymentDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreatePaymentDocumentTemplateDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdatePaymentDocumentTemplateDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateTenantDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateTenantActivityDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateTenantActivityDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateTenantDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateOwnerDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateOwnerDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "RegisterOwnerSettlementPaymentDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateOwnerActivityDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateOwnerActivityDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateStaffDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateStaffDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateCurrencyDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateCurrencyDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "DashboardStatsDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "DashboardOperationsOverviewDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "RecentActivityDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ReportJobsDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateInterestedProfileDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateInterestedMatchDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ChangeInterestedStageDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateInterestedActivityDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreatePropertyReservationDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateInterestedActivityDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ConvertInterestedToTenantDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ConvertInterestedToBuyerDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateInterestedProfileDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateSaleFolderDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateSaleAgreementDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateSaleReceiptDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ExecuteAiToolDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "AiChatRequestDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ApprovePendingActionDto": {
+        "type": "object",
+        "properties": {
+          "reauthToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reauthToken"
+        ]
+      },
+      "RejectPendingActionDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateMaintenanceTicketDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateMaintenanceTicketDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateCommentDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateBankAccountDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateBankAccountDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateNotificationPreferencesDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "FrontendMetricDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateBuyerDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateBuyerDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateSandboxBankMovementDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreatePaymentPreferenceDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreatePortalListingDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "DigitalSignatureRequest": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateSignatureRequestDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "WebhookEventDto": {
+        "type": "object",
+        "properties": {
+          "envelopeId": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "voided",
+              "declined",
+              "expired"
+            ]
+          },
+          "signerEmail": {
+            "type": "string",
+            "format": "email"
+          },
+          "completedAt": {
+            "type": "string"
+          },
+          "eventId": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "generatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "envelopeId",
+          "status",
+          "generatedAt"
+        ]
+      }
+    }
+  }
+}
