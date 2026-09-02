@@ -33,7 +33,6 @@ import { PaymentDocumentTemplatesController } from './payment-document-templates
 
 // Modules
 import { DocumentsModule } from '../documents/documents.module';
-import { WhatsappModule } from '../whatsapp/whatsapp.module';
 import { CommunicationsModule } from '../communications/communications.module';
 
 /**
@@ -58,7 +57,6 @@ import { CommunicationsModule } from '../communications/communications.module';
       Document,
     ]),
     DocumentsModule,
-    WhatsappModule,
     CommunicationsModule,
   ],
   controllers: [

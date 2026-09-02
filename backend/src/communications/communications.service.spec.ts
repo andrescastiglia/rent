@@ -28,7 +28,13 @@ describe('CommunicationsService', () => {
   const whatsappService = {
     sendTextMessage: jest.fn(),
   };
-  const dataSource = { query: jest.fn() };
+  const dataSourceQuery = jest.fn();
+  const dataSource = {
+    query: dataSourceQuery,
+    transaction: jest.fn(async (work: (manager: any) => Promise<unknown>) =>
+      work({ query: dataSourceQuery }),
+    ),
+  };
   let service: CommunicationsService;
 
   beforeEach(() => {
@@ -225,7 +231,7 @@ describe('CommunicationsService', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('replies through WhatsApp and records an owner activity', async () => {
+  it('queues an inbox reply and activity in one transaction', async () => {
     const incoming = {
       id: 'communication-1',
       company_id: 'company-1',
@@ -239,6 +245,7 @@ describe('CommunicationsService', () => {
       .mockResolvedValueOnce([incoming])
       .mockResolvedValueOnce([{ id: 'reply-1' }])
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
 
     await expect(
@@ -251,13 +258,12 @@ describe('CommunicationsService', () => {
         '  Respuesta  ',
       ),
     ).resolves.toEqual({ id: 'reply-1' });
-    expect(whatsappService.sendTextMessage).toHaveBeenCalledWith(
-      incoming.phone,
-      'Respuesta',
-      undefined,
-      { companyId: 'company-1' },
+    expect(whatsappService.sendTextMessage).not.toHaveBeenCalled();
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(dataSource.query.mock.calls[2][0]).toContain(
+      'INSERT INTO communication_deliveries',
     );
-    expect(dataSource.query.mock.calls[3][0]).toContain(
+    expect(dataSource.query.mock.calls[4][0]).toContain(
       'INSERT INTO owner_activities',
     );
   });

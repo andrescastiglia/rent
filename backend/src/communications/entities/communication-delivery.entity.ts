@@ -72,6 +72,8 @@ export class CommunicationDelivery {
   relatedEntityType: string | null;
   @Column({ name: 'related_entity_id', type: 'uuid', nullable: true })
   relatedEntityId: string | null;
+  @Column({ name: 'source_communication_id', type: 'uuid', nullable: true })
+  sourceCommunicationId: string | null;
   @Column({ type: 'jsonb', default: () => "'{}'" }) metadata: Record<
     string,
     unknown

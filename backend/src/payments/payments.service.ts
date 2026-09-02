@@ -29,7 +29,6 @@ import { CreatePaymentDto, PaymentFiltersDto, UpdatePaymentDto } from './dto';
 import { ReceiptPdfService } from './receipt-pdf.service';
 import { CreditNotePdfService } from './credit-note-pdf.service';
 import { UserRole } from '../users/entities/user.entity';
-import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { CommunicationsService } from '../communications/communications.service';
 import {
   CommunicationChannel,
@@ -69,7 +68,6 @@ export class PaymentsService {
     private readonly tenantAccountsService: TenantAccountsService,
     private readonly receiptPdfService: ReceiptPdfService,
     private readonly creditNotePdfService: CreditNotePdfService,
-    private readonly whatsappService: WhatsappService,
     private readonly communicationsService: CommunicationsService,
     @InjectDataSource()
     private readonly dataSource: DataSource,
@@ -872,6 +870,11 @@ export class PaymentsService {
               companyId: payment.companyId,
               relatedEntityType: 'payment',
               relatedEntityId: payment.id,
+              recipientId: fullInvoice.lease?.tenant?.id,
+              consented: Boolean(
+                fullInvoice.lease?.tenant?.contactConsent &&
+                fullInvoice.lease?.tenant?.user?.whatsappEnabled,
+              ),
             },
           );
         }
@@ -1035,6 +1038,8 @@ export class PaymentsService {
       companyId?: string;
       relatedEntityType?: 'payment' | 'invoice';
       relatedEntityId?: string;
+      recipientId?: string;
+      consented?: boolean;
     },
   ): Promise<void> {
     if (!phone || !pdfUrl) {
@@ -1042,26 +1047,29 @@ export class PaymentsService {
     }
 
     try {
-      if (template) {
-        await this.whatsappService.sendTemplateMessage(
-          phone,
-          template.templateName,
-          template.templateLanguage ?? 'es',
-          template.templateParameters,
-          {
-            textFallback: text,
-            pdfUrl,
-            context: {
-              companyId: template.companyId,
-              relatedEntityType: template.relatedEntityType,
-              relatedEntityId: template.relatedEntityId,
-            },
-          },
-        );
-        return;
-      }
-
-      await this.whatsappService.sendTextMessage(phone, text, pdfUrl);
+      if (!template?.companyId) return;
+      await this.communicationsService.dispatchEvent({
+        companyId: template.companyId,
+        event: CommunicationEvent.CREDIT_NOTE_ISSUED,
+        recipientRole: CommunicationRecipientRole.TENANT,
+        recipientId: template.recipientId,
+        channel: CommunicationChannel.WHATSAPP,
+        recipient: phone,
+        locale: template.templateLanguage ?? 'es',
+        variables: {},
+        fallbackBody: text,
+        consented: template.consented === true,
+        forceSend: true,
+        skipTemplateLookup: true,
+        relatedEntityType: template.relatedEntityType,
+        relatedEntityId: template.relatedEntityId,
+        metadata: {
+          attachmentUrl: pdfUrl,
+          templateName: template.templateName,
+          templateLanguage: template.templateLanguage ?? 'es',
+          templateParameters: template.templateParameters,
+        },
+      });
     } catch (error) {
       console.error('Failed to send WhatsApp PDF notification:', error);
     }

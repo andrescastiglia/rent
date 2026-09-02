@@ -725,41 +725,88 @@ export class WhatsappService implements OnApplicationBootstrap {
       const answer =
         response.outputText?.trim() ||
         'Recibimos tu mensaje. Si requiere una acción, quedó pendiente de revisión.';
-      await this.sendTextMessage(from, answer, undefined, {
-        companyId: user.company_id,
-      });
-      await this.dataSource.query(
-        `UPDATE person_communications
-            SET metadata = metadata || $2::jsonb, updated_at = now()
-          WHERE id = $1::uuid`,
-        [
-          inserted[0].id,
-          JSON.stringify({
-            conversationId: response.conversationId,
-            answered: true,
-          }),
-        ],
+      await this.queueAssistantResponse(
+        {
+          id: inserted[0].id,
+          companyId: user.company_id,
+          userId: user.id,
+          personId,
+          role: user.role,
+          phone: from,
+          body: answer,
+        },
+        {
+          conversationId: response.conversationId,
+          responseQueued: true,
+        },
       );
     } catch (error) {
-      await this.dataSource.query(
-        `UPDATE person_communications
-            SET metadata = metadata || $2::jsonb, updated_at = now()
-          WHERE id = $1::uuid`,
-        [
-          inserted[0].id,
-          JSON.stringify({
-            processingErrorType:
-              error instanceof Error ? error.name : 'UnknownError',
-          }),
-        ],
-      );
-      await this.sendTextMessage(
-        from,
-        'Recibimos tu mensaje y quedó pendiente de revisión por el equipo.',
-        undefined,
-        { companyId: user.company_id },
+      await this.queueAssistantResponse(
+        {
+          id: inserted[0].id,
+          companyId: user.company_id,
+          userId: user.id,
+          personId,
+          role: user.role,
+          phone: from,
+          body: 'Recibimos tu mensaje y quedó pendiente de revisión por el equipo.',
+        },
+        {
+          processingErrorType:
+            error instanceof Error ? error.name : 'UnknownError',
+          responseQueued: true,
+        },
       );
     }
+  }
+
+  private async queueAssistantResponse(
+    message: {
+      id: string;
+      companyId: string;
+      userId: string;
+      personId: string;
+      role: UserRole;
+      phone: string;
+      body: string;
+    },
+    metadata: Record<string, unknown>,
+  ): Promise<void> {
+    if (!this.dataSource) {
+      throw new ServiceUnavailableException('WhatsApp outbox is unavailable');
+    }
+    await this.dataSource.transaction(async (manager) => {
+      await manager.query(
+        `INSERT INTO communication_deliveries (
+           company_id, event, recipient_role, recipient_id, channel, recipient,
+           body, status, attempts, max_attempts, next_attempt_at, metadata,
+           source_communication_id
+         ) VALUES ($1::uuid, 'whatsapp_assistant_response', $2, $3::uuid,
+                   'whatsapp', $4, $5, 'queued', 0, 3, NOW(), $6::jsonb,
+                   $7::uuid)
+         ON CONFLICT (source_communication_id)
+           WHERE source_communication_id IS NOT NULL DO NOTHING`,
+        [
+          message.companyId,
+          message.role,
+          message.personId,
+          message.phone,
+          message.body,
+          JSON.stringify({
+            ...metadata,
+            source: 'whatsapp-inbound',
+            userId: message.userId,
+          }),
+          message.id,
+        ],
+      );
+      await manager.query(
+        `UPDATE person_communications
+            SET metadata = metadata || $2::jsonb, updated_at = NOW()
+          WHERE id = $1::uuid`,
+        [message.id, JSON.stringify(metadata)],
+      );
+    });
   }
 
   private async extractIncomingContent(

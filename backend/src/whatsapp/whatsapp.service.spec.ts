@@ -53,10 +53,17 @@ describe('WhatsappService', () => {
   const buildDataSource = (
     queryMock = jest.fn().mockResolvedValue([]),
     type = 'postgres',
-  ) => ({
-    options: { type },
-    query: queryMock,
-  });
+  ) => {
+    const dataSource = {
+      options: { type },
+      query: queryMock,
+      transaction: jest.fn(
+        async (work: (manager: { query: jest.Mock }) => Promise<unknown>) =>
+          work({ query: queryMock }),
+      ),
+    };
+    return dataSource;
+  };
 
   const mockSuccessfulSend = (messageId = 'wamid-1') => {
     fetchMock.mockResolvedValue({
@@ -629,9 +636,19 @@ describe('WhatsappService', () => {
         mutationApprovalMode: 'staff_queue',
       },
     });
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining('/phone-1/messages'),
-      expect.any(Object),
+    expect(fetchMock).not.toHaveBeenCalled();
+    const deliveryCall = (query.mock.calls as unknown[][]).find(([sql]) =>
+      String(sql).includes('INSERT INTO communication_deliveries'),
+    );
+    expect(deliveryCall?.[1]).toEqual(
+      expect.arrayContaining([
+        'company-1',
+        'owner',
+        'owner-1',
+        '5491112345678',
+        'La operación quedó pendiente.',
+        'communication-1',
+      ]),
     );
     expect(
       query.mock.calls.some(([sql]) => sql.includes('metadata = metadata')),
@@ -740,10 +757,15 @@ describe('WhatsappService', () => {
       ],
     });
 
-    const fallbackPayload = JSON.parse(
-      fetchMock.mock.calls.find(([url]) => url.includes('/messages'))[1].body,
+    const fallbackDelivery = (query.mock.calls as unknown[][]).find(([sql]) =>
+      String(sql).includes('INSERT INTO communication_deliveries'),
     );
-    expect(fallbackPayload.text.body).toContain('pendiente de revisión');
+    expect(fallbackDelivery?.[1]).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('pendiente de revisión'),
+      ]),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(
       (query.mock.calls as unknown[][]).some(
         ([, params]) =>

@@ -20,7 +20,6 @@ import {
 import { CreatePropertyVisitDto } from './dto/create-property-visit.dto';
 import { CreatePropertyMaintenanceTaskDto } from './dto/create-property-maintenance-task.dto';
 import { UpdatePropertyVisitResultDto } from './dto/update-property-visit-result.dto';
-import { WhatsappService } from '../whatsapp/whatsapp.service';
 import {
   OwnerActivity,
   OwnerActivityStatus,
@@ -68,7 +67,6 @@ export class PropertyVisitsService {
     private readonly interestedRepository: Repository<InterestedProfile>,
     @InjectRepository(InterestedActivity)
     private readonly interestedActivitiesRepository: Repository<InterestedActivity>,
-    private readonly whatsappService: WhatsappService,
     private readonly communicationsService: CommunicationsService,
   ) {}
 
@@ -624,8 +622,8 @@ export class PropertyVisitsService {
     for (const notification of notifications) {
       try {
         await this.sendNotification(notification, context);
-        notification.status = VisitNotificationStatus.SENT;
-        notification.sentAt = new Date();
+        notification.status = VisitNotificationStatus.QUEUED;
+        notification.sentAt = null;
         notification.error = null;
       } catch (error) {
         notification.status = VisitNotificationStatus.FAILED;
@@ -642,24 +640,30 @@ export class PropertyVisitsService {
     context?: VisitWhatsappContext,
   ): Promise<void> {
     if (notification.channel === VisitNotificationChannel.WHATSAPP) {
-      await this.whatsappService.sendTemplateMessage(
-        notification.recipient,
-        'property_visit_registered',
-        context?.templateLanguage ?? 'es',
-        context?.templateParameters ?? [],
-        {
-          textFallback: notification.message,
-          context: context
-            ? {
-                companyId: context.companyId,
-                relatedEntityType: 'property_visit',
-                relatedEntityId: context.relatedEntityId,
-                activityEntity: context.activityId ? 'owner' : undefined,
-                activityId: context.activityId,
-              }
-            : undefined,
+      if (!context) {
+        throw new BadRequestException('Missing visit notification context');
+      }
+      await this.communicationsService.dispatchEvent({
+        companyId: context.companyId,
+        event: CommunicationEvent.PROPERTY_VISIT_SCHEDULED,
+        recipientRole: CommunicationRecipientRole.OWNER,
+        channel: CommunicationChannel.WHATSAPP,
+        recipient: notification.recipient,
+        variables: {},
+        fallbackBody: notification.message,
+        consented: true,
+        forceSend: true,
+        skipTemplateLookup: true,
+        relatedEntityType: 'property_visit',
+        relatedEntityId: context.relatedEntityId,
+        metadata: {
+          visitNotificationId: notification.id,
+          ownerActivityId: context.activityId,
+          templateName: 'property_visit_registered',
+          templateLanguage: context.templateLanguage ?? 'es',
+          templateParameters: context.templateParameters,
         },
-      );
+      });
     }
   }
 }

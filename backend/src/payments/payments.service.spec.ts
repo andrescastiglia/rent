@@ -13,7 +13,6 @@ import { TenantAccountsService } from './tenant-accounts.service';
 import { ReceiptPdfService } from './receipt-pdf.service';
 import { CreditNotePdfService } from './credit-note-pdf.service';
 import { UserRole } from '../users/entities/user.entity';
-import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { CommunicationsService } from '../communications/communications.service';
 import { MovementType } from './entities/tenant-account-movement.entity';
 import { TenantAccount } from './entities/tenant-account.entity';
@@ -102,13 +101,6 @@ describe('PaymentsService', () => {
         { provide: TenantAccountsService, useValue: tenantAccountsService },
         { provide: ReceiptPdfService, useValue: { generate: jest.fn() } },
         { provide: CreditNotePdfService, useValue: { generate: jest.fn() } },
-        {
-          provide: WhatsappService,
-          useValue: {
-            sendTextMessage: jest.fn(),
-            sendTemplateMessage: jest.fn(),
-          },
-        },
         {
           provide: CommunicationsService,
           useValue: { dispatchEvent: jest.fn() },
@@ -1002,15 +994,28 @@ describe('PaymentsService', () => {
       });
     _invoicesRepository.findOne!.mockResolvedValue({
       id: 'inv-1',
-      lease: { tenant: { user: { phone: '5491112345678' } } },
+      lease: {
+        tenant: {
+          id: 'tenant-1',
+          contactConsent: true,
+          user: {
+            phone: '5491112345678',
+            whatsappEnabled: true,
+            language: 'es',
+          },
+        },
+      },
     } as any);
 
     const creditNotePdfService = (service as any).creditNotePdfService;
     creditNotePdfService.generate.mockResolvedValue(
       'https://pdf.local/cn-1.pdf',
     );
-    const whatsappService = (service as any).whatsappService;
-    whatsappService.sendTemplateMessage.mockResolvedValue({ ok: true });
+    const communicationsService = (service as any).communicationsService;
+    communicationsService.dispatchEvent.mockResolvedValue({
+      id: 'delivery-credit-note',
+      status: 'queued',
+    });
 
     await (service as any).createCreditNotesForSettledLateFees(
       {
@@ -1045,6 +1050,20 @@ describe('PaymentsService', () => {
       'cn-1',
       expect.stringContaining('Nota de crédito'),
       'company-1',
+    );
+    expect(communicationsService.dispatchEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: 'company-1',
+        recipientId: 'tenant-1',
+        recipient: '5491112345678',
+        consented: true,
+        relatedEntityType: 'payment',
+        relatedEntityId: 'pay-1',
+        metadata: expect.objectContaining({
+          attachmentUrl: 'https://pdf.local/cn-1.pdf',
+          templateName: 'credit_note_issued',
+        }),
+      }),
     );
   });
 

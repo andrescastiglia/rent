@@ -123,59 +123,83 @@ export class CommunicationsService {
     staff: { id: string; companyId: string },
     body: string,
   ) {
-    const rows = await this.dataSource.query(
-      `SELECT pc.*, u.phone, u.whatsapp_enabled
-         FROM person_communications pc
-         JOIN users u ON u.id = pc.user_id
-        WHERE pc.id = $1::uuid AND pc.company_id = $2::uuid
-          AND pc.direction = 'inbound'`,
-      [id, staff.companyId],
-    );
-    const incoming = rows[0];
-    if (!incoming) throw new NotFoundException('Communication not found');
-    if (!incoming.whatsapp_enabled) {
-      throw new BadRequestException('The recipient revoked WhatsApp consent');
-    }
-    const sent = await this.whatsappService.sendTextMessage(
-      incoming.phone,
-      body.trim(),
-      undefined,
-      { companyId: staff.companyId },
-    );
-    const inserted = await this.dataSource.query(
-      `INSERT INTO person_communications (
-         company_id, user_id, person_type, person_id, direction, message_type,
-         body, whatsapp_message_id, in_reply_to_id, status, read_at, read_by,
-         metadata
-       ) VALUES ($1::uuid, $2::uuid, $3, $4::uuid, 'outbound', 'text', $5,
-                 $6, $7::uuid, 'read', now(), $8::uuid, $9::jsonb)
-       RETURNING *`,
-      [
-        staff.companyId,
-        incoming.user_id,
-        incoming.person_type,
-        incoming.person_id,
-        body.trim(),
-        sent.messageId,
-        id,
+    return this.dataSource.transaction(async (manager) => {
+      const rows = await manager.query(
+        `SELECT pc.*, u.phone, u.whatsapp_enabled
+           FROM person_communications pc
+           JOIN users u ON u.id = pc.user_id
+          WHERE pc.id = $1::uuid AND pc.company_id = $2::uuid
+            AND pc.direction = 'inbound'
+          FOR UPDATE OF pc, u`,
+        [id, staff.companyId],
+      );
+      const incoming = rows[0];
+      if (!incoming) throw new NotFoundException('Communication not found');
+      if (!incoming.whatsapp_enabled) {
+        throw new BadRequestException('The recipient revoked WhatsApp consent');
+      }
+      const normalizedBody = body.trim();
+      const inserted = await manager.query(
+        `INSERT INTO person_communications (
+           company_id, user_id, person_type, person_id, direction, message_type,
+           body, in_reply_to_id, status, read_at, read_by, metadata
+         ) VALUES ($1::uuid, $2::uuid, $3, $4::uuid, 'outbound', 'text', $5,
+                   $6::uuid, 'read', now(), $7::uuid, $8::jsonb)
+         RETURNING *`,
+        [
+          staff.companyId,
+          incoming.user_id,
+          incoming.person_type,
+          incoming.person_id,
+          normalizedBody,
+          id,
+          staff.id,
+          JSON.stringify({ repliedBy: staff.id, deliveryStatus: 'queued' }),
+        ],
+      );
+      const reply = inserted[0];
+      await manager.query(
+        `INSERT INTO communication_deliveries (
+           company_id, event, recipient_role, recipient_id, channel, recipient,
+           body, status, attempts, max_attempts, next_attempt_at, metadata,
+           source_communication_id
+         ) VALUES ($1::uuid, 'whatsapp_manual_reply', $2,
+                   $3::uuid, 'whatsapp', $4, $5, 'queued', 0, 3, NOW(),
+                   $6::jsonb, $7::uuid)`,
+        [
+          staff.companyId,
+          this.toRecipientRole(incoming.person_type),
+          incoming.person_id,
+          incoming.phone,
+          normalizedBody,
+          JSON.stringify({
+            sourceCommunicationId: id,
+            replyCommunicationId: reply.id,
+          }),
+          reply.id,
+        ],
+      );
+      await manager.query(
+        `UPDATE person_communications SET status = 'replied',
+                read_at = COALESCE(read_at, now()), read_by = $2::uuid,
+                updated_at = now() WHERE id = $1::uuid`,
+        [id, staff.id],
+      );
+      await this.recordReplyActivity(
+        incoming,
         staff.id,
-        JSON.stringify({ repliedBy: staff.id }),
-      ],
-    );
-    await this.dataSource.query(
-      `UPDATE person_communications SET status = 'replied',
-              read_at = COALESCE(read_at, now()), read_by = $2::uuid,
-              updated_at = now() WHERE id = $1::uuid`,
-      [id, staff.id],
-    );
-    await this.recordReplyActivity(incoming, staff.id, body.trim());
-    return inserted[0];
+        normalizedBody,
+        manager.query.bind(manager),
+      );
+      return reply;
+    });
   }
 
   private async recordReplyActivity(
     incoming: Record<string, unknown>,
     staffId: string,
     body: string,
+    query: DataSource['query'] = this.dataSource.query.bind(this.dataSource),
   ): Promise<void> {
     const personType = String(incoming.person_type);
     const personId = incoming.person_id;
@@ -193,7 +217,7 @@ export class CommunicationsService {
         : `${personType}_id`;
     const companyColumns = personType === 'interested' ? '' : 'company_id,';
     const companyValues = personType === 'interested' ? '' : '$2::uuid,';
-    await this.dataSource.query(
+    await query(
       `INSERT INTO ${table} (${companyColumns} ${personColumn}, type, status,
          subject, body, metadata, created_by_user_id)
        VALUES (${companyValues} $1::uuid, 'whatsapp', 'completed',
@@ -206,6 +230,16 @@ export class CommunicationsService {
         staffId,
       ],
     );
+  }
+
+  private toRecipientRole(personType: string): CommunicationRecipientRole {
+    const role = Object.values(CommunicationRecipientRole).find(
+      (candidate) => candidate === personType,
+    );
+    if (!role) {
+      throw new BadRequestException('Unsupported WhatsApp recipient role');
+    }
+    return role;
   }
 
   async createTemplate(
@@ -349,6 +383,7 @@ export class CommunicationsService {
             : null,
         relatedEntityType: input.relatedEntityType ?? null,
         relatedEntityId: input.relatedEntityId ?? null,
+        sourceCommunicationId: null,
         metadata: input.metadata ?? {},
         sentAt: null,
       }),
