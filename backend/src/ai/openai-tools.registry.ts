@@ -815,8 +815,7 @@ export function buildAiToolDefinitions(
         return deps.propertiesService.update(
           parsed.id,
           parsed,
-          context.userId,
-          context.role,
+          toScopedUser(context) as any,
         );
       },
     },
@@ -830,7 +829,7 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        await deps.propertiesService.remove(id, context.userId, context.role);
+        await deps.propertiesService.remove(id, toScopedUser(context) as any);
         return { message: 'Property deleted successfully' };
       },
     },
@@ -984,7 +983,7 @@ export function buildAiToolDefinitions(
         const { propertyId } = z
           .object({ propertyId: uuidSchema })
           .parse(args) as any;
-        return deps.propertyVisitsService.findAll(
+        return deps.propertyVisitsService.findMaintenanceTasks(
           propertyId,
           toScopedUser(context) as any,
         );

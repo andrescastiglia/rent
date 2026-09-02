@@ -41,7 +41,7 @@ import {
 interface VisitUserContext {
   id: string;
   role: string;
-  companyId?: string;
+  companyId: string;
 }
 
 interface VisitWhatsappContext {
@@ -289,17 +289,20 @@ export class PropertyVisitsService {
     propertyId: string,
     user: VisitUserContext,
   ): Promise<Property> {
+    if (!user.companyId) {
+      throw new ForbiddenException('Company scope required');
+    }
     const property = await this.propertiesRepository.findOne({
-      where: { id: propertyId, deletedAt: IsNull() },
+      where: {
+        id: propertyId,
+        companyId: user.companyId,
+        deletedAt: IsNull(),
+      },
       relations: ['owner', 'owner.user'],
     });
 
     if (!property) {
       throw new NotFoundException(`Property with ID ${propertyId} not found`);
-    }
-
-    if (user.companyId && property.companyId !== user.companyId) {
-      throw new ForbiddenException('You can only access your own company');
     }
 
     if (user.role === 'owner' && property.owner?.userId !== user.id) {

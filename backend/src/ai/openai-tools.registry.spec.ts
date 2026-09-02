@@ -714,6 +714,7 @@ describe('openai-tools.registry', () => {
       propertyVisitsService: {
         create: jest.fn().mockResolvedValue({ id: 'visit-1' }),
         findAll: jest.fn().mockResolvedValue([]),
+        findMaintenanceTasks: jest.fn().mockResolvedValue([]),
         createMaintenanceTask: jest.fn().mockResolvedValue({ id: 'task-1' }),
       },
       unitsService: {

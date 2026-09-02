@@ -56,18 +56,13 @@ export class PropertiesController {
     @Body() updatePropertyDto: UpdatePropertyDto,
     @Request() req: any,
   ) {
-    return this.propertiesService.update(
-      id,
-      updatePropertyDto,
-      req.user.id,
-      req.user.role,
-    );
+    return this.propertiesService.update(id, updatePropertyDto, req.user);
   }
 
   @Delete(':id')
   @Roles(UserRole.ADMIN, UserRole.OWNER)
   async remove(@Param('id') id: string, @Request() req: any) {
-    await this.propertiesService.remove(id, req.user.id, req.user.role);
+    await this.propertiesService.remove(id, req.user);
     return { message: 'Property deleted successfully' };
   }
 

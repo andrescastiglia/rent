@@ -91,8 +91,11 @@ export class PropertiesService {
 
   async findAll(
     filters: PropertyFiltersDto,
-    user?: UserContext,
+    user: UserContext,
   ): Promise<{ data: Property[]; total: number; page: number; limit: number }> {
+    if (!user.companyId) {
+      throw new ForbiddenException('Company scope required');
+    }
     const {
       ownerId,
       addressCity,
@@ -117,7 +120,7 @@ export class PropertiesService {
       .where('property.deleted_at IS NULL');
 
     this.applyGeneralPropertyFilters(query, {
-      companyId: user?.companyId,
+      companyId: user.companyId,
       ownerId,
       addressCity,
       addressState,
@@ -133,9 +136,7 @@ export class PropertiesService {
       bathrooms,
     });
 
-    if (user) {
-      this.applyVisibilityScope(query, user);
-    }
+    this.applyVisibilityScope(query, user);
 
     query.skip((page - 1) * limit).take(limit);
 
@@ -242,20 +243,10 @@ export class PropertiesService {
     }
   }
 
-  async findOne(id: string): Promise<Property> {
-    const property = await this.propertiesRepository.findOne({
-      where: { id },
-      relations: ['units', 'features', 'owner', 'owner.user', 'company'],
-    });
-
-    if (!property) {
-      throw new NotFoundException(`Property with ID ${id} not found`);
-    }
-
-    return property;
-  }
-
   async findOneScoped(id: string, user: UserContext): Promise<Property> {
+    if (!user.companyId) {
+      throw new ForbiddenException('Company scope required');
+    }
     const query = this.propertiesRepository
       .createQueryBuilder('property')
       .leftJoinAndSelect('property.units', 'units')
@@ -266,11 +257,9 @@ export class PropertiesService {
       .where('property.id = :id', { id })
       .andWhere('property.deleted_at IS NULL');
 
-    if (user.companyId) {
-      query.andWhere('property.company_id = :companyId', {
-        companyId: user.companyId,
-      });
-    }
+    query.andWhere('property.company_id = :companyId', {
+      companyId: user.companyId,
+    });
 
     this.applyVisibilityScope(query, user);
 
@@ -285,19 +274,12 @@ export class PropertiesService {
   async update(
     id: string,
     updatePropertyDto: UpdatePropertyDto,
-    userId: string,
-    userRole: string,
+    user: UserContext,
   ): Promise<Property> {
-    const property = await this.findOne(id);
+    const property = await this.findOneScoped(id, user);
     const previousImageRefs = this.normalizePropertyImages(
       Array.isArray(property.images) ? property.images : [],
     );
-
-    // Check ownership (only owner or admin can update)
-    // property.owner is loaded via relation and has userId
-    if (userRole !== 'admin' && property.owner?.userId !== userId) {
-      throw new ForbiddenException('You can only update your own properties');
-    }
 
     let nextImageIds: string[] = [];
     if (updatePropertyDto.images !== undefined) {
@@ -330,17 +312,17 @@ export class PropertiesService {
     return updatedProperty;
   }
 
-  async remove(id: string, userId: string, userRole: string): Promise<void> {
-    const property = await this.findOne(id);
-
-    // Check ownership
-    if (userRole !== 'admin' && property.owner?.userId !== userId) {
-      throw new ForbiddenException('You can only delete your own properties');
-    }
+  async remove(id: string, user: UserContext): Promise<void> {
+    const property = await this.findOneScoped(id, user);
 
     // Check if property has occupied units
     const occupiedUnits = await this.unitsRepository.count({
-      where: { propertyId: id, status: UnitStatus.OCCUPIED },
+      where: {
+        propertyId: id,
+        companyId: property.companyId,
+        status: UnitStatus.OCCUPIED,
+        deletedAt: IsNull(),
+      },
     });
 
     if (occupiedUnits > 0) {
@@ -349,7 +331,10 @@ export class PropertiesService {
       );
     }
 
-    await this.propertiesRepository.softDelete(id);
+    await this.propertiesRepository.softDelete({
+      id,
+      companyId: property.companyId,
+    });
     await this.deletePropertyImages(
       Array.isArray(property.images) ? property.images : [],
       property.companyId,
@@ -523,18 +508,10 @@ export class PropertiesService {
       return;
     }
 
-    const email = (user.email ?? '').trim().toLowerCase();
-    const phone = (user.phone ?? '').trim();
-
     if (user.role === UserRole.OWNER) {
-      query.andWhere(
-        `(owner.user_id = :scopeUserId OR LOWER(ownerUser.email) = :scopeEmail OR (:scopePhone <> '' AND ownerUser.phone = :scopePhone))`,
-        {
-          scopeUserId: user.id,
-          scopeEmail: email,
-          scopePhone: phone,
-        },
-      );
+      query.andWhere('owner.user_id = :scopeUserId', {
+        scopeUserId: user.id,
+      });
       return;
     }
 
@@ -550,16 +527,13 @@ export class PropertiesService {
           },
         )
         .innerJoin('tenantLease.tenant', 'tenant')
-        .innerJoin('tenant.user', 'tenantUser')
-        .andWhere(
-          `(tenant.user_id = :scopeUserId OR LOWER(tenantUser.email) = :scopeEmail OR (:scopePhone <> '' AND tenantUser.phone = :scopePhone))`,
-          {
-            scopeUserId: user.id,
-            scopeEmail: email,
-            scopePhone: phone,
-          },
-        );
+        .andWhere('tenant.user_id = :scopeUserId', {
+          scopeUserId: user.id,
+        });
+      return;
     }
+
+    throw new ForbiddenException('Property access is not allowed');
   }
 
   private async resolveOwnerForCreate(

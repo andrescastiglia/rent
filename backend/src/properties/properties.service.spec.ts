@@ -62,6 +62,16 @@ describe('PropertiesService', () => {
     status: PropertyStatus.ACTIVE,
     owner: { userId: 'owner-1' } as any,
   };
+  const adminActor = {
+    id: 'admin-user',
+    role: 'admin',
+    companyId: 'company-1',
+  };
+  const ownerActor = {
+    id: 'owner-1',
+    role: 'owner',
+    companyId: 'company-1',
+  };
 
   beforeEach(async () => {
     process.env.PROPERTY_IMAGE_SIGNING_SECRET = 'test-property-image-secret';
@@ -289,7 +299,7 @@ describe('PropertiesService', () => {
 
       propertyRepository.createQueryBuilder!.mockReturnValue(mockQueryBuilder);
 
-      const result = await service.findAll(filters);
+      const result = await service.findAll(filters, adminActor);
 
       expect(result).toEqual({
         data: [mockProperty],
@@ -313,7 +323,7 @@ describe('PropertiesService', () => {
 
       propertyRepository.createQueryBuilder!.mockReturnValue(mockQueryBuilder);
 
-      await service.findAll(filters);
+      await service.findAll(filters, adminActor);
 
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
         'property.address_city ILIKE :addressCity',
@@ -340,7 +350,7 @@ describe('PropertiesService', () => {
 
       propertyRepository.createQueryBuilder!.mockReturnValue(mockQueryBuilder);
 
-      await service.findAll(filters);
+      await service.findAll(filters, adminActor);
 
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
         'property.sale_price >= :minSalePrice',
@@ -353,100 +363,97 @@ describe('PropertiesService', () => {
     });
   });
 
-  describe('findOne', () => {
-    it('should return a property by id', async () => {
-      propertyRepository.findOne!.mockResolvedValue(mockProperty);
-
-      const result = await service.findOne('1');
-
-      expect(propertyRepository.findOne).toHaveBeenCalledWith({
-        where: { id: '1' },
-        relations: ['units', 'features', 'owner', 'owner.user', 'company'],
-      });
-      expect(result).toEqual(mockProperty);
-    });
-
-    it('should throw NotFoundException when property not found', async () => {
-      propertyRepository.findOne!.mockResolvedValue(null);
-
-      await expect(service.findOne('999')).rejects.toThrow(NotFoundException);
-    });
-  });
-
   describe('update', () => {
     it('should update a property when user is owner', async () => {
       const updateDto = { addressStreet: 'Updated Address' };
-      propertyRepository.findOne!.mockResolvedValue(mockProperty);
+      jest
+        .spyOn(service, 'findOneScoped')
+        .mockResolvedValue(mockProperty as any);
       propertyRepository.save!.mockResolvedValue({
         ...mockProperty,
         ...updateDto,
       });
 
-      const result = await service.update('1', updateDto, 'owner-1', 'owner');
+      const result = await service.update('1', updateDto, ownerActor);
 
       expect(result.addressStreet).toBe('Updated Address');
     });
 
     it('should update a property when user is admin', async () => {
       const updateDto = { addressStreet: 'Updated Address' };
-      propertyRepository.findOne!.mockResolvedValue(mockProperty);
+      jest
+        .spyOn(service, 'findOneScoped')
+        .mockResolvedValue(mockProperty as any);
       propertyRepository.save!.mockResolvedValue({
         ...mockProperty,
         ...updateDto,
       });
 
-      const result = await service.update(
-        '1',
-        updateDto,
-        'different-user',
-        'admin',
-      );
+      const result = await service.update('1', updateDto, adminActor);
 
       expect(result.addressStreet).toBe('Updated Address');
     });
 
     it('should throw ForbiddenException when user is not owner or admin', async () => {
       const updateDto = { addressStreet: 'Updated Address' };
-      propertyRepository.findOne!.mockResolvedValue(mockProperty);
+      jest
+        .spyOn(service, 'findOneScoped')
+        .mockRejectedValue(new NotFoundException());
 
       await expect(
-        service.update('1', updateDto, 'different-user', 'owner'),
-      ).rejects.toThrow(ForbiddenException);
+        service.update('1', updateDto, {
+          ...ownerActor,
+          id: 'different-user',
+        }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('remove', () => {
     it('should delete a property when no occupied units', async () => {
-      propertyRepository.findOne!.mockResolvedValue(mockProperty);
+      jest
+        .spyOn(service, 'findOneScoped')
+        .mockResolvedValue(mockProperty as any);
       unitRepository.count!.mockResolvedValue(0);
       propertyRepository.softDelete!.mockResolvedValue({
         affected: 1,
         raw: [],
       });
 
-      await service.remove('1', 'owner-1', 'owner');
+      await service.remove('1', ownerActor);
 
       expect(unitRepository.count).toHaveBeenCalledWith({
-        where: { propertyId: '1', status: UnitStatus.OCCUPIED },
+        where: expect.objectContaining({
+          propertyId: '1',
+          companyId: 'company-1',
+          status: UnitStatus.OCCUPIED,
+        }),
       });
-      expect(propertyRepository.softDelete).toHaveBeenCalledWith('1');
+      expect(propertyRepository.softDelete).toHaveBeenCalledWith({
+        id: '1',
+        companyId: 'company-1',
+      });
     });
 
     it('should throw BadRequestException when property has occupied units', async () => {
-      propertyRepository.findOne!.mockResolvedValue(mockProperty);
+      jest
+        .spyOn(service, 'findOneScoped')
+        .mockResolvedValue(mockProperty as any);
       unitRepository.count!.mockResolvedValue(1);
 
-      await expect(service.remove('1', 'owner-1', 'owner')).rejects.toThrow(
+      await expect(service.remove('1', ownerActor)).rejects.toThrow(
         BadRequestException,
       );
     });
 
     it('should throw ForbiddenException when user is not owner or admin', async () => {
-      propertyRepository.findOne!.mockResolvedValue(mockProperty);
+      jest
+        .spyOn(service, 'findOneScoped')
+        .mockRejectedValue(new NotFoundException());
 
       await expect(
-        service.remove('1', 'different-user', 'owner'),
-      ).rejects.toThrow(ForbiddenException);
+        service.remove('1', { ...ownerActor, id: 'different-user' }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -563,11 +570,7 @@ describe('PropertiesService', () => {
       });
       expect(ownerQuery.andWhere).toHaveBeenCalledWith(
         expect.stringContaining('owner.user_id = :scopeUserId'),
-        expect.objectContaining({
-          scopeUserId: 'u-owner',
-          scopeEmail: 'owner@test.com',
-          scopePhone: '123',
-        }),
+        { scopeUserId: 'u-owner' },
       );
 
       const tenantQuery = {
@@ -580,15 +583,18 @@ describe('PropertiesService', () => {
         email: 'tenant@test.com',
         phone: '',
       });
-      expect(tenantQuery.innerJoin).toHaveBeenCalledTimes(3);
+      expect(tenantQuery.innerJoin).toHaveBeenCalledTimes(2);
       expect(tenantQuery.andWhere).toHaveBeenCalledWith(
         expect.stringContaining('tenant.user_id = :scopeUserId'),
-        expect.objectContaining({
-          scopeUserId: 'u-tenant',
-          scopeEmail: 'tenant@test.com',
-          scopePhone: '',
-        }),
+        { scopeUserId: 'u-tenant' },
       );
+
+      expect(() =>
+        (service as any).applyVisibilityScope(tenantQuery as any, {
+          id: 'u-buyer',
+          role: UserRole.BUYER,
+        }),
+      ).toThrow(ForbiddenException);
     });
 
     it('should resolve owner for create in all key branches', async () => {
@@ -720,7 +726,9 @@ describe('PropertiesService', () => {
 
     it('should update a property with new images and remove old ones', async () => {
       const newImageId = 'bbbbbbbb-bbbb-1bbb-9bbb-bbbbbbbbbbbb';
-      propertyRepository.findOne!.mockResolvedValue(propertyWithImages);
+      jest
+        .spyOn(service, 'findOneScoped')
+        .mockResolvedValue(propertyWithImages as any);
       propertyRepository.save!.mockImplementation(async (data) => data);
 
       propertyImagesRepository.find!.mockResolvedValue([
@@ -751,8 +759,7 @@ describe('PropertiesService', () => {
       await service.update(
         '1',
         { images: [`/properties/images/${newImageId}`] },
-        'owner-1',
-        'owner',
+        ownerActor,
       );
 
       expect(updateQb.set).toHaveBeenCalledWith({
@@ -763,7 +770,9 @@ describe('PropertiesService', () => {
     });
 
     it('should throw when some images are invalid', async () => {
-      propertyRepository.findOne!.mockResolvedValue(propertyWithImages);
+      jest
+        .spyOn(service, 'findOneScoped')
+        .mockResolvedValue(propertyWithImages as any);
       propertyImagesRepository.find!.mockResolvedValue([]);
 
       await expect(
@@ -772,15 +781,16 @@ describe('PropertiesService', () => {
           {
             images: ['/properties/images/cccccccc-cccc-1ccc-9ccc-cccccccccccc'],
           },
-          'owner-1',
-          'owner',
+          ownerActor,
         ),
       ).rejects.toThrow('Some property images are invalid');
     });
 
     it('should throw when an image is already assigned to another property', async () => {
       const imgId = 'dddddddd-dddd-1ddd-9ddd-dddddddddddd';
-      propertyRepository.findOne!.mockResolvedValue(propertyWithImages);
+      jest
+        .spyOn(service, 'findOneScoped')
+        .mockResolvedValue(propertyWithImages as any);
       propertyImagesRepository.find!.mockResolvedValue([
         { id: imgId, propertyId: 'other-property' },
       ]);
@@ -789,8 +799,7 @@ describe('PropertiesService', () => {
         service.update(
           '1',
           { images: [`/properties/images/${imgId}`] },
-          'owner-1',
-          'owner',
+          ownerActor,
         ),
       ).rejects.toThrow(
         'One or more images are already assigned to another property',

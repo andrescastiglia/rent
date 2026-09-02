@@ -385,12 +385,8 @@ describe('PropertyVisitsService', () => {
       ).rejects.toThrow('Property with ID prop-999 not found');
     });
 
-    it('should throw ForbiddenException for wrong company', async () => {
-      propertiesRepository.findOne!.mockResolvedValue({
-        id: 'prop-1',
-        companyId: 'other-company',
-        owner: { userId: 'owner-1' },
-      });
+    it('should hide a property from another company', async () => {
+      propertiesRepository.findOne!.mockResolvedValue(null);
 
       await expect(
         service.findAll('prop-1', {
@@ -398,7 +394,21 @@ describe('PropertyVisitsService', () => {
           role: 'agent',
           companyId: 'company-1',
         }),
-      ).rejects.toThrow('You can only access your own company');
+      ).rejects.toThrow('Property with ID prop-1 not found');
+      expect(propertiesRepository.findOne).toHaveBeenCalledWith({
+        where: expect.objectContaining({ companyId: 'company-1' }),
+        relations: ['owner', 'owner.user'],
+      });
+    });
+
+    it('requires company scope', async () => {
+      await expect(
+        service.findAll('prop-1', {
+          id: 'u1',
+          role: 'agent',
+        } as any),
+      ).rejects.toThrow('Company scope required');
+      expect(propertiesRepository.findOne).not.toHaveBeenCalled();
     });
 
     it('should throw ForbiddenException for owner accessing other property', async () => {
