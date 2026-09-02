@@ -3,8 +3,14 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository, SelectQueryBuilder } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import {
+  DataSource,
+  EntityManager,
+  In,
+  Repository,
+  SelectQueryBuilder,
+} from 'typeorm';
 import {
   Payment,
   PaymentActivityType,
@@ -57,6 +63,8 @@ export class PaymentsService {
     private readonly creditNotePdfService: CreditNotePdfService,
     private readonly whatsappService: WhatsappService,
     private readonly communicationsService: CommunicationsService,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -163,45 +171,66 @@ export class PaymentsService {
    * @returns El pago confirmado con recibo
    */
   async confirm(id: string, companyId: string): Promise<Payment> {
-    const payment = await this.findOne(id, companyId);
+    const transactionResult = await this.dataSource.transaction(
+      async (manager) => {
+        const paymentsRepository = manager.getRepository(Payment);
+        const invoicesRepository = manager.getRepository(Invoice);
+        const payment = await this.findPaymentForUpdate(
+          paymentsRepository,
+          id,
+          companyId,
+        );
 
-    if (payment.status !== PaymentStatus.PENDING) {
-      throw new BadRequestException('Payment is not pending');
-    }
+        if (payment.status !== PaymentStatus.PENDING) {
+          throw new BadRequestException('Payment is not pending');
+        }
 
-    const tenantAccountId = await this.resolveTenantAccountId(payment);
+        const tenantAccountId = await this.resolveTenantAccountId(
+          payment,
+          invoicesRepository,
+        );
 
-    // Registrar movimiento en cuenta corriente (reduce deuda)
-    await this.tenantAccountsService.addMovement(
-      tenantAccountId,
-      MovementType.PAYMENT,
-      -Number(payment.amount), // Negativo porque reduce la deuda
-      'payment',
-      payment.id,
-      `Pago recibido - ${payment.method}`,
-      payment.companyId,
+        await this.tenantAccountsService.addMovementWithManager(
+          manager,
+          tenantAccountId,
+          MovementType.PAYMENT,
+          -Number(payment.amount),
+          'payment',
+          payment.id,
+          `Pago recibido - ${payment.method}`,
+          payment.companyId,
+        );
+
+        const settledInvoices = await this.applyPaymentToInvoices(
+          payment,
+          tenantAccountId,
+          invoicesRepository,
+        );
+        await this.createCreditNotesForSettledLateFees(
+          payment,
+          tenantAccountId,
+          settledInvoices,
+          manager,
+        );
+
+        await this.generateReceipt(payment, manager);
+
+        await paymentsRepository.update(payment.id, {
+          tenantAccountId,
+          status: PaymentStatus.COMPLETED,
+        });
+        return { tenantAccountId, settledInvoices };
+      },
     );
 
-    // Aplicar pago a facturas pendientes
-    const settledInvoices = await this.applyPaymentToInvoices(
-      payment,
-      tenantAccountId,
-    );
+    const confirmed = await this.findOne(id, companyId);
+    await this.generateReceipt(confirmed);
     await this.createCreditNotesForSettledLateFees(
-      payment,
-      tenantAccountId,
-      settledInvoices,
+      confirmed,
+      transactionResult.tenantAccountId,
+      transactionResult.settledInvoices,
     );
-
-    // Generar recibo
-    await this.generateReceipt(payment);
-
-    await this.paymentsRepository.update(payment.id, {
-      tenantAccountId,
-      status: PaymentStatus.COMPLETED,
-    });
-
-    return this.findOne(id, companyId);
+    return confirmed;
   }
 
   /**
@@ -211,9 +240,10 @@ export class PaymentsService {
   private async applyPaymentToInvoices(
     payment: Payment,
     tenantAccountId: string,
+    repository: Repository<Invoice> = this.invoicesRepository,
   ): Promise<Invoice[]> {
     // Obtener facturas pendientes ordenadas por fecha
-    const pendingInvoices = await this.invoicesRepository.find({
+    const pendingInvoices = await repository.find({
       where: {
         tenantAccountId,
         status: In([
@@ -249,7 +279,7 @@ export class PaymentsService {
         invoice.status = InvoiceStatus.PARTIAL;
       }
 
-      await this.invoicesRepository.save(invoice);
+      await repository.save(invoice);
       remainingAmount -= toApply;
     }
 
@@ -261,26 +291,37 @@ export class PaymentsService {
    * @param payment Pago
    * @returns El recibo generado
    */
-  private async generateReceipt(payment: Payment): Promise<Receipt> {
-    const existingReceipt = await this.receiptsRepository.findOne({
+  private async generateReceipt(
+    payment: Payment,
+    manager?: EntityManager,
+  ): Promise<Receipt> {
+    const repository = manager
+      ? manager.getRepository(Receipt)
+      : this.receiptsRepository;
+    const existingReceipt = await repository.findOne({
       where: { paymentId: payment.id },
     });
-    if (existingReceipt) {
+    if (existingReceipt && (existingReceipt.pdfUrl || manager)) {
       return existingReceipt;
     }
 
-    const receiptNumber = await this.generateReceiptNumber();
+    let savedReceipt = existingReceipt;
+    if (!savedReceipt) {
+      const receiptNumber = await this.generateReceiptNumber(repository);
+      const receipt = repository.create({
+        companyId: payment.companyId,
+        paymentId: payment.id,
+        receiptNumber,
+        amount: payment.amount,
+        currencyCode: payment.currencyCode,
+        issuedAt: new Date(),
+      });
+      savedReceipt = await repository.save(receipt);
+    }
 
-    const receipt = this.receiptsRepository.create({
-      companyId: payment.companyId,
-      paymentId: payment.id,
-      receiptNumber,
-      amount: payment.amount,
-      currencyCode: payment.currencyCode,
-      issuedAt: new Date(),
-    });
-
-    const savedReceipt = await this.receiptsRepository.save(receipt);
+    if (manager) {
+      return savedReceipt;
+    }
 
     // Generar PDF
     try {
@@ -289,7 +330,7 @@ export class PaymentsService {
         payment,
       );
       savedReceipt.pdfUrl = pdfUrl;
-      await this.receiptsRepository.save(savedReceipt);
+      await repository.save(savedReceipt);
       await this.dispatchPaymentReceived(payment, savedReceipt);
     } catch (error) {
       console.error('Failed to generate receipt PDF:', error);
@@ -348,8 +389,10 @@ export class PaymentsService {
    * Genera número de recibo secuencial.
    * @returns Número de recibo
    */
-  private async generateReceiptNumber(): Promise<string> {
-    const [lastReceipt] = await this.receiptsRepository.find({
+  private async generateReceiptNumber(
+    repository: Repository<Receipt> = this.receiptsRepository,
+  ): Promise<string> {
+    const [lastReceipt] = await repository.find({
       order: { createdAt: 'DESC' },
       take: 1,
     });
@@ -604,27 +647,34 @@ export class PaymentsService {
    * @returns El pago cancelado
    */
   async cancel(id: string, companyId: string): Promise<Payment> {
-    const payment = await this.findOne(id, companyId);
-
-    if (payment.status === PaymentStatus.CANCELLED) {
-      throw new BadRequestException('Payment is already cancelled');
-    }
-
-    if (payment.status === PaymentStatus.COMPLETED) {
-      // Revertir el movimiento en cuenta
-      await this.tenantAccountsService.addMovement(
-        payment.tenantAccountId,
-        MovementType.ADJUSTMENT,
-        Number(payment.amount), // Positivo porque revierte la reducción
-        'payment',
-        payment.id,
-        `Anulación pago`,
-        payment.companyId,
+    await this.dataSource.transaction(async (manager) => {
+      const paymentsRepository = manager.getRepository(Payment);
+      const payment = await this.findPaymentForUpdate(
+        paymentsRepository,
+        id,
+        companyId,
       );
-    }
 
-    await this.paymentsRepository.update(payment.id, {
-      status: PaymentStatus.CANCELLED,
+      if (payment.status === PaymentStatus.CANCELLED) {
+        throw new BadRequestException('Payment is already cancelled');
+      }
+
+      if (payment.status === PaymentStatus.COMPLETED) {
+        await this.tenantAccountsService.addMovementWithManager(
+          manager,
+          payment.tenantAccountId,
+          MovementType.ADJUSTMENT,
+          Number(payment.amount),
+          'payment',
+          payment.id,
+          `Anulación pago`,
+          payment.companyId,
+        );
+      }
+
+      await paymentsRepository.update(payment.id, {
+        status: PaymentStatus.CANCELLED,
+      });
     });
     return this.findOne(id, companyId);
   }
@@ -633,48 +683,71 @@ export class PaymentsService {
     payment: Payment,
     tenantAccountId: string,
     invoices: Invoice[],
+    manager?: EntityManager,
   ): Promise<void> {
+    const creditNotesRepository = manager
+      ? manager.getRepository(CreditNote)
+      : this.creditNotesRepository;
+    const invoicesRepository = manager
+      ? manager.getRepository(Invoice)
+      : this.invoicesRepository;
     for (const invoice of invoices) {
       const lateFeeAmount = Number(invoice.lateFee || 0);
       if (lateFeeAmount <= 0) {
         continue;
       }
 
-      const existing = await this.creditNotesRepository.findOne({
+      const existing = await creditNotesRepository.findOne({
         where: { invoiceId: invoice.id, paymentId: payment.id },
       });
-      if (existing) {
+      let savedNote = existing;
+      if (!savedNote) {
+        const noteNumber = await this.generateCreditNoteNumber(
+          creditNotesRepository,
+        );
+        const note = creditNotesRepository.create({
+          companyId: payment.companyId,
+          invoiceId: invoice.id,
+          paymentId: payment.id,
+          tenantAccountId,
+          noteNumber,
+          amount: lateFeeAmount,
+          currencyCode: invoice.currencyCode || payment.currencyCode || 'ARS',
+          reason: `Mora vinculada a factura ${invoice.invoiceNumber}`,
+          status: CreditNoteStatus.ISSUED,
+        });
+
+        savedNote = await creditNotesRepository.save(note);
+        if (manager) {
+          await this.tenantAccountsService.addMovementWithManager(
+            manager,
+            tenantAccountId,
+            MovementType.DISCOUNT,
+            -lateFeeAmount,
+            'credit_note',
+            savedNote.id,
+            `Nota de crédito ${savedNote.noteNumber} por mora`,
+            payment.companyId,
+          );
+        } else {
+          await this.tenantAccountsService.addMovement(
+            tenantAccountId,
+            MovementType.DISCOUNT,
+            -lateFeeAmount,
+            'credit_note',
+            savedNote.id,
+            `Nota de crédito ${savedNote.noteNumber} por mora`,
+            payment.companyId,
+          );
+        }
+      }
+
+      if (manager || savedNote.pdfUrl) {
         continue;
       }
 
-      const noteNumber = await this.generateCreditNoteNumber();
-      const note = this.creditNotesRepository.create({
-        companyId: payment.companyId,
-        invoiceId: invoice.id,
-        paymentId: payment.id,
-        tenantAccountId,
-        noteNumber,
-        amount: lateFeeAmount,
-        currencyCode: invoice.currencyCode || payment.currencyCode || 'ARS',
-        reason: `Mora vinculada a factura ${invoice.invoiceNumber}`,
-        status: CreditNoteStatus.ISSUED,
-      });
-
-      const savedNote = await this.creditNotesRepository.save(note);
-
-      // Apply a credit movement to the tenant account for the late fee.
-      await this.tenantAccountsService.addMovement(
-        tenantAccountId,
-        MovementType.DISCOUNT,
-        -lateFeeAmount,
-        'credit_note',
-        savedNote.id,
-        `Nota de crédito ${savedNote.noteNumber} por mora`,
-        payment.companyId,
-      );
-
       try {
-        const fullInvoice = await this.invoicesRepository.findOne({
+        const fullInvoice = await invoicesRepository.findOne({
           where: { id: invoice.id },
           relations: ['lease', 'lease.tenant', 'lease.tenant.user'],
         });
@@ -683,7 +756,7 @@ export class PaymentsService {
             savedNote,
             fullInvoice,
           );
-          await this.creditNotesRepository.save(savedNote);
+          await creditNotesRepository.save(savedNote);
           await this.sendTenantPdfWhatsapp(
             fullInvoice.lease?.tenant?.user?.phone ?? null,
             `Se emitió la nota de crédito ${savedNote.noteNumber} por ${savedNote.currencyCode} ${Number(savedNote.amount).toLocaleString('es-AR', { minimumFractionDigits: 2 })}.`,
@@ -708,8 +781,10 @@ export class PaymentsService {
     }
   }
 
-  private async generateCreditNoteNumber(): Promise<string> {
-    const [lastNote] = await this.creditNotesRepository.find({
+  private async generateCreditNoteNumber(
+    repository: Repository<CreditNote> = this.creditNotesRepository,
+  ): Promise<string> {
+    const [lastNote] = await repository.find({
       order: { createdAt: 'DESC' },
       take: 1,
     });
@@ -727,13 +802,16 @@ export class PaymentsService {
     return `NC-${year}${month}-${String(sequence).padStart(4, '0')}`;
   }
 
-  private async resolveTenantAccountId(payment: Payment): Promise<string> {
+  private async resolveTenantAccountId(
+    payment: Payment,
+    repository: Repository<Invoice> = this.invoicesRepository,
+  ): Promise<string> {
     if (payment.tenantAccountId) {
       return payment.tenantAccountId;
     }
 
     if (payment.invoiceId) {
-      const invoice = await this.invoicesRepository.findOne({
+      const invoice = await repository.findOne({
         where: { id: payment.invoiceId },
       });
       if (invoice?.tenantAccountId) {
@@ -744,6 +822,21 @@ export class PaymentsService {
     throw new BadRequestException(
       'Payment cannot be confirmed without a tenant account',
     );
+  }
+
+  private async findPaymentForUpdate(
+    repository: Repository<Payment>,
+    id: string,
+    companyId: string,
+  ): Promise<Payment> {
+    const payment = await repository.findOne({
+      where: { id, companyId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!payment) {
+      throw new NotFoundException(`Payment with ID ${id} not found`);
+    }
+    return payment;
   }
 
   private async sendTenantPdfWhatsapp(

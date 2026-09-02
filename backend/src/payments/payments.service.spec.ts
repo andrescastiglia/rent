@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PaymentsService } from './payments.service';
 import { Payment, PaymentStatus } from './entities/payment.entity';
@@ -23,6 +23,7 @@ describe('PaymentsService', () => {
   let _invoicesRepository: MockRepository<Invoice>;
   let _creditNotesRepository: MockRepository<CreditNote>;
   let tenantAccountsService: Partial<TenantAccountsService>;
+  let dataSource: { transaction: jest.Mock };
 
   type MockRepository<T extends Record<string, any> = any> = Partial<
     Record<keyof Repository<T>, jest.Mock>
@@ -42,8 +43,22 @@ describe('PaymentsService', () => {
     tenantAccountsService = {
       findOne: jest.fn(),
       addMovement: jest.fn(),
+      addMovementWithManager: jest.fn(),
       findByLease: jest.fn(),
       calculateLateFee: jest.fn(),
+    };
+    dataSource = {
+      transaction: jest.fn(async (callback: (manager: any) => unknown) =>
+        callback({
+          getRepository: (entity: unknown) => {
+            if (entity === Payment) return paymentsRepository;
+            if (entity === Invoice) return _invoicesRepository;
+            if (entity === Receipt) return receiptsRepository;
+            if (entity === CreditNote) return _creditNotesRepository;
+            throw new Error('Unexpected transaction repository');
+          },
+        }),
+      ),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -83,6 +98,7 @@ describe('PaymentsService', () => {
           provide: CommunicationsService,
           useValue: { dispatchEvent: jest.fn() },
         },
+        { provide: getDataSourceToken(), useValue: dataSource },
       ],
     }).compile();
 
@@ -230,36 +246,33 @@ describe('PaymentsService', () => {
       tenantAccountId: 'acc-from-invoice',
     } as unknown as Payment;
 
-    jest
-      .spyOn(service, 'findOne')
-      .mockResolvedValueOnce(payment)
-      .mockResolvedValueOnce(confirmedPayment);
+    paymentsRepository.findOne!.mockResolvedValue(payment);
+    jest.spyOn(service, 'findOne').mockResolvedValue(confirmedPayment);
 
     _invoicesRepository.findOne!.mockResolvedValue({
       id: 'inv-1',
       tenantAccountId: 'acc-from-invoice',
     });
 
-    (tenantAccountsService.addMovement as jest.Mock).mockResolvedValue({
-      id: 'mov-1',
-    });
+    (
+      tenantAccountsService.addMovementWithManager as jest.Mock
+    ).mockResolvedValue({ id: 'mov-1' });
 
-    jest
-      .spyOn(service as any, 'applyPaymentToInvoices')
-      .mockResolvedValueOnce([]);
+    jest.spyOn(service as any, 'applyPaymentToInvoices').mockResolvedValue([]);
     jest
       .spyOn(service as any, 'createCreditNotesForSettledLateFees')
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValue(undefined);
     jest
       .spyOn(service as any, 'generateReceipt')
-      .mockResolvedValueOnce({ id: 'rec-1' } as Receipt);
+      .mockResolvedValue({ id: 'rec-1' } as Receipt);
 
     paymentsRepository.update!.mockResolvedValue({ affected: 1 });
 
     const result = await service.confirm('pay-1', 'company-1');
 
     expect(service.findOne).toHaveBeenNthCalledWith(1, 'pay-1', 'company-1');
-    expect(tenantAccountsService.addMovement).toHaveBeenCalledWith(
+    expect(tenantAccountsService.addMovementWithManager).toHaveBeenCalledWith(
+      expect.anything(),
       'acc-from-invoice',
       expect.anything(),
       -100,
@@ -285,13 +298,88 @@ describe('PaymentsService', () => {
       tenantAccountId: null,
     } as unknown as Payment;
 
-    jest.spyOn(service, 'findOne').mockResolvedValue(payment);
+    paymentsRepository.findOne!.mockResolvedValue(payment);
 
     await expect(service.confirm('pay-1', 'company-1')).rejects.toBeInstanceOf(
       BadRequestException,
     );
     expect(paymentsRepository.update).not.toHaveBeenCalled();
-    expect(tenantAccountsService.addMovement).not.toHaveBeenCalled();
+    expect(tenantAccountsService.addMovementWithManager).not.toHaveBeenCalled();
+  });
+
+  it('commits payment ledger, invoice allocation and receipt together', async () => {
+    const payment = {
+      id: 'pay-atomic',
+      status: PaymentStatus.PENDING,
+      amount: 100,
+      method: 'cash',
+      tenantAccountId: 'acc-1',
+      companyId: 'company-1',
+      currencyCode: 'ARS',
+    } as unknown as Payment;
+    const receipt = {
+      id: 'receipt-1',
+      paymentId: payment.id,
+      receiptNumber: 'REC-202609-0001',
+      pdfUrl: null,
+    } as unknown as Receipt;
+    paymentsRepository.findOne!.mockResolvedValue(payment);
+    paymentsRepository.update!.mockResolvedValue({ affected: 1 });
+    _invoicesRepository.find!.mockResolvedValue([]);
+    receiptsRepository
+      .findOne!.mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(receipt);
+    receiptsRepository.find!.mockResolvedValue([]);
+    receiptsRepository.create!.mockImplementation((data) => data);
+    receiptsRepository.save!.mockImplementation(async (data) => ({
+      ...data,
+      id: data.id ?? 'receipt-1',
+    }));
+    (
+      tenantAccountsService.addMovementWithManager as jest.Mock
+    ).mockResolvedValue({ id: 'movement-1' });
+    jest.spyOn(service, 'findOne').mockResolvedValue({
+      ...payment,
+      status: PaymentStatus.COMPLETED,
+    } as Payment);
+    (service as any).receiptPdfService.generate.mockResolvedValue(
+      'db://document/receipt-1',
+    );
+
+    await service.confirm(payment.id, payment.companyId);
+
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(paymentsRepository.findOne).toHaveBeenCalledWith({
+      where: { id: payment.id, companyId: payment.companyId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    expect(tenantAccountsService.addMovementWithManager).toHaveBeenCalled();
+    expect(receiptsRepository.save).toHaveBeenCalled();
+    expect(paymentsRepository.update).toHaveBeenCalledWith(payment.id, {
+      tenantAccountId: 'acc-1',
+      status: PaymentStatus.COMPLETED,
+    });
+    expect((service as any).receiptPdfService.generate).toHaveBeenCalled();
+  });
+
+  it('aborts confirmation before receipt and status when ledger write fails', async () => {
+    paymentsRepository.findOne!.mockResolvedValue({
+      id: 'pay-rollback',
+      status: PaymentStatus.PENDING,
+      amount: 100,
+      method: 'cash',
+      tenantAccountId: 'acc-1',
+      companyId: 'company-1',
+    } as Payment);
+    (
+      tenantAccountsService.addMovementWithManager as jest.Mock
+    ).mockRejectedValue(new Error('ledger failed'));
+
+    await expect(service.confirm('pay-rollback', 'company-1')).rejects.toThrow(
+      'ledger failed',
+    );
+    expect(receiptsRepository.save).not.toHaveBeenCalled();
+    expect(paymentsRepository.update).not.toHaveBeenCalled();
   });
 
   it('should throw when creating without amount and without items', async () => {
@@ -347,7 +435,7 @@ describe('PaymentsService', () => {
   });
 
   it('should throw when canceling an already cancelled payment', async () => {
-    jest.spyOn(service, 'findOne').mockResolvedValue({
+    paymentsRepository.findOne!.mockResolvedValue({
       id: 'pay-1',
       status: PaymentStatus.CANCELLED,
     } as Payment);
@@ -369,16 +457,15 @@ describe('PaymentsService', () => {
       ...completed,
       status: PaymentStatus.CANCELLED,
     } as Payment;
-    jest
-      .spyOn(service, 'findOne')
-      .mockResolvedValueOnce(completed)
-      .mockResolvedValueOnce(cancelled);
+    paymentsRepository.findOne!.mockResolvedValue(completed);
+    jest.spyOn(service, 'findOne').mockResolvedValue(cancelled);
     paymentsRepository.update!.mockResolvedValue({ affected: 1 });
 
     const result = await service.cancel('pay-2', 'company-1');
 
     expect(service.findOne).toHaveBeenNthCalledWith(1, 'pay-2', 'company-1');
-    expect(tenantAccountsService.addMovement).toHaveBeenCalledWith(
+    expect(tenantAccountsService.addMovementWithManager).toHaveBeenCalledWith(
+      expect.anything(),
       'acc-1',
       expect.anything(),
       150,
@@ -500,7 +587,7 @@ describe('PaymentsService', () => {
   });
 
   it('should throw when confirming non-pending payment', async () => {
-    jest.spyOn(service, 'findOne').mockResolvedValue({
+    paymentsRepository.findOne!.mockResolvedValue({
       id: 'pay-1',
       status: PaymentStatus.COMPLETED,
     } as Payment);
@@ -519,15 +606,13 @@ describe('PaymentsService', () => {
       ...pending,
       status: PaymentStatus.CANCELLED,
     } as Payment;
-    jest
-      .spyOn(service, 'findOne')
-      .mockResolvedValueOnce(pending)
-      .mockResolvedValueOnce(cancelled);
+    paymentsRepository.findOne!.mockResolvedValue(pending);
+    jest.spyOn(service, 'findOne').mockResolvedValue(cancelled);
     paymentsRepository.update!.mockResolvedValue({ affected: 1 });
 
     const result = await service.cancel('pay-3', 'company-1');
 
-    expect(tenantAccountsService.addMovement).not.toHaveBeenCalled();
+    expect(tenantAccountsService.addMovementWithManager).not.toHaveBeenCalled();
     expect(result.status).toBe(PaymentStatus.CANCELLED);
   });
 
