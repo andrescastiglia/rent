@@ -12,7 +12,6 @@ import {
   PropertyVisitNotification,
   VisitNotificationStatus,
 } from './entities/property-visit-notification.entity';
-import { WhatsappService } from '../whatsapp/whatsapp.service';
 import {
   OwnerActivity,
   OwnerActivityStatus,
@@ -30,7 +29,6 @@ describe('PropertyVisitsService', () => {
   let ownerActivitiesRepository: MockRepository<OwnerActivity>;
   let interestedRepository: MockRepository<InterestedProfile>;
   let interestedActivitiesRepository: MockRepository<InterestedActivity>;
-  let whatsappService: { sendTemplateMessage: jest.Mock };
   let communicationsService: { dispatchEvent: jest.Mock };
 
   type MockRepository<T extends Record<string, any> = any> = Partial<
@@ -45,15 +43,10 @@ describe('PropertyVisitsService', () => {
   });
 
   beforeEach(async () => {
-    whatsappService = {
-      sendTemplateMessage: jest
-        .fn()
-        .mockResolvedValue({ messageId: 'wamid.test', raw: {} }),
-    };
     communicationsService = {
       dispatchEvent: jest.fn().mockResolvedValue({
         id: 'delivery-1',
-        status: 'sent',
+        status: 'queued',
         body: 'Mensaje enviado',
       }),
     };
@@ -85,7 +78,6 @@ describe('PropertyVisitsService', () => {
           provide: getRepositoryToken(InterestedActivity),
           useValue: createMockRepository(),
         },
-        { provide: WhatsappService, useValue: whatsappService },
         { provide: CommunicationsService, useValue: communicationsService },
       ],
     }).compile();
@@ -149,27 +141,29 @@ describe('PropertyVisitsService', () => {
     expect(result.notifications).toHaveLength(1);
     expect(notificationsRepository.save).toHaveBeenCalledTimes(2);
     expect(ownerActivitiesRepository.save).toHaveBeenCalledTimes(1);
-    expect(whatsappService.sendTemplateMessage).toHaveBeenCalledTimes(1);
-    expect(whatsappService.sendTemplateMessage).toHaveBeenCalledWith(
-      '+54 9 11 1234-5678',
-      'property_visit_registered',
-      'es',
-      ['Casa Linda', expect.any(String), 'Ana', 'Le gustó. Oferta ARS 1000'],
+    expect(communicationsService.dispatchEvent).toHaveBeenCalledWith(
       expect.objectContaining({
-        textFallback: expect.stringContaining('Se registró una visita'),
-        context: expect.objectContaining({
-          activityEntity: 'owner',
-          activityId: 'activity-1',
-          relatedEntityType: 'property_visit',
-          relatedEntityId: 'visit-1',
+        companyId: 'company-1',
+        recipient: '+54 9 11 1234-5678',
+        relatedEntityType: 'property_visit',
+        relatedEntityId: 'visit-1',
+        metadata: expect.objectContaining({
+          ownerActivityId: 'activity-1',
+          templateName: 'property_visit_registered',
+          templateParameters: [
+            'Casa Linda',
+            expect.any(String),
+            'Ana',
+            'Le gustó. Oferta ARS 1000',
+          ],
         }),
       }),
     );
 
     const savedNotifications = notificationsRepository.save!.mock.calls[1][0];
     for (const notification of savedNotifications) {
-      expect(notification.status).toBe(VisitNotificationStatus.SENT);
-      expect(notification.sentAt).toBeInstanceOf(Date);
+      expect(notification.status).toBe(VisitNotificationStatus.QUEUED);
+      expect(notification.sentAt).toBeNull();
     }
 
     expect(ownerActivitiesRepository.create).toHaveBeenCalledWith(
@@ -259,7 +253,7 @@ describe('PropertyVisitsService', () => {
 
     expect(result.kind).toBe(PropertyVisitKind.MAINTENANCE);
     expect(result.interestedName).toBe('Revisar humedad');
-    expect(whatsappService.sendTemplateMessage).not.toHaveBeenCalled();
+    expect(communicationsService.dispatchEvent).not.toHaveBeenCalled();
     expect(notificationsRepository.save).not.toHaveBeenCalled();
     expect(ownerActivitiesRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -391,12 +385,8 @@ describe('PropertyVisitsService', () => {
       ).rejects.toThrow('Property with ID prop-999 not found');
     });
 
-    it('should throw ForbiddenException for wrong company', async () => {
-      propertiesRepository.findOne!.mockResolvedValue({
-        id: 'prop-1',
-        companyId: 'other-company',
-        owner: { userId: 'owner-1' },
-      });
+    it('should hide a property from another company', async () => {
+      propertiesRepository.findOne!.mockResolvedValue(null);
 
       await expect(
         service.findAll('prop-1', {
@@ -404,7 +394,21 @@ describe('PropertyVisitsService', () => {
           role: 'agent',
           companyId: 'company-1',
         }),
-      ).rejects.toThrow('You can only access your own company');
+      ).rejects.toThrow('Property with ID prop-1 not found');
+      expect(propertiesRepository.findOne).toHaveBeenCalledWith({
+        where: expect.objectContaining({ companyId: 'company-1' }),
+        relations: ['owner', 'owner.user'],
+      });
+    });
+
+    it('requires company scope', async () => {
+      await expect(
+        service.findAll('prop-1', {
+          id: 'u1',
+          role: 'agent',
+        } as any),
+      ).rejects.toThrow('Company scope required');
+      expect(propertiesRepository.findOne).not.toHaveBeenCalled();
     });
 
     it('should throw ForbiddenException for owner accessing other property', async () => {
@@ -466,7 +470,7 @@ describe('PropertyVisitsService', () => {
         { id: 'u1', role: 'agent', companyId: 'company-1' },
       );
 
-      expect(whatsappService.sendTemplateMessage).not.toHaveBeenCalled();
+      expect(communicationsService.dispatchEvent).not.toHaveBeenCalled();
       expect(notificationsRepository.save).not.toHaveBeenCalled();
       expect(result.notifications).toBeUndefined();
     });
@@ -482,7 +486,7 @@ describe('PropertyVisitsService', () => {
         ...d,
       }));
       notificationsRepository.save!.mockImplementation(async (d) => d);
-      whatsappService.sendTemplateMessage.mockRejectedValue(
+      communicationsService.dispatchEvent.mockRejectedValue(
         new Error('WhatsApp API error'),
       );
 
@@ -667,11 +671,17 @@ describe('PropertyVisitsService', () => {
       ownerActivitiesRepository.save!.mockImplementation(async (data) => data);
       notificationsRepository.create!.mockImplementation((data) => data);
       notificationsRepository.save!.mockImplementation(async (data) => data);
-      communicationsService.dispatchEvent.mockResolvedValueOnce({
-        id: 'delivery-blocked',
-        status: 'blocked',
-        body: 'Confirmación de visita',
-      });
+      communicationsService.dispatchEvent
+        .mockResolvedValueOnce({
+          id: 'delivery-owner',
+          status: 'queued',
+          body: 'Aviso al propietario',
+        })
+        .mockResolvedValueOnce({
+          id: 'delivery-blocked',
+          status: 'blocked',
+          body: 'Confirmación de visita',
+        });
 
       await service.create(
         'prop-1',

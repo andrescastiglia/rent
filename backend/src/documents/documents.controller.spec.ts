@@ -24,19 +24,48 @@ describe('DocumentsController', () => {
     documentsService.findByEntity.mockResolvedValue([]);
 
     await expect(
-      controller.generateUploadUrl({} as any, { user: { id: 'u1' } } as any),
+      controller.generateUploadUrl(
+        {} as any,
+        { user: { id: 'u1', companyId: 'co1' } } as any,
+      ),
     ).resolves.toEqual({ uploadUrl: 'u' });
-    await expect(controller.confirmUpload('d1')).resolves.toEqual({ id: 'd1' });
-    await expect(controller.generateDownloadUrl('d1')).resolves.toEqual({
-      downloadUrl: 'd',
-    });
-    await expect(controller.findByEntity('lease', 'l1')).resolves.toEqual([]);
+    await expect(
+      controller.confirmUpload('d1', {
+        user: { id: 'u1', companyId: 'co1' },
+      }),
+    ).resolves.toEqual({ id: 'd1' });
+    await expect(
+      controller.generateDownloadUrl('d1', {
+        user: { id: 'u1', companyId: 'co1' },
+      }),
+    ).resolves.toEqual({ downloadUrl: 'd' });
+    await expect(
+      controller.findByEntity('lease', 'l1', {
+        user: { id: 'u1', companyId: 'co1' },
+      }),
+    ).resolves.toEqual([]);
+
+    expect(documentsService.generateUploadUrl).toHaveBeenCalledWith(
+      {},
+      'u1',
+      'co1',
+    );
+    expect(documentsService.confirmUpload).toHaveBeenCalledWith(
+      'd1',
+      'co1',
+      'u1',
+    );
   });
 
   it('remove returns success message', async () => {
     documentsService.remove.mockResolvedValue(undefined);
-    await expect(controller.remove('d1')).resolves.toEqual({
+    await expect(
+      controller.remove('d1', {
+        user: { id: 'u1', companyId: 'co1' },
+      }),
+    ).resolves.toEqual({
       message: 'Document deleted successfully',
     });
+    expect(documentsService.remove).toHaveBeenCalledWith('d1', 'co1');
   });
 });

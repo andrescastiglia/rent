@@ -1,30 +1,43 @@
-name: EAS CI by Branch
+name: EAS production release
 
 on:
-  push:
-    branches:
-      - preview
-      - main
-  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
-  eas-ci:
+  android-release:
+    name: Build, submit and publish Android
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    permissions:
-      contents: read
+    environment: production-release
     defaults:
       run:
         working-directory: mobile
 
     steps:
-      - name: Checkout
+      - name: Validate release ref
+        working-directory: .
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_REF: ${{ github.ref }}
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid release tag: $RELEASE_TAG" >&2
+            exit 1
+          fi
+          test "$RELEASE_REF" = "refs/tags/$RELEASE_TAG"
+
+      - name: Checkout immutable release
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
 
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: npm
           cache-dependency-path: mobile/package-lock.json
 
@@ -34,58 +47,44 @@ jobs:
       - name: Setup EAS
         uses: expo/expo-github-action@v9
         with:
-          eas-version: latest
+          eas-version: 16.28.0
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Materialize Google Play service account key
-        if: ${{ github.ref_name == 'main' }}
         env:
           GOOGLE_SERVICE_ACCOUNT_KEY_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_JSON }}
         run: |
-          if [ -n "$GOOGLE_SERVICE_ACCOUNT_KEY_JSON" ]; then
-            printf '%s' "$GOOGLE_SERVICE_ACCOUNT_KEY_JSON" > rent-488517-f1ad7938bbe6.json
-          fi
+          test -n "$GOOGLE_SERVICE_ACCOUNT_KEY_JSON"
+          printf '%s' "$GOOGLE_SERVICE_ACCOUNT_KEY_JSON" > rent-488517-f1ad7938bbe6.json
 
-      - name: Materialize Android signing credentials for production
-        if: ${{ github.ref_name == 'main' }}
+      - name: Materialize Android signing credentials
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
-            echo "Missing Android signing secrets for production."
-            echo "Required: ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD."
-            exit 1
-          fi
+          for secret in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!secret}" ]; then
+              echo "Missing required Android signing secret: $secret" >&2
+              exit 1
+            fi
+          done
 
           mkdir -p credentials
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > credentials/android-upload-keystore.jks
 
-          cat > credentials.json << EOF
-          {
-            "android": {
-              "keystore": {
-                "keystorePath": "credentials/android-upload-keystore.jks",
-                "keystorePassword": "$ANDROID_KEYSTORE_PASSWORD",
-                "keyAlias": "$ANDROID_KEY_ALIAS",
-                "keyPassword": "$ANDROID_KEY_PASSWORD"
-              }
-            }
-          }
-          EOF
+          jq -n \
+            --arg path 'credentials/android-upload-keystore.jks' \
+            --arg password "$ANDROID_KEYSTORE_PASSWORD" \
+            --arg alias "$ANDROID_KEY_ALIAS" \
+            --arg keyPassword "$ANDROID_KEY_PASSWORD" \
+            '{android:{keystore:{keystorePath:$path,keystorePassword:$password,keyAlias:$alias,keyPassword:$keyPassword}}}' \
+            > credentials.json
 
-      - name: Publish update to preview
-        if: ${{ github.ref_name == 'preview' }}
-        run: |
-          eas update \
-            --platform android \
-            --channel preview \
-            --message "CI: ${GITHUB_SHA}"
-
-      - name: Release Android on main (build + submit internal + OTA update)
-        if: ${{ github.ref_name == 'main' }}
+      - name: Build and submit release
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
           eas build \
             --platform android \
@@ -93,8 +92,8 @@ jobs:
             --non-interactive \
             --wait \
             --auto-submit-with-profile production
-          
+
           eas update \
             --platform android \
             --channel production \
-            --message "CI: ${GITHUB_SHA}"
+            --message "Release ${RELEASE_TAG} (${GITHUB_SHA})"

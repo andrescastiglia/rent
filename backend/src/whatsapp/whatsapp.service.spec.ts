@@ -1,7 +1,9 @@
 import {
+  BadRequestException,
   BadGatewayException,
   ServiceUnavailableException,
   UnauthorizedException,
+  NotFoundException,
 } from '@nestjs/common';
 import { createHmac } from 'node:crypto';
 import OpenAI from 'openai';
@@ -52,10 +54,17 @@ describe('WhatsappService', () => {
   const buildDataSource = (
     queryMock = jest.fn().mockResolvedValue([]),
     type = 'postgres',
-  ) => ({
-    options: { type },
-    query: queryMock,
-  });
+  ) => {
+    const dataSource = {
+      options: { type },
+      query: queryMock,
+      transaction: jest.fn(
+        async (work: (manager: { query: jest.Mock }) => Promise<unknown>) =>
+          work({ query: queryMock }),
+      ),
+    };
+    return dataSource;
+  };
 
   const mockSuccessfulSend = (messageId = 'wamid-1') => {
     fetchMock.mockResolvedValue({
@@ -79,6 +88,102 @@ describe('WhatsappService', () => {
 
   afterAll(() => {
     process.env = originalEnv;
+  });
+
+  it('enqueues a consented tenant activity idempotently', async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([{ phone: '+54 9 11 1234-5678', consented: true }])
+      .mockResolvedValueOnce([{ id: 'activity-1' }])
+      .mockResolvedValueOnce([{ id: 'delivery-1', status: 'queued' }]);
+    const service = buildService(undefined, buildDataSource(query));
+
+    await expect(
+      service.enqueueMessage({
+        companyId: '123e4567-e89b-12d3-a456-426614174001',
+        recipientRole: 'tenant',
+        recipientId: '123e4567-e89b-12d3-a456-426614174002',
+        idempotencyKey: 'activity:tenant:123e4567-e89b-12d3-a456-426614174003',
+        to: '+5491112345678',
+        text: ' Hola ',
+        activityEntity: 'tenant',
+        activityId: '123e4567-e89b-12d3-a456-426614174003',
+        relatedEntityType: 'tenant',
+        relatedEntityId: '123e4567-e89b-12d3-a456-426614174002',
+      }),
+    ).resolves.toEqual({
+      deliveryId: 'delivery-1',
+      status: 'queued',
+      queued: true,
+    });
+    expect(query.mock.calls[2][0]).toContain(
+      'ON CONFLICT (company_id, idempotency_key)',
+    );
+    expect(query.mock.calls[2][1][4]).toBe('Hola');
+  });
+
+  it('rejects unconsented, unknown and mismatched recipients', async () => {
+    const unconsented = buildService(
+      undefined,
+      buildDataSource(
+        jest
+          .fn()
+          .mockResolvedValue([{ phone: '+5491112345678', consented: false }]),
+      ),
+    );
+    const input = {
+      companyId: '123e4567-e89b-12d3-a456-426614174001',
+      recipientRole: 'owner' as const,
+      recipientId: '123e4567-e89b-12d3-a456-426614174002',
+      idempotencyKey: 'owner-message-1',
+      to: '+5491112345678',
+      text: 'Hola',
+    };
+    await expect(unconsented.enqueueMessage(input)).rejects.toThrow(
+      BadRequestException,
+    );
+
+    const unknown = buildService(
+      undefined,
+      buildDataSource(jest.fn().mockResolvedValue([])),
+    );
+    await expect(unknown.enqueueMessage(input)).rejects.toThrow(
+      NotFoundException,
+    );
+
+    const mismatched = buildService(
+      undefined,
+      buildDataSource(
+        jest
+          .fn()
+          .mockResolvedValue([{ phone: '+5491199999999', consented: true }]),
+      ),
+    );
+    await expect(mismatched.enqueueMessage(input)).rejects.toThrow(
+      'Recipient phone does not match the record',
+    );
+  });
+
+  it('derives distinct stable UUID keys for multipart deliveries', () => {
+    const service = buildService();
+    const context = {
+      idempotencyKey: '123e4567-e89b-12d3-a456-426614174001',
+    };
+    const template = (service as any).withIdempotencyComponent(
+      context,
+      'template',
+    );
+    const document = (service as any).withIdempotencyComponent(
+      context,
+      'document',
+    );
+    expect(template.idempotencyKey).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+    expect(template.idempotencyKey).not.toBe(document.idempotencyKey);
+    expect(
+      (service as any).withIdempotencyComponent(context, 'template'),
+    ).toEqual(template);
   });
 
   it('sendTextMessage throws when whatsapp is disabled', async () => {
@@ -160,9 +265,10 @@ describe('WhatsappService', () => {
     (Date.now as jest.Mock).mockRestore();
   });
 
-  it('uses environment defaults for API base, enabled flag and document URL settings', async () => {
+  it('uses environment defaults for API base and document URL settings', async () => {
     const service = buildServiceWithExactEnv({
       PORT: '3456',
+      WHATSAPP_ENABLED: 'true',
       WHATSAPP_PHONE_NUMBER_ID: 'phone-1',
       WHATSAPP_ACCESS_TOKEN: 'token-1',
       WHATSAPP_DOCUMENT_LINK_SECRET: 'doc-secret',
@@ -409,6 +515,84 @@ describe('WhatsappService', () => {
     expect(service.isDocumentTokenValid(documentId, 'badformat')).toBe(false);
   });
 
+  it('persists a bounded webhook payload before acknowledging it', async () => {
+    const query = jest.fn().mockResolvedValue([{ id: 'inbox-1' }]);
+    const service = buildService(
+      { WHATSAPP_INBOUND_ENABLED: 'false' },
+      buildDataSource(query),
+    );
+    const payload = { entry: [{ changes: [] }] };
+
+    await expect(service.acceptIncomingWebhook(payload)).resolves.toEqual({
+      received: true,
+    });
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO whatsapp_webhook_inbox'),
+      [expect.stringMatching(/^[0-9a-f]{64}$/), JSON.stringify(payload)],
+    );
+
+    await expect(service.acceptIncomingWebhook(null)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it('processes due inbox records with an atomic lease', async () => {
+    const query = jest.fn().mockImplementation(async (sql: string) => {
+      if (sql.includes('SELECT id') && sql.includes('whatsapp_webhook_inbox')) {
+        return [{ id: '10000000-0000-0000-0000-000000000001' }];
+      }
+      if (sql.includes('RETURNING payload, attempts')) {
+        return [{ payload: { entry: [] }, attempts: 1 }];
+      }
+      return [];
+    });
+    const service = buildService(
+      { WHATSAPP_INBOUND_ENABLED: 'true' },
+      buildDataSource(query),
+    );
+
+    await expect(service.processDueWebhookInbox(500)).resolves.toEqual({
+      selected: 1,
+      processed: 1,
+      failed: 0,
+    });
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('LIMIT $1'),
+      [100],
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("SET status = 'processed'"),
+      ['10000000-0000-0000-0000-000000000001'],
+    );
+  });
+
+  it('moves an inbox record to dead-letter after five failed attempts', async () => {
+    const query = jest.fn().mockImplementation(async (sql: string) => {
+      if (sql.includes('RETURNING payload, attempts')) {
+        return [{ payload: { entry: [] }, attempts: 5 }];
+      }
+      return [];
+    });
+    const service = buildService(
+      { WHATSAPP_INBOUND_ENABLED: 'true' },
+      buildDataSource(query),
+    );
+    jest
+      .spyOn(service, 'handleIncomingWebhook')
+      .mockRejectedValue(new Error('processor failed'));
+    jest.spyOn(service, 'logIncomingError').mockImplementation(() => undefined);
+
+    await expect(
+      (service as any).processWebhookInboxItem(
+        '10000000-0000-0000-0000-000000000001',
+      ),
+    ).resolves.toBe('failed');
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('available_at = CASE'),
+      ['10000000-0000-0000-0000-000000000001', 'dead_letter', 480, 'Error'],
+    );
+  });
+
   it('assertBatchToken enforces internal token', () => {
     const service = buildService();
     expect(() => service.assertBatchToken('batch-token')).not.toThrow();
@@ -420,6 +604,21 @@ describe('WhatsappService', () => {
     expect(() => noBatchToken.assertBatchToken('x')).toThrow(
       ServiceUnavailableException,
     );
+  });
+
+  it('does not expose incoming error details in logs', () => {
+    const service = buildService();
+    const logger = (service as any).logger;
+    const errorSpy = jest.spyOn(logger, 'error').mockImplementation();
+
+    service.logIncomingError(new Error('message from 5491112345678: secreto'));
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Failed to process incoming WhatsApp message',
+      { errorType: 'Error' },
+    );
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain('5491112345678');
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain('secreto');
   });
 
   it('handleIncomingWebhook logs both no-message and message cases', async () => {
@@ -444,9 +643,13 @@ describe('WhatsappService', () => {
         },
       ],
     });
-    expect(logSpy).toHaveBeenCalledWith(
-      'WhatsApp webhook message from 54911: hola',
-    );
+    expect(logSpy).toHaveBeenCalledWith('WhatsApp webhook message received', {
+      senderHash: expect.stringMatching(/^[0-9a-f]{16}$/),
+      messageId: undefined,
+      messageType: 'unknown',
+    });
+    expect(JSON.stringify(logSpy.mock.calls)).not.toContain('hola');
+    expect(JSON.stringify(logSpy.mock.calls)).not.toContain('54911');
   });
 
   it('handleIncomingWebhook logs non-text messages and tolerates malformed changes', async () => {
@@ -467,9 +670,11 @@ describe('WhatsappService', () => {
       ],
     });
 
-    expect(logSpy).toHaveBeenCalledWith(
-      'WhatsApp webhook message from unknown: [non-text-message]',
-    );
+    expect(logSpy).toHaveBeenCalledWith('WhatsApp webhook message received', {
+      senderHash: expect.stringMatching(/^[0-9a-f]{16}$/),
+      messageId: undefined,
+      messageType: 'unknown',
+    });
   });
 
   it('processes an opted-in owner message through AI and replies', async () => {
@@ -528,9 +733,19 @@ describe('WhatsappService', () => {
         mutationApprovalMode: 'staff_queue',
       },
     });
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining('/phone-1/messages'),
-      expect.any(Object),
+    expect(fetchMock).not.toHaveBeenCalled();
+    const deliveryCall = (query.mock.calls as unknown[][]).find(([sql]) =>
+      String(sql).includes('INSERT INTO communication_deliveries'),
+    );
+    expect(deliveryCall?.[1]).toEqual(
+      expect.arrayContaining([
+        'company-1',
+        'owner',
+        'owner-1',
+        '5491112345678',
+        'La operación quedó pendiente.',
+        'communication-1',
+      ]),
     );
     expect(
       query.mock.calls.some(([sql]) => sql.includes('metadata = metadata')),
@@ -639,10 +854,15 @@ describe('WhatsappService', () => {
       ],
     });
 
-    const fallbackPayload = JSON.parse(
-      fetchMock.mock.calls.find(([url]) => url.includes('/messages'))[1].body,
+    const fallbackDelivery = (query.mock.calls as unknown[][]).find(([sql]) =>
+      String(sql).includes('INSERT INTO communication_deliveries'),
     );
-    expect(fallbackPayload.text.body).toContain('pendiente de revisión');
+    expect(fallbackDelivery?.[1]).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('pendiente de revisión'),
+      ]),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(
       (query.mock.calls as unknown[][]).some(
         ([, params]) =>
@@ -652,6 +872,103 @@ describe('WhatsappService', () => {
           ),
       ),
     ).toBe(true);
+  });
+
+  it('records but does not process messages beyond the inbound abuse budget', async () => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('FROM users')) {
+        return [
+          {
+            id: 'staff-1',
+            company_id: 'company-1',
+            role: 'staff',
+            language: 'es',
+          },
+        ];
+      }
+      if (sql.includes('INSERT INTO person_communications')) {
+        return [{ id: 'communication-limited', request_count: 3 }];
+      }
+      return [];
+    });
+    const respond = jest.fn();
+    const service = buildService(
+      { WHATSAPP_INBOUND_DAILY_LIMIT: '2' },
+      buildDataSource(query),
+      { get: jest.fn(() => ({ respond })) },
+    );
+
+    await service.handleIncomingWebhook({
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                messages: [
+                  {
+                    id: 'wamid-limited',
+                    from: '5491112345678',
+                    type: 'audio',
+                    audio: { id: 'media-never-downloaded' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const insertCall = (query.mock.calls as unknown[][]).find(([sql]) =>
+      String(sql).includes('INSERT INTO person_communications'),
+    );
+    expect(insertCall?.[1]).toEqual(
+      expect.arrayContaining([
+        'voice',
+        '[pending-transcription]',
+        'wamid-limited',
+        expect.stringMatching(/^[0-9a-f]{64}$/),
+      ]),
+    );
+    expect(insertCall?.[0]).toContain('INSERT INTO api_rate_limit_buckets');
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("body = '[rate-limited]'"),
+      ['communication-limited'],
+    );
+    expect(respond).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('applies configured retention and reports affected records', async () => {
+    const query = jest.fn().mockResolvedValue([
+      {
+        processed_inbox_deleted: 3,
+        dead_letters_deleted: 1,
+        communications_redacted: 7,
+        outbound_messages_redacted: 4,
+      },
+    ]);
+    const service = buildService(
+      {
+        WHATSAPP_INBOX_RETENTION_DAYS: '8',
+        WHATSAPP_DEAD_LETTER_RETENTION_DAYS: '31',
+        WHATSAPP_COMMUNICATION_RETENTION_DAYS: '366',
+        WHATSAPP_OUTBOUND_RETENTION_DAYS: '91',
+      },
+      buildDataSource(query),
+    );
+
+    await expect(service.applyRetentionPolicy()).resolves.toEqual({
+      processedInboxDeleted: 3,
+      deadLettersDeleted: 1,
+      communicationsRedacted: 7,
+      outboundMessagesRedacted: 4,
+    });
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("body = '[redacted]'"),
+      [8, 31, 366, 91],
+    );
+    expect(query.mock.calls[0][0]).toContain("recipient_phone = '[redacted]'");
   });
 
   it('downloads and transcribes WhatsApp voice messages', async () => {
@@ -790,6 +1107,28 @@ describe('WhatsappService', () => {
         status: 'sent',
       }),
     );
+  });
+
+  it('deduplicates a retried outbox delivery before calling Meta', async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValue([{ whatsapp_message_id: 'wamid-already-sent' }]);
+    const service = buildService(undefined, buildDataSource(query));
+
+    await expect(
+      service.sendTextMessage('+5491112345678', 'hola', undefined, {
+        companyId: '123e4567-e89b-12d3-a456-426614174000',
+        idempotencyKey: '123e4567-e89b-12d3-a456-426614174099',
+      }),
+    ).resolves.toEqual({
+      messageId: 'wamid-already-sent',
+      raw: { deduplicated: true },
+    });
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE idempotency_key = $1::uuid'),
+      ['123e4567-e89b-12d3-a456-426614174099'],
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('records sent messages without a provider message id or raw body', async () => {

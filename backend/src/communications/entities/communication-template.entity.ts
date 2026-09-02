@@ -16,12 +16,19 @@ export enum CommunicationChannel {
 }
 
 export enum CommunicationRecipientRole {
+  ADMIN = 'admin',
+  STAFF = 'staff',
+  BUYER = 'buyer',
   TENANT = 'tenant',
   OWNER = 'owner',
   INTERESTED = 'interested',
 }
 
 export enum CommunicationEvent {
+  WHATSAPP_AD_HOC = 'whatsapp_ad_hoc',
+  WHATSAPP_MANUAL_REPLY = 'whatsapp_manual_reply',
+  WHATSAPP_ASSISTANT_RESPONSE = 'whatsapp_assistant_response',
+  CREDIT_NOTE_ISSUED = 'credit_note_issued',
   PAYMENT_RECEIVED = 'payment_received',
   INVOICE_ISSUED = 'invoice_issued',
   PAYMENT_REMINDER = 'payment_reminder',

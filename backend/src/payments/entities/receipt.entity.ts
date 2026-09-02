@@ -62,6 +62,9 @@ export class Receipt {
   @Column({ name: 'sent_at', type: 'timestamptz', nullable: true })
   sentAt: Date;
 
+  @Column({ name: 'cancelled_at', type: 'timestamptz', nullable: true })
+  cancelledAt: Date | null;
+
   @Column({
     name: 'issue_date',
     type: 'date',

@@ -39,6 +39,8 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { ReadonlyRoleGuard } from './common/guards/readonly-role.guard';
+import { DistributedRateLimitGuard } from './common/guards/distributed-rate-limit.guard';
+import { validateRuntimeEnvironment } from './config/runtime-security.config';
 import { I18nModule, AcceptLanguageResolver } from 'nestjs-i18n';
 import * as path from 'node:path';
 
@@ -47,6 +49,7 @@ import * as path from 'node:path';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '../.env', // Path relative to backend/ directory
+      validate: validateRuntimeEnvironment,
     }),
     I18nModule.forRoot({
       fallbackLanguage: 'es',
@@ -63,7 +66,7 @@ import * as path from 'node:path';
     }),
     AuthModule,
     UsersModule,
-    TestModule,
+    ...(process.env.NODE_ENV === 'test' ? [TestModule] : []),
     PropertiesModule,
     DocumentsModule,
     LeasesModule,
@@ -98,6 +101,10 @@ import * as path from 'node:path';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: DistributedRateLimitGuard,
     },
     {
       provide: APP_GUARD,

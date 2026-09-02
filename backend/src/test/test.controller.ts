@@ -1,9 +1,11 @@
 import { Controller, Get } from '@nestjs/common';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
 @Controller('test')
+@Authenticated('self-service')
 export class TestController {
   @Roles(UserRole.ADMIN)
   @Get('admin-only')

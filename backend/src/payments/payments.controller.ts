@@ -16,6 +16,7 @@ import { PaymentsService } from './payments.service';
 import { TenantAccountsService } from './tenant-accounts.service';
 import { CreatePaymentDto, PaymentFiltersDto, UpdatePaymentDto } from './dto';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { DocumentsService } from '../documents/documents.service';
 
@@ -24,6 +25,7 @@ import { DocumentsService } from '../documents/documents.service';
  */
 @UseGuards(AuthGuard('jwt'))
 @Controller('payments')
+@Authenticated('payments')
 export class PaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,
@@ -37,7 +39,7 @@ export class PaymentsController {
   @Post()
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   create(@Body() dto: CreatePaymentDto, @Request() req: any) {
-    return this.paymentsService.create(dto, req.user.id);
+    return this.paymentsService.create(dto, req.user.id, req.user.companyId);
   }
 
   /**
@@ -45,8 +47,8 @@ export class PaymentsController {
    */
   @Patch(':id/confirm')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  confirm(@Param('id') id: string) {
-    return this.paymentsService.confirm(id);
+  confirm(@Param('id') id: string, @Request() req: any) {
+    return this.paymentsService.confirm(id, req.user.companyId);
   }
 
   /**
@@ -54,8 +56,12 @@ export class PaymentsController {
    */
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  update(@Param('id') id: string, @Body() dto: UpdatePaymentDto) {
-    return this.paymentsService.update(id, dto);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdatePaymentDto,
+    @Request() req: any,
+  ) {
+    return this.paymentsService.update(id, dto, req.user.companyId);
   }
 
   /**
@@ -90,8 +96,8 @@ export class PaymentsController {
    */
   @Patch(':id/cancel')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  cancel(@Param('id') id: string) {
-    return this.paymentsService.cancel(id);
+  cancel(@Param('id') id: string, @Request() req: any) {
+    return this.paymentsService.cancel(id, req.user.companyId);
   }
 
   /**

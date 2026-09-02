@@ -3,10 +3,41 @@ import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import {
+  AUTHENTICATED_KEY,
+  AuthenticatedPolicy,
+} from '../decorators/authenticated.decorator';
+import {
   UserModulePermissionKey,
   UserModulePermissions,
   UserRole,
 } from '../../users/entities/user.entity';
+
+const STAFF_RESOURCE_ROUTES: ReadonlyArray<
+  readonly [pathPrefix: string, resource: UserModulePermissionKey]
+> = [
+  ['/dashboard', 'dashboard'],
+  ['/properties', 'properties'],
+  ['/owners', 'owners'],
+  ['/interested', 'interested'],
+  ['/tenants', 'tenants'],
+  ['/leases', 'leases'],
+  ['/payments/document-templates', 'templates'],
+  ['/payment-templates', 'templates'],
+  ['/payments', 'payments'],
+  ['/tenant-accounts', 'payments'],
+  ['/invoices', 'invoices'],
+  ['/buyers', 'sales'],
+  ['/sales', 'sales'],
+  ['/reports', 'reports'],
+  ['/users', 'users'],
+  ['/templates', 'templates'],
+  ['/maintenance', 'maintenance'],
+  ['/communications', 'communications'],
+  ['/bank-reconciliation', 'reconciliation'],
+  ['/settlements', 'settlements'],
+  ['/pending-actions', 'approvals'],
+  ['/ai', 'ai'],
+];
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -16,41 +47,55 @@ export class RolesGuard implements CanActivate {
     pathname: string,
   ): UserModulePermissionKey | null {
     const path = pathname.toLowerCase();
-
-    if (path.startsWith('/dashboard')) return 'dashboard';
-    if (path.startsWith('/properties')) return 'properties';
-    if (path.startsWith('/owners')) return 'owners';
-    if (path.startsWith('/interested')) return 'interested';
-    if (path.startsWith('/tenants')) return 'tenants';
-    if (path.startsWith('/leases')) return 'leases';
-    if (path.startsWith('/payments/document-templates')) return 'templates';
-    if (path.startsWith('/payments')) return 'payments';
-    if (path.startsWith('/invoices')) return 'invoices';
-    if (path.startsWith('/buyers')) return 'sales';
-    if (path.startsWith('/sales')) return 'sales';
-    if (path.startsWith('/reports')) return 'reports';
-    if (path.startsWith('/users')) return 'users';
-    if (path.startsWith('/templates')) return 'templates';
-
-    return null;
+    return (
+      STAFF_RESOURCE_ROUTES.find(([prefix]) => path.startsWith(prefix))?.[1] ??
+      null
+    );
   }
 
   private staffHasAccess(
     path: string,
     permissions: UserModulePermissions | undefined,
+    declaredResource?: UserModulePermissionKey,
   ): boolean {
-    const resource = this.resolveStaffResource(path);
+    const resource = declaredResource ?? this.resolveStaffResource(path);
     if (!resource) {
-      return true;
+      return false;
     }
 
-    // Backward compatibility for existing staff users: no permissions means full
-    // staff access until the admin explicitly narrows it down.
     if (!permissions || Object.keys(permissions).length === 0) {
-      return true;
+      return false;
     }
 
     return permissions[resource] === true;
+  }
+
+  private canAccessAuthenticatedRoute(
+    user: { role: UserRole; permissions?: UserModulePermissions } | undefined,
+    path: string,
+    policy: AuthenticatedPolicy | undefined,
+  ): boolean {
+    if (!policy || !user) return false;
+    if (user.role !== UserRole.STAFF || policy === 'self-service') return true;
+    return this.staffHasAccess(path, user.permissions, policy);
+  }
+
+  private canStaffAccessRoleProtectedRoute(
+    requiredRoles: UserRole[],
+    path: string,
+    permissions: UserModulePermissions | undefined,
+    policy: AuthenticatedPolicy | undefined,
+  ): boolean {
+    const hasDirectRole = requiredRoles.includes(UserRole.STAFF);
+    const inheritsAdmin =
+      requiredRoles.includes(UserRole.ADMIN) && !path.startsWith('/users');
+    if (!hasDirectRole && !inheritsAdmin) return false;
+
+    return this.staffHasAccess(
+      path,
+      permissions,
+      policy === 'self-service' ? undefined : policy,
+    );
   }
 
   canActivate(context: ExecutionContext): boolean {
@@ -63,51 +108,40 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
+    const request = context.switchToHttp().getRequest();
+    const { user } = request;
+    const path = String(request.path ?? request.originalUrl ?? '');
+
+    const authenticatedPolicy =
+      this.reflector.getAllAndOverride<AuthenticatedPolicy>(AUTHENTICATED_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
+
     // Get required roles from decorator
     const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
       ROLES_KEY,
       [context.getHandler(), context.getClass()],
     );
 
-    // If no roles specified, allow access (authenticated users only)
     if (!requiredRoles) {
-      return true;
+      return this.canAccessAuthenticatedRoute(user, path, authenticatedPolicy);
     }
 
-    // Get user from request (injected by JwtStrategy)
-    const request = context.switchToHttp().getRequest();
-    const { user } = request;
-
-    // If no user found, allow the request to proceed
-    // The AuthGuard at controller level will handle authentication
     if (!user) {
-      return true;
-    }
-
-    // Staff inherits admin access except for user administration endpoints.
-    if (
-      user.role === UserRole.STAFF &&
-      requiredRoles.includes(UserRole.ADMIN) &&
-      !String(request.path ?? request.originalUrl ?? '').startsWith('/users')
-    ) {
-      return this.staffHasAccess(
-        String(request.path ?? request.originalUrl ?? ''),
-        user.permissions,
-      );
-    }
-
-    // Check if user has one of the required roles
-    if (!requiredRoles.includes(user.role)) {
       return false;
     }
 
     if (user.role === UserRole.STAFF) {
-      return this.staffHasAccess(
-        String(request.path ?? request.originalUrl ?? ''),
+      return this.canStaffAccessRoleProtectedRoute(
+        requiredRoles,
+        path,
         user.permissions,
+        authenticatedPolicy,
       );
     }
 
-    return true;
+    // Check if user has one of the required roles
+    return requiredRoles.includes(user.role);
   }
 }

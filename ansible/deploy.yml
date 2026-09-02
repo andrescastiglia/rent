@@ -3,7 +3,7 @@
   hosts: all
   become: false
   vars:
-    deploy_branch: "{{ git_branch | default('main') }}"
+    deploy_sha: "{{ git_sha | mandatory }}"
     timestamp: "{{ ansible_date_time.epoch }}"
     current_path: "{{ deploy_path }}/current"
     ecosystem_path: "{{ deploy_path }}/../ecosystem.config.js"
@@ -40,7 +40,7 @@
       ansible.builtin.git:
         repo: "{{ git_repo }}"
         dest: "{{ current_path }}"
-        version: "{{ deploy_branch }}"
+        version: "{{ deploy_sha }}"
         force: true
       when: not current_git.stat.exists
 
@@ -48,9 +48,23 @@
       ansible.builtin.git:
         repo: "{{ git_repo }}"
         dest: "{{ current_path }}"
-        version: "{{ deploy_branch }}"
+        version: "{{ deploy_sha }}"
         force: true
       when: current_git.stat.exists
+
+    - name: Read checked out revision
+      ansible.builtin.command:
+        cmd: git rev-parse HEAD
+        chdir: "{{ current_path }}"
+      register: checked_out_revision
+      changed_when: false
+
+    - name: Verify checked out revision
+      ansible.builtin.assert:
+        that:
+          - checked_out_revision.stdout == deploy_sha
+        fail_msg: >-
+          Checked out {{ checked_out_revision.stdout }} instead of requested {{ deploy_sha }}.
 
     - name: Link shared .env to repository root
       ansible.builtin.file:
@@ -290,8 +304,7 @@
 
     - name: Start rent-backend
       ansible.builtin.command:
-        cmd:
-          pm2 start {{ deploy_path }}/backend/main.js
+        cmd: pm2 start {{ deploy_path }}/backend/main.js
           --name rent-backend
           --cwd {{ deploy_path }}/backend
           --log /var/log/rent/backend.log
@@ -425,5 +438,5 @@
       ansible.builtin.debug:
         msg:
           - "✅ Deployment completed successfully!"
-          - "📦 Branch: {{ deploy_branch }}"
+          - "📦 Commit: {{ deploy_sha }}"
           - "🔗 URL: https://{{ app_domain }}"

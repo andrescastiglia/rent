@@ -1,6 +1,9 @@
 import { NotFoundException } from '@nestjs/common';
 import { TenantAccountsService } from './tenant-accounts.service';
-import { MovementType } from './entities/tenant-account-movement.entity';
+import {
+  MovementType,
+  TenantAccountMovement,
+} from './entities/tenant-account-movement.entity';
 import { LateFeeType } from '../leases/entities/lease.entity';
 import { InvoiceStatus } from './entities/invoice.entity';
 
@@ -10,6 +13,7 @@ describe('TenantAccountsService', () => {
     save: jest.fn(),
     findOne: jest.fn(),
     update: jest.fn(),
+    createQueryBuilder: jest.fn(),
   };
   const movementsRepository = {
     create: jest.fn(),
@@ -20,6 +24,16 @@ describe('TenantAccountsService', () => {
     findOne: jest.fn(),
     save: jest.fn(),
   };
+  const dataSource = {
+    transaction: jest.fn(async (callback: (manager: any) => unknown) =>
+      callback({
+        getRepository: (entity: unknown) =>
+          entity === TenantAccountMovement
+            ? movementsRepository
+            : accountsRepository,
+      }),
+    ),
+  };
 
   let service: TenantAccountsService;
 
@@ -29,7 +43,53 @@ describe('TenantAccountsService', () => {
       accountsRepository as any,
       movementsRepository as any,
       leasesRepository as any,
+      dataSource as any,
     );
+  });
+
+  it('scopes account reads by company and tenant identity', async () => {
+    const query = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue({ id: 'acc-1', balance: 0 }),
+    };
+    accountsRepository.createQueryBuilder.mockReturnValue(query);
+
+    await expect(
+      service.findOneScoped('acc-1', {
+        id: 'tenant-user-1',
+        companyId: 'company-a',
+        role: 'tenant',
+      } as any),
+    ).resolves.toEqual(expect.objectContaining({ id: 'acc-1' }));
+
+    expect(query.where).toHaveBeenCalledWith(
+      'account.company_id = :companyId',
+      { companyId: 'company-a' },
+    );
+    expect(query.andWhere).toHaveBeenCalledWith(
+      'tenant.user_id = :scopeUserId',
+      { scopeUserId: 'tenant-user-1' },
+    );
+  });
+
+  it('does not expose an account from another company', async () => {
+    const query = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    };
+    accountsRepository.createQueryBuilder.mockReturnValue(query);
+
+    await expect(
+      service.findOneScoped('foreign-account', {
+        id: 'admin-1',
+        companyId: 'company-a',
+        role: 'admin',
+      } as any),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('createForLease handles missing lease/existing account/missing tenant/success', async () => {
@@ -72,25 +132,30 @@ describe('TenantAccountsService', () => {
 
   it('findOne throws when account is missing', async () => {
     accountsRepository.findOne.mockResolvedValue(null);
-    await expect(service.findOne('missing')).rejects.toBeInstanceOf(
-      NotFoundException,
+    await expect(
+      service.findOne('missing', 'company-a'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(accountsRepository.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'missing', companyId: 'company-a' },
+      }),
     );
   });
 
-  it('findByLease returns existing account or creates one', async () => {
+  it('findByLease returns an existing account and never creates on GET', async () => {
     accountsRepository.findOne.mockResolvedValueOnce({ id: 'acc-1' });
     await expect(service.findByLease('l1')).resolves.toEqual({ id: 'acc-1' });
 
     accountsRepository.findOne.mockResolvedValueOnce(null);
-    const createSpy = jest
-      .spyOn(service, 'createForLease')
-      .mockResolvedValue({ id: 'acc-2' } as any);
-    await expect(service.findByLease('l2')).resolves.toEqual({ id: 'acc-2' });
-    expect(createSpy).toHaveBeenCalledWith('l2');
+    const createSpy = jest.spyOn(service, 'createForLease');
+    await expect(service.findByLease('l2')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect(createSpy).not.toHaveBeenCalled();
   });
 
   it('adds account movement and updates balance', async () => {
-    jest.spyOn(service, 'findOne').mockResolvedValue({
+    accountsRepository.findOne.mockResolvedValue({
       id: 'acc-1',
       balance: 100,
     } as any);
@@ -104,13 +169,47 @@ describe('TenantAccountsService', () => {
       'payment',
       'pay-1',
       'desc',
+      'co1',
     );
 
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(accountsRepository.findOne).toHaveBeenCalledWith({
+      where: { id: 'acc-1', companyId: 'co1' },
+      lock: { mode: 'pessimistic_write' },
+    });
     expect(accountsRepository.update).toHaveBeenCalledWith(
-      'acc-1',
+      { id: 'acc-1', companyId: 'co1' },
       expect.objectContaining({ balance: 50 }),
     );
     expect(result.balanceAfter).toBe(50);
+  });
+
+  it('joins an existing transaction without opening a nested one', async () => {
+    accountsRepository.findOne.mockResolvedValue({
+      id: 'acc-1',
+      balance: 25,
+    } as any);
+    movementsRepository.create.mockImplementation((x) => x);
+    movementsRepository.save.mockImplementation(async (x) => x);
+    const manager = {
+      getRepository: (entity: unknown) =>
+        entity === TenantAccountMovement
+          ? movementsRepository
+          : accountsRepository,
+    } as any;
+
+    const result = await service.addMovementWithManager(manager, {
+      accountId: 'acc-1',
+      type: MovementType.CHARGE,
+      amount: 75,
+      referenceType: 'invoice',
+      referenceId: 'inv-1',
+      description: 'Factura INV-1',
+      companyId: 'co1',
+    });
+
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+    expect(result.balanceAfter).toBe(100);
   });
 
   it('calculates late fee across configured modes', async () => {

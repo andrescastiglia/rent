@@ -6,11 +6,11 @@ if (process.env.NEW_RELIC_LICENSE_KEY) {
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { join } from 'node:path';
 import { AppModule } from './app.module';
 import { ZodValidationPipe } from './common/pipes/zod-validation.pipe';
 import { startProfiling, stopProfiling } from './profiling';
 import { shutdownTracing, startTracing } from './tracing';
+import { getRuntimeHttpSecurityConfig } from './config/runtime-security.config';
 
 async function bootstrap() {
   startProfiling();
@@ -18,18 +18,17 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
   });
-  app.set('trust proxy', 1);
+  const httpSecurity = getRuntimeHttpSecurityConfig(process.env);
+  app.set('trust proxy', httpSecurity.trustProxyHops);
 
-  const configuredOrigins = process.env.FRONTEND_URL
-    ? process.env.FRONTEND_URL.split(',').map((url) => url.trim())
-    : ['http://localhost:3000'];
   const localDevOriginPattern =
     /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/;
 
   const isAllowedOrigin = (origin?: string) =>
     !origin ||
-    configuredOrigins.includes(origin) ||
-    localDevOriginPattern.test(origin);
+    httpSecurity.allowedOrigins.includes(origin) ||
+    (httpSecurity.allowLocalDevelopmentOrigins &&
+      localDevOriginPattern.test(origin));
 
   app.enableCors({
     origin: (origin, callback) => {
@@ -59,10 +58,6 @@ async function bootstrap() {
       transform: true, // Automatically transform payloads to DTO instances
     }),
   );
-
-  app.useStaticAssets(join(process.cwd(), 'uploads'), {
-    prefix: '/uploads/',
-  });
 
   const port = Number(process.env.PORT ?? 3001);
   const host = process.env.HOST ?? '0.0.0.0';

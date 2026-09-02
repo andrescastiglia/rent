@@ -124,6 +124,8 @@ PROMETHEUS_PUSHGATEWAY_INSTANCE=rent-batch-dev
 
 ## 📚 Documentación
 
+> **Estado documental (2026-08-27):** la [auditoría integral](docs/auditoria-integral-2026-08-27.md) describe el baseline actual y el [Plan de trabajo](docs/plan-de-trabajo.md) reúne únicamente los pendientes vigentes. El DRF, la arquitectura, C4, DER y secuencias se conservan como antecedentes hasta su reescritura.
+
 ### Documentación Funcional
 
 - **[Documento de Requerimientos Funcionales (DRF)](docs/functional/drf-original.md)**
@@ -176,12 +178,13 @@ PROMETHEUS_PUSHGATEWAY_INSTANCE=rent-batch-dev
 ### Plan de Trabajo
 
 - **[Plan de Trabajo](docs/plan-de-trabajo.md)**
-  - 6 fases principales de implementación
-  - 505+ tareas detalladas con Story Points
-  - Criterios de éxito por fase
-  - Análisis de riesgos y mitigaciones
-  - Hitos clave del proyecto
-  - Roadmap de features futuras
+  - Usabilidad de web y mobile como prioridad de producto
+  - Paridad de capacidades por rol y canal
+  - WhatsApp para lectura y propuestas; confirmación obligatoria en frontend
+  - Gates de seguridad, autorización, idempotencia y accesibilidad
+- **[Auditoría Integral 2026-08-27](docs/auditoria-integral-2026-08-27.md)**
+  - Coherencia entre documentación, backend, web, mobile e IA
+  - Riesgos priorizados y decisiones pendientes
 
 ## 🏗️ Arquitectura del Sistema
 
@@ -378,7 +381,7 @@ graph TB
 
 ### Para Product Owners / Stakeholders
 1. Leer [DRF](docs/functional/drf-original.md) para entender funcionalidades
-2. Revisar [Plan de Trabajo](docs/plan-de-trabajo.md) para timeline y fases
+2. Revisar [Plan de Trabajo](docs/plan-de-trabajo.md) para prioridades, etapas y gates
 
 ### Para Arquitectos / Tech Leads
 1. Estudiar [Documento de Arquitectura](docs/technical/arquitectura.md)

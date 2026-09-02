@@ -68,6 +68,7 @@ export interface CreateInvoiceData {
  */
 export interface InvoiceRecord {
   id: string;
+  companyId: string;
   leaseId: string;
   ownerId: string;
   tenantAccountId: string;
@@ -95,9 +96,11 @@ export interface InvoiceRecord {
 }
 
 export interface InvoiceReminderContact {
+  tenantId: string | null;
   tenantPhone: string | null;
   tenantName: string | null;
   tenantLanguage: string | null;
+  whatsappEnabled: boolean;
 }
 
 /**
@@ -215,7 +218,10 @@ export class InvoiceService {
         total: data.total,
       });
 
-      const created = this.mapToRecord(result[0]);
+      const created = this.mapToRecord({
+        ...result[0],
+        company_id: data.companyId,
+      });
       created.pdfUrl = await this.generateAndPersistPdf(
         created,
         data.companyId,
@@ -235,12 +241,14 @@ export class InvoiceService {
    */
   async findPendingDueSoon(daysBefore: number): Promise<InvoiceRecord[]> {
     const result = await AppDataSource.query(
-      `SELECT * FROM invoices 
-             WHERE status IN ('pending', 'sent', 'partial')
-               AND deleted_at IS NULL
-               AND due_date <= CURRENT_DATE + $1::interval
-               AND due_date >= CURRENT_DATE
-             ORDER BY due_date ASC`,
+      `SELECT i.*, l.company_id
+         FROM invoices i
+         JOIN leases l ON l.id = i.lease_id
+        WHERE i.status IN ('pending', 'sent', 'partial')
+          AND i.deleted_at IS NULL
+          AND i.due_date <= CURRENT_DATE + $1::interval
+          AND i.due_date >= CURRENT_DATE
+        ORDER BY i.due_date ASC`,
       [`${daysBefore} days`],
     );
 
@@ -250,9 +258,11 @@ export class InvoiceService {
   async getReminderContact(invoiceId: string): Promise<InvoiceReminderContact> {
     const result = await AppDataSource.query(
       `SELECT
+          t.id AS tenant_id,
           tu.phone AS tenant_phone,
           CONCAT_WS(' ', tu.first_name, tu.last_name) AS tenant_name,
-          tu.language AS tenant_language
+          tu.language AS tenant_language,
+          tu.whatsapp_enabled
        FROM invoices i
        JOIN leases l ON l.id = i.lease_id
        JOIN tenants t ON t.id = l.tenant_id
@@ -263,15 +273,19 @@ export class InvoiceService {
     );
 
     const row = (result[0] ?? {}) as {
+      tenant_id?: string | null;
       tenant_phone?: string | null;
       tenant_name?: string | null;
       tenant_language?: string | null;
+      whatsapp_enabled?: boolean;
     };
 
     return {
+      tenantId: row.tenant_id ?? null,
       tenantPhone: row.tenant_phone ?? null,
       tenantName: row.tenant_name ?? null,
       tenantLanguage: row.tenant_language ?? null,
+      whatsappEnabled: row.whatsapp_enabled === true,
     };
   }
 
@@ -424,6 +438,7 @@ export class InvoiceService {
 
     return {
       id: row.id as string,
+      companyId: row.company_id as string,
       leaseId: row.lease_id as string,
       ownerId: row.owner_id as string,
       tenantAccountId: row.tenant_account_id as string,

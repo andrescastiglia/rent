@@ -57,8 +57,8 @@ Legend:
 - [x] `DELETE /documents/:id` - Body DTO: `N/A` - Query DTO: `N/A` - AI READONLY: [ ] - AI FULL: [x]
 
 ## whatsapp.controller (`/whatsapp`)
-- [x] `POST /whatsapp/messages` - Body DTO: `SendWhatsappMessageDto` - Query DTO: `N/A` - AI READONLY: [ ] - AI FULL: [x]
-- [x] `POST /whatsapp/messages/internal` - Body DTO: `SendWhatsappMessageDto` - Query DTO: `N/A` - AI READONLY: [ ] - AI FULL: [x]
+- [x] `POST /whatsapp/messages` - Body DTO: `SendWhatsappMessageDto` - Query DTO: `N/A` - AI READONLY: [ ] - AI FULL: [ ]
+- [x] `POST /whatsapp/messages/internal` - Body DTO: `SendWhatsappMessageDto` - Query DTO: `N/A` - AI READONLY: [ ] - AI FULL: [ ]
 - [x] `GET /whatsapp/webhook` - Body DTO: `N/A` - Query DTO: `WhatsappWebhookQueryDto` - AI READONLY: [x] - AI FULL: [ ]
 - [x] `POST /whatsapp/webhook` - Body DTO: `WhatsappWebhookPayloadDto` - Query DTO: `N/A` - AI READONLY: [ ] - AI FULL: [x]
 - [x] `GET /whatsapp/documents/:documentId` - Body DTO: `N/A` - Query DTO: `WhatsappDocumentQueryDto` - AI READONLY: [x] - AI FULL: [ ]

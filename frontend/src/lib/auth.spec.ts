@@ -42,6 +42,8 @@ describe("auth helpers", () => {
       firstName: "Ada",
       lastName: "Admin",
       phone: "+5411",
+      companyId: "company-1",
+      permissions: { payments: true, invalid: "yes" },
       role: "admin",
       password: "secret",
       accessToken: "token",
@@ -51,11 +53,14 @@ describe("auth helpers", () => {
     expect(localStorage.getItem("auth_user")).toBeNull();
     expect(getUser()).toEqual({
       id: "1",
-      email: null,
+      companyId: "company-1",
+      email: "admin@example.com",
       firstName: "Ada",
       lastName: "Admin",
+      phone: "+5411",
       avatarUrl: null,
       role: "admin",
+      permissions: { payments: true },
     });
 
     removeToken();
@@ -79,12 +84,15 @@ describe("auth helpers", () => {
 
     expect(getUser()).toEqual({
       id: "1",
+      companyId: undefined,
       email: "e2e.admin@example.com",
       firstName: "Admin",
       lastName: "User",
+      phone: null,
       avatarUrl: null,
       language: "es",
       role: "admin",
+      permissions: {},
       isActive: true,
     });
     expect(localStorage.getItem("auth_user")).toBeNull();
@@ -93,12 +101,15 @@ describe("auth helpers", () => {
 
     expect(getUser()).toEqual({
       id: "role-owner-1",
+      companyId: undefined,
       email: "e2e.owner@example.com",
       firstName: "Owner",
       lastName: "User",
+      phone: null,
       avatarUrl: null,
       language: "es",
       role: "owner",
+      permissions: {},
       isActive: true,
     });
   });

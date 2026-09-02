@@ -1,11 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
-import {
-  clearAuth,
-  getToken,
-  getUser,
-  setToken,
-  setUser,
-} from './auth-storage';
+import { clearLegacyUser, clearAuth, getToken, setToken } from './auth-storage';
 
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(),
@@ -30,25 +24,10 @@ describe('auth-storage', () => {
     await expect(getToken()).resolves.toBe('token-123');
   });
 
-  it('stores and parses the user payload', async () => {
-    const user = { id: 'user-1', role: 'admin', email: 'admin@test.dev' };
-    (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-      JSON.stringify(user),
-    );
+  it('keeps profiles out of durable storage and removes legacy data', async () => {
+    await clearLegacyUser();
 
-    await setUser(user as any);
-
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-      'rent.auth.user',
-      JSON.stringify(user),
-    );
-    await expect(getUser()).resolves.toEqual(user);
-  });
-
-  it('returns null when the stored user payload is invalid', async () => {
-    (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('{bad json');
-
-    await expect(getUser()).resolves.toBeNull();
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('rent.auth.user');
   });
 
   it('clears both token and user entries', async () => {

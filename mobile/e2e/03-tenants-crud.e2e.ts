@@ -12,6 +12,9 @@ describe('Tenants CRUD', () => {
     const updatedEmail = `tenant.updated.${uniqueBase}@example.com`;
 
     await element(by.id('tab.tenants')).tap();
+    await waitFor(element(by.id('tenants.new')))
+      .toBeVisible()
+      .withTimeout(15000);
     await element(by.id('tenants.new')).tap();
 
     await element(by.id('tenantCreate.firstName')).replaceText('E2E');

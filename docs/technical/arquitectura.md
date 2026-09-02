@@ -218,13 +218,22 @@ Consideraciones multi-tenant: separar datos por `company_id` en cada tabla o usa
 ## 7. Seguridad
 
 * **Autenticación**: OAuth2 + JWT para APIs. Refresh tokens con revocación en DB.
-* **Autorización**: RBAC; claims en JWT con `role`, `company_id`, `scopes`.
+* **Autorización**: política default-deny; cada endpoint declara acceso público,
+  autenticado o por rol. El JWT propaga `role`, `companyId` y permisos modulares.
+  `staff` sin un permiso explícitamente igual a `true` no accede al módulo. La
+  matriz cubre dashboard, propiedades, propietarios, interesados, inquilinos,
+  contratos, plantillas, pagos, facturas, ventas, reportes, mantenimiento,
+  comunicaciones, conciliación, liquidaciones, aprobaciones e IA; la
+  administración de usuarios continúa reservada a `admin`.
 * **Cifrado**: TLS 1.2+ en tránsito; cifrado en reposo (DB TDE o cifrado a nivel storage). Archivos sensibles en S3 con claves KMS.
 * **Protección de endpoints**: WAF (AWS WAF / Cloudflare), rate limiting en API Gateway.
 * **Secret management**: Vault / AWS Secrets Manager / Azure Key Vault.
 * **Auditoría**: loggear cambios en contratos, pagos y accesos con trazabilidad (who/when/what). Mantener logs inmutables y retención acorde a normativas.
 * **Seguridad operativa**: hardening de contenedores, escaneo de imágenes (Trivy), políticas de IAM mínimas.
 * **Protección de datos personales**: cumplir normativas locales (p. ej. Ley de Protección de Datos), anonimizar datos en backups si es requerido.
+* **Uploads**: el contrato de cuarentena, promoción, descarga y rollback se define en [Uploads seguros](uploads-seguros.md). No se sirve un directorio local de uploads.
+* **Runtime HTTP**: CORS, confianza de proxy, secretos fail-closed y rate limits compartidos se documentan en [Seguridad de runtime](seguridad-runtime.md).
+* **WhatsApp inbound**: persistencia antes del ACK, deduplicación, leases, reintentos y dead-letter se documentan en [Inbox de WhatsApp](whatsapp-inbox.md).
 
 ---
 

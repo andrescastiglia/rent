@@ -19,12 +19,18 @@ jest.mock('bcrypt', () => ({
 describe('UsersService', () => {
   let service: UsersService;
   const mockedBcrypt = bcrypt as jest.Mocked<typeof bcrypt>;
+  const mockQueryBuilder = {
+    addSelect: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    getOne: jest.fn(),
+  };
 
   const mockUsersRepository = {
     create: jest.fn(),
     save: jest.fn(),
     findAndCount: jest.fn(),
     findOne: jest.fn(),
+    createQueryBuilder: jest.fn(() => mockQueryBuilder),
     softDelete: jest.fn(),
   };
 
@@ -78,11 +84,12 @@ describe('UsersService', () => {
     const users = [{ id: 'u1' }] as any;
     mockUsersRepository.findAndCount.mockResolvedValue([users, 1]);
 
-    const result = await service.findAll(2, 5);
+    const result = await service.findAll(2, 5, 'company-1');
 
     expect(mockUsersRepository.findAndCount).toHaveBeenCalledWith({
       skip: 5,
       take: 5,
+      where: { companyId: 'company-1' },
       order: { createdAt: 'DESC' },
     });
     expect(result).toEqual({ data: users, total: 1, page: 2, limit: 5 });
@@ -102,6 +109,24 @@ describe('UsersService', () => {
     expect(mockUsersRepository.findOne).toHaveBeenNthCalledWith(2, {
       where: { id: 'u2' },
     });
+  });
+
+  it('loads password hashes only through explicit authentication queries', async () => {
+    mockQueryBuilder.getOne.mockResolvedValue({
+      id: 'u1',
+      passwordHash: 'hash',
+    });
+
+    await expect(
+      service.findOneByEmailWithPassword(' AUTH@EXAMPLE.COM '),
+    ).resolves.toEqual({ id: 'u1', passwordHash: 'hash' });
+    expect(mockQueryBuilder.addSelect).toHaveBeenCalledWith(
+      'user.passwordHash',
+    );
+    expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+      'LOWER(user.email) = :email',
+      { email: 'auth@example.com' },
+    );
   });
 
   it('update throws when user does not exist', async () => {
@@ -159,6 +184,13 @@ describe('UsersService', () => {
     expect(result.whatsappEnabledAt).toBeInstanceOf(Date);
   });
 
+  it('rejects permission changes through the own profile', async () => {
+    await expect(
+      service.updateProfile('u1', { permissions: { users: true } } as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(mockUsersRepository.findOne).not.toHaveBeenCalled();
+  });
+
   it('does not let an administrator grant WhatsApp consent for another user', async () => {
     mockUsersRepository.findOne.mockResolvedValue({
       id: 'u1',
@@ -183,14 +215,14 @@ describe('UsersService', () => {
   });
 
   it('changePassword throws when user is missing', async () => {
-    mockUsersRepository.findOne.mockResolvedValue(null);
+    mockQueryBuilder.getOne.mockResolvedValue(null);
     await expect(
       service.changePassword('u1', 'old', 'new'),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('changePassword throws when current password is wrong', async () => {
-    mockUsersRepository.findOne.mockResolvedValue({
+    mockQueryBuilder.getOne.mockResolvedValue({
       id: 'u1',
       passwordHash: 'x',
     });
@@ -202,7 +234,7 @@ describe('UsersService', () => {
 
   it('changePassword hashes and saves when current password is valid', async () => {
     const user = { id: 'u1', passwordHash: 'x' } as any;
-    mockUsersRepository.findOne.mockResolvedValue(user);
+    mockQueryBuilder.getOne.mockResolvedValue(user);
     await service.changePassword('u1', 'old', 'new-pass');
     expect(mockedBcrypt.hash).toHaveBeenCalledWith('new-pass', 'salt');
     expect(user.passwordHash).toBe('hashed');

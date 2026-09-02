@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { PropertyVisitsService } from './property-visits.service';
 import { CreatePropertyVisitDto } from './dto/create-property-visit.dto';
@@ -21,12 +22,13 @@ interface AuthenticatedRequest {
   user: {
     id: string;
     role: string;
-    companyId?: string;
+    companyId: string;
   };
 }
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('properties/:propertyId/visits')
+@Authenticated('properties')
 export class PropertyVisitsController {
   constructor(private readonly propertyVisitsService: PropertyVisitsService) {}
 

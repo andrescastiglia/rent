@@ -5,16 +5,16 @@ describe('OwnersController', () => {
   const ownersService = {
     listSettlementPayments: jest.fn(),
     getSettlementReceipt: jest.fn(),
-    findAll: jest.fn(),
+    findAllScoped: jest.fn(),
     create: jest.fn(),
-    findOne: jest.fn(),
+    findOneScoped: jest.fn(),
     findByUserId: jest.fn(),
-    update: jest.fn(),
+    updateScoped: jest.fn(),
     listSettlements: jest.fn(),
     registerSettlementPayment: jest.fn(),
-    listActivities: jest.fn(),
+    listActivitiesScoped: jest.fn(),
     createActivity: jest.fn(),
-    updateActivity: jest.fn(),
+    updateActivityScoped: jest.fn(),
     getOwnerSummary: jest.fn(),
   };
 
@@ -36,15 +36,15 @@ describe('OwnersController', () => {
 
   it('delegates list/find/create/update/settlements/activities methods', async () => {
     ownersService.listSettlementPayments.mockResolvedValue([]);
-    ownersService.findAll.mockResolvedValue([]);
+    ownersService.findAllScoped.mockResolvedValue([]);
     ownersService.create.mockResolvedValue({ id: 'o1' });
-    ownersService.findOne.mockResolvedValue({ id: 'o1' });
-    ownersService.update.mockResolvedValue({ id: 'o1', firstName: 'A' });
+    ownersService.findOneScoped.mockResolvedValue({ id: 'o1' });
+    ownersService.updateScoped.mockResolvedValue({ id: 'o1', firstName: 'A' });
     ownersService.listSettlements.mockResolvedValue([]);
     ownersService.registerSettlementPayment.mockResolvedValue({ ok: true });
-    ownersService.listActivities.mockResolvedValue([]);
+    ownersService.listActivitiesScoped.mockResolvedValue([]);
     ownersService.createActivity.mockResolvedValue({ id: 'a1' });
-    ownersService.updateActivity.mockResolvedValue({ id: 'a1' });
+    ownersService.updateActivityScoped.mockResolvedValue({ id: 'a1' });
 
     await expect(
       controller.listSettlementPayments(req, { limit: 10 } as any),

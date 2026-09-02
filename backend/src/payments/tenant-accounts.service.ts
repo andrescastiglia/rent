@@ -1,6 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import {
+  DataSource,
+  EntityManager,
+  Repository,
+  SelectQueryBuilder,
+} from 'typeorm';
 import { TenantAccount } from './entities/tenant-account.entity';
 import {
   TenantAccountMovement,
@@ -8,6 +17,23 @@ import {
 } from './entities/tenant-account-movement.entity';
 import { Lease, LateFeeType } from '../leases/entities/lease.entity';
 import { InvoiceStatus } from './entities/invoice.entity';
+import { UserRole } from '../users/entities/user.entity';
+
+type TenantAccountActor = {
+  id: string;
+  companyId: string;
+  role: UserRole;
+};
+
+export type AddTenantAccountMovementInput = {
+  accountId: string;
+  type: MovementType;
+  amount: number;
+  referenceType?: string;
+  referenceId?: string;
+  description?: string;
+  companyId: string;
+};
 
 /**
  * Servicio para gestionar cuentas corrientes de inquilinos.
@@ -21,6 +47,8 @@ export class TenantAccountsService {
     private readonly movementsRepository: Repository<TenantAccountMovement>,
     @InjectRepository(Lease)
     private readonly leasesRepository: Repository<Lease>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -28,9 +56,12 @@ export class TenantAccountsService {
    * @param leaseId ID del contrato
    * @returns La cuenta creada
    */
-  async createForLease(leaseId: string): Promise<TenantAccount> {
+  async createForLease(
+    leaseId: string,
+    companyId: string = '',
+  ): Promise<TenantAccount> {
     const lease = await this.leasesRepository.findOne({
-      where: { id: leaseId },
+      where: { id: leaseId, companyId },
     });
 
     if (!lease) {
@@ -38,7 +69,7 @@ export class TenantAccountsService {
     }
 
     const existingAccount = await this.accountsRepository.findOne({
-      where: { leaseId },
+      where: { leaseId, companyId },
     });
 
     if (existingAccount) {
@@ -67,9 +98,9 @@ export class TenantAccountsService {
    * @param id ID de la cuenta
    * @returns La cuenta
    */
-  async findOne(id: string): Promise<TenantAccount> {
+  async findOne(id: string, companyId: string = ''): Promise<TenantAccount> {
     const account = await this.accountsRepository.findOne({
-      where: { id },
+      where: { id, companyId },
       relations: ['lease', 'lease.tenant', 'lease.property'],
     });
 
@@ -80,22 +111,44 @@ export class TenantAccountsService {
     return account;
   }
 
+  async findOneScoped(
+    id: string,
+    user: TenantAccountActor,
+  ): Promise<TenantAccount> {
+    return this.findScoped({ id }, user, `Tenant account with ID ${id}`);
+  }
+
   /**
    * Obtiene la cuenta de un contrato.
    * @param leaseId ID del contrato
    * @returns La cuenta
    */
-  async findByLease(leaseId: string): Promise<TenantAccount> {
+  async findByLease(
+    leaseId: string,
+    companyId: string = '',
+  ): Promise<TenantAccount> {
     const account = await this.accountsRepository.findOne({
-      where: { leaseId },
+      where: { leaseId, companyId },
       relations: ['lease', 'lease.tenant', 'lease.property'],
     });
 
-    if (account) {
-      return account;
+    if (!account) {
+      throw new NotFoundException(
+        `Tenant account for lease ${leaseId} not found`,
+      );
     }
+    return account;
+  }
 
-    return this.createForLease(leaseId);
+  async findByLeaseScoped(
+    leaseId: string,
+    user: TenantAccountActor,
+  ): Promise<TenantAccount> {
+    return this.findScoped(
+      { leaseId },
+      user,
+      `Tenant account for lease ${leaseId}`,
+    );
   }
 
   /**
@@ -103,7 +156,22 @@ export class TenantAccountsService {
    * @param accountId ID de la cuenta
    * @returns Lista de movimientos
    */
-  async getMovements(accountId: string): Promise<TenantAccountMovement[]> {
+  async getMovements(
+    accountId: string,
+    companyId: string = '',
+  ): Promise<TenantAccountMovement[]> {
+    await this.findOne(accountId, companyId);
+    return this.movementsRepository.find({
+      where: { tenantAccountId: accountId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async getMovementsScoped(
+    accountId: string,
+    user: TenantAccountActor,
+  ): Promise<TenantAccountMovement[]> {
+    await this.findOneScoped(accountId, user);
     return this.movementsRepository.find({
       where: { tenantAccountId: accountId },
       order: { createdAt: 'DESC' },
@@ -127,19 +195,63 @@ export class TenantAccountsService {
     referenceType?: string,
     referenceId?: string,
     description?: string,
+    companyId?: string,
   ): Promise<TenantAccountMovement> {
-    const account = await this.findOne(accountId);
+    if (!companyId) {
+      throw new NotFoundException(
+        `Tenant account with ID ${accountId} not found`,
+      );
+    }
 
-    // Actualizar balance
-    const newBalance = Number(account.balance) + amount;
+    return this.dataSource.transaction((manager) =>
+      this.addMovementWithManager(manager, {
+        accountId,
+        type,
+        amount,
+        referenceType,
+        referenceId,
+        description,
+        companyId,
+      }),
+    );
+  }
 
-    await this.accountsRepository.update(accountId, {
-      balance: newBalance,
-      lastMovementAt: new Date(),
+  async addMovementWithManager(
+    manager: EntityManager,
+    input: AddTenantAccountMovementInput,
+  ): Promise<TenantAccountMovement> {
+    const {
+      accountId,
+      type,
+      amount,
+      referenceType,
+      referenceId,
+      description,
+      companyId,
+    } = input;
+    const accountsRepository = manager.getRepository(TenantAccount);
+    const movementsRepository = manager.getRepository(TenantAccountMovement);
+    const account = await accountsRepository.findOne({
+      where: { id: accountId, companyId },
+      lock: { mode: 'pessimistic_write' },
     });
 
-    // Crear movimiento
-    const movement = this.movementsRepository.create({
+    if (!account) {
+      throw new NotFoundException(
+        `Tenant account with ID ${accountId} not found`,
+      );
+    }
+
+    const newBalance = Number(account.balance) + amount;
+    await accountsRepository.update(
+      { id: accountId, companyId },
+      {
+        balance: newBalance,
+        lastMovementAt: new Date(),
+      },
+    );
+
+    const movement = movementsRepository.create({
       tenantAccountId: accountId,
       movementType: type,
       amount,
@@ -149,7 +261,7 @@ export class TenantAccountsService {
       description: description || '',
     });
 
-    return this.movementsRepository.save(movement);
+    return movementsRepository.save(movement);
   }
 
   /**
@@ -157,9 +269,12 @@ export class TenantAccountsService {
    * @param accountId ID de la cuenta
    * @returns Monto de mora calculado
    */
-  async calculateLateFee(accountId: string): Promise<number> {
+  async calculateLateFee(
+    accountId: string,
+    companyId: string = '',
+  ): Promise<number> {
     const account = await this.accountsRepository.findOne({
-      where: { id: accountId },
+      where: { id: accountId, companyId },
       relations: ['lease', 'invoices'],
     });
 
@@ -225,14 +340,91 @@ export class TenantAccountsService {
    */
   async getBalanceInfo(
     accountId: string,
+    companyId: string = '',
   ): Promise<{ balance: number; lateFee: number; total: number }> {
-    const account = await this.findOne(accountId);
-    const lateFee = await this.calculateLateFee(accountId);
+    const account = await this.findOne(accountId, companyId);
+    const lateFee = await this.calculateLateFee(accountId, companyId);
 
     return {
       balance: Number(account.balance),
       lateFee,
       total: Number(account.balance) + lateFee,
     };
+  }
+
+  async getBalanceInfoScoped(
+    accountId: string,
+    user: TenantAccountActor,
+  ): Promise<{ balance: number; lateFee: number; total: number }> {
+    const account = await this.findOneScoped(accountId, user);
+    const lateFee = await this.calculateLateFee(accountId, user.companyId);
+    return {
+      balance: Number(account.balance),
+      lateFee,
+      total: Number(account.balance) + lateFee,
+    };
+  }
+
+  private async findScoped(
+    filters: { id?: string; leaseId?: string },
+    user: TenantAccountActor,
+    label: string,
+  ): Promise<TenantAccount> {
+    if (!user.companyId) {
+      throw new ForbiddenException('Company scope required');
+    }
+
+    const query = this.accountsRepository
+      .createQueryBuilder('account')
+      .leftJoinAndSelect('account.lease', 'lease')
+      .leftJoinAndSelect('lease.tenant', 'tenant')
+      .leftJoinAndSelect('tenant.user', 'tenantUser')
+      .leftJoinAndSelect('lease.property', 'property')
+      .leftJoinAndSelect('property.owner', 'owner')
+      .leftJoinAndSelect('owner.user', 'ownerUser')
+      .where('account.company_id = :companyId', { companyId: user.companyId });
+
+    this.applyScopedFilters(query, filters);
+    this.applyVisibilityScope(query, user);
+
+    const account = await query.getOne();
+    if (!account) {
+      throw new NotFoundException(`${label} not found`);
+    }
+    return account;
+  }
+
+  private applyScopedFilters(
+    query: SelectQueryBuilder<TenantAccount>,
+    filters: { id?: string; leaseId?: string },
+  ): void {
+    if (filters.id) {
+      query.andWhere('account.id = :accountId', { accountId: filters.id });
+    }
+    if (filters.leaseId) {
+      query.andWhere('account.lease_id = :leaseId', {
+        leaseId: filters.leaseId,
+      });
+    }
+  }
+
+  private applyVisibilityScope(
+    query: SelectQueryBuilder<TenantAccount>,
+    user: TenantAccountActor,
+  ): void {
+    if (user.role === UserRole.ADMIN || user.role === UserRole.STAFF) {
+      return;
+    }
+    if (user.role === UserRole.OWNER) {
+      query.andWhere('owner.user_id = :scopeUserId', { scopeUserId: user.id });
+      return;
+    }
+    if (user.role === UserRole.TENANT) {
+      query.andWhere('tenant.user_id = :scopeUserId', {
+        scopeUserId: user.id,
+      });
+      return;
+    }
+    throw new ForbiddenException('Unsupported tenant account access role');
   }
 }

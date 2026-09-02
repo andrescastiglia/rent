@@ -21,6 +21,7 @@ import { CreateLeaseDto } from './dto/create-lease.dto';
 import { UpdateLeaseDto } from './dto/update-lease.dto';
 import { LeaseFiltersDto } from './dto/lease-filters.dto';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { ContractType } from './entities/lease.entity';
 import { CreateLeaseContractTemplateDto } from './dto/create-lease-contract-template.dto';
@@ -53,13 +54,17 @@ type UploadedLeaseFile = {
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('leases')
+@Authenticated('leases')
 export class LeasesController {
   constructor(private readonly leasesService: LeasesService) {}
 
   @Post()
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  create(@Body() createLeaseDto: CreateLeaseDto) {
-    return this.leasesService.create(createLeaseDto);
+  create(
+    @Body() createLeaseDto: CreateLeaseDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.leasesService.create(createLeaseDto, req.user);
   }
 
   @Get()
@@ -128,8 +133,12 @@ export class LeasesController {
 
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  update(@Param('id') id: string, @Body() updateLeaseDto: UpdateLeaseDto) {
-    return this.leasesService.update(id, updateLeaseDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateLeaseDto: UpdateLeaseDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.leasesService.update(id, updateLeaseDto, req.user);
   }
 
   @Post(':id/draft/render')
@@ -137,8 +146,9 @@ export class LeasesController {
   renderDraft(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RenderLeaseDraftDto,
+    @Request() req: AuthenticatedRequest,
   ) {
-    return this.leasesService.renderDraft(id, dto.templateId);
+    return this.leasesService.renderDraft(id, req.user, dto.templateId);
   }
 
   @Patch(':id/draft-text')
@@ -146,10 +156,12 @@ export class LeasesController {
   updateDraftText(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateLeaseDraftTextDto,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.leasesService.updateDraftText(
       id,
       dto.draftText,
+      req.user,
       dto.draftFormat,
     );
   }
@@ -164,6 +176,7 @@ export class LeasesController {
     return this.leasesService.confirmDraft(
       id,
       req.user.id,
+      req.user,
       dto.finalText,
       dto.finalFormat,
     );
@@ -172,25 +185,37 @@ export class LeasesController {
   @Patch(':id/activate')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   activate(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
-    return this.leasesService.activate(id, req.user.id);
+    return this.leasesService.activate(id, req.user.id, req.user);
   }
 
   @Patch(':id/terminate')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  terminate(@Param('id') id: string, @Body() dto: LeaseStatusReasonDto) {
-    return this.leasesService.terminate(id, dto.reason);
+  terminate(
+    @Param('id') id: string,
+    @Body() dto: LeaseStatusReasonDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.leasesService.terminate(id, req.user, dto.reason);
   }
 
   @Patch(':id/finalize')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  finalize(@Param('id') id: string, @Body() dto: LeaseStatusReasonDto) {
-    return this.leasesService.terminate(id, dto.reason);
+  finalize(
+    @Param('id') id: string,
+    @Body() dto: LeaseStatusReasonDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.leasesService.terminate(id, req.user, dto.reason);
   }
 
   @Patch(':id/renew')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  renew(@Param('id') id: string, @Body() newTerms: RenewLeaseDto) {
-    return this.leasesService.renew(id, newTerms);
+  renew(
+    @Param('id') id: string,
+    @Body() newTerms: RenewLeaseDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.leasesService.renew(id, newTerms, req.user);
   }
 
   @Post('import-current')
@@ -201,17 +226,13 @@ export class LeasesController {
     @Body() dto: ImportCurrentLeaseDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.leasesService.importCurrentContract(
-      file,
-      dto,
-      req.user.companyId,
-    );
+    return this.leasesService.importCurrentContract(file, dto, req.user);
   }
 
   @Delete(':id')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  async remove(@Param('id') id: string) {
-    await this.leasesService.remove(id);
+  async remove(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    await this.leasesService.remove(id, req.user);
     return { message: 'Lease deleted successfully' };
   }
 }

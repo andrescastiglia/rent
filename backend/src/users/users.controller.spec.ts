@@ -7,6 +7,7 @@ describe('UsersController', () => {
     updateProfile: jest.fn(),
     changePassword: jest.fn(),
     findOneById: jest.fn(),
+    findOneByIdScoped: jest.fn(),
     update: jest.fn(),
     setActivation: jest.fn(),
     resetPassword: jest.fn(),
@@ -18,6 +19,9 @@ describe('UsersController', () => {
   } as any;
 
   let controller: UsersController;
+  const adminRequest = {
+    user: { id: 'admin-1', companyId: 'company-1' },
+  } as any;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -31,8 +35,14 @@ describe('UsersController', () => {
       passwordHash: 'secret',
     });
 
-    const result = await controller.create({ email: 'x@y.com' } as any);
+    const result = await controller.create(
+      { email: 'x@y.com' } as any,
+      adminRequest,
+    );
     expect(result).toEqual({ id: 'u1', email: 'x@y.com' });
+    expect(usersService.create).toHaveBeenCalledWith(
+      expect.objectContaining({ companyId: 'company-1' }),
+    );
   });
 
   it('findAll strips passwordHash from listed users', async () => {
@@ -46,8 +56,12 @@ describe('UsersController', () => {
       limit: 10,
     });
 
-    const result = await controller.findAll({ page: 1, limit: 10 } as any);
+    const result = await controller.findAll(
+      { page: 1, limit: 10 } as any,
+      adminRequest,
+    );
     expect(result.data).toEqual([{ id: 'u1' }, { id: 'u2' }]);
+    expect(usersService.findAll).toHaveBeenCalledWith(1, 10, 'company-1');
   });
 
   it('getProfile returns authenticated user', () => {
@@ -87,17 +101,19 @@ describe('UsersController', () => {
   });
 
   it('findOne returns null when not found', async () => {
-    usersService.findOneById.mockResolvedValue(null);
-    await expect(controller.findOne('missing')).resolves.toBeNull();
+    usersService.findOneByIdScoped.mockResolvedValue(null);
+    await expect(
+      controller.findOne('missing', adminRequest),
+    ).resolves.toBeNull();
   });
 
   it('findOne strips password hash when found', async () => {
-    usersService.findOneById.mockResolvedValue({
+    usersService.findOneByIdScoped.mockResolvedValue({
       id: 'u1',
       passwordHash: 'secret',
       email: 'x@y.com',
     });
-    await expect(controller.findOne('u1')).resolves.toEqual({
+    await expect(controller.findOne('u1', adminRequest)).resolves.toEqual({
       id: 'u1',
       email: 'x@y.com',
     });
@@ -116,13 +132,13 @@ describe('UsersController', () => {
     });
 
     await expect(
-      controller.update('u1', { firstName: 'A' } as any),
+      controller.update('u1', { firstName: 'A' } as any, adminRequest),
     ).resolves.toEqual({
       id: 'u1',
       firstName: 'A',
     });
     await expect(
-      controller.setActivation('u1', { isActive: true } as any),
+      controller.setActivation('u1', { isActive: true } as any, adminRequest),
     ).resolves.toEqual({ id: 'u1', isActive: true });
   });
 
@@ -135,14 +151,15 @@ describe('UsersController', () => {
       'u1',
       { newPassword: '' } as any,
       i18n,
+      adminRequest,
     );
     expect(reset).toEqual({
       message: 'user.passwordChanged',
       temporaryPassword: 'tmp12345',
     });
 
-    const removed = await controller.remove('u1', i18n);
-    expect(usersService.remove).toHaveBeenCalledWith('u1');
+    const removed = await controller.remove('u1', i18n, adminRequest);
+    expect(usersService.remove).toHaveBeenCalledWith('u1', 'company-1');
     expect(removed).toEqual({ message: 'user.deleted' });
   });
 });

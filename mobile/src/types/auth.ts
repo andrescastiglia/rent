@@ -6,9 +6,10 @@ export interface User {
   phone?: string | null;
   avatarUrl?: string | null;
   language?: 'es' | 'en' | 'pt';
-  role: 'admin' | 'owner' | 'tenant' | 'staff';
+  role: 'admin' | 'owner' | 'tenant' | 'staff' | 'buyer';
   isActive?: boolean;
   companyId?: string;
+  permissions?: Record<string, boolean>;
 }
 
 export interface LoginRequest {

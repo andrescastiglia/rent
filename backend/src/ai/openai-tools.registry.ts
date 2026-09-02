@@ -94,10 +94,6 @@ import { SetUserActivationDto } from '../users/dto/set-user-activation.dto';
 import { UpdateUserDto } from '../users/dto/update-user.dto';
 import { UserListQueryDto } from '../users/dto/user-list-query.dto';
 import { UsersService } from '../users/users.service';
-import { SendWhatsappMessageDto } from '../whatsapp/dto/send-whatsapp-message.dto';
-import { WhatsappDocumentQueryDto } from '../whatsapp/dto/whatsapp-document-query.dto';
-import { WhatsappWebhookPayloadDto } from '../whatsapp/dto/whatsapp-webhook-payload.dto';
-import { WhatsappWebhookQueryDto } from '../whatsapp/dto/whatsapp-webhook-query.dto';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { GithubIssuesService } from './github-issues.service';
 import { StaffService } from '../staff/staff.service';
@@ -175,6 +171,7 @@ const ALL_ROLES = [
   UserRole.STAFF,
   UserRole.TENANT,
 ];
+const LEASE_READ_ROLES = [...ALL_ROLES, UserRole.BUYER];
 
 const asObjectSchema = (schema: z.ZodTypeAny): z.ZodObject<any> =>
   schema as unknown as z.ZodObject<any>;
@@ -195,6 +192,7 @@ const toScopedUser = (context: AiExecutionContext) => ({
 
 const toRequestUser = (context: AiExecutionContext) => ({
   id: context.userId,
+  companyId: context.companyId,
   role: context.role,
   email: null,
   phone: null,
@@ -626,7 +624,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Dashboard statistics object with numeric KPIs and currency code.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: emptyObjectSchema,
       execute: async (_args, context) =>
         deps.dashboardService.getStats(
@@ -685,6 +683,7 @@ export function buildAiToolDefinitions(
         deps.documentsService.generateUploadUrl(
           GenerateUploadUrlDto.zodSchema.parse(args),
           context.userId,
+          context.companyId ?? '',
         ),
     },
     {
@@ -695,9 +694,13 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.documentsService.confirmUpload(id);
+        return deps.documentsService.confirmUpload(
+          id,
+          context.companyId ?? '',
+          context.userId,
+        );
       },
     },
     {
@@ -708,9 +711,12 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.documentsService.generateDownloadUrl(id);
+        return deps.documentsService.generateDownloadUrl(
+          id,
+          context.companyId ?? '',
+        );
       },
     },
     {
@@ -722,11 +728,15 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ type: z.string().min(1), id: idSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = z
           .object({ type: z.string().min(1), id: idSchema })
           .parse(args) as any;
-        return deps.documentsService.findByEntity(parsed.type, parsed.id);
+        return deps.documentsService.findByEntity(
+          parsed.type,
+          parsed.id,
+          context.companyId ?? '',
+        );
       },
     },
     {
@@ -737,119 +747,10 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        await deps.documentsService.remove(id);
+        await deps.documentsService.remove(id, context.companyId ?? '');
         return { message: 'Document deleted successfully' };
-      },
-    },
-
-    {
-      name: 'post_whatsapp_messages',
-      description:
-        "Sends a WhatsApp text message. Requires 'to' (phone number) and 'text'. Optionally attach a pdfUrl.",
-      responseDescription:
-        'WhatsApp API response with message delivery status.',
-      mutability: 'mutable',
-      allowedRoles: ALL_ROLES,
-      parameters: SendWhatsappMessageDto.zodSchema,
-      execute: async (args) => {
-        const parsed = SendWhatsappMessageDto.zodSchema.parse(args) as any;
-        return deps.whatsappService.sendTextMessage(
-          parsed.to,
-          parsed.text,
-          parsed.pdfUrl,
-        );
-      },
-    },
-    {
-      name: 'post_whatsapp_messages_internal',
-      description:
-        'Sends a WhatsApp message via internal batch process. Requires batchToken for authorization. Used by automated jobs.',
-      responseDescription:
-        'WhatsApp API response with message delivery status.',
-      mutability: 'mutable',
-      allowedRoles: ALL_ROLES,
-      parameters: withParams(SendWhatsappMessageDto.zodSchema, {
-        batchToken: z.string().optional(),
-      }),
-      execute: async (args) => {
-        const parsed = withParams(SendWhatsappMessageDto.zodSchema, {
-          batchToken: z.string().optional(),
-        }).parse(args) as any;
-        deps.whatsappService.assertBatchToken(parsed.batchToken);
-        return deps.whatsappService.sendTextMessage(
-          parsed.to,
-          parsed.text,
-          parsed.pdfUrl,
-        );
-      },
-    },
-    {
-      name: 'get_whatsapp_webhook',
-      description:
-        'Handles WhatsApp webhook verification challenge. Returns the hub.challenge value for subscription confirmation.',
-      responseDescription:
-        'The verification challenge string for webhook setup.',
-      mutability: 'readonly',
-      allowedRoles: ALL_ROLES,
-      parameters: WhatsappWebhookQueryDto.zodSchema,
-      execute: async (args) => {
-        const parsed = WhatsappWebhookQueryDto.zodSchema.parse(args) as any;
-        if (
-          parsed['hub.mode'] === 'subscribe' &&
-          deps.whatsappService.verifyWebhookToken(parsed['hub.verify_token'])
-        ) {
-          return { status: 200, challenge: parsed['hub.challenge'] };
-        }
-        return { status: 403, challenge: null };
-      },
-    },
-    {
-      name: 'post_whatsapp_webhook',
-      description:
-        'Processes incoming WhatsApp webhook payloads (message received, delivery status, etc.).',
-      responseDescription: 'Acknowledgment of the processed webhook event.',
-      mutability: 'mutable',
-      allowedRoles: ALL_ROLES,
-      parameters: WhatsappWebhookPayloadDto.zodSchema,
-      execute: async (args) => {
-        deps.whatsappService.handleIncomingWebhook(
-          WhatsappWebhookPayloadDto.zodSchema.parse(args),
-        );
-        return { received: true };
-      },
-    },
-    {
-      name: 'get_whatsapp_document_by_id',
-      description:
-        'Downloads a WhatsApp media document by ID using a WhatsApp-signed token. Use to retrieve media from incoming messages.',
-      responseDescription: 'The document binary content or download URL.',
-      mutability: 'readonly',
-      allowedRoles: ALL_ROLES,
-      parameters: withParams(WhatsappDocumentQueryDto.zodSchema, {
-        documentId: uuidSchema,
-      }),
-      execute: async (args) => {
-        const parsed = withParams(WhatsappDocumentQueryDto.zodSchema, {
-          documentId: uuidSchema,
-        }).parse(args) as any;
-        if (
-          !deps.whatsappService.isDocumentTokenValid(
-            parsed.documentId,
-            parsed.token,
-          )
-        ) {
-          throw new UnauthorizedException('Invalid or expired document token');
-        }
-        const file = await deps.documentsService.downloadByS3Key(
-          `db://document/${parsed.documentId}`,
-        );
-        return toFilePayload(
-          file.buffer,
-          file.contentType,
-          `document-${parsed.documentId}.pdf`,
-        );
       },
     },
 
@@ -915,8 +816,7 @@ export function buildAiToolDefinitions(
         return deps.propertiesService.update(
           parsed.id,
           parsed,
-          context.userId,
-          context.role,
+          toScopedUser(context) as any,
         );
       },
     },
@@ -930,7 +830,7 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        await deps.propertiesService.remove(id, context.userId, context.role);
+        await deps.propertiesService.remove(id, toScopedUser(context) as any);
         return { message: 'Property deleted successfully' };
       },
     },
@@ -1084,7 +984,7 @@ export function buildAiToolDefinitions(
         const { propertyId } = z
           .object({ propertyId: uuidSchema })
           .parse(args) as any;
-        return deps.propertyVisitsService.findAll(
+        return deps.propertyVisitsService.findMaintenanceTasks(
           propertyId,
           toScopedUser(context) as any,
         );
@@ -1099,8 +999,11 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: CreateUnitDto.zodSchema,
-      execute: async (args) =>
-        deps.unitsService.create(CreateUnitDto.zodSchema.parse(args)),
+      execute: async (args, context) =>
+        deps.unitsService.create(
+          CreateUnitDto.zodSchema.parse(args),
+          toScopedUser(context) as any,
+        ),
     },
     {
       name: 'get_units_by_property',
@@ -1110,11 +1013,14 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ propertyId: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { propertyId } = z
           .object({ propertyId: uuidSchema })
           .parse(args) as any;
-        return deps.unitsService.findByProperty(propertyId);
+        return deps.unitsService.findByProperty(
+          propertyId,
+          toScopedUser(context) as any,
+        );
       },
     },
     {
@@ -1124,9 +1030,9 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.unitsService.findOne(id);
+        return deps.unitsService.findOne(id, toScopedUser(context) as any);
       },
     },
     {
@@ -1137,11 +1043,15 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: withParams(UpdateUnitDto.zodSchema, { id: uuidSchema }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(UpdateUnitDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.unitsService.update(parsed.id, parsed);
+        return deps.unitsService.update(
+          parsed.id,
+          parsed,
+          toScopedUser(context) as any,
+        );
       },
     },
     {
@@ -1152,9 +1062,9 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_OWNER,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        await deps.unitsService.remove(id);
+        await deps.unitsService.remove(id, toScopedUser(context) as any);
         return { message: 'Unit deleted successfully' };
       },
     },
@@ -1168,8 +1078,11 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: CreateLeaseDto.zodSchema,
-      execute: async (args) =>
-        deps.leasesService.create(CreateLeaseDto.zodSchema.parse(args)),
+      execute: async (args, context) =>
+        deps.leasesService.create(
+          CreateLeaseDto.zodSchema.parse(args),
+          toRequestUser(context) as any,
+        ),
     },
     {
       name: 'get_leases',
@@ -1177,7 +1090,7 @@ export function buildAiToolDefinitions(
         'Lists leases with optional filters: propertyId, ownerId, tenantId, status, page, limit. Role-scoped by user permissions.',
       responseDescription: 'Paginated list of lease records with total count.',
       mutability: 'readonly',
-      allowedRoles: ALL_ROLES,
+      allowedRoles: LEASE_READ_ROLES,
       parameters: LeaseFiltersDto.zodSchema,
       execute: async (args, context) =>
         deps.leasesService.findAll(
@@ -1243,7 +1156,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Complete lease record with nested property, tenant, and billing details.',
       mutability: 'readonly',
-      allowedRoles: ALL_ROLES,
+      allowedRoles: LEASE_READ_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
@@ -1261,11 +1174,15 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(UpdateLeaseDto.zodSchema, { id: uuidSchema }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(UpdateLeaseDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.leasesService.update(parsed.id, parsed);
+        return deps.leasesService.update(
+          parsed.id,
+          parsed,
+          toRequestUser(context) as any,
+        );
       },
     },
     {
@@ -1277,11 +1194,15 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(RenderLeaseDraftDto.zodSchema, { id: uuidSchema }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(RenderLeaseDraftDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.leasesService.renderDraft(parsed.id, parsed.templateId);
+        return deps.leasesService.renderDraft(
+          parsed.id,
+          toRequestUser(context) as any,
+          parsed.templateId,
+        );
       },
     },
     {
@@ -1294,11 +1215,16 @@ export function buildAiToolDefinitions(
       parameters: withParams(UpdateLeaseDraftTextDto.zodSchema, {
         id: uuidSchema,
       }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(UpdateLeaseDraftTextDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.leasesService.updateDraftText(parsed.id, parsed.draftText);
+        return deps.leasesService.updateDraftText(
+          parsed.id,
+          parsed.draftText,
+          toRequestUser(context) as any,
+          parsed.draftFormat,
+        );
       },
     },
     {
@@ -1319,7 +1245,9 @@ export function buildAiToolDefinitions(
         return deps.leasesService.confirmDraft(
           parsed.id,
           context.userId,
+          toRequestUser(context) as any,
           parsed.finalText,
+          parsed.finalFormat,
         );
       },
     },
@@ -1333,7 +1261,11 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.leasesService.activate(id, context.userId);
+        return deps.leasesService.activate(
+          id,
+          context.userId,
+          toRequestUser(context) as any,
+        );
       },
     },
     {
@@ -1347,11 +1279,15 @@ export function buildAiToolDefinitions(
       parameters: withParams(LeaseStatusReasonDto.zodSchema, {
         id: uuidSchema,
       }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(LeaseStatusReasonDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.leasesService.terminate(parsed.id, parsed.reason);
+        return deps.leasesService.terminate(
+          parsed.id,
+          toRequestUser(context) as any,
+          parsed.reason,
+        );
       },
     },
     {
@@ -1365,11 +1301,15 @@ export function buildAiToolDefinitions(
       parameters: withParams(LeaseStatusReasonDto.zodSchema, {
         id: uuidSchema,
       }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(LeaseStatusReasonDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.leasesService.terminate(parsed.id, parsed.reason);
+        return deps.leasesService.terminate(
+          parsed.id,
+          toRequestUser(context) as any,
+          parsed.reason,
+        );
       },
     },
     {
@@ -1381,11 +1321,15 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(RenewLeaseDto.zodSchema, { id: uuidSchema }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(RenewLeaseDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.leasesService.renew(parsed.id, parsed);
+        return deps.leasesService.renew(
+          parsed.id,
+          parsed,
+          toRequestUser(context) as any,
+        );
       },
     },
     {
@@ -1396,9 +1340,9 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        await deps.leasesService.remove(id);
+        await deps.leasesService.remove(id, toRequestUser(context) as any);
         return { message: 'Lease deleted successfully' };
       },
     },
@@ -1408,7 +1352,7 @@ export function buildAiToolDefinitions(
         'Downloads the signed lease contract as a PDF document by lease UUID.',
       responseDescription: 'PDF binary content of the lease contract.',
       mutability: 'readonly',
-      allowedRoles: ALL_ROLES,
+      allowedRoles: LEASE_READ_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
@@ -1442,7 +1386,7 @@ export function buildAiToolDefinitions(
       execute: async (args, context) =>
         deps.amendmentsService.create(
           CreateAmendmentDto.zodSchema.parse(args),
-          context.userId,
+          toRequestUser(context) as any,
         ),
     },
     {
@@ -1451,13 +1395,16 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Array of amendment records with type, status, and details.',
       mutability: 'readonly',
-      allowedRoles: ALL_ROLES,
+      allowedRoles: LEASE_READ_ROLES,
       parameters: z.object({ leaseId: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { leaseId } = z
           .object({ leaseId: uuidSchema })
           .parse(args) as any;
-        return deps.amendmentsService.findByLease(leaseId);
+        return deps.amendmentsService.findByLease(
+          leaseId,
+          toRequestUser(context) as any,
+        );
       },
     },
     {
@@ -1466,11 +1413,14 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Complete amendment record including lease reference and change details.',
       mutability: 'readonly',
-      allowedRoles: ALL_ROLES,
+      allowedRoles: LEASE_READ_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.amendmentsService.findOne(id);
+        return deps.amendmentsService.findOne(
+          id,
+          toRequestUser(context) as any,
+        );
       },
     },
     {
@@ -1484,7 +1434,10 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.amendmentsService.approve(id, context.userId);
+        return deps.amendmentsService.approve(
+          id,
+          toRequestUser(context) as any,
+        );
       },
     },
     {
@@ -1497,7 +1450,7 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.amendmentsService.reject(id, context.userId);
+        return deps.amendmentsService.reject(id, toRequestUser(context) as any);
       },
     },
 
@@ -1514,6 +1467,7 @@ export function buildAiToolDefinitions(
         deps.paymentsService.create(
           CreatePaymentDto.zodSchema.parse(args),
           context.userId,
+          context.companyId ?? '',
         ),
     },
     {
@@ -1525,9 +1479,9 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.paymentsService.confirm(id);
+        return deps.paymentsService.confirm(id, context.companyId ?? '');
       },
     },
     {
@@ -1538,11 +1492,15 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(UpdatePaymentDto.zodSchema, { id: uuidSchema }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(UpdatePaymentDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.paymentsService.update(parsed.id, parsed);
+        return deps.paymentsService.update(
+          parsed.id,
+          parsed,
+          context.companyId ?? '',
+        );
       },
     },
     {
@@ -1605,9 +1563,9 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.paymentsService.cancel(id);
+        return deps.paymentsService.cancel(id, context.companyId ?? '');
       },
     },
     {
@@ -1647,8 +1605,11 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: CreateInvoiceDto.zodSchema,
-      execute: async (args) =>
-        deps.invoicesService.create(CreateInvoiceDto.zodSchema.parse(args)),
+      execute: async (args, context) =>
+        deps.invoicesService.create(
+          CreateInvoiceDto.zodSchema.parse(args),
+          context.companyId ?? '',
+        ),
     },
     {
       name: 'post_invoices_generate_for_lease',
@@ -1661,11 +1622,15 @@ export function buildAiToolDefinitions(
       parameters: withParams(GenerateInvoiceDto.zodSchema, {
         leaseId: uuidSchema,
       }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(GenerateInvoiceDto.zodSchema, {
           leaseId: uuidSchema,
         }).parse(args) as any;
-        return deps.invoicesService.generateForLease(parsed.leaseId, parsed);
+        return deps.invoicesService.generateForLease(
+          parsed.leaseId,
+          parsed,
+          context.companyId ?? '',
+        );
       },
     },
     {
@@ -1676,12 +1641,13 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        const invoice = await deps.invoicesService.issue(id);
+        const companyId = context.companyId ?? '';
+        const invoice = await deps.invoicesService.issue(id, companyId);
         try {
           const pdfUrl = await deps.invoicePdfService.generate(invoice as any);
-          return deps.invoicesService.attachPdf(invoice.id, pdfUrl);
+          return deps.invoicesService.attachPdf(invoice.id, pdfUrl, companyId);
         } catch {
           return invoice;
         }
@@ -1742,7 +1708,10 @@ export function buildAiToolDefinitions(
           id,
           toRequestUser(context) as any,
         );
-        return deps.paymentsService.listCreditNotesByInvoice(id);
+        return deps.paymentsService.listCreditNotesByInvoice(
+          id,
+          context.companyId ?? '',
+        );
       },
     },
     {
@@ -1754,9 +1723,9 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.invoicesService.cancel(id);
+        return deps.invoicesService.cancel(id, context.companyId ?? '');
       },
     },
     {
@@ -1796,8 +1765,10 @@ export function buildAiToolDefinitions(
         const { creditNoteId } = z
           .object({ creditNoteId: uuidSchema })
           .parse(args) as any;
-        const note =
-          await deps.paymentsService.findCreditNoteById(creditNoteId);
+        const note = await deps.paymentsService.findCreditNoteById(
+          creditNoteId,
+          context.companyId ?? '',
+        );
         await deps.invoicesService.findOneScoped(
           note.invoiceId,
           toRequestUser(context) as any,
@@ -1879,11 +1850,14 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ leaseId: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { leaseId } = z
           .object({ leaseId: uuidSchema })
           .parse(args) as any;
-        return deps.tenantAccountsService.findByLease(leaseId);
+        return deps.tenantAccountsService.findByLeaseScoped(
+          leaseId,
+          toRequestUser(context) as any,
+        );
       },
     },
     {
@@ -1895,9 +1869,12 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.tenantAccountsService.findOne(id);
+        return deps.tenantAccountsService.findOneScoped(
+          id,
+          toRequestUser(context) as any,
+        );
       },
     },
     {
@@ -1909,9 +1886,12 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.tenantAccountsService.getMovements(id);
+        return deps.tenantAccountsService.getMovementsScoped(
+          id,
+          toRequestUser(context) as any,
+        );
       },
     },
     {
@@ -1923,9 +1903,12 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.tenantAccountsService.getBalanceInfo(id);
+        return deps.tenantAccountsService.getBalanceInfoScoped(
+          id,
+          toRequestUser(context) as any,
+        );
       },
     },
 
@@ -1936,10 +1919,13 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The newly created tenant record with assigned UUID and linked user account.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_STAFF,
       parameters: CreateTenantDto.zodSchema,
-      execute: async (args) =>
-        deps.tenantsService.create(CreateTenantDto.zodSchema.parse(args)),
+      execute: async (args, context) =>
+        deps.tenantsService.create(
+          CreateTenantDto.zodSchema.parse(args),
+          toScopedUser(context) as any,
+        ),
     },
     {
       name: 'get_tenants',
@@ -1947,10 +1933,13 @@ export function buildAiToolDefinitions(
         'Lists tenants with optional filters: name (text search), page, limit.',
       responseDescription: 'Paginated list of tenant records with total count.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_OWNER_STAFF,
       parameters: TenantFiltersDto.zodSchema,
-      execute: async (args) =>
-        deps.tenantsService.findAll(TenantFiltersDto.zodSchema.parse(args)),
+      execute: async (args, context) =>
+        deps.tenantsService.findAll(
+          TenantFiltersDto.zodSchema.parse(args),
+          toScopedUser(context) as any,
+        ),
     },
     {
       name: 'get_tenant_by_id',
@@ -1961,9 +1950,9 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.tenantsService.findOne(id);
+        return deps.tenantsService.findOne(id, toScopedUser(context) as any);
       },
     },
     {
@@ -1974,9 +1963,12 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.tenantsService.getLeaseHistory(id);
+        return deps.tenantsService.getLeaseHistory(
+          id,
+          toScopedUser(context) as any,
+        );
       },
     },
     {
@@ -1990,7 +1982,10 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.tenantsService.listActivities(id, context.companyId ?? '');
+        return deps.tenantsService.listActivities(
+          id,
+          toScopedUser(context) as any,
+        );
       },
     },
     {
@@ -2010,6 +2005,7 @@ export function buildAiToolDefinitions(
         return deps.tenantsService.createActivity(parsed.id, parsed, {
           id: context.userId,
           companyId: context.companyId ?? '',
+          role: context.role,
         });
       },
     },
@@ -2033,7 +2029,7 @@ export function buildAiToolDefinitions(
           parsed.id,
           parsed.activityId,
           parsed,
-          context.companyId ?? '',
+          toScopedUser(context) as any,
         );
       },
     },
@@ -2043,13 +2039,17 @@ export function buildAiToolDefinitions(
         "Updates a tenant's profile fields (name, phone, address, etc.) by UUID.",
       responseDescription: 'The updated tenant record.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_STAFF,
       parameters: withParams(UpdateTenantDto.zodSchema, { id: uuidSchema }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(UpdateTenantDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.tenantsService.update(parsed.id, parsed);
+        return deps.tenantsService.update(
+          parsed.id,
+          parsed,
+          toScopedUser(context) as any,
+        );
       },
     },
     {
@@ -2058,11 +2058,11 @@ export function buildAiToolDefinitions(
         'Deletes a tenant by UUID. Fails if the tenant has active leases.',
       responseDescription: 'Confirmation that the tenant was deleted.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        await deps.tenantsService.remove(id);
+        await deps.tenantsService.remove(id, toScopedUser(context) as any);
         return { message: 'Tenant deleted successfully' };
       },
     },
@@ -2466,7 +2466,7 @@ export function buildAiToolDefinitions(
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: emptyObjectSchema,
       execute: async (_args, context) =>
-        deps.ownersService.findAll(context.companyId ?? ''),
+        deps.ownersService.findAllScoped(toScopedUser(context) as any),
     },
     {
       name: 'post_owners',
@@ -2475,7 +2475,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The newly created owner record with assigned UUID and linked user account.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER_STAFF,
+      allowedRoles: ADMIN_STAFF,
       parameters: CreateOwnerDto.zodSchema,
       execute: async (args, context) =>
         deps.ownersService.create(
@@ -2494,7 +2494,10 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.ownersService.findOne(id, context.companyId ?? '');
+        return deps.ownersService.findOneScoped(
+          id,
+          toScopedUser(context) as any,
+        );
       },
     },
     {
@@ -2509,10 +2512,10 @@ export function buildAiToolDefinitions(
         const parsed = withParams(UpdateOwnerDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.ownersService.update(
+        return deps.ownersService.updateScoped(
           parsed.id,
           parsed,
-          context.companyId ?? '',
+          toScopedUser(context) as any,
         );
       },
     },
@@ -2576,7 +2579,10 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.ownersService.listActivities(id, context.companyId ?? '');
+        return deps.ownersService.listActivitiesScoped(
+          id,
+          toScopedUser(context) as any,
+        );
       },
     },
     {
@@ -2593,10 +2599,11 @@ export function buildAiToolDefinitions(
         const parsed = withParams(CreateOwnerActivityDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.ownersService.createActivity(parsed.id, parsed, {
-          id: context.userId,
-          companyId: context.companyId ?? '',
-        });
+        return deps.ownersService.createActivity(
+          parsed.id,
+          parsed,
+          toScopedUser(context) as any,
+        );
       },
     },
     {
@@ -2615,11 +2622,11 @@ export function buildAiToolDefinitions(
           id: uuidSchema,
           activityId: uuidSchema,
         }).parse(args) as any;
-        return deps.ownersService.updateActivity(
+        return deps.ownersService.updateActivityScoped(
           parsed.id,
           parsed.activityId,
           parsed,
-          context.companyId ?? '',
+          toScopedUser(context) as any,
         );
       },
     },
@@ -3091,7 +3098,11 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.bankAccountsService.findOne(id, context.companyId ?? '');
+        return deps.bankAccountsService.findOne(
+          id,
+          context.companyId ?? '',
+          toScopedUser(context) as any,
+        );
       },
     },
     {
@@ -3104,7 +3115,11 @@ export function buildAiToolDefinitions(
       parameters: createBankAccountSchema,
       execute: async (args, context) => {
         const dto = createBankAccountSchema.parse(args) as any;
-        return deps.bankAccountsService.create(dto, context.companyId ?? '');
+        return deps.bankAccountsService.create(
+          dto,
+          context.companyId ?? '',
+          toScopedUser(context) as any,
+        );
       },
     },
     {
@@ -3123,6 +3138,7 @@ export function buildAiToolDefinitions(
           id,
           dto,
           context.companyId ?? '',
+          toScopedUser(context) as any,
         );
       },
     },
@@ -3172,7 +3188,11 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.settlementsService.findOne(id, context.companyId ?? '');
+        return deps.settlementsService.findOne(
+          id,
+          context.companyId ?? '',
+          toScopedUser(context) as any,
+        );
       },
     },
     {

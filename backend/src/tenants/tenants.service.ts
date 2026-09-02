@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
@@ -28,6 +29,7 @@ import { TenantAccount } from '../payments/entities/tenant-account.entity';
 interface UserContext {
   id: string;
   companyId: string;
+  role: UserRole;
 }
 
 export interface TenantSummary {
@@ -66,12 +68,19 @@ export class TenantsService {
     private readonly tenantAccountsRepository: Repository<TenantAccount>,
   ) {}
 
-  async create(createTenantDto: CreateTenantDto): Promise<User> {
+  async create(
+    createTenantDto: CreateTenantDto,
+    context: UserContext,
+  ): Promise<User> {
+    this.assertCanManageTenants(context);
     // Check if DNI already exists
     const existingTenant = await this.usersRepository
       .createQueryBuilder('user')
       .innerJoin('tenants', 'tenant', 'tenant.user_id = user.id')
       .where('tenant.dni = :dni', { dni: createTenantDto.dni })
+      .andWhere('tenant.company_id = :companyId', {
+        companyId: context.companyId,
+      })
       .getOne();
 
     if (existingTenant) {
@@ -93,7 +102,7 @@ export class TenantsService {
 
     // Create user with tenant role
     const user = this.usersRepository.create({
-      companyId: createTenantDto.companyId,
+      companyId: context.companyId,
       email: createTenantDto.email,
       passwordHash,
       firstName: createTenantDto.firstName,
@@ -114,7 +123,7 @@ export class TenantsService {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         savedUser.id,
-        createTenantDto.companyId,
+        context.companyId,
         createTenantDto.dni,
         createTenantDto.emergencyContact,
         createTenantDto.emergencyPhone,
@@ -129,6 +138,7 @@ export class TenantsService {
 
   async findAll(
     filters: TenantFiltersDto,
+    user: UserContext,
   ): Promise<{ data: User[]; total: number; page: number; limit: number }> {
     const { name, dni, email, page = 1, limit = 10 } = filters;
 
@@ -140,8 +150,32 @@ export class TenantsService {
         'tenant.user_id = user.id AND tenant.deleted_at IS NULL',
       )
       .where('user.role = :role', { role: UserRole.TENANT })
+      .andWhere('user.company_id = :companyId', { companyId: user.companyId })
+      .andWhere('tenant.company_id = :companyId', {
+        companyId: user.companyId,
+      })
       .andWhere('user.deleted_at IS NULL')
       .distinct(true);
+
+    if (user.role === UserRole.OWNER) {
+      query
+        .innerJoin(
+          'leases',
+          'scopeLease',
+          'scopeLease.tenant_id = tenant.id AND scopeLease.company_id = :companyId AND scopeLease.deleted_at IS NULL',
+          { companyId: user.companyId },
+        )
+        .innerJoin(
+          'owners',
+          'scopeOwner',
+          'scopeOwner.id = scopeLease.owner_id AND scopeOwner.user_id = :actorId AND scopeOwner.company_id = :companyId AND scopeOwner.deleted_at IS NULL',
+          { actorId: user.id, companyId: user.companyId },
+        );
+    } else if (user.role === UserRole.TENANT) {
+      query.andWhere('user.id = :actorId', { actorId: user.id });
+    } else if (user.role !== UserRole.ADMIN && user.role !== UserRole.STAFF) {
+      throw new ForbiddenException('Tenant access is not allowed');
+    }
 
     if (name) {
       query.andWhere(
@@ -179,9 +213,15 @@ export class TenantsService {
     };
   }
 
-  async findOne(id: string): Promise<User> {
+  async findOne(id: string, context: UserContext): Promise<User> {
+    await this.findTenantByUserIdScoped(id, context);
     const user = await this.usersRepository.findOne({
-      where: { id, role: UserRole.TENANT },
+      where: {
+        id,
+        companyId: context.companyId,
+        role: UserRole.TENANT,
+        deletedAt: IsNull(),
+      },
     });
 
     if (!user) {
@@ -189,7 +229,11 @@ export class TenantsService {
     }
 
     const tenant = await this.tenantsRepository.findOne({
-      where: { userId: id, deletedAt: IsNull() },
+      where: {
+        userId: id,
+        companyId: context.companyId,
+        deletedAt: IsNull(),
+      },
     });
     Object.assign(user, {
       contactConsent: tenant?.contactConsent ?? false,
@@ -199,8 +243,13 @@ export class TenantsService {
     return user;
   }
 
-  async update(id: string, updateTenantDto: UpdateTenantDto): Promise<User> {
-    const user = await this.findOne(id);
+  async update(
+    id: string,
+    updateTenantDto: UpdateTenantDto,
+    context: UserContext,
+  ): Promise<User> {
+    this.assertCanManageTenants(context);
+    const user = await this.findOne(id, context);
 
     // Update user fields
     if (updateTenantDto.firstName) user.firstName = updateTenantDto.firstName;
@@ -209,7 +258,7 @@ export class TenantsService {
 
     await this.usersRepository.save(user);
 
-    await this.updateTenantProfile(id, updateTenantDto);
+    await this.updateTenantProfile(id, updateTenantDto, context.companyId);
 
     return user;
   }
@@ -217,6 +266,7 @@ export class TenantsService {
   private async updateTenantProfile(
     id: string,
     dto: UpdateTenantDto,
+    companyId: string,
   ): Promise<void> {
     const fields: Array<[string, unknown]> = [
       ['dni', dto.dni],
@@ -238,29 +288,47 @@ export class TenantsService {
       ([column], index) => `${column} = $${index + 1}`,
     );
     const values = providedFields.map(([, value]) => value);
-    values.push(id);
+    values.push(id, companyId);
     await this.usersRepository.query(
-      `UPDATE tenants SET ${updates.join(', ')} WHERE user_id = $${values.length}`,
+      `UPDATE tenants SET ${updates.join(', ')}
+        WHERE user_id = $${values.length - 1}
+          AND company_id = $${values.length}`,
       values,
     );
   }
 
-  async remove(id: string): Promise<void> {
-    await this.findOne(id); // Validates tenant exists
+  async remove(id: string, context: UserContext): Promise<void> {
+    this.assertCanManageTenants(context);
+    await this.findOne(id, context);
     await this.usersRepository.softDelete(id);
   }
 
-  async getLeaseHistory(tenantUserId: string): Promise<Lease[]> {
-    const tenant = await this.tenantsRepository.findOne({
-      where: { userId: tenantUserId, deletedAt: IsNull() },
-    });
-    if (!tenant) {
-      throw new NotFoundException(`Tenant with ID ${tenantUserId} not found`);
+  async getLeaseHistory(
+    tenantUserId: string,
+    context: UserContext,
+  ): Promise<Lease[]> {
+    const tenant = await this.findTenantByUserIdScoped(tenantUserId, context);
+    if (context.role === UserRole.OWNER) {
+      return this.leasesRepository
+        .createQueryBuilder('lease')
+        .leftJoinAndSelect('lease.property', 'property')
+        .innerJoin('lease.owner', 'scopeOwner')
+        .where('lease.tenant_id = :tenantId', { tenantId: tenant.id })
+        .andWhere('lease.company_id = :companyId', {
+          companyId: context.companyId,
+        })
+        .andWhere('lease.contract_type = :contractType', {
+          contractType: ContractType.RENTAL,
+        })
+        .andWhere('lease.deleted_at IS NULL')
+        .andWhere('scopeOwner.user_id = :actorId', { actorId: context.id })
+        .orderBy('lease.start_date', 'DESC')
+        .getMany();
     }
-
     return this.leasesRepository.find({
       where: {
         tenantId: tenant.id,
+        companyId: context.companyId,
         contractType: ContractType.RENTAL,
         deletedAt: IsNull(),
       },
@@ -284,6 +352,52 @@ export class TenantsService {
     return tenant;
   }
 
+  private async findTenantByUserIdScoped(
+    userId: string,
+    context: UserContext,
+  ): Promise<Tenant> {
+    if (context.role === UserRole.ADMIN || context.role === UserRole.STAFF) {
+      return this.findTenantByUserId(userId, context.companyId);
+    }
+    const query = this.tenantsRepository
+      .createQueryBuilder('tenant')
+      .where('tenant.user_id = :userId', { userId })
+      .andWhere('tenant.company_id = :companyId', {
+        companyId: context.companyId,
+      })
+      .andWhere('tenant.deleted_at IS NULL');
+    if (context.role === UserRole.OWNER) {
+      query
+        .innerJoin(
+          Lease,
+          'scopeLease',
+          'scopeLease.tenant_id = tenant.id AND scopeLease.company_id = :companyId AND scopeLease.deleted_at IS NULL',
+          { companyId: context.companyId },
+        )
+        .innerJoin(
+          'owners',
+          'scopeOwner',
+          'scopeOwner.id = scopeLease.owner_id AND scopeOwner.user_id = :actorId AND scopeOwner.company_id = :companyId AND scopeOwner.deleted_at IS NULL',
+          { actorId: context.id, companyId: context.companyId },
+        );
+    } else if (context.role === UserRole.TENANT) {
+      query.andWhere('tenant.user_id = :actorId', { actorId: context.id });
+    } else {
+      throw new ForbiddenException('Tenant access is not allowed');
+    }
+    const tenant = await query.getOne();
+    if (!tenant) {
+      throw new NotFoundException(`Tenant with ID ${userId} not found`);
+    }
+    return tenant;
+  }
+
+  private assertCanManageTenants(context: UserContext): void {
+    if (context.role !== UserRole.ADMIN && context.role !== UserRole.STAFF) {
+      throw new ForbiddenException('Tenant management is not allowed');
+    }
+  }
+
   private async ensureTenantHasRentalLease(tenantId: string): Promise<void> {
     const lease = await this.leasesRepository.findOne({
       where: {
@@ -302,14 +416,14 @@ export class TenantsService {
 
   async listActivities(
     tenantUserId: string,
-    companyId: string,
+    context: UserContext,
   ): Promise<TenantActivity[]> {
-    const tenant = await this.findTenantByUserId(tenantUserId, companyId);
+    const tenant = await this.findTenantByUserIdScoped(tenantUserId, context);
 
     return this.tenantActivitiesRepository.find({
       where: {
         tenantId: tenant.id,
-        companyId,
+        companyId: context.companyId,
         deletedAt: IsNull(),
       },
       order: { dueAt: 'ASC', createdAt: 'DESC' },
@@ -321,7 +435,7 @@ export class TenantsService {
     dto: CreateTenantActivityDto,
     user: UserContext,
   ): Promise<TenantActivity> {
-    const tenant = await this.findTenantByUserId(tenantUserId, user.companyId);
+    const tenant = await this.findTenantByUserIdScoped(tenantUserId, user);
 
     const activity = this.tenantActivitiesRepository.create({
       companyId: user.companyId,
@@ -350,15 +464,15 @@ export class TenantsService {
     tenantUserId: string,
     activityId: string,
     dto: UpdateTenantActivityDto,
-    companyId: string,
+    context: UserContext,
   ): Promise<TenantActivity> {
-    const tenant = await this.findTenantByUserId(tenantUserId, companyId);
+    const tenant = await this.findTenantByUserIdScoped(tenantUserId, context);
 
     const activity = await this.tenantActivitiesRepository.findOne({
       where: {
         id: activityId,
         tenantId: tenant.id,
-        companyId,
+        companyId: context.companyId,
         deletedAt: IsNull(),
       },
     });

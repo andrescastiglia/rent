@@ -17,6 +17,7 @@ import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { TenantFiltersDto } from './dto/tenant-filters.dto';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { CreateTenantActivityDto } from './dto/create-tenant-activity.dto';
 import { UpdateTenantActivityDto } from './dto/update-tenant-activity.dto';
@@ -32,19 +33,26 @@ interface AuthenticatedRequest {
 
 @Controller('tenants')
 @UseGuards(AuthGuard('jwt'))
+@Authenticated('tenants')
 export class TenantsController {
   constructor(private readonly tenantsService: TenantsService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
-  create(@Body() createTenantDto: CreateTenantDto) {
-    return this.tenantsService.create(createTenantDto);
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  create(
+    @Body() createTenantDto: CreateTenantDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.tenantsService.create(createTenantDto, req.user);
   }
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
-  findAll(@Query() filters: TenantFiltersDto) {
-    return this.tenantsService.findAll(filters);
+  @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.OWNER)
+  findAll(
+    @Query() filters: TenantFiltersDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.tenantsService.findAll(filters, req.user);
   }
 
   @Get('me')
@@ -64,14 +72,17 @@ export class TenantsController {
 
   @Get(':id')
   @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.OWNER)
-  findOne(@Param('id') id: string) {
-    return this.tenantsService.findOne(id);
+  findOne(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    return this.tenantsService.findOne(id, req.user);
   }
 
   @Get(':id/leases')
   @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.OWNER)
-  getLeaseHistory(@Param('id') id: string) {
-    return this.tenantsService.getLeaseHistory(id);
+  getLeaseHistory(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.tenantsService.getLeaseHistory(id, req.user);
   }
 
   @Get(':id/activities')
@@ -80,7 +91,7 @@ export class TenantsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
   ): Promise<TenantActivity[]> {
-    return this.tenantsService.listActivities(id, req.user.companyId);
+    return this.tenantsService.listActivities(id, req.user);
   }
 
   @Post(':id/activities')
@@ -93,6 +104,7 @@ export class TenantsController {
     return this.tenantsService.createActivity(id, dto, {
       id: req.user.id,
       companyId: req.user.companyId,
+      role: req.user.role,
     });
   }
 
@@ -104,24 +116,23 @@ export class TenantsController {
     @Body() dto: UpdateTenantActivityDto,
     @Request() req: AuthenticatedRequest,
   ): Promise<TenantActivity> {
-    return this.tenantsService.updateActivity(
-      id,
-      activityId,
-      dto,
-      req.user.companyId,
-    );
+    return this.tenantsService.updateActivity(id, activityId, dto, req.user);
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
-  update(@Param('id') id: string, @Body() updateTenantDto: UpdateTenantDto) {
-    return this.tenantsService.update(id, updateTenantDto);
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  update(
+    @Param('id') id: string,
+    @Body() updateTenantDto: UpdateTenantDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.tenantsService.update(id, updateTenantDto, req.user);
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
-  async remove(@Param('id') id: string) {
-    await this.tenantsService.remove(id);
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  async remove(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    await this.tenantsService.remove(id, req.user);
     return { message: 'Tenant deleted successfully' };
   }
 }

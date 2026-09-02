@@ -32,8 +32,8 @@ describe('AmendmentsController', () => {
     await expect(controller.create({} as any, req)).resolves.toEqual({
       id: 'a1',
     });
-    await expect(controller.findByLease('l1')).resolves.toEqual([]);
-    await expect(controller.findOne('a1')).resolves.toEqual({ id: 'a1' });
+    await expect(controller.findByLease('l1', req)).resolves.toEqual([]);
+    await expect(controller.findOne('a1', req)).resolves.toEqual({ id: 'a1' });
     await expect(controller.approve('a1', req)).resolves.toEqual({
       id: 'a1',
       status: 'approved',

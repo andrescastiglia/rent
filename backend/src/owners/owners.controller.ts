@@ -26,6 +26,7 @@ import { UpdateOwnerDto } from './dto/update-owner.dto';
 import { RegisterOwnerSettlementPaymentDto } from './dto/register-owner-settlement-payment.dto';
 import { ListOwnerSettlementsDto } from './dto/list-owner-settlements.dto';
 import { ListOwnerSettlementPaymentsDto } from './dto/list-owner-settlement-payments.dto';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 
 interface AuthenticatedRequest {
   user: {
@@ -40,6 +41,7 @@ interface AuthenticatedRequest {
 @Controller('owners')
 @UseGuards(JwtAuthGuard)
 @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+@Authenticated('owners')
 export class OwnersController {
   constructor(private readonly ownersService: OwnersService) {}
 
@@ -79,11 +81,13 @@ export class OwnersController {
    * Get all owners for the authenticated user's company.
    */
   @Get()
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   async findAll(@Request() req: AuthenticatedRequest): Promise<Owner[]> {
-    return this.ownersService.findAll(req.user.companyId);
+    return this.ownersService.findAllScoped(req.user);
   }
 
   @Post()
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   async create(
     @Body() dto: CreateOwnerDto,
     @Request() req: AuthenticatedRequest,
@@ -125,7 +129,7 @@ export class OwnersController {
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
   ): Promise<Owner> {
-    return this.ownersService.findOne(id, req.user.companyId);
+    return this.ownersService.findOneScoped(id, req.user);
   }
 
   @Patch(':id')
@@ -134,7 +138,7 @@ export class OwnersController {
     @Body() dto: UpdateOwnerDto,
     @Request() req: AuthenticatedRequest,
   ): Promise<Owner> {
-    return this.ownersService.update(id, dto, req.user.companyId);
+    return this.ownersService.updateScoped(id, dto, req.user);
   }
 
   @Get(':id/settlements')
@@ -173,7 +177,7 @@ export class OwnersController {
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
   ): Promise<OwnerActivity[]> {
-    return this.ownersService.listActivities(id, req.user.companyId);
+    return this.ownersService.listActivitiesScoped(id, req.user);
   }
 
   @Post(':id/activities')
@@ -182,10 +186,7 @@ export class OwnersController {
     @Body() dto: CreateOwnerActivityDto,
     @Request() req: AuthenticatedRequest,
   ): Promise<OwnerActivity> {
-    return this.ownersService.createActivity(id, dto, {
-      id: req.user.id,
-      companyId: req.user.companyId,
-    });
+    return this.ownersService.createActivity(id, dto, req.user);
   }
 
   @Patch(':id/activities/:activityId')
@@ -195,11 +196,11 @@ export class OwnersController {
     @Body() dto: UpdateOwnerActivityDto,
     @Request() req: AuthenticatedRequest,
   ): Promise<OwnerActivity> {
-    return this.ownersService.updateActivity(
+    return this.ownersService.updateActivityScoped(
       id,
       activityId,
       dto,
-      req.user.companyId,
+      req.user,
     );
   }
 }

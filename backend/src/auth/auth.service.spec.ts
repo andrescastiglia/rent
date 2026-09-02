@@ -22,6 +22,7 @@ describe('AuthService', () => {
 
   const mockUsersService = {
     findOneByEmail: jest.fn(),
+    findOneByEmailWithPassword: jest.fn(),
     create: jest.fn(),
   };
 
@@ -61,7 +62,7 @@ describe('AuthService', () => {
   });
 
   it('validateUser returns user without password hash for active valid credentials', async () => {
-    mockUsersService.findOneByEmail.mockResolvedValue({
+    mockUsersService.findOneByEmailWithPassword.mockResolvedValue({
       id: 'u1',
       email: 'a@b.com',
       passwordHash: 'hash',
@@ -79,7 +80,7 @@ describe('AuthService', () => {
   });
 
   it('validateUser throws when user is blocked', async () => {
-    mockUsersService.findOneByEmail.mockResolvedValue({
+    mockUsersService.findOneByEmailWithPassword.mockResolvedValue({
       id: 'u2',
       email: 'x@y.com',
       passwordHash: 'hash',
@@ -93,7 +94,7 @@ describe('AuthService', () => {
   });
 
   it('validateUser returns null on invalid credentials', async () => {
-    mockUsersService.findOneByEmail.mockResolvedValue({
+    mockUsersService.findOneByEmailWithPassword.mockResolvedValue({
       id: 'u1',
       passwordHash: 'hash',
       isActive: true,

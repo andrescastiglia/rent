@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { CreatePaymentDocumentTemplateDto } from './dto/create-payment-document-template.dto';
 import { PaymentDocumentTemplateFiltersDto } from './dto/payment-document-template-filters.dto';
@@ -26,6 +27,7 @@ interface AuthenticatedRequest {
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('payment-templates')
+@Authenticated('templates')
 export class PaymentDocumentTemplatesController {
   constructor(
     private readonly templatesService: PaymentDocumentTemplatesService,

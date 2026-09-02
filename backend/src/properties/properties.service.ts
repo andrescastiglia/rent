@@ -3,11 +3,11 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository, SelectQueryBuilder } from 'typeorm';
-import { existsSync, unlinkSync } from 'node:fs';
-import { join } from 'node:path';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { Property } from './entities/property.entity';
 import { PropertyImage } from './entities/property-image.entity';
 import { Unit, UnitStatus } from './entities/unit.entity';
@@ -32,6 +32,13 @@ interface UserContext {
 
 @Injectable()
 export class PropertiesService {
+  private static readonly MAX_PROPERTY_IMAGE_BYTES = 5 * 1024 * 1024;
+  private static readonly TEMPORARY_IMAGE_URL_TTL_SECONDS = 15 * 60;
+  private static readonly ALLOWED_PROPERTY_IMAGE_MIME_TYPES = new Set([
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+  ]);
   private static readonly PROPERTY_IMAGE_ID_REGEX =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -84,8 +91,11 @@ export class PropertiesService {
 
   async findAll(
     filters: PropertyFiltersDto,
-    user?: UserContext,
+    user: UserContext,
   ): Promise<{ data: Property[]; total: number; page: number; limit: number }> {
+    if (!user.companyId) {
+      throw new ForbiddenException('Company scope required');
+    }
     const {
       ownerId,
       addressCity,
@@ -110,7 +120,7 @@ export class PropertiesService {
       .where('property.deleted_at IS NULL');
 
     this.applyGeneralPropertyFilters(query, {
-      companyId: user?.companyId,
+      companyId: user.companyId,
       ownerId,
       addressCity,
       addressState,
@@ -126,9 +136,7 @@ export class PropertiesService {
       bathrooms,
     });
 
-    if (user) {
-      this.applyVisibilityScope(query, user);
-    }
+    this.applyVisibilityScope(query, user);
 
     query.skip((page - 1) * limit).take(limit);
 
@@ -235,20 +243,10 @@ export class PropertiesService {
     }
   }
 
-  async findOne(id: string): Promise<Property> {
-    const property = await this.propertiesRepository.findOne({
-      where: { id },
-      relations: ['units', 'features', 'owner', 'owner.user', 'company'],
-    });
-
-    if (!property) {
-      throw new NotFoundException(`Property with ID ${id} not found`);
-    }
-
-    return property;
-  }
-
   async findOneScoped(id: string, user: UserContext): Promise<Property> {
+    if (!user.companyId) {
+      throw new ForbiddenException('Company scope required');
+    }
     const query = this.propertiesRepository
       .createQueryBuilder('property')
       .leftJoinAndSelect('property.units', 'units')
@@ -259,11 +257,9 @@ export class PropertiesService {
       .where('property.id = :id', { id })
       .andWhere('property.deleted_at IS NULL');
 
-    if (user.companyId) {
-      query.andWhere('property.company_id = :companyId', {
-        companyId: user.companyId,
-      });
-    }
+    query.andWhere('property.company_id = :companyId', {
+      companyId: user.companyId,
+    });
 
     this.applyVisibilityScope(query, user);
 
@@ -278,19 +274,12 @@ export class PropertiesService {
   async update(
     id: string,
     updatePropertyDto: UpdatePropertyDto,
-    userId: string,
-    userRole: string,
+    user: UserContext,
   ): Promise<Property> {
-    const property = await this.findOne(id);
+    const property = await this.findOneScoped(id, user);
     const previousImageRefs = this.normalizePropertyImages(
       Array.isArray(property.images) ? property.images : [],
     );
-
-    // Check ownership (only owner or admin can update)
-    // property.owner is loaded via relation and has userId
-    if (userRole !== 'admin' && property.owner?.userId !== userId) {
-      throw new ForbiddenException('You can only update your own properties');
-    }
 
     let nextImageIds: string[] = [];
     if (updatePropertyDto.images !== undefined) {
@@ -323,17 +312,17 @@ export class PropertiesService {
     return updatedProperty;
   }
 
-  async remove(id: string, userId: string, userRole: string): Promise<void> {
-    const property = await this.findOne(id);
-
-    // Check ownership
-    if (userRole !== 'admin' && property.owner?.userId !== userId) {
-      throw new ForbiddenException('You can only delete your own properties');
-    }
+  async remove(id: string, user: UserContext): Promise<void> {
+    const property = await this.findOneScoped(id, user);
 
     // Check if property has occupied units
     const occupiedUnits = await this.unitsRepository.count({
-      where: { propertyId: id, status: UnitStatus.OCCUPIED },
+      where: {
+        propertyId: id,
+        companyId: property.companyId,
+        status: UnitStatus.OCCUPIED,
+        deletedAt: IsNull(),
+      },
     });
 
     if (occupiedUnits > 0) {
@@ -342,7 +331,10 @@ export class PropertiesService {
       );
     }
 
-    await this.propertiesRepository.softDelete(id);
+    await this.propertiesRepository.softDelete({
+      id,
+      companyId: property.companyId,
+    });
     await this.deletePropertyImages(
       Array.isArray(property.images) ? property.images : [],
       property.companyId,
@@ -373,8 +365,22 @@ export class PropertiesService {
     if (!file?.buffer) {
       throw new BadRequestException('File is required');
     }
-    if (!file.mimetype || !String(file.mimetype).startsWith('image/')) {
-      throw new BadRequestException('Only image uploads are allowed');
+    const mimeType = String(file.mimetype ?? '').toLowerCase();
+    if (!PropertiesService.ALLOWED_PROPERTY_IMAGE_MIME_TYPES.has(mimeType)) {
+      throw new BadRequestException(
+        'Only JPEG, PNG and WebP images are allowed',
+      );
+    }
+    if (
+      file.buffer.length === 0 ||
+      file.buffer.length > PropertiesService.MAX_PROPERTY_IMAGE_BYTES
+    ) {
+      throw new BadRequestException('Image must not exceed 5 MiB');
+    }
+    if (!this.bufferMatchesImageMimeType(file.buffer, mimeType)) {
+      throw new BadRequestException(
+        'Image content does not match its MIME type',
+      );
     }
 
     const savedImage = await this.propertyImagesRepository.save(
@@ -382,18 +388,21 @@ export class PropertiesService {
         companyId: user.companyId,
         uploadedByUserId: user.id,
         originalName: file.originalname ?? null,
-        mimeType: file.mimetype,
-        sizeBytes:
-          typeof file.size === 'number' ? file.size : file.buffer.length,
+        mimeType,
+        sizeBytes: file.buffer.length,
         data: file.buffer,
         isTemporary: true,
       }),
     );
 
-    return { url: `/properties/images/${savedImage.id}` };
+    return { url: this.createTemporaryPropertyImageUrl(savedImage.id) };
   }
 
-  async getPropertyImage(imageId: string): Promise<PropertyImage> {
+  async getPropertyImage(
+    imageId: string,
+    expires?: string,
+    signature?: string,
+  ): Promise<PropertyImage> {
     const image = await this.propertyImagesRepository.findOne({
       where: { id: imageId },
     });
@@ -404,7 +413,91 @@ export class PropertiesService {
       );
     }
 
+    if (
+      image.isTemporary &&
+      !this.isValidTemporaryPropertyImageSignature(imageId, expires, signature)
+    ) {
+      throw new NotFoundException(
+        `Property image with ID ${imageId} not found`,
+      );
+    }
+
     return image;
+  }
+
+  private bufferMatchesImageMimeType(
+    buffer: Buffer,
+    mimeType: string,
+  ): boolean {
+    if (mimeType === 'image/jpeg') {
+      return (
+        buffer.length >= 3 &&
+        buffer[0] === 0xff &&
+        buffer[1] === 0xd8 &&
+        buffer[2] === 0xff
+      );
+    }
+    if (mimeType === 'image/png') {
+      return (
+        buffer.length >= 8 &&
+        buffer
+          .subarray(0, 8)
+          .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+      );
+    }
+    return (
+      buffer.length >= 12 &&
+      buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+    );
+  }
+
+  private createTemporaryPropertyImageUrl(imageId: string): string {
+    const expires =
+      Math.floor(Date.now() / 1000) +
+      PropertiesService.TEMPORARY_IMAGE_URL_TTL_SECONDS;
+    const signature = this.signTemporaryPropertyImage(imageId, expires);
+    return `/properties/images/${imageId}?expires=${expires}&signature=${signature}`;
+  }
+
+  private isValidTemporaryPropertyImageSignature(
+    imageId: string,
+    expires?: string,
+    signature?: string,
+  ): boolean {
+    if (!expires || !signature || !/^\d+$/.test(expires)) {
+      return false;
+    }
+    const expiresAt = Number(expires);
+    if (
+      !Number.isSafeInteger(expiresAt) ||
+      expiresAt < Math.floor(Date.now() / 1000)
+    ) {
+      return false;
+    }
+
+    const expected = this.signTemporaryPropertyImage(imageId, expiresAt);
+    if (!/^[0-9a-f]{64}$/.test(signature)) {
+      return false;
+    }
+    return timingSafeEqual(
+      Buffer.from(signature, 'hex'),
+      Buffer.from(expected, 'hex'),
+    );
+  }
+
+  private signTemporaryPropertyImage(imageId: string, expires: number): string {
+    const secret = (
+      process.env.PROPERTY_IMAGE_SIGNING_SECRET ?? process.env.JWT_SECRET
+    )?.trim();
+    if (!secret) {
+      throw new ServiceUnavailableException(
+        'Property image signing secret is not configured',
+      );
+    }
+    return createHmac('sha256', secret)
+      .update(`property-image:${imageId}:${expires}`)
+      .digest('hex');
   }
 
   private applyVisibilityScope(
@@ -415,18 +508,10 @@ export class PropertiesService {
       return;
     }
 
-    const email = (user.email ?? '').trim().toLowerCase();
-    const phone = (user.phone ?? '').trim();
-
     if (user.role === UserRole.OWNER) {
-      query.andWhere(
-        `(owner.user_id = :scopeUserId OR LOWER(ownerUser.email) = :scopeEmail OR (:scopePhone <> '' AND ownerUser.phone = :scopePhone))`,
-        {
-          scopeUserId: user.id,
-          scopeEmail: email,
-          scopePhone: phone,
-        },
-      );
+      query.andWhere('owner.user_id = :scopeUserId', {
+        scopeUserId: user.id,
+      });
       return;
     }
 
@@ -442,16 +527,13 @@ export class PropertiesService {
           },
         )
         .innerJoin('tenantLease.tenant', 'tenant')
-        .innerJoin('tenant.user', 'tenantUser')
-        .andWhere(
-          `(tenant.user_id = :scopeUserId OR LOWER(tenantUser.email) = :scopeEmail OR (:scopePhone <> '' AND tenantUser.phone = :scopePhone))`,
-          {
-            scopeUserId: user.id,
-            scopeEmail: email,
-            scopePhone: phone,
-          },
-        );
+        .andWhere('tenant.user_id = :scopeUserId', {
+          scopeUserId: user.id,
+        });
+      return;
     }
+
+    throw new ForbiddenException('Property access is not allowed');
   }
 
   private async resolveOwnerForCreate(
@@ -613,25 +695,21 @@ export class PropertiesService {
       ),
     );
 
-    let deletedCount = 0;
-
-    if (imageIds.length > 0) {
-      const deleteResult = await this.propertyImagesRepository
-        .createQueryBuilder()
-        .delete()
-        .from(PropertyImage)
-        .where('id IN (:...imageIds)', { imageIds })
-        .andWhere('company_id = :companyId', { companyId })
-        .andWhere('is_temporary = true')
-        .andWhere('property_id IS NULL')
-        .execute();
-
-      deletedCount += deleteResult.affected ?? 0;
+    if (imageIds.length === 0) {
+      return 0;
     }
 
-    deletedCount += this.deleteLegacyPropertyImagesFromDisk(imageRefs);
+    const deleteResult = await this.propertyImagesRepository
+      .createQueryBuilder()
+      .delete()
+      .from(PropertyImage)
+      .where('id IN (:...imageIds)', { imageIds })
+      .andWhere('company_id = :companyId', { companyId })
+      .andWhere('is_temporary = true')
+      .andWhere('property_id IS NULL')
+      .execute();
 
-    return deletedCount;
+    return deleteResult.affected ?? 0;
   }
 
   private async deletePropertyImages(
@@ -650,51 +728,22 @@ export class PropertiesService {
       ),
     );
 
-    let deletedCount = 0;
-
-    if (imageIds.length > 0) {
-      const queryBuilder = this.propertyImagesRepository
-        .createQueryBuilder()
-        .delete()
-        .from(PropertyImage)
-        .where('id IN (:...imageIds)', { imageIds });
-
-      if (companyId) {
-        queryBuilder.andWhere('company_id = :companyId', { companyId });
-      }
-
-      const deleteResult = await queryBuilder.execute();
-      deletedCount += deleteResult.affected ?? 0;
+    if (imageIds.length === 0) {
+      return 0;
     }
 
-    deletedCount += this.deleteLegacyPropertyImagesFromDisk(imageRefs);
+    const queryBuilder = this.propertyImagesRepository
+      .createQueryBuilder()
+      .delete()
+      .from(PropertyImage)
+      .where('id IN (:...imageIds)', { imageIds });
 
-    return deletedCount;
-  }
-
-  private deleteLegacyPropertyImagesFromDisk(imageRefs: string[]): number {
-    let deletedCount = 0;
-
-    for (const imageRef of imageRefs) {
-      const fileName = this.toPropertyImageFileName(imageRef);
-      if (!fileName) {
-        continue;
-      }
-
-      const filePath = join(process.cwd(), 'uploads', 'properties', fileName);
-      if (!existsSync(filePath)) {
-        continue;
-      }
-
-      try {
-        unlinkSync(filePath);
-        deletedCount += 1;
-      } catch {
-        continue;
-      }
+    if (companyId) {
+      queryBuilder.andWhere('company_id = :companyId', { companyId });
     }
 
-    return deletedCount;
+    const deleteResult = await queryBuilder.execute();
+    return deleteResult.affected ?? 0;
   }
 
   private toPropertyImageRelativeUrl(imageRef: string): string | null {
@@ -703,12 +752,7 @@ export class PropertiesService {
       return `/properties/images/${imageId}`;
     }
 
-    const fileName = this.toPropertyImageFileName(imageRef);
-    if (!fileName) {
-      return null;
-    }
-
-    return `/uploads/properties/${fileName}`;
+    return null;
   }
 
   private toPropertyImageId(imageRef: string): string | null {
@@ -747,45 +791,5 @@ export class PropertiesService {
     }
 
     return imageId;
-  }
-
-  private toPropertyImageFileName(imageRef: string): string | null {
-    if (!imageRef || typeof imageRef !== 'string') {
-      return null;
-    }
-
-    let pathname = imageRef.trim();
-    if (!pathname) {
-      return null;
-    }
-
-    if (pathname.startsWith('http://') || pathname.startsWith('https://')) {
-      try {
-        const parsed = new URL(pathname);
-        pathname = parsed.pathname;
-      } catch {
-        return null;
-      }
-    }
-
-    const uploadPathPrefix = '/uploads/properties/';
-    const prefixIndex = pathname.indexOf(uploadPathPrefix);
-    if (prefixIndex === -1) {
-      return null;
-    }
-
-    const fileName = decodeURIComponent(
-      pathname.slice(prefixIndex + uploadPathPrefix.length),
-    );
-    if (
-      !fileName ||
-      fileName.includes('/') ||
-      fileName.includes('\\') ||
-      fileName.includes('..')
-    ) {
-      return null;
-    }
-
-    return fileName;
   }
 }

@@ -11,13 +11,7 @@ import {
 
 import { authApi } from '@/api/auth';
 import { setSessionExpiredHandler } from '@/api/client';
-import {
-  clearAuth,
-  getToken,
-  getUser,
-  setToken as persistToken,
-  setUser as persistUser,
-} from '@/storage/auth-storage';
+import { clearAuth, setToken as persistToken } from '@/storage/auth-storage';
 import type {
   AuthResponse,
   LoginRequest,
@@ -26,6 +20,7 @@ import type {
   User,
 } from '@/types/auth';
 import { i18n } from '@/i18n';
+import { restoreSession } from './auth-session';
 
 type AuthContextValue = {
   user: User | null;
@@ -53,15 +48,18 @@ export function AuthProvider({
 
     const bootstrap = async () => {
       try {
-        const [storedToken, storedUser] = await Promise.all([
-          getToken(),
-          getUser(),
-        ]);
+        const session = await restoreSession();
         if (!mounted) return;
-        setToken(storedToken);
-        setUser(storedUser);
-        if (storedUser?.language) {
-          await i18n.changeLanguage(storedUser.language);
+        setToken(session?.token ?? null);
+        setUser(session?.user ?? null);
+        if (session?.user.language) {
+          await i18n.changeLanguage(session.user.language);
+        }
+      } catch {
+        await clearAuth();
+        if (mounted) {
+          setToken(null);
+          setUser(null);
         }
       } finally {
         if (mounted) {
@@ -80,10 +78,7 @@ export function AuthProvider({
   const login = useCallback(
     async (payload: LoginRequest) => {
       const response: AuthResponse = await authApi.login(payload);
-      await Promise.all([
-        persistToken(response.accessToken),
-        persistUser(response.user),
-      ]);
+      await persistToken(response.accessToken);
       setToken(response.accessToken);
       setUser(response.user);
       if (response.user.language) {
@@ -116,7 +111,6 @@ export function AuthProvider({
   }, [logout]);
 
   const updateUser = useCallback(async (nextUser: User) => {
-    await persistUser(nextUser);
     setUser(nextUser);
     if (nextUser.language) {
       await i18n.changeLanguage(nextUser.language);

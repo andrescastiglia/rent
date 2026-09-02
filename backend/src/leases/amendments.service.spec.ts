@@ -14,6 +14,7 @@ describe('AmendmentsService', () => {
   let service: AmendmentsService;
   let amendmentRepository: MockRepository<LeaseAmendment>;
   let leaseRepository: MockRepository<Lease>;
+  let leaseQueryBuilder: Record<string, jest.Mock>;
 
   type MockRepository<T extends Record<string, any> = any> = Partial<
     Record<keyof Repository<T>, jest.Mock>
@@ -24,6 +25,7 @@ describe('AmendmentsService', () => {
     save: jest.fn(),
     find: jest.fn(),
     findOne: jest.fn(),
+    createQueryBuilder: jest.fn(),
   });
 
   const mockLease: Partial<Lease> = {
@@ -56,7 +58,20 @@ describe('AmendmentsService', () => {
     service = module.get<AmendmentsService>(AmendmentsService);
     amendmentRepository = module.get(getRepositoryToken(LeaseAmendment));
     leaseRepository = module.get(getRepositoryToken(Lease));
+    leaseQueryBuilder = {
+      leftJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(mockLease),
+    };
+    leaseRepository.createQueryBuilder!.mockReturnValue(leaseQueryBuilder);
   });
+
+  const adminActor = {
+    id: 'user-1',
+    companyId: 'company-1',
+    role: 'admin',
+  } as any;
 
   it('should be defined', () => {
     expect(service).toBeDefined();
@@ -73,13 +88,15 @@ describe('AmendmentsService', () => {
         newValues: { rentAmount: 1600 },
       };
 
-      leaseRepository.findOne!.mockResolvedValue(mockLease);
       amendmentRepository.create!.mockReturnValue(mockAmendment);
       amendmentRepository.save!.mockResolvedValue(mockAmendment);
 
-      const result = await service.create(createDto, 'user-1');
+      const result = await service.create(createDto, adminActor);
 
-      expect(leaseRepository.findOne).toHaveBeenCalled();
+      expect(leaseQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'lease.company_id = :companyId',
+        { companyId: 'company-1' },
+      );
       expect(amendmentRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
           leaseId: createDto.leaseId,
@@ -100,9 +117,9 @@ describe('AmendmentsService', () => {
         description: 'Test',
       };
 
-      leaseRepository.findOne!.mockResolvedValue(null);
+      leaseQueryBuilder.getOne.mockResolvedValue(null);
 
-      await expect(service.create(createDto, 'user-1')).rejects.toThrow(
+      await expect(service.create(createDto, adminActor)).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -116,12 +133,12 @@ describe('AmendmentsService', () => {
         description: 'Test',
       };
 
-      leaseRepository.findOne!.mockResolvedValue({
+      leaseQueryBuilder.getOne.mockResolvedValue({
         ...mockLease,
         status: LeaseStatus.DRAFT,
       });
 
-      await expect(service.create(createDto, 'user-1')).rejects.toThrow(
+      await expect(service.create(createDto, adminActor)).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -135,7 +152,7 @@ describe('AmendmentsService', () => {
       ];
       amendmentRepository.find!.mockResolvedValue(amendments);
 
-      const result = await service.findByLease('lease-1');
+      const result = await service.findByLease('lease-1', adminActor);
 
       expect(amendmentRepository.find).toHaveBeenCalledWith({
         where: { leaseId: 'lease-1' },
@@ -149,7 +166,7 @@ describe('AmendmentsService', () => {
     it('should return an amendment by id', async () => {
       amendmentRepository.findOne!.mockResolvedValue(mockAmendment);
 
-      const result = await service.findOne('amendment-1');
+      const result = await service.findOne('amendment-1', adminActor);
 
       expect(result).toEqual(mockAmendment);
     });
@@ -157,7 +174,9 @@ describe('AmendmentsService', () => {
     it('should throw NotFoundException when amendment not found', async () => {
       amendmentRepository.findOne!.mockResolvedValue(null);
 
-      await expect(service.findOne('999')).rejects.toThrow(NotFoundException);
+      await expect(service.findOne('999', adminActor)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -174,7 +193,7 @@ describe('AmendmentsService', () => {
         approvedBy: 'user-1',
       });
 
-      const result = await service.approve('amendment-1', 'user-1');
+      const result = await service.approve('amendment-1', adminActor);
 
       expect(result.status).toBe(AmendmentStatus.APPROVED);
       expect(result.approvedBy).toBe('user-1');
@@ -186,7 +205,7 @@ describe('AmendmentsService', () => {
         status: AmendmentStatus.APPROVED,
       });
 
-      await expect(service.approve('amendment-1', 'user-1')).rejects.toThrow(
+      await expect(service.approve('amendment-1', adminActor)).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -205,7 +224,7 @@ describe('AmendmentsService', () => {
         approvedBy: 'user-1',
       });
 
-      const result = await service.reject('amendment-1', 'user-1');
+      const result = await service.reject('amendment-1', adminActor);
 
       expect(result.status).toBe(AmendmentStatus.REJECTED);
     });
@@ -216,7 +235,7 @@ describe('AmendmentsService', () => {
         status: AmendmentStatus.REJECTED,
       });
 
-      await expect(service.reject('amendment-1', 'user-1')).rejects.toThrow(
+      await expect(service.reject('amendment-1', adminActor)).rejects.toThrow(
         BadRequestException,
       );
     });

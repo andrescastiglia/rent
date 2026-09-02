@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, LessThanOrEqual, Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import {
   WhatsappRelatedEntityType,
   WhatsappService,
@@ -123,59 +123,83 @@ export class CommunicationsService {
     staff: { id: string; companyId: string },
     body: string,
   ) {
-    const rows = await this.dataSource.query(
-      `SELECT pc.*, u.phone, u.whatsapp_enabled
-         FROM person_communications pc
-         JOIN users u ON u.id = pc.user_id
-        WHERE pc.id = $1::uuid AND pc.company_id = $2::uuid
-          AND pc.direction = 'inbound'`,
-      [id, staff.companyId],
-    );
-    const incoming = rows[0];
-    if (!incoming) throw new NotFoundException('Communication not found');
-    if (!incoming.whatsapp_enabled) {
-      throw new BadRequestException('The recipient revoked WhatsApp consent');
-    }
-    const sent = await this.whatsappService.sendTextMessage(
-      incoming.phone,
-      body.trim(),
-      undefined,
-      { companyId: staff.companyId },
-    );
-    const inserted = await this.dataSource.query(
-      `INSERT INTO person_communications (
-         company_id, user_id, person_type, person_id, direction, message_type,
-         body, whatsapp_message_id, in_reply_to_id, status, read_at, read_by,
-         metadata
-       ) VALUES ($1::uuid, $2::uuid, $3, $4::uuid, 'outbound', 'text', $5,
-                 $6, $7::uuid, 'read', now(), $8::uuid, $9::jsonb)
-       RETURNING *`,
-      [
-        staff.companyId,
-        incoming.user_id,
-        incoming.person_type,
-        incoming.person_id,
-        body.trim(),
-        sent.messageId,
-        id,
+    return this.dataSource.transaction(async (manager) => {
+      const rows = await manager.query(
+        `SELECT pc.*, u.phone, u.whatsapp_enabled
+           FROM person_communications pc
+           JOIN users u ON u.id = pc.user_id
+          WHERE pc.id = $1::uuid AND pc.company_id = $2::uuid
+            AND pc.direction = 'inbound'
+          FOR UPDATE OF pc, u`,
+        [id, staff.companyId],
+      );
+      const incoming = rows[0];
+      if (!incoming) throw new NotFoundException('Communication not found');
+      if (!incoming.whatsapp_enabled) {
+        throw new BadRequestException('The recipient revoked WhatsApp consent');
+      }
+      const normalizedBody = body.trim();
+      const inserted = await manager.query(
+        `INSERT INTO person_communications (
+           company_id, user_id, person_type, person_id, direction, message_type,
+           body, in_reply_to_id, status, read_at, read_by, metadata
+         ) VALUES ($1::uuid, $2::uuid, $3, $4::uuid, 'outbound', 'text', $5,
+                   $6::uuid, 'read', now(), $7::uuid, $8::jsonb)
+         RETURNING *`,
+        [
+          staff.companyId,
+          incoming.user_id,
+          incoming.person_type,
+          incoming.person_id,
+          normalizedBody,
+          id,
+          staff.id,
+          JSON.stringify({ repliedBy: staff.id, deliveryStatus: 'queued' }),
+        ],
+      );
+      const reply = inserted[0];
+      await manager.query(
+        `INSERT INTO communication_deliveries (
+           company_id, event, recipient_role, recipient_id, channel, recipient,
+           body, status, attempts, max_attempts, next_attempt_at, metadata,
+           source_communication_id
+         ) VALUES ($1::uuid, 'whatsapp_manual_reply', $2,
+                   $3::uuid, 'whatsapp', $4, $5, 'queued', 0, 3, NOW(),
+                   $6::jsonb, $7::uuid)`,
+        [
+          staff.companyId,
+          this.toRecipientRole(incoming.person_type),
+          incoming.person_id,
+          incoming.phone,
+          normalizedBody,
+          JSON.stringify({
+            sourceCommunicationId: id,
+            replyCommunicationId: reply.id,
+          }),
+          reply.id,
+        ],
+      );
+      await manager.query(
+        `UPDATE person_communications SET status = 'replied',
+                read_at = COALESCE(read_at, now()), read_by = $2::uuid,
+                updated_at = now() WHERE id = $1::uuid`,
+        [id, staff.id],
+      );
+      await this.recordReplyActivity(
+        incoming,
         staff.id,
-        JSON.stringify({ repliedBy: staff.id }),
-      ],
-    );
-    await this.dataSource.query(
-      `UPDATE person_communications SET status = 'replied',
-              read_at = COALESCE(read_at, now()), read_by = $2::uuid,
-              updated_at = now() WHERE id = $1::uuid`,
-      [id, staff.id],
-    );
-    await this.recordReplyActivity(incoming, staff.id, body.trim());
-    return inserted[0];
+        normalizedBody,
+        manager.query.bind(manager),
+      );
+      return reply;
+    });
   }
 
   private async recordReplyActivity(
     incoming: Record<string, unknown>,
     staffId: string,
     body: string,
+    query: DataSource['query'] = this.dataSource.query.bind(this.dataSource),
   ): Promise<void> {
     const personType = String(incoming.person_type);
     const personId = incoming.person_id;
@@ -193,7 +217,7 @@ export class CommunicationsService {
         : `${personType}_id`;
     const companyColumns = personType === 'interested' ? '' : 'company_id,';
     const companyValues = personType === 'interested' ? '' : '$2::uuid,';
-    await this.dataSource.query(
+    await query(
       `INSERT INTO ${table} (${companyColumns} ${personColumn}, type, status,
          subject, body, metadata, created_by_user_id)
        VALUES (${companyValues} $1::uuid, 'whatsapp', 'completed',
@@ -206,6 +230,16 @@ export class CommunicationsService {
         staffId,
       ],
     );
+  }
+
+  private toRecipientRole(personType: string): CommunicationRecipientRole {
+    const role = Object.values(CommunicationRecipientRole).find(
+      (candidate) => candidate === personType,
+    );
+    if (!role) {
+      throw new BadRequestException('Unsupported WhatsApp recipient role');
+    }
+    return role;
   }
 
   async createTemplate(
@@ -323,7 +357,7 @@ export class CommunicationsService {
     const bodyTemplate = template?.body ?? input.fallbackBody;
     const status = this.resolveInitialStatus(input, template);
 
-    let delivery = await this.deliveriesRepository.save(
+    const delivery = await this.deliveriesRepository.save(
       this.deliveriesRepository.create({
         companyId: input.companyId,
         templateId: template?.id ?? null,
@@ -341,6 +375,7 @@ export class CommunicationsService {
         maxAttempts: 3,
         nextAttemptAt:
           status === CommunicationDeliveryStatus.QUEUED ? new Date() : null,
+        leaseExpiresAt: null,
         providerMessageId: null,
         errorMessage:
           status === CommunicationDeliveryStatus.BLOCKED
@@ -348,14 +383,13 @@ export class CommunicationsService {
             : null,
         relatedEntityType: input.relatedEntityType ?? null,
         relatedEntityId: input.relatedEntityId ?? null,
+        sourceCommunicationId: null,
+        idempotencyKey: null,
         metadata: input.metadata ?? {},
         sentAt: null,
       }),
     );
 
-    if (delivery.status === CommunicationDeliveryStatus.QUEUED) {
-      delivery = await this.attemptDelivery(delivery);
-    }
     return delivery;
   }
 
@@ -366,8 +400,8 @@ export class CommunicationsService {
     }
     delivery.status = CommunicationDeliveryStatus.QUEUED;
     delivery.nextAttemptAt = new Date();
-    await this.deliveriesRepository.save(delivery);
-    return this.attemptDelivery(delivery);
+    delivery.leaseExpiresAt = null;
+    return this.deliveriesRepository.save(delivery);
   }
 
   async retry(id: string, companyId: string): Promise<CommunicationDelivery> {
@@ -377,8 +411,8 @@ export class CommunicationsService {
     }
     delivery.status = CommunicationDeliveryStatus.QUEUED;
     delivery.nextAttemptAt = new Date();
-    await this.deliveriesRepository.save(delivery);
-    return this.attemptDelivery(delivery);
+    delivery.leaseExpiresAt = null;
+    return this.deliveriesRepository.save(delivery);
   }
 
   async retryDue(): Promise<{
@@ -386,24 +420,39 @@ export class CommunicationsService {
     sent: number;
     failed: number;
   }> {
-    const deliveries = await this.deliveriesRepository.find({
-      where: {
-        status: CommunicationDeliveryStatus.FAILED,
-        nextAttemptAt: LessThanOrEqual(new Date()),
-      },
-      take: 100,
-      order: { nextAttemptAt: 'ASC' },
-    });
+    const claimed = await this.dataSource.query(
+      `WITH due AS (
+         SELECT id
+           FROM communication_deliveries
+          WHERE attempts < max_attempts
+            AND (
+              (status IN ('queued', 'failed') AND next_attempt_at <= NOW())
+              OR (status = 'processing' AND lease_expires_at < NOW())
+            )
+          ORDER BY next_attempt_at ASC NULLS FIRST, created_at ASC
+          FOR UPDATE SKIP LOCKED
+          LIMIT 100
+       )
+       UPDATE communication_deliveries delivery
+          SET status = 'processing', attempts = attempts + 1,
+              lease_expires_at = NOW() + INTERVAL '5 minutes',
+              updated_at = NOW()
+         FROM due
+        WHERE delivery.id = due.id
+       RETURNING delivery.id`,
+    );
     let sent = 0;
     let failed = 0;
-    for (const delivery of deliveries) {
-      if (delivery.attempts >= delivery.maxAttempts) continue;
-      delivery.status = CommunicationDeliveryStatus.QUEUED;
+    for (const claimedDelivery of claimed ?? []) {
+      const delivery = await this.deliveriesRepository.findOne({
+        where: { id: claimedDelivery.id },
+      });
+      if (!delivery) continue;
       const result = await this.attemptDelivery(delivery);
       if (result.status === CommunicationDeliveryStatus.SENT) sent += 1;
       else failed += 1;
     }
-    return { processed: deliveries.length, sent, failed };
+    return { processed: claimed?.length ?? 0, sent, failed };
   }
 
   private resolveInitialStatus(
@@ -423,12 +472,12 @@ export class CommunicationsService {
   private async attemptDelivery(
     delivery: CommunicationDelivery,
   ): Promise<CommunicationDelivery> {
-    delivery.attempts += 1;
     try {
       delivery.providerMessageId = await this.send(delivery);
       delivery.status = CommunicationDeliveryStatus.SENT;
       delivery.sentAt = new Date();
       delivery.nextAttemptAt = null;
+      delivery.leaseExpiresAt = null;
       delivery.errorMessage = null;
     } catch (error) {
       delivery.status = CommunicationDeliveryStatus.FAILED;
@@ -440,25 +489,55 @@ export class CommunicationsService {
         delivery.attempts < delivery.maxAttempts
           ? new Date(Date.now() + 2 ** delivery.attempts * 60_000)
           : null;
+      delivery.leaseExpiresAt = null;
     }
     return this.deliveriesRepository.save(delivery);
   }
 
   private async send(delivery: CommunicationDelivery): Promise<string | null> {
     this.assertWhatsappOnly(delivery.channel);
+    const context = {
+      companyId: delivery.companyId,
+      idempotencyKey: delivery.id,
+      relatedEntityType: this.toWhatsappEntityType(delivery.relatedEntityType),
+      relatedEntityId: delivery.relatedEntityId ?? undefined,
+      activityEntity: this.toWhatsappActivityEntity(
+        delivery.metadata?.activityEntity,
+      ),
+      activityId:
+        typeof delivery.metadata?.activityId === 'string'
+          ? delivery.metadata.activityId
+          : undefined,
+    };
+    const templateName = delivery.metadata?.templateName;
+    if (typeof templateName === 'string') {
+      const result = await this.whatsappService.sendTemplateMessage(
+        delivery.recipient,
+        templateName,
+        typeof delivery.metadata?.templateLanguage === 'string'
+          ? delivery.metadata.templateLanguage
+          : 'es',
+        Array.isArray(delivery.metadata?.templateParameters)
+          ? delivery.metadata.templateParameters.map(String)
+          : [],
+        {
+          textFallback: delivery.body,
+          pdfUrl:
+            typeof delivery.metadata?.attachmentUrl === 'string'
+              ? delivery.metadata.attachmentUrl
+              : undefined,
+          context,
+        },
+      );
+      return result.messageId;
+    }
     const result = await this.whatsappService.sendTextMessage(
       delivery.recipient,
       delivery.body,
       typeof delivery.metadata?.attachmentUrl === 'string'
         ? delivery.metadata.attachmentUrl
         : undefined,
-      {
-        companyId: delivery.companyId,
-        relatedEntityType: this.toWhatsappEntityType(
-          delivery.relatedEntityType,
-        ),
-        relatedEntityId: delivery.relatedEntityId ?? undefined,
-      },
+      context,
     );
     return result.messageId;
   }
@@ -484,6 +563,14 @@ export class CommunicationsService {
       'lease',
     ];
     return allowed.find((item) => item === value);
+  }
+
+  private toWhatsappActivityEntity(
+    value: unknown,
+  ): 'tenant' | 'owner' | 'interested' | undefined {
+    return value === 'tenant' || value === 'owner' || value === 'interested'
+      ? value
+      : undefined;
   }
 
   private render(

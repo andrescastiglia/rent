@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { CommunicationsService } from './communications.service';
 import {
@@ -26,6 +27,7 @@ type StaffRequest = { user: { id: string; companyId: string } };
 
 @Controller('communications')
 @Roles(UserRole.ADMIN, UserRole.STAFF)
+@Authenticated('communications')
 export class CommunicationsController {
   constructor(private readonly communicationsService: CommunicationsService) {}
 

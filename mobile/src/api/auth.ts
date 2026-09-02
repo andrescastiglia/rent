@@ -1,5 +1,6 @@
 import { apiClient } from '@/api/client';
 import { IS_MOCK_MODE } from '@/api/env';
+import { encode as base64Encode } from 'base-64';
 import type {
   AuthResponse,
   LoginRequest,
@@ -35,6 +36,21 @@ const MOCK_USERS: Array<User & { password: string }> = [
   },
 ];
 
+function createMockAccessToken(user: User): string {
+  const payload = base64Encode(
+    JSON.stringify({
+      sub: user.id,
+      role: user.role,
+      exp: Math.floor(Date.now() / 1000) + 60 * 60,
+    }),
+  )
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replaceAll('=', '');
+
+  return `mock.${payload}.signature`;
+}
+
 export const authApi = {
   async login(payload: LoginRequest): Promise<AuthResponse> {
     if (IS_MOCK_MODE) {
@@ -49,7 +65,7 @@ export const authApi = {
 
       const { password: _, ...safeUser } = user;
       return {
-        accessToken: `mock-token-${safeUser.id}-${Date.now()}`,
+        accessToken: createMockAccessToken(safeUser),
         user: safeUser,
       };
     }

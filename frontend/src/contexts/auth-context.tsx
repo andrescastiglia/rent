@@ -4,7 +4,9 @@ import React, {
   createContext,
   useContext,
   useCallback,
+  useEffect,
   useMemo,
+  useState,
   useSyncExternalStore,
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -93,18 +95,6 @@ function getServerAuthSnapshot(): AuthSnapshot {
   return EMPTY_AUTH_SNAPSHOT;
 }
 
-function subscribeToHydration() {
-  return () => {};
-}
-
-function getHydratedSnapshot() {
-  return true;
-}
-
-function getServerHydratedSnapshot() {
-  return false;
-}
-
 export function AuthProvider({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
@@ -113,13 +103,44 @@ export function AuthProvider({
     getAuthSnapshot,
     getServerAuthSnapshot,
   );
-  const loading = !useSyncExternalStore(
-    subscribeToHydration,
-    getHydratedSnapshot,
-    getServerHydratedSnapshot,
-  );
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
+
+  useEffect(() => {
+    let active = true;
+
+    const rehydrate = async () => {
+      const currentToken = getToken();
+      const currentUser = getUser();
+
+      if (!currentToken || currentUser) {
+        if (active) setLoading(false);
+        return;
+      }
+
+      try {
+        const profile = await apiClient.get<User>(
+          "/users/profile/me",
+          currentToken,
+        );
+        if (!active) return;
+        saveUser(profile as unknown as Record<string, unknown>);
+        emitAuthStoreChange();
+      } catch {
+        if (!active) return;
+        clearAuth();
+        emitAuthStoreChange();
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    void rehydrate();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Extraer el locale del pathname actual
   const getLocaleFromPath = useCallback(() => {

@@ -1,6 +1,12 @@
 import { Reflector } from '@nestjs/core';
 import { RolesGuard } from './roles.guard';
 import { UserRole } from '../../users/entities/user.entity';
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import {
+  AUTHENTICATED_KEY,
+  AuthenticatedPolicy,
+} from '../decorators/authenticated.decorator';
+import { ROLES_KEY } from '../decorators/roles.decorator';
 
 describe('RolesGuard', () => {
   const reflector = {
@@ -14,50 +20,90 @@ describe('RolesGuard', () => {
       switchToHttp: () => ({ getRequest: () => req }),
     }) as any;
 
+  const setPolicy = ({
+    isPublic = false,
+    authenticated,
+    roles,
+  }: {
+    isPublic?: boolean;
+    authenticated?: AuthenticatedPolicy;
+    roles?: UserRole[];
+  }) => {
+    (reflector.getAllAndOverride as jest.Mock).mockImplementation(
+      (key: string) => {
+        if (key === IS_PUBLIC_KEY) return isPublic;
+        if (key === AUTHENTICATED_KEY) return authenticated;
+        if (key === ROLES_KEY) return roles;
+        return undefined;
+      },
+    );
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('allows public routes and routes without roles', () => {
+  it('allows public routes without a user', () => {
     const guard = new RolesGuard(reflector);
-    reflector.getAllAndOverride = jest
-      .fn()
-      .mockReturnValueOnce(true)
-      .mockReturnValueOnce(null);
+    setPolicy({ isPublic: true });
     expect(guard.canActivate(makeContext({}))).toBe(true);
-
-    reflector.getAllAndOverride = jest
-      .fn()
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce(undefined);
-    expect(
-      guard.canActivate(makeContext({ user: { role: UserRole.ADMIN } })),
-    ).toBe(true);
   });
 
-  it('allows when no user and evaluates role checks when user exists', () => {
+  it('denies routes without an explicit authorization policy', () => {
     const guard = new RolesGuard(reflector);
-    reflector.getAllAndOverride = jest
-      .fn()
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce([UserRole.ADMIN]);
-    expect(guard.canActivate(makeContext({}))).toBe(true);
-
-    reflector.getAllAndOverride = jest
-      .fn()
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce([UserRole.ADMIN]);
+    setPolicy({});
     expect(
-      guard.canActivate(makeContext({ user: { role: UserRole.OWNER } })),
+      guard.canActivate(makeContext({ user: { role: UserRole.ADMIN } })),
     ).toBe(false);
   });
 
-  it('grants staff admin inheritance except /users path', () => {
+  it('requires a user for authenticated and role-protected routes', () => {
     const guard = new RolesGuard(reflector);
-    reflector.getAllAndOverride = jest
-      .fn()
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce([UserRole.ADMIN]);
+    setPolicy({ authenticated: 'self-service' });
+    expect(guard.canActivate(makeContext({}))).toBe(false);
+
+    setPolicy({ roles: [UserRole.ADMIN] });
+    expect(guard.canActivate(makeContext({}))).toBe(false);
+  });
+
+  it('allows authenticated self-service without staff module permissions', () => {
+    const guard = new RolesGuard(reflector);
+    setPolicy({ authenticated: 'self-service' });
+    expect(
+      guard.canActivate(
+        makeContext({
+          path: '/users/profile/me',
+          user: { role: UserRole.STAFF, permissions: {} },
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('enforces the declared module on authenticated staff routes', () => {
+    const guard = new RolesGuard(reflector);
+    setPolicy({ authenticated: 'properties' });
+    expect(
+      guard.canActivate(
+        makeContext({
+          path: '/units',
+          user: { role: UserRole.STAFF, permissions: { properties: true } },
+        }),
+      ),
+    ).toBe(true);
+
+    expect(
+      guard.canActivate(
+        makeContext({
+          path: '/units',
+          user: { role: UserRole.STAFF, permissions: { properties: false } },
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it('grants staff admin inheritance except on /users', () => {
+    const guard = new RolesGuard(reflector);
+    setPolicy({ roles: [UserRole.ADMIN] });
     expect(
       guard.canActivate(
         makeContext({
@@ -67,27 +113,19 @@ describe('RolesGuard', () => {
       ),
     ).toBe(true);
 
-    reflector.getAllAndOverride = jest
-      .fn()
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce([UserRole.ADMIN]);
     expect(
       guard.canActivate(
         makeContext({
           path: '/users',
-          user: { role: UserRole.STAFF, permissions: { users: false } },
+          user: { role: UserRole.STAFF, permissions: { users: true } },
         }),
       ),
     ).toBe(false);
   });
 
-  it('restricts staff access by module permissions', () => {
+  it('restricts staff role access by module permissions', () => {
     const guard = new RolesGuard(reflector);
-    reflector.getAllAndOverride = jest
-      .fn()
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce([UserRole.ADMIN, UserRole.STAFF]);
-
+    setPolicy({ roles: [UserRole.ADMIN, UserRole.STAFF] });
     expect(
       guard.canActivate(
         makeContext({
@@ -97,10 +135,23 @@ describe('RolesGuard', () => {
       ),
     ).toBe(false);
 
-    reflector.getAllAndOverride = jest
-      .fn()
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce([UserRole.ADMIN, UserRole.STAFF]);
+    expect(
+      guard.canActivate(
+        makeContext({
+          path: '/payments',
+          user: { role: UserRole.STAFF, permissions: {} },
+        }),
+      ),
+    ).toBe(false);
+
+    expect(
+      guard.canActivate(
+        makeContext({
+          path: '/unmapped-resource',
+          user: { role: UserRole.STAFF, permissions: { dashboard: true } },
+        }),
+      ),
+    ).toBe(false);
 
     expect(
       guard.canActivate(
@@ -110,19 +161,54 @@ describe('RolesGuard', () => {
         }),
       ),
     ).toBe(true);
+  });
 
-    reflector.getAllAndOverride = jest
-      .fn()
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce([UserRole.ADMIN, UserRole.STAFF]);
+  it.each([
+    ['/dashboard/stats', 'dashboard'],
+    ['/properties', 'properties'],
+    ['/owners', 'owners'],
+    ['/interested', 'interested'],
+    ['/tenants', 'tenants'],
+    ['/leases', 'leases'],
+    ['/payment-templates', 'templates'],
+    ['/payments', 'payments'],
+    ['/tenant-accounts/account-1', 'payments'],
+    ['/invoices', 'invoices'],
+    ['/buyers', 'sales'],
+    ['/reports', 'reports'],
+    ['/maintenance/tickets', 'maintenance'],
+    ['/communications/templates', 'communications'],
+    ['/bank-reconciliation/alerts', 'reconciliation'],
+    ['/settlements', 'settlements'],
+    ['/pending-actions', 'approvals'],
+    ['/ai/respond', 'ai'],
+  ])('applies staff permission A/B for %s', (path, permission) => {
+    const guard = new RolesGuard(reflector);
+    setPolicy({ roles: [UserRole.ADMIN, UserRole.STAFF] });
 
     expect(
       guard.canActivate(
         makeContext({
-          path: '/buyers',
-          user: { role: UserRole.STAFF, permissions: { sales: false } },
+          path,
+          user: { role: UserRole.STAFF, permissions: { [permission]: true } },
         }),
       ),
+    ).toBe(true);
+    expect(
+      guard.canActivate(
+        makeContext({
+          path,
+          user: { role: UserRole.STAFF, permissions: { [permission]: false } },
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it('rejects a role that is not explicitly allowed', () => {
+    const guard = new RolesGuard(reflector);
+    setPolicy({ roles: [UserRole.ADMIN] });
+    expect(
+      guard.canActivate(makeContext({ user: { role: UserRole.OWNER } })),
     ).toBe(false);
   });
 });

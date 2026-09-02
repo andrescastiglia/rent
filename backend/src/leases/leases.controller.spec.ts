@@ -47,7 +47,9 @@ describe('LeasesController', () => {
     });
     leasesService.renew.mockResolvedValue({ id: 'l2' });
 
-    await expect(controller.create({} as any)).resolves.toEqual({ id: 'l1' });
+    await expect(controller.create({} as any, req)).resolves.toEqual({
+      id: 'l1',
+    });
     await expect(controller.findAll({} as any, req)).resolves.toEqual({
       data: [],
     });
@@ -59,14 +61,14 @@ describe('LeasesController', () => {
       controller.updateTemplate('tpl1', {} as any, req),
     ).resolves.toEqual({ id: 'tpl1' });
     await expect(controller.findOne('l1', req)).resolves.toEqual({ id: 'l1' });
-    await expect(controller.update('l1', {} as any)).resolves.toEqual({
+    await expect(controller.update('l1', {} as any, req)).resolves.toEqual({
       id: 'l1',
     });
-    await expect(controller.renderDraft('l1', {} as any)).resolves.toEqual({
-      text: 'draft',
-    });
+    await expect(controller.renderDraft('l1', {} as any, req)).resolves.toEqual(
+      { text: 'draft' },
+    );
     await expect(
-      controller.updateDraftText('l1', { draftText: 'x' } as any),
+      controller.updateDraftText('l1', { draftText: 'x' } as any, req),
     ).resolves.toEqual({ id: 'l1' });
     await expect(
       controller.confirmDraft('l1', { finalText: 'f' } as any, req),
@@ -76,12 +78,12 @@ describe('LeasesController', () => {
       status: 'active',
     });
     await expect(
-      controller.terminate('l1', { reason: 'x' } as any),
+      controller.terminate('l1', { reason: 'x' } as any, req),
     ).resolves.toEqual({ id: 'l1', status: 'finalized' });
     await expect(
-      controller.finalize('l1', { reason: 'x' } as any),
+      controller.finalize('l1', { reason: 'x' } as any, req),
     ).resolves.toEqual({ id: 'l1', status: 'finalized' });
-    await expect(controller.renew('l1', {} as any)).resolves.toEqual({
+    await expect(controller.renew('l1', {} as any, req)).resolves.toEqual({
       id: 'l2',
     });
   });
@@ -92,7 +94,7 @@ describe('LeasesController', () => {
     ).toThrow(BadRequestException);
 
     leasesService.remove.mockResolvedValue(undefined);
-    await expect(controller.remove('l1')).resolves.toEqual({
+    await expect(controller.remove('l1', req)).resolves.toEqual({
       message: 'Lease deleted successfully',
     });
   });

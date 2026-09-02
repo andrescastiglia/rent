@@ -1268,37 +1268,21 @@ export class DashboardService {
     query: SelectQueryBuilder<{ id: string }>,
     user: RequestUser,
     ownerAlias: string,
-    ownerUserAlias: string,
+    _ownerUserAlias: string,
   ) {
-    const email = (user.email ?? '').trim().toLowerCase();
-    const phone = (user.phone ?? '').trim();
-
-    query.andWhere(
-      `(${ownerAlias}.user_id = :scopeUserId OR LOWER(${ownerUserAlias}.email) = :scopeEmail OR (:scopePhone <> '' AND ${ownerUserAlias}.phone = :scopePhone))`,
-      {
-        scopeUserId: user.id,
-        scopeEmail: email,
-        scopePhone: phone,
-      },
-    );
+    query.andWhere(`${ownerAlias}.user_id = :scopeUserId`, {
+      scopeUserId: user.id,
+    });
   }
 
   private applyTenantScope(
     query: SelectQueryBuilder<{ id: string }>,
     user: RequestUser,
     tenantAlias: string,
-    tenantUserAlias: string,
+    _tenantUserAlias: string,
   ) {
-    const email = (user.email ?? '').trim().toLowerCase();
-    const phone = (user.phone ?? '').trim();
-
-    query.andWhere(
-      `(${tenantAlias}.user_id = :scopeUserId OR LOWER(${tenantUserAlias}.email) = :scopeEmail OR (:scopePhone <> '' AND ${tenantUserAlias}.phone = :scopePhone))`,
-      {
-        scopeUserId: user.id,
-        scopeEmail: email,
-        scopePhone: phone,
-      },
-    );
+    query.andWhere(`${tenantAlias}.user_id = :scopeUserId`, {
+      scopeUserId: user.id,
+    });
   }
 }

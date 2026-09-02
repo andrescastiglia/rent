@@ -1,12 +1,10 @@
-name: Batch Scheduler
+name: Batch operations
 
 on:
-  # Los schedules productivos corren en el crontab del usuario deploy en oracle.
-  # Este workflow queda solo para ejecuciones manuales desde GitHub Actions.
   workflow_dispatch:
     inputs:
       job:
-        description: 'Job a ejecutar'
+        description: Job to run
         required: true
         type: choice
         options:
@@ -19,268 +17,69 @@ on:
           - reports
           - process-settlements
       dry_run:
-        description: 'Modo dry-run (no escribe en la base de datos)'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-          - 'true'
-          - 'false'
-      extra_args:
-        description: 'Argumentos extra para el job (ej: --lease-id uuid)'
-        required: false
-        type: string
+        description: Run without persistent side effects
+        required: true
+        default: true
+        type: boolean
 
-env:
-  NODE_VERSION: '22.22.1'
+permissions:
+  contents: read
+
+concurrency:
+  group: production-batch-${{ inputs.job }}
+  cancel-in-progress: false
 
 jobs:
-  # ─────────────────────────────────────────────────────────────
-  # JOB: billing (genera facturas para contratos activos)
-  # Corre: día 1 de cada mes + manual
-  # ─────────────────────────────────────────────────────────────
-  billing:
-    name: Batch — Billing
+  run:
+    name: Run ${{ inputs.job }}
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'schedule' && github.event.schedule == '0 6 1 * *') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'billing')
-    environment: production
+    timeout-minutes: 30
+    environment: production-ops
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - name: Checkout main revision
+        uses: actions/checkout@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: batch/package-lock.json
-      - run: npm ci
-        working-directory: batch
-      - name: Run billing job
-        working-directory: batch
-        run: |
-          ARGS="billing"
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
-          if [ -n "${{ github.event.inputs.extra_args }}" ]; then ARGS="$ARGS ${{ github.event.inputs.extra_args }}"; fi
-          node dist/index.js $ARGS || npx ts-node src/index.ts $ARGS
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          NODE_ENV: production
+          ref: ${{ github.sha }}
 
-  # ─────────────────────────────────────────────────────────────
-  # JOB: overdue (marca facturas vencidas)
-  # Corre: diario + manual
-  # ─────────────────────────────────────────────────────────────
-  overdue:
-    name: Batch — Overdue
-    runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'schedule' && github.event.schedule == '0 7 * * *') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'overdue')
-    environment: production
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - name: Setup Node
+        uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .node-version
           cache: npm
           cache-dependency-path: batch/package-lock.json
-      - run: npm ci
-        working-directory: batch
-      - name: Run overdue job
-        working-directory: batch
-        run: |
-          ARGS="overdue"
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
-          if [ -n "${{ github.event.inputs.extra_args }}" ]; then ARGS="$ARGS ${{ github.event.inputs.extra_args }}"; fi
-          node dist/index.js $ARGS || npx ts-node src/index.ts $ARGS
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          NODE_ENV: production
 
-  # ─────────────────────────────────────────────────────────────
-  # JOB: reminders (envía recordatorios de pago por WhatsApp)
-  # Corre: diario + manual
-  # ─────────────────────────────────────────────────────────────
-  reminders:
-    name: Batch — Reminders
-    runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'schedule' && github.event.schedule == '0 8 * * *') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'reminders')
-    environment: production
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: batch/package-lock.json
-      - run: npm ci
+      - name: Install dependencies
         working-directory: batch
-      - name: Run reminders job
+        run: npm ci
+
+      - name: Build once
         working-directory: batch
-        run: |
-          ARGS="reminders"
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
-          if [ -n "${{ github.event.inputs.extra_args }}" ]; then ARGS="$ARGS ${{ github.event.inputs.extra_args }}"; fi
-          node dist/index.js $ARGS || npx ts-node src/index.ts $ARGS
+        run: npm run build
+
+      - name: Run allowlisted command
+        working-directory: batch
         env:
+          JOB: ${{ inputs.job }}
+          DRY_RUN: ${{ inputs.dry_run }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           WHATSAPP_API_URL: ${{ secrets.WHATSAPP_API_URL }}
           WHATSAPP_API_TOKEN: ${{ secrets.WHATSAPP_API_TOKEN }}
           NODE_ENV: production
-
-  # ─────────────────────────────────────────────────────────────
-  # JOB: lease-renewal-alerts (alertas de renovación de contratos)
-  # Corre: día 1 de cada mes + manual
-  # ─────────────────────────────────────────────────────────────
-  lease-renewal-alerts:
-    name: Batch — Lease Renewal Alerts
-    runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'schedule' && github.event.schedule == '0 9 1 * *') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'lease-renewal-alerts')
-    environment: production
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: batch/package-lock.json
-      - run: npm ci
-        working-directory: batch
-      - name: Run lease-renewal-alerts job
-        working-directory: batch
         run: |
-          ARGS="lease-renewal-alerts"
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
-          if [ -n "${{ github.event.inputs.extra_args }}" ]; then ARGS="$ARGS ${{ github.event.inputs.extra_args }}"; fi
-          node dist/index.js $ARGS || npx ts-node src/index.ts $ARGS
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          WHATSAPP_API_URL: ${{ secrets.WHATSAPP_API_URL }}
-          WHATSAPP_API_TOKEN: ${{ secrets.WHATSAPP_API_TOKEN }}
-          NODE_ENV: production
+          set -euo pipefail
 
-  # ─────────────────────────────────────────────────────────────
-  # JOB: sync-indices (sincroniza índices de inflación BCRA/IPC)
-  # Corre: lunes + manual
-  # ─────────────────────────────────────────────────────────────
-  sync-indices:
-    name: Batch — Sync Indices
-    runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'schedule' && github.event.schedule == '0 5 * * 1') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'sync-indices')
-    environment: production
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: batch/package-lock.json
-      - run: npm ci
-        working-directory: batch
-      - name: Run sync-indices job
-        working-directory: batch
-        run: |
-          ARGS="sync-indices"
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
-          if [ -n "${{ github.event.inputs.extra_args }}" ]; then ARGS="$ARGS ${{ github.event.inputs.extra_args }}"; fi
-          node dist/index.js $ARGS || npx ts-node src/index.ts $ARGS
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          NODE_ENV: production
+          case "$JOB" in
+            billing|overdue|reminders|lease-renewal-alerts|sync-indices|sync-rates|reports|process-settlements) ;;
+            *)
+              echo "Unsupported batch job: $JOB" >&2
+              exit 1
+              ;;
+          esac
 
-  # ─────────────────────────────────────────────────────────────
-  # JOB: sync-rates (sincroniza tipos de cambio BCRA)
-  # Corre: días laborables + manual
-  # ─────────────────────────────────────────────────────────────
-  sync-rates:
-    name: Batch — Sync Rates
-    runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'schedule' && github.event.schedule == '0 5 * * 1-5') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'sync-rates')
-    environment: production
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: batch/package-lock.json
-      - run: npm ci
-        working-directory: batch
-      - name: Run sync-rates job
-        working-directory: batch
-        run: |
-          ARGS="sync-rates"
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
-          if [ -n "${{ github.event.inputs.extra_args }}" ]; then ARGS="$ARGS ${{ github.event.inputs.extra_args }}"; fi
-          node dist/index.js $ARGS || npx ts-node src/index.ts $ARGS
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          NODE_ENV: production
+          args=("$JOB")
+          if [ "$DRY_RUN" = true ]; then
+            args+=(--dry-run)
+          fi
 
-  # ─────────────────────────────────────────────────────────────
-  # JOB: reports (genera reportes mensuales de liquidaciones)
-  # Solo manual (se pide el mes a generar)
-  # ─────────────────────────────────────────────────────────────
-  reports:
-    name: Batch — Reports
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'reports'
-    environment: production
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: batch/package-lock.json
-      - run: npm ci
-        working-directory: batch
-      - name: Run reports job
-        working-directory: batch
-        run: |
-          ARGS="reports"
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
-          if [ -n "${{ github.event.inputs.extra_args }}" ]; then ARGS="$ARGS ${{ github.event.inputs.extra_args }}"; fi
-          node dist/index.js $ARGS || npx ts-node src/index.ts $ARGS
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          NODE_ENV: production
-
-  # ─────────────────────────────────────────────────────────────
-  # JOB: process-settlements (liquida propietarios)
-  # Corre: día 5 de cada mes + manual
-  # ─────────────────────────────────────────────────────────────
-  process-settlements:
-    name: Batch — Process Settlements
-    runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'schedule' && github.event.schedule == '0 10 5 * *') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'process-settlements')
-    environment: production
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: batch/package-lock.json
-      - run: npm ci
-        working-directory: batch
-      - name: Run process-settlements job
-        working-directory: batch
-        run: |
-          ARGS="process-settlements"
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
-          if [ -n "${{ github.event.inputs.extra_args }}" ]; then ARGS="$ARGS ${{ github.event.inputs.extra_args }}"; fi
-          node dist/index.js $ARGS || npx ts-node src/index.ts $ARGS
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          NODE_ENV: production
+          node dist/index.js "${args[@]}"

@@ -30,7 +30,13 @@ export type UserModulePermissionKey =
   | 'invoices'
   | 'sales'
   | 'reports'
-  | 'users';
+  | 'users'
+  | 'maintenance'
+  | 'communications'
+  | 'reconciliation'
+  | 'settlements'
+  | 'approvals'
+  | 'ai';
 
 export type UserModulePermissions = Partial<
   Record<UserModulePermissionKey, boolean>
@@ -60,7 +66,7 @@ export class User {
   })
   email: string | null;
 
-  @Column({ name: 'password_hash' })
+  @Column({ name: 'password_hash', select: false })
   passwordHash: string;
 
   @Column({ name: 'first_name' })
@@ -105,13 +111,19 @@ export class User {
   @Column({ name: 'last_login_at', type: 'timestamptz', nullable: true })
   lastLoginAt: Date;
 
-  @Column({ name: 'password_reset_token', type: 'varchar', nullable: true })
+  @Column({
+    name: 'password_reset_token',
+    type: 'varchar',
+    nullable: true,
+    select: false,
+  })
   passwordResetToken: string;
 
   @Column({
     name: 'password_reset_expires',
     type: 'timestamptz',
     nullable: true,
+    select: false,
   })
   passwordResetExpires: Date;
 

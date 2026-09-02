@@ -53,6 +53,13 @@ describe('SettlementsService', () => {
       expect(sql).toContain('s.owner_id');
     });
 
+    it('returns no settlements when an owner has no linked profile', async () => {
+      ownersRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.findAll('c1', {}, ownerUser)).resolves.toEqual([]);
+      expect(dataSource.query).not.toHaveBeenCalled();
+    });
+
     it('filters by status when provided', async () => {
       dataSource.query.mockResolvedValue([]);
       await service.findAll(
@@ -68,13 +75,36 @@ describe('SettlementsService', () => {
   describe('findOne', () => {
     it('returns settlement when found', async () => {
       dataSource.query.mockResolvedValue([{ id: 's1' }]);
-      const result = await service.findOne('s1', 'c1');
+      const result = await service.findOne('s1', 'c1', adminUser);
       expect(result).toEqual({ id: 's1' });
+    });
+
+    it('scopes an owner lookup to its linked owner profile', async () => {
+      ownersRepository.findOne.mockResolvedValue({ id: 'o1' });
+      dataSource.query.mockResolvedValue([{ id: 's1' }]);
+
+      await service.findOne('s1', 'c1', ownerUser);
+
+      const [sql, params] = dataSource.query.mock.calls[0] as [
+        string,
+        string[],
+      ];
+      expect(sql).toContain('s.owner_id = $3');
+      expect(params).toEqual(['c1', 's1', 'o1']);
+    });
+
+    it('hides settlements when an owner has no linked profile', async () => {
+      ownersRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.findOne('s1', 'c1', ownerUser)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(dataSource.query).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException when not found', async () => {
       dataSource.query.mockResolvedValue([]);
-      await expect(service.findOne('s1', 'c1')).rejects.toThrow(
+      await expect(service.findOne('s1', 'c1', adminUser)).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -110,6 +140,19 @@ describe('SettlementsService', () => {
       await service.getSummary('c1', ownerUser);
       const [, params] = dataSource.query.mock.calls[0] as [string, string[]];
       expect(params).toContain('o1');
+    });
+
+    it('returns an empty summary when an owner has no linked profile', async () => {
+      ownersRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.getSummary('c1', ownerUser)).resolves.toEqual({
+        totalPending: 0,
+        totalCompleted: 0,
+        lastSettlementDate: null,
+        pendingCount: 0,
+        completedCount: 0,
+      });
+      expect(dataSource.query).not.toHaveBeenCalled();
     });
   });
 });

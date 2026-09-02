@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Post, Request } from '@nestjs/common';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { RejectPendingActionDto } from './dto/reject-pending-action.dto';
 import { PendingActionsService } from './pending-actions.service';
@@ -10,6 +11,7 @@ type StaffRequest = {
 
 @Controller('pending-actions')
 @Roles(UserRole.ADMIN, UserRole.STAFF)
+@Authenticated('approvals')
 export class PendingActionsController {
   constructor(private readonly service: PendingActionsService) {}
 

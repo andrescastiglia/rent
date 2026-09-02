@@ -240,16 +240,12 @@ describe('DashboardService', () => {
       expect.stringContaining('owner.user_id = :scopeUserId'),
       expect.objectContaining({
         scopeUserId: 'owner-user',
-        scopeEmail: 'owner@test.dev',
-        scopePhone: '1234',
       }),
     );
     expect(commissionsQb.andWhere).toHaveBeenCalledWith(
       expect.stringContaining('owner.user_id = :scopeUserId'),
       expect.objectContaining({
         scopeUserId: 'owner-user',
-        scopeEmail: 'owner@test.dev',
-        scopePhone: '1234',
       }),
     );
     expect(dataSource.query).toHaveBeenCalledWith(

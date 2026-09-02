@@ -89,6 +89,10 @@ export default function NewTenantActivityScreen() {
         await whatsappApi.sendMessage({
           to: tenantQuery.data.phone.trim(),
           text,
+          activityEntity: 'tenant',
+          activityId: created.id,
+          relatedEntityType: 'tenant',
+          relatedEntityId: id,
         });
       }
 

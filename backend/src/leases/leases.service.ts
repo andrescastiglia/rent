@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -44,10 +45,12 @@ import {
 import { ImportLeaseTemplateDocxDto } from './dto/import-lease-template-docx.dto';
 import { ImportCurrentLeaseDto } from './dto/import-current-lease.dto';
 import { Buyer } from '../buyers/entities/buyer.entity';
+import { Tenant } from '../tenants/entities/tenant.entity';
 
 type RequestUser = {
   id: string;
   role: UserRole;
+  companyId: string;
   email?: string | null;
   phone?: string | null;
 };
@@ -77,30 +80,33 @@ export class LeasesService {
     private readonly interestedProfilesRepository: Repository<InterestedProfile>,
     @InjectRepository(Buyer)
     private readonly buyersRepository: Repository<Buyer>,
+    @InjectRepository(Tenant)
+    private readonly tenantsRepository: Repository<Tenant>,
     @InjectRepository(Document)
     private readonly documentsRepository: Repository<Document>,
     private readonly pdfService: PdfService,
     private readonly tenantAccountsService: TenantAccountsService,
   ) {}
 
-  async create(createLeaseDto: CreateLeaseDto): Promise<Lease> {
+  async create(
+    createLeaseDto: CreateLeaseDto,
+    user: RequestUser,
+  ): Promise<Lease> {
+    this.requireCompanyScope(user);
+    const scopedDto = { ...createLeaseDto, companyId: user.companyId };
     const { contractType, template, property } =
-      await this.prepareCreateLeaseContext(createLeaseDto);
+      await this.prepareCreateLeaseContext(scopedDto, user.companyId);
 
     const lease = this.leasesRepository.create(
-      this.buildCreateLeaseData(
-        createLeaseDto,
-        contractType,
-        property,
-        template,
-      ),
+      this.buildCreateLeaseData(scopedDto, contractType, property, template),
     );
     const saved = await this.leasesRepository.save(lease);
-    return this.fetchCreatedLease(saved.id, template?.id);
+    return this.fetchCreatedLease(saved.id, user, template?.id);
   }
 
   private async prepareCreateLeaseContext(
     createLeaseDto: CreateLeaseDto,
+    companyId: string,
   ): Promise<{
     contractType: ContractType;
     template: LeaseContractTemplate | null;
@@ -114,11 +120,15 @@ export class LeasesService {
     );
     this.ensureRequestedTemplateExists(createLeaseDto.templateId, template);
 
-    const property = await this.findPropertyOrThrow(createLeaseDto.propertyId);
+    const property = await this.findPropertyOrThrow(
+      createLeaseDto.propertyId,
+      companyId,
+    );
     await this.validateCreateForContractType(
       contractType,
       createLeaseDto,
       property.id,
+      companyId,
     );
 
     return { contractType, template, property };
@@ -126,13 +136,14 @@ export class LeasesService {
 
   private fetchCreatedLease(
     leaseId: string,
+    user: RequestUser,
     templateId?: string | null,
   ): Promise<Lease> {
     if (templateId) {
-      return this.renderDraft(leaseId, templateId);
+      return this.renderDraft(leaseId, user, templateId);
     }
 
-    return this.findOne(leaseId);
+    return this.findOne(leaseId, user.companyId);
   }
 
   private ensureRequestedTemplateExists(
@@ -148,9 +159,12 @@ export class LeasesService {
     );
   }
 
-  private async findPropertyOrThrow(propertyId: string): Promise<Property> {
+  private async findPropertyOrThrow(
+    propertyId: string,
+    companyId: string,
+  ): Promise<Property> {
     const property = await this.propertiesRepository.findOne({
-      where: { id: propertyId, deletedAt: IsNull() },
+      where: { id: propertyId, companyId, deletedAt: IsNull() },
     });
 
     if (property) {
@@ -183,7 +197,7 @@ export class LeasesService {
       ...createLeaseDto,
       contractType,
       propertyId: property.id,
-      ownerId: createLeaseDto.ownerId || property.ownerId,
+      ownerId: property.ownerId,
       status: LeaseStatus.DRAFT,
       templateId: template?.id ?? null,
       templateName: template?.name ?? null,
@@ -216,8 +230,9 @@ export class LeasesService {
 
   async findAll(
     filters: LeaseFiltersDto,
-    user?: RequestUser,
+    user: RequestUser,
   ): Promise<{ data: Lease[]; total: number; page: number; limit: number }> {
+    this.requireCompanyScope(user);
     const {
       propertyId,
       tenantId,
@@ -240,7 +255,10 @@ export class LeasesService {
       .leftJoinAndSelect('tenant.user', 'tenantUser')
       .leftJoinAndSelect('lease.buyer', 'buyer')
       .leftJoinAndSelect('buyer.user', 'buyerUser')
-      .where('lease.deleted_at IS NULL');
+      .where('lease.deleted_at IS NULL')
+      .andWhere('lease.company_id = :companyId', {
+        companyId: user.companyId,
+      });
 
     if (propertyId) {
       query.andWhere('lease.property_id = :propertyId', { propertyId });
@@ -290,9 +308,7 @@ export class LeasesService {
       );
     }
 
-    if (user) {
-      this.applyVisibilityScope(query, user);
-    }
+    this.applyVisibilityScope(query, user);
 
     query
       .orderBy('lease.createdAt', 'DESC')
@@ -309,9 +325,12 @@ export class LeasesService {
     };
   }
 
-  async findOne(id: string): Promise<Lease> {
+  async findOne(id: string, companyId: string): Promise<Lease> {
+    if (!companyId) {
+      throw new ForbiddenException('Company scope required');
+    }
     const lease = await this.leasesRepository.findOne({
-      where: { id },
+      where: { id, companyId, deletedAt: IsNull() },
       relations: [
         'property',
         'property.owner',
@@ -334,6 +353,7 @@ export class LeasesService {
   }
 
   async findOneScoped(id: string, user: RequestUser): Promise<Lease> {
+    this.requireCompanyScope(user);
     const query = this.leasesRepository
       .createQueryBuilder('lease')
       .leftJoinAndSelect('lease.property', 'property')
@@ -347,7 +367,10 @@ export class LeasesService {
       .leftJoinAndSelect('lease.previousLease', 'previousLease')
       .leftJoinAndSelect('lease.amendments', 'amendments')
       .where('lease.id = :id', { id })
-      .andWhere('lease.deleted_at IS NULL');
+      .andWhere('lease.deleted_at IS NULL')
+      .andWhere('lease.company_id = :companyId', {
+        companyId: user.companyId,
+      });
 
     this.applyVisibilityScope(query, user);
 
@@ -359,26 +382,39 @@ export class LeasesService {
     return lease;
   }
 
-  async update(id: string, updateLeaseDto: UpdateLeaseDto): Promise<Lease> {
-    const lease = await this.findOne(id);
+  async update(
+    id: string,
+    updateLeaseDto: UpdateLeaseDto,
+    user: RequestUser,
+  ): Promise<Lease> {
+    const lease = await this.findOne(id, user.companyId);
 
     if (lease.status !== LeaseStatus.DRAFT) {
-      return this.createRevision(lease, updateLeaseDto);
+      return this.createRevision(lease, updateLeaseDto, user);
     }
 
     const effectiveType = updateLeaseDto.contractType ?? lease.contractType;
-    await this.applyUpdateToLease(lease, updateLeaseDto, effectiveType);
+    await this.applyUpdateToLease(
+      lease,
+      updateLeaseDto,
+      effectiveType,
+      user.companyId,
+    );
     const saved = await this.leasesRepository.save(lease);
 
     if (saved.templateId) {
-      return this.renderDraft(saved.id, saved.templateId);
+      return this.renderDraft(saved.id, user, saved.templateId);
     }
 
-    return this.findOne(saved.id);
+    return this.findOne(saved.id, user.companyId);
   }
 
-  async renderDraft(leaseId: string, templateId?: string): Promise<Lease> {
-    const lease = await this.findOne(leaseId);
+  async renderDraft(
+    leaseId: string,
+    user: RequestUser,
+    templateId?: string,
+  ): Promise<Lease> {
+    const lease = await this.findOne(leaseId, user.companyId);
     if (lease.status !== LeaseStatus.DRAFT) {
       throw new BadRequestException(
         'Only draft contracts can render templates',
@@ -404,15 +440,16 @@ export class LeasesService {
     lease.draftContractText = content;
     lease.draftContractFormat = format;
     await this.leasesRepository.save(lease);
-    return this.findOne(lease.id);
+    return this.findOne(lease.id, user.companyId);
   }
 
   async updateDraftText(
     id: string,
     draftText: string,
+    user: RequestUser,
     draftFormat?: LeaseContentFormat,
   ): Promise<Lease> {
-    const lease = await this.findOne(id);
+    const lease = await this.findOne(id, user.companyId);
     if (lease.status !== LeaseStatus.DRAFT) {
       throw new BadRequestException('Only draft contracts can be edited');
     }
@@ -421,16 +458,17 @@ export class LeasesService {
     lease.draftContractText = this.normalizeContractBody(draftText, nextFormat);
     lease.draftContractFormat = nextFormat;
     await this.leasesRepository.save(lease);
-    return this.findOne(id);
+    return this.findOne(id, user.companyId);
   }
 
   async confirmDraft(
     id: string,
     userId: string,
+    user: RequestUser,
     finalText?: string,
     finalFormat?: LeaseContentFormat,
   ): Promise<Lease> {
-    const lease = await this.findOne(id);
+    const lease = await this.findOne(id, user.companyId);
     if (lease.status !== LeaseStatus.DRAFT) {
       throw new BadRequestException('Only draft contracts can be confirmed');
     }
@@ -457,6 +495,7 @@ export class LeasesService {
     if (lease.contractType === ContractType.RENTAL && lease.propertyId) {
       const activeLease = await this.leasesRepository.findOne({
         where: {
+          companyId: user.companyId,
           propertyId: lease.propertyId,
           contractType: ContractType.RENTAL,
           status: LeaseStatus.ACTIVE,
@@ -477,21 +516,26 @@ export class LeasesService {
     lease.draftContractFormat = formatToConfirm;
 
     if (lease.contractType === ContractType.RENTAL && lease.propertyId) {
-      await this.propertiesRepository.update(lease.propertyId, {
-        operationState: PropertyOperationState.RENTED,
-      });
+      await this.propertiesRepository.update(
+        { id: lease.propertyId, companyId: user.companyId },
+        { operationState: PropertyOperationState.RENTED },
+      );
     }
 
     if (lease.contractType === ContractType.SALE && lease.propertyId) {
-      await this.propertiesRepository.update(lease.propertyId, {
-        operationState: PropertyOperationState.SOLD,
-      });
+      await this.propertiesRepository.update(
+        { id: lease.propertyId, companyId: user.companyId },
+        { operationState: PropertyOperationState.SOLD },
+      );
     }
 
     const savedLease = await this.leasesRepository.save(lease);
 
     if (savedLease.contractType === ContractType.RENTAL) {
-      await this.tenantAccountsService.createForLease(savedLease.id);
+      await this.tenantAccountsService.createForLease(
+        savedLease.id,
+        savedLease.companyId,
+      );
     }
 
     try {
@@ -507,15 +551,23 @@ export class LeasesService {
       console.error('Failed to generate contract PDF:', error);
     }
 
-    return this.findOne(savedLease.id);
+    return this.findOne(savedLease.id, user.companyId);
   }
 
-  async activate(id: string, userId: string): Promise<Lease> {
-    return this.confirmDraft(id, userId);
+  async activate(
+    id: string,
+    userId: string,
+    user: RequestUser,
+  ): Promise<Lease> {
+    return this.confirmDraft(id, userId, user);
   }
 
-  async terminate(id: string, reason?: string): Promise<Lease> {
-    const lease = await this.findOne(id);
+  async terminate(
+    id: string,
+    user: RequestUser,
+    reason?: string,
+  ): Promise<Lease> {
+    const lease = await this.findOne(id, user.companyId);
 
     if (lease.status !== LeaseStatus.ACTIVE) {
       throw new BadRequestException('Only active contracts can be finalized');
@@ -527,16 +579,21 @@ export class LeasesService {
     }
 
     if (lease.contractType === ContractType.RENTAL && lease.propertyId) {
-      await this.propertiesRepository.update(lease.propertyId, {
-        operationState: PropertyOperationState.AVAILABLE,
-      });
+      await this.propertiesRepository.update(
+        { id: lease.propertyId, companyId: user.companyId },
+        { operationState: PropertyOperationState.AVAILABLE },
+      );
     }
 
     return this.leasesRepository.save(lease);
   }
 
-  async renew(id: string, newTerms: Partial<CreateLeaseDto>): Promise<Lease> {
-    const oldLease = await this.findOne(id);
+  async renew(
+    id: string,
+    newTerms: Partial<CreateLeaseDto>,
+    user: RequestUser,
+  ): Promise<Lease> {
+    const oldLease = await this.findOne(id, user.companyId);
 
     if (
       oldLease.status !== LeaseStatus.ACTIVE &&
@@ -609,7 +666,7 @@ export class LeasesService {
       notes: newTerms.notes || oldLease.notes,
     };
 
-    return this.create(payload);
+    return this.create(payload, user);
   }
 
   private computeRenewedEndDate(
@@ -752,20 +809,29 @@ export class LeasesService {
   async importCurrentContract(
     file: UploadedLeaseFile,
     dto: ImportCurrentLeaseDto,
-    companyId: string,
+    user: RequestUser,
   ): Promise<Lease> {
+    this.requireCompanyScope(user);
     if (!file) {
       throw new BadRequestException('Contract file is required');
     }
 
     const contractType = dto.contractType ?? ContractType.RENTAL;
-    const property = await this.findPropertyOrThrow(dto.propertyId);
-    await this.ensureImportContractParty(dto, property.id, contractType);
+    const property = await this.findPropertyOrThrow(
+      dto.propertyId,
+      user.companyId,
+    );
+    await this.ensureImportContractParty(
+      dto,
+      property.id,
+      contractType,
+      user.companyId,
+    );
 
     const extractedContract = await this.extractTextFromUploadedContract(file);
     const lease = this.buildImportedLeaseEntity(
       dto,
-      companyId,
+      user.companyId,
       property,
       contractType,
       extractedContract,
@@ -775,18 +841,18 @@ export class LeasesService {
     const document = await this.createUploadedContractDocument(
       savedLease,
       file,
-      companyId,
+      user.companyId,
     );
 
     savedLease.contractPdfUrl = document.fileUrl;
     await this.leasesRepository.save(savedLease);
     await this.syncImportedLeasePropertyState(savedLease);
 
-    return this.findOne(savedLease.id);
+    return this.findOne(savedLease.id, user.companyId);
   }
 
-  async remove(id: string): Promise<void> {
-    const lease = await this.findOne(id);
+  async remove(id: string, user: RequestUser): Promise<void> {
+    const lease = await this.findOne(id, user.companyId);
 
     if (lease.status === LeaseStatus.ACTIVE) {
       throw new BadRequestException(
@@ -794,12 +860,13 @@ export class LeasesService {
       );
     }
 
-    await this.leasesRepository.softDelete(id);
+    await this.leasesRepository.softDelete({ id, companyId: user.companyId });
   }
 
   private async createRevision(
     original: Lease,
     dto: UpdateLeaseDto,
+    user: RequestUser,
   ): Promise<Lease> {
     const effectiveType = dto.contractType ?? original.contractType;
     const revision = this.leasesRepository.create({
@@ -863,11 +930,11 @@ export class LeasesService {
       contractPdfUrl: null,
     });
 
-    await this.applyUpdateToLease(revision, dto, effectiveType);
+    await this.applyUpdateToLease(revision, dto, effectiveType, user.companyId);
     const saved = await this.leasesRepository.save(revision);
 
     if (saved.templateId) {
-      return this.renderDraft(saved.id, saved.templateId);
+      return this.renderDraft(saved.id, user, saved.templateId);
     }
 
     if (!saved.draftContractText && original.confirmedContractText) {
@@ -879,18 +946,20 @@ export class LeasesService {
       await this.leasesRepository.save(saved);
     }
 
-    return this.findOne(saved.id);
+    return this.findOne(saved.id, user.companyId);
   }
 
   private async applyUpdateToLease(
     lease: Lease,
     dto: UpdateLeaseDto,
     effectiveType: ContractType,
+    companyId: string,
   ): Promise<void> {
-    await this.normalizeBuyerInputs(dto);
+    await this.normalizeBuyerInputs(dto, companyId);
     const previousContractType = lease.contractType;
     this.validateContractTypeTransition(lease, dto, effectiveType);
-    await this.applyPropertyUpdate(lease, dto);
+    await this.applyPropertyUpdate(lease, dto, companyId);
+    await this.validatePartiesForCompany(dto, effectiveType, companyId);
     await this.applyTemplateUpdate(
       lease,
       dto,
@@ -905,9 +974,11 @@ export class LeasesService {
     contractType: ContractType,
     dto: CreateLeaseDto,
     propertyId: string,
+    companyId: string,
   ): Promise<void> {
     if (contractType === ContractType.RENTAL) {
       this.validateRentalCreate(dto);
+      await this.validateTenantForCompany(dto.tenantId!, companyId);
       await this.ensureNoActiveRentalLease(propertyId);
       await this.ensureNoOpenLeaseForParty(
         propertyId,
@@ -917,8 +988,8 @@ export class LeasesService {
       return;
     }
 
-    await this.normalizeBuyerInputs(dto);
-    await this.validateSaleCreate(dto);
+    await this.normalizeBuyerInputs(dto, companyId);
+    await this.validateSaleCreate(dto, companyId);
     await this.ensureNoOpenLeaseForParty(
       propertyId,
       contractType,
@@ -1010,22 +1081,21 @@ export class LeasesService {
   private async applyPropertyUpdate(
     lease: Lease,
     dto: UpdateLeaseDto,
+    companyId: string,
   ): Promise<void> {
     if (!dto.propertyId) {
       return;
     }
 
     const property = await this.propertiesRepository.findOne({
-      where: { id: dto.propertyId, deletedAt: IsNull() },
+      where: { id: dto.propertyId, companyId, deletedAt: IsNull() },
     });
     if (!property) {
       throw new NotFoundException('Property not found');
     }
 
     lease.propertyId = property.id;
-    if (!dto.ownerId) {
-      lease.ownerId = property.ownerId;
-    }
+    lease.ownerId = property.ownerId;
   }
 
   private async applyTemplateUpdate(
@@ -1074,6 +1144,7 @@ export class LeasesService {
     dto: UpdateLeaseDto,
     effectiveType: ContractType,
   ): void {
+    const { companyId: _companyId, ownerId: _ownerId, ...mutableDto } = dto;
     let resolvedEndDate: Date | null | undefined = lease.endDate;
     if (dto.endDate !== undefined) {
       resolvedEndDate = dto.endDate ? new Date(dto.endDate) : null;
@@ -1085,7 +1156,7 @@ export class LeasesService {
     }
 
     Object.assign(lease, {
-      ...dto,
+      ...mutableDto,
       contractType: effectiveType,
       startDate: resolvedStartDate,
       endDate: resolvedEndDate,
@@ -1341,12 +1412,14 @@ export class LeasesService {
     dto: ImportCurrentLeaseDto,
     propertyId: string,
     contractType: ContractType,
+    companyId: string,
   ): Promise<void> {
     if (contractType === ContractType.RENTAL) {
       if (!dto.tenantId) {
         throw new BadRequestException('Rental imports require tenantId');
       }
 
+      await this.validateTenantForCompany(dto.tenantId, companyId);
       await this.ensureNoActiveRentalLease(propertyId);
       await this.ensureNoOpenLeaseForParty(
         propertyId,
@@ -1356,13 +1429,13 @@ export class LeasesService {
       return;
     }
 
-    await this.normalizeBuyerInputs(dto);
+    await this.normalizeBuyerInputs(dto, companyId);
     if (!dto.buyerId) {
       throw new BadRequestException('Sale imports require buyerId');
     }
 
     const buyer = await this.buyersRepository.findOne({
-      where: { id: dto.buyerId, deletedAt: IsNull() },
+      where: { id: dto.buyerId, companyId, deletedAt: IsNull() },
       relations: ['user'],
     });
     if (!buyer) {
@@ -1389,7 +1462,7 @@ export class LeasesService {
     return this.leasesRepository.create({
       companyId,
       propertyId: property.id,
-      ownerId: dto.ownerId || property.ownerId,
+      ownerId: property.ownerId,
       tenantId:
         contractType === ContractType.RENTAL ? (dto.tenantId ?? null) : null,
       buyerId:
@@ -1446,7 +1519,10 @@ export class LeasesService {
       await this.propertiesRepository.update(lease.propertyId, {
         operationState: PropertyOperationState.RENTED,
       });
-      await this.tenantAccountsService.createForLease(lease.id);
+      await this.tenantAccountsService.createForLease(
+        lease.id,
+        lease.companyId,
+      );
       return;
     }
 
@@ -1732,7 +1808,10 @@ export class LeasesService {
     this.validateRentalDates(dto.startDate, dto.endDate);
   }
 
-  private async validateSaleCreate(dto: CreateLeaseDto): Promise<void> {
+  private async validateSaleCreate(
+    dto: CreateLeaseDto,
+    companyId: string,
+  ): Promise<void> {
     if (!dto.buyerId) {
       throw new BadRequestException('Sale contracts require buyerId');
     }
@@ -1741,7 +1820,7 @@ export class LeasesService {
     }
 
     const buyer = await this.buyersRepository.findOne({
-      where: { id: dto.buyerId, deletedAt: IsNull() },
+      where: { id: dto.buyerId, companyId, deletedAt: IsNull() },
     });
     if (!buyer) {
       throw new NotFoundException('Buyer not found');
@@ -1750,6 +1829,7 @@ export class LeasesService {
 
   private async normalizeBuyerInputs(
     dto: Pick<CreateLeaseDto, 'buyerId' | 'buyerProfileId'>,
+    companyId: string,
   ): Promise<void> {
     if (dto.buyerId) {
       return;
@@ -1760,7 +1840,7 @@ export class LeasesService {
     }
 
     const interestedProfile = await this.interestedProfilesRepository.findOne({
-      where: { id: dto.buyerProfileId, deletedAt: IsNull() },
+      where: { id: dto.buyerProfileId, companyId, deletedAt: IsNull() },
     });
 
     if (!interestedProfile) {
@@ -1776,6 +1856,36 @@ export class LeasesService {
     dto.buyerId = interestedProfile.convertedToBuyerId;
   }
 
+  private async validatePartiesForCompany(
+    dto: Pick<CreateLeaseDto, 'tenantId' | 'buyerId'>,
+    contractType: ContractType,
+    companyId: string,
+  ): Promise<void> {
+    if (contractType === ContractType.RENTAL && dto.tenantId) {
+      await this.validateTenantForCompany(dto.tenantId, companyId);
+    }
+    if (contractType === ContractType.SALE && dto.buyerId) {
+      const buyer = await this.buyersRepository.findOne({
+        where: { id: dto.buyerId, companyId, deletedAt: IsNull() },
+      });
+      if (!buyer) {
+        throw new NotFoundException('Buyer not found');
+      }
+    }
+  }
+
+  private async validateTenantForCompany(
+    tenantId: string,
+    companyId: string,
+  ): Promise<void> {
+    const tenant = await this.tenantsRepository.findOne({
+      where: { id: tenantId, companyId, deletedAt: IsNull() },
+    });
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+  }
+
   private applyVisibilityScope(
     query: SelectQueryBuilder<Lease>,
     user: RequestUser,
@@ -1784,42 +1894,33 @@ export class LeasesService {
       return;
     }
 
-    const email = (user.email ?? '').trim().toLowerCase();
-    const phone = (user.phone ?? '').trim();
-
     if (user.role === UserRole.OWNER) {
-      query.andWhere(
-        `(owner.user_id = :scopeUserId OR LOWER(ownerUser.email) = :scopeEmail OR (:scopePhone <> '' AND ownerUser.phone = :scopePhone))`,
-        {
-          scopeUserId: user.id,
-          scopeEmail: email,
-          scopePhone: phone,
-        },
-      );
+      query.andWhere('owner.user_id = :scopeUserId', {
+        scopeUserId: user.id,
+      });
       return;
     }
 
     if (user.role === UserRole.TENANT) {
-      query.andWhere(
-        `(tenant.user_id = :scopeUserId OR LOWER(tenantUser.email) = :scopeEmail OR (:scopePhone <> '' AND tenantUser.phone = :scopePhone))`,
-        {
-          scopeUserId: user.id,
-          scopeEmail: email,
-          scopePhone: phone,
-        },
-      );
+      query.andWhere('tenant.user_id = :scopeUserId', {
+        scopeUserId: user.id,
+      });
       return;
     }
 
     if (user.role === UserRole.BUYER) {
-      query.andWhere(
-        `(buyer.user_id = :scopeUserId OR LOWER(buyerUser.email) = :scopeEmail OR (:scopePhone <> '' AND buyerUser.phone = :scopePhone))`,
-        {
-          scopeUserId: user.id,
-          scopeEmail: email,
-          scopePhone: phone,
-        },
-      );
+      query.andWhere('buyer.user_id = :scopeUserId', {
+        scopeUserId: user.id,
+      });
+      return;
+    }
+
+    throw new ForbiddenException('Unsupported lease access role');
+  }
+
+  private requireCompanyScope(user: RequestUser): void {
+    if (!user.companyId) {
+      throw new ForbiddenException('Company scope required');
     }
   }
 }

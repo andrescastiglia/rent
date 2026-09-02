@@ -265,6 +265,7 @@ DATABASE_URL=postgresql://rent_user:CHANGE_PASSWORD@localhost:5432/rent_db
 REDIS_URL=redis://:CHANGE_PASSWORD@localhost:6379
 JWT_SECRET=your-super-secret-jwt-key
 JWT_REFRESH_SECRET=your-refresh-secret
+METRICS_SCRAPE_TOKEN=your-dedicated-prometheus-bearer-token
 NODE_ENV=production
 PORT=3001
 FRONTEND_URL=https://YOUR_DOMAIN.com

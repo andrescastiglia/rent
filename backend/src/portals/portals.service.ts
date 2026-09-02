@@ -2,6 +2,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -123,6 +124,7 @@ export class PortalsService {
   }
 
   async publish(id: string, companyId: string): Promise<PortalListing> {
+    this.assertMockProviderAllowed();
     const listing = await this.findOne(id, companyId);
 
     const property = await this.propertiesRepository.findOne({
@@ -190,6 +192,7 @@ export class PortalsService {
   }
 
   async syncAll(companyId: string): Promise<PortalListing[]> {
+    this.assertMockProviderAllowed();
     const published = await this.listingsRepository.find({
       where: { companyId, status: PortalListingStatus.PUBLISHED },
       relations: ['property'],
@@ -245,5 +248,13 @@ export class PortalsService {
     }
 
     return results;
+  }
+
+  private assertMockProviderAllowed(): void {
+    if (process.env.NODE_ENV !== 'test') {
+      throw new ServiceUnavailableException(
+        'Portal publishing is disabled until a verified provider is configured',
+      );
+    }
   }
 }

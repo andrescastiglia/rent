@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -40,8 +41,12 @@ class MockAdapter {
 }
 
 class ProviderAdapterFactory {
-  static getAdapter(_provider: string): MockAdapter {
-    // All non-mock providers fall back to mock in development
+  static getAdapter(provider: SignatureProvider): MockAdapter {
+    if (provider !== SignatureProvider.MOCK) {
+      throw new ServiceUnavailableException(
+        `Signature provider ${provider} is not configured`,
+      );
+    }
     return new MockAdapter();
   }
 }
@@ -60,6 +65,12 @@ export class DigitalSignaturesService {
     companyId: string,
     dto: CreateSignatureRequestDto,
   ): Promise<DigitalSignatureRequest> {
+    if (this.configService.get<string>('NODE_ENV') !== 'test') {
+      throw new ServiceUnavailableException(
+        'Digital signatures are disabled until a real provider is configured',
+      );
+    }
+
     const lease = await this.leaseRepo.findOne({
       where: { id: dto.leaseId, companyId },
     });
@@ -146,6 +157,12 @@ export class DigitalSignaturesService {
   }
 
   async processWebhook(event: WebhookEventDto): Promise<void> {
+    if (this.configService.get<string>('NODE_ENV') !== 'test') {
+      throw new ServiceUnavailableException(
+        'Digital signature webhooks are disabled until provider verification is configured',
+      );
+    }
+
     const request = await this.sigRequestRepo.findOne({
       where: { externalEnvelopeId: event.envelopeId },
     });
@@ -172,11 +189,6 @@ export class DigitalSignaturesService {
       if (lease) {
         lease.status = LeaseStatus.SIGNED;
         await this.leaseRepo.save(lease);
-
-        if (request.provider === SignatureProvider.MOCK) {
-          lease.status = LeaseStatus.ACTIVE;
-          await this.leaseRepo.save(lease);
-        }
       }
     } else if (event.status === 'voided' || event.status === 'declined') {
       request.status =

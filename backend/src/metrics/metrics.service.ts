@@ -303,7 +303,16 @@ export class MetricsService {
       return 'unknown';
     }
 
-    const safe = trimmed.replaceAll(/\s+/g, '_');
+    // Metric labels are client-controlled. Bound the regex input first so
+    // redaction cannot be abused for polynomial-time matching.
+    const bounded = trimmed.slice(0, 512);
+    const safe = bounded
+      .replaceAll(
+        /[\w.+-]{1,64}@[a-z0-9-]{1,63}(?:\.[a-z]{2,63}){1,4}/gi,
+        ':redacted',
+      )
+      .replaceAll(/\b(?:[a-f0-9]{24,}|[a-z0-9_-]{32,})\b/gi, ':token')
+      .replaceAll(/\s+/g, '_');
     return safe.length <= maxLength ? safe : safe.slice(0, maxLength);
   }
 }

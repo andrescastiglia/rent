@@ -5,19 +5,25 @@ export type SendWhatsappInput = {
   to: string;
   text: string;
   pdfUrl?: string;
+  activityEntity: 'tenant' | 'owner' | 'interested';
+  activityId: string;
+  relatedEntityType: 'tenant' | 'owner' | 'interested';
+  relatedEntityId: string;
 };
 
 export type SendWhatsappResponse = {
-  messageId: string | null;
-  raw: unknown;
+  deliveryId: string;
+  status: string;
+  queued: boolean;
 };
 
 export const whatsappApi = {
   async sendMessage(payload: SendWhatsappInput): Promise<SendWhatsappResponse> {
     if (IS_MOCK_MODE) {
       return {
-        messageId: `mock-wa-${Date.now()}`,
-        raw: { mocked: true },
+        deliveryId: `mock-wa-${Date.now()}`,
+        status: 'queued',
+        queued: true,
       };
     }
 

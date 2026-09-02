@@ -17,6 +17,7 @@ import { UserRole } from '../users/entities/user.entity';
 import { BankAccountsService } from './bank-accounts.service';
 import { CreateBankAccountDto } from './dto/create-bank-account.dto';
 import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 
 interface AuthenticatedRequest {
   user: {
@@ -30,6 +31,7 @@ interface AuthenticatedRequest {
 @Controller('bank-accounts')
 @UseGuards(JwtAuthGuard)
 @Roles(UserRole.ADMIN, UserRole.OWNER)
+@Authenticated('payments')
 export class BankAccountsController {
   constructor(private readonly bankAccountsService: BankAccountsService) {}
 

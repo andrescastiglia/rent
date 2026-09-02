@@ -8,7 +8,10 @@ export default function CommunicationsSettingsLayout({
   readonly children: React.ReactNode;
 }) {
   return (
-    <RoleGuard allowedRoles={["admin", "staff"]} requiredModule="templates">
+    <RoleGuard
+      allowedRoles={["admin", "staff"]}
+      requiredModule="communications"
+    >
       {children}
     </RoleGuard>
   );

@@ -8,6 +8,7 @@ import { Invoice } from './entities/invoice.entity';
 import { CommissionInvoice } from './entities/commission-invoice.entity';
 import { Payment } from './entities/payment.entity';
 import { PaymentItem } from './entities/payment-item.entity';
+import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { Receipt } from './entities/receipt.entity';
 import { CreditNote } from './entities/credit-note.entity';
 import { PaymentDocumentTemplate } from './entities/payment-document-template.entity';
@@ -32,7 +33,6 @@ import { PaymentDocumentTemplatesController } from './payment-document-templates
 
 // Modules
 import { DocumentsModule } from '../documents/documents.module';
-import { WhatsappModule } from '../whatsapp/whatsapp.module';
 import { CommunicationsModule } from '../communications/communications.module';
 
 /**
@@ -48,6 +48,7 @@ import { CommunicationsModule } from '../communications/communications.module';
       CommissionInvoice,
       Payment,
       PaymentItem,
+      PaymentAllocation,
       Receipt,
       CreditNote,
       PaymentDocumentTemplate,
@@ -56,7 +57,6 @@ import { CommunicationsModule } from '../communications/communications.module';
       Document,
     ]),
     DocumentsModule,
-    WhatsappModule,
     CommunicationsModule,
   ],
   controllers: [

@@ -69,16 +69,16 @@ describe('AuthController', () => {
 
     expect(mockAuthService.requiresCaptchaForLogin).toHaveBeenCalledWith(
       'a@test.dev',
-      '1.1.1.1',
+      '9.9.9.9',
     );
     expect(mockCaptchaService.assertValidToken).toHaveBeenCalledWith(
       'token-1',
-      '1.1.1.1',
+      '9.9.9.9',
       true,
     );
     expect(mockAuthService.clearLoginFailures).toHaveBeenCalledWith(
       'a@test.dev',
-      '1.1.1.1',
+      '9.9.9.9',
     );
     expect(result).toEqual({ access_token: 'jwt' });
   });
@@ -90,6 +90,7 @@ describe('AuthController', () => {
         origin: 'http://localhost:3000',
         'x-forwarded-for': '1.1.1.1',
       },
+      ip: '2.2.2.2',
     };
     mockAuthService.requiresCaptchaForLogin.mockReturnValue(true);
     mockCaptchaService.assertValidToken.mockResolvedValue(undefined);
@@ -106,8 +107,28 @@ describe('AuthController', () => {
 
     expect(mockCaptchaService.assertValidToken).toHaveBeenCalledWith(
       undefined,
-      '1.1.1.1',
+      '2.2.2.2',
       false,
+    );
+  });
+
+  it('never bypasses captcha in production even with a forged local origin', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.ALLOW_LOCAL_DEV_CAPTCHA_BYPASS = 'true';
+    mockAuthService.requiresCaptchaForLogin.mockReturnValue(true);
+    mockCaptchaService.assertValidToken.mockResolvedValue(undefined);
+    mockAuthService.validateUser.mockResolvedValue({ id: 'u1' });
+    mockAuthService.login.mockResolvedValue({ access_token: 'jwt' });
+
+    await controller.login({ email: 'a@test.dev', password: 'secret' } as any, {
+      headers: { origin: 'http://localhost:3000' },
+      ip: '203.0.113.2',
+    });
+
+    expect(mockCaptchaService.assertValidToken).toHaveBeenCalledWith(
+      undefined,
+      '203.0.113.2',
+      true,
     );
   });
 
@@ -145,12 +166,12 @@ describe('AuthController', () => {
         password: 'pw',
         captchaToken: 'captcha-register',
       } as any,
-      { headers: { 'x-forwarded-for': '7.7.7.7' } } as any,
+      { headers: { 'x-forwarded-for': '7.7.7.7' }, ip: '8.8.8.8' } as any,
     );
 
     expect(mockCaptchaService.assertValidToken).toHaveBeenCalledWith(
       'captcha-register',
-      '7.7.7.7',
+      '8.8.8.8',
       true,
     );
     expect(mockAuthService.register).toHaveBeenCalled();
@@ -161,19 +182,19 @@ describe('AuthController', () => {
     expect(controller.getProfile({ user: { id: 'u1' } })).toEqual({ id: 'u1' });
   });
 
-  it('getRequestIp helper handles forwarded header and fallbacks', () => {
+  it('getRequestIp trusts only the address normalized by Express', () => {
     expect(
       (controller as any).getRequestIp({
         headers: { 'x-forwarded-for': '3.3.3.3, 4.4.4.4' },
       }),
-    ).toBe('3.3.3.3');
+    ).toBeUndefined();
 
     expect(
       (controller as any).getRequestIp({
         headers: { 'x-forwarded-for': '   ' },
         ip: '5.5.5.5',
       }),
-    ).toBeUndefined();
+    ).toBe('5.5.5.5');
 
     expect((controller as any).getRequestIp({ ip: '6.6.6.6' })).toBe('6.6.6.6');
   });

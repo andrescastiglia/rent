@@ -52,7 +52,12 @@ const STAFF_PERMISSION_OPTIONS: Array<{
   { key: "invoices", label: "Facturas" },
   { key: "sales", label: "Ventas" },
   { key: "reports", label: "Reportes" },
-  { key: "users", label: "Usuarios" },
+  { key: "maintenance", label: "Mantenimiento" },
+  { key: "communications", label: "Comunicaciones" },
+  { key: "reconciliation", label: "Conciliación bancaria" },
+  { key: "settlements", label: "Liquidaciones" },
+  { key: "approvals", label: "Aprobaciones" },
+  { key: "ai", label: "Asistente IA" },
 ];
 
 async function submitUserForm(

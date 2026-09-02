@@ -49,6 +49,16 @@ const sendWhatsappMessageZodSchema = z
       .optional(),
     relatedEntityId: z.string().uuid().optional(),
     companyId: z.string().uuid().optional(),
+    recipientRole: z
+      .enum(['admin', 'staff', 'buyer', 'tenant', 'owner', 'interested'])
+      .optional(),
+    recipientId: z.string().uuid().optional(),
+    idempotencyKey: z
+      .string()
+      .min(1)
+      .max(200)
+      .regex(/^[A-Za-z0-9:._-]+$/)
+      .optional(),
   })
   .strict();
 
@@ -121,4 +131,20 @@ export class SendWhatsappMessageDto {
   @IsOptional()
   @IsUUID()
   companyId?: string;
+
+  @IsOptional()
+  @IsIn(['admin', 'staff', 'buyer', 'tenant', 'owner', 'interested'])
+  recipientRole?:
+    'admin' | 'staff' | 'buyer' | 'tenant' | 'owner' | 'interested';
+
+  @IsOptional()
+  @IsUUID()
+  recipientId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  @Matches(/^[A-Za-z0-9:._-]+$/)
+  idempotencyKey?: string;
 }

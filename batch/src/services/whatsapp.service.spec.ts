@@ -43,7 +43,10 @@ describe("WhatsappService", () => {
   it("sends message successfully and returns messageId", async () => {
     fetchMock.mockResolvedValue({
       ok: true,
-      json: async () => ({ messageId: "msg-123" }),
+      json: async () => ({
+        deliveryId: "delivery-123",
+        status: "queued",
+      }),
     });
     const service = new WhatsappService();
 
@@ -51,6 +54,12 @@ describe("WhatsappService", () => {
       "54911",
       "hola",
       "https://files/doc.pdf",
+      {
+        companyId: "company-1",
+        recipientRole: "tenant",
+        recipientId: "tenant-1",
+        idempotencyKey: "message-1",
+      },
     );
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -65,10 +74,19 @@ describe("WhatsappService", () => {
           to: "54911",
           text: "hola",
           pdfUrl: "https://files/doc.pdf",
+          companyId: "company-1",
+          recipientRole: "tenant",
+          recipientId: "tenant-1",
+          idempotencyKey: "message-1",
         }),
       },
     );
-    expect(result).toEqual({ success: true, messageId: "msg-123" });
+    expect(result).toEqual({
+      success: true,
+      deliveryId: "delivery-123",
+      status: "queued",
+      messageId: null,
+    });
   });
 
   it("sends template payloads successfully", async () => {
@@ -90,6 +108,12 @@ describe("WhatsappService", () => {
       },
       "fallback",
       "db://document/123e4567-e89b-12d3-a456-426614174000",
+      {
+        companyId: "company-1",
+        recipientRole: "tenant",
+        recipientId: "tenant-1",
+        idempotencyKey: "invoice-issued:invoice-1",
+      },
     );
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -102,6 +126,10 @@ describe("WhatsappService", () => {
           templateName: "invoice_available",
           templateLanguage: "es_AR",
           templateParameters: ["Juan", "F-1", "2026-07-15", "ARS 1000,00"],
+          companyId: "company-1",
+          recipientRole: "tenant",
+          recipientId: "tenant-1",
+          idempotencyKey: "invoice-issued:invoice-1",
         }),
       }),
     );
@@ -110,6 +138,90 @@ describe("WhatsappService", () => {
       messageId: "tpl-123",
       documentMessageId: "doc-123",
     });
+  });
+
+  it("processes the webhook inbox through the authenticated backend", async () => {
+    process.env.BACKEND_INTERNAL_URL = "http://backend:3001/";
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ selected: 2, processed: 1, failed: 1 }),
+    });
+    const service = new WhatsappService();
+
+    await expect(service.processWebhookInbox(500)).resolves.toEqual({
+      selected: 2,
+      processed: 1,
+      failed: 1,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://backend:3001/whatsapp/internal/process-inbox?limit=100",
+      {
+        method: "POST",
+        headers: { "x-batch-whatsapp-token": "internal-token" },
+      },
+    );
+  });
+
+  it("fails inbox processing when token is absent or backend rejects it", async () => {
+    delete process.env.BATCH_WHATSAPP_INTERNAL_TOKEN;
+    await expect(new WhatsappService().processWebhookInbox()).rejects.toThrow(
+      "BATCH_WHATSAPP_INTERNAL_TOKEN not configured",
+    );
+
+    process.env.BATCH_WHATSAPP_INTERNAL_TOKEN = "internal-token";
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({ message: "inbox unavailable" }),
+    });
+    await expect(new WhatsappService().processWebhookInbox()).rejects.toThrow(
+      "inbox unavailable",
+    );
+  });
+
+  it("applies WhatsApp retention through the authenticated backend", async () => {
+    process.env.BACKEND_INTERNAL_URL = "http://backend:3001/";
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        processedInboxDeleted: 2,
+        deadLettersDeleted: 1,
+        communicationsRedacted: 3,
+        outboundMessagesRedacted: 4,
+      }),
+    });
+    const service = new WhatsappService();
+
+    await expect(service.applyRetentionPolicy()).resolves.toEqual({
+      processedInboxDeleted: 2,
+      deadLettersDeleted: 1,
+      communicationsRedacted: 3,
+      outboundMessagesRedacted: 4,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://backend:3001/whatsapp/internal/apply-retention",
+      {
+        method: "POST",
+        headers: { "x-batch-whatsapp-token": "internal-token" },
+      },
+    );
+  });
+
+  it("requires a token and propagates retention backend failures", async () => {
+    delete process.env.BATCH_WHATSAPP_INTERNAL_TOKEN;
+    await expect(new WhatsappService().applyRetentionPolicy()).rejects.toThrow(
+      "BATCH_WHATSAPP_INTERNAL_TOKEN not configured",
+    );
+
+    process.env.BATCH_WHATSAPP_INTERNAL_TOKEN = "internal-token";
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({ message: "retention unavailable" }),
+    });
+    await expect(new WhatsappService().applyRetentionPolicy()).rejects.toThrow(
+      "retention unavailable",
+    );
   });
 
   it("returns HTTP error detail from backend response", async () => {

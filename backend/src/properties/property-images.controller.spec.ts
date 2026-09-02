@@ -27,10 +27,19 @@ describe('PropertyImagesController', () => {
       data: Buffer.from('image-content'),
     });
 
-    const result = await controller.getPropertyImage('image-1', response);
+    const result = await controller.getPropertyImage(
+      'image-1',
+      '1700000000',
+      'signature',
+      response,
+    );
 
     expect(result).toBeInstanceOf(StreamableFile);
-    expect(propertiesService.getPropertyImage).toHaveBeenCalledWith('image-1');
+    expect(propertiesService.getPropertyImage).toHaveBeenCalledWith(
+      'image-1',
+      '1700000000',
+      'signature',
+    );
     expect(response.setHeader).toHaveBeenCalledWith(
       'Content-Type',
       'image/jpeg',
@@ -56,7 +65,12 @@ describe('PropertyImagesController', () => {
       data: Buffer.from('fallback'),
     });
 
-    await controller.getPropertyImage('image-2', response);
+    await controller.getPropertyImage(
+      'image-2',
+      undefined,
+      undefined,
+      response,
+    );
 
     expect(response.setHeader).toHaveBeenCalledWith(
       'Content-Type',

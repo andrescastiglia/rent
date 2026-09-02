@@ -20,10 +20,12 @@ import { DiscardPropertyImagesDto } from './dto/discard-property-images.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
 import { PropertyFiltersDto } from './dto/property-filters.dto';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('properties')
+@Authenticated('properties')
 export class PropertiesController {
   constructor(private readonly propertiesService: PropertiesService) {}
 
@@ -54,24 +56,23 @@ export class PropertiesController {
     @Body() updatePropertyDto: UpdatePropertyDto,
     @Request() req: any,
   ) {
-    return this.propertiesService.update(
-      id,
-      updatePropertyDto,
-      req.user.id,
-      req.user.role,
-    );
+    return this.propertiesService.update(id, updatePropertyDto, req.user);
   }
 
   @Delete(':id')
   @Roles(UserRole.ADMIN, UserRole.OWNER)
   async remove(@Param('id') id: string, @Request() req: any) {
-    await this.propertiesService.remove(id, req.user.id, req.user.role);
+    await this.propertiesService.remove(id, req.user);
     return { message: 'Property deleted successfully' };
   }
 
   @Post('upload')
   @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+    }),
+  )
   uploadPropertyImage(@UploadedFile() file: any, @Request() req: any) {
     return this.propertiesService.uploadPropertyImage(file, {
       id: req.user.id,

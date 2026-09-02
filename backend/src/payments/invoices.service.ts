@@ -2,9 +2,15 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import {
+  DataSource,
+  EntityManager,
+  Repository,
+  SelectQueryBuilder,
+} from 'typeorm';
 import { Invoice, InvoiceStatus } from './entities/invoice.entity';
 import {
   CommissionInvoice,
@@ -26,6 +32,7 @@ import { UserRole } from '../users/entities/user.entity';
 
 type RequestUser = {
   id: string;
+  companyId: string;
   role: UserRole;
   email?: string | null;
   phone?: string | null;
@@ -46,6 +53,8 @@ export class InvoicesService {
     @InjectRepository(InflationIndex)
     private readonly inflationIndexRepository: Repository<InflationIndex>,
     private readonly tenantAccountsService: TenantAccountsService,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -53,9 +62,9 @@ export class InvoicesService {
    * @param dto Datos de la factura
    * @returns La factura creada
    */
-  async create(dto: CreateInvoiceDto): Promise<Invoice> {
+  async create(dto: CreateInvoiceDto, companyId: string): Promise<Invoice> {
     const lease = await this.leasesRepository.findOne({
-      where: { id: dto.leaseId },
+      where: { id: dto.leaseId, companyId },
       relations: ['property', 'property.owner'],
     });
 
@@ -64,7 +73,10 @@ export class InvoicesService {
     }
 
     // Obtener o crear cuenta del inquilino
-    const account = await this.tenantAccountsService.findByLease(dto.leaseId);
+    const account = await this.tenantAccountsService.findByLease(
+      dto.leaseId,
+      lease.companyId,
+    );
 
     // Obtener propietario
     const ownerId = lease.property?.ownerId || lease.ownerId;
@@ -109,9 +121,10 @@ export class InvoicesService {
   async generateForLease(
     leaseId: string,
     dto: GenerateInvoiceDto,
+    companyId: string,
   ): Promise<Invoice> {
     const lease = await this.leasesRepository.findOne({
-      where: { id: leaseId },
+      where: { id: leaseId, companyId },
       relations: ['property', 'property.owner'],
     });
 
@@ -119,7 +132,10 @@ export class InvoicesService {
       throw new NotFoundException(`Lease with ID ${leaseId} not found`);
     }
 
-    const account = await this.tenantAccountsService.findByLease(leaseId);
+    const account = await this.tenantAccountsService.findByLease(
+      leaseId,
+      lease.companyId,
+    );
 
     const { periodStart, periodEnd, dueDate } = this.computeBillingPeriod(
       lease,
@@ -135,7 +151,10 @@ export class InvoicesService {
     const subtotal = Number(baseRent) + Number(lease.additionalExpenses || 0);
     const lateFee =
       dto.applyLateFee === true
-        ? await this.tenantAccountsService.calculateLateFee(account.id)
+        ? await this.tenantAccountsService.calculateLateFee(
+            account.id,
+            lease.companyId,
+          )
         : 0;
 
     const total = subtotal + Number(lateFee || 0);
@@ -167,7 +186,7 @@ export class InvoicesService {
     await this.leasesRepository.save(lease);
 
     if (dto.issue) {
-      return this.issue(saved.id);
+      return this.issue(saved.id, companyId);
     }
 
     return saved;
@@ -178,36 +197,46 @@ export class InvoicesService {
    * @param id ID de la factura
    * @returns La factura emitida
    */
-  async issue(id: string): Promise<Invoice> {
-    const invoice = await this.findOne(id);
+  async issue(id: string, companyId: string): Promise<Invoice> {
+    return this.dataSource.transaction(async (manager) => {
+      const invoicesRepository = manager.getRepository(Invoice);
+      const invoice = await this.findOneForUpdate(
+        invoicesRepository,
+        id,
+        companyId,
+      );
 
-    if (invoice.status !== InvoiceStatus.DRAFT) {
-      throw new BadRequestException('Only draft invoices can be issued');
-    }
+      if (invoice.status !== InvoiceStatus.DRAFT) {
+        throw new BadRequestException('Only draft invoices can be issued');
+      }
 
-    invoice.status = InvoiceStatus.PENDING;
-    invoice.issuedAt = new Date();
+      invoice.status = InvoiceStatus.PENDING;
+      invoice.issuedAt = new Date();
 
-    const savedInvoice = await this.invoicesRepository.save(invoice);
+      const savedInvoice = await invoicesRepository.save(invoice);
 
-    // Registrar movimiento en cuenta corriente (aumenta deuda)
-    await this.tenantAccountsService.addMovement(
-      invoice.tenantAccountId,
-      MovementType.CHARGE,
-      Number(invoice.total),
-      'invoice',
-      invoice.id,
-      `Factura ${invoice.invoiceNumber}`,
-    );
+      await this.tenantAccountsService.addMovementWithManager(manager, {
+        accountId: invoice.tenantAccountId,
+        type: MovementType.CHARGE,
+        amount: Number(invoice.total),
+        referenceType: 'invoice',
+        referenceId: invoice.id,
+        description: `Factura ${invoice.invoiceNumber}`,
+        companyId: invoice.companyId,
+      });
 
-    // Crear factura de comisión si aplica
-    await this.createCommissionInvoice(savedInvoice);
+      await this.createCommissionInvoice(savedInvoice, manager);
 
-    return savedInvoice;
+      return savedInvoice;
+    });
   }
 
-  async attachPdf(id: string, pdfUrl: string): Promise<Invoice> {
-    const invoice = await this.findOne(id);
+  async attachPdf(
+    id: string,
+    pdfUrl: string,
+    companyId: string,
+  ): Promise<Invoice> {
+    const invoice = await this.findOne(id, companyId);
     invoice.pdfUrl = pdfUrl;
     return this.invoicesRepository.save(invoice);
   }
@@ -217,9 +246,9 @@ export class InvoicesService {
    * @param id ID de la factura
    * @returns La factura
    */
-  async findOne(id: string): Promise<Invoice> {
+  async findOne(id: string, companyId: string): Promise<Invoice> {
     const invoice = await this.invoicesRepository.findOne({
-      where: { id },
+      where: { id, companyId },
       relations: [
         'lease',
         'lease.tenant',
@@ -237,6 +266,7 @@ export class InvoicesService {
   }
 
   async findOneScoped(id: string, user: RequestUser): Promise<Invoice> {
+    this.requireCompanyScope(user);
     const query = this.invoicesRepository
       .createQueryBuilder('invoice')
       .leftJoinAndSelect('invoice.lease', 'lease')
@@ -246,6 +276,9 @@ export class InvoicesService {
       .leftJoinAndSelect('property.owner', 'owner')
       .leftJoinAndSelect('owner.user', 'ownerUser')
       .where('invoice.id = :id', { id })
+      .andWhere('invoice.company_id = :companyId', {
+        companyId: user.companyId,
+      })
       .andWhere('invoice.deleted_at IS NULL');
 
     this.applyVisibilityScope(query, user);
@@ -271,8 +304,9 @@ export class InvoicesService {
       page?: number;
       limit?: number;
     },
-    user?: RequestUser,
+    user: RequestUser,
   ): Promise<{ data: Invoice[]; total: number; page: number; limit: number }> {
+    this.requireCompanyScope(user);
     const { leaseId, ownerId, status, page = 1, limit = 10 } = filters;
 
     const query = this.invoicesRepository
@@ -283,7 +317,10 @@ export class InvoicesService {
       .leftJoinAndSelect('lease.property', 'property')
       .leftJoinAndSelect('property.owner', 'owner')
       .leftJoinAndSelect('owner.user', 'ownerUser')
-      .where('invoice.deleted_at IS NULL');
+      .where('invoice.deleted_at IS NULL')
+      .andWhere('invoice.company_id = :companyId', {
+        companyId: user.companyId,
+      });
 
     if (leaseId) {
       query.andWhere('invoice.lease_id = :leaseId', { leaseId });
@@ -297,9 +334,7 @@ export class InvoicesService {
       query.andWhere('invoice.status = :status', { status });
     }
 
-    if (user) {
-      this.applyVisibilityScope(query, user);
-    }
+    this.applyVisibilityScope(query, user);
 
     query
       .orderBy('invoice.issuedAt', 'DESC')
@@ -320,30 +355,26 @@ export class InvoicesService {
       return;
     }
 
-    const email = (user.email ?? '').trim().toLowerCase();
-    const phone = (user.phone ?? '').trim();
-
     if (user.role === UserRole.OWNER) {
-      query.andWhere(
-        `(owner.user_id = :scopeUserId OR LOWER(ownerUser.email) = :scopeEmail OR (:scopePhone <> '' AND ownerUser.phone = :scopePhone))`,
-        {
-          scopeUserId: user.id,
-          scopeEmail: email,
-          scopePhone: phone,
-        },
-      );
+      query.andWhere('owner.user_id = :scopeUserId', {
+        scopeUserId: user.id,
+      });
       return;
     }
 
     if (user.role === UserRole.TENANT) {
-      query.andWhere(
-        `(tenant.user_id = :scopeUserId OR LOWER(tenantUser.email) = :scopeEmail OR (:scopePhone <> '' AND tenantUser.phone = :scopePhone))`,
-        {
-          scopeUserId: user.id,
-          scopeEmail: email,
-          scopePhone: phone,
-        },
-      );
+      query.andWhere('tenant.user_id = :scopeUserId', {
+        scopeUserId: user.id,
+      });
+      return;
+    }
+
+    throw new ForbiddenException('Unsupported invoice access role');
+  }
+
+  private requireCompanyScope(user: RequestUser): void {
+    if (!user.companyId) {
+      throw new ForbiddenException('Company scope required');
     }
   }
 
@@ -493,8 +524,17 @@ export class InvoicesService {
    * Crea la factura de comisión asociada.
    * @param invoice Factura del inquilino
    */
-  private async createCommissionInvoice(invoice: Invoice): Promise<void> {
-    const lease = await this.leasesRepository.findOne({
+  private async createCommissionInvoice(
+    invoice: Invoice,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const leasesRepository = manager
+      ? manager.getRepository(Lease)
+      : this.leasesRepository;
+    const commissionInvoicesRepository = manager
+      ? manager.getRepository(CommissionInvoice)
+      : this.commissionInvoicesRepository;
+    const lease = await leasesRepository.findOne({
       where: { id: invoice.leaseId },
       relations: ['property', 'property.company', 'owner'],
     });
@@ -511,7 +551,10 @@ export class InvoicesService {
     const taxAmount = (commissionAmount * taxRate) / 100;
     const totalAmount = commissionAmount + taxAmount;
 
-    const invoiceNumber = await this.generateCommissionInvoiceNumber(companyId);
+    const invoiceNumber = await this.generateCommissionInvoiceNumber(
+      companyId,
+      commissionInvoicesRepository,
+    );
 
     // Calcular fechas del período y vencimiento
     const issueDate = new Date();
@@ -520,7 +563,7 @@ export class InvoicesService {
     const dueDate = new Date(issueDate);
     dueDate.setDate(dueDate.getDate() + 15); // Vence en 15 días
 
-    const commissionInvoice = this.commissionInvoicesRepository.create({
+    const commissionInvoice = commissionInvoicesRepository.create({
       companyId,
       ownerId: invoice.ownerId,
       invoiceNumber,
@@ -540,7 +583,7 @@ export class InvoicesService {
       ],
     });
 
-    await this.commissionInvoicesRepository.save(commissionInvoice);
+    await commissionInvoicesRepository.save(commissionInvoice);
   }
 
   /**
@@ -550,8 +593,10 @@ export class InvoicesService {
    */
   private async generateCommissionInvoiceNumber(
     companyId: string,
+    repository: Repository<CommissionInvoice> = this
+      .commissionInvoicesRepository,
   ): Promise<string> {
-    const lastInvoice = await this.commissionInvoicesRepository.findOne({
+    const lastInvoice = await repository.findOne({
       where: { companyId },
       order: { createdAt: 'DESC' },
     });
@@ -576,33 +621,56 @@ export class InvoicesService {
    * @param id ID de la factura
    * @returns La factura cancelada
    */
-  async cancel(id: string): Promise<Invoice> {
-    const invoice = await this.findOne(id);
-
-    if (invoice.status === InvoiceStatus.PAID) {
-      throw new BadRequestException('Cannot cancel a paid invoice');
-    }
-
-    // Si ya estaba emitida, revertir el movimiento en cuenta
-    if (
-      [
-        InvoiceStatus.PENDING,
-        InvoiceStatus.SENT,
-        InvoiceStatus.PARTIAL,
-        InvoiceStatus.OVERDUE,
-      ].includes(invoice.status)
-    ) {
-      await this.tenantAccountsService.addMovement(
-        invoice.tenantAccountId,
-        MovementType.ADJUSTMENT,
-        -Number(invoice.total),
-        'invoice',
-        invoice.id,
-        `Anulación factura ${invoice.invoiceNumber}`,
+  async cancel(id: string, companyId: string): Promise<Invoice> {
+    return this.dataSource.transaction(async (manager) => {
+      const invoicesRepository = manager.getRepository(Invoice);
+      const invoice = await this.findOneForUpdate(
+        invoicesRepository,
+        id,
+        companyId,
       );
-    }
 
-    invoice.status = InvoiceStatus.CANCELLED;
-    return this.invoicesRepository.save(invoice);
+      if (invoice.status === InvoiceStatus.PAID) {
+        throw new BadRequestException('Cannot cancel a paid invoice');
+      }
+
+      // Si ya estaba emitida, revertir el movimiento en cuenta
+      if (
+        [
+          InvoiceStatus.PENDING,
+          InvoiceStatus.SENT,
+          InvoiceStatus.PARTIAL,
+          InvoiceStatus.OVERDUE,
+        ].includes(invoice.status)
+      ) {
+        await this.tenantAccountsService.addMovementWithManager(manager, {
+          accountId: invoice.tenantAccountId,
+          type: MovementType.ADJUSTMENT,
+          amount: -Number(invoice.total),
+          referenceType: 'invoice',
+          referenceId: invoice.id,
+          description: `Anulación factura ${invoice.invoiceNumber}`,
+          companyId: invoice.companyId,
+        });
+      }
+
+      invoice.status = InvoiceStatus.CANCELLED;
+      return invoicesRepository.save(invoice);
+    });
+  }
+
+  private async findOneForUpdate(
+    repository: Repository<Invoice>,
+    id: string,
+    companyId: string,
+  ): Promise<Invoice> {
+    const invoice = await repository.findOne({
+      where: { id, companyId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!invoice) {
+      throw new NotFoundException(`Invoice with ID ${id} not found`);
+    }
+    return invoice;
   }
 }

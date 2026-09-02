@@ -8,10 +8,12 @@ import { RecentActivityQueryDto } from './dto/recent-activity-query.dto';
 import { ReportJobsQueryDto } from './dto/report-jobs-query.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard)
+@Authenticated('dashboard')
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 

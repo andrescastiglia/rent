@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { SettlementsService } from './settlements.service';
 import { SettlementFiltersDto } from './dto/settlement-filters.dto';
@@ -25,6 +26,7 @@ interface AuthenticatedRequest {
 @Controller('settlements')
 @UseGuards(JwtAuthGuard)
 @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+@Authenticated('settlements')
 export class SettlementsController {
   constructor(private readonly settlementsService: SettlementsService) {}
 
@@ -58,6 +60,6 @@ export class SettlementsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.settlementsService.findOne(id, req.user.companyId);
+    return this.settlementsService.findOne(id, req.user.companyId, req.user);
   }
 }

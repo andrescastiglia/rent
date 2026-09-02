@@ -7,6 +7,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { UserModulePermissions, UserRole } from '../users/entities/user.entity';
 import { AiChatRequestDto } from './dto/ai-chat-request.dto';
@@ -30,6 +31,7 @@ interface AuthenticatedRequest {
   UserRole.TENANT,
   UserRole.BUYER,
 )
+@Authenticated('ai')
 export class AiRagController {
   constructor(private readonly rollout: AiRagRolloutService) {}
 

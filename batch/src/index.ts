@@ -129,8 +129,13 @@ async function processReminderInvoice(
   }
 
   const contact = await invoiceService.getReminderContact(invoice.id);
-  if (!contact.tenantPhone) {
-    logger.warn("Skipping reminder without tenant phone", {
+  if (
+    !contact.tenantPhone ||
+    !contact.tenantId ||
+    !contact.whatsappEnabled ||
+    !invoice.companyId
+  ) {
+    logger.warn("Skipping reminder without WhatsApp consent or recipient", {
       invoiceId: invoice.id,
       invoiceNumber: invoice.invoiceNumber,
     });
@@ -160,6 +165,15 @@ async function processReminderInvoice(
       ],
     },
     text,
+    undefined,
+    {
+      companyId: invoice.companyId,
+      recipientRole: "tenant",
+      recipientId: contact.tenantId,
+      idempotencyKey: `payment-reminder:${invoice.id}:${daysUntilDue}`,
+      relatedEntityType: "invoice",
+      relatedEntityId: invoice.id,
+    },
   );
   return result.success ? { sent: 1, failed: 0 } : { sent: 0, failed: 1 };
 }
@@ -187,6 +201,36 @@ async function runReminders(
 
   return { total: pendingInvoices.length, sent, failed };
 }
+
+program
+  .command("process-whatsapp-inbox")
+  .description("Process due WhatsApp webhook inbox records")
+  .option("--limit <count>", "Maximum records to process", positiveInteger, 25)
+  .option("--log <file>", "Write logs to the given file (no rotation)")
+  .action(
+    withTracedAction("process-whatsapp-inbox", async (options) => {
+      const { WhatsappService } = await import("./services/whatsapp.service");
+      const result = await new WhatsappService().processWebhookInbox(
+        options.limit,
+      );
+      logger.info("WhatsApp inbox process completed", result);
+      if (result.failed > 0) {
+        process.exitCode = 1;
+      }
+    }),
+  );
+
+program
+  .command("apply-whatsapp-retention")
+  .description("Delete or redact expired WhatsApp operational data")
+  .option("--log <file>", "Write logs to the given file (no rotation)")
+  .action(
+    withTracedAction("apply-whatsapp-retention", async () => {
+      const { WhatsappService } = await import("./services/whatsapp.service");
+      const result = await new WhatsappService().applyRetentionPolicy();
+      logger.info("WhatsApp retention completed", result);
+    }),
+  );
 
 type SyncIndicesSummary = {
   recordsTotal: number;

@@ -17,6 +17,7 @@ import { InvoicePdfService } from './invoice-pdf.service';
 import { CreateInvoiceDto, GenerateInvoiceDto } from './dto';
 import { InvoiceFiltersDto } from './dto/invoice-filters.dto';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { DocumentsService } from '../documents/documents.service';
 import { PaymentsService } from './payments.service';
@@ -26,6 +27,7 @@ import { PaymentsService } from './payments.service';
  */
 @UseGuards(AuthGuard('jwt'))
 @Controller('invoices')
+@Authenticated('invoices')
 export class InvoicesController {
   constructor(
     private readonly invoicesService: InvoicesService,
@@ -39,8 +41,8 @@ export class InvoicesController {
    */
   @Post()
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  create(@Body() dto: CreateInvoiceDto) {
-    return this.invoicesService.create(dto);
+  create(@Body() dto: CreateInvoiceDto, @Request() req: any) {
+    return this.invoicesService.create(dto, req.user.companyId);
   }
 
   /**
@@ -51,8 +53,13 @@ export class InvoicesController {
   generateForLease(
     @Param('leaseId') leaseId: string,
     @Body() dto: GenerateInvoiceDto,
+    @Request() req: any,
   ) {
-    return this.invoicesService.generateForLease(leaseId, dto);
+    return this.invoicesService.generateForLease(
+      leaseId,
+      dto,
+      req.user.companyId,
+    );
   }
 
   /**
@@ -60,12 +67,16 @@ export class InvoicesController {
    */
   @Patch(':id/issue')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  async issue(@Param('id') id: string) {
-    const invoice = await this.invoicesService.issue(id);
+  async issue(@Param('id') id: string, @Request() req: any) {
+    const invoice = await this.invoicesService.issue(id, req.user.companyId);
 
     try {
       const pdfUrl = await this.invoicePdfService.generate(invoice);
-      return this.invoicesService.attachPdf(invoice.id, pdfUrl);
+      return this.invoicesService.attachPdf(
+        invoice.id,
+        pdfUrl,
+        req.user.companyId,
+      );
     } catch (error) {
       console.error('Failed to generate invoice PDF:', error);
     }
@@ -77,7 +88,7 @@ export class InvoicesController {
    * Lista facturas con filtros.
    */
   @Get()
-  findAll(@Query() filters: InvoiceFiltersDto, @Request() req?: any) {
+  findAll(@Query() filters: InvoiceFiltersDto, @Request() req: any) {
     return this.invoicesService.findAll(
       {
         leaseId: filters.leaseId,
@@ -86,7 +97,7 @@ export class InvoicesController {
         page: filters.page ?? 1,
         limit: filters.limit ?? 10,
       },
-      req?.user,
+      req.user,
     );
   }
 
@@ -104,7 +115,10 @@ export class InvoicesController {
   @Get(':id/credit-notes')
   async listCreditNotes(@Param('id') id: string, @Request() req: any) {
     await this.invoicesService.findOneScoped(id, req.user);
-    return this.paymentsService.listCreditNotesByInvoice(id);
+    return this.paymentsService.listCreditNotesByInvoice(
+      id,
+      req.user.companyId,
+    );
   }
 
   /**
@@ -112,8 +126,8 @@ export class InvoicesController {
    */
   @Patch(':id/cancel')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  cancel(@Param('id') id: string) {
-    return this.invoicesService.cancel(id);
+  cancel(@Param('id') id: string, @Request() req: any) {
+    return this.invoicesService.cancel(id, req.user.companyId);
   }
 
   /**
@@ -152,7 +166,10 @@ export class InvoicesController {
     @Request() req: any,
     @Res() res: Response,
   ) {
-    const note = await this.paymentsService.findCreditNoteById(creditNoteId);
+    const note = await this.paymentsService.findCreditNoteById(
+      creditNoteId,
+      req.user.companyId,
+    );
     await this.invoicesService.findOneScoped(note.invoiceId, req.user);
 
     if (!note.pdfUrl) {

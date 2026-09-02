@@ -10,7 +10,6 @@ const appMock = {
   set: jest.fn(),
   enableCors: jest.fn(),
   useGlobalPipes: jest.fn(),
-  useStaticAssets: jest.fn(),
   listen: jest.fn().mockResolvedValue(undefined),
 };
 
@@ -31,6 +30,7 @@ jest.mock('./tracing', () => ({
 }));
 
 describe('main bootstrap', () => {
+  jest.setTimeout(30_000);
   const originalEnv = process.env;
 
   beforeEach(() => {
@@ -66,8 +66,9 @@ describe('main bootstrap', () => {
     });
   }
 
-  it('boots app with configured CORS, pipes, static assets and listeners', async () => {
+  it('boots app with configured CORS, pipes and listeners', async () => {
     process.env.FRONTEND_URL = 'https://a.dev, https://b.dev';
+    process.env.TRUST_PROXY_HOPS = '1';
     process.env.PORT = '4100';
     process.env.HOST = '127.0.0.1';
 
@@ -113,10 +114,6 @@ describe('main bootstrap', () => {
     expect(blockedCall?.[1]).toBeUndefined();
 
     expect(appMock.useGlobalPipes).toHaveBeenCalledTimes(1);
-    expect(appMock.useStaticAssets).toHaveBeenCalledWith(
-      expect.stringContaining('/uploads'),
-      { prefix: '/uploads/' },
-    );
     expect(appMock.listen).toHaveBeenCalledWith(4100, '127.0.0.1');
     expect(logSpy).toHaveBeenCalledWith(
       'Backend running on http://127.0.0.1:4100',
@@ -140,6 +137,7 @@ describe('main bootstrap', () => {
     delete process.env.FRONTEND_URL;
     delete process.env.PORT;
     delete process.env.HOST;
+    delete process.env.TRUST_PROXY_HOPS;
 
     const onceSpy = jest
       .spyOn(process, 'once')
@@ -162,6 +160,7 @@ describe('main bootstrap', () => {
     const callback = jest.fn();
     originCallback('http://localhost:3000', callback);
     expect(callback).toHaveBeenLastCalledWith(null, true);
+    expect(appMock.set).toHaveBeenCalledWith('trust proxy', 0);
     expect(appMock.listen).toHaveBeenCalledWith(3001, '0.0.0.0');
 
     onceSpy.mockRestore();

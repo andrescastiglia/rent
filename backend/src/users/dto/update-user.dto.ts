@@ -13,7 +13,7 @@ import {
 } from '../entities/user.entity';
 import { z } from 'zod';
 
-const updateUserZodSchema = z
+export const updateUserZodSchema = z
   .object({
     email: z.string().email().max(USER_EMAIL_MAX_LENGTH).optional(),
     firstName: z.string().min(1).optional(),
