@@ -53,6 +53,10 @@ describe('SettlementsController', () => {
     settlementsService.findOne.mockResolvedValue({ id: 's1' });
     const result = await controller.findOne('s1', req);
     expect(result).toEqual({ id: 's1' });
-    expect(settlementsService.findOne).toHaveBeenCalledWith('s1', 'c1');
+    expect(settlementsService.findOne).toHaveBeenCalledWith(
+      's1',
+      'c1',
+      req.user,
+    );
   });
 });

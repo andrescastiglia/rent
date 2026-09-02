@@ -3188,7 +3188,11 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.settlementsService.findOne(id, context.companyId ?? '');
+        return deps.settlementsService.findOne(
+          id,
+          context.companyId ?? '',
+          toScopedUser(context) as any,
+        );
       },
     },
     {

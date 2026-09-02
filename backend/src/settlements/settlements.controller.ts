@@ -60,6 +60,6 @@ export class SettlementsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.settlementsService.findOne(id, req.user.companyId);
+    return this.settlementsService.findOne(id, req.user.companyId, req.user);
   }
 }

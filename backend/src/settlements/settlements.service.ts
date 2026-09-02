@@ -20,6 +20,14 @@ export interface SettlementSummary {
   completedCount: number;
 }
 
+const EMPTY_SETTLEMENT_SUMMARY: SettlementSummary = {
+  totalPending: 0,
+  totalCompleted: 0,
+  lastSettlementDate: null,
+  pendingCount: 0,
+  completedCount: 0,
+};
+
 @Injectable()
 export class SettlementsService {
   constructor(
@@ -50,7 +58,8 @@ export class SettlementsService {
 
     if (user.role === UserRole.OWNER) {
       const ownerId = await this.resolveOwnerIdForUser(user);
-      ownerIdFilter = ownerId ?? undefined;
+      if (!ownerId) return [];
+      ownerIdFilter = ownerId;
     }
 
     const params: Array<string> = [companyId];
@@ -110,7 +119,18 @@ export class SettlementsService {
     return rows;
   }
 
-  async findOne(id: string, companyId: string): Promise<Settlement> {
+  async findOne(
+    id: string,
+    companyId: string,
+    user: UserContext,
+  ): Promise<Settlement> {
+    const ownerId = await this.resolveOwnerIdForUser(user);
+    if (user.role === UserRole.OWNER && !ownerId) {
+      throw new NotFoundException(`Settlement ${id} not found`);
+    }
+
+    const params = ownerId ? [companyId, id, ownerId] : [companyId, id];
+    const ownerCondition = ownerId ? 'AND s.owner_id = $3' : '';
     const rows = await this.dataSource.query<Settlement[]>(
       `SELECT
            s.id,
@@ -136,8 +156,9 @@ export class SettlementsService {
            ON owner_entity.id = s.owner_id
           AND owner_entity.company_id = $1
           AND owner_entity.deleted_at IS NULL
-         WHERE s.id = $2`,
-      [companyId, id],
+         WHERE s.id = $2
+           ${ownerCondition}`,
+      params,
     );
 
     const settlement = rows[0];
@@ -156,7 +177,8 @@ export class SettlementsService {
 
     if (user.role === UserRole.OWNER) {
       const resolvedId = await this.resolveOwnerIdForUser(user);
-      ownerIdFilter = resolvedId ?? undefined;
+      if (!resolvedId) return { ...EMPTY_SETTLEMENT_SUMMARY };
+      ownerIdFilter = resolvedId;
     }
 
     const params: Array<string> = [companyId];
