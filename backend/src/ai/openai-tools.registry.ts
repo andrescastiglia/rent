@@ -94,10 +94,6 @@ import { SetUserActivationDto } from '../users/dto/set-user-activation.dto';
 import { UpdateUserDto } from '../users/dto/update-user.dto';
 import { UserListQueryDto } from '../users/dto/user-list-query.dto';
 import { UsersService } from '../users/users.service';
-import { SendWhatsappMessageDto } from '../whatsapp/dto/send-whatsapp-message.dto';
-import { WhatsappDocumentQueryDto } from '../whatsapp/dto/whatsapp-document-query.dto';
-import { WhatsappWebhookPayloadDto } from '../whatsapp/dto/whatsapp-webhook-payload.dto';
-import { WhatsappWebhookQueryDto } from '../whatsapp/dto/whatsapp-webhook-query.dto';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { GithubIssuesService } from './github-issues.service';
 import { StaffService } from '../staff/staff.service';
@@ -754,115 +750,6 @@ export function buildAiToolDefinitions(
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
         await deps.documentsService.remove(id, context.companyId ?? '');
         return { message: 'Document deleted successfully' };
-      },
-    },
-
-    {
-      name: 'post_whatsapp_messages',
-      description:
-        "Sends a WhatsApp text message. Requires 'to' (phone number) and 'text'. Optionally attach a pdfUrl.",
-      responseDescription:
-        'WhatsApp API response with message delivery status.',
-      mutability: 'mutable',
-      allowedRoles: ALL_ROLES,
-      parameters: SendWhatsappMessageDto.zodSchema,
-      execute: async (args) => {
-        const parsed = SendWhatsappMessageDto.zodSchema.parse(args) as any;
-        return deps.whatsappService.sendTextMessage(
-          parsed.to,
-          parsed.text,
-          parsed.pdfUrl,
-        );
-      },
-    },
-    {
-      name: 'post_whatsapp_messages_internal',
-      description:
-        'Sends a WhatsApp message via internal batch process. Requires batchToken for authorization. Used by automated jobs.',
-      responseDescription:
-        'WhatsApp API response with message delivery status.',
-      mutability: 'mutable',
-      allowedRoles: ALL_ROLES,
-      parameters: withParams(SendWhatsappMessageDto.zodSchema, {
-        batchToken: z.string().optional(),
-      }),
-      execute: async (args) => {
-        const parsed = withParams(SendWhatsappMessageDto.zodSchema, {
-          batchToken: z.string().optional(),
-        }).parse(args) as any;
-        deps.whatsappService.assertBatchToken(parsed.batchToken);
-        return deps.whatsappService.sendTextMessage(
-          parsed.to,
-          parsed.text,
-          parsed.pdfUrl,
-        );
-      },
-    },
-    {
-      name: 'get_whatsapp_webhook',
-      description:
-        'Handles WhatsApp webhook verification challenge. Returns the hub.challenge value for subscription confirmation.',
-      responseDescription:
-        'The verification challenge string for webhook setup.',
-      mutability: 'readonly',
-      allowedRoles: ALL_ROLES,
-      parameters: WhatsappWebhookQueryDto.zodSchema,
-      execute: async (args) => {
-        const parsed = WhatsappWebhookQueryDto.zodSchema.parse(args) as any;
-        if (
-          parsed['hub.mode'] === 'subscribe' &&
-          deps.whatsappService.verifyWebhookToken(parsed['hub.verify_token'])
-        ) {
-          return { status: 200, challenge: parsed['hub.challenge'] };
-        }
-        return { status: 403, challenge: null };
-      },
-    },
-    {
-      name: 'post_whatsapp_webhook',
-      description:
-        'Processes incoming WhatsApp webhook payloads (message received, delivery status, etc.).',
-      responseDescription: 'Acknowledgment of the processed webhook event.',
-      mutability: 'mutable',
-      allowedRoles: ALL_ROLES,
-      parameters: WhatsappWebhookPayloadDto.zodSchema,
-      execute: async (args) => {
-        deps.whatsappService.handleIncomingWebhook(
-          WhatsappWebhookPayloadDto.zodSchema.parse(args),
-        );
-        return { received: true };
-      },
-    },
-    {
-      name: 'get_whatsapp_document_by_id',
-      description:
-        'Downloads a WhatsApp media document by ID using a WhatsApp-signed token. Use to retrieve media from incoming messages.',
-      responseDescription: 'The document binary content or download URL.',
-      mutability: 'readonly',
-      allowedRoles: ALL_ROLES,
-      parameters: withParams(WhatsappDocumentQueryDto.zodSchema, {
-        documentId: uuidSchema,
-      }),
-      execute: async (args) => {
-        const parsed = withParams(WhatsappDocumentQueryDto.zodSchema, {
-          documentId: uuidSchema,
-        }).parse(args) as any;
-        if (
-          !deps.whatsappService.isDocumentTokenValid(
-            parsed.documentId,
-            parsed.token,
-          )
-        ) {
-          throw new UnauthorizedException('Invalid or expired document token');
-        }
-        const file = await deps.documentsService.downloadByS3Key(
-          `db://document/${parsed.documentId}`,
-        );
-        return toFilePayload(
-          file.buffer,
-          file.contentType,
-          `document-${parsed.documentId}.pdf`,
-        );
       },
     },
 

@@ -631,18 +631,7 @@ describe('openai-tools.registry', () => {
     await find('get_documents_by_entity').execute({ type: 'lease', id }, ctx);
     await find('delete_documents_by_id').execute({ id }, ctx);
 
-    await find('post_whatsapp_messages').execute(
-      { to: '5491112345678', text: 'hola', pdfUrl: undefined },
-      ctx,
-    );
-    await find('post_whatsapp_messages_internal').execute(
-      {
-        to: '5491112345678',
-        text: 'hola',
-        batchToken: 'token',
-      },
-      ctx,
-    );
+    expect(defs.some((tool) => tool.name.includes('whatsapp'))).toBe(false);
   });
 
   it('should cover wrappers from whatsapp webhook through leases and amendments', async () => {
@@ -758,47 +747,7 @@ describe('openai-tools.registry', () => {
       role: UserRole.ADMIN,
     } as const;
 
-    await expect(
-      find('get_whatsapp_webhook').execute(
-        {
-          'hub.mode': 'subscribe',
-          'hub.verify_token': 'ok',
-          'hub.challenge': 'challenge',
-        },
-        ctx,
-      ),
-    ).resolves.toEqual({ status: 200, challenge: 'challenge' });
-    await expect(
-      find('get_whatsapp_webhook').execute(
-        {
-          'hub.mode': 'subscribe',
-          'hub.verify_token': 'bad',
-          'hub.challenge': 'challenge',
-        },
-        ctx,
-      ),
-    ).resolves.toEqual({ status: 403, challenge: null });
-
-    await expect(
-      find('post_whatsapp_webhook').execute({ any: 'payload' }, ctx),
-    ).resolves.toEqual({ received: true });
-    await expect(
-      find('get_whatsapp_document_by_id').execute(
-        { documentId: id, token: 't' },
-        ctx,
-      ),
-    ).rejects.toThrow('Invalid or expired document token');
-    await expect(
-      find('get_whatsapp_document_by_id').execute(
-        { documentId: id, token: 't' },
-        ctx,
-      ),
-    ).resolves.toEqual(
-      expect.objectContaining({
-        contentType: 'application/pdf',
-        filename: `document-${id}.pdf`,
-      }),
-    );
+    expect(defs.some((tool) => tool.name.includes('whatsapp'))).toBe(false);
 
     await find('post_properties').execute(
       {
