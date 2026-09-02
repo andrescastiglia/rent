@@ -118,8 +118,10 @@ jobs:
 
       - name: Retain production runtime dependencies
         run: |
-          npm prune --omit=dev --prefix backend
-          npm prune --omit=dev --prefix batch
+          npm prune --omit=dev --package-lock=false --prefix backend
+          # Terminus has not yet widened its Nest peer to v12; the production
+          # graph is lockfile-tested, so do not re-resolve that stale peer.
+          npm prune --omit=dev --legacy-peer-deps --package-lock=false --prefix batch
 
       - name: Package checksummed artifact and SBOMs
         run: scripts/build-release-artifact.sh
