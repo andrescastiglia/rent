@@ -1653,8 +1653,11 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: CreateInvoiceDto.zodSchema,
-      execute: async (args) =>
-        deps.invoicesService.create(CreateInvoiceDto.zodSchema.parse(args)),
+      execute: async (args, context) =>
+        deps.invoicesService.create(
+          CreateInvoiceDto.zodSchema.parse(args),
+          context.companyId ?? '',
+        ),
     },
     {
       name: 'post_invoices_generate_for_lease',
@@ -1667,11 +1670,15 @@ export function buildAiToolDefinitions(
       parameters: withParams(GenerateInvoiceDto.zodSchema, {
         leaseId: uuidSchema,
       }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(GenerateInvoiceDto.zodSchema, {
           leaseId: uuidSchema,
         }).parse(args) as any;
-        return deps.invoicesService.generateForLease(parsed.leaseId, parsed);
+        return deps.invoicesService.generateForLease(
+          parsed.leaseId,
+          parsed,
+          context.companyId ?? '',
+        );
       },
     },
     {
@@ -1682,12 +1689,13 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        const invoice = await deps.invoicesService.issue(id);
+        const companyId = context.companyId ?? '';
+        const invoice = await deps.invoicesService.issue(id, companyId);
         try {
           const pdfUrl = await deps.invoicePdfService.generate(invoice as any);
-          return deps.invoicesService.attachPdf(invoice.id, pdfUrl);
+          return deps.invoicesService.attachPdf(invoice.id, pdfUrl, companyId);
         } catch {
           return invoice;
         }
@@ -1763,9 +1771,9 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.invoicesService.cancel(id);
+        return deps.invoicesService.cancel(id, context.companyId ?? '');
       },
     },
     {

@@ -42,21 +42,31 @@ describe('InvoicesController', () => {
     invoicesService.cancel.mockResolvedValue({ id: 'i1', status: 'cancelled' });
     paymentsService.listCreditNotesByInvoice.mockResolvedValue([]);
 
-    await expect(controller.create({} as any)).resolves.toEqual({ id: 'i1' });
-    await expect(controller.generateForLease('l1', {} as any)).resolves.toEqual(
-      {
-        id: 'i2',
-      },
-    );
+    await expect(controller.create({} as any, req)).resolves.toEqual({
+      id: 'i1',
+    });
+    await expect(
+      controller.generateForLease('l1', {} as any, req),
+    ).resolves.toEqual({ id: 'i2' });
     await expect(controller.findAll({} as any, req)).resolves.toEqual({
       data: [],
     });
     await expect(controller.findOne('i1', req)).resolves.toEqual({ id: 'i1' });
     await expect(controller.listCreditNotes('i1', req)).resolves.toEqual([]);
-    await expect(controller.cancel('i1')).resolves.toEqual({
+    await expect(controller.cancel('i1', req)).resolves.toEqual({
       id: 'i1',
       status: 'cancelled',
     });
+    expect(invoicesService.create).toHaveBeenCalledWith(
+      expect.anything(),
+      'c1',
+    );
+    expect(invoicesService.generateForLease).toHaveBeenCalledWith(
+      'l1',
+      expect.anything(),
+      'c1',
+    );
+    expect(invoicesService.cancel).toHaveBeenCalledWith('i1', 'c1');
   });
 
   it('issue returns attachPdf on success and original invoice on pdf failure', async () => {
@@ -66,14 +76,20 @@ describe('InvoicesController', () => {
       id: 'i1',
       pdfUrl: 's3://invoice.pdf',
     });
-    await expect(controller.issue('i1')).resolves.toEqual({
+    await expect(controller.issue('i1', req)).resolves.toEqual({
       id: 'i1',
       pdfUrl: 's3://invoice.pdf',
     });
 
     const errorSpy = jest.spyOn(console, 'error').mockImplementation();
     invoicePdfService.generate.mockRejectedValueOnce(new Error('pdf fail'));
-    await expect(controller.issue('i1')).resolves.toEqual({ id: 'i1' });
+    await expect(controller.issue('i1', req)).resolves.toEqual({ id: 'i1' });
+    expect(invoicesService.issue).toHaveBeenCalledWith('i1', 'c1');
+    expect(invoicesService.attachPdf).toHaveBeenCalledWith(
+      'i1',
+      's3://invoice.pdf',
+      'c1',
+    );
     expect(errorSpy).toHaveBeenCalled();
     errorSpy.mockRestore();
   });

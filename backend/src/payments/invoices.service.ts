@@ -26,6 +26,7 @@ import { UserRole } from '../users/entities/user.entity';
 
 type RequestUser = {
   id: string;
+  companyId: string;
   role: UserRole;
   email?: string | null;
   phone?: string | null;
@@ -53,9 +54,9 @@ export class InvoicesService {
    * @param dto Datos de la factura
    * @returns La factura creada
    */
-  async create(dto: CreateInvoiceDto): Promise<Invoice> {
+  async create(dto: CreateInvoiceDto, companyId: string): Promise<Invoice> {
     const lease = await this.leasesRepository.findOne({
-      where: { id: dto.leaseId },
+      where: { id: dto.leaseId, companyId },
       relations: ['property', 'property.owner'],
     });
 
@@ -112,9 +113,10 @@ export class InvoicesService {
   async generateForLease(
     leaseId: string,
     dto: GenerateInvoiceDto,
+    companyId: string,
   ): Promise<Invoice> {
     const lease = await this.leasesRepository.findOne({
-      where: { id: leaseId },
+      where: { id: leaseId, companyId },
       relations: ['property', 'property.owner'],
     });
 
@@ -176,7 +178,7 @@ export class InvoicesService {
     await this.leasesRepository.save(lease);
 
     if (dto.issue) {
-      return this.issue(saved.id);
+      return this.issue(saved.id, companyId);
     }
 
     return saved;
@@ -187,8 +189,8 @@ export class InvoicesService {
    * @param id ID de la factura
    * @returns La factura emitida
    */
-  async issue(id: string): Promise<Invoice> {
-    const invoice = await this.findOne(id);
+  async issue(id: string, companyId: string): Promise<Invoice> {
+    const invoice = await this.findOne(id, companyId);
 
     if (invoice.status !== InvoiceStatus.DRAFT) {
       throw new BadRequestException('Only draft invoices can be issued');
@@ -216,8 +218,12 @@ export class InvoicesService {
     return savedInvoice;
   }
 
-  async attachPdf(id: string, pdfUrl: string): Promise<Invoice> {
-    const invoice = await this.findOne(id);
+  async attachPdf(
+    id: string,
+    pdfUrl: string,
+    companyId: string,
+  ): Promise<Invoice> {
+    const invoice = await this.findOne(id, companyId);
     invoice.pdfUrl = pdfUrl;
     return this.invoicesRepository.save(invoice);
   }
@@ -227,9 +233,9 @@ export class InvoicesService {
    * @param id ID de la factura
    * @returns La factura
    */
-  async findOne(id: string): Promise<Invoice> {
+  async findOne(id: string, companyId: string): Promise<Invoice> {
     const invoice = await this.invoicesRepository.findOne({
-      where: { id },
+      where: { id, companyId },
       relations: [
         'lease',
         'lease.tenant',
@@ -256,6 +262,9 @@ export class InvoicesService {
       .leftJoinAndSelect('property.owner', 'owner')
       .leftJoinAndSelect('owner.user', 'ownerUser')
       .where('invoice.id = :id', { id })
+      .andWhere('invoice.company_id = :companyId', {
+        companyId: user.companyId,
+      })
       .andWhere('invoice.deleted_at IS NULL');
 
     this.applyVisibilityScope(query, user);
@@ -281,7 +290,7 @@ export class InvoicesService {
       page?: number;
       limit?: number;
     },
-    user?: RequestUser,
+    user: RequestUser,
   ): Promise<{ data: Invoice[]; total: number; page: number; limit: number }> {
     const { leaseId, ownerId, status, page = 1, limit = 10 } = filters;
 
@@ -293,7 +302,10 @@ export class InvoicesService {
       .leftJoinAndSelect('lease.property', 'property')
       .leftJoinAndSelect('property.owner', 'owner')
       .leftJoinAndSelect('owner.user', 'ownerUser')
-      .where('invoice.deleted_at IS NULL');
+      .where('invoice.deleted_at IS NULL')
+      .andWhere('invoice.company_id = :companyId', {
+        companyId: user.companyId,
+      });
 
     if (leaseId) {
       query.andWhere('invoice.lease_id = :leaseId', { leaseId });
@@ -307,9 +319,7 @@ export class InvoicesService {
       query.andWhere('invoice.status = :status', { status });
     }
 
-    if (user) {
-      this.applyVisibilityScope(query, user);
-    }
+    this.applyVisibilityScope(query, user);
 
     query
       .orderBy('invoice.issuedAt', 'DESC')
@@ -586,8 +596,8 @@ export class InvoicesService {
    * @param id ID de la factura
    * @returns La factura cancelada
    */
-  async cancel(id: string): Promise<Invoice> {
-    const invoice = await this.findOne(id);
+  async cancel(id: string, companyId: string): Promise<Invoice> {
+    const invoice = await this.findOne(id, companyId);
 
     if (invoice.status === InvoiceStatus.PAID) {
       throw new BadRequestException('Cannot cancel a paid invoice');

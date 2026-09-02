@@ -105,7 +105,11 @@ describe('InvoicesService', () => {
     }));
     leasesRepository.save!.mockResolvedValue(lease);
 
-    await service.generateForLease('lease-1', { applyLateFee: true });
+    await service.generateForLease(
+      'lease-1',
+      { applyLateFee: true },
+      'company-1',
+    );
 
     expect(tenantAccountsService.calculateLateFee).toHaveBeenCalledWith(
       'acc-1',
@@ -144,7 +148,11 @@ describe('InvoicesService', () => {
     }));
     leasesRepository.save!.mockResolvedValue(lease);
 
-    await service.generateForLease('lease-2', { applyLateFee: false });
+    await service.generateForLease(
+      'lease-2',
+      { applyLateFee: false },
+      'company-1',
+    );
 
     const created = invoicesRepository.create!.mock.calls[0][0];
     expect(new Date(created.periodStart).toISOString()).toBe(
@@ -187,8 +195,13 @@ describe('InvoicesService', () => {
     leasesRepository.findOne!.mockResolvedValue(null);
 
     await expect(
-      service.create({ leaseId: 'missing', subtotal: 10 } as any),
+      service.create({ leaseId: 'missing', subtotal: 10 } as any, 'company-1'),
     ).rejects.toBeInstanceOf(NotFoundException);
+    expect(leasesRepository.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'missing', companyId: 'company-1' },
+      }),
+    );
   });
 
   it('create throws when owner is missing on lease', async () => {
@@ -202,13 +215,16 @@ describe('InvoicesService', () => {
     });
 
     await expect(
-      service.create({
-        leaseId: 'lease-1',
-        subtotal: 100,
-        periodStart: new Date('2025-01-01'),
-        periodEnd: new Date('2025-01-31'),
-        dueDate: new Date('2025-02-10'),
-      } as any),
+      service.create(
+        {
+          leaseId: 'lease-1',
+          subtotal: 100,
+          periodStart: new Date('2025-01-01'),
+          periodEnd: new Date('2025-01-31'),
+          dueDate: new Date('2025-02-10'),
+        } as any,
+        'company-1',
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -229,16 +245,19 @@ describe('InvoicesService', () => {
     invoicesRepository.create!.mockImplementation((d) => d);
     invoicesRepository.save!.mockImplementation(async (d) => d);
 
-    const result = await service.create({
-      leaseId: 'lease-1',
-      subtotal: 100,
-      lateFee: 10,
-      adjustments: -5,
-      periodStart: new Date('2025-01-01'),
-      periodEnd: new Date('2025-01-31'),
-      dueDate: new Date('2025-02-10'),
-      notes: 'note',
-    } as any);
+    const result = await service.create(
+      {
+        leaseId: 'lease-1',
+        subtotal: 100,
+        lateFee: 10,
+        adjustments: -5,
+        periodStart: new Date('2025-01-01'),
+        periodEnd: new Date('2025-01-31'),
+        dueDate: new Date('2025-02-10'),
+        notes: 'note',
+      } as any,
+      'company-1',
+    );
 
     expect(result.total).toBe(105);
     expect(result.status).toBe(InvoiceStatus.DRAFT);
@@ -250,7 +269,7 @@ describe('InvoicesService', () => {
       status: InvoiceStatus.PAID,
     } as any);
 
-    await expect(service.issue('inv-1')).rejects.toBeInstanceOf(
+    await expect(service.issue('inv-1', 'company-1')).rejects.toBeInstanceOf(
       BadRequestException,
     );
   });
@@ -276,7 +295,7 @@ describe('InvoicesService', () => {
       .spyOn(service as any, 'createCommissionInvoice')
       .mockResolvedValue(undefined);
 
-    const result = await service.issue('inv-1');
+    const result = await service.issue('inv-1', 'company-1');
 
     expect(result.status).toBe(InvoiceStatus.PENDING);
     expect(tenantAccountsService.addMovement).toHaveBeenCalledWith(
@@ -297,14 +316,23 @@ describe('InvoicesService', () => {
     } as any);
     invoicesRepository.save!.mockImplementation(async (d) => d);
 
-    const result = await service.attachPdf('inv-1', 'db://document/1');
+    const result = await service.attachPdf(
+      'inv-1',
+      'db://document/1',
+      'company-1',
+    );
     expect(result.pdfUrl).toBe('db://document/1');
   });
 
   it('findOne throws when invoice does not exist', async () => {
     invoicesRepository.findOne!.mockResolvedValue(null);
-    await expect(service.findOne('missing')).rejects.toBeInstanceOf(
-      NotFoundException,
+    await expect(
+      service.findOne('missing', 'company-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(invoicesRepository.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'missing', companyId: 'company-1' },
+      }),
     );
   });
 
@@ -320,6 +348,7 @@ describe('InvoicesService', () => {
     await expect(
       service.findOneScoped('missing', {
         id: 'owner-1',
+        companyId: 'company-1',
         role: UserRole.OWNER,
         email: 'owner@test.dev',
         phone: '123',
@@ -329,6 +358,10 @@ describe('InvoicesService', () => {
     expect(qb.andWhere).toHaveBeenCalledWith(
       expect.stringContaining('owner.user_id = :scopeUserId'),
       expect.objectContaining({ scopeUserId: 'owner-1' }),
+    );
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      'invoice.company_id = :companyId',
+      { companyId: 'company-1' },
     );
   });
 
@@ -355,6 +388,7 @@ describe('InvoicesService', () => {
       },
       {
         id: 'tenant-user-1',
+        companyId: 'company-1',
         role: UserRole.TENANT,
         email: 'tenant@test.dev',
         phone: '555',
@@ -371,6 +405,10 @@ describe('InvoicesService', () => {
     expect(qb.andWhere).toHaveBeenCalledWith(
       expect.stringContaining('tenant.user_id = :scopeUserId'),
       expect.objectContaining({ scopeUserId: 'tenant-user-1' }),
+    );
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      'invoice.company_id = :companyId',
+      { companyId: 'company-1' },
     );
   });
 
@@ -440,9 +478,9 @@ describe('InvoicesService', () => {
       status: InvoiceStatus.PAID,
     } as any);
 
-    await expect(service.cancel('inv-paid')).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      service.cancel('inv-paid', 'company-1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
 
     const pending = {
       id: 'inv-1',
@@ -455,7 +493,7 @@ describe('InvoicesService', () => {
     jest.spyOn(service, 'findOne').mockResolvedValueOnce(pending);
     invoicesRepository.save!.mockImplementation(async (d) => d);
 
-    const result = await service.cancel('inv-1');
+    const result = await service.cancel('inv-1', 'company-1');
     expect(result.status).toBe(InvoiceStatus.CANCELLED);
     expect(tenantAccountsService.addMovement).toHaveBeenCalledWith(
       'acc-1',
