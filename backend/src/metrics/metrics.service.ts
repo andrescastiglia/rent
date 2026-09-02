@@ -303,7 +303,10 @@ export class MetricsService {
       return 'unknown';
     }
 
-    const safe = trimmed
+    // Metric labels are client-controlled. Bound the regex input first so
+    // redaction cannot be abused for polynomial-time matching.
+    const bounded = trimmed.slice(0, 512);
+    const safe = bounded
       .replaceAll(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi, ':redacted')
       .replaceAll(/\b(?:[a-f0-9]{24,}|[a-z0-9_-]{32,})\b/gi, ':token')
       .replaceAll(/\s+/g, '_');

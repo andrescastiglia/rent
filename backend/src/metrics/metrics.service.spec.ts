@@ -69,6 +69,18 @@ describe('MetricsService', () => {
     expect(metrics).toContain(':token');
   });
 
+  it('bounds client-controlled labels before redaction', async () => {
+    const repeated = '+'.repeat(10_000);
+    service.recordFrontendMetric({
+      type: 'client_error',
+      errorType: `${repeated}@example.com`,
+      path: '/metrics',
+    } as any);
+
+    const metrics = await service.getMetrics();
+    expect(metrics).not.toContain(repeated);
+  });
+
   it('records the complete RAG metrics contract', async () => {
     process.env.AI_RAG_INPUT_USD_PER_MILLION = '0.15';
     process.env.AI_RAG_OUTPUT_USD_PER_MILLION = '0.60';
