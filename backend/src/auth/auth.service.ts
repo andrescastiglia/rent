@@ -12,6 +12,13 @@ import { UsersService } from '../users/users.service';
 import { DEFAULT_COMPANY_ID, UserRole } from '../users/entities/user.entity';
 import { Company, PlanType } from '../companies/entities/company.entity';
 
+type ReauthenticationClaims = {
+  sub: string;
+  companyId: string;
+  role: UserRole;
+  purpose: 'sensitive-action';
+};
+
 @Injectable()
 export class AuthService {
   private readonly loginFailures = new Map<
@@ -67,6 +74,53 @@ export class AuthService {
         permissions: user.permissions ?? {},
       },
     };
+  }
+
+  async reauthenticate(
+    actor: { id: string; companyId: string; role: UserRole },
+    password: string,
+  ): Promise<{ reauthToken: string; expiresIn: number }> {
+    const user = await this.usersService.findOneByIdWithPassword(actor.id);
+    if (
+      !user?.isActive ||
+      user.companyId !== actor.companyId ||
+      !(await bcrypt.compare(password, user.passwordHash))
+    ) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    const expiresIn = 300;
+    return {
+      reauthToken: this.jwtService.sign(
+        {
+          sub: actor.id,
+          companyId: actor.companyId,
+          role: actor.role,
+          purpose: 'sensitive-action',
+        } satisfies ReauthenticationClaims,
+        { expiresIn },
+      ),
+      expiresIn,
+    };
+  }
+
+  verifyReauthentication(
+    token: string,
+    actor: { id: string; companyId: string; role: UserRole },
+  ): void {
+    let claims: ReauthenticationClaims;
+    try {
+      claims = this.jwtService.verify<ReauthenticationClaims>(token);
+    } catch {
+      throw new UnauthorizedException('Reauthentication is required');
+    }
+    if (
+      claims.purpose !== 'sensitive-action' ||
+      claims.sub !== actor.id ||
+      claims.companyId !== actor.companyId ||
+      claims.role !== actor.role
+    ) {
+      throw new UnauthorizedException('Invalid reauthentication token');
+    }
   }
 
   requiresCaptchaForLogin(email: string, ipAddress?: string): boolean {

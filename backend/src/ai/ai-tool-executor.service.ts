@@ -121,6 +121,7 @@ export class AiToolExecutorService {
     if (![UserRole.ADMIN, UserRole.STAFF].includes(context.role)) {
       throw new ForbiddenException('Only staff or admin can approve actions');
     }
+    this.assertRoleAllowed(definition, context.role);
     this.assertModeAllowsExecution(this.getMode(), definition);
     this.assertContext(context);
     const parsed = this.parseArguments(definition, args ?? {});
@@ -238,6 +239,12 @@ export class AiToolExecutorService {
     context: AiExecutionContext,
     confirmationId: string,
   ): Promise<void> {
+    const safePayload = this.redactSensitive(parsed);
+    if (JSON.stringify(safePayload).includes('[REDACTED]')) {
+      throw new ForbiddenException(
+        'Sensitive values cannot be stored in a pending action',
+      );
+    }
     const actionType = definition.name.includes('delete')
       ? 'delete'
       : /(?:patch|put|update|set)_/.test(definition.name)
@@ -252,8 +259,13 @@ export class AiToolExecutorService {
     await this.dataSource.query(
       `INSERT INTO pending_actions (
          company_id, requested_by, conversation_id, source_confirmation_id,
-         tool_name, action_type, entity_type, summary, payload
-       ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7, $8, $9::jsonb)
+         tool_name, action_type, entity_type, summary, payload, payload_hash,
+         expires_at
+       )
+       SELECT $1::uuid, $2::uuid, $3::uuid, confirmation.id, $5, $6, $7,
+              $8, $9::jsonb, confirmation.payload_hash, confirmation.expires_at
+         FROM ai_tool_mutation_confirmations confirmation
+        WHERE confirmation.id = $4::uuid
        ON CONFLICT (source_confirmation_id) WHERE source_confirmation_id IS NOT NULL
        DO NOTHING`,
       [
@@ -265,7 +277,7 @@ export class AiToolExecutorService {
         actionType,
         entityType,
         definition.description,
-        JSON.stringify(parsed),
+        JSON.stringify(safePayload),
       ],
     );
   }

@@ -13,7 +13,7 @@ const mockService = {
   findOne: jest.fn(),
   create: jest.fn(),
   void: jest.fn(),
-  processWebhook: jest.fn(),
+  acceptWebhook: jest.fn(),
 };
 
 const mockRequest = {
@@ -122,17 +122,32 @@ describe('DigitalSignaturesController', () => {
 
   describe('processWebhook', () => {
     it('delegates to service', async () => {
-      mockService.processWebhook.mockResolvedValue(undefined);
+      mockService.acceptWebhook.mockResolvedValue({
+        received: true,
+        duplicate: false,
+      });
 
       const dto = {
         envelopeId: 'env-123',
         status: 'completed',
         signerEmail: 'tenant@example.com',
+        generatedAt: new Date().toISOString(),
       };
+      const rawBody = Buffer.from(JSON.stringify(dto));
 
-      await controller.processWebhook(dto as any);
+      await controller.processWebhook(
+        'docusign',
+        dto as any,
+        { rawBody } as any,
+        'signature',
+      );
 
-      expect(mockService.processWebhook).toHaveBeenCalledWith(dto);
+      expect(mockService.acceptWebhook).toHaveBeenCalledWith(
+        'docusign',
+        dto,
+        rawBody,
+        { signature: 'signature' },
+      );
     });
   });
 });

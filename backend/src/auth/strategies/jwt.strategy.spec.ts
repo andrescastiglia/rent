@@ -52,6 +52,16 @@ describe('JwtStrategy', () => {
     );
   });
 
+  it('never accepts a reauthentication token as an access token', async () => {
+    configService.get.mockReturnValue('jwt-secret');
+    const strategy = new JwtStrategy(configService as any, usersService as any);
+
+    await expect(
+      strategy.validate({ sub: 'u1', purpose: 'sensitive-action' }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(usersService.findOneById).not.toHaveBeenCalled();
+  });
+
   it('fails startup when JWT_SECRET is missing', () => {
     configService.get.mockReturnValue(undefined);
     expect(

@@ -1,11 +1,14 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
   ServiceUnavailableException,
+  UnauthorizedException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { DataSource, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import {
   DigitalSignatureRequest,
@@ -21,6 +24,11 @@ interface ProviderResult {
   signingUrl: string;
   ownerSigningUrl: string;
   expiryDate: Date;
+}
+
+export interface SignatureWebhookContext {
+  signature?: string;
+  receivedAt?: number;
 }
 
 class MockAdapter {
@@ -59,6 +67,7 @@ export class DigitalSignaturesService {
     @InjectRepository(Lease)
     private readonly leaseRepo: Repository<Lease>,
     private readonly configService: ConfigService,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   async create(
@@ -210,6 +219,238 @@ export class DigitalSignaturesService {
     } else {
       await this.sigRequestRepo.save(request);
     }
+  }
+
+  async acceptWebhook(
+    provider: string,
+    event: WebhookEventDto,
+    rawBody: Buffer | undefined,
+    context: SignatureWebhookContext,
+  ): Promise<{ received: true; duplicate: boolean }> {
+    if (provider !== SignatureProvider.DOCUSIGN) {
+      throw new BadRequestException('Unsupported signature webhook provider');
+    }
+    if (!rawBody) {
+      throw new BadRequestException('Raw signature webhook body is required');
+    }
+    this.validateWebhookSignature(provider, event, rawBody, context);
+
+    const payloadSha256 = createHash('sha256').update(rawBody).digest('hex');
+    const eventIdentity = event.eventId
+      ? `event-id:${event.eventId}`
+      : `payload:${event.envelopeId}:${payloadSha256}`;
+    const eventKey = createHash('sha256').update(eventIdentity).digest('hex');
+    const inserted = await this.dataSource.query(
+      `INSERT INTO signature_webhook_inbox (
+         provider, event_key, external_envelope_id, payload_sha256, payload,
+         status, attempts, lease_expires_at
+       ) VALUES ($1, $2, $3, $4, $5::jsonb, 'processing', 1,
+                 NOW() + INTERVAL '5 minutes')
+       ON CONFLICT (provider, event_key) DO NOTHING
+       RETURNING id`,
+      [
+        provider,
+        eventKey,
+        event.envelopeId,
+        payloadSha256,
+        JSON.stringify(event),
+      ],
+    );
+
+    if (!inserted[0]) {
+      const existing = await this.dataSource.query(
+        `SELECT id, payload_sha256, status FROM signature_webhook_inbox
+          WHERE provider = $1 AND event_key = $2`,
+        [provider, eventKey],
+      );
+      if (existing[0]?.payload_sha256 !== payloadSha256) {
+        throw new ConflictException('Signature webhook event ID was reused');
+      }
+      const reclaimed = await this.dataSource.query(
+        `UPDATE signature_webhook_inbox
+            SET status = 'processing', attempts = attempts + 1,
+                lease_expires_at = NOW() + INTERVAL '5 minutes',
+                last_error = NULL, updated_at = NOW()
+          WHERE id = $1::uuid
+            AND (status IN ('queued', 'failed')
+              OR (status = 'processing' AND lease_expires_at < NOW()))
+          RETURNING id`,
+        [existing[0].id],
+      );
+      if (!reclaimed[0]) return { received: true, duplicate: true };
+      try {
+        await this.applyPersistedWebhook(
+          String(reclaimed[0].id),
+          provider,
+          event,
+        );
+        return { received: true, duplicate: false };
+      } catch (error) {
+        await this.markWebhookFailed(String(reclaimed[0].id), error);
+        throw error;
+      }
+    }
+
+    const inboxId = String(inserted[0].id);
+    try {
+      await this.applyPersistedWebhook(inboxId, provider, event);
+      return { received: true, duplicate: false };
+    } catch (error) {
+      await this.markWebhookFailed(inboxId, error);
+      throw error;
+    }
+  }
+
+  private async markWebhookFailed(
+    inboxId: string,
+    error: unknown,
+  ): Promise<void> {
+    await this.dataSource.query(
+      `UPDATE signature_webhook_inbox
+          SET status = 'failed', lease_expires_at = NULL, last_error = $2,
+              updated_at = NOW()
+        WHERE id = $1::uuid`,
+      [inboxId, error instanceof Error ? error.name : 'UnknownError'],
+    );
+  }
+
+  private validateWebhookSignature(
+    provider: string,
+    event: WebhookEventDto,
+    rawBody: Buffer,
+    context: SignatureWebhookContext,
+  ): void {
+    const secret = this.configService.get<string>(
+      `${provider.toUpperCase()}_WEBHOOK_SECRET`,
+    );
+    if (!secret) {
+      throw new ServiceUnavailableException(
+        'Signature webhook secret is not configured',
+      );
+    }
+    const provided = context.signature?.trim() ?? '';
+    const expected = createHmac('sha256', secret).update(rawBody).digest();
+    let providedBuffer: Buffer;
+    try {
+      providedBuffer = Buffer.from(provided, 'base64');
+    } catch {
+      throw new UnauthorizedException('Invalid signature webhook signature');
+    }
+    if (
+      providedBuffer.length !== expected.length ||
+      !timingSafeEqual(providedBuffer, expected)
+    ) {
+      throw new UnauthorizedException('Invalid signature webhook signature');
+    }
+
+    const generatedAt = Date.parse(event.generatedAt);
+    const toleranceSeconds = Number(
+      this.configService.get<string>('SIGNATURE_WEBHOOK_TOLERANCE_SECONDS') ??
+        300,
+    );
+    const receivedAt = context.receivedAt ?? Date.now();
+    if (
+      !Number.isFinite(generatedAt) ||
+      !Number.isFinite(toleranceSeconds) ||
+      toleranceSeconds <= 0 ||
+      Math.abs(receivedAt - generatedAt) > toleranceSeconds * 1000
+    ) {
+      throw new UnauthorizedException('Expired signature webhook');
+    }
+  }
+
+  private async applyPersistedWebhook(
+    inboxId: string,
+    provider: string,
+    event: WebhookEventDto,
+  ): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      const inbox = await manager.query(
+        `SELECT id FROM signature_webhook_inbox
+          WHERE id = $1::uuid AND status = 'processing'
+          FOR UPDATE`,
+        [inboxId],
+      );
+      if (!inbox[0]) return;
+
+      const requests = await manager.query(
+        `SELECT * FROM digital_signature_requests
+          WHERE provider = $1 AND external_envelope_id = $2
+          FOR UPDATE`,
+        [provider, event.envelopeId],
+      );
+      const request = requests[0] as
+        | { id: string; company_id: string; lease_id: string; status: string }
+        | undefined;
+      if (!request) {
+        throw new NotFoundException('Signature envelope not found');
+      }
+
+      const targetStatus = event.status as SignatureStatus;
+      const terminal = new Set<string>([
+        SignatureStatus.COMPLETED,
+        SignatureStatus.VOIDED,
+        SignatureStatus.DECLINED,
+        SignatureStatus.EXPIRED,
+      ]);
+      if (terminal.has(request.status) && request.status !== targetStatus) {
+        throw new ConflictException(
+          `Invalid signature transition ${request.status} -> ${targetStatus}`,
+        );
+      }
+      if (
+        !terminal.has(request.status) &&
+        request.status !== SignatureStatus.SENT &&
+        request.status !== SignatureStatus.PENDING
+      ) {
+        throw new ConflictException(
+          `Invalid signature transition ${request.status} -> ${targetStatus}`,
+        );
+      }
+
+      await manager.query(
+        `UPDATE digital_signature_requests
+            SET status = $2,
+                completed_at = CASE WHEN $2 = 'completed'
+                  THEN COALESCE($3::timestamptz, NOW()) ELSE completed_at END,
+                voided_at = CASE WHEN $2 IN ('voided', 'declined')
+                  THEN COALESCE(voided_at, NOW()) ELSE voided_at END,
+                webhook_events = COALESCE(webhook_events, '[]'::jsonb)
+                  || jsonb_build_array($4::jsonb),
+                updated_at = NOW()
+          WHERE id = $1::uuid AND company_id = $5::uuid`,
+        [
+          request.id,
+          targetStatus,
+          event.completedAt ?? null,
+          JSON.stringify({
+            eventId: event.eventId ?? null,
+            status: targetStatus,
+            generatedAt: event.generatedAt,
+          }),
+          request.company_id,
+        ],
+      );
+
+      const leaseStatus =
+        targetStatus === SignatureStatus.COMPLETED
+          ? LeaseStatus.SIGNED
+          : LeaseStatus.DRAFT;
+      await manager.query(
+        `UPDATE leases SET status = $3, updated_at = NOW()
+          WHERE id = $1::uuid AND company_id = $2::uuid
+            AND status = 'pending_signature'`,
+        [request.lease_id, request.company_id, leaseStatus],
+      );
+      await manager.query(
+        `UPDATE signature_webhook_inbox
+            SET status = 'processed', company_id = $2::uuid,
+                processed_at = NOW(), lease_expires_at = NULL,
+                last_error = NULL, updated_at = NOW()
+          WHERE id = $1::uuid`,
+        [inboxId, request.company_id],
+      );
+    });
   }
 
   async void(id: string, companyId: string): Promise<DigitalSignatureRequest> {

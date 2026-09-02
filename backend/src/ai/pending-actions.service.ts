@@ -5,7 +5,9 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { createHash } from 'node:crypto';
 import { UserRole } from '../users/entities/user.entity';
+import { AuthService } from '../auth/auth.service';
 import { AiToolExecutorService } from './ai-tool-executor.service';
 
 type PendingActionRow = {
@@ -15,6 +17,8 @@ type PendingActionRow = {
   tool_name: string;
   payload: unknown;
   status: string;
+  payload_hash: string;
+  execution_key: string;
 };
 
 @Injectable()
@@ -22,6 +26,7 @@ export class PendingActionsService {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly executor: AiToolExecutorService,
+    private readonly authService: AuthService,
   ) {}
 
   async list(companyId: string) {
@@ -44,17 +49,34 @@ export class PendingActionsService {
   async approve(
     id: string,
     reviewer: { id: string; companyId: string; role: UserRole },
+    reauthToken: string,
   ) {
-    const action = await this.findOne(id, reviewer.companyId);
-    if (action.status !== 'pending') {
-      throw new BadRequestException('Pending action was already reviewed');
-    }
+    this.authService.verifyReauthentication(reauthToken, reviewer);
     await this.dataSource.query(
-      `UPDATE pending_actions SET status = 'approved', reviewed_by = $2::uuid,
-              reviewed_at = now(), updated_at = now()
-        WHERE id = $1::uuid AND status = 'pending'`,
-      [id, reviewer.id],
+      `UPDATE pending_actions SET status = 'expired', updated_at = NOW()
+        WHERE id = $1::uuid AND company_id = $2::uuid AND status = 'pending'
+          AND expires_at <= NOW()`,
+      [id, reviewer.companyId],
     );
+    const claimed = (await this.dataSource.query(
+      `UPDATE pending_actions
+          SET status = 'executing', reviewed_by = $3::uuid,
+              reviewed_at = NOW(), claimed_at = NOW(), updated_at = NOW()
+        WHERE id = $1::uuid AND company_id = $2::uuid AND status = 'pending'
+          AND expires_at > NOW() AND requested_by <> $3::uuid
+        RETURNING *`,
+      [id, reviewer.companyId, reviewer.id],
+    )) as PendingActionRow[];
+    const action = claimed[0];
+    if (!action) {
+      throw new BadRequestException(
+        'Pending action expired, was already reviewed, or requires another approver',
+      );
+    }
+    if (this.hash(action.payload) !== action.payload_hash) {
+      await this.markFailed(id, 'Pending action payload hash mismatch');
+      throw new BadRequestException('Pending action integrity check failed');
+    }
     try {
       const result = await this.executor.executeApproved(
         action.tool_name,
@@ -63,18 +85,18 @@ export class PendingActionsService {
           userId: reviewer.id,
           companyId: reviewer.companyId,
           role: reviewer.role,
+          idempotencyKey: action.execution_key,
         },
       );
       await this.dataSource.query(
         `UPDATE pending_actions SET status = 'executed', result = $2::jsonb,
-                updated_at = now() WHERE id = $1::uuid`,
+                updated_at = now() WHERE id = $1::uuid AND status = 'executing'`,
         [id, JSON.stringify(result ?? null)],
       );
     } catch (error) {
-      await this.dataSource.query(
-        `UPDATE pending_actions SET status = 'failed', error_message = $2,
-                updated_at = now() WHERE id = $1::uuid`,
-        [id, error instanceof Error ? error.message : String(error)],
+      await this.markFailed(
+        id,
+        error instanceof Error ? error.message : String(error),
       );
     }
     return this.findOne(id, reviewer.companyId);
@@ -107,5 +129,32 @@ export class PendingActionsService {
     )) as PendingActionRow[];
     if (!rows[0]) throw new NotFoundException('Pending action not found');
     return rows[0];
+  }
+
+  private markFailed(id: string, message: string): Promise<unknown> {
+    return this.dataSource.query(
+      `UPDATE pending_actions SET status = 'failed', error_message = $2,
+              updated_at = NOW()
+        WHERE id = $1::uuid AND status = 'executing'`,
+      [id, message],
+    );
+  }
+
+  private hash(value: unknown): string {
+    return createHash('sha256')
+      .update(JSON.stringify(this.sortValue(value)))
+      .digest('hex');
+  }
+
+  private sortValue(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map((item) => this.sortValue(item));
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(
+        Object.entries(value as Record<string, unknown>)
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([key, item]) => [key, this.sortValue(item)]),
+      );
+    }
+    return value;
   }
 }

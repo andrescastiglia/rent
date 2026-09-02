@@ -110,7 +110,7 @@ type WhatsappOutboundLogInput = {
   pdfUrl?: string;
   templateName?: string;
   templateLanguage?: string;
-  status: 'sent' | 'failed';
+  status: 'sending' | 'sent' | 'failed';
   messageId?: string | null;
   raw?: unknown;
   errorMessage?: string;
@@ -1473,23 +1473,48 @@ export class WhatsappService implements OnApplicationBootstrap {
     const idempotencyKey = logInput.context?.idempotencyKey;
     if (idempotencyKey && this.dataSource?.options.type === 'postgres') {
       const existing = await this.dataSource.query(
-        `SELECT whatsapp_message_id
+        `SELECT whatsapp_message_id, status, payload_sha256
            FROM whatsapp_messages
-          WHERE idempotency_key = $1::uuid AND status = 'sent'
+          WHERE idempotency_key = $1::uuid
           LIMIT 1`,
         [idempotencyKey],
       );
-      if (existing?.[0]) {
+      const requestPayload = {
+        ...payload,
+        biz_opaque_callback_data: idempotencyKey,
+      };
+      const payloadSha256 = createHash('sha256')
+        .update(JSON.stringify(requestPayload))
+        .digest('hex');
+      if (
+        existing?.[0]?.payload_sha256 &&
+        existing[0].payload_sha256 !== payloadSha256
+      ) {
+        throw new ConflictException(
+          'WhatsApp idempotency key was reused for another payload',
+        );
+      }
+      if (existing?.[0]?.status === 'sent') {
         return {
           messageId: existing[0].whatsapp_message_id ?? null,
           raw: { deduplicated: true },
         };
       }
-      await this.dataSource.query(
-        `DELETE FROM whatsapp_messages
-          WHERE idempotency_key = $1::uuid AND status <> 'sent'`,
-        [idempotencyKey],
+      if (existing?.[0]?.status === 'sending') {
+        throw new ServiceUnavailableException(
+          'WhatsApp acceptance is awaiting provider reconciliation',
+        );
+      }
+      if (existing?.[0] && !existing[0].payload_sha256) {
+        throw new ServiceUnavailableException(
+          'Legacy WhatsApp delivery requires reconciliation before retry',
+        );
+      }
+      await this.reserveOutboundMessage(
+        { ...logInput, status: 'sending' },
+        payloadSha256,
       );
+      payload = requestPayload;
     }
     const url = `${this.apiBaseUrl.replace(/\/$/, '')}/${this.phoneNumberId}/messages`;
     const response = await fetch(url, {
@@ -1593,6 +1618,30 @@ export class WhatsappService implements OnApplicationBootstrap {
     const sentAt = input.status === 'sent' ? new Date() : null;
     const failedAt = input.status === 'failed' ? new Date() : null;
     try {
+      if (input.context?.idempotencyKey) {
+        const updated = await this.dataSource.query(
+          `UPDATE whatsapp_messages
+              SET whatsapp_message_id = COALESCE($2, whatsapp_message_id),
+                  status = $3, sent_at = COALESCE(sent_at, $4),
+                  failed_at = COALESCE(failed_at, $5), error_message = $6,
+                  raw_response = $7::jsonb, updated_at = NOW()
+            WHERE idempotency_key = $1::uuid
+            RETURNING id`,
+          [
+            input.context.idempotencyKey,
+            input.messageId ?? null,
+            input.status,
+            sentAt,
+            failedAt,
+            input.errorMessage ?? null,
+            JSON.stringify(input.raw ?? {}),
+          ],
+        );
+        if (updated[0]) {
+          await this.updateOutboundActivity(input, sentAt, failedAt);
+          return;
+        }
+      }
       await this.dataSource.query(
         `
           INSERT INTO whatsapp_messages (
@@ -1653,25 +1702,76 @@ export class WhatsappService implements OnApplicationBootstrap {
         ],
       );
 
-      if (input.context?.activityEntity && input.context.activityId) {
-        await this.updateActivityMetadata(
-          input.context.activityEntity,
-          input.context.activityId,
-          {
-            messageId: input.messageId ?? null,
-            status: input.status,
-            sentAt: sentAt?.toISOString() ?? null,
-            failedAt: failedAt?.toISOString() ?? null,
-            templateName: input.templateName ?? null,
-            templateLanguage: input.templateLanguage ?? null,
-          },
-        );
-      }
+      await this.updateOutboundActivity(input, sentAt, failedAt);
     } catch (error) {
       this.logger.warn('Failed to record WhatsApp message tracking data', {
         error: error instanceof Error ? error.message : String(error),
       });
     }
+  }
+
+  private async reserveOutboundMessage(
+    input: WhatsappOutboundLogInput,
+    payloadSha256: string,
+  ): Promise<void> {
+    if (!this.dataSource || !input.context?.idempotencyKey) return;
+    const reserved = await this.dataSource.query(
+      `INSERT INTO whatsapp_messages (
+         id, idempotency_key, recipient_phone, message_type, template_name,
+         template_language, text, pdf_url, status, company_id,
+         related_entity_type, related_entity_id, activity_entity, activity_id,
+         payload_sha256, raw_response, raw_status
+       ) VALUES (
+         $1::uuid, $1::uuid, $2, $3, $4, $5, $6, $7, 'sending', $8::uuid,
+         $9, $10::uuid, $11, $12::uuid, $13, '{}'::jsonb, '{}'::jsonb
+       )
+       ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL
+       DO UPDATE SET status = 'sending', failed_at = NULL,
+                     error_message = NULL, updated_at = NOW()
+       WHERE whatsapp_messages.status = 'failed'
+         AND whatsapp_messages.payload_sha256 = EXCLUDED.payload_sha256
+       RETURNING id`,
+      [
+        input.context.idempotencyKey,
+        input.to,
+        input.messageType,
+        input.templateName ?? null,
+        input.templateLanguage ?? null,
+        input.text ?? null,
+        input.pdfUrl ?? null,
+        input.context.companyId ?? null,
+        input.context.relatedEntityType ?? null,
+        input.context.relatedEntityId ?? null,
+        input.context.activityEntity ?? null,
+        input.context.activityId ?? null,
+        payloadSha256,
+      ],
+    );
+    if (!reserved?.[0]) {
+      throw new ServiceUnavailableException(
+        'WhatsApp delivery was claimed by another sender; await reconciliation',
+      );
+    }
+  }
+
+  private async updateOutboundActivity(
+    input: WhatsappOutboundLogInput,
+    sentAt: Date | null,
+    failedAt: Date | null,
+  ): Promise<void> {
+    if (!input.context?.activityEntity || !input.context.activityId) return;
+    await this.updateActivityMetadata(
+      input.context.activityEntity,
+      input.context.activityId,
+      {
+        messageId: input.messageId ?? null,
+        status: input.status,
+        sentAt: sentAt?.toISOString() ?? null,
+        failedAt: failedAt?.toISOString() ?? null,
+        templateName: input.templateName ?? null,
+        templateLanguage: input.templateLanguage ?? null,
+      },
+    );
   }
 
   private async updateMessageStatus(statusPayload: any): Promise<void> {
@@ -1680,6 +1780,7 @@ export class WhatsappService implements OnApplicationBootstrap {
     }
 
     const messageId = statusPayload?.id;
+    const opaqueIdempotencyKey = statusPayload?.biz_opaque_callback_data;
     const status = statusPayload?.status;
     if (
       !messageId ||
@@ -1703,6 +1804,13 @@ export class WhatsappService implements OnApplicationBootstrap {
     const readAt = status === 'read' ? occurredAt : null;
     const failedAt = status === 'failed' ? occurredAt : null;
 
+    const reconciliationKey =
+      typeof opaqueIdempotencyKey === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        opaqueIdempotencyKey,
+      )
+        ? opaqueIdempotencyKey
+        : null;
     const rows = await this.dataSource.query(
       `
         UPDATE whatsapp_messages
@@ -1716,6 +1824,7 @@ export class WhatsappService implements OnApplicationBootstrap {
           raw_status = $8::jsonb,
           updated_at = now()
         WHERE whatsapp_message_id = $1
+           OR ($9::uuid IS NOT NULL AND idempotency_key = $9::uuid)
         RETURNING activity_entity, activity_id
       `,
       [
@@ -1727,8 +1836,20 @@ export class WhatsappService implements OnApplicationBootstrap {
         failedAt,
         errorMessage,
         JSON.stringify(statusPayload ?? {}),
+        reconciliationKey,
       ],
     );
+
+    if (reconciliationKey && status !== 'failed') {
+      await this.dataSource.query(
+        `UPDATE communication_deliveries
+            SET status = 'sent', provider_message_id = COALESCE($2, provider_message_id),
+                sent_at = COALESCE(sent_at, $3), next_attempt_at = NULL,
+                lease_expires_at = NULL, error_message = NULL, updated_at = NOW()
+          WHERE id = $1::uuid AND status IN ('processing', 'failed')`,
+        [reconciliationKey, messageId, occurredAt],
+      );
+    }
 
     const row = rows?.[0];
     if (row?.activity_entity && row?.activity_id) {

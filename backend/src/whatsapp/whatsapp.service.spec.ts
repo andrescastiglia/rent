@@ -1339,7 +1339,9 @@ describe('WhatsappService', () => {
   it('deduplicates a retried outbox delivery before calling Meta', async () => {
     const query = jest
       .fn()
-      .mockResolvedValue([{ whatsapp_message_id: 'wamid-already-sent' }]);
+      .mockResolvedValue([
+        { whatsapp_message_id: 'wamid-already-sent', status: 'sent' },
+      ]);
     const service = buildService(undefined, buildDataSource(query));
 
     await expect(
@@ -1355,6 +1357,59 @@ describe('WhatsappService', () => {
       expect.stringContaining('WHERE idempotency_key = $1::uuid'),
       ['123e4567-e89b-12d3-a456-426614174099'],
     );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('reserves an idempotent delivery before calling Meta', async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'delivery-1' }])
+      .mockResolvedValueOnce([{ id: 'delivery-1' }]);
+    const service = buildService(undefined, buildDataSource(query));
+    mockSuccessfulSend('wamid-reserved');
+    const idempotencyKey = '123e4567-e89b-12d3-a456-426614174099';
+
+    await service.sendTextMessage('+5491112345678', 'hola', undefined, {
+      companyId: '123e4567-e89b-12d3-a456-426614174000',
+      idempotencyKey,
+    });
+
+    expect(query.mock.calls[1][0]).toContain("'sending'");
+    expect(query.mock.calls[2][0]).toContain('UPDATE whatsapp_messages');
+    const payload = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(payload.biz_opaque_callback_data).toBe(idempotencyKey);
+  });
+
+  it('does not blindly retry a delivery awaiting provider reconciliation', async () => {
+    const query = jest.fn().mockResolvedValue([
+      {
+        whatsapp_message_id: null,
+        status: 'sending',
+        payload_sha256: null,
+      },
+    ]);
+    const service = buildService(undefined, buildDataSource(query));
+
+    await expect(
+      service.sendTextMessage('+5491112345678', 'hola', undefined, {
+        companyId: '123e4567-e89b-12d3-a456-426614174000',
+        idempotencyKey: '123e4567-e89b-12d3-a456-426614174099',
+      }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('does not send when another worker wins the outbound reservation', async () => {
+    const query = jest.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    const service = buildService(undefined, buildDataSource(query));
+
+    await expect(
+      service.sendTextMessage('+5491112345678', 'hola', undefined, {
+        companyId: '123e4567-e89b-12d3-a456-426614174000',
+        idempotencyKey: '123e4567-e89b-12d3-a456-426614174099',
+      }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
