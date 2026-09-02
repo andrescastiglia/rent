@@ -115,6 +115,13 @@ export function getNavigationForRole(role: string): NavItem[] {
   return navigationItems.filter((item) => item.roles.includes(role));
 }
 
+export function getLandingPathForRole(role: User["role"] | undefined): string {
+  if (role === "tenant") return "/portal/tenant";
+  if (role === "owner") return "/portal/owner";
+  if (role === "buyer") return "/settings";
+  return "/dashboard";
+}
+
 export function getNavigationForUser(
   user: Pick<User, "role" | "permissions">,
 ): NavItem[] {

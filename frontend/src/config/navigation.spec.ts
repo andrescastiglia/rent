@@ -1,5 +1,6 @@
 import {
   navigationItems,
+  getLandingPathForRole,
   getNavigationForRole,
   getNavigationForUser,
 } from "./navigation";
@@ -14,6 +15,16 @@ const mockHasModuleAccess = hasModuleAccess as jest.Mock;
 describe("navigationItems", () => {
   it("exports a non-empty array", () => {
     expect(navigationItems.length).toBeGreaterThan(0);
+  });
+});
+
+describe("getLandingPathForRole", () => {
+  it("routes relationship roles to a safe landing page", () => {
+    expect(getLandingPathForRole("owner")).toBe("/portal/owner");
+    expect(getLandingPathForRole("tenant")).toBe("/portal/tenant");
+    expect(getLandingPathForRole("buyer")).toBe("/settings");
+    expect(getLandingPathForRole("admin")).toBe("/dashboard");
+    expect(getLandingPathForRole("staff")).toBe("/dashboard");
   });
 });
 

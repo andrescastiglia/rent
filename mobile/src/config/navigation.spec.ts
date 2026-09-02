@@ -1,6 +1,7 @@
 import {
   canManageLeases,
   canUserAccessPath,
+  getLandingPathForRole,
   getNavigationForRole,
   getNavigationForUser,
 } from './navigation';
@@ -12,6 +13,17 @@ describe('canManageLeases', () => {
     expect(canManageLeases('owner')).toBe(false);
     expect(canManageLeases('tenant')).toBe(false);
     expect(canManageLeases('buyer')).toBe(false);
+  });
+});
+
+describe('buyer navigation', () => {
+  it('routes buyers to AI without exposing the company dashboard', () => {
+    expect(getLandingPathForRole('buyer')).toBe('/ai');
+    expect(getNavigationForRole('buyer').map((item) => item.href)).toEqual([
+      '/ai',
+    ]);
+    expect(canUserAccessPath({ role: 'buyer' }, '/dashboard')).toBe(false);
+    expect(canUserAccessPath({ role: 'buyer' }, '/ai')).toBe(true);
   });
 });
 

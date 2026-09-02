@@ -1,4 +1,6 @@
 import { DashboardController } from './dashboard.controller';
+import { ROLES_KEY } from '../common/decorators/roles.decorator';
+import { UserRole } from '../users/entities/user.entity';
 
 describe('DashboardController', () => {
   const dashboardService = {
@@ -12,6 +14,15 @@ describe('DashboardController', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     controller = new DashboardController(dashboardService as any);
+  });
+
+  it('denies buyer access to company-wide dashboard aggregates', () => {
+    expect(Reflect.getMetadata(ROLES_KEY, DashboardController)).toEqual([
+      UserRole.ADMIN,
+      UserRole.STAFF,
+      UserRole.OWNER,
+      UserRole.TENANT,
+    ]);
   });
 
   it('delegates stats, recent activity and report jobs', async () => {

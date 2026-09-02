@@ -7,6 +7,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Bot, Menu } from "lucide-react";
 import LanguageSelector from "@/components/ui/LanguageSelector";
 import { useLocale, useTranslations } from "next-intl";
+import { getLandingPathForRole } from "@/config/navigation";
 
 interface HeaderProps {
   readonly onMenuToggle?: () => void;
@@ -84,7 +85,10 @@ export default function Header({
 
           {/* Logo - centered on mobile */}
           <div className="flex-1 flex items-center justify-center lg:justify-start">
-            <Link href={`/${locale}/dashboard`} className="flex items-center">
+            <Link
+              href={`/${locale}${getLandingPathForRole(user?.role)}`}
+              className="flex items-center"
+            >
               <Image
                 src="/logo.svg"
                 alt="Rent"

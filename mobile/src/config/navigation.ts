@@ -111,9 +111,13 @@ export const navigationItems: NavItem[] = [
   {
     labelKey: 'aiAssistant',
     href: '/ai',
-    roles: ['admin', 'owner', 'tenant', 'staff'],
+    roles: ['admin', 'owner', 'tenant', 'staff', 'buyer'],
   },
 ];
+
+export function getLandingPathForRole(role: string | undefined): string {
+  return role === 'buyer' ? '/ai' : '/dashboard';
+}
 
 export function getNavigationForRole(role: string): NavItem[] {
   return navigationItems.filter((item) => item.roles.includes(role));
