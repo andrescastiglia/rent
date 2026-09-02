@@ -141,7 +141,11 @@ export function validateRuntimeEnvironment(
 
   const missing = required.filter((key) => !valueOf(environment, key));
   if (missing.length > 0) {
-    throw new Error(`Missing required secrets: ${missing.sort().join(', ')}`);
+    throw new Error(
+      `Missing required secrets: ${missing
+        .sort((left, right) => left.localeCompare(right))
+        .join(', ')}`,
+    );
   }
 
   if (valueOf(environment, 'NODE_ENV') === 'production') {
@@ -151,7 +155,7 @@ export function validateRuntimeEnvironment(
     if (placeholders.length > 0) {
       throw new Error(
         `Production secrets contain placeholder values: ${placeholders
-          .sort()
+          .sort((left, right) => left.localeCompare(right))
           .join(', ')}`,
       );
     }
