@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, IsNull, Repository } from 'typeorm';
@@ -432,6 +433,11 @@ export class OwnersService {
     dto: RegisterOwnerSettlementPaymentDto,
     user: UserContext,
   ): Promise<OwnerSettlementSummary> {
+    if (process.env.NODE_ENV !== 'test') {
+      throw new ServiceUnavailableException(
+        'Settlement transfers are disabled until a verified provider is configured',
+      );
+    }
     const owner = await this.assertOwnerAccess(ownerId, user.companyId, user);
 
     const rows = await this.dataSource.query(

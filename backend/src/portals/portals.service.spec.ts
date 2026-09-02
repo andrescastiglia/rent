@@ -302,4 +302,20 @@ describe('PortalsService', () => {
       );
     });
   });
+
+  it('keeps mock portal publishing disabled outside tests', async () => {
+    const previous = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      await expect(
+        service.publish('listing-uuid-1', 'company-uuid-1'),
+      ).rejects.toThrow('disabled until a verified provider');
+      await expect(service.syncAll('company-uuid-1')).rejects.toThrow(
+        'disabled until a verified provider',
+      );
+      expect(listingsRepository.findOne).not.toHaveBeenCalled();
+    } finally {
+      process.env.NODE_ENV = previous;
+    }
+  });
 });

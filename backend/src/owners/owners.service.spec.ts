@@ -421,6 +421,24 @@ describe('OwnersService', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it('keeps simulated settlement transfers disabled outside tests', async () => {
+    const previous = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      await expect(
+        service.registerSettlementPayment('o1', 's1', {} as any, {
+          id: 'admin-1',
+          companyId: 'co1',
+          role: UserRole.ADMIN,
+        }),
+      ).rejects.toThrow('disabled until a verified provider');
+      expect(ownersRepository.findOne).not.toHaveBeenCalled();
+      expect(dataSource.query).not.toHaveBeenCalled();
+    } finally {
+      process.env.NODE_ENV = previous;
+    }
+  });
+
   it('registerSettlementPayment validates amount and payment date', async () => {
     ownersRepository.findOne.mockResolvedValue({
       id: 'o1',
