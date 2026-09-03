@@ -92,6 +92,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       RELEASE_SHA: ${{ needs.preflight.outputs.release_sha }}
+      SERVER_NPM_CPU: arm64
+      SERVER_NPM_OS: linux
+      SERVER_NPM_LIBC: glibc
     steps:
       - name: Checkout immutable release
         uses: actions/checkout@v7
@@ -127,9 +130,18 @@ jobs:
           npm run build --prefix batch
           npm run build --prefix frontend
 
-      - name: Retain production runtime dependencies
+      - name: Install production runtime dependencies for the target server
         run: |
-          npm prune --omit=dev --package-lock=false --prefix backend
+          npm ci --prefix backend \
+            --omit=dev \
+            --include=optional \
+            --ignore-scripts \
+            --cpu="$SERVER_NPM_CPU" \
+            --os="$SERVER_NPM_OS" \
+            --libc="$SERVER_NPM_LIBC"
+          test -f backend/node_modules/@napi-rs/canvas-linux-arm64-gnu/skia.linux-arm64-gnu.node
+          file backend/node_modules/@napi-rs/canvas-linux-arm64-gnu/skia.linux-arm64-gnu.node \
+            | grep -q 'ARM aarch64'
           # Terminus has not yet widened its Nest peer to v12; the production
           # graph is lockfile-tested, so do not re-resolve that stale peer.
           npm prune --omit=dev --legacy-peer-deps --package-lock=false --prefix batch

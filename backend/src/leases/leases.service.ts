@@ -9,7 +9,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository, SelectQueryBuilder } from 'typeorm';
 import * as mammoth from 'mammoth';
 import { parse as parseHtml } from 'node-html-parser';
-import { PDFParse } from 'pdf-parse';
 import {
   BillingFrequency,
   ContractType,
@@ -1624,6 +1623,10 @@ export class LeasesService {
   private async convertPdfDocumentToHtml(
     file: UploadedLeaseFile,
   ): Promise<string> {
+    // pdf-parse loads a platform-native canvas binding. Keep that optional
+    // capability out of application bootstrap so a packaging mismatch cannot
+    // make every API route unavailable.
+    const { PDFParse } = await import('pdf-parse');
     const parser = new PDFParse({ data: file.buffer });
 
     try {
