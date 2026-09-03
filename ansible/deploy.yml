@@ -9,6 +9,7 @@
     local_runtime_env: "{{ runtime_env_file | mandatory }}"
     releases_path: "{{ deploy_path }}/releases"
     release_path: "{{ releases_path }}/server-{{ deploy_sha }}"
+    legacy_release_path: "{{ releases_path }}/legacy-before-{{ deploy_sha }}"
     current_path: "{{ deploy_path }}/current"
     shared_path: "{{ deploy_path }}/shared"
     remote_release_archive: "/tmp/rent-server-{{ deploy_sha }}.tar.gz"
@@ -46,24 +47,84 @@
         that: controller_runtime_env.stat.isreg | default(false)
         fail_msg: Protected runtime environment not found.
 
-    - name: Create versioned deployment directories
+    - name: Create deployment root
+      ansible.builtin.file:
+        path: "{{ deploy_path }}"
+        state: directory
+        mode: "0755"
+
+    - name: Create private versioned deployment directories
       ansible.builtin.file:
         path: "{{ item }}"
         state: directory
         mode: "0750"
       loop:
-        - "{{ deploy_path }}"
         - "{{ releases_path }}"
         - "{{ shared_path }}"
 
-    - name: Update shared runtime environment from protected secret
-      ansible.builtin.copy:
-        src: "{{ local_runtime_env }}"
-        dest: "{{ shared_path }}/.env"
-        mode: "0600"
-        backup: true
-      register: runtime_env_update
-      no_log: true
+    - name: Inspect current release path before first adoption
+      ansible.builtin.stat:
+        path: "{{ current_path }}"
+        follow: false
+      register: initial_current
+
+    - name: Preserve a legacy checkout as the first rollback target
+      when:
+        - initial_current.stat.exists | default(false)
+        - not (initial_current.stat.islnk | default(false))
+      block:
+        - name: Verify legacy rollback target is unused
+          ansible.builtin.stat:
+            path: "{{ legacy_release_path }}"
+          register: legacy_target
+
+        - name: Refuse to overwrite an existing legacy rollback target
+          ansible.builtin.assert:
+            that: not (legacy_target.stat.exists | default(false))
+            fail_msg: "Legacy rollback target already exists: {{ legacy_release_path }}"
+
+        - name: Move legacy checkout into versioned releases
+          ansible.builtin.command:
+            cmd: mv "{{ current_path }}" "{{ legacy_release_path }}"
+            removes: "{{ current_path }}"
+            creates: "{{ legacy_release_path }}"
+
+        - name: Keep legacy runtime paths valid through a rollback link
+          ansible.builtin.file:
+            src: "{{ legacy_release_path }}"
+            dest: "{{ current_path }}"
+            state: link
+
+      rescue:
+        - name: Inspect partially created current link
+          ansible.builtin.stat:
+            path: "{{ current_path }}"
+            follow: false
+          register: partial_current
+
+        - name: Remove partial legacy rollback link
+          ansible.builtin.file:
+            path: "{{ current_path }}"
+            state: absent
+          when: partial_current.stat.islnk | default(false)
+
+        - name: Inspect moved legacy checkout
+          ansible.builtin.stat:
+            path: "{{ legacy_release_path }}"
+          register: moved_legacy
+
+        - name: Restore legacy checkout directory
+          ansible.builtin.command:
+            cmd: mv "{{ legacy_release_path }}" "{{ current_path }}"
+            removes: "{{ legacy_release_path }}"
+            creates: "{{ current_path }}"
+          when:
+            - moved_legacy.stat.exists | default(false)
+            - not (partial_current.stat.exists | default(false)) or (partial_current.stat.islnk | default(false))
+
+        - name: Fail after restoring legacy checkout
+          ansible.builtin.fail:
+            msg: Legacy checkout adoption failed and was restored when possible.
 
     - name: Capture previous release link
       ansible.builtin.stat:
@@ -76,8 +137,13 @@
         that:
           - not (previous_current.stat.exists | default(false)) or (previous_current.stat.islnk | default(false))
         fail_msg: >-
-          {{ current_path }} must be absent or a symlink. Move the legacy checkout
-          aside once before using the immutable release workflow.
+          {{ current_path }} must be absent or a symlink after legacy adoption.
+
+    - name: Snapshot current PM2 process list for rollback
+      ansible.builtin.command:
+        cmd: pm2 save
+      changed_when: false
+      when: previous_current.stat.islnk | default(false)
 
     - name: Upload exact server artifact
       ansible.builtin.copy:
@@ -110,28 +176,41 @@
         that: packaged_sha.stdout == deploy_sha
         fail_msg: "Artifact contains {{ packaged_sha.stdout }}, expected {{ deploy_sha }}"
 
-    - name: Link shared environment into runtime applications
-      ansible.builtin.file:
-        src: "{{ shared_path }}/.env"
-        dest: "{{ item }}"
-        state: link
-        force: true
-      loop:
-        - "{{ release_path }}/backend/.env"
-        - "{{ release_path }}/batch/.env"
-        - "{{ release_path }}/frontend/.env"
-
-    - name: Apply forward-compatible database migrations before activation
-      ansible.builtin.command:
-        cmd: >-
-          ./migrations/run-migrations.sh{% if force_migration_baseline_all_if_missing %}
-          --baseline-all-if-missing --force-baseline-all-if-missing{% endif %}
-        chdir: "{{ release_path }}"
-      environment:
-        MIGRATIONS_ENV_FILE: "{{ shared_path }}/.env"
-
-    - name: Activate release atomically and reload processes
+    - name: Apply protected runtime state and activate release
       block:
+        - name: Update shared runtime environment from protected secret
+          ansible.builtin.copy:
+            src: "{{ local_runtime_env }}"
+            dest: "{{ shared_path }}/.env"
+            mode: "0600"
+            backup: true
+          register: runtime_env_update
+          no_log: true
+
+        - name: Link shared environment into runtime applications
+          ansible.builtin.file:
+            src: "{{ shared_path }}/.env"
+            dest: "{{ item }}"
+            state: link
+            force: true
+          loop:
+            - "{{ release_path }}/backend/.env"
+            - "{{ release_path }}/batch/.env"
+            - "{{ release_path }}/frontend/.env"
+
+        - name: Apply forward-compatible database migrations before activation
+          ansible.builtin.command:
+            cmd: >-
+              ./migrations/run-migrations.sh{% if force_migration_baseline_all_if_missing %}
+              --baseline-all-if-missing --force-baseline-all-if-missing{% endif %}
+            chdir: "{{ release_path }}"
+          environment:
+            MIGRATIONS_ENV_FILE: "{{ shared_path }}/.env"
+
+        - name: Mark runtime activation as started
+          ansible.builtin.set_fact:
+            runtime_activation_started: true
+
         - name: Point temporary link at the new release
           ansible.builtin.file:
             src: "{{ release_path }}"
@@ -181,6 +260,7 @@
             remote_src: true
             mode: "0600"
           when:
+            - runtime_env_update is defined
             - runtime_env_update.backup_file is defined
             - runtime_env_update.backup_file | length > 0
           no_log: true
@@ -192,25 +272,34 @@
             state: link
             force: true
           when:
+            - runtime_activation_started | default(false)
             - previous_current.stat.islnk | default(false)
             - previous_current.stat.lnk_source is defined
 
-        - name: Reload previous release
+        - name: Remove failed release processes before PM2 rollback
           ansible.builtin.command:
-            cmd: pm2 startOrReload deploy/ecosystem.config.cjs --update-env
-            chdir: "{{ current_path }}"
-          environment:
-            RENT_CURRENT_PATH: "{{ current_path }}"
-            RENT_SHARED_ENV: "{{ shared_path }}/.env"
-            RENT_WORKER_ID: "{{ inventory_hostname }}"
-            FRONTEND_PORT: "{{ frontend_port }}"
-          when: previous_current.stat.islnk | default(false)
+            cmd: pm2 delete rent-backend rent-frontend rent-rag-worker
+          register: remove_failed_release
+          changed_when: remove_failed_release.rc == 0
+          failed_when: false
+          when:
+            - runtime_activation_started | default(false)
+            - previous_current.stat.islnk | default(false)
+
+        - name: Restore snapshotted PM2 process list
+          ansible.builtin.command:
+            cmd: pm2 resurrect
+          when:
+            - runtime_activation_started | default(false)
+            - previous_current.stat.islnk | default(false)
 
         - name: Remove failed first-release link
           ansible.builtin.file:
             path: "{{ current_path }}"
             state: absent
-          when: not (previous_current.stat.islnk | default(false))
+          when:
+            - runtime_activation_started | default(false)
+            - not (previous_current.stat.islnk | default(false))
 
         - name: Stop failed first-release processes
           ansible.builtin.command:
@@ -218,17 +307,20 @@
           register: stop_failed_release
           changed_when: stop_failed_release.rc == 0
           failed_when: false
-          when: not (previous_current.stat.islnk | default(false))
+          when:
+            - runtime_activation_started | default(false)
+            - not (previous_current.stat.islnk | default(false))
 
         - name: Fail deployment after rollback
           ansible.builtin.fail:
-            msg: Release readiness checks failed; previous current link was restored when available.
+            msg: Release deployment failed; protected environment, release link and PM2 state were restored when available.
 
     - name: Remove superseded runtime environment backup
       ansible.builtin.file:
         path: "{{ runtime_env_update.backup_file }}"
         state: absent
       when:
+        - runtime_env_update is defined
         - runtime_env_update.backup_file is defined
         - runtime_env_update.backup_file | length > 0
       no_log: true
