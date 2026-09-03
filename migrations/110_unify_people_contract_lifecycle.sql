@@ -187,7 +187,11 @@ CREATE TRIGGER trg_validate_sale_agreement_contract_link
 
 -- Tenant integrity now validates membership in the role set rather than the
 -- single legacy primary role.
-CREATE OR REPLACE FUNCTION validate_tenant_user_role()
+-- Keep the historical validation functions in place: production databases may
+-- have created them under an earlier migration role. A new function name lets
+-- the current deploy role install the multi-role behavior without requiring
+-- ownership of those legacy functions.
+CREATE OR REPLACE FUNCTION validate_tenant_user_roles()
 RETURNS TRIGGER AS $$
 DECLARE
     v_user_roles user_role[];
@@ -216,7 +220,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION validate_rental_lease_tenant_consistency()
+CREATE OR REPLACE FUNCTION validate_rental_contract_tenant_consistency()
 RETURNS TRIGGER AS $$
 DECLARE
     v_tenant_company_id UUID;
@@ -252,6 +256,20 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_validate_tenant_user_role ON tenants;
+CREATE TRIGGER trg_validate_tenant_user_role
+    BEFORE INSERT OR UPDATE OF user_id, company_id, deleted_at
+    ON tenants
+    FOR EACH ROW
+    EXECUTE FUNCTION validate_tenant_user_roles();
+
+DROP TRIGGER IF EXISTS trg_validate_rental_lease_tenant_consistency ON leases;
+CREATE TRIGGER trg_validate_rental_lease_tenant_consistency
+    BEFORE INSERT OR UPDATE OF tenant_id, company_id, contract_type, deleted_at
+    ON leases
+    FOR EACH ROW
+    EXECUTE FUNCTION validate_rental_contract_tenant_consistency();
 
 COMMENT ON COLUMN users.roles IS
     'All simultaneous roles held by the person; users.role is the legacy primary role.';
