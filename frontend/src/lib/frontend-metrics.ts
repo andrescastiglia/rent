@@ -42,6 +42,9 @@ function sendMetric(payload: FrontendMetricPayload): void {
   if (!isBrowserRuntime()) {
     return;
   }
+  if (process.env.NEXT_PUBLIC_MOCK_MODE === "true") {
+    return;
+  }
   if (process.env.NODE_ENV !== "production") {
     return;
   }
