@@ -279,9 +279,9 @@ run_migration() {
         return 0
     fi
     
-    # Execute migration
-    # We pipe the file content to the execution command
-    if "${EXEC_CMD[@]}" < "$migration_file" &> /dev/null; then
+    # Apply each migration atomically. Keep the original psql output so a
+    # failure is diagnosable without executing the migration a second time.
+    if "${EXEC_CMD[@]}" --single-transaction < "$migration_file"; then
         
         # Record migration
         run_query "INSERT INTO schema_migrations (migration_name) VALUES ('$migration_name') ON CONFLICT (migration_name) DO NOTHING;" &> /dev/null
@@ -289,8 +289,6 @@ run_migration() {
         print_success "Migration completed: $migration_name"
     else
         print_error "Migration failed: $migration_name"
-        # Try to get error output
-        "${EXEC_CMD[@]}" < "$migration_file"
         exit 1
     fi
 }
