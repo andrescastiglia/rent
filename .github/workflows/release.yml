@@ -159,9 +159,66 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  validate-production-environment:
+    name: Validate production runtime
+    needs: [preflight, build-server-artifact]
+    runs-on: ubuntu-latest
+    environment: production-release
+    env:
+      RELEASE_SHA: ${{ needs.preflight.outputs.release_sha }}
+    steps:
+      - name: Checkout immutable release
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.release_sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+
+      - name: Download immutable server artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: rent-server-${{ needs.preflight.outputs.release_sha }}
+          path: artifacts/release
+
+      - name: Verify artifact checksum
+        working-directory: artifacts/release
+        run: sha256sum --check rent-server-${RELEASE_SHA}.tar.gz.sha256
+
+      - name: Validate protected environment with release code
+        env:
+          PRODUCTION_ENV_FILE: ${{ secrets.PRODUCTION_ENV_FILE }}
+        run: |
+          set -euo pipefail
+          test -n "$PRODUCTION_ENV_FILE"
+
+          runtime_env="$RUNNER_TEMP/rent-production.env"
+          release_dir="$RUNNER_TEMP/rent-runtime-validation"
+          install -m 600 /dev/null "$runtime_env"
+          printf '%s\n' "$PRODUCTION_ENV_FILE" > "$runtime_env"
+          mkdir -p "$release_dir"
+          tar -xzf "artifacts/release/rent-server-${RELEASE_SHA}.tar.gz" \
+            -C "$release_dir"
+
+          cd "$release_dir/server-${RELEASE_SHA}/backend"
+          DOTENV_CONFIG_PATH="$runtime_env" node -r dotenv/config -e \
+            'require("./dist/config/runtime-security.config").validateRuntimeEnvironment(process.env)'
+
+      - name: Remove protected environment
+        if: always()
+        run: rm -f "$RUNNER_TEMP/rent-production.env"
+
   deploy-server:
     name: Deploy server
-    needs: [preflight, build-server-artifact, deploy-android]
+    needs:
+      [
+        preflight,
+        build-server-artifact,
+        validate-production-environment,
+        deploy-android,
+      ]
     runs-on: ubuntu-latest
     environment: production-release
     steps:
@@ -232,7 +289,7 @@ jobs:
 
   deploy-android:
     name: Deploy Android
-    needs: preflight
+    needs: [preflight, validate-production-environment]
     uses: ./.github/workflows/eas.yml
     secrets: inherit
 
