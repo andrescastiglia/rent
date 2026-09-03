@@ -133,4 +133,53 @@ describe('AiRagRolloutService', () => {
     expect(rag.respond).not.toHaveBeenCalled();
     expect(repo.save).not.toHaveBeenCalled();
   });
+
+  it('loads every related dataset for a person with simultaneous portal roles', async () => {
+    process.env.AI_RETRIEVAL_MODE = 'TOOLS';
+    dataSource.query
+      .mockResolvedValueOnce([{ id: params.context.userId }])
+      .mockResolvedValueOnce([{ ownerId: 'owner-1' }])
+      .mockResolvedValueOnce([{ tenantId: 'tenant-1' }])
+      .mockResolvedValueOnce([{ buyerId: 'buyer-1' }]);
+
+    await service.respond({
+      ...params,
+      context: {
+        ...params.context,
+        role: UserRole.OWNER,
+        roles: [UserRole.OWNER, UserRole.TENANT, UserRole.BUYER],
+      },
+    });
+
+    expect(dataSource.query).toHaveBeenCalledTimes(4);
+    const legacyContext = legacy.respond.mock.calls[0][1];
+    expect(JSON.parse(legacyContext.roleDataContext)).toEqual({
+      profile: { id: params.context.userId },
+      related: {
+        owner: [{ ownerId: 'owner-1' }],
+        tenant: [{ tenantId: 'tenant-1' }],
+        buyer: [{ buyerId: 'buyer-1' }],
+      },
+    });
+  });
+
+  it('uses staff as the effective primary role without loading portal data', async () => {
+    process.env.AI_RETRIEVAL_MODE = 'TOOLS';
+
+    await service.respond({
+      ...params,
+      context: {
+        ...params.context,
+        role: UserRole.OWNER,
+        roles: [UserRole.OWNER, UserRole.STAFF],
+      },
+    });
+
+    expect(dataSource.query).not.toHaveBeenCalled();
+    expect(legacy.respond).toHaveBeenCalledWith(
+      params.prompt,
+      expect.objectContaining({ role: UserRole.STAFF }),
+      expect.any(Array),
+    );
+  });
 });
