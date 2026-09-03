@@ -138,6 +138,11 @@ El workflow realiza:
 8. verificaciones de disponibilidad de backend y frontend mediante `/health`;
 9. publicación de ambos artefactos y SBOM en la GitHub Release.
 
+El artefacto del servidor y Android se construyen en paralelo, pero el servidor
+solo se despliega después de que Android haya sido construido, enviado y
+publicado correctamente. Si Android falla, las migraciones y el cambio de
+versión del servidor no comienzan.
+
 ## Migraciones expand/contract
 
 Un release solo puede contener cambios compatibles con la versión anterior:

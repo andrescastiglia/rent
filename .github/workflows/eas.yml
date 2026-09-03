@@ -47,7 +47,7 @@ jobs:
       - name: Setup EAS
         uses: expo/expo-github-action@v9
         with:
-          eas-version: 16.28.0
+          eas-version: 23.2.0
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Materialize Google Play service account key
