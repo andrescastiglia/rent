@@ -9,8 +9,6 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 ## 1. Completar releases y despliegue
 
 - [ ] Revisar las GitHub Apps instaladas y cualquier autodeploy externo; el repositorio no tiene webhooks configurados.
-- [ ] Antes del despliegue, ejecutar sobre producción el inventario y la migración asistida de referencias legadas `/uploads/properties/` a `property_images`, validando conteos y checksums.
-- [ ] Crear el primer tag únicamente con `main` sincronizado, cero PR, cero heads adicionales y todos los gates verdes.
 
 ## 2. Cerrar bloqueantes P0
 

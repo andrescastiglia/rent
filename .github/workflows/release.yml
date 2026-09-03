@@ -66,18 +66,29 @@ jobs:
             exit 1
           fi
 
+          CI_RUN_ID="$(
+            gh api --method GET \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs" \
+              -f branch=main \
+              -f event=push \
+              -f status=success \
+              -f head_sha="$RELEASE_SHA" \
+              -f per_page=1 \
+              --jq '.workflow_runs[0].id // empty'
+          )"
+          if [ -z "$CI_RUN_ID" ]; then
+            echo "No successful main CI run found for release SHA $RELEASE_SHA." >&2
+            exit 1
+          fi
+
+          echo "Validated successful main CI run $CI_RUN_ID for $RELEASE_SHA."
+
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
 
-  quality-gates:
-    name: Required quality gates
-    needs: preflight
-    uses: ./.github/workflows/ci.yml
-    secrets: inherit
-
   build-server-artifact:
     name: Build immutable server artifact
-    needs: [preflight, quality-gates]
+    needs: preflight
     runs-on: ubuntu-latest
     env:
       RELEASE_SHA: ${{ needs.preflight.outputs.release_sha }}
@@ -138,7 +149,7 @@ jobs:
 
   deploy-server:
     name: Deploy server
-    needs: [preflight, quality-gates, build-server-artifact]
+    needs: [preflight, build-server-artifact]
     runs-on: ubuntu-latest
     environment: production-release
     steps:
@@ -209,7 +220,7 @@ jobs:
 
   deploy-android:
     name: Deploy Android
-    needs: [preflight, quality-gates]
+    needs: preflight
     uses: ./.github/workflows/eas.yml
     secrets: inherit
 
