@@ -46,6 +46,11 @@ esa conexión para ejecutar las tareas remotas como el usuario de servicio
 Se requieren Node.js según `.node-version`, PM2, `sha256sum`, `tar` y el cliente
 PostgreSQL. Git y npm no son necesarios para el despliegue.
 
+Las únicas tareas ejecutadas como `root` son las transferencias del artefacto y
+del `.env`; ambas fijan inmediatamente propietario `deploy` y modo `0600`. Esto
+evita depender de ACL POSIX para escalar desde el usuario SSH sin ampliar los
+privilegios del runtime.
+
 En la primera adopción del esquema inmutable, si `current` todavía es un
 directorio legacy, Ansible lo mueve a `releases/legacy-before-<sha>` y deja un
 symlink equivalente antes de continuar. Ese checkout se conserva como primer
