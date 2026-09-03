@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { tenantsApi } from '@/api/tenants';
 import { Screen } from '@/components/screen';
 import { H1 } from '@/components/ui';
-import { canManageTenants } from '@/config/navigation';
+import { canManageTenantsForUser } from '@/config/navigation';
 import { useAuth } from '@/contexts/auth-context';
 
 type ActionChipProps = Readonly<{
@@ -34,7 +34,7 @@ function ActionChip({ title, onPress, testID }: ActionChipProps) {
 export default function TenantsScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const canManage = canManageTenants(user?.role);
+  const canManage = canManageTenantsForUser(user);
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');

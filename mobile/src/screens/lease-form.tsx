@@ -1704,7 +1704,8 @@ export function LeaseForm({
 
   const ownerDisplay = selectedOwner
     ? `${selectedOwner.firstName ?? ''} ${selectedOwner.lastName ?? ''}`.trim() ||
-      selectedOwner.email
+      selectedOwner.email ||
+      '-'
     : preselectedOwnerName || '-';
   const propertyDisplay =
     selectedProperty?.name || preselectedPropertyName || '-';

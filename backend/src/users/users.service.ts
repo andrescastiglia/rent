@@ -16,6 +16,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 
 type CreateUserInput = CreateUserDto & {
   isActive?: boolean;
+  accessRequested?: boolean;
   companyId?: string;
 };
 
@@ -35,6 +36,10 @@ export class UsersService {
       email: createUserDto.email.trim().toLowerCase(),
       passwordHash: hashedPassword,
       permissions: createUserDto.permissions ?? {},
+      accessRequested: createUserDto.accessRequested ?? true,
+      roles: Array.from(
+        new Set([createUserDto.role, ...(createUserDto.roles ?? [])]),
+      ),
     });
     return this.usersRepository.save(user);
   }
@@ -166,6 +171,7 @@ export class UsersService {
     }
 
     user.isActive = isActive;
+    if (isActive) user.accessRequested = true;
     return this.usersRepository.save(user);
   }
 
@@ -186,6 +192,7 @@ export class UsersService {
 
     const salt = await bcrypt.genSalt();
     user.passwordHash = await bcrypt.hash(temporaryPassword, salt);
+    user.accessRequested = true;
     await this.usersRepository.save(user);
 
     return { user, temporaryPassword };
@@ -236,6 +243,17 @@ export class UsersService {
 
     if (updateUserDto.language !== undefined) {
       user.language = updateUserDto.language;
+    }
+
+    if (updateUserDto.roles !== undefined || updateUserDto.role !== undefined) {
+      if (allowWhatsappConsent) {
+        throw new BadRequestException('Profile cannot change roles');
+      }
+      const primaryRole = updateUserDto.role ?? user.role;
+      user.role = primaryRole;
+      user.roles = Array.from(
+        new Set([primaryRole, ...(updateUserDto.roles ?? user.roles ?? [])]),
+      );
     }
 
     if (updateUserDto.avatarUrl !== undefined) {

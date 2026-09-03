@@ -203,8 +203,11 @@ describe('UnitsService', () => {
       role: UserRole.OWNER,
     });
     expect(propertyQueryBuilder.andWhere).toHaveBeenCalledWith(
-      'scopeOwner.user_id = :actorId',
-      { actorId: 'owner-user-1' },
+      expect.stringContaining('scope_owner.user_id = :actorId'),
+      expect.objectContaining({
+        actorId: 'owner-user-1',
+        companyId: 'company-1',
+      }),
     );
   });
 

@@ -14,6 +14,7 @@ import {
   LogOut,
   Loader2,
 } from "lucide-react";
+import { hasUserRole } from "@/lib/permissions";
 
 export default function TenantPortalLayout({
   children,
@@ -32,7 +33,7 @@ export default function TenantPortalLayout({
       router.replace("/login");
       return;
     }
-    if (user.role !== "tenant") {
+    if (!hasUserRole(user, "tenant")) {
       router.replace("/");
     }
   }, [user, loading, router]);
@@ -45,7 +46,7 @@ export default function TenantPortalLayout({
     );
   }
 
-  if (user?.role !== "tenant") {
+  if (!user || !hasUserRole(user, "tenant")) {
     return null;
   }
 

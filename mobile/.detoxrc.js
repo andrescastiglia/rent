@@ -38,10 +38,16 @@ module.exports = {
     emulator: {
       type: 'android.emulator',
       device: {
-        avdName: 'Medium_Phone_API_34',
+        avdName: process.env.DETOX_AVD_NAME || 'Medium_Phone_API_34',
       },
       bootArgs: '-no-snapshot-load -no-snapshot-save -no-boot-anim',
       readonly: false,
+    },
+    attached: {
+      type: 'android.attached',
+      device: {
+        adbName: process.env.DETOX_ADB_NAME || 'emulator-5554',
+      },
     },
   },
   configurations: {
@@ -52,6 +58,10 @@ module.exports = {
     'android.emu.release': {
       device: 'emulator',
       app: 'android.release',
+    },
+    'android.attached.debug': {
+      device: 'attached',
+      app: 'android.debug',
     },
   },
 };

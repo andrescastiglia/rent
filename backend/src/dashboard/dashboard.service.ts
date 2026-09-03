@@ -50,10 +50,16 @@ import {
   OwnerActivityStatus,
 } from '../owners/entities/owner-activity.entity';
 import { Owner } from '../owners/entities/owner.entity';
+import {
+  getUserRoles,
+  hasRole,
+  isAdminOrStaff,
+} from '../common/helpers/role-scope.helper';
 
 type RequestUser = {
   id: string;
   role: UserRole;
+  roles?: UserRole[];
   email?: string | null;
   phone?: string | null;
 };
@@ -128,7 +134,7 @@ export class DashboardService {
     companyId: string,
     user: RequestUser,
   ): Promise<DashboardStatsDto> {
-    const isPrivileged = this.isPrivilegedUser(user.role);
+    const isPrivileged = this.isPrivilegedUser(user);
 
     const propertiesQuery = this.buildScopedPropertiesQuery(companyId, user);
 
@@ -474,28 +480,44 @@ export class DashboardService {
       .where('property.company_id = :companyId', { companyId })
       .andWhere('property.deleted_at IS NULL');
 
-    if (user.role === UserRole.OWNER) {
-      propertiesQuery
-        .innerJoin('property.owner', 'owner')
-        .innerJoin('owner.user', 'ownerUser');
-      this.applyOwnerScope(propertiesQuery, user, 'owner', 'ownerUser');
-      return propertiesQuery;
-    }
-
-    if (user.role === UserRole.TENANT) {
-      propertiesQuery
-        .innerJoin(
-          Lease,
-          'tenantLease',
-          'tenantLease.property_id = property.id AND tenantLease.contract_type = :rentalType AND tenantLease.status = :activeStatus AND tenantLease.deleted_at IS NULL',
-          {
-            rentalType: ContractType.RENTAL,
-            activeStatus: LeaseStatus.ACTIVE,
-          },
-        )
-        .innerJoin('tenantLease.tenant', 'tenant')
-        .innerJoin('tenant.user', 'tenantUser');
-      this.applyTenantScope(propertiesQuery, user, 'tenant', 'tenantUser');
+    if (!isAdminOrStaff(user)) {
+      const roles = getUserRoles(user);
+      const scopes = [
+        roles.includes(UserRole.OWNER)
+          ? `EXISTS (SELECT 1 FROM owners scope_owner
+              WHERE scope_owner.id = property.owner_id
+                AND scope_owner.user_id = :scopeUserId
+                AND scope_owner.deleted_at IS NULL)`
+          : null,
+        roles.includes(UserRole.TENANT)
+          ? `EXISTS (SELECT 1 FROM leases scope_lease
+              JOIN tenants scope_tenant ON scope_tenant.id = scope_lease.tenant_id
+              WHERE scope_lease.property_id = property.id
+                AND scope_lease.contract_type = :rentalType
+                AND scope_lease.status = :activeStatus
+                AND scope_lease.deleted_at IS NULL
+                AND scope_tenant.user_id = :scopeUserId
+                AND scope_tenant.deleted_at IS NULL)`
+          : null,
+        roles.includes(UserRole.BUYER)
+          ? `EXISTS (SELECT 1 FROM leases scope_sale
+              JOIN buyers scope_buyer ON scope_buyer.id = scope_sale.buyer_id
+              WHERE scope_sale.property_id = property.id
+                AND scope_sale.contract_type = :saleType
+                AND scope_sale.deleted_at IS NULL
+                AND scope_buyer.user_id = :scopeUserId
+                AND scope_buyer.deleted_at IS NULL)`
+          : null,
+      ].filter((scope): scope is string => Boolean(scope));
+      propertiesQuery.andWhere(
+        scopes.length ? `(${scopes.join(' OR ')})` : 'FALSE',
+        {
+          scopeUserId: user.id,
+          rentalType: ContractType.RENTAL,
+          saleType: ContractType.SALE,
+          activeStatus: LeaseStatus.ACTIVE,
+        },
+      );
     }
 
     return propertiesQuery;
@@ -508,7 +530,7 @@ export class DashboardService {
     firstDayOfMonth: Date,
     lastDayOfMonth: Date,
   ): Promise<number> {
-    if (!isPrivileged && user.role !== UserRole.OWNER) {
+    if (!isPrivileged && !hasRole(user, UserRole.OWNER)) {
       return 0;
     }
 
@@ -525,7 +547,7 @@ export class DashboardService {
       .andWhere('ci.paid_at <= :endDate', { endDate: lastDayOfMonth })
       .andWhere('ci.deleted_at IS NULL');
 
-    if (user.role === UserRole.OWNER) {
+    if (hasRole(user, UserRole.OWNER) && !isPrivileged) {
       this.applyOwnerScope(commissionQuery, user, 'owner', 'ownerUser');
     }
 
@@ -542,7 +564,7 @@ export class DashboardService {
     firstDayOfMonth: Date,
     lastDayOfMonth: Date,
   ): Promise<number> {
-    if (!isPrivileged && user.role !== UserRole.OWNER) {
+    if (!isPrivileged && !hasRole(user, UserRole.OWNER)) {
       return 0;
     }
 
@@ -552,7 +574,7 @@ export class DashboardService {
       lastDayOfMonth,
     ];
     const ownerScope =
-      user.role === UserRole.OWNER
+      hasRole(user, UserRole.OWNER) && !isPrivileged
         ? `AND owner_entity.user_id = $${params.push(user.id)}`
         : '';
 
@@ -585,7 +607,7 @@ export class DashboardService {
     const startOfTomorrow = new Date(startOfToday);
     startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
 
-    const isPrivileged = this.isPrivilegedUser(user.role);
+    const isPrivileged = this.isPrivilegedUser(user);
 
     const interestedOverduePromise = isPrivileged
       ? this.interestedActivityRepository
@@ -795,6 +817,7 @@ export class DashboardService {
         where: {
           companyId,
           isActive: false,
+          accessRequested: true,
         },
         order: { createdAt: 'ASC' },
         take: effectiveLimit,
@@ -803,9 +826,9 @@ export class DashboardService {
       const pendingItems = pendingApprovals
         .filter(
           (pendingUser) =>
-            (pendingUser.role === UserRole.OWNER ||
-              pendingUser.role === UserRole.TENANT) &&
-            !pendingUser.deletedAt,
+            getUserRoles(pendingUser).some((role) =>
+              [UserRole.OWNER, UserRole.TENANT].includes(role),
+            ) && !pendingUser.deletedAt,
         )
         .map<PersonActivityItemDto>((pendingUser) => ({
           id: `approval-${pendingUser.id}`,
@@ -817,7 +840,7 @@ export class DashboardService {
             pendingUser.email ||
             'Sin email',
           subject: 'Aprobacion de registro pendiente',
-          body: `Rol ${pendingUser.role}. Usuario ${pendingUser.email}`,
+          body: `Roles ${getUserRoles(pendingUser).join(', ')}. Usuario ${pendingUser.email ?? 'sin email'}`,
           status: OwnerActivityStatus.PENDING,
           dueAt: pendingUser.createdAt,
           completedAt: null,
@@ -879,7 +902,7 @@ export class DashboardService {
         reportTypes: ['monthly', 'monthly_summary', 'settlement'],
       });
 
-    if (user.role === UserRole.OWNER) {
+    if (hasRole(user, UserRole.OWNER) && !isAdminOrStaff(user)) {
       this.applyOwnerScope(query, user, 'owner', 'ownerUser');
     }
 
@@ -1176,24 +1199,26 @@ export class DashboardService {
         .andWhere('activity.due_at < :startOfTomorrow', { startOfTomorrow });
     }
 
-    if (user.role === UserRole.OWNER) {
-      this.applyOwnerScope(query, user, 'owner', 'ownerUser');
-    }
-
-    if (user.role === UserRole.TENANT) {
-      query
-        .innerJoin(
-          Lease,
-          'tenantLease',
-          'tenantLease.property_id = property.id AND tenantLease.contract_type = :rentalType AND tenantLease.status = :activeStatus AND tenantLease.deleted_at IS NULL',
-          {
-            rentalType: ContractType.RENTAL,
-            activeStatus: LeaseStatus.ACTIVE,
-          },
-        )
-        .innerJoin('tenantLease.tenant', 'tenant')
-        .innerJoin('tenant.user', 'tenantUser');
-      this.applyTenantScope(query, user, 'tenant', 'tenantUser');
+    if (!isAdminOrStaff(user)) {
+      const roles = getUserRoles(user);
+      const scopes = [
+        roles.includes(UserRole.OWNER) ? 'owner.user_id = :scopeUserId' : null,
+        roles.includes(UserRole.TENANT)
+          ? `EXISTS (SELECT 1 FROM leases scope_lease
+              JOIN tenants scope_tenant ON scope_tenant.id = scope_lease.tenant_id
+              WHERE scope_lease.property_id = property.id
+                AND scope_lease.contract_type = :rentalType
+                AND scope_lease.status = :activeStatus
+                AND scope_lease.deleted_at IS NULL
+                AND scope_tenant.user_id = :scopeUserId
+                AND scope_tenant.deleted_at IS NULL)`
+          : null,
+      ].filter((scope): scope is string => Boolean(scope));
+      query.andWhere(scopes.length ? `(${scopes.join(' OR ')})` : 'FALSE', {
+        scopeUserId: user.id,
+        rentalType: ContractType.RENTAL,
+        activeStatus: LeaseStatus.ACTIVE,
+      });
     }
 
     return query
@@ -1218,8 +1243,8 @@ export class DashboardService {
       ]);
   }
 
-  private isPrivilegedUser(role: UserRole): boolean {
-    return role === UserRole.ADMIN || role === UserRole.STAFF;
+  private isPrivilegedUser(user: RequestUser): boolean {
+    return isAdminOrStaff(user);
   }
 
   private applyRoleScope(
@@ -1232,23 +1257,20 @@ export class DashboardService {
       tenantUserAlias: string;
     },
   ) {
-    if (user.role === UserRole.OWNER) {
-      this.applyOwnerScope(
-        query,
-        user,
-        aliases.ownerAlias,
-        aliases.ownerUserAlias,
-      );
-      return;
-    }
-
-    if (user.role === UserRole.TENANT) {
-      this.applyTenantScope(
-        query,
-        user,
-        aliases.tenantAlias,
-        aliases.tenantUserAlias,
-      );
+    if (isAdminOrStaff(user)) return;
+    const roles = getUserRoles(user);
+    const scopes = [
+      roles.includes(UserRole.OWNER)
+        ? `${aliases.ownerAlias}.user_id = :scopeUserId`
+        : null,
+      roles.includes(UserRole.TENANT)
+        ? `${aliases.tenantAlias}.user_id = :scopeUserId`
+        : null,
+    ].filter((scope): scope is string => Boolean(scope));
+    if (scopes.length > 0) {
+      query.andWhere(`(${scopes.join(' OR ')})`, { scopeUserId: user.id });
+    } else {
+      query.andWhere('FALSE');
     }
   }
 

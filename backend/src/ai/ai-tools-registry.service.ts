@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import { AiToolCatalogService } from './ai-tool-catalog.service';
 import { AiToolExecutorService } from './ai-tool-executor.service';
-import { canRoleUseAiTool } from './ai-tool-access-policy';
+import { canRolesUseAiTool } from './ai-tool-access-policy';
 import { AiExecutionContext, AiToolDefinition } from './types/ai-tool.types';
 
 const OPENAI_PRIMITIVE_SCHEMA = z.union([
@@ -642,7 +642,7 @@ export class AiToolsRegistryService {
       if (context.mutationIntent && tool.mutability !== 'mutable') {
         return false;
       }
-      if (!canRoleUseAiTool(tool, context.role)) {
+      if (!canRolesUseAiTool(tool, context)) {
         return false;
       }
       if (mode === 'NONE') {

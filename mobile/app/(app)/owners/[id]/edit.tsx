@@ -41,7 +41,7 @@ export default function EditOwnerScreen() {
       if (!id) {
         throw new Error(t('common.error'));
       }
-      if (!firstName.trim() || !lastName.trim() || !email.trim()) {
+      if (!firstName.trim() || !lastName.trim()) {
         throw new Error(t('validation.required'));
       }
 

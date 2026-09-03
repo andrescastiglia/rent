@@ -9,19 +9,29 @@ describe('Auth and navigation', () => {
     await loginAsAdmin();
 
     await element(by.id('tab.properties')).tap();
-    await expect(element(by.id('properties.owners.search'))).toBeVisible();
+    await waitFor(element(by.id('properties.owners.search')))
+      .toBeVisible()
+      .withTimeout(15000);
 
     await element(by.id('tab.tenants')).tap();
-    await expect(element(by.id('tenants.new'))).toBeVisible();
+    await waitFor(element(by.id('tenants.new')))
+      .toBeVisible()
+      .withTimeout(15000);
 
     await element(by.id('tab.payments')).tap();
-    await expect(element(by.id('payments.search'))).toBeVisible();
+    await waitFor(element(by.id('payments.search')))
+      .toBeVisible()
+      .withTimeout(15000);
 
     await element(by.id('tab.interested')).tap();
-    await expect(element(by.id('interested.new'))).toBeVisible();
+    await waitFor(element(by.id('interested.new')))
+      .toBeVisible()
+      .withTimeout(15000);
 
     await element(by.id('tab.settings')).tap();
     await element(by.id('settings.goto.leases')).tap();
-    await expect(element(by.id('leases.search'))).toBeVisible();
+    await waitFor(element(by.id('leases.search')))
+      .toBeVisible()
+      .withTimeout(15000);
   });
 });

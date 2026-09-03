@@ -9,6 +9,8 @@ import { SaleReceiptPdfService } from './sale-receipt-pdf.service';
 import { DocumentsModule } from '../documents/documents.module';
 import { Document } from '../documents/entities/document.entity';
 import { Buyer } from '../buyers/entities/buyer.entity';
+import { Lease } from '../leases/entities/lease.entity';
+import { Property } from '../properties/entities/property.entity';
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { Buyer } from '../buyers/entities/buyer.entity';
       SaleAgreement,
       SaleReceipt,
       Buyer,
+      Lease,
+      Property,
       Document,
     ]),
     DocumentsModule,

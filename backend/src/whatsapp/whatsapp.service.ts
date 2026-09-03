@@ -23,6 +23,7 @@ import { DataSource } from 'typeorm';
 import { AI_RAG_ROLLOUT } from '../ai/ai.tokens';
 import { UserRole } from '../users/entities/user.entity';
 import { CreateWhatsappActivityDto } from './dto/create-whatsapp-activity.dto';
+import { isAdminOrStaff } from '../common/helpers/role-scope.helper';
 
 type AiRagRollout = {
   respond(params: {
@@ -31,6 +32,7 @@ type AiRagRollout = {
       userId: string;
       companyId: string;
       role: UserRole;
+      roles?: UserRole[];
       mutationApprovalMode: 'staff_queue';
     };
   }): Promise<{
@@ -1126,7 +1128,7 @@ export class WhatsappService implements OnApplicationBootstrap {
     const { whatsappMessageId, from } = parsedMessage;
 
     const users = await this.dataSource.query(
-      `SELECT id, company_id, role, language, phone
+      `SELECT id, company_id, role, roles, language, phone
          FROM users
         WHERE is_active = true AND deleted_at IS NULL
           AND whatsapp_enabled = true
@@ -1144,11 +1146,12 @@ export class WhatsappService implements OnApplicationBootstrap {
       id: string;
       company_id: string;
       role: UserRole;
+      roles?: UserRole[];
       language: string;
     };
     let content = parsedMessage.content;
     const personId = await this.resolvePersonId(user.id, user.role);
-    const isStaff = [UserRole.ADMIN, UserRole.STAFF].includes(user.role);
+    const isStaff = isAdminOrStaff(user);
     const budgetKey = createHash('sha256')
       .update(`whatsapp-inbound:${user.company_id}:${user.id}`)
       .digest('hex');
@@ -1240,6 +1243,7 @@ export class WhatsappService implements OnApplicationBootstrap {
           userId: user.id,
           companyId: user.company_id,
           role: user.role,
+          roles: user.roles,
           mutationApprovalMode: 'staff_queue',
         },
       });

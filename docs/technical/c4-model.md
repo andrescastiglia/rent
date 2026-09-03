@@ -1,5 +1,7 @@
 # Diagramas Técnicos del Sistema
 
+> **Estado histórico.** No describe necesariamente el runtime vigente; consultar `arquitectura.md` y ADR-001.
+
 Este documento contiene los diagramas arquitectónicos 
 
 ## 1. Contexto del Sistema (C4 Nivel 1)
@@ -931,5 +933,4 @@ classDiagram
 
     MaintenanceService --> NotificationService : Notifica asignaciones
 ```
-
 

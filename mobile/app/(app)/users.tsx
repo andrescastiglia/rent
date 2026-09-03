@@ -128,8 +128,14 @@ export default function UsersScreen() {
                 </Pressable>
               </ScrollView>
             </View>
-            <Text style={styles.detail}>{user.email}</Text>
-            <Text style={styles.detail}>{user.role}</Text>
+            <Text style={styles.detail}>
+              {user.email ?? t('users.noEmail')}
+            </Text>
+            <Text style={styles.detail}>
+              {(user.roles?.length ? user.roles : [user.role])
+                .map((role) => t(`auth.roles.${role}`))
+                .join(', ')}
+            </Text>
           </View>
         ))}
       </View>

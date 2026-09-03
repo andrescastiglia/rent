@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { Loader2 } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
-import { getLandingPathForRole } from "@/config/navigation";
+import { getLandingPathForUser } from "@/config/navigation";
 
 export default function Home() {
   const { user, loading } = useAuth();
@@ -16,7 +16,7 @@ export default function Home() {
   useEffect(() => {
     if (!loading) {
       if (user) {
-        router.replace(`/${locale}${getLandingPathForRole(user.role)}`);
+        router.replace(`/${locale}${getLandingPathForUser(user)}`);
       } else {
         router.replace(`/${locale}/login`);
       }

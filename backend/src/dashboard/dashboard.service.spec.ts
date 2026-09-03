@@ -232,12 +232,8 @@ describe('DashboardService', () => {
 
     expect(result.monthlyCommissions).toBe(1750.25);
     expect(result.monthlyExpenses).toBe(950.5);
-    expect(propertiesQb.innerJoin).toHaveBeenCalledWith(
-      'property.owner',
-      'owner',
-    );
     expect(propertiesQb.andWhere).toHaveBeenCalledWith(
-      expect.stringContaining('owner.user_id = :scopeUserId'),
+      expect.stringContaining('scope_owner.user_id = :scopeUserId'),
       expect.objectContaining({
         scopeUserId: 'owner-user',
       }),

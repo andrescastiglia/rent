@@ -8,7 +8,7 @@ import { Search, Loader2, Edit, Wallet, Plus } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
 import { encodeRouteSegment } from "@/lib/safe-url";
-import { canManageTenants } from "@/lib/permissions";
+import { canManageTenantsForUser } from "@/lib/permissions";
 
 function TenantsList({
   tenants,
@@ -192,7 +192,7 @@ export default function TenantsPage() {
           t={t}
           tc={tc}
           getStatusLabel={getStatusLabel}
-          canManage={canManageTenants(user?.role)}
+          canManage={canManageTenantsForUser(user)}
         />
       )}
     </div>

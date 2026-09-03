@@ -4,8 +4,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, IsNull, Repository } from 'typeorm';
 import { SaleFolder } from './entities/sale-folder.entity';
 import { SaleAgreement } from './entities/sale-agreement.entity';
 import { SaleReceipt } from './entities/sale-receipt.entity';
@@ -14,6 +14,13 @@ import { CreateSaleFolderDto } from './dto/create-sale-folder.dto';
 import { CreateSaleAgreementDto } from './dto/create-sale-agreement.dto';
 import { CreateSaleReceiptDto } from './dto/create-sale-receipt.dto';
 import { Buyer } from '../buyers/entities/buyer.entity';
+import {
+  ContractSignatureStatus,
+  ContractType,
+  Lease,
+  LeaseStatus,
+} from '../leases/entities/lease.entity';
+import { Property } from '../properties/entities/property.entity';
 
 interface UserContext {
   companyId?: string;
@@ -30,6 +37,10 @@ export class SalesService {
     private readonly receiptsRepository: Repository<SaleReceipt>,
     @InjectRepository(Buyer)
     private readonly buyersRepository: Repository<Buyer>,
+    @InjectRepository(Property)
+    private readonly propertiesRepository: Repository<Property>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
     private readonly receiptPdfService: SaleReceiptPdfService,
   ) {}
 
@@ -76,23 +87,53 @@ export class SalesService {
     }
 
     const buyer = await this.resolveAgreementBuyer(dto, user.companyId);
-
-    const agreement = this.agreementsRepository.create({
-      companyId: user.companyId,
-      folderId: dto.folderId,
-      buyerId: buyer.id,
-      buyerName: `${buyer.user.firstName} ${buyer.user.lastName}`.trim(),
-      buyerPhone: buyer.user.phone ?? '',
-      totalAmount: dto.totalAmount,
-      currency: dto.currency || 'ARS',
-      installmentAmount: dto.installmentAmount,
-      installmentCount: dto.installmentCount,
-      startDate: dto.startDate,
-      dueDay: dto.dueDay ?? 10,
-      notes: dto.notes,
+    const property = await this.propertiesRepository.findOne({
+      where: {
+        id: dto.propertyId,
+        companyId: user.companyId,
+        deletedAt: IsNull(),
+      },
     });
+    if (!property) {
+      throw new NotFoundException('Property not found');
+    }
 
-    return this.agreementsRepository.save(agreement);
+    return this.dataSource.transaction(async (manager) => {
+      const contract = manager.getRepository(Lease).create({
+        companyId: user.companyId,
+        propertyId: property.id,
+        ownerId: property.ownerId,
+        buyerId: buyer.id,
+        tenantId: null,
+        contractType: ContractType.SALE,
+        status: LeaseStatus.DRAFT,
+        signatureStatus: ContractSignatureStatus.NOT_STARTED,
+        fiscalValue: dto.totalAmount,
+        monthlyRent: null,
+        startDate: null,
+        endDate: null,
+        currency: dto.currency || 'ARS',
+      });
+      const savedContract = await manager.getRepository(Lease).save(contract);
+      const agreement = manager.getRepository(SaleAgreement).create({
+        companyId: user.companyId,
+        folderId: dto.folderId,
+        contractId: savedContract.id,
+        propertyId: property.id,
+        buyerId: buyer.id,
+        buyerName: `${buyer.user.firstName} ${buyer.user.lastName}`.trim(),
+        buyerPhone: buyer.user.phone ?? '',
+        totalAmount: dto.totalAmount,
+        currency: dto.currency || 'ARS',
+        installmentAmount: dto.installmentAmount,
+        installmentCount: dto.installmentCount,
+        startDate: dto.startDate,
+        dueDay: dto.dueDay ?? 10,
+        notes: dto.notes,
+      });
+
+      return manager.getRepository(SaleAgreement).save(agreement);
+    });
   }
 
   async listAgreements(user: UserContext, folderId?: string) {
@@ -105,6 +146,8 @@ export class SalesService {
       .leftJoinAndSelect('agreement.folder', 'folder')
       .leftJoinAndSelect('agreement.buyer', 'buyer')
       .leftJoinAndSelect('buyer.user', 'buyerUser')
+      .leftJoinAndSelect('agreement.contract', 'contract')
+      .leftJoinAndSelect('agreement.property', 'property')
       .where('agreement.company_id = :companyId', { companyId: user.companyId })
       .andWhere('agreement.deleted_at IS NULL');
 
@@ -122,7 +165,14 @@ export class SalesService {
 
     const agreement = await this.agreementsRepository.findOne({
       where: { id, companyId: user.companyId, deletedAt: IsNull() },
-      relations: ['folder', 'receipts', 'buyer', 'buyer.user'],
+      relations: [
+        'folder',
+        'receipts',
+        'buyer',
+        'buyer.user',
+        'contract',
+        'property',
+      ],
     });
 
     if (!agreement) {
@@ -146,45 +196,63 @@ export class SalesService {
     dto: CreateSaleReceiptDto,
     user: UserContext,
   ) {
-    const agreement = await this.getAgreement(agreementId, user);
-
-    const existingCount = await this.receiptsRepository.count({
-      where: { agreementId },
-    });
-    const installmentNumber = dto.installmentNumber ?? existingCount + 1;
+    if (!user.companyId) {
+      throw new BadRequestException('Company scope required');
+    }
 
     const paymentDate = this.parseDateOnly(dto.paymentDate);
     if (Number.isNaN(paymentDate.getTime())) {
       throw new BadRequestException('Invalid payment date');
     }
 
-    const previousPaid = Number(agreement.paidAmount);
-    const paidAmount = previousPaid + Number(dto.amount);
+    const savedReceipt = await this.dataSource.transaction(async (manager) => {
+      const agreementRepository = manager.getRepository(SaleAgreement);
+      const receiptRepository = manager.getRepository(SaleReceipt);
+      const agreement = await agreementRepository.findOne({
+        where: {
+          id: agreementId,
+          companyId: user.companyId,
+          deletedAt: IsNull(),
+        },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!agreement) {
+        throw new NotFoundException('Agreement not found');
+      }
 
-    const balanceAfter = Number(agreement.totalAmount) - paidAmount;
-    const expectedPaid = this.calculateExpectedPaid(agreement, paymentDate);
-    const overdueAmount = Number(expectedPaid) - previousPaid;
+      const existingCount = await receiptRepository.count({
+        where: { agreementId },
+      });
+      const installmentNumber = dto.installmentNumber ?? existingCount + 1;
+      const previousPaid = Number(agreement.paidAmount);
+      const paidAmount = previousPaid + Number(dto.amount);
+      const balanceAfter = Number(agreement.totalAmount) - paidAmount;
+      const expectedPaid = this.calculateExpectedPaid(agreement, paymentDate);
+      const overdueAmount = Number(expectedPaid) - previousPaid;
 
-    agreement.paidAmount = Number(paidAmount.toFixed(2));
-    await this.agreementsRepository.save(agreement);
+      agreement.paidAmount = Number(paidAmount.toFixed(2));
+      await agreementRepository.save(agreement);
 
-    const receiptNumber = await this.generateReceiptNumber(agreementId);
-
-    const receipt = this.receiptsRepository.create({
-      agreementId,
-      receiptNumber,
-      installmentNumber,
-      amount: dto.amount,
-      currency: agreement.currency,
-      paymentDate,
-      balanceAfter,
-      overdueAmount,
-      copyCount: 2,
+      const receiptNumber = await this.generateReceiptNumber(
+        agreementId,
+        receiptRepository,
+      );
+      const receipt = receiptRepository.create({
+        agreementId,
+        receiptNumber,
+        installmentNumber,
+        amount: dto.amount,
+        currency: agreement.currency,
+        paymentDate,
+        balanceAfter,
+        overdueAmount,
+        copyCount: 2,
+      });
+      return receiptRepository.save(receipt);
     });
 
-    const savedReceipt = await this.receiptsRepository.save(receipt);
-
     try {
+      const agreement = await this.getAgreement(agreementId, user);
       const pdfUrl = await this.receiptPdfService.generate(
         savedReceipt,
         agreement,
@@ -215,8 +283,11 @@ export class SalesService {
     return receipt;
   }
 
-  private async generateReceiptNumber(agreementId: string): Promise<string> {
-    const lastReceipt = await this.receiptsRepository.findOne({
+  private async generateReceiptNumber(
+    agreementId: string,
+    repository: Repository<SaleReceipt> = this.receiptsRepository,
+  ): Promise<string> {
+    const lastReceipt = await repository.findOne({
       where: { agreementId },
       order: { createdAt: 'DESC' },
     });

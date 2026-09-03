@@ -1,16 +1,17 @@
 import {
   navigationItems,
   getLandingPathForRole,
+  getLandingPathForUser,
   getNavigationForRole,
   getNavigationForUser,
 } from "./navigation";
-import { hasModuleAccess } from "@/lib/permissions";
+import { canUserAccessModule } from "@/lib/permissions";
 
 jest.mock("@/lib/permissions", () => ({
-  hasModuleAccess: jest.fn(),
+  canUserAccessModule: jest.fn(),
 }));
 
-const mockHasModuleAccess = hasModuleAccess as jest.Mock;
+const mockCanUserAccessModule = canUserAccessModule as jest.Mock;
 
 describe("navigationItems", () => {
   it("exports a non-empty array", () => {
@@ -62,13 +63,12 @@ describe("getNavigationForRole", () => {
 
 describe("getNavigationForUser", () => {
   afterEach(() => {
-    mockHasModuleAccess.mockReset();
+    mockCanUserAccessModule.mockReset();
   });
 
-  it("excludes items when hasModuleAccess returns false for them", () => {
-    // Grant access only to items without a moduleKey or moduleKey === 'dashboard'
-    mockHasModuleAccess.mockImplementation(
-      (_role: string, _perms: unknown, moduleKey?: string) =>
+  it("excludes items when the combined role policy returns false", () => {
+    mockCanUserAccessModule.mockImplementation(
+      (_user: unknown, _roles: string[], moduleKey?: string) =>
         moduleKey === "dashboard" || moduleKey === undefined,
     );
 
@@ -77,7 +77,7 @@ describe("getNavigationForUser", () => {
     >[0];
     const result = getNavigationForUser(user);
 
-    expect(mockHasModuleAccess).toHaveBeenCalled();
+    expect(mockCanUserAccessModule).toHaveBeenCalled();
     // All returned items must have passed the access check
     result.forEach((item) =>
       expect(
@@ -90,7 +90,9 @@ describe("getNavigationForUser", () => {
   });
 
   it("with full access returns the same items as getNavigationForRole", () => {
-    mockHasModuleAccess.mockReturnValue(true);
+    mockCanUserAccessModule.mockImplementation(
+      (_user: unknown, roles: string[]) => roles.includes("owner"),
+    );
 
     const user = { role: "owner", permissions: {} } as Parameters<
       typeof getNavigationForUser
@@ -99,5 +101,19 @@ describe("getNavigationForUser", () => {
     const byRole = getNavigationForRole("owner");
 
     expect(result).toEqual(byRole);
+  });
+});
+
+describe("getLandingPathForUser", () => {
+  it("uses the task dashboard when any non-buyer role is present", () => {
+    expect(
+      getLandingPathForUser({ role: "buyer", roles: ["buyer", "owner"] }),
+    ).toBe("/dashboard");
+  });
+
+  it("keeps buyer-only users on their available settings page", () => {
+    expect(getLandingPathForUser({ role: "buyer", roles: ["buyer"] })).toBe(
+      "/settings",
+    );
   });
 });

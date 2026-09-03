@@ -35,6 +35,7 @@ export class PropertiesController {
     return this.propertiesService.create(createPropertyDto, {
       id: req.user.id,
       role: req.user.role,
+      roles: req.user.roles,
       companyId: req.user.companyId,
     });
   }
@@ -77,6 +78,7 @@ export class PropertiesController {
     return this.propertiesService.uploadPropertyImage(file, {
       id: req.user.id,
       role: req.user.role,
+      roles: req.user.roles,
       companyId: req.user.companyId,
     });
   }
@@ -90,6 +92,7 @@ export class PropertiesController {
     return this.propertiesService.discardUploadedImages(dto.images, {
       id: req.user.id,
       role: req.user.role,
+      roles: req.user.roles,
       companyId: req.user.companyId,
     });
   }

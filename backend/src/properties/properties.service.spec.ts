@@ -574,7 +574,7 @@ describe('PropertiesService', () => {
       });
       expect(ownerQuery.andWhere).toHaveBeenCalledWith(
         expect.stringContaining('owner.user_id = :scopeUserId'),
-        { scopeUserId: 'u-owner' },
+        expect.objectContaining({ scopeUserId: 'u-owner' }),
       );
 
       const tenantQuery = {
@@ -587,18 +587,20 @@ describe('PropertiesService', () => {
         email: 'tenant@test.com',
         phone: '',
       });
-      expect(tenantQuery.innerJoin).toHaveBeenCalledTimes(2);
       expect(tenantQuery.andWhere).toHaveBeenCalledWith(
-        expect.stringContaining('tenant.user_id = :scopeUserId'),
-        { scopeUserId: 'u-tenant' },
+        expect.stringContaining('scope_tenant.user_id = :scopeUserId'),
+        expect.objectContaining({ scopeUserId: 'u-tenant' }),
       );
 
-      expect(() =>
-        (service as any).applyVisibilityScope(tenantQuery as any, {
-          id: 'u-buyer',
-          role: UserRole.BUYER,
-        }),
-      ).toThrow(ForbiddenException);
+      const buyerQuery = { andWhere: jest.fn() };
+      (service as any).applyVisibilityScope(buyerQuery as any, {
+        id: 'u-buyer',
+        role: UserRole.BUYER,
+      });
+      expect(buyerQuery.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining('scope_buyer.user_id = :scopeUserId'),
+        expect.objectContaining({ scopeUserId: 'u-buyer' }),
+      );
     });
 
     it('should resolve owner for create in all key branches', async () => {

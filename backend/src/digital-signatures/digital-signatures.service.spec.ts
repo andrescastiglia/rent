@@ -14,7 +14,11 @@ import {
   SignatureProvider,
   SignatureStatus,
 } from './entities/digital-signature-request.entity';
-import { Lease, LeaseStatus } from '../leases/entities/lease.entity';
+import {
+  ContractSignatureStatus,
+  Lease,
+  LeaseStatus,
+} from '../leases/entities/lease.entity';
 import { createHmac } from 'node:crypto';
 
 type MockRepository<T extends Record<string, any> = any> = Partial<
@@ -33,6 +37,7 @@ const mockLease = (overrides: Partial<Lease> = {}): Lease =>
     id: 'lease-uuid-1',
     companyId: 'company-uuid-1',
     status: LeaseStatus.DRAFT,
+    signatureStatus: ContractSignatureStatus.NOT_STARTED,
     ...overrides,
   }) as Lease;
 
@@ -119,7 +124,7 @@ describe('DigitalSignaturesService', () => {
       sigRequestRepo.save!.mockResolvedValue(savedRequest);
       leaseRepo.save!.mockResolvedValue({
         ...lease,
-        status: LeaseStatus.PENDING_SIGNATURE,
+        signatureStatus: ContractSignatureStatus.PENDING,
       });
 
       const dto = {
@@ -136,7 +141,10 @@ describe('DigitalSignaturesService', () => {
       });
       expect(sigRequestRepo.save).toHaveBeenCalled();
       expect(leaseRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ status: LeaseStatus.PENDING_SIGNATURE }),
+        expect.objectContaining({
+          status: LeaseStatus.DRAFT,
+          signatureStatus: ContractSignatureStatus.PENDING,
+        }),
       );
       expect(result).toEqual(savedRequest);
     });
@@ -250,7 +258,9 @@ describe('DigitalSignaturesService', () => {
   describe('processWebhook', () => {
     it('completes request and leaves lease signed for explicit activation', async () => {
       const request = mockRequest({ provider: SignatureProvider.MOCK });
-      const lease = mockLease({ status: LeaseStatus.PENDING_SIGNATURE });
+      const lease = mockLease({
+        signatureStatus: ContractSignatureStatus.PENDING,
+      });
 
       sigRequestRepo.findOne!.mockResolvedValue(request);
       sigRequestRepo.save!.mockResolvedValue({
@@ -260,7 +270,7 @@ describe('DigitalSignaturesService', () => {
       leaseRepo.findOne!.mockResolvedValue(lease);
       const capturedStatuses: string[] = [];
       leaseRepo.save!.mockImplementation((l) => {
-        capturedStatuses.push((l as Lease).status);
+        capturedStatuses.push((l as Lease).signatureStatus);
         return Promise.resolve({ ...l } as Lease);
       });
 
@@ -276,12 +286,14 @@ describe('DigitalSignaturesService', () => {
         expect.objectContaining({ status: SignatureStatus.COMPLETED }),
       );
       expect(leaseRepo.save).toHaveBeenCalledTimes(1);
-      expect(capturedStatuses[0]).toBe(LeaseStatus.SIGNED);
+      expect(capturedStatuses[0]).toBe(ContractSignatureStatus.SIGNED);
     });
 
     it('voids request and reverts lease to DRAFT', async () => {
       const request = mockRequest();
-      const lease = mockLease({ status: LeaseStatus.PENDING_SIGNATURE });
+      const lease = mockLease({
+        signatureStatus: ContractSignatureStatus.PENDING,
+      });
 
       sigRequestRepo.findOne!.mockResolvedValue(request);
       sigRequestRepo.save!.mockResolvedValue({
@@ -302,13 +314,18 @@ describe('DigitalSignaturesService', () => {
         expect.objectContaining({ status: SignatureStatus.VOIDED }),
       );
       expect(leaseRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ status: LeaseStatus.DRAFT }),
+        expect.objectContaining({
+          status: LeaseStatus.DRAFT,
+          signatureStatus: ContractSignatureStatus.VOIDED,
+        }),
       );
     });
 
     it('declines request and reverts lease to DRAFT', async () => {
       const request = mockRequest();
-      const lease = mockLease({ status: LeaseStatus.PENDING_SIGNATURE });
+      const lease = mockLease({
+        signatureStatus: ContractSignatureStatus.PENDING,
+      });
 
       sigRequestRepo.findOne!.mockResolvedValue(request);
       sigRequestRepo.save!.mockResolvedValue({
@@ -329,7 +346,10 @@ describe('DigitalSignaturesService', () => {
         expect.objectContaining({ status: SignatureStatus.DECLINED }),
       );
       expect(leaseRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ status: LeaseStatus.DRAFT }),
+        expect.objectContaining({
+          status: LeaseStatus.DRAFT,
+          signatureStatus: ContractSignatureStatus.DECLINED,
+        }),
       );
     });
 
@@ -387,7 +407,7 @@ describe('DigitalSignaturesService', () => {
       expect(manager.query.mock.calls[3][1]).toEqual([
         'lease-1',
         'company-1',
-        LeaseStatus.SIGNED,
+        ContractSignatureStatus.SIGNED,
       ]);
     });
 
@@ -423,7 +443,9 @@ describe('DigitalSignaturesService', () => {
   describe('void', () => {
     it('voids a sent request and reverts lease to DRAFT', async () => {
       const request = mockRequest({ status: SignatureStatus.SENT });
-      const lease = mockLease({ status: LeaseStatus.PENDING_SIGNATURE });
+      const lease = mockLease({
+        signatureStatus: ContractSignatureStatus.PENDING,
+      });
 
       sigRequestRepo.findOne!.mockResolvedValue(request);
       const voidedRequest = { ...request, status: SignatureStatus.VOIDED };
@@ -435,7 +457,10 @@ describe('DigitalSignaturesService', () => {
 
       expect(result.status).toBe(SignatureStatus.VOIDED);
       expect(leaseRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ status: LeaseStatus.DRAFT }),
+        expect.objectContaining({
+          status: LeaseStatus.DRAFT,
+          signatureStatus: ContractSignatureStatus.VOIDED,
+        }),
       );
     });
 

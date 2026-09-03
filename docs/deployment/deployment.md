@@ -19,8 +19,7 @@ Antes de crear el tag deben cumplirse todas estas condiciones:
 - No hay pull requests abiertos.
 - CI está verde en el SHA que se va a etiquetar.
 - El tag anotado cumple `vMAJOR.MINOR.PATCH`.
-- Existe una copia de seguridad restaurable de PostgreSQL.
-- `/var/www/rent/shared/.env` está completo y tiene modo `0600`.
+- El secreto protegido `PRODUCTION_ENV_FILE` contiene el runtime completo.
 - La migración legada de imágenes fue ejecutada y verificada cuando aplique.
 
 El job `preflight` vuelve a comprobar tag, SHA, ramas y PR antes de construir.
@@ -51,11 +50,13 @@ y estos secretos:
 - `SSH_PRIVATE_KEY`: clave dedicada, sin passphrase, de alcance mínimo.
 - `SSH_KNOWN_HOSTS`: salida validada de `ssh-keyscan`, no generada durante CI.
 - `SSH_HOST`, `SSH_USER` y `SSH_PORT`.
+- `PRODUCTION_ENV_FILE`: contenido completo del `.env` productivo, inicializado desde `oracle` y actualizado únicamente como secreto protegido.
 - `EXPO_TOKEN`, `GOOGLE_SERVICE_ACCOUNT_KEY_JSON` y credenciales Android.
 
 Configurar `NEXT_PUBLIC_TURNSTILE_SITE_KEY` como variable del repositorio o del
-environment. Los secretos de runtime viven solo en
-`/var/www/rent/shared/.env`; nunca se incluyen en el artefacto.
+environment. GitHub Actions materializa temporalmente `PRODUCTION_ENV_FILE`,
+Ansible actualiza `/var/www/rent/shared/.env` con modo `0600` y el runner se
+descarta. El secreto nunca se incluye en el artefacto ni en los logs.
 
 Variables mínimas de runtime:
 
@@ -131,7 +132,7 @@ El workflow realiza:
 5. build EAS, descarga y checksum del AAB exacto;
 6. migraciones forward-compatible antes del cambio de enlace;
 7. cambio atómico de `current` y `pm2 startOrReload`;
-8. smoke tests de backend y frontend;
+8. verificaciones de disponibilidad de backend y frontend mediante `/health`;
 9. publicación de ambos artefactos y SBOM en la GitHub Release.
 
 ## Migraciones expand/contract
@@ -145,16 +146,17 @@ Un release solo puede contener cambios compatibles con la versión anterior:
    usen y el rollback ya no dependa de ello.
 
 El rollback de aplicación no revierte SQL. Cada migración debe ser idempotente
-cuando sea posible y estar envuelta en transacción. Un cambio destructivo exige
-backup/restore ensayado y release separado.
+cuando sea posible y estar envuelta en transacción. No se publican cambios
+destructivos en esta etapa; disaster recovery y los ensayos de restore quedan
+diferidos explícitamente.
 
 ## Verificación y rollback
 
 Durante el despliegue, Ansible verifica `SHA256SUMS` y que `RELEASE_SHA`
-coincida con el SHA solicitado. Si falla un smoke test restaura el enlace previo
+coincida con el SHA solicitado. Si falla una verificación de disponibilidad restaura el enlace previo
 y recarga PM2 automáticamente.
 
-Verificación manual posterior:
+Verificación posterior de despliegue (no es una prueba funcional):
 
 ```bash
 readlink -f /var/www/rent/current
@@ -179,6 +181,5 @@ pm2 startOrReload deploy/ecosystem.config.cjs --update-env
 ```
 
 Después, repetir healthchecks y documentar SHA, motivo, hora, operador y estado
-de base de datos. Si el problema proviene de una migración incompatible, no se
-debe improvisar un downgrade: aislar tráfico y seguir el procedimiento de
-restore ensayado.
+de base de datos. Las migraciones de esta etapa son aditivas y no se revierte
+SQL automáticamente.

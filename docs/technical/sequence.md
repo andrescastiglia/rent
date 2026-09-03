@@ -1,5 +1,7 @@
 # Flujos de Procesos (Secuencia)
 
+> **Estado histórico.** Conservado para trazabilidad; consultar la arquitectura vigente y OpenAPI.
+
 ### 1. Cobro Recurrente Automático
 
 ```mermaid
@@ -517,4 +519,3 @@ sequenceDiagram
         Batch->>DB: UPDATE tenant_account (agregar cargo)
     end
 ```
-

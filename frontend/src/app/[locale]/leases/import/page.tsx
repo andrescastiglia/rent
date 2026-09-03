@@ -833,7 +833,7 @@ export default function ImportCurrentLeasePage() {
               >
                 <Upload className="mb-2 h-5 w-5 text-slate-500" />
                 <span className="text-sm text-slate-700 dark:text-slate-200">
-                  {form.file?.name ?? "Elegir PDF, DOC, DOCX, MD o TXT"}
+                  {form.file?.name ?? "Elegir PDF, DOCX, MD o TXT"}
                 </span>
                 <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                   Solo se aceptan formatos interpretables sin OCR. Si no se
@@ -842,7 +842,7 @@ export default function ImportCurrentLeasePage() {
                 <input
                   id="import-contract-file"
                   type="file"
-                  accept=".pdf,.doc,.docx,.md,.txt"
+                  accept=".pdf,.docx,.md,.txt"
                   className="hidden"
                   onChange={(event) => {
                     const nextFile = event.target.files?.[0] ?? null;
@@ -852,17 +852,13 @@ export default function ImportCurrentLeasePage() {
                     }
 
                     const normalizedName = nextFile.name.toLowerCase();
-                    const isSupported = [
-                      ".pdf",
-                      ".doc",
-                      ".docx",
-                      ".md",
-                      ".txt",
-                    ].some((extension) => normalizedName.endsWith(extension));
+                    const isSupported = [".pdf", ".docx", ".md", ".txt"].some(
+                      (extension) => normalizedName.endsWith(extension),
+                    );
 
                     if (!isSupported) {
                       alert(
-                        "Solo se aceptan contratos en PDF, DOC, DOCX, MD o TXT.",
+                        "Solo se aceptan contratos en PDF, DOCX, MD o TXT.",
                       );
                       event.currentTarget.value = "";
                       return;

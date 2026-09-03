@@ -327,7 +327,7 @@ Para habilitar CAPTCHA en autenticación:
 2. Ir a `Turnstile` -> `Add site`.
 3. Configurar el dominio:
    - Desarrollo local: `localhost`
-   - Staging/Producción: agregar tus dominios reales.
+   - Producción: agregar el dominio real.
 4. Guardar y copiar:
    - `Site Key`
    - `Secret Key`

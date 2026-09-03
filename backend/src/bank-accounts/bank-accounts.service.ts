@@ -13,11 +13,13 @@ import { UserRole } from '../users/entities/user.entity';
 import { Owner } from '../owners/entities/owner.entity';
 import { Property } from '../properties/entities/property.entity';
 import { User } from '../users/entities/user.entity';
+import { hasRole, isAdminOrStaff } from '../common/helpers/role-scope.helper';
 
 interface UserContext {
   id: string;
   companyId: string;
   role: UserRole;
+  roles?: UserRole[];
 }
 
 @Injectable()
@@ -44,7 +46,7 @@ export class BankAccountsService {
       deletedAt: IsNull(),
     };
 
-    if (user.role === UserRole.OWNER) {
+    if (hasRole(user, UserRole.OWNER) && !isAdminOrStaff(user)) {
       const owner = await this.ownersRepository.findOne({
         where: { userId: user.id, companyId },
       });
@@ -81,7 +83,7 @@ export class BankAccountsService {
     if (!account) {
       throw new NotFoundException(`BankAccount ${id} not found`);
     }
-    if (user?.role === UserRole.OWNER) {
+    if (user && hasRole(user, UserRole.OWNER) && !isAdminOrStaff(user)) {
       const owner = await this.resolveOwnerForUser(user, companyId);
       if (!owner || account.ownerId !== owner.id) {
         throw new ForbiddenException(
@@ -101,7 +103,7 @@ export class BankAccountsService {
     let ownerId = dto.ownerId ?? null;
     let userId = dto.userId ?? null;
 
-    if (user?.role === UserRole.OWNER) {
+    if (user && hasRole(user, UserRole.OWNER) && !isAdminOrStaff(user)) {
       const owner = await this.resolveOwnerForUser(user, companyId);
       if (!owner) {
         throw new ForbiddenException('Owner profile not found');
@@ -143,12 +145,15 @@ export class BankAccountsService {
   ): Promise<BankAccount> {
     if (user) this.assertCompanyContext(companyId, user);
     const account = await this.findOne(id, companyId, user);
-    const nextOwnerId =
-      user?.role === UserRole.OWNER
-        ? account.ownerId
-        : (dto.ownerId ?? account.ownerId);
-    const nextUserId =
-      user?.role === UserRole.OWNER ? user.id : (dto.userId ?? account.userId);
+    const isOwnerSelfService = Boolean(
+      user && hasRole(user, UserRole.OWNER) && !isAdminOrStaff(user),
+    );
+    const nextOwnerId = isOwnerSelfService
+      ? account.ownerId
+      : (dto.ownerId ?? account.ownerId);
+    const nextUserId = isOwnerSelfService
+      ? user!.id
+      : (dto.userId ?? account.userId);
     const nextPropertyId = dto.propertyId ?? account.propertyId;
 
     await this.validateReferences(
@@ -218,7 +223,12 @@ export class BankAccountsService {
         'Virtual alias property must belong to company',
       );
     }
-    if (user?.role === UserRole.OWNER && property.ownerId !== ownerId) {
+    if (
+      user &&
+      hasRole(user, UserRole.OWNER) &&
+      !isAdminOrStaff(user) &&
+      property.ownerId !== ownerId
+    ) {
       throw new ForbiddenException(
         'You can only assign aliases to your own properties',
       );
@@ -245,7 +255,7 @@ export class BankAccountsService {
     user: UserContext,
   ): Promise<void> {
     this.assertCompanyContext(companyId, user);
-    if (user.role !== UserRole.ADMIN) {
+    if (!hasRole(user, UserRole.ADMIN)) {
       throw new ForbiddenException('Only admins can delete bank accounts');
     }
     const account = await this.findOne(id, companyId, user);

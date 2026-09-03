@@ -22,15 +22,20 @@ export class ReadonlyRoleGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
-    const user = request.user as { role?: UserRole } | undefined;
+    const user = request.user as
+      { role?: UserRole; roles?: UserRole[] } | undefined;
     if (!user?.role) {
       return true;
     }
 
+    const roles = user.roles?.length ? user.roles : [user.role];
+    if (roles.includes(UserRole.ADMIN) || roles.includes(UserRole.STAFF)) {
+      return true;
+    }
     if (
-      user.role !== UserRole.OWNER &&
-      user.role !== UserRole.TENANT &&
-      user.role !== UserRole.BUYER
+      !roles.some((role) =>
+        [UserRole.OWNER, UserRole.TENANT, UserRole.BUYER].includes(role),
+      )
     ) {
       return true;
     }

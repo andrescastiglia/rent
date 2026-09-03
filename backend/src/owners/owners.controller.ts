@@ -34,6 +34,7 @@ interface AuthenticatedRequest {
     email: string;
     companyId: string;
     role: UserRole;
+    roles?: UserRole[];
     phone?: string;
   };
 }

@@ -102,12 +102,21 @@ export class BuyersService {
 
   async create(dto: CreateBuyerDto, companyId: string): Promise<Buyer> {
     const email = this.normalizeEmail(dto.email);
+    let existingUser: User | null = null;
     if (email) {
-      const existingUser = await this.usersRepository.findOne({
+      existingUser = await this.usersRepository.findOne({
         where: { email },
       });
-      if (existingUser) {
+      if (existingUser && existingUser.companyId !== companyId) {
         throw new ConflictException('A user with this email already exists');
+      }
+      if (existingUser) {
+        const existingBuyer = await this.buyersRepository.findOne({
+          where: { userId: existingUser.id, companyId, deletedAt: IsNull() },
+        });
+        if (existingBuyer) {
+          throw new ConflictException('This person is already a buyer');
+        }
       }
     }
 
@@ -137,18 +146,39 @@ export class BuyersService {
     const salt = await bcrypt.genSalt();
     const passwordHash = await bcrypt.hash(password, salt);
 
-    const user = this.usersRepository.create({
-      companyId,
-      email,
-      passwordHash,
-      firstName: dto.firstName.trim(),
-      lastName: dto.lastName.trim(),
-      phone: dto.phone?.trim() || null,
-      role: UserRole.BUYER,
-      isActive: true,
-    });
-
-    const savedUser = await this.usersRepository.save(user);
+    const savedUser = existingUser
+      ? await this.usersRepository.save({
+          ...existingUser,
+          roles: Array.from(
+            new Set([
+              ...(existingUser.roles?.length
+                ? existingUser.roles
+                : [existingUser.role]),
+              UserRole.BUYER,
+            ]),
+          ),
+          ...(dto.password && !existingUser.isActive
+            ? {
+                passwordHash,
+                isActive: true,
+                accessRequested: true,
+              }
+            : {}),
+        })
+      : await this.usersRepository.save(
+          this.usersRepository.create({
+            companyId,
+            email,
+            passwordHash,
+            firstName: dto.firstName.trim(),
+            lastName: dto.lastName.trim(),
+            phone: dto.phone?.trim() || null,
+            role: UserRole.BUYER,
+            roles: [UserRole.BUYER],
+            isActive: Boolean(email && dto.password),
+            accessRequested: Boolean(email && dto.password),
+          }),
+        );
     const buyer = this.buyersRepository.create({
       userId: savedUser.id,
       companyId,

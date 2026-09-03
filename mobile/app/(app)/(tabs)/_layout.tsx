@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useRoleNavigation } from '@/hooks/use-role-navigation';
-import { getLandingPathForRole } from '@/config/navigation';
+import { getLandingPathForUser } from '@/config/navigation';
 import { useAuth } from '@/contexts/auth-context';
 
 const isEnabled = (allowed: string[], route: string) => allowed.includes(route);
@@ -81,7 +81,7 @@ function DashboardHeaderBackButton({ testID }: DashboardHeaderBackButtonProps) {
   return (
     <HeaderBackButton
       onPress={() => {
-        const landingPath = getLandingPathForRole(user?.role);
+        const landingPath = getLandingPathForUser(user);
         router.replace(`/(app)/(tabs)${landingPath}` as never);
       }}
       testID={testID}

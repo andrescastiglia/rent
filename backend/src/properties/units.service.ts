@@ -10,11 +10,17 @@ import { Property } from './entities/property.entity';
 import { CreateUnitDto } from './dto/create-unit.dto';
 import { UpdateUnitDto } from './dto/update-unit.dto';
 import { UserRole } from '../users/entities/user.entity';
+import {
+  getUserRoles,
+  hasAnyRole,
+  isAdminOrStaff,
+} from '../common/helpers/role-scope.helper';
 
 type UnitActor = {
   id: string;
   companyId: string;
   role: UserRole;
+  roles?: UserRole[];
 };
 
 @Injectable()
@@ -90,26 +96,43 @@ export class UnitsService {
         companyId: actor.companyId,
       })
       .andWhere('property.deleted_at IS NULL');
-    if (actor.role === UserRole.OWNER) {
-      query
-        .innerJoin('property.owner', 'scopeOwner')
-        .andWhere('scopeOwner.user_id = :actorId', { actorId: actor.id });
-    } else if (actor.role === UserRole.TENANT) {
-      query
-        .innerJoin(
-          'leases',
-          'scopeLease',
-          'scopeLease.property_id = property.id AND scopeLease.company_id = :companyId AND scopeLease.deleted_at IS NULL',
-          { companyId: actor.companyId },
-        )
-        .innerJoin(
-          'tenants',
-          'scopeTenant',
-          'scopeTenant.id = scopeLease.tenant_id AND scopeTenant.user_id = :actorId AND scopeTenant.company_id = :companyId AND scopeTenant.deleted_at IS NULL',
-          { actorId: actor.id, companyId: actor.companyId },
-        );
-    } else if (actor.role !== UserRole.ADMIN && actor.role !== UserRole.STAFF) {
-      throw new ForbiddenException('Unit access is not allowed');
+    if (!isAdminOrStaff(actor)) {
+      const roles = getUserRoles(actor);
+      const scopes = [
+        roles.includes(UserRole.OWNER)
+          ? `EXISTS (SELECT 1 FROM owners scope_owner
+              WHERE scope_owner.id = property.owner_id
+                AND scope_owner.user_id = :actorId
+                AND scope_owner.deleted_at IS NULL)`
+          : null,
+        roles.includes(UserRole.TENANT)
+          ? `EXISTS (SELECT 1 FROM leases scope_lease
+              JOIN tenants scope_tenant ON scope_tenant.id = scope_lease.tenant_id
+              WHERE scope_lease.property_id = property.id
+                AND scope_lease.company_id = :companyId
+                AND scope_lease.contract_type = 'rental'
+                AND scope_lease.status = 'active'
+                AND scope_lease.deleted_at IS NULL
+                AND scope_tenant.user_id = :actorId
+                AND scope_tenant.company_id = :companyId
+                AND scope_tenant.deleted_at IS NULL)`
+          : null,
+        roles.includes(UserRole.BUYER)
+          ? `EXISTS (SELECT 1 FROM leases scope_sale
+              JOIN buyers scope_buyer ON scope_buyer.id = scope_sale.buyer_id
+              WHERE scope_sale.property_id = property.id
+                AND scope_sale.company_id = :companyId
+                AND scope_sale.contract_type = 'sale'
+                AND scope_sale.deleted_at IS NULL
+                AND scope_buyer.user_id = :actorId
+                AND scope_buyer.company_id = :companyId
+                AND scope_buyer.deleted_at IS NULL)`
+          : null,
+      ].filter((scope): scope is string => Boolean(scope));
+      query.andWhere(scopes.length ? `(${scopes.join(' OR ')})` : 'FALSE', {
+        actorId: actor.id,
+        companyId: actor.companyId,
+      });
     }
     const property = await query.getOne();
     if (!property) {
@@ -119,7 +142,7 @@ export class UnitsService {
   }
 
   private assertCanMutate(actor: UnitActor): void {
-    if (actor.role !== UserRole.ADMIN && actor.role !== UserRole.OWNER) {
+    if (!hasAnyRole(actor, [UserRole.ADMIN, UserRole.OWNER])) {
       throw new ForbiddenException('Unit management is not allowed');
     }
   }

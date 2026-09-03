@@ -56,6 +56,7 @@ export class AuthService {
       email: user.email,
       sub: user.id,
       role: user.role,
+      roles: user.roles?.length ? user.roles : [user.role],
       companyId: user.companyId,
     };
     return {
@@ -64,6 +65,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         role: user.role,
+        roles: user.roles?.length ? user.roles : [user.role],
         firstName: user.firstName,
         lastName: user.lastName,
         phone: user.phone,

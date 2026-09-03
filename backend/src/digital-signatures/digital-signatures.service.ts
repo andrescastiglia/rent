@@ -15,7 +15,11 @@ import {
   SignatureProvider,
   SignatureStatus,
 } from './entities/digital-signature-request.entity';
-import { Lease, LeaseStatus } from '../leases/entities/lease.entity';
+import {
+  ContractSignatureStatus,
+  Lease,
+  LeaseStatus,
+} from '../leases/entities/lease.entity';
 import { CreateSignatureRequestDto } from './dto/create-signature-request.dto';
 import { WebhookEventDto } from './dto/webhook-event.dto';
 
@@ -130,7 +134,7 @@ export class DigitalSignaturesService {
 
     const saved = await this.sigRequestRepo.save(request);
 
-    lease.status = LeaseStatus.PENDING_SIGNATURE;
+    lease.signatureStatus = ContractSignatureStatus.PENDING;
     await this.leaseRepo.save(lease);
 
     return saved;
@@ -196,14 +200,20 @@ export class DigitalSignaturesService {
       });
 
       if (lease) {
-        lease.status = LeaseStatus.SIGNED;
+        lease.signatureStatus = ContractSignatureStatus.SIGNED;
         await this.leaseRepo.save(lease);
       }
-    } else if (event.status === 'voided' || event.status === 'declined') {
+    } else if (
+      event.status === 'voided' ||
+      event.status === 'declined' ||
+      event.status === 'expired'
+    ) {
       request.status =
         event.status === 'voided'
           ? SignatureStatus.VOIDED
-          : SignatureStatus.DECLINED;
+          : event.status === 'declined'
+            ? SignatureStatus.DECLINED
+            : SignatureStatus.EXPIRED;
       request.voidedAt = new Date();
 
       await this.sigRequestRepo.save(request);
@@ -213,7 +223,12 @@ export class DigitalSignaturesService {
       });
 
       if (lease) {
-        lease.status = LeaseStatus.DRAFT;
+        lease.signatureStatus =
+          event.status === 'voided'
+            ? ContractSignatureStatus.VOIDED
+            : event.status === 'declined'
+              ? ContractSignatureStatus.DECLINED
+              : ContractSignatureStatus.EXPIRED;
         await this.leaseRepo.save(lease);
       }
     } else {
@@ -432,15 +447,19 @@ export class DigitalSignaturesService {
         ],
       );
 
-      const leaseStatus =
+      const signatureStatus =
         targetStatus === SignatureStatus.COMPLETED
-          ? LeaseStatus.SIGNED
-          : LeaseStatus.DRAFT;
+          ? ContractSignatureStatus.SIGNED
+          : targetStatus === SignatureStatus.DECLINED
+            ? ContractSignatureStatus.DECLINED
+            : targetStatus === SignatureStatus.EXPIRED
+              ? ContractSignatureStatus.EXPIRED
+              : ContractSignatureStatus.VOIDED;
       await manager.query(
-        `UPDATE leases SET status = $3, updated_at = NOW()
+        `UPDATE leases SET signature_status = $3, updated_at = NOW()
           WHERE id = $1::uuid AND company_id = $2::uuid
-            AND status = 'pending_signature'`,
-        [request.lease_id, request.company_id, leaseStatus],
+            AND signature_status = 'pending'`,
+        [request.lease_id, request.company_id, signatureStatus],
       );
       await manager.query(
         `UPDATE signature_webhook_inbox
@@ -475,7 +494,7 @@ export class DigitalSignaturesService {
     });
 
     if (lease) {
-      lease.status = LeaseStatus.DRAFT;
+      lease.signatureStatus = ContractSignatureStatus.VOIDED;
       await this.leaseRepo.save(lease);
     }
 

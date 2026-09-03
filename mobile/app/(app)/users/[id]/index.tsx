@@ -49,9 +49,15 @@ export default function UserDetailScreen() {
           <Text
             style={styles.title}
           >{`${user.firstName} ${user.lastName}`}</Text>
-          <Text style={styles.detail}>{user.email}</Text>
+          <Text style={styles.detail}>{user.email ?? t('users.noEmail')}</Text>
           <Text style={styles.detail}>{user.phone ?? '-'}</Text>
-          <Text style={styles.detail}>{`${t('auth.role')}: ${user.role}`}</Text>
+          <Text style={styles.detail}>{`${t('auth.rolesLabel')}: ${(user.roles
+            ?.length
+            ? user.roles
+            : [user.role]
+          )
+            .map((role) => t(`auth.roles.${role}`))
+            .join(', ')}`}</Text>
           <Text
             style={styles.detail}
           >{`${t('users.status')}: ${user.isActive ? t('users.active') : t('users.inactive')}`}</Text>

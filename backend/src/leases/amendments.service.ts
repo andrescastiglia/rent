@@ -12,11 +12,16 @@ import {
 import { Lease, LeaseStatus } from './entities/lease.entity';
 import { CreateAmendmentDto } from './dto/create-amendment.dto';
 import { UserRole } from '../users/entities/user.entity';
+import {
+  getUserRoles,
+  isAdminOrStaff,
+} from '../common/helpers/role-scope.helper';
 
 type AmendmentActor = {
   id: string;
   companyId: string;
   role: UserRole;
+  roles?: UserRole[];
 };
 
 @Injectable()
@@ -120,12 +125,16 @@ export class AmendmentsService {
       .andWhere('lease.company_id = :companyId', { companyId: user.companyId })
       .andWhere('lease.deleted_at IS NULL');
 
-    if (user.role === UserRole.OWNER) {
-      query.andWhere('owner.user_id = :userId', { userId: user.id });
-    } else if (user.role === UserRole.TENANT) {
-      query.andWhere('tenant.user_id = :userId', { userId: user.id });
-    } else if (user.role === UserRole.BUYER) {
-      query.andWhere('buyer.user_id = :userId', { userId: user.id });
+    if (!isAdminOrStaff(user)) {
+      const roles = getUserRoles(user);
+      const scopes = [
+        roles.includes(UserRole.OWNER) ? 'owner.user_id = :userId' : null,
+        roles.includes(UserRole.TENANT) ? 'tenant.user_id = :userId' : null,
+        roles.includes(UserRole.BUYER) ? 'buyer.user_id = :userId' : null,
+      ].filter((scope): scope is string => Boolean(scope));
+      query.andWhere(scopes.length ? `(${scopes.join(' OR ')})` : 'FALSE', {
+        userId: user.id,
+      });
     }
 
     const lease = await query.getOne();

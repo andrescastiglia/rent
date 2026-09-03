@@ -46,10 +46,15 @@ import { ImportLeaseTemplateDocxDto } from './dto/import-lease-template-docx.dto
 import { ImportCurrentLeaseDto } from './dto/import-current-lease.dto';
 import { Buyer } from '../buyers/entities/buyer.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
+import {
+  getUserRoles,
+  isAdminOrStaff,
+} from '../common/helpers/role-scope.helper';
 
 type RequestUser = {
   id: string;
   role: UserRole;
+  roles?: UserRole[];
   companyId: string;
   email?: string | null;
   phone?: string | null;
@@ -1890,28 +1895,19 @@ export class LeasesService {
     query: SelectQueryBuilder<Lease>,
     user: RequestUser,
   ) {
-    if (user.role === UserRole.ADMIN || user.role === UserRole.STAFF) {
+    if (isAdminOrStaff(user)) {
       return;
     }
 
-    if (user.role === UserRole.OWNER) {
-      query.andWhere('owner.user_id = :scopeUserId', {
-        scopeUserId: user.id,
-      });
-      return;
-    }
+    const roles = getUserRoles(user);
+    const scopes = [
+      roles.includes(UserRole.OWNER) ? 'owner.user_id = :scopeUserId' : null,
+      roles.includes(UserRole.TENANT) ? 'tenant.user_id = :scopeUserId' : null,
+      roles.includes(UserRole.BUYER) ? 'buyer.user_id = :scopeUserId' : null,
+    ].filter((scope): scope is string => Boolean(scope));
 
-    if (user.role === UserRole.TENANT) {
-      query.andWhere('tenant.user_id = :scopeUserId', {
-        scopeUserId: user.id,
-      });
-      return;
-    }
-
-    if (user.role === UserRole.BUYER) {
-      query.andWhere('buyer.user_id = :scopeUserId', {
-        scopeUserId: user.id,
-      });
+    if (scopes.length > 0) {
+      query.andWhere(`(${scopes.join(' OR ')})`, { scopeUserId: user.id });
       return;
     }
 

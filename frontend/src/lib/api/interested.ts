@@ -134,6 +134,7 @@ const MOCK_INTERESTED: InterestedProfile[] = [
     peopleCount: 3,
     minAmount: 70000,
     maxAmount: 120000,
+    verifiedMonthlyIncome: 450000,
     hasPets: true,
     guaranteeTypes: ["Garantia propietaria"],
     preferredCity: "CABA",
@@ -155,6 +156,7 @@ const MOCK_INTERESTED: InterestedProfile[] = [
     peopleCount: 2,
     minAmount: 50000,
     maxAmount: 90000,
+    verifiedMonthlyIncome: 300000,
     hasPets: false,
     guaranteeTypes: ["Seguro de caucion"],
     preferredCity: "CABA",
@@ -186,6 +188,7 @@ const mapProfile = (raw: any): InterestedProfile => {
     peopleCount: toOptionalNumber(raw.peopleCount),
     minAmount: toOptionalNumber(raw.minAmount),
     maxAmount: toOptionalNumber(raw.maxAmount),
+    verifiedMonthlyIncome: toOptionalNumber(raw.verifiedMonthlyIncome),
     hasPets: raw.hasPets,
     guaranteeTypes: Array.isArray(raw.guaranteeTypes) ? raw.guaranteeTypes : [],
     preferredZones: Array.isArray(raw.preferredZones) ? raw.preferredZones : [],
@@ -370,6 +373,11 @@ export const interestedApi = {
     if (filters?.status) queryParams.append("status", filters.status);
     if (filters?.qualificationLevel)
       queryParams.append("qualificationLevel", filters.qualificationLevel);
+    if (filters?.minVerifiedMonthlyIncome !== undefined)
+      queryParams.append(
+        "minVerifiedMonthlyIncome",
+        String(filters.minVerifiedMonthlyIncome),
+      );
     if (filters?.page) queryParams.append("page", String(filters.page));
     if (filters?.limit) {
       queryParams.append(
@@ -405,6 +413,7 @@ export const interestedApi = {
         peopleCount: data.peopleCount,
         minAmount: data.minAmount,
         maxAmount: data.maxAmount,
+        verifiedMonthlyIncome: data.verifiedMonthlyIncome,
         hasPets: data.hasPets,
         guaranteeTypes: data.guaranteeTypes,
         preferredZones: data.preferredZones,

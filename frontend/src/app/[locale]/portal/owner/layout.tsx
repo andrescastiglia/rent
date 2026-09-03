@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { Building2, FileText, LayoutDashboard } from "lucide-react";
+import { hasUserRole } from "@/lib/permissions";
 
 export default function OwnerPortalLayout({
   children,
@@ -20,7 +21,7 @@ export default function OwnerPortalLayout({
   const t = useTranslations("ownerPortal");
 
   useEffect(() => {
-    if (user && user.role !== "owner" && user.role !== "admin") {
+    if (user && !hasUserRole(user, "owner")) {
       router.replace("/");
     }
   }, [user, router]);

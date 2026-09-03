@@ -23,6 +23,7 @@ const emptyForm: CreateInterestedProfileInput = {
   peopleCount: undefined,
   minAmount: undefined,
   maxAmount: undefined,
+  verifiedMonthlyIncome: undefined,
   hasPets: false,
   preferredCity: "",
   desiredFeatures: [],
@@ -59,6 +60,7 @@ const profileToForm = (
   peopleCount: profile.peopleCount,
   minAmount: profile.minAmount,
   maxAmount: profile.maxAmount,
+  verifiedMonthlyIncome: profile.verifiedMonthlyIncome,
   hasPets: profile.hasPets ?? false,
   preferredCity: profile.preferredCity ?? "",
   desiredFeatures: profile.desiredFeatures ?? [],
@@ -341,6 +343,23 @@ export default function EditInterestedPage() {
               setForm((prev) => ({
                 ...prev,
                 maxAmount: e.target.value ? Number(e.target.value) : undefined,
+              }))
+            }
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+          />
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            aria-label={t("fields.verifiedMonthlyIncome")}
+            placeholder={t("fields.verifiedMonthlyIncome")}
+            value={form.verifiedMonthlyIncome ?? ""}
+            onChange={(e) =>
+              setForm((prev) => ({
+                ...prev,
+                verifiedMonthlyIncome: e.target.value
+                  ? Number(e.target.value)
+                  : undefined,
               }))
             }
             className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"

@@ -23,6 +23,7 @@ type FormState = {
   lastName: string;
   phone: string;
   role: User["role"];
+  roles: User["role"][];
   password: string;
   permissions: UserModulePermissions;
 };
@@ -33,6 +34,7 @@ const INITIAL_FORM: FormState = {
   lastName: "",
   phone: "",
   role: "owner",
+  roles: ["owner"],
   password: "",
   permissions: {},
 };
@@ -71,7 +73,9 @@ async function submitUserForm(
       firstName: form.firstName,
       lastName: form.lastName,
       phone: form.phone,
-      permissions: form.role === "staff" ? form.permissions : {},
+      role: form.role,
+      roles: form.roles,
+      permissions: form.roles.includes("staff") ? form.permissions : {},
     };
     const updated = await usersApi.update(editingUser.id, payload);
     setUsers((prev) =>
@@ -87,7 +91,8 @@ async function submitUserForm(
     lastName: form.lastName,
     phone: form.phone || undefined,
     role: form.role,
-    permissions: form.role === "staff" ? form.permissions : {},
+    roles: form.roles,
+    permissions: form.roles.includes("staff") ? form.permissions : {},
   };
   const created = await usersApi.create(payload);
   setUsers((prev) => [created, ...prev]);
@@ -171,22 +176,48 @@ function UserFormPanel({
         {tAuth("role")}
         <select
           value={form.role}
-          disabled={Boolean(editingUser)}
           onChange={(event) =>
             setForm((prev) => ({
               ...prev,
               role: event.target.value as User["role"],
+              roles: Array.from(
+                new Set([event.target.value as User["role"], ...prev.roles]),
+              ),
             }))
           }
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
         >
           {ROLE_OPTIONS.map((role) => (
             <option key={role} value={role}>
-              {role}
+              {tAuth(`roles.${role}`)}
             </option>
           ))}
         </select>
       </label>
+
+      <fieldset className="md:col-span-2 rounded-md border border-gray-200 p-3">
+        <legend className="px-1 text-sm text-gray-700">{tAuth("role")}</legend>
+        <div className="flex flex-wrap gap-4">
+          {ROLE_OPTIONS.map((role) => (
+            <label key={role} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={form.roles.includes(role)}
+                disabled={role === form.role}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    roles: event.target.checked
+                      ? Array.from(new Set([...prev.roles, role]))
+                      : prev.roles.filter((item) => item !== role),
+                  }))
+                }
+              />
+              {tAuth(`roles.${role}`)}
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       <label className="text-sm text-gray-700">
         {tAuth("firstName")}
@@ -244,7 +275,7 @@ function UserFormPanel({
         </label>
       )}
 
-      {form.role === "staff" ? (
+      {form.roles.includes("staff") ? (
         <div className="md:col-span-2 rounded-md border border-gray-200 bg-gray-50 p-3">
           <p className="text-sm font-medium text-gray-800">Permisos de staff</p>
           <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
@@ -325,7 +356,9 @@ function UserList({
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div>
                   <p className="font-medium text-gray-500">{tAuth("role")}</p>
-                  <p className="text-gray-700">{user.role}</p>
+                  <p className="text-gray-700">
+                    {(user.roles?.length ? user.roles : [user.role]).join(", ")}
+                  </p>
                 </div>
                 <div>
                   <p className="font-medium text-gray-500">
@@ -376,7 +409,9 @@ function UserList({
                 </td>
                 <td className="px-4 py-2 text-gray-700">{user.firstName}</td>
                 <td className="px-4 py-2 text-gray-700">{user.lastName}</td>
-                <td className="px-4 py-2 text-gray-700">{user.role}</td>
+                <td className="px-4 py-2 text-gray-700">
+                  {(user.roles?.length ? user.roles : [user.role]).join(", ")}
+                </td>
                 <td className="px-4 py-2 text-gray-700">
                   {user.isActive ? tUsers("active") : tUsers("inactive")}
                 </td>
@@ -550,6 +585,7 @@ export default function UsersPage() {
       lastName: user.lastName,
       phone: user.phone ?? "",
       role: user.role,
+      roles: user.roles?.length ? user.roles : [user.role],
       password: "",
     });
     setError(null);

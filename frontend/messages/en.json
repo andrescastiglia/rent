@@ -77,8 +77,11 @@
     "captcha": "Security verification",
     "role": "Role",
     "roles": {
+      "admin": "Administrator",
+      "staff": "Staff",
       "owner": "Owner",
-      "tenant": "Tenant"
+      "tenant": "Tenant",
+      "buyer": "Buyer"
     },
     "createAccount": "Create Account",
     "alreadyHaveAccount": "Already have an account?",
@@ -528,6 +531,7 @@
       "peopleCount": "People count",
       "minAmount": "Min amount",
       "maxAmount": "Max amount",
+      "verifiedMonthlyIncome": "Verified monthly income",
       "hasPets": "Has pets",
       "guaranteeTypes": "Guarantee types (comma separated)",
       "preferredCity": "Preferred city",
@@ -606,6 +610,7 @@
     "agreements": {
       "new": "New installment plan",
       "selectFolder": "Select a loteo",
+      "selectProperty": "Select the property",
       "buyerName": "Buyer",
       "buyerPhone": "Phone",
       "totalAmount": "Total amount",
@@ -785,6 +790,15 @@
     "showFinalized": "Show finalized too",
     "manageTemplates": "Templates",
     "versionLabel": "Version {version}",
+    "signatureStatusLabel": "Signature",
+    "signatureStatus": {
+      "NOT_STARTED": "Not started",
+      "PENDING": "Pending",
+      "SIGNED": "Signed",
+      "DECLINED": "Declined",
+      "VOIDED": "Voided",
+      "EXPIRED": "Expired"
+    },
     "createNewVersion": "New version",
     "createLease": "Create Lease",
     "newLease": "New Lease",

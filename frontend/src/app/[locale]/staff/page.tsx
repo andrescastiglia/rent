@@ -11,6 +11,7 @@ import { useTranslations } from "next-intl";
 import { Loader2, Plus, ShieldCheck, ShieldX, UserPen } from "lucide-react";
 import { RoleGuard } from "@/components/common/RoleGuard";
 import { useAuth } from "@/contexts/auth-context";
+import { hasUserRole } from "@/lib/permissions";
 
 const SPECIALIZATIONS: StaffSpecialization[] = [
   "maintenance",
@@ -348,7 +349,7 @@ export default function StaffPage() {
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
 
-  const isAdmin = user?.role === "admin";
+  const isAdmin = hasUserRole(user, "admin");
 
   const load = useCallback(async () => {
     setLoading(true);

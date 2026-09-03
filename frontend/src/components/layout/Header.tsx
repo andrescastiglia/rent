@@ -7,7 +7,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Bot, Menu } from "lucide-react";
 import LanguageSelector from "@/components/ui/LanguageSelector";
 import { useLocale, useTranslations } from "next-intl";
-import { getLandingPathForRole } from "@/config/navigation";
+import { getLandingPathForUser } from "@/config/navigation";
 
 interface HeaderProps {
   readonly onMenuToggle?: () => void;
@@ -86,7 +86,7 @@ export default function Header({
           {/* Logo - centered on mobile */}
           <div className="flex-1 flex items-center justify-center lg:justify-start">
             <Link
-              href={`/${locale}${getLandingPathForRole(user?.role)}`}
+              href={`/${locale}${getLandingPathForUser(user)}`}
               className="flex items-center"
             >
               <Image
@@ -139,7 +139,9 @@ export default function Header({
                         {user.firstName} {user.lastName}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {user.role}
+                        {(user.roles?.length ? user.roles : [user.role])
+                          .map((role) => tAuth(`roles.${role}`))
+                          .join(", ")}
                       </p>
                     </div>
                   </div>

@@ -9,6 +9,7 @@ export interface AiExecutionContext {
   companyId?: string;
   conversationId?: string;
   role: UserRole;
+  roles?: UserRole[];
   confirmMutation?: boolean;
   confirmationId?: string;
   mutationApprovalMode?: 'conversation' | 'staff_queue';

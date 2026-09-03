@@ -5,6 +5,7 @@
   vars:
     deploy_sha: "{{ git_sha | mandatory }}"
     local_release_archive: "{{ release_archive | mandatory }}"
+    local_runtime_env: "{{ runtime_env_file | mandatory }}"
     releases_path: "{{ deploy_path }}/releases"
     release_path: "{{ releases_path }}/server-{{ deploy_sha }}"
     current_path: "{{ deploy_path }}/current"
@@ -27,10 +28,22 @@
       become: false
       register: controller_archive
 
+    - name: Verify protected runtime environment exists on the controller
+      ansible.builtin.stat:
+        path: "{{ local_runtime_env }}"
+      delegate_to: localhost
+      become: false
+      register: controller_runtime_env
+
     - name: Fail when the release archive is missing
       ansible.builtin.assert:
         that: controller_archive.stat.isreg | default(false)
         fail_msg: "Release archive not found: {{ local_release_archive }}"
+
+    - name: Fail when the runtime environment is missing
+      ansible.builtin.assert:
+        that: controller_runtime_env.stat.isreg | default(false)
+        fail_msg: Protected runtime environment not found.
 
     - name: Create versioned deployment directories
       ansible.builtin.file:
@@ -42,15 +55,14 @@
         - "{{ releases_path }}"
         - "{{ shared_path }}"
 
-    - name: Verify shared environment exists
-      ansible.builtin.stat:
-        path: "{{ shared_path }}/.env"
-      register: shared_env
-
-    - name: Refuse deployment without shared environment
-      ansible.builtin.assert:
-        that: shared_env.stat.isreg | default(false)
-        fail_msg: "Environment file not found at {{ shared_path }}/.env"
+    - name: Update shared runtime environment from protected secret
+      ansible.builtin.copy:
+        src: "{{ local_runtime_env }}"
+        dest: "{{ shared_path }}/.env"
+        mode: "0600"
+        backup: true
+      register: runtime_env_update
+      no_log: true
 
     - name: Capture previous release link
       ansible.builtin.stat:
@@ -140,7 +152,7 @@
             RENT_WORKER_ID: "{{ inventory_hostname }}"
             FRONTEND_PORT: "{{ frontend_port }}"
 
-        - name: Wait for backend smoke check
+        - name: Wait for backend readiness endpoint
           ansible.builtin.uri:
             url: "http://127.0.0.1:{{ backend_port }}/health"
             method: GET
@@ -150,7 +162,7 @@
           retries: 20
           delay: 3
 
-        - name: Wait for frontend smoke check
+        - name: Wait for frontend readiness endpoint
           ansible.builtin.uri:
             url: "http://127.0.0.1:{{ frontend_port }}/health"
             method: GET
@@ -161,6 +173,17 @@
           delay: 3
 
       rescue:
+        - name: Restore previous runtime environment after failed activation
+          ansible.builtin.copy:
+            src: "{{ runtime_env_update.backup_file }}"
+            dest: "{{ shared_path }}/.env"
+            remote_src: true
+            mode: "0600"
+          when:
+            - runtime_env_update.backup_file is defined
+            - runtime_env_update.backup_file | length > 0
+          no_log: true
+
         - name: Restore previous release link
           ansible.builtin.file:
             src: "{{ previous_current.stat.lnk_source }}"
@@ -198,7 +221,16 @@
 
         - name: Fail deployment after rollback
           ansible.builtin.fail:
-            msg: Release smoke checks failed; previous current link was restored when available.
+            msg: Release readiness checks failed; previous current link was restored when available.
+
+    - name: Remove superseded runtime environment backup
+      ansible.builtin.file:
+        path: "{{ runtime_env_update.backup_file }}"
+        state: absent
+      when:
+        - runtime_env_update.backup_file is defined
+        - runtime_env_update.backup_file | length > 0
+      no_log: true
 
     - name: Schedule nightly RAG reconciliation from current release
       ansible.builtin.cron:

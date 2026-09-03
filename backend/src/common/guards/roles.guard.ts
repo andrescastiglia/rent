@@ -21,6 +21,7 @@ const STAFF_RESOURCE_ROUTES: ReadonlyArray<
   ['/interested', 'interested'],
   ['/tenants', 'tenants'],
   ['/leases', 'leases'],
+  ['/contracts', 'leases'],
   ['/payments/document-templates', 'templates'],
   ['/payment-templates', 'templates'],
   ['/payments', 'payments'],
@@ -71,13 +72,29 @@ export class RolesGuard implements CanActivate {
   }
 
   private canAccessAuthenticatedRoute(
-    user: { role: UserRole; permissions?: UserModulePermissions } | undefined,
+    user:
+      | {
+          role: UserRole;
+          roles?: UserRole[];
+          permissions?: UserModulePermissions;
+        }
+      | undefined,
     path: string,
     policy: AuthenticatedPolicy | undefined,
   ): boolean {
     if (!policy || !user) return false;
-    if (user.role !== UserRole.STAFF || policy === 'self-service') return true;
+    const roles = this.getRoles(user);
+    if (
+      policy === 'self-service' ||
+      roles.some((role) => role !== UserRole.STAFF)
+    ) {
+      return true;
+    }
     return this.staffHasAccess(path, user.permissions, policy);
+  }
+
+  private getRoles(user: { role: UserRole; roles?: UserRole[] }): UserRole[] {
+    return user.roles?.length ? user.roles : [user.role];
   }
 
   private canStaffAccessRoleProtectedRoute(
@@ -132,7 +149,15 @@ export class RolesGuard implements CanActivate {
       return false;
     }
 
-    if (user.role === UserRole.STAFF) {
+    const userRoles = this.getRoles(user);
+    const hasDirectRole = userRoles.some(
+      (role) => role !== UserRole.STAFF && requiredRoles.includes(role),
+    );
+    if (hasDirectRole) {
+      return true;
+    }
+
+    if (userRoles.includes(UserRole.STAFF)) {
       return this.canStaffAccessRoleProtectedRoute(
         requiredRoles,
         path,
@@ -142,6 +167,6 @@ export class RolesGuard implements CanActivate {
     }
 
     // Check if user has one of the required roles
-    return requiredRoles.includes(user.role);
+    return userRoles.some((role) => requiredRoles.includes(role));
   }
 }

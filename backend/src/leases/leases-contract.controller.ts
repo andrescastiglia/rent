@@ -19,13 +19,14 @@ interface AuthenticatedRequest {
     id: string;
     companyId: string;
     role: UserRole;
+    roles?: UserRole[];
     email?: string | null;
     phone?: string | null;
   };
 }
 
 @UseGuards(AuthGuard('jwt'))
-@Controller('leases')
+@Controller(['contracts', 'leases'])
 @Authenticated('leases')
 export class LeasesContractController {
   constructor(

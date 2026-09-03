@@ -32,6 +32,10 @@ import { CreditNotePdfService } from './credit-note-pdf.service';
 import { UserRole } from '../users/entities/user.entity';
 import { CommunicationsService } from '../communications/communications.service';
 import {
+  getUserRoles,
+  isAdminOrStaff,
+} from '../common/helpers/role-scope.helper';
+import {
   CommunicationChannel,
   CommunicationEvent,
   CommunicationRecipientRole,
@@ -41,6 +45,7 @@ type RequestUser = {
   id: string;
   companyId: string;
   role: UserRole;
+  roles?: UserRole[];
   email?: string | null;
   phone?: string | null;
 };
@@ -704,21 +709,17 @@ export class PaymentsService {
     query: SelectQueryBuilder<any>,
     user: RequestUser,
   ) {
-    if (user.role === UserRole.ADMIN || user.role === UserRole.STAFF) {
+    if (isAdminOrStaff(user)) {
       return;
     }
 
-    if (user.role === UserRole.OWNER) {
-      query.andWhere('owner.user_id = :scopeUserId', {
-        scopeUserId: user.id,
-      });
-      return;
-    }
-
-    if (user.role === UserRole.TENANT) {
-      query.andWhere('tenant.user_id = :scopeUserId', {
-        scopeUserId: user.id,
-      });
+    const roles = getUserRoles(user);
+    const scopes = [
+      roles.includes(UserRole.OWNER) ? 'owner.user_id = :scopeUserId' : null,
+      roles.includes(UserRole.TENANT) ? 'tenant.user_id = :scopeUserId' : null,
+    ].filter((scope): scope is string => Boolean(scope));
+    if (scopes.length > 0) {
+      query.andWhere(`(${scopes.join(' OR ')})`, { scopeUserId: user.id });
       return;
     }
 

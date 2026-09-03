@@ -677,7 +677,7 @@ Cada job debe:
 3. soportar reintento sin duplicar efectos;
 4. emitir eventos de auditoria;
 5. producir resumen JSON de salida;
-6. correr contra staging shadow antes de cutover;
+6. correr en modo shadow contra el entorno local aislado antes del cutover;
 7. soportar reproceso de media por `property_id` o `image_id`.
 
 ## 9. Scripts y tooling a reemplazar
@@ -817,7 +817,7 @@ Las `21` migraciones SQL actuales no se borran al inicio. Se mueven a `migration
 
 1. el backfill ya no depende de queries SQL en runtime;
 2. el entorno local ya no necesita `psql`;
-3. staging y produccion ya operan sobre Qdrant.
+3. el entorno local y produccion ya operan sobre Qdrant.
 
 ## 11. Estrategia de migracion de datos
 

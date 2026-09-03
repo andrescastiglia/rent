@@ -8,6 +8,7 @@ import { formatMoneyByCode } from "@/lib/format-money";
 import { useTranslations, useLocale } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 import { Download, FileText, Loader2 } from "lucide-react";
+import { hasUserRole } from "@/lib/permissions";
 
 const STATUS_BADGE: Record<
   Settlement["status"],
@@ -45,7 +46,7 @@ export default function OwnerSettlementsPage() {
   const [downloading, setDownloading] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && user && user.role !== "owner") {
+    if (!authLoading && user && !hasUserRole(user, "owner")) {
       router.replace("/");
     }
   }, [user, authLoading, router]);
@@ -63,7 +64,7 @@ export default function OwnerSettlementsPage() {
   }, []);
 
   useEffect(() => {
-    if (!authLoading && user?.role === "owner") {
+    if (!authLoading && hasUserRole(user, "owner")) {
       fetchSettlements();
     }
   }, [authLoading, user, fetchSettlements]);
@@ -94,7 +95,7 @@ export default function OwnerSettlementsPage() {
     );
   }
 
-  if (user?.role !== "owner") return null;
+  if (!hasUserRole(user, "owner")) return null;
 
   return (
     <div className="space-y-4">

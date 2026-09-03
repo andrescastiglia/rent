@@ -1,5 +1,6 @@
 import { UserRole } from '../users/entities/user.entity';
 import { AiToolDefinition } from './types/ai-tool.types';
+import { getUserRoles, RoleAware } from '../common/helpers/role-scope.helper';
 
 const SELF_SERVICE_ROLES = new Set<UserRole>([
   UserRole.OWNER,
@@ -29,3 +30,9 @@ export const canRoleUseAiTool = (
 
   return definition.allowedRoles.includes(role);
 };
+
+export const canRolesUseAiTool = (
+  definition: AiToolDefinition,
+  subject: RoleAware,
+): boolean =>
+  getUserRoles(subject).some((role) => canRoleUseAiTool(definition, role));

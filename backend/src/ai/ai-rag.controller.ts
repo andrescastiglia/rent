@@ -18,6 +18,7 @@ interface AuthenticatedRequest {
     id: string;
     companyId: string;
     role: UserRole;
+    roles?: UserRole[];
     permissions?: UserModulePermissions;
   };
 }
@@ -50,6 +51,7 @@ export class AiRagController {
         userId: req.user.id,
         companyId: req.user.companyId,
         role: req.user.role,
+        roles: req.user.roles,
         permissions: req.user.permissions,
       },
     });

@@ -26,7 +26,7 @@ import {
 import { useTranslations, useLocale } from "next-intl";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { useAuth } from "@/contexts/auth-context";
-import { canManageLeases } from "@/lib/permissions";
+import { canManageLeasesForUser } from "@/lib/permissions";
 import { formatMoneyByCode } from "@/lib/format-money";
 import {
   buildPathWithQuery,
@@ -216,6 +216,10 @@ function LeaseHeader({
         </div>
         <p className="text-gray-500 dark:text-gray-400">
           {t("versionLabel", { version: lease.versionNumber ?? 1 })}
+        </p>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          {t("signatureStatusLabel")}:{" "}
+          {t(`signatureStatus.${lease.signatureStatus ?? "NOT_STARTED"}`)}
         </p>
       </div>
       <div className="flex space-x-2">
@@ -994,7 +998,7 @@ export default function LeaseDetailPage() {
     lease?.confirmedContractFormat ??
     lease?.draftContractFormat ??
     "plain_text";
-  const canManage = canManageLeases(user?.role);
+  const canManage = canManageLeasesForUser(user);
   const handleDraftInput = (event: React.SyntheticEvent<HTMLDivElement>) => {
     setDraftText(event.currentTarget.innerHTML);
   };

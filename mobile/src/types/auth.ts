@@ -1,13 +1,15 @@
 export interface User {
   id: string;
-  email: string;
+  email: string | null;
   firstName: string;
   lastName: string;
   phone?: string | null;
   avatarUrl?: string | null;
   language?: 'es' | 'en' | 'pt';
   role: 'admin' | 'owner' | 'tenant' | 'staff' | 'buyer';
+  roles?: Array<'admin' | 'owner' | 'tenant' | 'staff' | 'buyer'>;
   isActive?: boolean;
+  accessRequested?: boolean;
   companyId?: string;
   permissions?: Record<string, boolean>;
 }

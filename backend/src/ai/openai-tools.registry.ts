@@ -186,6 +186,7 @@ const withParams = (
 const toScopedUser = (context: AiExecutionContext) => ({
   id: context.userId,
   role: context.role,
+  roles: context.roles,
   companyId: context.companyId,
   email: null,
   phone: null,
@@ -195,6 +196,7 @@ const toRequestUser = (context: AiExecutionContext) => ({
   id: context.userId,
   companyId: context.companyId,
   role: context.role,
+  roles: context.roles,
   email: null,
   phone: null,
 });
@@ -2002,6 +2004,7 @@ export function buildAiToolDefinitions(
           id: context.userId,
           companyId: context.companyId ?? '',
           role: context.role,
+          roles: context.roles,
         });
       },
     },

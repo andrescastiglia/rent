@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { salesApi } from "@/lib/api/sales";
 import { buyersApi } from "@/lib/api/buyers";
+import { propertiesApi } from "@/lib/api/properties";
 import {
   SaleFolder,
   SaleAgreement,
@@ -13,6 +14,7 @@ import {
   CreateSaleReceiptInput,
 } from "@/types/sales";
 import type { Buyer } from "@/types/buyer";
+import type { Property } from "@/types/property";
 import { Download, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { CurrencySelect } from "@/components/common/CurrencySelect";
@@ -26,6 +28,7 @@ export default function SalesPage() {
 
   const [folders, setFolders] = useState<SaleFolder[]>([]);
   const [buyers, setBuyers] = useState<Buyer[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [agreements, setAgreements] = useState<SaleAgreement[]>([]);
   const [receipts, setReceipts] = useState<Record<string, SaleReceipt[]>>({});
   const [loading, setLoading] = useState(true);
@@ -37,6 +40,7 @@ export default function SalesPage() {
 
   const [agreementForm, setAgreementForm] = useState<CreateSaleAgreementInput>({
     folderId: "",
+    propertyId: "",
     buyerId: "",
     totalAmount: 0,
     currency: "ARS",
@@ -58,13 +62,16 @@ export default function SalesPage() {
 
   const loadData = async () => {
     try {
-      const [foldersData, buyersData, agreementsData] = await Promise.all([
-        salesApi.getFolders(),
-        buyersApi.getAll({ limit: 100 }),
-        salesApi.getAgreements(),
-      ]);
+      const [foldersData, buyersData, propertiesData, agreementsData] =
+        await Promise.all([
+          salesApi.getFolders(),
+          buyersApi.getAll({ limit: 100 }),
+          propertiesApi.getAll({ limit: 100 }),
+          salesApi.getAgreements(),
+        ]);
       setFolders(foldersData);
       setBuyers(buyersData);
+      setProperties(propertiesData);
       setAgreements(agreementsData);
       const receiptsMap: Record<string, SaleReceipt[]> = {};
       await Promise.all(
@@ -98,7 +105,12 @@ export default function SalesPage() {
 
   const handleCreateAgreement = async (event: React.SyntheticEvent) => {
     event.preventDefault();
-    if (!agreementForm.folderId || !agreementForm.buyerId) return;
+    if (
+      !agreementForm.folderId ||
+      !agreementForm.propertyId ||
+      !agreementForm.buyerId
+    )
+      return;
     try {
       const created = await salesApi.createAgreement({
         ...agreementForm,
@@ -108,6 +120,7 @@ export default function SalesPage() {
       setAgreements((prev) => [created, ...prev]);
       setAgreementForm({
         folderId: agreementForm.folderId,
+        propertyId: agreementForm.propertyId,
         buyerId: "",
         totalAmount: 0,
         currency: "ARS",
@@ -247,6 +260,23 @@ export default function SalesPage() {
               {folders.map((folder) => (
                 <option key={folder.id} value={folder.id}>
                   {folder.name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={agreementForm.propertyId}
+              onChange={(e) =>
+                setAgreementForm((prev) => ({
+                  ...prev,
+                  propertyId: e.target.value,
+                }))
+              }
+              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+            >
+              <option value="">{t("agreements.selectProperty")}</option>
+              {properties.map((property) => (
+                <option key={property.id} value={property.id}>
+                  {property.name}
                 </option>
               ))}
             </select>

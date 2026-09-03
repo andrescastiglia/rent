@@ -25,11 +25,13 @@ import { CreateTenantActivityDto } from './dto/create-tenant-activity.dto';
 import { UpdateTenantActivityDto } from './dto/update-tenant-activity.dto';
 import { Invoice, InvoiceStatus } from '../payments/entities/invoice.entity';
 import { TenantAccount } from '../payments/entities/tenant-account.entity';
+import { getUserRoles } from '../common/helpers/role-scope.helper';
 
 interface UserContext {
   id: string;
   companyId: string;
   role: UserRole;
+  roles?: UserRole[];
 }
 
 export interface TenantSummary {
@@ -88,12 +90,28 @@ export class TenantsService {
     }
 
     // Check if email already exists
+    const normalizedEmail = createTenantDto.email.trim().toLowerCase();
     const existingUser = await this.usersRepository.findOne({
-      where: { email: createTenantDto.email },
+      where: { email: normalizedEmail, deletedAt: IsNull() },
     });
 
-    if (existingUser) {
+    if (
+      existingUser?.companyId !== undefined &&
+      existingUser.companyId !== context.companyId
+    ) {
       throw new ConflictException('A user with this email already exists');
+    }
+    if (existingUser) {
+      const existingTenantProfile = await this.tenantsRepository.findOne({
+        where: {
+          userId: existingUser.id,
+          companyId: context.companyId,
+          deletedAt: IsNull(),
+        },
+      });
+      if (existingTenantProfile) {
+        throw new ConflictException('This person is already a tenant');
+      }
     }
 
     // Hash password
@@ -101,18 +119,39 @@ export class TenantsService {
     const passwordHash = await bcrypt.hash(createTenantDto.password, salt);
 
     // Create user with tenant role
-    const user = this.usersRepository.create({
-      companyId: context.companyId,
-      email: createTenantDto.email,
-      passwordHash,
-      firstName: createTenantDto.firstName,
-      lastName: createTenantDto.lastName,
-      phone: createTenantDto.phone,
-      role: UserRole.TENANT,
-      isActive: true,
-    });
-
-    const savedUser = await this.usersRepository.save(user);
+    const savedUser = existingUser
+      ? await this.usersRepository.save({
+          ...existingUser,
+          roles: Array.from(
+            new Set([
+              ...(existingUser.roles?.length
+                ? existingUser.roles
+                : [existingUser.role]),
+              UserRole.TENANT,
+            ]),
+          ),
+          ...(!existingUser.isActive
+            ? {
+                passwordHash,
+                isActive: true,
+                accessRequested: true,
+              }
+            : {}),
+        })
+      : await this.usersRepository.save(
+          this.usersRepository.create({
+            companyId: context.companyId,
+            email: normalizedEmail,
+            passwordHash,
+            firstName: createTenantDto.firstName,
+            lastName: createTenantDto.lastName,
+            phone: createTenantDto.phone,
+            role: UserRole.TENANT,
+            roles: [UserRole.TENANT],
+            isActive: true,
+            accessRequested: true,
+          }),
+        );
 
     // Create tenant record (using raw query since we don't have Tenant entity in TypeORM)
     await this.usersRepository.query(
@@ -149,7 +188,7 @@ export class TenantsService {
         'tenant',
         'tenant.user_id = user.id AND tenant.deleted_at IS NULL',
       )
-      .where('user.role = :role', { role: UserRole.TENANT })
+      .where(':role = ANY(user.roles)', { role: UserRole.TENANT })
       .andWhere('user.company_id = :companyId', { companyId: user.companyId })
       .andWhere('tenant.company_id = :companyId', {
         companyId: user.companyId,
@@ -157,7 +196,7 @@ export class TenantsService {
       .andWhere('user.deleted_at IS NULL')
       .distinct(true);
 
-    if (user.role === UserRole.OWNER) {
+    if (this.hasRole(user, UserRole.OWNER) && !this.canManage(user)) {
       query
         .innerJoin(
           'leases',
@@ -171,9 +210,9 @@ export class TenantsService {
           'scopeOwner.id = scopeLease.owner_id AND scopeOwner.user_id = :actorId AND scopeOwner.company_id = :companyId AND scopeOwner.deleted_at IS NULL',
           { actorId: user.id, companyId: user.companyId },
         );
-    } else if (user.role === UserRole.TENANT) {
+    } else if (this.hasRole(user, UserRole.TENANT)) {
       query.andWhere('user.id = :actorId', { actorId: user.id });
-    } else if (user.role !== UserRole.ADMIN && user.role !== UserRole.STAFF) {
+    } else if (!this.canManage(user)) {
       throw new ForbiddenException('Tenant access is not allowed');
     }
 
@@ -219,7 +258,6 @@ export class TenantsService {
       where: {
         id,
         companyId: context.companyId,
-        role: UserRole.TENANT,
         deletedAt: IsNull(),
       },
     });
@@ -299,8 +337,23 @@ export class TenantsService {
 
   async remove(id: string, context: UserContext): Promise<void> {
     this.assertCanManageTenants(context);
-    await this.findOne(id, context);
-    await this.usersRepository.softDelete(id);
+    const user = await this.findOne(id, context);
+    const tenant = await this.findTenantByUserId(id, context.companyId);
+    const remainingRoles = getUserRoles(user).filter(
+      (role) => role !== UserRole.TENANT,
+    );
+
+    if (remainingRoles.length > 0) {
+      user.roles = remainingRoles;
+      if (user.role === UserRole.TENANT) {
+        user.role = remainingRoles[0];
+      }
+    } else {
+      user.isActive = false;
+    }
+
+    await this.usersRepository.save(user);
+    await this.tenantsRepository.softDelete(tenant.id);
   }
 
   async getLeaseHistory(
@@ -308,7 +361,7 @@ export class TenantsService {
     context: UserContext,
   ): Promise<Lease[]> {
     const tenant = await this.findTenantByUserIdScoped(tenantUserId, context);
-    if (context.role === UserRole.OWNER) {
+    if (this.hasRole(context, UserRole.OWNER) && !this.canManage(context)) {
       return this.leasesRepository
         .createQueryBuilder('lease')
         .leftJoinAndSelect('lease.property', 'property')
@@ -356,7 +409,7 @@ export class TenantsService {
     userId: string,
     context: UserContext,
   ): Promise<Tenant> {
-    if (context.role === UserRole.ADMIN || context.role === UserRole.STAFF) {
+    if (this.canManage(context)) {
       return this.findTenantByUserId(userId, context.companyId);
     }
     const query = this.tenantsRepository
@@ -366,7 +419,7 @@ export class TenantsService {
         companyId: context.companyId,
       })
       .andWhere('tenant.deleted_at IS NULL');
-    if (context.role === UserRole.OWNER) {
+    if (this.hasRole(context, UserRole.OWNER)) {
       query
         .innerJoin(
           Lease,
@@ -380,7 +433,7 @@ export class TenantsService {
           'scopeOwner.id = scopeLease.owner_id AND scopeOwner.user_id = :actorId AND scopeOwner.company_id = :companyId AND scopeOwner.deleted_at IS NULL',
           { actorId: context.id, companyId: context.companyId },
         );
-    } else if (context.role === UserRole.TENANT) {
+    } else if (this.hasRole(context, UserRole.TENANT)) {
       query.andWhere('tenant.user_id = :actorId', { actorId: context.id });
     } else {
       throw new ForbiddenException('Tenant access is not allowed');
@@ -393,9 +446,21 @@ export class TenantsService {
   }
 
   private assertCanManageTenants(context: UserContext): void {
-    if (context.role !== UserRole.ADMIN && context.role !== UserRole.STAFF) {
+    if (!this.canManage(context)) {
       throw new ForbiddenException('Tenant management is not allowed');
     }
+  }
+
+  private hasRole(context: UserContext, role: UserRole): boolean {
+    const roles = context.roles?.length ? context.roles : [context.role];
+    return roles.includes(role);
+  }
+
+  private canManage(context: UserContext): boolean {
+    return (
+      this.hasRole(context, UserRole.ADMIN) ||
+      this.hasRole(context, UserRole.STAFF)
+    );
   }
 
   private async ensureTenantHasRentalLease(tenantId: string): Promise<void> {

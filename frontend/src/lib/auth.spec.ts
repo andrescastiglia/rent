@@ -60,6 +60,7 @@ describe("auth helpers", () => {
       phone: "+5411",
       avatarUrl: null,
       role: "admin",
+      roles: ["admin"],
       permissions: { payments: true },
     });
 
@@ -92,6 +93,7 @@ describe("auth helpers", () => {
       avatarUrl: null,
       language: "es",
       role: "admin",
+      roles: ["admin"],
       permissions: {},
       isActive: true,
     });
@@ -109,6 +111,7 @@ describe("auth helpers", () => {
       avatarUrl: null,
       language: "es",
       role: "owner",
+      roles: ["owner"],
       permissions: {},
       isActive: true,
     });

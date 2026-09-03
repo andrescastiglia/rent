@@ -1,5 +1,5 @@
 import type { User, UserModulePermissionKey } from "@/types/auth";
-import { hasModuleAccess } from "@/lib/permissions";
+import { canUserAccessModule } from "@/lib/permissions";
 import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
@@ -14,6 +14,7 @@ import {
   UserCog,
   HardHat,
   Wrench,
+  HandCoins,
 } from "lucide-react";
 
 export interface NavItem {
@@ -83,6 +84,13 @@ export const navigationItems: NavItem[] = [
     icon: Receipt,
   },
   {
+    labelKey: "sales",
+    href: "/sales",
+    roles: ["admin", "staff"],
+    moduleKey: "sales",
+    icon: HandCoins,
+  },
+  {
     labelKey: "interested",
     href: "/interested",
     roles: ["admin", "staff"],
@@ -122,12 +130,19 @@ export function getLandingPathForRole(role: User["role"] | undefined): string {
   return "/dashboard";
 }
 
+export function getLandingPathForUser(
+  user: Pick<User, "role" | "roles"> | null | undefined,
+): string {
+  if (!user) return "/dashboard";
+  const roles = user.roles?.length ? user.roles : [user.role];
+  if (roles.some((role) => role !== "buyer")) return "/dashboard";
+  return "/settings";
+}
+
 export function getNavigationForUser(
-  user: Pick<User, "role" | "permissions">,
+  user: Pick<User, "role" | "roles" | "permissions">,
 ): NavItem[] {
-  return navigationItems.filter(
-    (item) =>
-      item.roles.includes(user.role) &&
-      hasModuleAccess(user.role, user.permissions, item.moduleKey),
+  return navigationItems.filter((item) =>
+    canUserAccessModule(user, item.roles, item.moduleKey),
   );
 }

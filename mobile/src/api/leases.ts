@@ -37,6 +37,7 @@ type BackendLease = {
   fiscalValue?: number | null;
   currency?: string | null;
   status?: string | null;
+  signatureStatus?: string | null;
   termsAndConditions?: string | null;
   draftContractText?: string | null;
   draftContractFormat?: 'plain_text' | 'html' | null;
@@ -177,6 +178,9 @@ const mapLease = (raw: BackendLease): Lease => ({
   fiscalValue: raw.fiscalValue ?? undefined,
   currency: raw.currency ?? 'ARS',
   status: mapStatus(raw.status),
+  signatureStatus: (
+    raw.signatureStatus ?? 'not_started'
+  ).toUpperCase() as Lease['signatureStatus'],
   terms: raw.termsAndConditions ?? undefined,
   draftContractText: raw.draftContractText ?? undefined,
   draftContractFormat: raw.draftContractFormat ?? undefined,
@@ -298,8 +302,8 @@ const fetchLeases = async (filters?: LeaseListFilters): Promise<Lease[]> => {
 
   const endpoint =
     queryParams.toString().length > 0
-      ? `/leases?${queryParams.toString()}`
-      : '/leases';
+      ? `/contracts?${queryParams.toString()}`
+      : '/contracts';
   const result = await apiClient.get<
     BackendLease[] | PaginatedResponse<BackendLease>
   >(endpoint);
@@ -323,7 +327,7 @@ export const leasesApi = {
     }
 
     try {
-      const result = await apiClient.get<BackendLease>(`/leases/${id}`);
+      const result = await apiClient.get<BackendLease>(`/contracts/${id}`);
       return mapLease(result);
     } catch {
       return null;
@@ -375,7 +379,7 @@ export const leasesApi = {
     }
 
     const result = await apiClient.post<BackendLease>(
-      '/leases',
+      '/contracts',
       toCreatePayload(payload),
     );
     return mapLease(result);
@@ -398,7 +402,7 @@ export const leasesApi = {
     }
 
     const result = await apiClient.patch<BackendLease>(
-      `/leases/${id}`,
+      `/contracts/${id}`,
       toUpdatePayload(payload),
     );
     return mapLease(result);
@@ -410,7 +414,7 @@ export const leasesApi = {
       return;
     }
 
-    await apiClient.delete(`/leases/${id}`);
+    await apiClient.delete(`/contracts/${id}`);
   },
 
   async getTemplates(
@@ -424,7 +428,7 @@ export const leasesApi = {
 
     const query = contractType ? `?contractType=${contractType}` : '';
     const result = await apiClient.get<BackendTemplate[]>(
-      `/leases/templates${query}`,
+      `/contracts/templates${query}`,
     );
     return result.map(mapTemplate);
   },
@@ -452,7 +456,7 @@ export const leasesApi = {
     }
 
     const result = await apiClient.post<BackendTemplate>(
-      '/leases/templates',
+      '/contracts/templates',
       data,
     );
     return mapTemplate(result);
@@ -483,7 +487,7 @@ export const leasesApi = {
     }
 
     const result = await apiClient.patch<BackendTemplate>(
-      `/leases/templates/${templateId}`,
+      `/contracts/templates/${templateId}`,
       data,
     );
     return mapTemplate(result);
@@ -495,7 +499,7 @@ export const leasesApi = {
       return;
     }
 
-    await apiClient.delete(`/leases/templates/${templateId}`);
+    await apiClient.delete(`/contracts/templates/${templateId}`);
   },
 
   async renderDraft(id: string, templateId?: string): Promise<Lease> {
@@ -521,7 +525,7 @@ export const leasesApi = {
     }
 
     const result = await apiClient.post<BackendLease>(
-      `/leases/${id}/draft/render`,
+      `/contracts/${id}/draft/render`,
       { templateId },
     );
     return mapLease(result);
@@ -545,7 +549,7 @@ export const leasesApi = {
     }
 
     const result = await apiClient.patch<BackendLease>(
-      `/leases/${id}/draft-text`,
+      `/contracts/${id}/draft-text`,
       { draftText, draftFormat },
     );
     return mapLease(result);
@@ -571,10 +575,13 @@ export const leasesApi = {
       return lease;
     }
 
-    const result = await apiClient.post<BackendLease>(`/leases/${id}/confirm`, {
-      finalText,
-      finalFormat,
-    });
+    const result = await apiClient.post<BackendLease>(
+      `/contracts/${id}/confirm`,
+      {
+        finalText,
+        finalFormat,
+      },
+    );
     return mapLease(result);
   },
 
@@ -588,7 +595,7 @@ export const leasesApi = {
     }
 
     await downloadAndSharePdf({
-      relativePath: `/leases/${id}/contract`,
+      relativePath: `/contracts/${id}/contract`,
       filenamePrefix: `contrato-${id}`,
     });
   },

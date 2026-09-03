@@ -24,11 +24,11 @@ import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
 import { IS_MOCK_MODE } from "@/lib/api";
 import { encodeRouteSegment } from "@/lib/safe-url";
-import { canManageTenants } from "@/lib/permissions";
+import { canManageTenantsForUser } from "@/lib/permissions";
 
 export default function TenantDetailPage() {
   const { loading: authLoading, token, user } = useAuth();
-  const canManage = canManageTenants(user?.role);
+  const canManage = canManageTenantsForUser(user);
   const t = useTranslations("tenants");
   const tPayments = useTranslations("payments");
   const tCommon = useTranslations("common");

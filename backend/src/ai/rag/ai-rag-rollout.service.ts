@@ -14,6 +14,10 @@ import { AiChatMessage } from '../dto/ai-chat-request.dto';
 import { AiRagShadowComparison } from '../entities/ai-rag-shadow-comparison.entity';
 import { AiIntentClassifierService } from './ai-intent-classifier.service';
 import { AiRagOrchestratorService } from './ai-rag-orchestrator.service';
+import {
+  getUserRoles,
+  isAdminOrStaff,
+} from '../../common/helpers/role-scope.helper';
 
 export type AiRetrievalMode = 'TOOLS' | 'RAG_SHADOW' | 'RAG_READ' | 'HYBRID';
 
@@ -21,6 +25,7 @@ type RolloutContext = {
   userId: string;
   companyId: string;
   role: UserRole;
+  roles?: UserRole[];
   permissions?: UserModulePermissions;
   mutationApprovalMode?: 'conversation' | 'staff_queue';
   roleDataContext?: string;
@@ -60,10 +65,13 @@ export class AiRagRolloutService {
   ) {}
 
   async respond(params: RolloutParams) {
+    params = this.withEffectivePrimaryRole(params);
     params = await this.withRoleDataContext(params);
+    const roles = getUserRoles(params.context);
     if (
-      [UserRole.OWNER, UserRole.TENANT, UserRole.BUYER].includes(
-        params.context.role,
+      !isAdminOrStaff(params.context) &&
+      roles.some((role) =>
+        [UserRole.OWNER, UserRole.TENANT, UserRole.BUYER].includes(role),
       )
     ) {
       return this.respondTools(params, 'TOOLS');
@@ -84,23 +92,42 @@ export class AiRagRolloutService {
     return { ...publicResponse, retrievalMode: mode };
   }
 
+  private withEffectivePrimaryRole(params: RolloutParams): RolloutParams {
+    const roles = getUserRoles(params.context);
+    const effectiveRole = roles.includes(UserRole.ADMIN)
+      ? UserRole.ADMIN
+      : roles.includes(UserRole.STAFF)
+        ? UserRole.STAFF
+        : params.context.role;
+    return {
+      ...params,
+      context: { ...params.context, role: effectiveRole },
+    };
+  }
+
   private async withRoleDataContext(
     params: RolloutParams,
   ): Promise<RolloutParams> {
-    const { role, userId, companyId } = params.context;
-    if (![UserRole.OWNER, UserRole.TENANT, UserRole.BUYER].includes(role)) {
+    const { userId, companyId } = params.context;
+    const roles = getUserRoles(params.context);
+    if (
+      isAdminOrStaff(params.context) ||
+      !roles.some((role) =>
+        [UserRole.OWNER, UserRole.TENANT, UserRole.BUYER].includes(role),
+      )
+    ) {
       return params;
     }
     const profileRows = await this.dataSource.query(
       `SELECT id, first_name AS "firstName", last_name AS "lastName", email,
-              phone, role, language
+              phone, role, roles, language
          FROM users WHERE id = $1::uuid AND company_id = $2::uuid
            AND deleted_at IS NULL`,
       [userId, companyId],
     );
-    let related: unknown[];
-    if (role === UserRole.OWNER) {
-      related = await this.dataSource.query(
+    const related: Record<string, unknown[]> = {};
+    if (roles.includes(UserRole.OWNER)) {
+      related.owner = await this.dataSource.query(
         `SELECT o.id AS "ownerId", p.id AS "propertyId", p.name AS "propertyName",
                 p.operation_state AS "propertyStatus", l.id AS "leaseId",
                 l.status AS "leaseStatus", l.start_date AS "leaseStart",
@@ -113,8 +140,9 @@ export class AiRagRolloutService {
             AND o.deleted_at IS NULL LIMIT 100`,
         [userId, companyId],
       );
-    } else if (role === UserRole.TENANT) {
-      related = await this.dataSource.query(
+    }
+    if (roles.includes(UserRole.TENANT)) {
+      related.tenant = await this.dataSource.query(
         `SELECT t.id AS "tenantId", l.id AS "leaseId", l.status AS "leaseStatus",
                 l.start_date AS "leaseStart", l.end_date AS "leaseEnd",
                 l.monthly_rent AS "monthlyRent", p.id AS "propertyId",
@@ -126,14 +154,21 @@ export class AiRagRolloutService {
             AND t.deleted_at IS NULL LIMIT 100`,
         [userId, companyId],
       );
-    } else {
-      related = await this.dataSource.query(
-        `SELECT b.id AS "buyerId", sa.id AS "saleAgreementId",
+    }
+    if (roles.includes(UserRole.BUYER)) {
+      related.buyer = await this.dataSource.query(
+        `SELECT b.id AS "buyerId", c.id AS "contractId",
+                c.property_id AS "propertyId", c.status AS "contractStatus",
+                sa.id AS "saleAgreementId",
                 sa.total_amount AS "totalAmount", sa.currency,
                 sa.paid_amount AS "paidAmount", sa.installment_count AS "installmentCount",
                 sa.start_date AS "startDate", sf.name AS "folderName"
            FROM buyers b
-           LEFT JOIN sale_agreements sa ON sa.buyer_id = b.id AND sa.deleted_at IS NULL
+           LEFT JOIN leases c ON c.buyer_id = b.id
+                              AND c.contract_type = 'sale'
+                              AND c.deleted_at IS NULL
+           LEFT JOIN sale_agreements sa ON sa.contract_id = c.id
+                                       AND sa.deleted_at IS NULL
            LEFT JOIN sale_folders sf ON sf.id = sa.folder_id AND sf.deleted_at IS NULL
           WHERE b.user_id = $1::uuid AND b.company_id = $2::uuid
             AND b.deleted_at IS NULL LIMIT 100`,

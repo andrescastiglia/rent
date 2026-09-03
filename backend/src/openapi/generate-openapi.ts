@@ -17,8 +17,23 @@ export function createOpenApiDocument(app: INestApplication) {
     .build();
   return SwaggerModule.createDocument(app, config, {
     operationIdFactory: (controllerKey, methodKey) =>
-      `${controllerKey.replace(/Controller$/, '')}_${methodKey}`,
+      createOperationId(controllerKey, methodKey),
   });
+}
+
+export function createOperationId(
+  controllerKey: string,
+  methodKey: string,
+): string {
+  const controller = controllerKey.replace(/Controller$/, '');
+  const routeIndex = methodKey.match(/\[(\d+)]$/)?.[1];
+  const method = methodKey.replace(/\[\d+]$/, '');
+
+  if (routeIndex === '1') {
+    return `${controller}_${method}Legacy`;
+  }
+
+  return `${controller}_${method}`;
 }
 
 async function generate(): Promise<void> {
@@ -42,7 +57,9 @@ async function generate(): Promise<void> {
   }
 }
 
-void generate().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  void generate().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

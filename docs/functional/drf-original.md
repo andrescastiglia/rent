@@ -1,5 +1,7 @@
 # Documento de Requerimientos Funcionales (DRF) – Sistema de Gestión Inmobiliaria
 
+> **Estado histórico.** Fuente inicial conservada para trazabilidad. Las decisiones vigentes están en `requisitos-producto.md` y ADR-001.
+
 ## 1. Introducción
 
 El objetivo general de esta plataforma es centralizar y automatizar la gestión de una cartera de propiedades en alquiler, mejorando la eficiencia operativa y reduciendo errores humanos. En particular, se buscará la **consolidación y centralización de los datos críticos** del negocio inmobiliario (propiedades, contratos, pagos, etc.) en un único sistema robusto [1](#ref-1). El alcance abarca inmuebles residenciales, comerciales y vacacionales, con funcionalidades adaptadas a cada tipo (por ejemplo, temporadas cortas para vacacionales y contratos de largo plazo para residenciales).

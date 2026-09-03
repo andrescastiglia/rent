@@ -175,7 +175,7 @@ describe('StaffService', () => {
       expect(result).toEqual(savedStaff);
     });
 
-    it('throws ConflictException when email already exists', async () => {
+    it('throws ConflictException when the person is already staff', async () => {
       const dto = {
         firstName: 'Jane',
         lastName: 'Smith',
@@ -183,13 +183,55 @@ describe('StaffService', () => {
         specialization: StaffSpecialization.CLEANING,
       };
 
-      usersRepository.findOne!.mockResolvedValue({ id: 'existing-user' });
+      usersRepository.findOne!.mockResolvedValue({
+        id: 'existing-user',
+        companyId: 'company-uuid-1',
+        role: UserRole.OWNER,
+        roles: [UserRole.OWNER],
+      });
+      staffRepository.findOne!.mockResolvedValue({ id: 'existing-staff' });
 
       await expect(service.create(dto, 'company-uuid-1')).rejects.toThrow(
         ConflictException,
       );
 
       expect(staffRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('reuses a person from the company and appends the staff role', async () => {
+      const existing = {
+        id: 'existing-user',
+        companyId: 'company-uuid-1',
+        role: UserRole.OWNER,
+        roles: [UserRole.OWNER],
+        accessRequested: false,
+      } as User;
+      usersRepository.findOne!.mockResolvedValue(existing);
+      staffRepository.findOne!.mockResolvedValueOnce(null);
+      usersRepository.save!.mockImplementation(async (value) => value);
+      const savedStaff = mockStaff({ userId: existing.id });
+      staffRepository.create!.mockReturnValue(savedStaff);
+      staffRepository.save!.mockResolvedValue(savedStaff);
+      staffRepository.findOne!.mockResolvedValueOnce(savedStaff);
+
+      await expect(
+        service.create(
+          {
+            firstName: 'Existing',
+            lastName: 'Owner',
+            email: 'existing@example.com',
+            specialization: StaffSpecialization.ADMINISTRATION,
+          },
+          'company-uuid-1',
+        ),
+      ).resolves.toEqual(savedStaff);
+      expect(usersRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: existing.id,
+          roles: [UserRole.OWNER, UserRole.STAFF],
+          accessRequested: true,
+        }),
+      );
     });
   });
 
@@ -231,6 +273,30 @@ describe('StaffService', () => {
         isActive: false,
       });
       expect(staffRepository.softDelete).toHaveBeenCalledWith('staff-uuid-1');
+    });
+
+    it('preserves the person and other roles when removing staff', async () => {
+      const staff = mockStaff({
+        user: {
+          ...mockStaff().user,
+          role: UserRole.STAFF,
+          roles: [UserRole.STAFF, UserRole.OWNER],
+        } as User,
+      });
+      staffRepository.findOne!.mockResolvedValue(staff);
+      usersRepository.save!.mockImplementation(async (value) => value);
+      staffRepository.softDelete!.mockResolvedValue({ affected: 1 });
+
+      await service.remove('staff-uuid-1', 'company-uuid-1');
+
+      expect(usersRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          role: UserRole.OWNER,
+          roles: [UserRole.OWNER],
+          isActive: true,
+        }),
+      );
+      expect(usersRepository.update).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException when staff not found', async () => {

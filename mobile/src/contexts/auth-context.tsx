@@ -20,7 +20,7 @@ import type {
   User,
 } from '@/types/auth';
 import { i18n } from '@/i18n';
-import { getLandingPathForRole } from '@/config/navigation';
+import { getLandingPathForUser } from '@/config/navigation';
 import { restoreSession } from './auth-session';
 
 type AuthContextValue = {
@@ -85,7 +85,7 @@ export function AuthProvider({
       if (response.user.language) {
         await i18n.changeLanguage(response.user.language);
       }
-      const landingPath = getLandingPathForRole(response.user.role);
+      const landingPath = getLandingPathForUser(response.user);
       router.replace(`/(app)/(tabs)${landingPath}` as never);
     },
     [router],

@@ -29,7 +29,9 @@ type BackendUser = {
   avatarUrl?: string | null;
   language?: string;
   role: User["role"];
+  roles?: User["roles"];
   isActive?: boolean;
+  accessRequested?: boolean;
   companyId?: string;
   permissions?: UserModulePermissions;
 };
@@ -59,6 +61,7 @@ export type CreateManagedUserInput = {
   firstName: string;
   lastName: string;
   role: User["role"];
+  roles?: User["roles"];
   phone?: string;
   permissions?: UserModulePermissions;
 };
@@ -68,7 +71,9 @@ export type UpdateManagedUserInput = {
   firstName?: string;
   lastName?: string;
   phone?: string;
+  role?: User["role"];
   permissions?: UserModulePermissions;
+  roles?: User["roles"];
 };
 
 export type ResetUserPasswordResult = {
@@ -100,7 +105,9 @@ const mapUser = (raw: BackendUser): User => ({
   avatarUrl: raw.avatarUrl ?? null,
   language: normalizeLanguage(raw.language),
   role: raw.role,
+  roles: raw.roles?.length ? raw.roles : [raw.role],
   isActive: raw.isActive,
+  accessRequested: raw.accessRequested,
   companyId: raw.companyId,
   permissions: raw.permissions ?? {},
 });
@@ -236,6 +243,7 @@ export const usersApi = {
         avatarUrl: null,
         language: "es",
         role: payload.role,
+        roles: payload.roles?.length ? payload.roles : [payload.role],
         isActive: true,
         permissions: payload.permissions ?? {},
       };

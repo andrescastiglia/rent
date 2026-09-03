@@ -45,6 +45,13 @@ export const createInterestedProfileZodSchema = z
       .min(0)
       .optional()
       .describe('Maximum budget amount'),
+    verifiedMonthlyIncome: z.coerce
+      .number()
+      .min(0)
+      .optional()
+      .describe(
+        'Documented monthly income; never inferred from employment type',
+      ),
     hasPets: z.coerce.boolean().optional(),
     guaranteeTypes: z
       .array(z.string())
@@ -143,6 +150,12 @@ export class CreateInterestedProfileDto {
   @IsOptional()
   @Type(() => Number)
   maxAmount?: number;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  verifiedMonthlyIncome?: number;
 
   @IsBoolean()
   @IsOptional()

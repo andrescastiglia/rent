@@ -30,6 +30,7 @@ export type CreateUserDto = {
   firstName: string;
   lastName: string;
   role: 'admin' | 'owner' | 'tenant' | 'staff' | 'buyer';
+  roles?: Array<'admin' | 'owner' | 'tenant' | 'staff' | 'buyer'>;
   phone?: string;
   permissions?: {
     [key: string]: unknown;
@@ -62,6 +63,8 @@ export type UpdateUserDto = {
     [key: string]: unknown;
   };
   whatsappEnabled?: boolean;
+  role?: 'admin' | 'owner' | 'tenant' | 'staff' | 'buyer';
+  roles?: Array<'admin' | 'owner' | 'tenant' | 'staff' | 'buyer'>;
 };
 
 export type SetUserActivationDto = {
@@ -170,8 +173,16 @@ export type User = {
     [key: string]: unknown;
   };
   role: 'admin' | 'owner' | 'tenant' | 'staff' | 'buyer';
+  /**
+   * All roles held by the same person; `role` is the legacy primary role.
+   */
+  roles: Array<'admin' | 'owner' | 'tenant' | 'staff' | 'buyer'>;
   language: string;
   isActive: boolean;
+  /**
+   * True only when this person has or requested authenticated access.
+   */
+  accessRequested: boolean;
   isEmailVerified: boolean;
   emailVerifiedAt: string;
   lastLoginAt: string;
@@ -422,6 +433,156 @@ export type SaleFolder = {
   deletedAt: string;
 };
 
+export type Currency = {
+  code: string;
+  symbol: string;
+  decimalPlaces: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LeaseContractTemplate = {
+  id: string;
+  companyId: string;
+  company: Company;
+  name: string;
+  contractType: 'rental' | 'sale';
+  templateBody: string;
+  templateFormat: 'plain_text' | 'html';
+  sourceFileName: string | null;
+  sourceMimeType: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
+
+export type LeaseAmendment = {
+  id: string;
+  leaseId: string;
+  lease: Contract;
+  companyId: string;
+  company: Company;
+  amendmentNumber: number;
+  changeType:
+    | 'rent_increase'
+    | 'rent_decrease'
+    | 'extension'
+    | 'early_termination'
+    | 'clause_modification'
+    | 'guarantor_change'
+    | 'other';
+  status: 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'cancelled';
+  effectiveDate: string;
+  description: string;
+  previousValues: {
+    [key: string]: unknown;
+  };
+  newValues: {
+    [key: string]: unknown;
+  };
+  requestedBy: string;
+  requester: User;
+  approvedBy: string;
+  approver: User;
+  approvedAt: string;
+  rejectionReason: string;
+  documentUrl: string;
+  signedByTenant: boolean;
+  signedByOwner: boolean;
+  signedAt: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+};
+
+export type Contract = {
+  id: string;
+  companyId: string;
+  company: Company;
+  propertyId: string | null;
+  property: Property | null;
+  tenantId: string | null;
+  tenant: Tenant | null;
+  buyerId: string | null;
+  buyer: Buyer | null;
+  ownerId: string;
+  owner: Owner;
+  leaseNumber: string;
+  contractType: 'rental' | 'sale';
+  status: 'draft' | 'active' | 'finalized';
+  signatureStatus:
+    'not_started' | 'pending' | 'signed' | 'declined' | 'voided' | 'expired';
+  startDate: string | null;
+  endDate: string | null;
+  monthlyRent: number | null;
+  currency: string;
+  currencyRef: Currency;
+  paymentFrequency:
+    'monthly' | 'bimonthly' | 'quarterly' | 'semiannual' | 'annual';
+  paymentDueDay: number;
+  renewalAlertEnabled: boolean;
+  renewalAlertPeriodicity: 'monthly' | 'four_months' | 'custom';
+  renewalAlertCustomDays: number | null;
+  renewalAlertLastSentAt: string | null;
+  billingFrequency:
+    'first_of_month' | 'last_of_month' | 'contract_date' | 'custom';
+  billingDay: number;
+  nextBillingDate: string;
+  lastBillingDate: string;
+  lateFeeType:
+    'none' | 'fixed' | 'percentage' | 'daily_fixed' | 'daily_percentage';
+  lateFeeValue: number;
+  lateFeeGraceDays: number;
+  lateFeeMax: number;
+  autoGenerateInvoices: boolean;
+  adjustmentType: 'fixed' | 'percentage' | 'inflation_index';
+  adjustmentValue: number;
+  adjustmentFrequencyMonths: number;
+  lastAdjustmentDate: string;
+  nextAdjustmentDate: string;
+  increaseClauseType:
+    | 'none'
+    | 'annual_fixed'
+    | 'annual_percentage'
+    | 'inflation_linked'
+    | 'custom_schedule';
+  increaseClauseValue: number;
+  increaseClauseSchedule: {
+    [key: string]: unknown;
+  };
+  inflationIndexType: 'icl' | 'ipc' | 'igp_m';
+  securityDeposit: number;
+  fiscalValue: number | null;
+  depositCurrency: string;
+  expensesIncluded: boolean;
+  additionalExpenses: number;
+  termsAndConditions: string;
+  specialClauses: string;
+  contractPdfUrl: string | null;
+  templateId: string | null;
+  template: LeaseContractTemplate | null;
+  templateName: string | null;
+  draftContractText: string | null;
+  draftContractFormat: 'plain_text' | 'html';
+  confirmedContractText: string | null;
+  confirmedContractFormat: 'plain_text' | 'html';
+  confirmedAt: string | null;
+  previousLeaseId: string | null;
+  previousLease: Contract | null;
+  versionNumber: number;
+  notes: string;
+  signedAt: string;
+  signedByTenant: boolean;
+  signedByOwner: boolean;
+  amendments: Array<LeaseAmendment>;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+};
+
 export type SaleReceipt = {
   id: string;
   agreementId: string;
@@ -446,6 +607,10 @@ export type SaleAgreement = {
   folder: SaleFolder;
   buyerId: string | null;
   buyer: Buyer | null;
+  contractId: string | null;
+  contract: Contract | null;
+  propertyId: string | null;
+  property: Property | null;
   buyerName: string;
   buyerPhone: string;
   totalAmount: number;
@@ -534,6 +699,7 @@ export type InterestedProfile = {
   peopleCount: number;
   minAmount: number;
   maxAmount: number;
+  verifiedMonthlyIncome: number | null;
   hasPets: boolean;
   guaranteeTypes: Array<string>;
   preferredZones: Array<string>;
@@ -963,154 +1129,6 @@ export type CreateLeaseDto = {
   notes?: string;
 };
 
-export type Currency = {
-  code: string;
-  symbol: string;
-  decimalPlaces: number;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type LeaseContractTemplate = {
-  id: string;
-  companyId: string;
-  company: Company;
-  name: string;
-  contractType: 'rental' | 'sale';
-  templateBody: string;
-  templateFormat: 'plain_text' | 'html';
-  sourceFileName: string | null;
-  sourceMimeType: string | null;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt: string | null;
-};
-
-export type LeaseAmendment = {
-  id: string;
-  leaseId: string;
-  lease: Lease;
-  companyId: string;
-  company: Company;
-  amendmentNumber: number;
-  changeType:
-    | 'rent_increase'
-    | 'rent_decrease'
-    | 'extension'
-    | 'early_termination'
-    | 'clause_modification'
-    | 'guarantor_change'
-    | 'other';
-  status: 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'cancelled';
-  effectiveDate: string;
-  description: string;
-  previousValues: {
-    [key: string]: unknown;
-  };
-  newValues: {
-    [key: string]: unknown;
-  };
-  requestedBy: string;
-  requester: User;
-  approvedBy: string;
-  approver: User;
-  approvedAt: string;
-  rejectionReason: string;
-  documentUrl: string;
-  signedByTenant: boolean;
-  signedByOwner: boolean;
-  signedAt: string;
-  notes: string;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt: string;
-};
-
-export type Lease = {
-  id: string;
-  companyId: string;
-  company: Company;
-  propertyId: string | null;
-  property: Property | null;
-  tenantId: string | null;
-  tenant: Tenant | null;
-  buyerId: string | null;
-  buyer: Buyer | null;
-  ownerId: string;
-  owner: Owner;
-  leaseNumber: string;
-  contractType: 'rental' | 'sale';
-  status: 'draft' | 'pending_signature' | 'signed' | 'active' | 'finalized';
-  startDate: string | null;
-  endDate: string | null;
-  monthlyRent: number | null;
-  currency: string;
-  currencyRef: Currency;
-  paymentFrequency:
-    'monthly' | 'bimonthly' | 'quarterly' | 'semiannual' | 'annual';
-  paymentDueDay: number;
-  renewalAlertEnabled: boolean;
-  renewalAlertPeriodicity: 'monthly' | 'four_months' | 'custom';
-  renewalAlertCustomDays: number | null;
-  renewalAlertLastSentAt: string | null;
-  billingFrequency:
-    'first_of_month' | 'last_of_month' | 'contract_date' | 'custom';
-  billingDay: number;
-  nextBillingDate: string;
-  lastBillingDate: string;
-  lateFeeType:
-    'none' | 'fixed' | 'percentage' | 'daily_fixed' | 'daily_percentage';
-  lateFeeValue: number;
-  lateFeeGraceDays: number;
-  lateFeeMax: number;
-  autoGenerateInvoices: boolean;
-  adjustmentType: 'fixed' | 'percentage' | 'inflation_index';
-  adjustmentValue: number;
-  adjustmentFrequencyMonths: number;
-  lastAdjustmentDate: string;
-  nextAdjustmentDate: string;
-  increaseClauseType:
-    | 'none'
-    | 'annual_fixed'
-    | 'annual_percentage'
-    | 'inflation_linked'
-    | 'custom_schedule';
-  increaseClauseValue: number;
-  increaseClauseSchedule: {
-    [key: string]: unknown;
-  };
-  inflationIndexType: 'icl' | 'ipc' | 'igp_m';
-  securityDeposit: number;
-  fiscalValue: number | null;
-  depositCurrency: string;
-  expensesIncluded: boolean;
-  additionalExpenses: number;
-  termsAndConditions: string;
-  specialClauses: string;
-  contractPdfUrl: string | null;
-  templateId: string | null;
-  template: LeaseContractTemplate | null;
-  templateName: string | null;
-  draftContractText: string | null;
-  draftContractFormat: 'plain_text' | 'html';
-  confirmedContractText: string | null;
-  confirmedContractFormat: 'plain_text' | 'html';
-  confirmedAt: string | null;
-  previousLeaseId: string | null;
-  previousLease: Lease | null;
-  versionNumber: number;
-  notes: string;
-  signedAt: string;
-  signedByTenant: boolean;
-  signedByOwner: boolean;
-  amendments: Array<LeaseAmendment>;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt: string;
-};
-
 export type CreateLeaseContractTemplateDto = {
   name: string;
   contractType: 'rental' | 'sale';
@@ -1196,7 +1214,7 @@ export type Invoice = {
   companyId: string;
   company: Company;
   leaseId: string;
-  lease: Lease;
+  lease: Contract;
   ownerId: string;
   owner: Owner;
   tenantAccountId: string;
@@ -1384,7 +1402,7 @@ export type TenantAccount = {
   tenantId: string;
   tenant: Tenant;
   leaseId: string;
-  lease: Lease;
+  lease: Contract;
   balance: number;
   currencyCode: string;
   isActive: boolean;
@@ -1885,6 +1903,7 @@ export type CreateInterestedProfileDto = {
   peopleCount?: number;
   minAmount?: number;
   maxAmount?: number;
+  verifiedMonthlyIncome?: number;
   hasPets?: boolean;
   guaranteeTypes?: Array<string>;
   preferredZones?: Array<string>;
@@ -1994,6 +2013,7 @@ export type ConvertInterestedToBuyerDto = {
   password?: string;
   dni?: string;
   folderId: string;
+  propertyId: string;
   totalAmount: number;
   installmentAmount: number;
   installmentCount: number;
@@ -2013,6 +2033,7 @@ export type CreateSaleFolderDto = {
 
 export type CreateSaleAgreementDto = {
   folderId: string;
+  propertyId: string;
   buyerId: string;
   buyerName?: string;
   buyerPhone?: string;
@@ -2437,7 +2458,7 @@ export type DigitalSignatureRequest = {
   companyId: string;
   company: Company;
   leaseId: string;
-  lease: Lease;
+  lease: Contract;
   provider: string;
   externalEnvelopeId: string | null;
   status: string;
@@ -3408,14 +3429,14 @@ export type LeasesFindAllData = {
     tenantId?: string;
     buyerId?: string;
     buyerProfileId?: string;
-    status?: 'draft' | 'pending_signature' | 'signed' | 'active' | 'finalized';
+    status?: 'draft' | 'active' | 'finalized';
     contractType?: 'rental' | 'sale';
     propertyAddress?: string;
     includeFinalized?: boolean;
     page?: number;
     limit?: number;
   };
-  url: '/leases';
+  url: '/contracts';
 };
 
 export type LeasesFindAllResponses = {
@@ -3426,15 +3447,51 @@ export type LeasesCreateData = {
   body: CreateLeaseDto;
   path?: never;
   query?: never;
-  url: '/leases';
+  url: '/contracts';
 };
 
 export type LeasesCreateResponses = {
-  201: Lease;
+  201: Contract;
 };
 
 export type LeasesCreateResponse =
   LeasesCreateResponses[keyof LeasesCreateResponses];
+
+export type LeasesFindAllLegacyData = {
+  body?: never;
+  path?: never;
+  query?: {
+    propertyId?: string;
+    tenantId?: string;
+    buyerId?: string;
+    buyerProfileId?: string;
+    status?: 'draft' | 'active' | 'finalized';
+    contractType?: 'rental' | 'sale';
+    propertyAddress?: string;
+    includeFinalized?: boolean;
+    page?: number;
+    limit?: number;
+  };
+  url: '/leases';
+};
+
+export type LeasesFindAllLegacyResponses = {
+  200: unknown;
+};
+
+export type LeasesCreateLegacyData = {
+  body: CreateLeaseDto;
+  path?: never;
+  query?: never;
+  url: '/leases';
+};
+
+export type LeasesCreateLegacyResponses = {
+  201: Contract;
+};
+
+export type LeasesCreateLegacyResponse =
+  LeasesCreateLegacyResponses[keyof LeasesCreateLegacyResponses];
 
 export type LeasesListTemplatesData = {
   body?: never;
@@ -3442,7 +3499,7 @@ export type LeasesListTemplatesData = {
   query?: {
     contractType?: 'rental' | 'sale';
   };
-  url: '/leases/templates';
+  url: '/contracts/templates';
 };
 
 export type LeasesListTemplatesResponses = {
@@ -3456,7 +3513,7 @@ export type LeasesCreateTemplateData = {
   body: CreateLeaseContractTemplateDto;
   path?: never;
   query?: never;
-  url: '/leases/templates';
+  url: '/contracts/templates';
 };
 
 export type LeasesCreateTemplateResponses = {
@@ -3466,11 +3523,41 @@ export type LeasesCreateTemplateResponses = {
 export type LeasesCreateTemplateResponse =
   LeasesCreateTemplateResponses[keyof LeasesCreateTemplateResponses];
 
+export type LeasesListTemplatesLegacyData = {
+  body?: never;
+  path?: never;
+  query?: {
+    contractType?: 'rental' | 'sale';
+  };
+  url: '/leases/templates';
+};
+
+export type LeasesListTemplatesLegacyResponses = {
+  200: Array<LeaseContractTemplate>;
+};
+
+export type LeasesListTemplatesLegacyResponse =
+  LeasesListTemplatesLegacyResponses[keyof LeasesListTemplatesLegacyResponses];
+
+export type LeasesCreateTemplateLegacyData = {
+  body: CreateLeaseContractTemplateDto;
+  path?: never;
+  query?: never;
+  url: '/leases/templates';
+};
+
+export type LeasesCreateTemplateLegacyResponses = {
+  201: LeaseContractTemplate;
+};
+
+export type LeasesCreateTemplateLegacyResponse =
+  LeasesCreateTemplateLegacyResponses[keyof LeasesCreateTemplateLegacyResponses];
+
 export type LeasesImportTemplateDocxData = {
   body: ImportLeaseTemplateDocxDto;
   path?: never;
   query?: never;
-  url: '/leases/templates/import-docx';
+  url: '/contracts/templates/import-docx';
 };
 
 export type LeasesImportTemplateDocxResponses = {
@@ -3482,13 +3569,29 @@ export type LeasesImportTemplateDocxResponses = {
 export type LeasesImportTemplateDocxResponse =
   LeasesImportTemplateDocxResponses[keyof LeasesImportTemplateDocxResponses];
 
+export type LeasesImportTemplateDocxLegacyData = {
+  body: ImportLeaseTemplateDocxDto;
+  path?: never;
+  query?: never;
+  url: '/leases/templates/import-docx';
+};
+
+export type LeasesImportTemplateDocxLegacyResponses = {
+  201: {
+    [key: string]: unknown;
+  };
+};
+
+export type LeasesImportTemplateDocxLegacyResponse =
+  LeasesImportTemplateDocxLegacyResponses[keyof LeasesImportTemplateDocxLegacyResponses];
+
 export type LeasesUpdateTemplateData = {
   body: UpdateLeaseContractTemplateDto;
   path: {
     templateId: string;
   };
   query?: never;
-  url: '/leases/templates/{templateId}';
+  url: '/contracts/templates/{templateId}';
 };
 
 export type LeasesUpdateTemplateResponses = {
@@ -3498,13 +3601,29 @@ export type LeasesUpdateTemplateResponses = {
 export type LeasesUpdateTemplateResponse =
   LeasesUpdateTemplateResponses[keyof LeasesUpdateTemplateResponses];
 
+export type LeasesUpdateTemplateLegacyData = {
+  body: UpdateLeaseContractTemplateDto;
+  path: {
+    templateId: string;
+  };
+  query?: never;
+  url: '/leases/templates/{templateId}';
+};
+
+export type LeasesUpdateTemplateLegacyResponses = {
+  200: LeaseContractTemplate;
+};
+
+export type LeasesUpdateTemplateLegacyResponse =
+  LeasesUpdateTemplateLegacyResponses[keyof LeasesUpdateTemplateLegacyResponses];
+
 export type LeasesRemoveData = {
   body?: never;
   path: {
     id: string;
   };
   query?: never;
-  url: '/leases/{id}';
+  url: '/contracts/{id}';
 };
 
 export type LeasesRemoveResponses = {
@@ -3517,11 +3636,11 @@ export type LeasesFindOneData = {
     id: string;
   };
   query?: never;
-  url: '/leases/{id}';
+  url: '/contracts/{id}';
 };
 
 export type LeasesFindOneResponses = {
-  200: Lease;
+  200: Contract;
 };
 
 export type LeasesFindOneResponse =
@@ -3533,17 +3652,78 @@ export type LeasesUpdateData = {
     id: string;
   };
   query?: never;
-  url: '/leases/{id}';
+  url: '/contracts/{id}';
 };
 
 export type LeasesUpdateResponses = {
-  200: Lease;
+  200: Contract;
 };
 
 export type LeasesUpdateResponse =
   LeasesUpdateResponses[keyof LeasesUpdateResponses];
 
+export type LeasesRemoveLegacyData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/leases/{id}';
+};
+
+export type LeasesRemoveLegacyResponses = {
+  200: unknown;
+};
+
+export type LeasesFindOneLegacyData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/leases/{id}';
+};
+
+export type LeasesFindOneLegacyResponses = {
+  200: Contract;
+};
+
+export type LeasesFindOneLegacyResponse =
+  LeasesFindOneLegacyResponses[keyof LeasesFindOneLegacyResponses];
+
+export type LeasesUpdateLegacyData = {
+  body: UpdateLeaseDto;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/leases/{id}';
+};
+
+export type LeasesUpdateLegacyResponses = {
+  200: Contract;
+};
+
+export type LeasesUpdateLegacyResponse =
+  LeasesUpdateLegacyResponses[keyof LeasesUpdateLegacyResponses];
+
 export type LeasesRenderDraftData = {
+  body: RenderLeaseDraftDto;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/contracts/{id}/draft/render';
+};
+
+export type LeasesRenderDraftResponses = {
+  201: Contract;
+};
+
+export type LeasesRenderDraftResponse =
+  LeasesRenderDraftResponses[keyof LeasesRenderDraftResponses];
+
+export type LeasesRenderDraftLegacyData = {
   body: RenderLeaseDraftDto;
   path: {
     id: string;
@@ -3552,14 +3732,30 @@ export type LeasesRenderDraftData = {
   url: '/leases/{id}/draft/render';
 };
 
-export type LeasesRenderDraftResponses = {
-  201: Lease;
+export type LeasesRenderDraftLegacyResponses = {
+  201: Contract;
 };
 
-export type LeasesRenderDraftResponse =
-  LeasesRenderDraftResponses[keyof LeasesRenderDraftResponses];
+export type LeasesRenderDraftLegacyResponse =
+  LeasesRenderDraftLegacyResponses[keyof LeasesRenderDraftLegacyResponses];
 
 export type LeasesUpdateDraftTextData = {
+  body: UpdateLeaseDraftTextDto;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/contracts/{id}/draft-text';
+};
+
+export type LeasesUpdateDraftTextResponses = {
+  200: Contract;
+};
+
+export type LeasesUpdateDraftTextResponse =
+  LeasesUpdateDraftTextResponses[keyof LeasesUpdateDraftTextResponses];
+
+export type LeasesUpdateDraftTextLegacyData = {
   body: UpdateLeaseDraftTextDto;
   path: {
     id: string;
@@ -3568,14 +3764,30 @@ export type LeasesUpdateDraftTextData = {
   url: '/leases/{id}/draft-text';
 };
 
-export type LeasesUpdateDraftTextResponses = {
-  200: Lease;
+export type LeasesUpdateDraftTextLegacyResponses = {
+  200: Contract;
 };
 
-export type LeasesUpdateDraftTextResponse =
-  LeasesUpdateDraftTextResponses[keyof LeasesUpdateDraftTextResponses];
+export type LeasesUpdateDraftTextLegacyResponse =
+  LeasesUpdateDraftTextLegacyResponses[keyof LeasesUpdateDraftTextLegacyResponses];
 
 export type LeasesConfirmDraftData = {
+  body: ConfirmLeaseDraftDto;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/contracts/{id}/confirm';
+};
+
+export type LeasesConfirmDraftResponses = {
+  201: Contract;
+};
+
+export type LeasesConfirmDraftResponse =
+  LeasesConfirmDraftResponses[keyof LeasesConfirmDraftResponses];
+
+export type LeasesConfirmDraftLegacyData = {
   body: ConfirmLeaseDraftDto;
   path: {
     id: string;
@@ -3584,14 +3796,30 @@ export type LeasesConfirmDraftData = {
   url: '/leases/{id}/confirm';
 };
 
-export type LeasesConfirmDraftResponses = {
-  201: Lease;
+export type LeasesConfirmDraftLegacyResponses = {
+  201: Contract;
 };
 
-export type LeasesConfirmDraftResponse =
-  LeasesConfirmDraftResponses[keyof LeasesConfirmDraftResponses];
+export type LeasesConfirmDraftLegacyResponse =
+  LeasesConfirmDraftLegacyResponses[keyof LeasesConfirmDraftLegacyResponses];
 
 export type LeasesActivateData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/contracts/{id}/activate';
+};
+
+export type LeasesActivateResponses = {
+  200: Contract;
+};
+
+export type LeasesActivateResponse =
+  LeasesActivateResponses[keyof LeasesActivateResponses];
+
+export type LeasesActivateLegacyData = {
   body?: never;
   path: {
     id: string;
@@ -3600,14 +3828,30 @@ export type LeasesActivateData = {
   url: '/leases/{id}/activate';
 };
 
-export type LeasesActivateResponses = {
-  200: Lease;
+export type LeasesActivateLegacyResponses = {
+  200: Contract;
 };
 
-export type LeasesActivateResponse =
-  LeasesActivateResponses[keyof LeasesActivateResponses];
+export type LeasesActivateLegacyResponse =
+  LeasesActivateLegacyResponses[keyof LeasesActivateLegacyResponses];
 
 export type LeasesTerminateData = {
+  body: LeaseStatusReasonDto;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/contracts/{id}/terminate';
+};
+
+export type LeasesTerminateResponses = {
+  200: Contract;
+};
+
+export type LeasesTerminateResponse =
+  LeasesTerminateResponses[keyof LeasesTerminateResponses];
+
+export type LeasesTerminateLegacyData = {
   body: LeaseStatusReasonDto;
   path: {
     id: string;
@@ -3616,14 +3860,30 @@ export type LeasesTerminateData = {
   url: '/leases/{id}/terminate';
 };
 
-export type LeasesTerminateResponses = {
-  200: Lease;
+export type LeasesTerminateLegacyResponses = {
+  200: Contract;
 };
 
-export type LeasesTerminateResponse =
-  LeasesTerminateResponses[keyof LeasesTerminateResponses];
+export type LeasesTerminateLegacyResponse =
+  LeasesTerminateLegacyResponses[keyof LeasesTerminateLegacyResponses];
 
 export type LeasesFinalizeData = {
+  body: LeaseStatusReasonDto;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/contracts/{id}/finalize';
+};
+
+export type LeasesFinalizeResponses = {
+  200: Contract;
+};
+
+export type LeasesFinalizeResponse =
+  LeasesFinalizeResponses[keyof LeasesFinalizeResponses];
+
+export type LeasesFinalizeLegacyData = {
   body: LeaseStatusReasonDto;
   path: {
     id: string;
@@ -3632,14 +3892,30 @@ export type LeasesFinalizeData = {
   url: '/leases/{id}/finalize';
 };
 
-export type LeasesFinalizeResponses = {
-  200: Lease;
+export type LeasesFinalizeLegacyResponses = {
+  200: Contract;
 };
 
-export type LeasesFinalizeResponse =
-  LeasesFinalizeResponses[keyof LeasesFinalizeResponses];
+export type LeasesFinalizeLegacyResponse =
+  LeasesFinalizeLegacyResponses[keyof LeasesFinalizeLegacyResponses];
 
 export type LeasesRenewData = {
+  body: RenewLeaseDto;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/contracts/{id}/renew';
+};
+
+export type LeasesRenewResponses = {
+  200: Contract;
+};
+
+export type LeasesRenewResponse =
+  LeasesRenewResponses[keyof LeasesRenewResponses];
+
+export type LeasesRenewLegacyData = {
   body: RenewLeaseDto;
   path: {
     id: string;
@@ -3648,26 +3924,40 @@ export type LeasesRenewData = {
   url: '/leases/{id}/renew';
 };
 
-export type LeasesRenewResponses = {
-  200: Lease;
+export type LeasesRenewLegacyResponses = {
+  200: Contract;
 };
 
-export type LeasesRenewResponse =
-  LeasesRenewResponses[keyof LeasesRenewResponses];
+export type LeasesRenewLegacyResponse =
+  LeasesRenewLegacyResponses[keyof LeasesRenewLegacyResponses];
 
 export type LeasesImportCurrentContractData = {
+  body: ImportCurrentLeaseDto;
+  path?: never;
+  query?: never;
+  url: '/contracts/import-current';
+};
+
+export type LeasesImportCurrentContractResponses = {
+  201: Contract;
+};
+
+export type LeasesImportCurrentContractResponse =
+  LeasesImportCurrentContractResponses[keyof LeasesImportCurrentContractResponses];
+
+export type LeasesImportCurrentContractLegacyData = {
   body: ImportCurrentLeaseDto;
   path?: never;
   query?: never;
   url: '/leases/import-current';
 };
 
-export type LeasesImportCurrentContractResponses = {
-  201: Lease;
+export type LeasesImportCurrentContractLegacyResponses = {
+  201: Contract;
 };
 
-export type LeasesImportCurrentContractResponse =
-  LeasesImportCurrentContractResponses[keyof LeasesImportCurrentContractResponses];
+export type LeasesImportCurrentContractLegacyResponse =
+  LeasesImportCurrentContractLegacyResponses[keyof LeasesImportCurrentContractLegacyResponses];
 
 export type AmendmentsCreateData = {
   body: CreateAmendmentDto;
@@ -3753,10 +4043,23 @@ export type LeasesContractDownloadContractData = {
     id: string;
   };
   query?: never;
-  url: '/leases/{id}/contract';
+  url: '/contracts/{id}/contract';
 };
 
 export type LeasesContractDownloadContractResponses = {
+  200: unknown;
+};
+
+export type LeasesContractDownloadContractLegacyData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/leases/{id}/contract';
+};
+
+export type LeasesContractDownloadContractLegacyResponses = {
   200: unknown;
 };
 
@@ -4273,7 +4576,7 @@ export type TenantsGetLeaseHistoryData = {
 };
 
 export type TenantsGetLeaseHistoryResponses = {
-  200: Array<Lease>;
+  200: Array<Contract>;
 };
 
 export type TenantsGetLeaseHistoryResponse =
@@ -4876,6 +5179,7 @@ export type InterestedFindAllData = {
       | 'other';
     status?: 'interested' | 'tenant' | 'buyer';
     qualificationLevel?: 'mql' | 'sql' | 'rejected';
+    minVerifiedMonthlyIncome?: number;
     page?: number;
     limit?: number;
   };

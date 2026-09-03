@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SalesService } from './sales.service';
 import { SaleFolder } from './entities/sale-folder.entity';
@@ -7,6 +7,8 @@ import { SaleAgreement } from './entities/sale-agreement.entity';
 import { SaleReceipt } from './entities/sale-receipt.entity';
 import { Buyer } from '../buyers/entities/buyer.entity';
 import { SaleReceiptPdfService } from './sale-receipt-pdf.service';
+import { Property } from '../properties/entities/property.entity';
+import { Lease } from '../leases/entities/lease.entity';
 import {
   BadRequestException,
   ForbiddenException,
@@ -19,6 +21,9 @@ describe('SalesService', () => {
   let agreementsRepository: MockRepository<SaleAgreement>;
   let receiptsRepository: MockRepository<SaleReceipt>;
   let buyersRepository: MockRepository<Buyer>;
+  let propertiesRepository: MockRepository<Property>;
+  let contractsRepository: MockRepository<Lease>;
+  let dataSource: { transaction: jest.Mock };
   let receiptPdfService: Partial<SaleReceiptPdfService>;
 
   type MockRepository<T extends Record<string, any> = any> = Partial<
@@ -37,6 +42,19 @@ describe('SalesService', () => {
   beforeEach(async () => {
     receiptPdfService = {
       generate: jest.fn().mockResolvedValue('s3://receipt.pdf'),
+    };
+    contractsRepository = createMockRepository();
+    dataSource = {
+      transaction: jest.fn(async (callback) =>
+        callback({
+          getRepository: (entity: unknown) => {
+            if (entity === Lease) return contractsRepository;
+            if (entity === SaleAgreement) return agreementsRepository;
+            if (entity === SaleReceipt) return receiptsRepository;
+            throw new Error('Unexpected transactional repository');
+          },
+        }),
+      ),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -58,6 +76,11 @@ describe('SalesService', () => {
           provide: getRepositoryToken(Buyer),
           useValue: createMockRepository(),
         },
+        {
+          provide: getRepositoryToken(Property),
+          useValue: createMockRepository(),
+        },
+        { provide: getDataSourceToken(), useValue: dataSource },
         { provide: SaleReceiptPdfService, useValue: receiptPdfService },
       ],
     }).compile();
@@ -67,6 +90,7 @@ describe('SalesService', () => {
     agreementsRepository = module.get(getRepositoryToken(SaleAgreement));
     receiptsRepository = module.get(getRepositoryToken(SaleReceipt));
     buyersRepository = module.get(getRepositoryToken(Buyer));
+    propertiesRepository = module.get(getRepositoryToken(Property));
   });
 
   it('createFolder requires company scope', async () => {
@@ -128,6 +152,12 @@ describe('SalesService', () => {
         phone: '123',
       },
     });
+    propertiesRepository.findOne!.mockResolvedValue({
+      id: 'property-1',
+      ownerId: 'owner-1',
+    });
+    contractsRepository.create!.mockReturnValue({ id: 'contract-1' });
+    contractsRepository.save!.mockResolvedValue({ id: 'contract-1' });
     agreementsRepository.create!.mockReturnValue({ id: 'a1' });
     agreementsRepository.save!.mockResolvedValue({ id: 'a1' });
 
@@ -135,6 +165,7 @@ describe('SalesService', () => {
       service.createAgreement(
         {
           folderId: 'f1',
+          propertyId: 'property-1',
           buyerId: 'buyer-1',
           totalAmount: 1000,
           installmentAmount: 100,
@@ -148,6 +179,8 @@ describe('SalesService', () => {
     expect(agreementsRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         companyId: 'c1',
+        contractId: 'contract-1',
+        propertyId: 'property-1',
         buyerId: 'buyer-1',
         buyerName: 'Ana Buyer',
         buyerPhone: '123',
@@ -165,6 +198,7 @@ describe('SalesService', () => {
       service.createAgreement(
         {
           folderId: 'f1',
+          propertyId: 'property-1',
           buyerId: 'missing-buyer',
           totalAmount: 1000,
           installmentAmount: 100,
@@ -294,6 +328,7 @@ describe('SalesService', () => {
       paidAmount: 100,
       currency: 'ARS',
     } as any;
+    agreementsRepository.findOne!.mockResolvedValue(agreement);
     jest.spyOn(service, 'getAgreement').mockResolvedValue(agreement);
     receiptsRepository.count!.mockResolvedValue(0);
     agreementsRepository.save!.mockResolvedValue(agreement);

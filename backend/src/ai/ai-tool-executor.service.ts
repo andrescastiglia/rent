@@ -13,7 +13,12 @@ import {
   AiToolDefinition,
   AiToolsMode,
 } from './types/ai-tool.types';
-import { canRoleUseAiTool } from './ai-tool-access-policy';
+import { canRolesUseAiTool } from './ai-tool-access-policy';
+import {
+  getUserRoles,
+  isAdminOrStaff,
+  RoleAware,
+} from '../common/helpers/role-scope.helper';
 
 @Injectable()
 export class AiToolExecutorService {
@@ -37,11 +42,13 @@ export class AiToolExecutorService {
     return 'NONE';
   }
 
-  listTools(role: UserRole) {
+  listTools(subject: UserRole | RoleAware) {
+    const roleSubject =
+      typeof subject === 'string' ? { role: subject } : subject;
     const mode = this.getMode();
     return this.catalog
       .getDefinitions()
-      .filter((tool) => canRoleUseAiTool(tool, role))
+      .filter((tool) => canRolesUseAiTool(tool, roleSubject))
       .map((tool) => ({
         name: tool.name,
         description: tool.description,
@@ -58,6 +65,7 @@ export class AiToolExecutorService {
     args: unknown,
     context: AiExecutionContext,
   ): Promise<unknown> {
+    context = this.withEffectivePrimaryRole(context);
     const startedAt = Date.now();
     const mode = this.getMode();
     const definition = this.catalog.getDefinitionByName(toolName);
@@ -67,7 +75,7 @@ export class AiToolExecutorService {
     }
 
     this.assertModeAllowsExecution(mode, definition);
-    this.assertRoleAllowed(definition, context.role);
+    this.assertRoleAllowed(definition, context);
     this.assertContext(context);
 
     const parsed = this.parseArguments(definition, args ?? {});
@@ -112,16 +120,17 @@ export class AiToolExecutorService {
     args: unknown,
     context: AiExecutionContext,
   ): Promise<unknown> {
+    context = this.withEffectivePrimaryRole(context);
     const definition = this.catalog.getDefinitionByName(toolName);
     if (!definition)
       throw new NotFoundException(`AI tool not found: ${toolName}`);
     if (definition.mutability !== 'mutable') {
       throw new ForbiddenException('Only mutable tools can be approved');
     }
-    if (![UserRole.ADMIN, UserRole.STAFF].includes(context.role)) {
+    if (!isAdminOrStaff(context)) {
       throw new ForbiddenException('Only staff or admin can approve actions');
     }
-    this.assertRoleAllowed(definition, context.role);
+    this.assertRoleAllowed(definition, context);
     this.assertModeAllowsExecution(this.getMode(), definition);
     this.assertContext(context);
     const parsed = this.parseArguments(definition, args ?? {});
@@ -394,11 +403,11 @@ export class AiToolExecutorService {
 
   private assertRoleAllowed(
     definition: AiToolDefinition,
-    role: UserRole,
+    context: AiExecutionContext,
   ): void {
-    if (!canRoleUseAiTool(definition, role)) {
+    if (!canRolesUseAiTool(definition, context)) {
       throw new ForbiddenException(
-        `Role ${role} is not allowed to execute ${definition.name}`,
+        `User roles are not allowed to execute ${definition.name}`,
       );
     }
   }
@@ -410,6 +419,18 @@ export class AiToolExecutorService {
     if (!context.companyId) {
       throw new ForbiddenException('Execution context is missing companyId');
     }
+  }
+
+  private withEffectivePrimaryRole(
+    context: AiExecutionContext,
+  ): AiExecutionContext {
+    const roles = getUserRoles(context);
+    const role = roles.includes(UserRole.ADMIN)
+      ? UserRole.ADMIN
+      : roles.includes(UserRole.STAFF)
+        ? UserRole.STAFF
+        : context.role;
+    return { ...context, role };
   }
 
   private sanitizeOutput(value: unknown): unknown {

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { ShieldX, Loader2 } from "lucide-react";
 import type { UserModulePermissionKey } from "@/types/auth";
-import { hasModuleAccess } from "@/lib/permissions";
+import { canUserAccessModule } from "@/lib/permissions";
 
 /**
  * Props for the RoleGuard component.
@@ -55,9 +55,7 @@ export function RoleGuard({
   }
 
   // Check if user's role is allowed
-  const hasAccess =
-    allowedRoles.includes(user.role) &&
-    hasModuleAccess(user.role, user.permissions, requiredModule);
+  const hasAccess = canUserAccessModule(user, allowedRoles, requiredModule);
 
   if (!hasAccess) {
     // If redirectTo is specified, redirect

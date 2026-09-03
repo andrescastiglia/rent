@@ -49,6 +49,7 @@ interface UserContext {
   id: string;
   companyId: string;
   role?: UserRole;
+  roles?: UserRole[];
   email?: string | null;
   phone?: string | null;
 }
@@ -129,7 +130,7 @@ export class OwnersService {
   }
 
   async findAllScoped(user: UserContext): Promise<Owner[]> {
-    if (user.role === UserRole.OWNER) {
+    if (this.isOwnerSelfService(user)) {
       const owner = await this.findByUserId(user.id, user.companyId);
       return owner ? [owner] : [];
     }
@@ -174,13 +175,21 @@ export class OwnersService {
 
   async create(dto: CreateOwnerDto, companyId: string): Promise<Owner> {
     const normalizedEmail = dto.email?.trim().toLowerCase() || null;
+    let existingUser: User | null = null;
     if (normalizedEmail) {
-      const existingUser = await this.usersRepository.findOne({
+      existingUser = await this.usersRepository.findOne({
         where: { email: normalizedEmail, deletedAt: IsNull() },
       });
-
-      if (existingUser) {
+      if (existingUser && existingUser.companyId !== companyId) {
         throw new ConflictException('A user with this email already exists');
+      }
+      if (existingUser) {
+        const existingOwner = await this.ownersRepository.findOne({
+          where: { userId: existingUser.id, companyId, deletedAt: IsNull() },
+        });
+        if (existingOwner) {
+          throw new ConflictException('This person is already an owner');
+        }
       }
     }
 
@@ -189,19 +198,43 @@ export class OwnersService {
     const passwordHash = await bcrypt.hash(password, salt);
 
     const ownerId = await this.dataSource.transaction(async (manager) => {
-      const user = manager.getRepository(User).create({
-        companyId,
-        role: UserRole.OWNER,
-        email: normalizedEmail,
-        passwordHash,
-        firstName: dto.firstName.trim(),
-        lastName: dto.lastName.trim(),
-        phone: dto.phone?.trim() || undefined,
-        isActive: true,
-        permissions: {},
-      });
-
-      const savedUser = await manager.getRepository(User).save(user);
+      const userRepository = manager.getRepository(User);
+      const savedUser = existingUser
+        ? await userRepository.save({
+            ...existingUser,
+            roles: Array.from(
+              new Set([
+                ...(existingUser.roles?.length
+                  ? existingUser.roles
+                  : [existingUser.role]),
+                UserRole.OWNER,
+              ]),
+            ),
+            ...(dto.password && !existingUser.isActive
+              ? {
+                  passwordHash,
+                  isActive: true,
+                  accessRequested: true,
+                }
+              : {}),
+          })
+        : await userRepository.save(
+            userRepository.create({
+              companyId,
+              role: UserRole.OWNER,
+              roles: [UserRole.OWNER],
+              email: normalizedEmail,
+              passwordHash,
+              firstName: dto.firstName.trim(),
+              lastName: dto.lastName.trim(),
+              phone: dto.phone?.trim() || undefined,
+              // A contact becomes an authenticated account only when explicit
+              // credentials are supplied. Admins can activate it later.
+              isActive: Boolean(normalizedEmail && dto.password),
+              accessRequested: Boolean(normalizedEmail && dto.password),
+              permissions: {},
+            }),
+          );
 
       const owner = manager.getRepository(Owner).create({
         userId: savedUser.id,
@@ -972,7 +1005,7 @@ export class OwnersService {
   ): Promise<Owner> {
     this.assertCompanyContext(companyId, user);
     const owner = await this.findOne(ownerId, companyId);
-    if (user.role === UserRole.OWNER && owner.userId !== user.id) {
+    if (this.isOwnerSelfService(user) && owner.userId !== user.id) {
       throw new ForbiddenException('You can only access your own settlements');
     }
     return owner;
@@ -988,12 +1021,25 @@ export class OwnersService {
     user: UserContext,
     params: Array<string | number>,
   ): Promise<string> {
-    if (user.role !== UserRole.OWNER) {
+    if (!this.isOwnerSelfService(user)) {
       return '';
     }
 
     params.push(user.id);
     return `AND owner_entity.user_id = $${params.length}`;
+  }
+
+  private isOwnerSelfService(user: UserContext): boolean {
+    const roles = user.roles?.length
+      ? user.roles
+      : user.role
+        ? [user.role]
+        : [];
+    return (
+      roles.includes(UserRole.OWNER) &&
+      !roles.includes(UserRole.ADMIN) &&
+      !roles.includes(UserRole.STAFF)
+    );
   }
 
   private async generateSettlementReceiptBuffer(input: {
