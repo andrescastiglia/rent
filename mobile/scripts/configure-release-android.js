@@ -53,6 +53,18 @@ gradle = replaceOnce(
   'versionName declaration',
 );
 
+const generatedHermesCommand = `    hermesCommand = new File(["node", "--print", "require.resolve('hermes-compiler/package.json', { paths: [require.resolve('react-native/package.json')] })"].execute(null, rootDir).text.trim()).getParentFile().getAbsolutePath() + "/hermesc/%OS-BIN%/hermesc"`;
+const linuxHermesCommand = generatedHermesCommand.replace(
+  '%OS-BIN%',
+  'linux64-bin',
+);
+gradle = replaceOnce(
+  gradle,
+  new RegExp(escapeRegExp(generatedHermesCommand)),
+  linuxHermesCommand,
+  'generated Hermes command',
+);
+
 const debugSigningBlock = `        debug {
             storeFile file('debug.keystore')
             storePassword 'android'
