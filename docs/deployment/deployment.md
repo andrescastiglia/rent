@@ -2,7 +2,7 @@
 
 **Estado:** operativo
 
-**Última actualización:** 2026-09-02
+**Última actualización:** 2026-09-03
 
 **Autoridad:** `.github/workflows/release.yml`, `.github/workflows/eas.yml` y `ansible/deploy.yml`
 
@@ -22,8 +22,11 @@ Antes de crear el tag deben cumplirse todas estas condiciones:
 - El secreto protegido `PRODUCTION_ENV_FILE` contiene el runtime completo.
 - La migración legada de imágenes fue ejecutada y verificada cuando aplique.
 
-El job `preflight` vuelve a comprobar tag, SHA, ramas y PR antes de construir.
-No se debe relajar esa comprobación para destrabar un release.
+El job `preflight` vuelve a comprobar tag, SHA, ramas y PR antes de construir,
+y exige un run exitoso de `CI Pipeline` disparado por `push` a `main` para el
+SHA exacto. El release reutiliza esa evidencia y no repite la matriz ni ejecuta
+Sonar sobre una referencia de tag. No se debe relajar esa comprobación para
+destrabar un release.
 
 ## Estructura del servidor
 
@@ -125,7 +128,7 @@ git push origin vX.Y.Z
 
 El workflow realiza:
 
-1. todos los gates de CI;
+1. validación del run exitoso de CI de `main` para el SHA exacto;
 2. build único de backend, batch y Next standalone;
 3. SBOM CycloneDX de backend, batch, frontend y mobile;
 4. empaquetado y checksum `rent-server-<sha>.tar.gz`;
