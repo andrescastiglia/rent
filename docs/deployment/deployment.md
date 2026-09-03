@@ -8,8 +8,10 @@
 
 Rent se publica desde un tag SemVer anotado que apunta exactamente al `HEAD` de
 `main`. GitHub Actions compila una vez, genera SBOM y checksums, despliega ese
-mismo artefacto y lo adjunta a la GitHub Release. El servidor nunca clona ni
-compila el repositorio.
+mismo artefacto y lo adjunta a la GitHub Release. Backend, batch y web se
+compilan fuera de producción; Oracle recibe ese artefacto ya cerrado. Android
+se compila en un runner ARM64 aislado dentro de Oracle, sin ejecutar pruebas ni
+iniciar la aplicación contra servicios productivos.
 
 ## Condiciones de entrada
 
@@ -47,7 +49,8 @@ esa conexión para ejecutar las tareas remotas como el usuario de servicio
 `deploy`, que debe poder escribir en `/var/www/rent` y `/var/log/rent`, ejecutar
 `pm2`, y conectarse a PostgreSQL con las credenciales del archivo compartido.
 Se requieren Node.js según `.node-version`, PM2, `sha256sum`, `tar` y el cliente
-PostgreSQL. Git y npm no son necesarios para el despliegue.
+PostgreSQL. Git y npm no participan del despliegue de `/var/www/rent`; existen
+únicamente en el directorio separado del runner Android.
 
 Las únicas tareas ejecutadas como `root` son las transferencias del artefacto y
 del `.env`; ambas fijan inmediatamente propietario `deploy` y modo `0600`. Esto
@@ -74,7 +77,10 @@ y estos secretos:
 Configurar `NEXT_PUBLIC_TURNSTILE_SITE_KEY` como variable del repositorio o del
 environment. GitHub Actions materializa temporalmente `PRODUCTION_ENV_FILE`,
 Ansible actualiza `/var/www/rent/shared/.env` con modo `0600` y el runner se
-descarta. El secreto nunca se incluye en el artefacto ni en los logs.
+descarta al terminar ese job. El secreto nunca se incluye en el artefacto ni en
+los logs. El runner Android persistente elimina siempre el keystore y la
+credencial de Google Play de su workspace, incluso si el build o la publicación
+fallan.
 
 Variables mínimas de runtime:
 
@@ -99,6 +105,22 @@ TURNSTILE_SECRET_KEY=...
 Los secretos condicionales de WhatsApp, MercadoPago, firma y webhooks también
 son obligatorios cuando su integración está habilitada. `FRONTEND_URL` no debe
 incluir orígenes locales en producción.
+
+## Runner Android aislado
+
+El repositorio tiene un runner exclusivo llamado `oracle-rent`, con etiquetas
+`self-hosted`, `Linux`, `ARM64` y `rent-android`. Su servicio corre como
+`deploy` desde `/home/deploy/actions-runner-rent`, separado de
+`/var/www/rent`, y sólo acepta el job de release posterior al preflight y a la
+validación del entorno protegido. Los workflows de PR, tests y E2E continúan en
+runners efímeros de GitHub.
+
+El servicio limita la compilación a 200 % de CPU, 12 GiB de memoria y prioridad
+baja de CPU/E/S. Gradle usa como máximo dos workers, 6 GiB de heap, caché
+persistente propia y `ccache`; CMake también limita a dos los compiladores
+nativos simultáneos y un lock evita dos builds Android de Rent en paralelo. El
+SDK Android, Java y la emulación de herramientas host x86_64 son los mismos ya
+validados por el proyecto `mas`.
 
 ## TLS y rutas
 
@@ -158,16 +180,18 @@ El workflow realiza:
 2. build único de backend, batch y Next standalone;
 3. SBOM CycloneDX de backend, batch, frontend y mobile;
 4. empaquetado y checksum `rent-server-<sha>.tar.gz`;
-5. build EAS, descarga y checksum del AAB exacto;
+5. build local y firmado del AAB en el runner ARM64, verificación, checksum,
+   envío a Play Internal y publicación EAS Update;
 6. migraciones forward-compatible antes del cambio de enlace;
 7. cambio atómico de `current` y `pm2 startOrReload`;
 8. verificaciones de disponibilidad de backend y frontend mediante `/health`;
 9. publicación de ambos artefactos y SBOM en la GitHub Release.
 
-El artefacto del servidor y Android se construyen en paralelo, pero el servidor
-solo se despliega después de que Android haya sido construido, enviado y
-publicado correctamente. Si Android falla, las migraciones y el cambio de
-versión del servidor no comienzan.
+Primero se construye el artefacto del servidor y su código valida el entorno
+protegido. Recién entonces comienza Android; el servidor sólo se despliega
+después de que el AAB haya sido construido, enviado y publicado correctamente.
+Si Android falla, las migraciones y el cambio de versión del servidor no
+comienzan.
 
 ## Migraciones expand/contract
 

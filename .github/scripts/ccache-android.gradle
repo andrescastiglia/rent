@@ -1,0 +1,15 @@
+// Inject ccache into native Android builds without changing generated Gradle files.
+allprojects {
+    afterEvaluate { project ->
+        def android = project.extensions.findByName('android')
+        if (android) {
+            [android.defaultConfig.externalNativeBuild.cmake,
+             android.buildTypes.release?.externalNativeBuild?.cmake].each { cmake ->
+                if (cmake != null) {
+                    cmake.arguments += ["-DCMAKE_C_COMPILER_LAUNCHER=ccache",
+                                        "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"]
+                }
+            }
+        }
+    }
+}
