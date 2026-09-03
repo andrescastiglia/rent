@@ -39,11 +39,12 @@ destrabar un release.
     └── .env
 ```
 
-El usuario SSH de despliegue debe poder escribir en `/var/www/rent` y
-`/var/log/rent`, ejecutar `pm2`, y conectarse a PostgreSQL con las credenciales
-del archivo compartido. Se requieren Node.js según `.node-version`, PM2,
-`sha256sum`, `tar` y el cliente PostgreSQL. Git y npm no son necesarios para el
-despliegue.
+El usuario SSH de CI debe poder ejecutar `sudo` sin interacción. Ansible usa
+esa conexión para ejecutar las tareas remotas como el usuario de servicio
+`deploy`, que debe poder escribir en `/var/www/rent` y `/var/log/rent`, ejecutar
+`pm2`, y conectarse a PostgreSQL con las credenciales del archivo compartido.
+Se requieren Node.js según `.node-version`, PM2, `sha256sum`, `tar` y el cliente
+PostgreSQL. Git y npm no son necesarios para el despliegue.
 
 ## Secretos y variables de GitHub
 
