@@ -18,7 +18,8 @@
   "submit": {
     "production": {
       "android": {
-        "track": "internal"
+        "track": "internal",
+        "serviceAccountKeyPath": "./rent-488517-f1ad7938bbe6.json"
       }
     }
   }

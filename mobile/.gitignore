@@ -41,3 +41,6 @@ yarn-error.*
 /android
 
 rent-*.json
+rent-*.aab
+rent-*.aab.sha256
+mobile.cdx.json

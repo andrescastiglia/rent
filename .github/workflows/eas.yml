@@ -1,4 +1,4 @@
-name: EAS production release
+name: Android production release
 
 on:
   workflow_call:
@@ -9,30 +9,62 @@ permissions:
 jobs:
   android-release:
     name: Build, submit and publish Android
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+    runs-on: [self-hosted, Linux, ARM64, rent-android]
+    timeout-minutes: 90
     environment: production-release
     defaults:
       run:
         working-directory: mobile
+    env:
+      GRADLE_USER_HOME: /home/deploy/.gradle-ci-rent
+      CCACHE_DIR: /home/deploy/.ccache-android-rent
+      CMAKE_BUILD_PARALLEL_LEVEL: "2"
 
     steps:
-      - name: Validate release ref
+      - name: Validate release ref and derive Android version
         working-directory: .
         env:
           RELEASE_TAG: ${{ github.ref_name }}
           RELEASE_REF: ${{ github.ref }}
         run: |
-          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          set -euo pipefail
+
+          if [[ ! "$RELEASE_TAG" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
             echo "Invalid release tag: $RELEASE_TAG" >&2
             exit 1
           fi
           test "$RELEASE_REF" = "refs/tags/$RELEASE_TAG"
 
+          major="${BASH_REMATCH[1]}"
+          minor="${BASH_REMATCH[2]}"
+          patch="${BASH_REMATCH[3]}"
+          if [ "$major" -gt 200 ] || [ "$minor" -gt 99 ] || [ "$patch" -gt 99 ]; then
+            echo "Android version is outside the supported SemVer range." >&2
+            exit 1
+          fi
+
+          version_name="${major}.${minor}.${patch}"
+          version_code=$((major * 10000000 + minor * 100000 + patch * 100))
+          if [ "$version_code" -le 0 ] || [ "$version_code" -gt 2100000000 ]; then
+            echo "Android versionCode is outside the supported range." >&2
+            exit 1
+          fi
+
+          echo "ANDROID_VERSION_NAME=$version_name" >> "$GITHUB_ENV"
+          echo "ANDROID_VERSION_CODE=$version_code" >> "$GITHUB_ENV"
+          echo "Android version: $version_name ($version_code)"
+
       - name: Checkout immutable release
         uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
+
+      - name: Remove stale mobile credentials
+        run: |
+          rm -f \
+            rent-488517-f1ad7938bbe6.json \
+            credentials.json \
+            credentials/android-upload-keystore.jks
 
       - name: Setup Node
         uses: actions/setup-node@v7
@@ -41,10 +73,52 @@ jobs:
           cache: npm
           cache-dependency-path: mobile/package-lock.json
 
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Validate isolated Android builder
+        run: |
+          set -euo pipefail
+
+          test "$(uname -m)" = aarch64
+          test -r /proc/sys/fs/binfmt_misc/qemu-x86_64
+          grep -q '^enabled' /proc/sys/fs/binfmt_misc/qemu-x86_64
+          test -e /lib64/ld-linux-x86-64.so.2
+          test -n "${ANDROID_SDK_ROOT:-}"
+          test -x "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$ANDROID_SDK_ROOT/build-tools/36.0.0/aapt2"
+          command -v ccache
+          command -v flock
+
+          java -version
+          node --version
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --version
+          "$ANDROID_SDK_ROOT/build-tools/36.0.0/aapt2" version
+          ccache --version | head -n 1
+
       - name: Install dependencies
         run: npm ci
 
-      - name: Setup EAS
+      - name: Generate and configure the native release project
+        run: |
+          set -euo pipefail
+          npx expo prebuild --platform android --clean --no-install
+          node scripts/configure-release-android.js
+
+      - name: Validate Android host binaries
+        run: |
+          set -euo pipefail
+
+          hermes_package_dir="$(node --print \
+            "require('path').dirname(require.resolve('hermes-compiler/package.json', { paths: [require.resolve('react-native/package.json')] }))")"
+          hermesc="$hermes_package_dir/hermesc/linux64-bin/hermesc"
+          test -x "$hermesc"
+          "$hermesc" -help >/dev/null
+
+      - name: Setup EAS submit and updates
         uses: expo/expo-github-action@v9
         with:
           eas-version: 23.2.0
@@ -54,8 +128,10 @@ jobs:
         env:
           GOOGLE_SERVICE_ACCOUNT_KEY_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_JSON }}
         run: |
+          set -euo pipefail
           test -n "$GOOGLE_SERVICE_ACCOUNT_KEY_JSON"
           printf '%s' "$GOOGLE_SERVICE_ACCOUNT_KEY_JSON" > rent-488517-f1ad7938bbe6.json
+          chmod 0600 rent-488517-f1ad7938bbe6.json
 
       - name: Materialize Android signing credentials
         env:
@@ -64,6 +140,7 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          set -euo pipefail
           for secret in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
             if [ -z "${!secret}" ]; then
               echo "Missing required Android signing secret: $secret" >&2
@@ -73,40 +150,53 @@ jobs:
 
           mkdir -p credentials
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > credentials/android-upload-keystore.jks
+          chmod 0600 credentials/android-upload-keystore.jks
 
-          jq -n \
-            --arg path 'credentials/android-upload-keystore.jks' \
-            --arg password "$ANDROID_KEYSTORE_PASSWORD" \
-            --arg alias "$ANDROID_KEY_ALIAS" \
-            --arg keyPassword "$ANDROID_KEY_PASSWORD" \
-            '{android:{keystore:{keystorePath:$path,keystorePassword:$password,keyAlias:$alias,keyPassword:$keyPassword}}}' \
-            > credentials.json
-
-      - name: Build immutable Android release
+      - name: Build signed Android App Bundle locally
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          ANDROID_SIGNING_STORE_FILE: ${{ github.workspace }}/mobile/credentials/android-upload-keystore.jks
+          ANDROID_SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_SIGNING_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          NODE_ENV: production
+          ORG_GRADLE_PROJECT_hermesEnabled: "true"
+          ORG_GRADLE_PROJECT_reactNativeArchitectures: "armeabi-v7a,arm64-v8a"
+          CCACHE_MAXSIZE: 5G
         run: |
-          eas build \
-            --platform android \
-            --profile production \
-            --non-interactive \
-            --wait \
-            --json > eas-build.json
+          set -euo pipefail
 
-          build_id="$(jq -r '.[0].id // .id' eas-build.json)"
-          build_url="$(jq -r '.[0].artifacts.buildUrl // .artifacts.buildUrl' eas-build.json)"
-          test -n "$build_id" && test "$build_id" != null
-          test -n "$build_url" && test "$build_url" != null
-          curl --fail --location --retry 3 \
-            "$build_url" --output "rent-android-${GITHUB_SHA}.aab"
+          mkdir -p "$GRADLE_USER_HOME/init.d" "$CCACHE_DIR"
+          cp "$GITHUB_WORKSPACE/.github/scripts/ccache-android.gradle" \
+            "$GRADLE_USER_HOME/init.d/ccache-android.gradle"
+          ccache --max-size "$CCACHE_MAXSIZE"
+          ccache --zero-stats
+
+          cd android
+          flock --wait 3600 /home/deploy/.android-build.lock \
+            ./gradlew --no-daemon --build-cache --stacktrace --max-workers=2 \
+              -Dorg.gradle.parallel=false \
+              -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1536m -XX:+UseG1GC -Dfile.encoding=UTF-8" \
+              bundleRelease
+
+          cd ..
+          install -m 0644 android/app/build/outputs/bundle/release/app-release.aab \
+            "rent-android-${GITHUB_SHA}.aab"
+          jarsigner -verify "rent-android-${GITHUB_SHA}.aab"
           sha256sum "rent-android-${GITHUB_SHA}.aab" \
             > "rent-android-${GITHUB_SHA}.aab.sha256"
           npm sbom --omit=dev --package-lock-only --sbom-format=cyclonedx > mobile.cdx.json
+          ccache --show-stats
+
+      - name: Submit Android and publish JavaScript update
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
 
           eas submit \
             --platform android \
             --profile production \
-            --id "$build_id" \
+            --path "rent-android-${GITHUB_SHA}.aab" \
             --non-interactive \
             --wait
 
@@ -125,3 +215,11 @@ jobs:
             mobile/mobile.cdx.json
           if-no-files-found: error
           retention-days: 30
+
+      - name: Remove materialized mobile secrets
+        if: always()
+        run: |
+          rm -f \
+            rent-488517-f1ad7938bbe6.json \
+            credentials.json \
+            credentials/android-upload-keystore.jks
