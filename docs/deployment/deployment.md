@@ -46,6 +46,12 @@ esa conexión para ejecutar las tareas remotas como el usuario de servicio
 Se requieren Node.js según `.node-version`, PM2, `sha256sum`, `tar` y el cliente
 PostgreSQL. Git y npm no son necesarios para el despliegue.
 
+En la primera adopción del esquema inmutable, si `current` todavía es un
+directorio legacy, Ansible lo mueve a `releases/legacy-before-<sha>` y deja un
+symlink equivalente antes de continuar. Ese checkout se conserva como primer
+rollback. Antes de cambiar procesos se guarda el estado de PM2; ante un fallo,
+el playbook restaura el `.env`, el symlink anterior y esa lista de procesos.
+
 ## Secretos y variables de GitHub
 
 Configurar el environment protegido `production-release` con aprobación manual
