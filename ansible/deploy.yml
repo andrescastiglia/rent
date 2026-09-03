@@ -1,7 +1,8 @@
 ---
 - name: Deploy immutable Real Estate Management System release
   hosts: all
-  become: false
+  become: true
+  become_user: deploy
   vars:
     deploy_sha: "{{ git_sha | mandatory }}"
     local_release_archive: "{{ release_archive | mandatory }}"
