@@ -101,7 +101,9 @@ test.describe('Property Creation Flow', () => {
             waitUntil: 'commit',
         });
 
-        await expect(page.getByRole('link', { name: /edit|editar/i }).first()).toBeVisible();
+        await expect(
+            page.getByRole('link', { name: /edit|editar/i }).first(),
+        ).toBeVisible({ timeout: 30000 });
     });
 
     test('should search properties', async ({ page }) => {

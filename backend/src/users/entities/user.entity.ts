@@ -96,11 +96,25 @@ export class User {
   })
   role: UserRole;
 
+  /** All roles held by the same person; `role` is the legacy primary role. */
+  @Column({
+    type: 'enum',
+    enum: UserRole,
+    enumName: 'user_role',
+    array: true,
+    default: () => "'{}'::user_role[]",
+  })
+  roles: UserRole[];
+
   @Column({ name: 'language', type: 'varchar', length: 8, default: 'es' })
   language: string;
 
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
+
+  /** True only when this person has or requested authenticated access. */
+  @Column({ name: 'access_requested', default: true })
+  accessRequested: boolean;
 
   @Column({ name: 'email_verified', default: false })
   isEmailVerified: boolean;

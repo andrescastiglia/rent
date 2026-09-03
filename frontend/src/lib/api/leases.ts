@@ -62,6 +62,7 @@ type BackendLease = {
   securityDeposit?: number | null;
   currency?: string | null;
   status?: string | null;
+  signatureStatus?: string | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;
   paymentFrequency?: string | null;
@@ -427,6 +428,9 @@ const mapBackendLeaseToLease = (raw: BackendLease): Lease => {
     contractType: raw.contractType ?? "rental",
     ...financial,
     status: mapLeaseStatus(raw.status),
+    signatureStatus: (
+      raw.signatureStatus ?? "not_started"
+    ).toUpperCase() as Lease["signatureStatus"],
     terms: raw.termsAndConditions ?? undefined,
     draftContractText: raw.draftContractText ?? undefined,
     draftContractFormat: raw.draftContractFormat ?? undefined,
@@ -594,8 +598,8 @@ export const leasesApi = {
       PaginatedResponse<BackendLease> | BackendLease[]
     >(
       queryParams.toString().length > 0
-        ? `/leases?${queryParams.toString()}`
-        : "/leases",
+        ? `/contracts?${queryParams.toString()}`
+        : "/contracts",
       token ?? undefined,
     );
 
@@ -607,7 +611,7 @@ export const leasesApi = {
       return result.data.map(mapBackendLeaseToLease);
     }
 
-    throw new Error("Unexpected response shape from /leases");
+    throw new Error("Unexpected response shape from /contracts");
   },
 
   getById: async (id: string): Promise<Lease | null> => {
@@ -630,7 +634,7 @@ export const leasesApi = {
     const token = getToken();
     try {
       const result = await apiClient.get<BackendLease>(
-        `/leases/${id}`,
+        `/contracts/${id}`,
         token ?? undefined,
       );
       return mapBackendLeaseToLease(result);
@@ -657,7 +661,7 @@ export const leasesApi = {
     const token = getToken();
     const payload = toBackendLeasePayload(data, true);
     const result = await apiClient.post<BackendLease>(
-      "/leases",
+      "/contracts",
       payload,
       token ?? undefined,
     );
@@ -682,7 +686,7 @@ export const leasesApi = {
     const token = getToken();
     const payload = toBackendLeasePayload(data, false);
     const result = await apiClient.patch<BackendLease>(
-      `/leases/${id}`,
+      `/contracts/${id}`,
       payload,
       token ?? undefined,
     );
@@ -737,7 +741,7 @@ export const leasesApi = {
     const token = getToken();
     const payload = toBackendLeasePayload(data, false);
     const result = await apiClient.patch<BackendLease>(
-      `/leases/${id}/renew`,
+      `/contracts/${id}/renew`,
       payload,
       token ?? undefined,
     );
@@ -763,7 +767,7 @@ export const leasesApi = {
 
     const token = getToken();
     const result = await apiClient.post<BackendLease>(
-      `/leases/${id}/draft/render`,
+      `/contracts/${id}/draft/render`,
       { templateId },
       token ?? undefined,
     );
@@ -787,7 +791,7 @@ export const leasesApi = {
 
     const token = getToken();
     const result = await apiClient.patch<BackendLease>(
-      `/leases/${id}/draft-text`,
+      `/contracts/${id}/draft-text`,
       { draftText, draftFormat },
       token ?? undefined,
     );
@@ -814,7 +818,7 @@ export const leasesApi = {
 
     const token = getToken();
     const result = await apiClient.post<BackendLease>(
-      `/leases/${id}/confirm`,
+      `/contracts/${id}/confirm`,
       { finalText, finalFormat },
       token ?? undefined,
     );
@@ -834,7 +838,7 @@ export const leasesApi = {
     const token = getToken();
     const query = contractType ? `?contractType=${contractType}` : "";
     const result = await apiClient.get<BackendLeaseTemplate[]>(
-      `/leases/templates${query}`,
+      `/contracts/templates${query}`,
       token ?? undefined,
     );
     return result.map(mapBackendTemplateToTemplate);
@@ -865,7 +869,7 @@ export const leasesApi = {
 
     const token = getToken();
     const result = await apiClient.post<BackendLeaseTemplate>(
-      "/leases/templates",
+      "/contracts/templates",
       data,
       token ?? undefined,
     );
@@ -897,7 +901,7 @@ export const leasesApi = {
 
     const token = getToken();
     const result = await apiClient.patch<BackendLeaseTemplate>(
-      `/leases/templates/${templateId}`,
+      `/contracts/templates/${templateId}`,
       data,
       token ?? undefined,
     );
@@ -918,7 +922,7 @@ export const leasesApi = {
     }
 
     return apiClient.post<Partial<LeaseTemplate>>(
-      "/leases/templates/import-docx",
+      "/contracts/templates/import-docx",
       formData,
       token ?? undefined,
     );
@@ -947,7 +951,7 @@ export const leasesApi = {
     if (data.notes) formData.append("notes", data.notes);
 
     const result = await apiClient.post<BackendLease>(
-      "/leases/import-current",
+      "/contracts/import-current",
       formData,
       token ?? undefined,
     );
@@ -965,7 +969,7 @@ export const leasesApi = {
     }
 
     const token = getToken();
-    await apiClient.delete(`/leases/${id}`, token ?? undefined);
+    await apiClient.delete(`/contracts/${id}`, token ?? undefined);
   },
 
   downloadContract: async (id: string): Promise<void> => {
@@ -975,7 +979,7 @@ export const leasesApi = {
 
     const token = getToken();
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-    const response = await fetch(`${baseUrl}/leases/${id}/contract`, {
+    const response = await fetch(`${baseUrl}/contracts/${id}/contract`, {
       method: "GET",
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });

@@ -5,7 +5,7 @@ import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { leasesApi } from '@/api/leases';
-import { canManageLeases } from '@/config/navigation';
+import { canManageLeasesForUser } from '@/config/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { propertiesApi } from '@/api/properties';
 import { tenantsApi } from '@/api/tenants';
@@ -46,6 +46,11 @@ function LeaseSummaryCard({
           : t('leases.contractTypes.sale')}
       </Text>
       <Text style={styles.badge}>{t(`leases.status.${lease.status}`)}</Text>
+      <Text style={styles.detail}>
+        {`${t('leases.signatureStatusLabel')}: ${t(
+          `leases.signatureStatus.${lease.signatureStatus ?? 'NOT_STARTED'}`,
+        )}`}
+      </Text>
     </View>
   );
 }
@@ -291,7 +296,7 @@ export default function LeaseDetailScreen() {
   });
 
   const lease = leaseQuery.data;
-  const canManage = canManageLeases(user?.role);
+  const canManage = canManageLeasesForUser(user);
 
   const propertyQuery = useQuery({
     queryKey: ['properties', 'by-id', lease?.propertyId],

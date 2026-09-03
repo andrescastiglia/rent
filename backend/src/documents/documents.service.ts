@@ -28,11 +28,16 @@ import {
 import { GenerateUploadUrlDto } from './dto/generate-upload-url.dto';
 import { getS3Config, S3_BUCKET_NAME } from '../config/s3.config';
 import { UserRole } from '../users/entities/user.entity';
+import {
+  getUserRoles,
+  isAdminOrStaff,
+} from '../common/helpers/role-scope.helper';
 
 export type DocumentActor = {
   id: string;
   companyId?: string;
   role: UserRole;
+  roles?: UserRole[];
 };
 
 const UPLOAD_ENTITY_TABLES: Record<string, string> = {
@@ -42,6 +47,8 @@ const UPLOAD_ENTITY_TABLES: Record<string, string> = {
   units: 'units',
   lease: 'leases',
   leases: 'leases',
+  contract: 'leases',
+  contracts: 'leases',
   tenant: 'tenants',
   tenants: 'tenants',
   owner: 'owners',
@@ -54,6 +61,8 @@ const CANONICAL_ENTITY_TYPES: Record<string, string> = {
   properties: 'property',
   units: 'unit',
   leases: 'lease',
+  contract: 'lease',
+  contracts: 'lease',
   tenants: 'tenant',
   owners: 'owner',
   maintenance: 'maintenance_ticket',
@@ -396,13 +405,19 @@ export class DocumentsService implements OnModuleInit {
       throw new BadRequestException('Unsupported document entity type');
     }
 
-    const query = this.buildEntityAccessQuery(normalized, table, actor.role);
-    const rows = query
-      ? await this.dataSource.query(query, [entityId, companyId, actor.id])
-      : [];
-    if (!Array.isArray(rows) || rows.length !== 1) {
-      throw new NotFoundException('Document parent entity not found');
+    const roles = isAdminOrStaff(actor)
+      ? [UserRole.ADMIN]
+      : getUserRoles(actor);
+    for (const role of roles) {
+      const query = this.buildEntityAccessQuery(normalized, table, role);
+      const rows = query
+        ? await this.dataSource.query(query, [entityId, companyId, actor.id])
+        : [];
+      if (Array.isArray(rows) && rows.length === 1) {
+        return;
+      }
     }
+    throw new NotFoundException('Document parent entity not found');
   }
 
   private buildEntityAccessQuery(

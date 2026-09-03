@@ -18,6 +18,7 @@ import { useTranslations } from "next-intl";
 import { Loader2, MessageSquare, Plus, X } from "lucide-react";
 import { RoleGuard } from "@/components/common/RoleGuard";
 import { useAuth } from "@/contexts/auth-context";
+import { isInternalUser } from "@/lib/permissions";
 
 const STATUSES = Object.values(MaintenanceTicketStatus);
 const PRIORITIES = Object.values(MaintenanceTicketPriority);
@@ -595,7 +596,7 @@ export default function MaintenancePage() {
   const [selectedTicket, setSelectedTicket] =
     useState<MaintenanceTicket | null>(null);
 
-  const canManage = user?.role === "admin" || user?.role === "staff";
+  const canManage = isInternalUser(user);
 
   const load = useCallback(async () => {
     setLoading(true);

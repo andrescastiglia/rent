@@ -11,6 +11,7 @@ export type AiRagContext = {
   companyId: string;
   conversationId: string;
   role: UserRole;
+  roles?: UserRole[];
   permissions?: UserModulePermissions;
 };
 

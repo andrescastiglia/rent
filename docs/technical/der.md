@@ -1,5 +1,7 @@
 # Modelo de Datos (ERD)
 
+> **Estado histórico.** Conservado para trazabilidad; el esquema ejecutable y ADR-001 son autoritativos.
+
 Esquema conceptual de las entidades principales y sus relaciones, organizado por dominio funcional.
 
 ## 1. Dominio Core: Usuarios y Autenticación
@@ -737,4 +739,3 @@ erDiagram
         string status
     }
 ```
-

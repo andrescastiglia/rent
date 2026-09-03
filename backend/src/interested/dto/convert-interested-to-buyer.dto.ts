@@ -19,6 +19,7 @@ const convertInterestedToBuyerZodSchema = z
     password: z.string().min(8).optional(),
     dni: z.string().max(BUYER_DNI_MAX_LENGTH).optional(),
     folderId: z.uuid().optional().describe('UUID of the sale folder'),
+    propertyId: z.uuid().optional().describe('UUID of the property being sold'),
     totalAmount: z.coerce
       .number()
       .min(1)
@@ -44,6 +45,7 @@ const convertInterestedToBuyerZodSchema = z
   .superRefine((value, ctx) => {
     const hasAgreementData =
       value.folderId !== undefined ||
+      value.propertyId !== undefined ||
       value.totalAmount !== undefined ||
       value.installmentAmount !== undefined ||
       value.installmentCount !== undefined ||
@@ -58,6 +60,14 @@ const convertInterestedToBuyerZodSchema = z
         code: 'custom',
         path: ['folderId'],
         message: 'folderId is required when creating a sale agreement',
+      });
+    }
+
+    if (!value.propertyId) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['propertyId'],
+        message: 'propertyId is required when creating a sale agreement',
       });
     }
 
@@ -115,6 +125,10 @@ export class ConvertInterestedToBuyerDto {
   @IsUUID()
   @IsOptional()
   folderId: string;
+
+  @IsUUID()
+  @IsOptional()
+  propertyId: string;
 
   @IsNumber()
   @Min(1)

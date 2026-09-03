@@ -25,7 +25,7 @@ import type {
   AuthResponse,
   RegisterResponse,
 } from "@/types/auth";
-import { getLandingPathForRole } from "@/config/navigation";
+import { getLandingPathForUser } from "@/config/navigation";
 
 interface AuthContextType {
   user: User | null;
@@ -165,7 +165,7 @@ export function AuthProvider({
       emitAuthStoreChange();
 
       const locale = getLocaleFromPath();
-      router.push(`/${locale}${getLandingPathForRole(response.user.role)}`);
+      router.push(`/${locale}${getLandingPathForUser(response.user)}`);
     },
     [getLocaleFromPath, router],
   );

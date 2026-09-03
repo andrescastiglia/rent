@@ -179,6 +179,15 @@ jobs:
           printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
+      - name: Materialize protected runtime environment
+        env:
+          PRODUCTION_ENV_FILE: ${{ secrets.PRODUCTION_ENV_FILE }}
+        run: |
+          set -euo pipefail
+          test -n "$PRODUCTION_ENV_FILE"
+          install -m 600 /dev/null /tmp/rent-production.env
+          printf '%s\n' "$PRODUCTION_ENV_FILE" > /tmp/rent-production.env
+
       - name: Run Ansible playbook for exact SHA
         working-directory: ansible
         env:
@@ -191,7 +200,12 @@ jobs:
             -e "ansible_user=${{ secrets.SSH_USER }}" \
             -e "ansible_port=${{ secrets.SSH_PORT || 22 }}" \
             -e "git_sha=${RELEASE_SHA}" \
-            -e "release_archive=${artifact}"
+            -e "release_archive=${artifact}" \
+            -e "runtime_env_file=/tmp/rent-production.env"
+
+      - name: Remove materialized runtime environment
+        if: always()
+        run: rm -f /tmp/rent-production.env
 
   deploy-android:
     name: Deploy Android

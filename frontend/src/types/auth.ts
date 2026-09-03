@@ -33,7 +33,9 @@ export interface User {
   avatarUrl?: string | null;
   language?: "es" | "en" | "pt";
   role: "admin" | "owner" | "tenant" | "staff" | "buyer";
+  roles?: Array<"admin" | "owner" | "tenant" | "staff" | "buyer">;
   isActive?: boolean;
+  accessRequested?: boolean;
   companyId?: string;
   permissions?: UserModulePermissions;
 }

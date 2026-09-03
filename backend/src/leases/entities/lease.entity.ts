@@ -28,10 +28,17 @@ export enum PaymentFrequency {
 
 export enum LeaseStatus {
   DRAFT = 'draft',
-  PENDING_SIGNATURE = 'pending_signature',
-  SIGNED = 'signed',
   ACTIVE = 'active',
   FINALIZED = 'finalized',
+}
+
+export enum ContractSignatureStatus {
+  NOT_STARTED = 'not_started',
+  PENDING = 'pending',
+  SIGNED = 'signed',
+  DECLINED = 'declined',
+  VOIDED = 'voided',
+  EXPIRED = 'expired',
 }
 
 export enum ContractType {
@@ -96,7 +103,7 @@ export enum LeaseRenewalAlertPeriodicity {
 }
 
 @Entity('leases')
-export class Lease {
+export class Contract {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -149,6 +156,14 @@ export class Lease {
 
   @Column({ type: 'enum', enum: LeaseStatus, default: LeaseStatus.DRAFT })
   status: LeaseStatus;
+
+  @Column({
+    name: 'signature_status',
+    type: 'varchar',
+    length: 30,
+    default: ContractSignatureStatus.NOT_STARTED,
+  })
+  signatureStatus: ContractSignatureStatus;
 
   @Column({ name: 'start_date', type: 'date', nullable: true })
   startDate: Date | null;
@@ -406,9 +421,9 @@ export class Lease {
   @Column({ name: 'previous_lease_id', type: 'uuid', nullable: true })
   previousLeaseId: string | null;
 
-  @ManyToOne(() => Lease, { nullable: true })
+  @ManyToOne(() => Contract, { nullable: true })
   @JoinColumn({ name: 'previous_lease_id' })
-  previousLease: Lease | null;
+  previousLease: Contract | null;
 
   @Column({ name: 'version_number', type: 'integer', default: 1 })
   versionNumber: number;
@@ -437,3 +452,6 @@ export class Lease {
   @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz' })
   deletedAt: Date;
 }
+
+/** @deprecated Import `Contract`; retained while legacy modules are renamed. */
+export { Contract as Lease };

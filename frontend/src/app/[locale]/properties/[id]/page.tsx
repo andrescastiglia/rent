@@ -29,7 +29,7 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { useAuth } from "@/contexts/auth-context";
-import { canManageLeases } from "@/lib/permissions";
+import { canManageLeasesForUser } from "@/lib/permissions";
 
 const STATUS_COLORS: Record<string, string> = {
   ACTIVE: "bg-green-500",
@@ -452,7 +452,7 @@ export default function PropertyDetailPage() {
             </div>
             <div className="text-right">
               <LeaseActionButton
-                canManage={canManageLeases(user?.role)}
+                canManage={canManageLeasesForUser(user)}
                 leaseAction={leaseAction}
                 canCreateLease={canCreateLease}
                 createLeaseHref={createLeaseHref}

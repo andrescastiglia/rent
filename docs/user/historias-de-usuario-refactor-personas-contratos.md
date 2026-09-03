@@ -96,15 +96,16 @@
 - Debajo se muestran actividades del día actual.
 - Cada actividad puede marcarse como finalizada o editarse para agregar comentario.
 
-**ID: US-ACT-03 - Dashboards Separados para Ventas y Alquileres**
+**ID: US-ACT-03 - Inicio Único Orientado a Tareas y Revisión**
 *Como* usuario operativo,
-*quiero* contar con dashboards distintos para ventas y alquileres,
-*para* ordenar la gestion diaria segun el tipo de operacion.
+*quiero* una bandeja única de tareas y revisiones pendientes,
+*para* ordenar la gestión diaria por urgencia sin recorrer módulos.
 
 **Criterios de aceptación**
-- Existe un dashboard principal que deriva a `Ventas` y `Alquileres`.
-- Cada dashboard muestra indicadores y listados propios de su circuito.
-- El acceso a cada dashboard respeta permisos por modulo.
+- El inicio prioriza vencimientos, cobranzas, actividades y acciones por revisar.
+- Cada elemento abre directamente la acción o entidad correspondiente.
+- Ventas y alquileres son vistas secundarias, no puntos de entrada paralelos.
+- Cada tarea respeta roles simultáneos y permisos por módulo.
 
 **ID: US-ACT-04 - Dashboard Operativo de Alquileres**
 *Como* secretaria de una inmobiliaria pequeña,
@@ -188,7 +189,7 @@
 **Criterios de aceptación**
 - Existe una pantalla de carga de contrato actual.
 - Se puede elegir `locador/locatario` para alquiler o `vendedor/comprador` para venta.
-- Se puede adjuntar PDF, DOC, DOCX o TXT.
+- Se puede adjuntar PDF, DOCX, Markdown o TXT.
 - El contrato creado queda operativo y enlazado al archivo cargado.
 
 **ID: US-CON-07 - Plantillas Enriquecidas e Importacion DOCX**
@@ -204,7 +205,7 @@
 
 ## 4. Inquilinos, Pagos y Cuenta Corriente
 
-**ID: US-PAY-01 - Acciones de Contrato y Cobro en Inquilinos**
+**ID: US-PAY-07 - Acciones de Contrato y Cobro en Inquilinos**
 *Como* cobrador,
 *quiero* desde la ficha de inquilino ver contrato, registrar pagos y consultar pagos descendentes,
 *para* operar cobranzas desde una única pantalla.
@@ -214,7 +215,7 @@
 - Se puede registrar pago desde la ficha del inquilino.
 - Se muestra listado de pagos ordenado por fecha descendente.
 
-**ID: US-PAY-04 - Cobro Directo con Minimos Pasos**
+**ID: US-PAY-08 - Cobro Directo con Minimos Pasos**
 *Como* secretaria,
 *quiero* registrar un pago desde la busqueda o la ficha del contrato con la menor cantidad de pasos posibles,
 *para* cobrar rapido sin completar datos innecesarios.
@@ -224,7 +225,7 @@
 - El formulario llega con contrato y monto sugerido precargados cuando sea posible.
 - Solo se exige la informacion minima para registrar el cobro.
 
-**ID: US-PAY-02 - Cálculo de Deuda y Mora al Registrar Pago**
+**ID: US-PAY-09 - Cálculo de Deuda y Mora al Registrar Pago**
 *Como* sistema,
 *quiero* calcular automáticamente deuda y posibles moras al registrar un pago de inquilino,
 *para* mantener correcta la cuenta corriente y el saldo pendiente.
@@ -234,7 +235,7 @@
 - Si corresponde, se calcula mora según reglas vigentes del contrato.
 - El resultado actualiza deuda total, saldo de factura y estado de cuenta.
 
-**ID: US-PAY-03 - Nota de Crédito por Mora al Cancelar Factura**
+**ID: US-PAY-10 - Nota de Crédito por Mora al Cancelar Factura**
 *Como* administrador,
 *quiero* generar nota de crédito asociada cuando se cancele una factura con mora,
 *para* reflejar correctamente la compensación de mora en la factura relacionada.

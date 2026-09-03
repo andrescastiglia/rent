@@ -41,7 +41,7 @@ const formatDateTime = (value?: string): string => {
 const getOwnerDisplayName = (
   firstName?: string,
   lastName?: string,
-  email?: string,
+  email?: string | null,
 ) => `${firstName ?? ''} ${lastName ?? ''}`.trim() || email || '-';
 
 const getQueryErrorMessage = (error: unknown): string =>

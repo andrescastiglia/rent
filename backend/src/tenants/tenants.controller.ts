@@ -28,6 +28,7 @@ interface AuthenticatedRequest {
     id: string;
     companyId: string;
     role: UserRole;
+    roles?: UserRole[];
   };
 }
 
@@ -105,6 +106,7 @@ export class TenantsController {
       id: req.user.id,
       companyId: req.user.companyId,
       role: req.user.role,
+      roles: req.user.roles,
     });
   }
 

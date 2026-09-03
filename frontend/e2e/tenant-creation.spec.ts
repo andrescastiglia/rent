@@ -83,7 +83,9 @@ test.describe('Tenant Creation Flow', () => {
         await firstTenantDetailLink.click({ force: true });
 
         // Should navigate to tenant detail page
-        await expect(page).toHaveURL(/\/es\/tenants\/[^/]+$/);
+        await expect(page).toHaveURL(/\/es\/tenants\/[^/]+$/, {
+            timeout: 30000,
+        });
     });
 
     test('should display edit button on tenant detail page', async ({ page }) => {

@@ -19,6 +19,7 @@ type FormValues = {
   peopleCount: string;
   minAmount: string;
   maxAmount: string;
+  verifiedMonthlyIncome: string;
   hasPets: boolean;
   preferredCity: string;
   desiredFeaturesCsv: string;
@@ -47,6 +48,7 @@ const emptyForm: FormValues = {
   peopleCount: '',
   minAmount: '',
   maxAmount: '',
+  verifiedMonthlyIncome: '',
   hasPets: false,
   preferredCity: '',
   desiredFeaturesCsv: '',
@@ -115,6 +117,7 @@ const profileToForm = (profile?: InterestedProfile): FormValues => {
     peopleCount: profile.peopleCount?.toString() ?? '',
     minAmount: profile.minAmount?.toString() ?? '',
     maxAmount: profile.maxAmount?.toString() ?? '',
+    verifiedMonthlyIncome: profile.verifiedMonthlyIncome?.toString() ?? '',
     hasPets: profile.hasPets ?? false,
     preferredCity: profile.preferredCity ?? '',
     desiredFeaturesCsv: (profile.desiredFeatures ?? []).join(', '),
@@ -172,6 +175,7 @@ export function InterestedForm({
       peopleCount: toOptionalNumber(form.peopleCount),
       minAmount: toOptionalNumber(form.minAmount),
       maxAmount: toOptionalNumber(form.maxAmount),
+      verifiedMonthlyIncome: toOptionalNumber(form.verifiedMonthlyIncome),
       hasPets: form.hasPets,
       preferredCity: form.preferredCity.trim() || undefined,
       desiredFeatures: splitFeatures(form.desiredFeaturesCsv),
@@ -294,6 +298,15 @@ export function InterestedForm({
         }
         keyboardType="numeric"
         testID={`${testIDPrefix}.maxAmount`}
+      />
+      <Field
+        label={t('interested.fields.verifiedMonthlyIncome')}
+        value={form.verifiedMonthlyIncome}
+        onChangeText={(verifiedMonthlyIncome) =>
+          setForm((prev) => ({ ...prev, verifiedMonthlyIncome }))
+        }
+        keyboardType="numeric"
+        testID={`${testIDPrefix}.verifiedMonthlyIncome`}
       />
       <Field
         label={t('interested.fields.preferredCity')}

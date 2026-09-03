@@ -36,11 +36,12 @@ node scripts/rag-freshness-benchmark.js \
   > /tmp/rag-freshness.json
 ```
 
-Ejecutar en paralelo la carga de lecturas:
+Ejecutar en paralelo la carga de lecturas contra el entorno local aislado. Esta
+prueba no se ejecuta contra `oracle`, que es el único entorno productivo:
 
 ```bash
 cd backend
-AI_EVAL_BASE_URL=https://staging.example.com \
+AI_EVAL_BASE_URL=http://127.0.0.1:3001 \
 AI_LOAD_JWT="$AI_LOAD_JWT" \
 RAG_LOAD_RATE=10 \
 RAG_LOAD_DURATION=15m \
@@ -68,7 +69,8 @@ muestra shadow insuficiente para el tráfico del ambiente.
 - Importar `observability/grafana/dashboards/rag-overview.json`.
 - Cargar `observability/prometheus/rag-alerts.yml`.
 - Confirmar que `/metrics` y Pushgateway exponen todas las series usadas.
-- Disparar cada alerta en staging con un umbral temporal controlado.
+- Disparar cada alerta en el stack de observabilidad local con un umbral
+  temporal controlado.
 - Conservar captura del estado `firing` y de su recuperación.
 
 La purga debe estar programada semanalmente:
@@ -117,4 +119,5 @@ integridad, versión de pgvector y cantidad de chunks sin embedding.
 Promover por empresa: `RAG_SHADOW`, `RAG_READ`, `HYBRID`. Mantener una ventana
 estable acordada, revisar alertas y evaluación, y recién entonces sumar la
 siguiente empresa. `AI_RAG_ENABLED_COMPANY_IDS=*` queda prohibido hasta que
-todas las evidencias anteriores estén aprobadas en cada ambiente.
+todas las evidencias locales y la observación no destructiva estén aprobadas
+para cada compañía productiva.

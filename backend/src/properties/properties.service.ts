@@ -15,16 +15,18 @@ import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
 import { PropertyFiltersDto } from './dto/property-filters.dto';
 import { Owner } from '../owners/entities/owner.entity';
-import {
-  ContractType,
-  Lease,
-  LeaseStatus,
-} from '../leases/entities/lease.entity';
+import { ContractType, LeaseStatus } from '../leases/entities/lease.entity';
 import { UserRole } from '../users/entities/user.entity';
+import {
+  getUserRoles,
+  hasRole,
+  isAdminOrStaff,
+} from '../common/helpers/role-scope.helper';
 
 interface UserContext {
   id: string;
   role: string;
+  roles?: UserRole[];
   companyId?: string;
   email?: string | null;
   phone?: string | null;
@@ -72,7 +74,7 @@ export class PropertiesService {
       normalizedImages,
       user.companyId,
       undefined,
-      user.role === UserRole.OWNER ? user.id : undefined,
+      this.isScopedOwner(user) ? user.id : undefined,
     );
 
     const property = this.propertiesRepository.create({
@@ -86,7 +88,7 @@ export class PropertiesService {
       imageIds,
       createdProperty.id,
       user.companyId,
-      user.role === UserRole.OWNER ? user.id : undefined,
+      this.isScopedOwner(user) ? user.id : undefined,
     );
 
     return createdProperty;
@@ -293,7 +295,7 @@ export class PropertiesService {
         updatePropertyDto.images,
         property.companyId,
         property.id,
-        user.role === UserRole.OWNER ? user.id : undefined,
+        this.isScopedOwner(user) ? user.id : undefined,
       );
     }
 
@@ -305,7 +307,7 @@ export class PropertiesService {
         nextImageIds,
         property.id,
         property.companyId,
-        user.role === UserRole.OWNER ? user.id : undefined,
+        this.isScopedOwner(user) ? user.id : undefined,
       );
       const removedImageRefs = this.findRemovedImageRefs(
         previousImageRefs,
@@ -356,7 +358,7 @@ export class PropertiesService {
     const deleted = await this.deleteTemporaryPropertyImages(
       images,
       user.companyId,
-      user.role === UserRole.OWNER ? user.id : undefined,
+      this.isScopedOwner(user) ? user.id : undefined,
     );
     return { deleted };
   }
@@ -510,32 +512,45 @@ export class PropertiesService {
     query: SelectQueryBuilder<Property>,
     user: UserContext,
   ) {
-    if (user.role === UserRole.ADMIN || user.role === UserRole.STAFF) {
+    if (isAdminOrStaff(user)) {
       return;
     }
 
-    if (user.role === UserRole.OWNER) {
-      query.andWhere('owner.user_id = :scopeUserId', {
+    const roles = getUserRoles(user);
+    const scopes = [
+      roles.includes(UserRole.OWNER) ? 'owner.user_id = :scopeUserId' : null,
+      roles.includes(UserRole.TENANT)
+        ? `EXISTS (
+            SELECT 1 FROM leases tenant_lease
+            JOIN tenants scope_tenant ON scope_tenant.id = tenant_lease.tenant_id
+            WHERE tenant_lease.property_id = property.id
+              AND tenant_lease.contract_type = :rentalType
+              AND tenant_lease.status = :activeStatus
+              AND tenant_lease.deleted_at IS NULL
+              AND scope_tenant.deleted_at IS NULL
+              AND scope_tenant.user_id = :scopeUserId
+          )`
+        : null,
+      roles.includes(UserRole.BUYER)
+        ? `EXISTS (
+            SELECT 1 FROM leases sale_contract
+            JOIN buyers scope_buyer ON scope_buyer.id = sale_contract.buyer_id
+            WHERE sale_contract.property_id = property.id
+              AND sale_contract.contract_type = :saleType
+              AND sale_contract.deleted_at IS NULL
+              AND scope_buyer.deleted_at IS NULL
+              AND scope_buyer.user_id = :scopeUserId
+          )`
+        : null,
+    ].filter((scope): scope is string => Boolean(scope));
+
+    if (scopes.length > 0) {
+      query.andWhere(`(${scopes.join(' OR ')})`, {
         scopeUserId: user.id,
+        rentalType: ContractType.RENTAL,
+        saleType: ContractType.SALE,
+        activeStatus: LeaseStatus.ACTIVE,
       });
-      return;
-    }
-
-    if (user.role === UserRole.TENANT) {
-      query
-        .innerJoin(
-          Lease,
-          'tenantLease',
-          'tenantLease.property_id = property.id AND tenantLease.contract_type = :rentalType AND tenantLease.status = :activeStatus AND tenantLease.deleted_at IS NULL',
-          {
-            rentalType: ContractType.RENTAL,
-            activeStatus: LeaseStatus.ACTIVE,
-          },
-        )
-        .innerJoin('tenantLease.tenant', 'tenant')
-        .andWhere('tenant.user_id = :scopeUserId', {
-          scopeUserId: user.id,
-        });
       return;
     }
 
@@ -558,7 +573,7 @@ export class PropertiesService {
         throw new NotFoundException('Owner not found for this company');
       }
 
-      if (user.role !== 'admin' && selectedOwner.userId !== user.id) {
+      if (!isAdminOrStaff(user) && selectedOwner.userId !== user.id) {
         throw new ForbiddenException(
           'You can only create properties for your own owner profile',
         );
@@ -578,7 +593,7 @@ export class PropertiesService {
       return ownerByUser;
     }
 
-    if (user.role === 'admin') {
+    if (isAdminOrStaff(user)) {
       throw new BadRequestException(
         'ownerId is required for admin users when creating properties',
       );
@@ -821,5 +836,9 @@ export class PropertiesService {
     }
 
     return imageId;
+  }
+
+  private isScopedOwner(user: UserContext): boolean {
+    return hasRole(user, UserRole.OWNER) && !isAdminOrStaff(user);
   }
 }

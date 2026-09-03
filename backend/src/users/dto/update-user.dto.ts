@@ -5,11 +5,14 @@ import {
   IsOptional,
   IsString,
   IsBoolean,
+  IsArray,
+  IsEnum,
   MaxLength,
 } from 'class-validator';
 import {
   UserModulePermissions,
   USER_EMAIL_MAX_LENGTH,
+  UserRole,
 } from '../entities/user.entity';
 import { z } from 'zod';
 
@@ -26,6 +29,8 @@ export const updateUserZodSchema = z
       .describe('User interface language: es|en|pt'),
     permissions: z.record(z.string(), z.boolean()).optional(),
     whatsappEnabled: z.boolean().optional(),
+    role: z.enum(UserRole).optional(),
+    roles: z.array(z.enum(UserRole)).min(1).optional(),
   })
   .strict();
 
@@ -65,4 +70,13 @@ export class UpdateUserDto {
   @IsBoolean()
   @IsOptional()
   whatsappEnabled?: boolean;
+
+  @IsEnum(UserRole)
+  @IsOptional()
+  role?: UserRole;
+
+  @IsArray()
+  @IsEnum(UserRole, { each: true })
+  @IsOptional()
+  roles?: UserRole[];
 }

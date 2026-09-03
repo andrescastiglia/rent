@@ -1858,7 +1858,7 @@
         ]
       }
     },
-    "/leases": {
+    "/contracts": {
       "post": {
         "operationId": "Leases_create",
         "parameters": [],
@@ -1878,7 +1878,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Lease"
+                  "$ref": "#/components/schemas/Contract"
                 }
               }
             }
@@ -1935,8 +1935,6 @@
               "type": "string",
               "enum": [
                 "draft",
-                "pending_signature",
-                "signed",
                 "active",
                 "finalized"
               ]
@@ -2003,7 +2001,150 @@
         ]
       }
     },
-    "/leases/templates": {
+    "/leases": {
+      "post": {
+        "operationId": "Leases_createLegacy",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLeaseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Contract"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      },
+      "get": {
+        "operationId": "Leases_findAllLegacy",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenantId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "buyerId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "buyerProfileId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "active",
+                "finalized"
+              ]
+            }
+          },
+          {
+            "name": "contractType",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "rental",
+                "sale"
+              ]
+            }
+          },
+          {
+            "name": "propertyAddress",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeFinalized",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/contracts/templates": {
       "get": {
         "operationId": "Leases_listTemplates",
         "parameters": [
@@ -2069,7 +2210,73 @@
         ]
       }
     },
-    "/leases/templates/import-docx": {
+    "/leases/templates": {
+      "get": {
+        "operationId": "Leases_listTemplatesLegacy",
+        "parameters": [
+          {
+            "name": "contractType",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "rental",
+                "sale"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LeaseContractTemplate"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      },
+      "post": {
+        "operationId": "Leases_createTemplateLegacy",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLeaseContractTemplateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseContractTemplate"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/contracts/templates/import-docx": {
       "post": {
         "operationId": "Leases_importTemplateDocx",
         "parameters": [],
@@ -2100,7 +2307,38 @@
         ]
       }
     },
-    "/leases/templates/{templateId}": {
+    "/leases/templates/import-docx": {
+      "post": {
+        "operationId": "Leases_importTemplateDocxLegacy",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportLeaseTemplateDocxDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/contracts/templates/{templateId}": {
       "patch": {
         "operationId": "Leases_updateTemplate",
         "parameters": [
@@ -2140,7 +2378,47 @@
         ]
       }
     },
-    "/leases/{id}": {
+    "/leases/templates/{templateId}": {
+      "patch": {
+        "operationId": "Leases_updateTemplateLegacy",
+        "parameters": [
+          {
+            "name": "templateId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLeaseContractTemplateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseContractTemplate"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/contracts/{id}": {
       "get": {
         "operationId": "Leases_findOne",
         "parameters": [
@@ -2159,7 +2437,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Lease"
+                  "$ref": "#/components/schemas/Contract"
                 }
               }
             }
@@ -2197,7 +2475,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Lease"
+                  "$ref": "#/components/schemas/Contract"
                 }
               }
             }
@@ -2229,7 +2507,96 @@
         ]
       }
     },
-    "/leases/{id}/draft/render": {
+    "/leases/{id}": {
+      "get": {
+        "operationId": "Leases_findOneLegacy",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Contract"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      },
+      "patch": {
+        "operationId": "Leases_updateLegacy",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLeaseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Contract"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      },
+      "delete": {
+        "operationId": "Leases_removeLegacy",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/contracts/{id}/draft/render": {
       "post": {
         "operationId": "Leases_renderDraft",
         "parameters": [
@@ -2258,7 +2625,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Lease"
+                  "$ref": "#/components/schemas/Contract"
                 }
               }
             }
@@ -2269,7 +2636,47 @@
         ]
       }
     },
-    "/leases/{id}/draft-text": {
+    "/leases/{id}/draft/render": {
+      "post": {
+        "operationId": "Leases_renderDraftLegacy",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenderLeaseDraftDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Contract"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/contracts/{id}/draft-text": {
       "patch": {
         "operationId": "Leases_updateDraftText",
         "parameters": [
@@ -2298,7 +2705,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Lease"
+                  "$ref": "#/components/schemas/Contract"
                 }
               }
             }
@@ -2309,7 +2716,47 @@
         ]
       }
     },
-    "/leases/{id}/confirm": {
+    "/leases/{id}/draft-text": {
+      "patch": {
+        "operationId": "Leases_updateDraftTextLegacy",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLeaseDraftTextDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Contract"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/contracts/{id}/confirm": {
       "post": {
         "operationId": "Leases_confirmDraft",
         "parameters": [
@@ -2338,7 +2785,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Lease"
+                  "$ref": "#/components/schemas/Contract"
                 }
               }
             }
@@ -2349,7 +2796,47 @@
         ]
       }
     },
-    "/leases/{id}/activate": {
+    "/leases/{id}/confirm": {
+      "post": {
+        "operationId": "Leases_confirmDraftLegacy",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmLeaseDraftDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Contract"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/contracts/{id}/activate": {
       "patch": {
         "operationId": "Leases_activate",
         "parameters": [
@@ -2368,7 +2855,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Lease"
+                  "$ref": "#/components/schemas/Contract"
                 }
               }
             }
@@ -2379,7 +2866,37 @@
         ]
       }
     },
-    "/leases/{id}/terminate": {
+    "/leases/{id}/activate": {
+      "patch": {
+        "operationId": "Leases_activateLegacy",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Contract"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/contracts/{id}/terminate": {
       "patch": {
         "operationId": "Leases_terminate",
         "parameters": [
@@ -2408,7 +2925,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Lease"
+                  "$ref": "#/components/schemas/Contract"
                 }
               }
             }
@@ -2419,7 +2936,47 @@
         ]
       }
     },
-    "/leases/{id}/finalize": {
+    "/leases/{id}/terminate": {
+      "patch": {
+        "operationId": "Leases_terminateLegacy",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaseStatusReasonDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Contract"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/contracts/{id}/finalize": {
       "patch": {
         "operationId": "Leases_finalize",
         "parameters": [
@@ -2448,7 +3005,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Lease"
+                  "$ref": "#/components/schemas/Contract"
                 }
               }
             }
@@ -2459,7 +3016,47 @@
         ]
       }
     },
-    "/leases/{id}/renew": {
+    "/leases/{id}/finalize": {
+      "patch": {
+        "operationId": "Leases_finalizeLegacy",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaseStatusReasonDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Contract"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/contracts/{id}/renew": {
       "patch": {
         "operationId": "Leases_renew",
         "parameters": [
@@ -2488,7 +3085,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Lease"
+                  "$ref": "#/components/schemas/Contract"
                 }
               }
             }
@@ -2499,7 +3096,47 @@
         ]
       }
     },
-    "/leases/import-current": {
+    "/leases/{id}/renew": {
+      "patch": {
+        "operationId": "Leases_renewLegacy",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenewLeaseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Contract"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/contracts/import-current": {
       "post": {
         "operationId": "Leases_importCurrentContract",
         "parameters": [],
@@ -2519,7 +3156,38 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Lease"
+                  "$ref": "#/components/schemas/Contract"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Leases"
+        ]
+      }
+    },
+    "/leases/import-current": {
+      "post": {
+        "operationId": "Leases_importCurrentContractLegacy",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportCurrentLeaseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Contract"
                 }
               }
             }
@@ -2684,9 +3352,32 @@
         ]
       }
     },
-    "/leases/{id}/contract": {
+    "/contracts/{id}/contract": {
       "get": {
         "operationId": "LeasesContract_downloadContract",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "LeasesContract"
+        ]
+      }
+    },
+    "/leases/{id}/contract": {
+      "get": {
+        "operationId": "LeasesContract_downloadContractLegacy",
         "parameters": [
           {
             "name": "id",
@@ -3841,7 +4532,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/Lease"
+                    "$ref": "#/components/schemas/Contract"
                   }
                 }
               }
@@ -5188,6 +5879,15 @@
                 "sql",
                 "rejected"
               ]
+            }
+          },
+          {
+            "name": "minVerifiedMonthlyIncome",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 0,
+              "type": "number"
             }
           },
           {
@@ -7901,6 +8601,19 @@
               "buyer"
             ]
           },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "owner",
+                "tenant",
+                "staff",
+                "buyer"
+              ]
+            }
+          },
           "phone": {
             "type": "string"
           },
@@ -7993,6 +8706,29 @@
           },
           "whatsappEnabled": {
             "type": "boolean"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "owner",
+              "tenant",
+              "staff",
+              "buyer"
+            ]
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "owner",
+                "tenant",
+                "staff",
+                "buyer"
+              ]
+            }
           }
         }
       },
@@ -8372,11 +9108,29 @@
             ],
             "type": "string"
           },
+          "roles": {
+            "description": "All roles held by the same person; `role` is the legacy primary role.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "owner",
+                "tenant",
+                "staff",
+                "buyer"
+              ]
+            }
+          },
           "language": {
             "type": "string"
           },
           "isActive": {
             "type": "boolean"
+          },
+          "accessRequested": {
+            "type": "boolean",
+            "description": "True only when this person has or requested authenticated access."
           },
           "isEmailVerified": {
             "type": "boolean"
@@ -8423,8 +9177,10 @@
           "avatarUrl",
           "permissions",
           "role",
+          "roles",
           "language",
           "isActive",
+          "accessRequested",
           "isEmailVerified",
           "emailVerifiedAt",
           "lastLoginAt",
@@ -9366,6 +10122,668 @@
           "deletedAt"
         ]
       },
+      "Currency": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "decimalPlaces": {
+            "type": "number"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "symbol",
+          "decimalPlaces",
+          "isActive",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "LeaseContractTemplate": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "companyId": {
+            "type": "string"
+          },
+          "company": {
+            "$ref": "#/components/schemas/Company"
+          },
+          "name": {
+            "type": "string"
+          },
+          "contractType": {
+            "enum": [
+              "rental",
+              "sale"
+            ],
+            "type": "string"
+          },
+          "templateBody": {
+            "type": "string"
+          },
+          "templateFormat": {
+            "enum": [
+              "plain_text",
+              "html"
+            ],
+            "type": "string"
+          },
+          "sourceFileName": {
+            "type": "string",
+            "nullable": true
+          },
+          "sourceMimeType": {
+            "type": "string",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "deletedAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "companyId",
+          "company",
+          "name",
+          "contractType",
+          "templateBody",
+          "templateFormat",
+          "sourceFileName",
+          "sourceMimeType",
+          "isActive",
+          "createdAt",
+          "updatedAt",
+          "deletedAt"
+        ]
+      },
+      "LeaseAmendment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "leaseId": {
+            "type": "string"
+          },
+          "lease": {
+            "$ref": "#/components/schemas/Contract"
+          },
+          "companyId": {
+            "type": "string"
+          },
+          "company": {
+            "$ref": "#/components/schemas/Company"
+          },
+          "amendmentNumber": {
+            "type": "number"
+          },
+          "changeType": {
+            "enum": [
+              "rent_increase",
+              "rent_decrease",
+              "extension",
+              "early_termination",
+              "clause_modification",
+              "guarantor_change",
+              "other"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "pending_approval",
+              "approved",
+              "rejected",
+              "cancelled"
+            ],
+            "type": "string"
+          },
+          "effectiveDate": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "previousValues": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "newValues": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "requestedBy": {
+            "type": "string"
+          },
+          "requester": {
+            "$ref": "#/components/schemas/User"
+          },
+          "approvedBy": {
+            "type": "string"
+          },
+          "approver": {
+            "$ref": "#/components/schemas/User"
+          },
+          "approvedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "rejectionReason": {
+            "type": "string"
+          },
+          "documentUrl": {
+            "type": "string"
+          },
+          "signedByTenant": {
+            "type": "boolean"
+          },
+          "signedByOwner": {
+            "type": "boolean"
+          },
+          "signedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "deletedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "leaseId",
+          "lease",
+          "companyId",
+          "company",
+          "amendmentNumber",
+          "changeType",
+          "status",
+          "effectiveDate",
+          "description",
+          "previousValues",
+          "newValues",
+          "requestedBy",
+          "requester",
+          "approvedBy",
+          "approver",
+          "approvedAt",
+          "rejectionReason",
+          "documentUrl",
+          "signedByTenant",
+          "signedByOwner",
+          "signedAt",
+          "notes",
+          "createdAt",
+          "updatedAt",
+          "deletedAt"
+        ]
+      },
+      "Contract": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "companyId": {
+            "type": "string"
+          },
+          "company": {
+            "$ref": "#/components/schemas/Company"
+          },
+          "propertyId": {
+            "type": "string",
+            "nullable": true
+          },
+          "property": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Property"
+              }
+            ]
+          },
+          "tenantId": {
+            "type": "string",
+            "nullable": true
+          },
+          "tenant": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Tenant"
+              }
+            ]
+          },
+          "buyerId": {
+            "type": "string",
+            "nullable": true
+          },
+          "buyer": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Buyer"
+              }
+            ]
+          },
+          "ownerId": {
+            "type": "string"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/Owner"
+          },
+          "leaseNumber": {
+            "type": "string"
+          },
+          "contractType": {
+            "enum": [
+              "rental",
+              "sale"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "active",
+              "finalized"
+            ],
+            "type": "string"
+          },
+          "signatureStatus": {
+            "enum": [
+              "not_started",
+              "pending",
+              "signed",
+              "declined",
+              "voided",
+              "expired"
+            ],
+            "type": "string"
+          },
+          "startDate": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "endDate": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "monthlyRent": {
+            "type": "number",
+            "nullable": true
+          },
+          "currency": {
+            "type": "string"
+          },
+          "currencyRef": {
+            "$ref": "#/components/schemas/Currency"
+          },
+          "paymentFrequency": {
+            "enum": [
+              "monthly",
+              "bimonthly",
+              "quarterly",
+              "semiannual",
+              "annual"
+            ],
+            "type": "string"
+          },
+          "paymentDueDay": {
+            "type": "number"
+          },
+          "renewalAlertEnabled": {
+            "type": "boolean"
+          },
+          "renewalAlertPeriodicity": {
+            "enum": [
+              "monthly",
+              "four_months",
+              "custom"
+            ],
+            "type": "string"
+          },
+          "renewalAlertCustomDays": {
+            "type": "number",
+            "nullable": true
+          },
+          "renewalAlertLastSentAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "billingFrequency": {
+            "enum": [
+              "first_of_month",
+              "last_of_month",
+              "contract_date",
+              "custom"
+            ],
+            "type": "string"
+          },
+          "billingDay": {
+            "type": "number"
+          },
+          "nextBillingDate": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "lastBillingDate": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "lateFeeType": {
+            "enum": [
+              "none",
+              "fixed",
+              "percentage",
+              "daily_fixed",
+              "daily_percentage"
+            ],
+            "type": "string"
+          },
+          "lateFeeValue": {
+            "type": "number"
+          },
+          "lateFeeGraceDays": {
+            "type": "number"
+          },
+          "lateFeeMax": {
+            "type": "number"
+          },
+          "autoGenerateInvoices": {
+            "type": "boolean"
+          },
+          "adjustmentType": {
+            "enum": [
+              "fixed",
+              "percentage",
+              "inflation_index"
+            ],
+            "type": "string"
+          },
+          "adjustmentValue": {
+            "type": "number"
+          },
+          "adjustmentFrequencyMonths": {
+            "type": "number"
+          },
+          "lastAdjustmentDate": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "nextAdjustmentDate": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "increaseClauseType": {
+            "enum": [
+              "none",
+              "annual_fixed",
+              "annual_percentage",
+              "inflation_linked",
+              "custom_schedule"
+            ],
+            "type": "string"
+          },
+          "increaseClauseValue": {
+            "type": "number"
+          },
+          "increaseClauseSchedule": {
+            "type": "object"
+          },
+          "inflationIndexType": {
+            "enum": [
+              "icl",
+              "ipc",
+              "igp_m"
+            ],
+            "type": "string"
+          },
+          "securityDeposit": {
+            "type": "number"
+          },
+          "fiscalValue": {
+            "type": "number",
+            "nullable": true
+          },
+          "depositCurrency": {
+            "type": "string"
+          },
+          "expensesIncluded": {
+            "type": "boolean"
+          },
+          "additionalExpenses": {
+            "type": "number"
+          },
+          "termsAndConditions": {
+            "type": "string"
+          },
+          "specialClauses": {
+            "type": "string"
+          },
+          "contractPdfUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "templateId": {
+            "type": "string",
+            "nullable": true
+          },
+          "template": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LeaseContractTemplate"
+              }
+            ]
+          },
+          "templateName": {
+            "type": "string",
+            "nullable": true
+          },
+          "draftContractText": {
+            "type": "string",
+            "nullable": true
+          },
+          "draftContractFormat": {
+            "nullable": true,
+            "enum": [
+              "plain_text",
+              "html"
+            ],
+            "type": "string"
+          },
+          "confirmedContractText": {
+            "type": "string",
+            "nullable": true
+          },
+          "confirmedContractFormat": {
+            "nullable": true,
+            "enum": [
+              "plain_text",
+              "html"
+            ],
+            "type": "string"
+          },
+          "confirmedAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "previousLeaseId": {
+            "type": "string",
+            "nullable": true
+          },
+          "previousLease": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Contract"
+              }
+            ]
+          },
+          "versionNumber": {
+            "type": "number"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "signedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "signedByTenant": {
+            "type": "boolean"
+          },
+          "signedByOwner": {
+            "type": "boolean"
+          },
+          "amendments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LeaseAmendment"
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "deletedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "companyId",
+          "company",
+          "propertyId",
+          "property",
+          "tenantId",
+          "tenant",
+          "buyerId",
+          "buyer",
+          "ownerId",
+          "owner",
+          "leaseNumber",
+          "contractType",
+          "status",
+          "signatureStatus",
+          "startDate",
+          "endDate",
+          "monthlyRent",
+          "currency",
+          "currencyRef",
+          "paymentFrequency",
+          "paymentDueDay",
+          "renewalAlertEnabled",
+          "renewalAlertPeriodicity",
+          "renewalAlertCustomDays",
+          "renewalAlertLastSentAt",
+          "billingFrequency",
+          "billingDay",
+          "nextBillingDate",
+          "lastBillingDate",
+          "lateFeeType",
+          "lateFeeValue",
+          "lateFeeGraceDays",
+          "lateFeeMax",
+          "autoGenerateInvoices",
+          "adjustmentType",
+          "adjustmentValue",
+          "adjustmentFrequencyMonths",
+          "lastAdjustmentDate",
+          "nextAdjustmentDate",
+          "increaseClauseType",
+          "increaseClauseValue",
+          "increaseClauseSchedule",
+          "inflationIndexType",
+          "securityDeposit",
+          "fiscalValue",
+          "depositCurrency",
+          "expensesIncluded",
+          "additionalExpenses",
+          "termsAndConditions",
+          "specialClauses",
+          "contractPdfUrl",
+          "templateId",
+          "template",
+          "templateName",
+          "draftContractText",
+          "draftContractFormat",
+          "confirmedContractText",
+          "confirmedContractFormat",
+          "confirmedAt",
+          "previousLeaseId",
+          "previousLease",
+          "versionNumber",
+          "notes",
+          "signedAt",
+          "signedByTenant",
+          "signedByOwner",
+          "amendments",
+          "createdAt",
+          "updatedAt",
+          "deletedAt"
+        ]
+      },
       "SaleReceipt": {
         "type": "object",
         "properties": {
@@ -9460,6 +10878,32 @@
               }
             ]
           },
+          "contractId": {
+            "type": "string",
+            "nullable": true
+          },
+          "contract": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Contract"
+              }
+            ]
+          },
+          "propertyId": {
+            "type": "string",
+            "nullable": true
+          },
+          "property": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Property"
+              }
+            ]
+          },
           "buyerName": {
             "type": "string"
           },
@@ -9517,6 +10961,10 @@
           "folder",
           "buyerId",
           "buyer",
+          "contractId",
+          "contract",
+          "propertyId",
+          "property",
           "buyerName",
           "buyerPhone",
           "totalAmount",
@@ -9810,6 +11258,10 @@
           "maxAmount": {
             "type": "number"
           },
+          "verifiedMonthlyIncome": {
+            "type": "number",
+            "nullable": true
+          },
           "hasPets": {
             "type": "boolean"
           },
@@ -10012,6 +11464,7 @@
           "peopleCount",
           "minAmount",
           "maxAmount",
+          "verifiedMonthlyIncome",
           "hasPets",
           "guaranteeTypes",
           "preferredZones",
@@ -11286,658 +12739,6 @@
           "propertyId"
         ]
       },
-      "Currency": {
-        "type": "object",
-        "properties": {
-          "code": {
-            "type": "string"
-          },
-          "symbol": {
-            "type": "string"
-          },
-          "decimalPlaces": {
-            "type": "number"
-          },
-          "isActive": {
-            "type": "boolean"
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "code",
-          "symbol",
-          "decimalPlaces",
-          "isActive",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "LeaseContractTemplate": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "companyId": {
-            "type": "string"
-          },
-          "company": {
-            "$ref": "#/components/schemas/Company"
-          },
-          "name": {
-            "type": "string"
-          },
-          "contractType": {
-            "enum": [
-              "rental",
-              "sale"
-            ],
-            "type": "string"
-          },
-          "templateBody": {
-            "type": "string"
-          },
-          "templateFormat": {
-            "enum": [
-              "plain_text",
-              "html"
-            ],
-            "type": "string"
-          },
-          "sourceFileName": {
-            "type": "string",
-            "nullable": true
-          },
-          "sourceMimeType": {
-            "type": "string",
-            "nullable": true
-          },
-          "isActive": {
-            "type": "boolean"
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "deletedAt": {
-            "format": "date-time",
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "id",
-          "companyId",
-          "company",
-          "name",
-          "contractType",
-          "templateBody",
-          "templateFormat",
-          "sourceFileName",
-          "sourceMimeType",
-          "isActive",
-          "createdAt",
-          "updatedAt",
-          "deletedAt"
-        ]
-      },
-      "LeaseAmendment": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "leaseId": {
-            "type": "string"
-          },
-          "lease": {
-            "$ref": "#/components/schemas/Lease"
-          },
-          "companyId": {
-            "type": "string"
-          },
-          "company": {
-            "$ref": "#/components/schemas/Company"
-          },
-          "amendmentNumber": {
-            "type": "number"
-          },
-          "changeType": {
-            "enum": [
-              "rent_increase",
-              "rent_decrease",
-              "extension",
-              "early_termination",
-              "clause_modification",
-              "guarantor_change",
-              "other"
-            ],
-            "type": "string"
-          },
-          "status": {
-            "enum": [
-              "draft",
-              "pending_approval",
-              "approved",
-              "rejected",
-              "cancelled"
-            ],
-            "type": "string"
-          },
-          "effectiveDate": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "previousValues": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "newValues": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "requestedBy": {
-            "type": "string"
-          },
-          "requester": {
-            "$ref": "#/components/schemas/User"
-          },
-          "approvedBy": {
-            "type": "string"
-          },
-          "approver": {
-            "$ref": "#/components/schemas/User"
-          },
-          "approvedAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "rejectionReason": {
-            "type": "string"
-          },
-          "documentUrl": {
-            "type": "string"
-          },
-          "signedByTenant": {
-            "type": "boolean"
-          },
-          "signedByOwner": {
-            "type": "boolean"
-          },
-          "signedAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "notes": {
-            "type": "string"
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "deletedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "leaseId",
-          "lease",
-          "companyId",
-          "company",
-          "amendmentNumber",
-          "changeType",
-          "status",
-          "effectiveDate",
-          "description",
-          "previousValues",
-          "newValues",
-          "requestedBy",
-          "requester",
-          "approvedBy",
-          "approver",
-          "approvedAt",
-          "rejectionReason",
-          "documentUrl",
-          "signedByTenant",
-          "signedByOwner",
-          "signedAt",
-          "notes",
-          "createdAt",
-          "updatedAt",
-          "deletedAt"
-        ]
-      },
-      "Lease": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "companyId": {
-            "type": "string"
-          },
-          "company": {
-            "$ref": "#/components/schemas/Company"
-          },
-          "propertyId": {
-            "type": "string",
-            "nullable": true
-          },
-          "property": {
-            "nullable": true,
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Property"
-              }
-            ]
-          },
-          "tenantId": {
-            "type": "string",
-            "nullable": true
-          },
-          "tenant": {
-            "nullable": true,
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Tenant"
-              }
-            ]
-          },
-          "buyerId": {
-            "type": "string",
-            "nullable": true
-          },
-          "buyer": {
-            "nullable": true,
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Buyer"
-              }
-            ]
-          },
-          "ownerId": {
-            "type": "string"
-          },
-          "owner": {
-            "$ref": "#/components/schemas/Owner"
-          },
-          "leaseNumber": {
-            "type": "string"
-          },
-          "contractType": {
-            "enum": [
-              "rental",
-              "sale"
-            ],
-            "type": "string"
-          },
-          "status": {
-            "enum": [
-              "draft",
-              "pending_signature",
-              "signed",
-              "active",
-              "finalized"
-            ],
-            "type": "string"
-          },
-          "startDate": {
-            "format": "date-time",
-            "type": "string",
-            "nullable": true
-          },
-          "endDate": {
-            "format": "date-time",
-            "type": "string",
-            "nullable": true
-          },
-          "monthlyRent": {
-            "type": "number",
-            "nullable": true
-          },
-          "currency": {
-            "type": "string"
-          },
-          "currencyRef": {
-            "$ref": "#/components/schemas/Currency"
-          },
-          "paymentFrequency": {
-            "enum": [
-              "monthly",
-              "bimonthly",
-              "quarterly",
-              "semiannual",
-              "annual"
-            ],
-            "type": "string"
-          },
-          "paymentDueDay": {
-            "type": "number"
-          },
-          "renewalAlertEnabled": {
-            "type": "boolean"
-          },
-          "renewalAlertPeriodicity": {
-            "enum": [
-              "monthly",
-              "four_months",
-              "custom"
-            ],
-            "type": "string"
-          },
-          "renewalAlertCustomDays": {
-            "type": "number",
-            "nullable": true
-          },
-          "renewalAlertLastSentAt": {
-            "format": "date-time",
-            "type": "string",
-            "nullable": true
-          },
-          "billingFrequency": {
-            "enum": [
-              "first_of_month",
-              "last_of_month",
-              "contract_date",
-              "custom"
-            ],
-            "type": "string"
-          },
-          "billingDay": {
-            "type": "number"
-          },
-          "nextBillingDate": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "lastBillingDate": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "lateFeeType": {
-            "enum": [
-              "none",
-              "fixed",
-              "percentage",
-              "daily_fixed",
-              "daily_percentage"
-            ],
-            "type": "string"
-          },
-          "lateFeeValue": {
-            "type": "number"
-          },
-          "lateFeeGraceDays": {
-            "type": "number"
-          },
-          "lateFeeMax": {
-            "type": "number"
-          },
-          "autoGenerateInvoices": {
-            "type": "boolean"
-          },
-          "adjustmentType": {
-            "enum": [
-              "fixed",
-              "percentage",
-              "inflation_index"
-            ],
-            "type": "string"
-          },
-          "adjustmentValue": {
-            "type": "number"
-          },
-          "adjustmentFrequencyMonths": {
-            "type": "number"
-          },
-          "lastAdjustmentDate": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "nextAdjustmentDate": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "increaseClauseType": {
-            "enum": [
-              "none",
-              "annual_fixed",
-              "annual_percentage",
-              "inflation_linked",
-              "custom_schedule"
-            ],
-            "type": "string"
-          },
-          "increaseClauseValue": {
-            "type": "number"
-          },
-          "increaseClauseSchedule": {
-            "type": "object"
-          },
-          "inflationIndexType": {
-            "enum": [
-              "icl",
-              "ipc",
-              "igp_m"
-            ],
-            "type": "string"
-          },
-          "securityDeposit": {
-            "type": "number"
-          },
-          "fiscalValue": {
-            "type": "number",
-            "nullable": true
-          },
-          "depositCurrency": {
-            "type": "string"
-          },
-          "expensesIncluded": {
-            "type": "boolean"
-          },
-          "additionalExpenses": {
-            "type": "number"
-          },
-          "termsAndConditions": {
-            "type": "string"
-          },
-          "specialClauses": {
-            "type": "string"
-          },
-          "contractPdfUrl": {
-            "type": "string",
-            "nullable": true
-          },
-          "templateId": {
-            "type": "string",
-            "nullable": true
-          },
-          "template": {
-            "nullable": true,
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/LeaseContractTemplate"
-              }
-            ]
-          },
-          "templateName": {
-            "type": "string",
-            "nullable": true
-          },
-          "draftContractText": {
-            "type": "string",
-            "nullable": true
-          },
-          "draftContractFormat": {
-            "nullable": true,
-            "enum": [
-              "plain_text",
-              "html"
-            ],
-            "type": "string"
-          },
-          "confirmedContractText": {
-            "type": "string",
-            "nullable": true
-          },
-          "confirmedContractFormat": {
-            "nullable": true,
-            "enum": [
-              "plain_text",
-              "html"
-            ],
-            "type": "string"
-          },
-          "confirmedAt": {
-            "format": "date-time",
-            "type": "string",
-            "nullable": true
-          },
-          "previousLeaseId": {
-            "type": "string",
-            "nullable": true
-          },
-          "previousLease": {
-            "nullable": true,
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Lease"
-              }
-            ]
-          },
-          "versionNumber": {
-            "type": "number"
-          },
-          "notes": {
-            "type": "string"
-          },
-          "signedAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "signedByTenant": {
-            "type": "boolean"
-          },
-          "signedByOwner": {
-            "type": "boolean"
-          },
-          "amendments": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/LeaseAmendment"
-            }
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "deletedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "companyId",
-          "company",
-          "propertyId",
-          "property",
-          "tenantId",
-          "tenant",
-          "buyerId",
-          "buyer",
-          "ownerId",
-          "owner",
-          "leaseNumber",
-          "contractType",
-          "status",
-          "startDate",
-          "endDate",
-          "monthlyRent",
-          "currency",
-          "currencyRef",
-          "paymentFrequency",
-          "paymentDueDay",
-          "renewalAlertEnabled",
-          "renewalAlertPeriodicity",
-          "renewalAlertCustomDays",
-          "renewalAlertLastSentAt",
-          "billingFrequency",
-          "billingDay",
-          "nextBillingDate",
-          "lastBillingDate",
-          "lateFeeType",
-          "lateFeeValue",
-          "lateFeeGraceDays",
-          "lateFeeMax",
-          "autoGenerateInvoices",
-          "adjustmentType",
-          "adjustmentValue",
-          "adjustmentFrequencyMonths",
-          "lastAdjustmentDate",
-          "nextAdjustmentDate",
-          "increaseClauseType",
-          "increaseClauseValue",
-          "increaseClauseSchedule",
-          "inflationIndexType",
-          "securityDeposit",
-          "fiscalValue",
-          "depositCurrency",
-          "expensesIncluded",
-          "additionalExpenses",
-          "termsAndConditions",
-          "specialClauses",
-          "contractPdfUrl",
-          "templateId",
-          "template",
-          "templateName",
-          "draftContractText",
-          "draftContractFormat",
-          "confirmedContractText",
-          "confirmedContractFormat",
-          "confirmedAt",
-          "previousLeaseId",
-          "previousLease",
-          "versionNumber",
-          "notes",
-          "signedAt",
-          "signedByTenant",
-          "signedByOwner",
-          "amendments",
-          "createdAt",
-          "updatedAt",
-          "deletedAt"
-        ]
-      },
       "CreateLeaseContractTemplateDto": {
         "type": "object",
         "properties": {
@@ -12172,7 +12973,7 @@
             "type": "string"
           },
           "lease": {
-            "$ref": "#/components/schemas/Lease"
+            "$ref": "#/components/schemas/Contract"
           },
           "ownerId": {
             "type": "string"
@@ -12810,7 +13611,7 @@
             "type": "string"
           },
           "lease": {
-            "$ref": "#/components/schemas/Lease"
+            "$ref": "#/components/schemas/Contract"
           },
           "balance": {
             "type": "number"
@@ -14671,6 +15472,10 @@
             "type": "number",
             "minimum": 0
           },
+          "verifiedMonthlyIncome": {
+            "type": "number",
+            "minimum": 0
+          },
           "hasPets": {
             "type": "boolean"
           },
@@ -15051,6 +15856,10 @@
             "type": "string",
             "format": "uuid"
           },
+          "propertyId": {
+            "type": "string",
+            "format": "uuid"
+          },
           "totalAmount": {
             "type": "number",
             "minimum": 1
@@ -15075,6 +15884,7 @@
         },
         "required": [
           "folderId",
+          "propertyId",
           "totalAmount",
           "installmentAmount",
           "installmentCount",
@@ -15104,6 +15914,10 @@
         "properties": {
           "folderId": {
             "type": "string"
+          },
+          "propertyId": {
+            "type": "string",
+            "format": "uuid"
           },
           "buyerId": {
             "type": "string",
@@ -15146,6 +15960,7 @@
         },
         "required": [
           "folderId",
+          "propertyId",
           "buyerId",
           "totalAmount",
           "installmentAmount",
@@ -16669,7 +17484,7 @@
             "type": "string"
           },
           "lease": {
-            "$ref": "#/components/schemas/Lease"
+            "$ref": "#/components/schemas/Contract"
           },
           "provider": {
             "type": "string"

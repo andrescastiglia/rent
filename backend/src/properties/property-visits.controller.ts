@@ -22,6 +22,7 @@ interface AuthenticatedRequest {
   user: {
     id: string;
     role: string;
+    roles?: UserRole[];
     companyId: string;
   };
 }

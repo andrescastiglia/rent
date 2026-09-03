@@ -57,6 +57,7 @@ describe('TenantsService', () => {
     find: jest.fn(),
     findOne: jest.fn(),
     query: jest.fn(),
+    softDelete: jest.fn(),
     createQueryBuilder: jest.fn(() => createMockQueryBuilder()),
   });
 
@@ -67,6 +68,7 @@ describe('TenantsService', () => {
     firstName: 'John',
     lastName: 'Tenant',
     role: UserRole.TENANT,
+    roles: [UserRole.TENANT],
     isActive: true,
   };
   const adminContext = {
@@ -185,6 +187,7 @@ describe('TenantsService', () => {
 
       userRepository.createQueryBuilder!.mockReturnValue(mockQueryBuilder);
       userRepository.findOne!.mockResolvedValue(mockUser);
+      _tenantRepository.findOne!.mockResolvedValue({ id: 'tenant-1' });
 
       await expect(service.create(createDto, adminContext)).rejects.toThrow(
         ConflictException,
@@ -303,7 +306,6 @@ describe('TenantsService', () => {
         where: expect.objectContaining({
           id: 'user-1',
           companyId: 'company-1',
-          role: UserRole.TENANT,
         }),
       });
       expect(result).toEqual(mockUser);
@@ -405,7 +407,7 @@ describe('TenantsService', () => {
   });
 
   describe('remove', () => {
-    it('should soft delete a tenant', async () => {
+    it('soft deletes the tenant profile and deactivates a tenant-only person', async () => {
       userRepository.findOne!.mockResolvedValue(mockUser);
       _tenantRepository.findOne!.mockResolvedValue({
         id: 'tenant-1',
@@ -413,11 +415,42 @@ describe('TenantsService', () => {
         companyId: 'company-1',
       });
       leaseRepository.findOne!.mockResolvedValue({ id: 'lease-1' });
-      userRepository.softDelete = jest.fn().mockResolvedValue({ affected: 1 });
+      userRepository.save!.mockImplementation(async (value) => value);
+      _tenantRepository.softDelete!.mockResolvedValue({ affected: 1 });
 
       await service.remove('user-1', adminContext);
 
-      expect(userRepository.softDelete).toHaveBeenCalledWith('user-1');
+      expect(userRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ isActive: false }),
+      );
+      expect(_tenantRepository.softDelete).toHaveBeenCalledWith('tenant-1');
+    });
+
+    it('preserves other roles when removing a tenant profile', async () => {
+      const multiRoleUser = {
+        ...mockUser,
+        role: UserRole.TENANT,
+        roles: [UserRole.TENANT, UserRole.OWNER],
+        isActive: true,
+      } as User;
+      userRepository.findOne!.mockResolvedValue(multiRoleUser);
+      _tenantRepository.findOne!.mockResolvedValue({
+        id: 'tenant-1',
+        userId: 'user-1',
+        companyId: 'company-1',
+      });
+      userRepository.save!.mockImplementation(async (value) => value);
+      _tenantRepository.softDelete!.mockResolvedValue({ affected: 1 });
+
+      await service.remove('user-1', adminContext);
+
+      expect(userRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          role: UserRole.OWNER,
+          roles: [UserRole.OWNER],
+          isActive: true,
+        }),
+      );
     });
   });
 

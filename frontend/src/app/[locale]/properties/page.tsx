@@ -25,7 +25,12 @@ import {
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
-import { canManageLeases, canManageOwners } from "@/lib/permissions";
+import {
+  canManageLeasesForUser,
+  canManageOwnersForUser,
+  getUserRoles,
+  isInternalUser,
+} from "@/lib/permissions";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 
 const byMostRecentDate = <T extends { updatedAt: string; createdAt: string }>(
@@ -239,7 +244,7 @@ function OwnerPropertyItem({
   onRenewLease,
 }: Readonly<OwnerPropertyItemProps>) {
   const { user } = useAuth();
-  const canManage = canManageLeases(user?.role);
+  const canManage = canManageLeasesForUser(user);
   const propertyOperations = property.operations ?? [];
   const canCreateContract =
     propertyOperations.includes("rent") || propertyOperations.includes("sale");
@@ -802,7 +807,7 @@ function OwnersResults({
 
 export default function PropertiesPage() {
   const { loading: authLoading, user } = useAuth();
-  const canManageOwnerBackoffice = canManageOwners(user?.role);
+  const canManageOwnerBackoffice = canManageOwnersForUser(user);
   const t = useTranslations("properties");
   const tc = useTranslations("common");
   const locale = useLocale();
@@ -847,7 +852,7 @@ export default function PropertiesPage() {
     loadData().catch((error) => {
       console.error("Failed to load owner/property data", error);
     });
-  }, [authLoading, user?.role]);
+  }, [authLoading, user]);
 
   useEffect(() => {
     if (
@@ -864,7 +869,7 @@ export default function PropertiesPage() {
     try {
       const [propertiesResult, ownersResult] = await Promise.all([
         propertiesApi.getAll(),
-        user?.role === "owner"
+        getUserRoles(user).includes("owner") && !isInternalUser(user)
           ? ownersApi.getMyProfile().then((owner) => [owner])
           : ownersApi.getAll(),
       ]);

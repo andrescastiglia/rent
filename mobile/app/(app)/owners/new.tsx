@@ -20,14 +20,14 @@ export default function NewOwnerScreen() {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!firstName.trim() || !lastName.trim() || !email.trim()) {
+      if (!firstName.trim() || !lastName.trim()) {
         throw new Error(t('validation.required'));
       }
 
       return ownersApi.create({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        email: email.trim(),
+        email: email.trim() || undefined,
         phone: phone.trim() || undefined,
       });
     },

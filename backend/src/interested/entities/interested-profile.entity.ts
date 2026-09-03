@@ -93,6 +93,15 @@ export class InterestedProfile {
   })
   maxAmount: number;
 
+  @Column({
+    name: 'verified_monthly_income',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
+  verifiedMonthlyIncome: number | null;
+
   @Column({ name: 'has_pets', default: false })
   hasPets: boolean;
 

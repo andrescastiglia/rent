@@ -1,4 +1,12 @@
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import {
   InterestedOperation,
@@ -27,6 +35,7 @@ const interestedFiltersZodSchema = z
       .enum(InterestedQualificationLevel)
       .optional()
       .describe('mql|sql|rejected'),
+    minVerifiedMonthlyIncome: z.coerce.number().min(0).optional(),
     page: z.coerce.number().int().min(1).optional().default(1),
     limit: z.coerce.number().int().min(1).max(100).optional().default(10),
   })
@@ -58,6 +67,12 @@ export class InterestedFiltersDto {
   @IsEnum(InterestedQualificationLevel)
   @IsOptional()
   qualificationLevel?: InterestedQualificationLevel;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  minVerifiedMonthlyIncome?: number;
 
   @IsInt()
   @Min(1)

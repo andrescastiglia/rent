@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Admin } from '../../users/entities/admin.entity';
-import { User } from '../../users/entities/user.entity';
+import { User, UserRole } from '../../users/entities/user.entity';
+import { hasRole } from '../../common/helpers/role-scope.helper';
 
 @Injectable()
 export class PermissionsService {
@@ -16,7 +17,7 @@ export class PermissionsService {
   }
 
   async isSuperAdmin(user: User): Promise<boolean> {
-    if (user.role !== 'admin') {
+    if (!hasRole(user, UserRole.ADMIN)) {
       return false;
     }
     const admin = await this.getAdminByUserId(user.id);
@@ -29,7 +30,7 @@ export class PermissionsService {
     action: string,
   ): Promise<boolean> {
     // Non-admins don't have granular permissions
-    if (user.role !== 'admin') {
+    if (!hasRole(user, UserRole.ADMIN)) {
       return false;
     }
 

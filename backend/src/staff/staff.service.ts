@@ -9,6 +9,7 @@ import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'node:crypto';
 import { Staff } from './entities/staff.entity';
 import { User, UserRole } from '../users/entities/user.entity';
+import { getUserRoles } from '../common/helpers/role-scope.helper';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { UpdateStaffDto } from './dto/update-staff.dto';
 import { StaffFiltersDto } from './dto/staff-filters.dto';
@@ -61,14 +62,22 @@ export class StaffService {
 
   async create(dto: CreateStaffDto, companyId: string): Promise<Staff> {
     const normalizedEmail = dto.email?.trim().toLowerCase() || null;
+    let existingUser: User | null = null;
 
     if (normalizedEmail) {
-      const existingUser = await this.usersRepository.findOne({
+      existingUser = await this.usersRepository.findOne({
         where: { email: normalizedEmail, deletedAt: IsNull() },
       });
-
-      if (existingUser) {
+      if (existingUser && existingUser.companyId !== companyId) {
         throw new ConflictException('A user with this email already exists');
+      }
+      if (existingUser) {
+        const existingStaff = await this.staffRepository.findOne({
+          where: { userId: existingUser.id, companyId, deletedAt: IsNull() },
+        });
+        if (existingStaff) {
+          throw new ConflictException('This person is already staff');
+        }
       }
     }
 
@@ -77,19 +86,34 @@ export class StaffService {
       await bcrypt.genSalt(),
     );
 
-    const user = this.usersRepository.create({
-      companyId,
-      role: UserRole.STAFF,
-      email: normalizedEmail,
-      passwordHash,
-      firstName: dto.firstName.trim(),
-      lastName: dto.lastName.trim(),
-      phone: dto.phone?.trim() || undefined,
-      isActive: true,
-      permissions: {},
-    });
-
-    const savedUser = await this.usersRepository.save(user);
+    const savedUser = existingUser
+      ? await this.usersRepository.save({
+          ...existingUser,
+          roles: Array.from(
+            new Set([
+              ...(existingUser.roles?.length
+                ? existingUser.roles
+                : [existingUser.role]),
+              UserRole.STAFF,
+            ]),
+          ),
+          accessRequested: true,
+        })
+      : await this.usersRepository.save(
+          this.usersRepository.create({
+            companyId,
+            role: UserRole.STAFF,
+            roles: [UserRole.STAFF],
+            email: normalizedEmail,
+            passwordHash,
+            firstName: dto.firstName.trim(),
+            lastName: dto.lastName.trim(),
+            phone: dto.phone?.trim() || undefined,
+            isActive: true,
+            accessRequested: true,
+            permissions: {},
+          }),
+        );
 
     const staff = this.staffRepository.create({
       userId: savedUser.id,
@@ -166,7 +190,18 @@ export class StaffService {
   async remove(id: string, companyId: string): Promise<void> {
     const staff = await this.findOne(id, companyId);
 
-    await this.usersRepository.update(staff.userId, { isActive: false });
+    const remainingRoles = getUserRoles(staff.user).filter(
+      (role) => role !== UserRole.STAFF,
+    );
+    if (remainingRoles.length > 0) {
+      staff.user.roles = remainingRoles;
+      if (staff.user.role === UserRole.STAFF) {
+        staff.user.role = remainingRoles[0];
+      }
+      await this.usersRepository.save(staff.user);
+    } else {
+      await this.usersRepository.update(staff.userId, { isActive: false });
+    }
     await this.staffRepository.softDelete(id);
   }
 

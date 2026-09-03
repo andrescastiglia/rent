@@ -62,6 +62,12 @@ import {
   CommunicationRecipientRole,
 } from '../communications/entities/communication-template.entity';
 import { CommunicationDeliveryStatus } from '../communications/entities/communication-delivery.entity';
+import {
+  ContractSignatureStatus,
+  ContractType,
+  Lease,
+  LeaseStatus,
+} from '../leases/entities/lease.entity';
 
 interface UserContext {
   id: string;
@@ -285,6 +291,7 @@ export class InterestedService {
       propertyTypePreference,
       status,
       qualificationLevel,
+      minVerifiedMonthlyIncome,
       page = 1,
       limit = 10,
     } = filters;
@@ -335,6 +342,13 @@ export class InterestedService {
       query.andWhere('interested.qualification_level = :qualificationLevel', {
         qualificationLevel,
       });
+    }
+
+    if (minVerifiedMonthlyIncome !== undefined) {
+      query.andWhere(
+        'interested.verified_monthly_income >= :minVerifiedMonthlyIncome',
+        { minVerifiedMonthlyIncome },
+      );
     }
 
     query
@@ -1012,11 +1026,15 @@ export class InterestedService {
       );
     }
 
-    const email = dto.email ?? this.buildFallbackEmail(profile);
+    const email = (
+      dto.email?.trim() ||
+      profile.email?.trim() ||
+      this.buildFallbackEmail(profile)
+    ).toLowerCase();
     const existingUser = await this.usersRepository.findOne({
       where: { email },
     });
-    if (existingUser) {
+    if (existingUser && existingUser.companyId !== profile.companyId) {
       throw new ConflictException('A user with this email already exists');
     }
 
@@ -1030,29 +1048,56 @@ export class InterestedService {
 
     const previousStatus = profile.status;
     const created = await this.dataSource.transaction(async (manager) => {
-      const userEntity = manager.getRepository(User).create({
-        companyId: profile.companyId,
-        email,
-        passwordHash,
-        firstName,
-        lastName,
-        phone: profile.phone,
-        role: UserRole.TENANT,
-        isActive: true,
-      });
-      const createdUser = await manager.getRepository(User).save(userEntity);
+      const userRepository = manager.getRepository(User);
+      const createdUser = existingUser
+        ? await userRepository.save({
+            ...existingUser,
+            roles: Array.from(
+              new Set([
+                ...(existingUser.roles?.length
+                  ? existingUser.roles
+                  : [existingUser.role]),
+                UserRole.TENANT,
+              ]),
+            ),
+            accessRequested: existingUser.accessRequested ?? true,
+          })
+        : await userRepository.save(
+            userRepository.create({
+              companyId: profile.companyId,
+              email,
+              passwordHash,
+              firstName,
+              lastName,
+              phone: profile.phone,
+              role: UserRole.TENANT,
+              roles: [UserRole.TENANT],
+              isActive: true,
+              accessRequested: true,
+            }),
+          );
 
-      const tenantEntity = manager.getRepository(Tenant).create({
-        userId: createdUser.id,
-        companyId: profile.companyId,
-        dni: dto.dni,
-        emergencyContactName: dto.emergencyContactName,
-        emergencyContactPhone: dto.emergencyContactPhone,
-        notes: profile.notes,
+      const tenantRepository = manager.getRepository(Tenant);
+      let createdTenant = await tenantRepository.findOne({
+        where: {
+          userId: createdUser.id,
+          companyId: profile.companyId,
+          deletedAt: IsNull(),
+        },
       });
-      const createdTenant = await manager
-        .getRepository(Tenant)
-        .save(tenantEntity);
+      if (!createdTenant) {
+        createdTenant = await tenantRepository.save(
+          tenantRepository.create({
+            userId: createdUser.id,
+            companyId: profile.companyId,
+            dni: dto.dni,
+            emergencyContactName: dto.emergencyContactName,
+            emergencyContactPhone: dto.emergencyContactPhone,
+            monthlyIncome: profile.verifiedMonthlyIncome ?? undefined,
+            notes: profile.notes,
+          }),
+        );
+      }
 
       profile.convertedToTenantId = createdTenant.id;
       profile.status = InterestedStatus.TENANT;
@@ -1128,7 +1173,7 @@ export class InterestedService {
     const existingUser = await this.usersRepository.findOne({
       where: { email: resolvedEmail },
     });
-    if (existingUser) {
+    if (existingUser && existingUser.companyId !== profile.companyId) {
       throw new ConflictException('A user with this email already exists');
     }
 
@@ -1141,28 +1186,57 @@ export class InterestedService {
     const fullName = this.resolveName(profile);
     const previousStatus = profile.status;
     const created = await this.dataSource.transaction(async (manager) => {
-      const createdUser = await manager.getRepository(User).save(
-        manager.getRepository(User).create({
-          companyId: profile.companyId,
-          email: resolvedEmail,
-          passwordHash,
-          firstName: fullName.firstName,
-          lastName: fullName.lastName,
-          phone: profile.phone,
-          role: UserRole.BUYER,
-          isActive: true,
-        }),
-      );
+      const userRepository = manager.getRepository(User);
+      const createdUser = existingUser
+        ? await userRepository.save({
+            ...existingUser,
+            roles: Array.from(
+              new Set([
+                ...(existingUser.roles?.length
+                  ? existingUser.roles
+                  : [existingUser.role]),
+                UserRole.BUYER,
+              ]),
+            ),
+            accessRequested: existingUser.accessRequested ?? true,
+          })
+        : await userRepository.save(
+            userRepository.create({
+              companyId: profile.companyId,
+              email: resolvedEmail,
+              passwordHash,
+              firstName: fullName.firstName,
+              lastName: fullName.lastName,
+              phone: profile.phone,
+              role: UserRole.BUYER,
+              roles: [UserRole.BUYER],
+              isActive: true,
+              accessRequested: true,
+            }),
+          );
 
-      const createdBuyer = await manager.getRepository(Buyer).save(
-        manager.getRepository(Buyer).create({
+      const buyerRepository = manager.getRepository(Buyer);
+      let createdBuyer = await buyerRepository.findOne({
+        where: {
           userId: createdUser.id,
           companyId: profile.companyId,
-          interestedProfileId: profile.id,
-          dni: dto.dni?.trim() || null,
-          notes: dto.notes?.trim() || profile.notes || null,
-        }),
-      );
+          deletedAt: IsNull(),
+        },
+      });
+      if (createdBuyer) {
+        createdBuyer.interestedProfileId = profile.id;
+        createdBuyer = await buyerRepository.save(createdBuyer);
+      } else {
+        createdBuyer = await buyerRepository.save(
+          buyerRepository.create({
+            userId: createdUser.id,
+            companyId: profile.companyId,
+            interestedProfileId: profile.id,
+            dni: dto.dni?.trim() || null,
+            notes: dto.notes?.trim() || profile.notes || null,
+          }),
+        );
+      }
 
       let createdAgreement: SaleAgreement | null = null;
       if (hasAgreementData) {
@@ -1178,10 +1252,41 @@ export class InterestedService {
           throw new NotFoundException('Sale folder not found');
         }
 
+        const property = await manager.getRepository(Property).findOne({
+          where: {
+            id: dto.propertyId,
+            companyId: profile.companyId,
+            deletedAt: IsNull(),
+          },
+        });
+        if (!property) {
+          throw new NotFoundException('Property not found');
+        }
+
+        const contract = await manager.getRepository(Lease).save(
+          manager.getRepository(Lease).create({
+            companyId: profile.companyId,
+            propertyId: property.id,
+            ownerId: property.ownerId,
+            buyerId: createdBuyer.id,
+            tenantId: null,
+            contractType: ContractType.SALE,
+            status: LeaseStatus.DRAFT,
+            signatureStatus: ContractSignatureStatus.NOT_STARTED,
+            fiscalValue: dto.totalAmount,
+            monthlyRent: null,
+            startDate: null,
+            endDate: null,
+            currency: dto.currency ?? 'ARS',
+          }),
+        );
+
         createdAgreement = await manager.getRepository(SaleAgreement).save(
           manager.getRepository(SaleAgreement).create({
             companyId: profile.companyId,
             folderId: folder.id,
+            propertyId: property.id,
+            contractId: contract.id,
             buyerId: createdBuyer.id,
             buyerName: fullName.fullName,
             buyerPhone: profile.phone,
@@ -1623,6 +1728,19 @@ export class InterestedService {
       20,
     );
 
+    const rentPrice = this.getAvailableRentPrice(property);
+    const usesRental = profileOperations.includes(InterestedOperation.RENT);
+    const hasIncomeRatio =
+      usesRental &&
+      rentPrice !== null &&
+      Number(profile.verifiedMonthlyIncome ?? 0) > 0;
+    addCriterion(
+      hasIncomeRatio,
+      hasIncomeRatio &&
+        Number(profile.verifiedMonthlyIncome) / Number(rentPrice) >= 3,
+      10,
+    );
+
     addCriterion(
       profile.peopleCount !== null && profile.peopleCount !== undefined,
       this.hasEnoughOccupants(profile, property),
@@ -1670,6 +1788,14 @@ export class InterestedService {
 
     if (this.isPriceInRange(profile, property)) {
       reasons.push(this.t('interested.matchReasons.priceWithinRange'));
+    }
+
+    const rentPrice = this.getAvailableRentPrice(property);
+    if (
+      rentPrice !== null &&
+      Number(profile.verifiedMonthlyIncome ?? 0) / Number(rentPrice) >= 3
+    ) {
+      reasons.push(this.t('interested.matchReasons.incomeRatioAdequate'));
     }
 
     if (this.hasEnoughOccupants(profile, property)) {
@@ -1741,6 +1867,7 @@ export class InterestedService {
   private hasBuyerAgreementData(dto: ConvertInterestedToBuyerDto): boolean {
     return Boolean(
       dto.folderId ||
+      dto.propertyId ||
       dto.totalAmount !== undefined ||
       dto.installmentAmount !== undefined ||
       dto.installmentCount !== undefined ||
@@ -1753,13 +1880,14 @@ export class InterestedService {
   ): void {
     if (
       !dto.folderId ||
+      !dto.propertyId ||
       dto.totalAmount === undefined ||
       dto.installmentAmount === undefined ||
       dto.installmentCount === undefined ||
       !dto.startDate
     ) {
       throw new BadRequestException(
-        'Sale agreement conversion requires folderId, totalAmount, installmentAmount, installmentCount and startDate',
+        'Sale agreement conversion requires folderId, propertyId, totalAmount, installmentAmount, installmentCount and startDate',
       );
     }
   }

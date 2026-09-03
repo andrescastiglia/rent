@@ -119,7 +119,7 @@ describe("AuthProvider", () => {
   });
 
   describe("login", () => {
-    it("navigates to portal/tenant for tenant role", async () => {
+    it("navigates to the task dashboard for tenant role", async () => {
       (usePathname as jest.Mock).mockReturnValue("/es/login");
       (apiClient.post as jest.Mock).mockResolvedValue({
         accessToken: "tok",
@@ -138,10 +138,10 @@ describe("AuthProvider", () => {
       });
 
       expect(setToken).toHaveBeenCalledWith("tok");
-      expect(mockPush).toHaveBeenCalledWith("/es/portal/tenant");
+      expect(mockPush).toHaveBeenCalledWith("/es/dashboard");
     });
 
-    it("navigates to portal/owner for owner role", async () => {
+    it("navigates to the task dashboard for owner role", async () => {
       (usePathname as jest.Mock).mockReturnValue("/es/login");
       (apiClient.post as jest.Mock).mockResolvedValue({
         accessToken: "tok",
@@ -159,7 +159,7 @@ describe("AuthProvider", () => {
         await ctx.login({ email: "a@b.com", password: "pass" });
       });
 
-      expect(mockPush).toHaveBeenCalledWith("/es/portal/owner");
+      expect(mockPush).toHaveBeenCalledWith("/es/dashboard");
     });
 
     it("navigates to dashboard for admin role", async () => {

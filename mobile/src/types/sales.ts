@@ -10,6 +10,8 @@ export interface SaleFolder {
 export interface SaleAgreement {
   id: string;
   folderId: string;
+  propertyId: string;
+  contractId?: string | null;
   buyerName: string;
   buyerPhone: string;
   totalAmount: number;
@@ -48,6 +50,7 @@ export interface CreateSaleFolderInput {
 
 export interface CreateSaleAgreementInput {
   folderId: string;
+  propertyId: string;
   buyerName: string;
   buyerPhone: string;
   totalAmount: number;

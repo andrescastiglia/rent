@@ -14,7 +14,7 @@ import { usePathname, useRouter } from "next/navigation";
 import type { Locale } from "@/config/locales";
 import { useAuth } from "@/contexts/auth-context";
 import { usersApi } from "@/lib/api/users";
-import { hasModuleAccess } from "@/lib/permissions";
+import { canUserAccessModule } from "@/lib/permissions";
 import type { User } from "@/types/auth";
 
 type ProfileFormState = {
@@ -245,8 +245,7 @@ export default function SettingsPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {user &&
-        (user.role === "admin" || user.role === "staff") &&
-        hasModuleAccess(user.role, user.permissions, "communications") ? (
+        canUserAccessModule(user, ["admin", "staff"], "communications") ? (
           <Link
             href={`/${locale}/settings/communications`}
             className="xl:col-span-2 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 p-5 text-blue-900 hover:border-blue-400 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-100"

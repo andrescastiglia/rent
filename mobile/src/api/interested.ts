@@ -208,6 +208,7 @@ const mapProfile = (raw: any): InterestedProfile => {
     peopleCount: toOptionalNumber(raw.peopleCount),
     minAmount: toOptionalNumber(raw.minAmount),
     maxAmount: toOptionalNumber(raw.maxAmount),
+    verifiedMonthlyIncome: toOptionalNumber(raw.verifiedMonthlyIncome),
     hasPets: typeof raw.hasPets === 'boolean' ? raw.hasPets : undefined,
     guaranteeTypes: Array.isArray(raw.guaranteeTypes)
       ? raw.guaranteeTypes
@@ -489,6 +490,11 @@ const fetchInterested = async (
   if (filters?.status) queryParams.append('status', filters.status);
   if (filters?.qualificationLevel)
     queryParams.append('qualificationLevel', filters.qualificationLevel);
+  if (filters?.minVerifiedMonthlyIncome !== undefined)
+    queryParams.append(
+      'minVerifiedMonthlyIncome',
+      String(filters.minVerifiedMonthlyIncome),
+    );
   if (filters?.page) queryParams.append('page', String(filters.page));
   if (filters?.limit) queryParams.append('limit', String(filters.limit));
 
@@ -541,6 +547,7 @@ export const interestedApi = {
         peopleCount: payload.peopleCount,
         minAmount: payload.minAmount,
         maxAmount: payload.maxAmount,
+        verifiedMonthlyIncome: payload.verifiedMonthlyIncome,
         hasPets: payload.hasPets,
         guaranteeTypes: payload.guaranteeTypes,
         preferredZones: payload.preferredZones,

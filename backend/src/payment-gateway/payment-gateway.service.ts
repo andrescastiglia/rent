@@ -26,6 +26,7 @@ import { Invoice, InvoiceStatus } from '../payments/entities/invoice.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { UserRole } from '../users/entities/user.entity';
 import { CreatePaymentPreferenceDto } from './dto/create-payment-preference.dto';
+import { hasRole, isAdminOrStaff } from '../common/helpers/role-scope.helper';
 
 interface MercadoPagoWebhookNotification {
   id: string;
@@ -56,6 +57,7 @@ interface UserContext {
   id: string;
   companyId: string;
   role: UserRole;
+  roles?: UserRole[];
 }
 
 @Injectable()
@@ -76,7 +78,7 @@ export class PaymentGatewayService {
     companyId: string,
     userId: string,
     dto: CreatePaymentPreferenceDto,
-    userRole?: UserRole,
+    actor?: UserContext | UserRole,
   ): Promise<{
     initPoint: string;
     sandboxInitPoint: string;
@@ -91,7 +93,13 @@ export class PaymentGatewayService {
       throw new NotFoundException(`Invoice with ID ${dto.invoiceId} not found`);
     }
 
-    if (userRole === UserRole.TENANT) {
+    const tenantSelfService =
+      typeof actor === 'string'
+        ? actor === UserRole.TENANT
+        : Boolean(
+            actor && hasRole(actor, UserRole.TENANT) && !isAdminOrStaff(actor),
+          );
+    if (tenantSelfService) {
       const invoiceTenantId = invoice.tenantAccount?.tenantId;
       if (!invoiceTenantId) {
         throw new ForbiddenException('Invoice does not belong to your account');
@@ -580,7 +588,7 @@ export class PaymentGatewayService {
         `Payment gateway transaction with ID ${id} not found`,
       );
     }
-    if (user?.role === UserRole.TENANT) {
+    if (user && hasRole(user, UserRole.TENANT) && !isAdminOrStaff(user)) {
       const tenant = await this.tenantRepo.findOne({
         where: { userId: user.id, companyId },
       });

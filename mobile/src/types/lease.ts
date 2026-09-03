@@ -3,6 +3,8 @@ import { Tenant } from './tenant';
 import { Buyer } from './buyer';
 
 export type LeaseStatus = 'DRAFT' | 'ACTIVE' | 'FINALIZED';
+export type ContractSignatureStatus =
+  'NOT_STARTED' | 'PENDING' | 'SIGNED' | 'DECLINED' | 'VOIDED' | 'EXPIRED';
 export type ContractType = 'rental' | 'sale';
 export type PaymentFrequency =
   'monthly' | 'bimonthly' | 'quarterly' | 'semiannual' | 'annual';
@@ -50,6 +52,7 @@ export interface Lease {
   currency: string;
   currencyData?: Currency;
   status: LeaseStatus;
+  signatureStatus?: ContractSignatureStatus;
   terms?: string;
   draftContractText?: string;
   draftContractFormat?: LeaseTemplateFormat;

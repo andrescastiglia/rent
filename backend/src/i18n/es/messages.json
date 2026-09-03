@@ -1,151 +1,152 @@
 {
-    "errors": {
-        "notFound": "Recurso no encontrado",
-        "unauthorized": "No autorizado",
-        "forbidden": "Acceso denegado",
-        "badRequest": "Solicitud incorrecta",
-        "internalError": "Error interno del servidor",
-        "invalidCredentials": "Credenciales inválidas",
-        "emailAlreadyExists": "El email ya está registrado",
-        "propertyNotFound": "Propiedad no encontrada",
-        "tenantNotFound": "Inquilino no encontrado",
-        "leaseNotFound": "Contrato no encontrado",
-        "userNotFound": "Usuario no encontrado",
-        "paymentNotFound": "Pago no encontrado",
-        "invoiceNotFound": "Factura no encontrada",
-        "receiptNotFound": "Recibo no encontrado",
-        "accountNotFound": "Cuenta corriente no encontrada",
-        "paymentAlreadyCompleted": "El pago ya está completado",
-        "invoiceAlreadyCancelled": "La factura ya está anulada",
-        "cannotCancelPaidInvoice": "No se puede anular una factura pagada"
+  "errors": {
+    "notFound": "Recurso no encontrado",
+    "unauthorized": "No autorizado",
+    "forbidden": "Acceso denegado",
+    "badRequest": "Solicitud incorrecta",
+    "internalError": "Error interno del servidor",
+    "invalidCredentials": "Credenciales inválidas",
+    "emailAlreadyExists": "El email ya está registrado",
+    "propertyNotFound": "Propiedad no encontrada",
+    "tenantNotFound": "Inquilino no encontrado",
+    "leaseNotFound": "Contrato no encontrado",
+    "userNotFound": "Usuario no encontrado",
+    "paymentNotFound": "Pago no encontrado",
+    "invoiceNotFound": "Factura no encontrada",
+    "receiptNotFound": "Recibo no encontrado",
+    "accountNotFound": "Cuenta corriente no encontrada",
+    "paymentAlreadyCompleted": "El pago ya está completado",
+    "invoiceAlreadyCancelled": "La factura ya está anulada",
+    "cannotCancelPaidInvoice": "No se puede anular una factura pagada"
+  },
+  "validation": {
+    "required": "El campo {field} es requerido",
+    "invalidEmail": "Email inválido",
+    "invalidPhone": "Teléfono inválido",
+    "minLength": "Debe tener al menos {min} caracteres",
+    "maxLength": "No puede exceder {max} caracteres"
+  },
+  "contract": {
+    "title": "Contrato de Alquiler",
+    "issueDate": "Fecha de emisión",
+    "parties": "Partes",
+    "lessor": "Arrendador",
+    "lessee": "Arrendatario",
+    "property": "Propiedad",
+    "address": "Dirección",
+    "terms": "Términos y Condiciones",
+    "startDate": "Fecha de inicio",
+    "endDate": "Fecha de finalización",
+    "rentAmount": "Renta mensual",
+    "deposit": "Depósito",
+    "paymentDay": "Día de pago",
+    "signatures": "Firmas",
+    "lessorSignature": "Firma del Arrendador",
+    "lesseeSignature": "Firma del Arrendatario"
+  },
+  "payment": {
+    "title": "Recibo de Pago",
+    "amount": "Monto",
+    "status": "Estado",
+    "method": "Método de pago",
+    "date": "Fecha de pago",
+    "reference": "Referencia",
+    "cash": "Efectivo",
+    "bank_transfer": "Transferencia bancaria",
+    "check": "Cheque",
+    "debit_card": "Tarjeta de débito",
+    "credit_card": "Tarjeta de crédito",
+    "digital_wallet": "Billetera digital",
+    "crypto": "Cripto",
+    "pending": "Pendiente",
+    "processing": "Procesando",
+    "completed": "Completado",
+    "failed": "Fallido",
+    "refunded": "Reintegrado",
+    "cancelled": "Anulado"
+  },
+  "invoice": {
+    "title": "Factura",
+    "invoiceNumber": "Número de factura",
+    "period": "Período",
+    "subtotal": "Subtotal",
+    "lateFee": "Mora",
+    "adjustments": "Ajustes",
+    "total": "Total",
+    "dueDate": "Fecha de vencimiento",
+    "draft": "Borrador",
+    "pending": "Pendiente",
+    "sent": "Enviada",
+    "partial": "Pago parcial",
+    "paid": "Pagada",
+    "overdue": "Vencida",
+    "cancelled": "Anulada",
+    "refunded": "Reintegrada"
+  },
+  "receipt": {
+    "title": "Recibo",
+    "receiptNumber": "Número de recibo",
+    "receivedFrom": "Recibido de",
+    "paymentDetails": "Detalle del Pago",
+    "amountReceived": "Monto Recibido"
+  },
+  "account": {
+    "balance": "Saldo",
+    "movements": "Movimientos",
+    "lateFeeCalculated": "Mora calculada"
+  },
+  "user": {
+    "passwordChanged": "Contraseña cambiada exitosamente",
+    "deleted": "Usuario eliminado exitosamente",
+    "notFound": "Usuario no encontrado",
+    "currentPasswordIncorrect": "La contraseña actual es incorrecta",
+    "staffCodeMessage": "Envíe este código de autorización a {email}",
+    "blocked": "Usuario bloqueado. Contáctese con el administrador."
+  },
+  "success": {
+    "created": "Creado exitosamente",
+    "updated": "Actualizado exitosamente",
+    "deleted": "Eliminado exitosamente",
+    "paymentConfirmed": "Pago confirmado exitosamente",
+    "invoiceIssued": "Factura emitida exitosamente"
+  },
+  "interested": {
+    "reasons": {
+      "leadCreated": "Lead creado",
+      "matchesRefreshed": "Coincidencias actualizadas",
+      "convertedToTenant": "Convertido a inquilino",
+      "convertedToBuyer": "Convertido a comprador"
     },
-    "validation": {
-        "required": "El campo {field} es requerido",
-        "invalidEmail": "Email inválido",
-        "invalidPhone": "Teléfono inválido",
-        "minLength": "Debe tener al menos {min} caracteres",
-        "maxLength": "No puede exceder {max} caracteres"
+    "activities": {
+      "matchContactSubject": "Contacto por match",
+      "matchContactBody": "Se contactó propiedad {propertyId}",
+      "closeRentSubject": "Cierre por alquiler",
+      "closeSaleSubject": "Cierre por compra",
+      "closeSaleDefaultBody": "Requiere conversión a comprador",
+      "convertedToTenantSubject": "Lead convertido a inquilino",
+      "convertedToTenantBody": "Inquilino {tenantId} / Usuario {userEmail}"
     },
-    "contract": {
-        "title": "Contrato de Alquiler",
-        "issueDate": "Fecha de emisión",
-        "parties": "Partes",
-        "lessor": "Arrendador",
-        "lessee": "Arrendatario",
-        "property": "Propiedad",
-        "address": "Dirección",
-        "terms": "Términos y Condiciones",
-        "startDate": "Fecha de inicio",
-        "endDate": "Fecha de finalización",
-        "rentAmount": "Renta mensual",
-        "deposit": "Depósito",
-        "paymentDay": "Día de pago",
-        "signatures": "Firmas",
-        "lessorSignature": "Firma del Arrendador",
-        "lesseeSignature": "Firma del Arrendatario"
+    "matchReasons": {
+      "propertyTypeMatches": "Tipo de propiedad coincide",
+      "operationMatches": "Modo de operación coincide",
+      "priceWithinRange": "Precio dentro del rango",
+      "incomeRatioAdequate": "La relación entre ingresos comprobables y alquiler es adecuada",
+      "capacityAdequate": "Capacidad adecuada",
+      "petsAllowed": "Acepta mascotas",
+      "cityMatches": "La ciudad coincide",
+      "featuresMatch": "Coinciden las características solicitadas",
+      "guaranteeMatches": "Condiciones de garantía compatibles",
+      "partialMatch": "Coincidencia parcial de criterios"
     },
-    "payment": {
-        "title": "Recibo de Pago",
-        "amount": "Monto",
-        "status": "Estado",
-        "method": "Método de pago",
-        "date": "Fecha de pago",
-        "reference": "Referencia",
-        "cash": "Efectivo",
-        "bank_transfer": "Transferencia bancaria",
-        "check": "Cheque",
-        "debit_card": "Tarjeta de débito",
-        "credit_card": "Tarjeta de crédito",
-        "digital_wallet": "Billetera digital",
-        "crypto": "Cripto",
-        "pending": "Pendiente",
-        "processing": "Procesando",
-        "completed": "Completado",
-        "failed": "Fallido",
-        "refunded": "Reintegrado",
-        "cancelled": "Anulado"
+    "timeline": {
+      "stageTitle": "Etapa: {fromStatus} -> {toStatus}",
+      "activityTitle": "{type}: {subject}",
+      "matchTitle": "Match propiedad {propertyName}",
+      "visitTitle": "Visita a {propertyName}"
     },
-    "invoice": {
-        "title": "Factura",
-        "invoiceNumber": "Número de factura",
-        "period": "Período",
-        "subtotal": "Subtotal",
-        "lateFee": "Mora",
-        "adjustments": "Ajustes",
-        "total": "Total",
-        "dueDate": "Fecha de vencimiento",
-        "draft": "Borrador",
-        "pending": "Pendiente",
-        "sent": "Enviada",
-        "partial": "Pago parcial",
-        "paid": "Pagada",
-        "overdue": "Vencida",
-        "cancelled": "Anulada",
-        "refunded": "Reintegrada"
-    },
-    "receipt": {
-        "title": "Recibo",
-        "receiptNumber": "Número de recibo",
-        "receivedFrom": "Recibido de",
-        "paymentDetails": "Detalle del Pago",
-        "amountReceived": "Monto Recibido"
-    },
-    "account": {
-        "balance": "Saldo",
-        "movements": "Movimientos",
-        "lateFeeCalculated": "Mora calculada"
-    },
-    "user": {
-        "passwordChanged": "Contraseña cambiada exitosamente",
-        "deleted": "Usuario eliminado exitosamente",
-        "notFound": "Usuario no encontrado",
-        "currentPasswordIncorrect": "La contraseña actual es incorrecta",
-        "staffCodeMessage": "Envíe este código de autorización a {email}",
-        "blocked": "Usuario bloqueado. Contáctese con el administrador."
-    },
-    "success": {
-        "created": "Creado exitosamente",
-        "updated": "Actualizado exitosamente",
-        "deleted": "Eliminado exitosamente",
-        "paymentConfirmed": "Pago confirmado exitosamente",
-        "invoiceIssued": "Factura emitida exitosamente"
-    },
-    "interested": {
-        "reasons": {
-            "leadCreated": "Lead creado",
-            "matchesRefreshed": "Coincidencias actualizadas",
-            "convertedToTenant": "Convertido a inquilino",
-            "convertedToBuyer": "Convertido a comprador"
-        },
-        "activities": {
-            "matchContactSubject": "Contacto por match",
-            "matchContactBody": "Se contactó propiedad {propertyId}",
-            "closeRentSubject": "Cierre por alquiler",
-            "closeSaleSubject": "Cierre por compra",
-            "closeSaleDefaultBody": "Requiere conversión a comprador",
-            "convertedToTenantSubject": "Lead convertido a inquilino",
-            "convertedToTenantBody": "Inquilino {tenantId} / Usuario {userEmail}"
-        },
-        "matchReasons": {
-            "propertyTypeMatches": "Tipo de propiedad coincide",
-            "operationMatches": "Modo de operación coincide",
-            "priceWithinRange": "Precio dentro del rango",
-            "capacityAdequate": "Capacidad adecuada",
-            "petsAllowed": "Acepta mascotas",
-            "cityMatches": "La ciudad coincide",
-            "featuresMatch": "Coinciden las características solicitadas",
-            "guaranteeMatches": "Condiciones de garantía compatibles",
-            "partialMatch": "Coincidencia parcial de criterios"
-        },
-        "timeline": {
-            "stageTitle": "Etapa: {fromStatus} -> {toStatus}",
-            "activityTitle": "{type}: {subject}",
-            "matchTitle": "Match propiedad {propertyName}",
-            "visitTitle": "Visita a {propertyName}"
-        },
-        "names": {
-            "defaultFirstName": "Interesado",
-            "defaultLastName": "CRM"
-        }
+    "names": {
+      "defaultFirstName": "Interesado",
+      "defaultLastName": "CRM"
     }
+  }
 }

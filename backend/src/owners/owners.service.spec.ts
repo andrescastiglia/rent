@@ -81,8 +81,14 @@ describe('OwnersService', () => {
     );
   });
 
-  it('create throws conflict when user email already exists', async () => {
-    usersRepository.findOne.mockResolvedValue({ id: 'u-existing' });
+  it('create throws conflict when the existing person is already an owner', async () => {
+    usersRepository.findOne.mockResolvedValue({
+      id: 'u-existing',
+      companyId: 'co1',
+      role: UserRole.TENANT,
+      roles: [UserRole.TENANT],
+    });
+    ownersRepository.findOne.mockResolvedValue({ id: 'o-existing' });
 
     await expect(
       service.create(
@@ -133,8 +139,98 @@ describe('OwnersService', () => {
 
     expect(dataSource.transaction).toHaveBeenCalled();
     expect(saveUser).toHaveBeenCalled();
+    expect(userRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'owner@example.com',
+        isActive: false,
+        accessRequested: false,
+        roles: [UserRole.OWNER],
+      }),
+    );
     expect(saveOwner).toHaveBeenCalled();
     expect(result).toEqual(expect.objectContaining({ id: 'o1' }));
+  });
+
+  it('creates an owner contact without email or authenticated access', async () => {
+    const userRepo = {
+      create: jest.fn((value) => value),
+      save: jest
+        .fn()
+        .mockImplementation(async (value) => ({ id: 'u2', ...value })),
+    };
+    const ownerRepo = {
+      create: jest.fn((value) => value),
+      save: jest.fn().mockResolvedValue({ id: 'o2' }),
+    };
+    dataSource.transaction.mockImplementation(async (callback: any) =>
+      callback({
+        getRepository: (entity: any) =>
+          entity.name === 'User' ? userRepo : ownerRepo,
+      }),
+    );
+    ownersRepository.findOne.mockResolvedValue({
+      id: 'o2',
+      user: { email: null, isActive: false, accessRequested: false },
+    });
+
+    await expect(
+      service.create({ firstName: 'Sin', lastName: 'Acceso' } as any, 'co1'),
+    ).resolves.toEqual(expect.objectContaining({ id: 'o2' }));
+    expect(userRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: null,
+        isActive: false,
+        accessRequested: false,
+      }),
+    );
+  });
+
+  it('activates an existing contact when explicit credentials are supplied', async () => {
+    const existingUser = {
+      id: 'u-existing',
+      companyId: 'co1',
+      role: UserRole.BUYER,
+      roles: [UserRole.BUYER],
+      isActive: false,
+      accessRequested: false,
+    };
+    usersRepository.findOne.mockResolvedValue(existingUser);
+    ownersRepository.findOne
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'o-existing', user: existingUser });
+    const userRepo = {
+      create: jest.fn((value) => value),
+      save: jest.fn().mockImplementation(async (value) => value),
+    };
+    const ownerRepo = {
+      create: jest.fn((value) => value),
+      save: jest.fn().mockResolvedValue({ id: 'o-existing' }),
+    };
+    dataSource.transaction.mockImplementation(async (callback: any) =>
+      callback({
+        getRepository: (entity: any) =>
+          entity.name === 'User' ? userRepo : ownerRepo,
+      }),
+    );
+
+    await service.create(
+      {
+        email: 'owner@example.com',
+        password: 'secure-password',
+        firstName: 'Owner',
+        lastName: 'Buyer',
+      } as any,
+      'co1',
+    );
+
+    expect(userRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        roles: [UserRole.BUYER, UserRole.OWNER],
+        isActive: true,
+        accessRequested: true,
+        passwordHash: expect.any(String),
+      }),
+    );
   });
 
   it('update throws conflict when updating to duplicated email', async () => {

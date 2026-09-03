@@ -25,6 +25,7 @@ interface AuthenticatedRequest {
     id: string;
     companyId?: string;
     role: UserRole;
+    roles?: UserRole[];
     permissions?: UserModulePermissions;
   };
 }
@@ -51,7 +52,7 @@ export class AiController {
   listTools(@Request() req: AuthenticatedRequest) {
     return {
       mode: this.executor.getMode(),
-      tools: this.executor.listTools(req.user.role),
+      tools: this.executor.listTools(req.user),
     };
   }
 
@@ -61,6 +62,7 @@ export class AiController {
       userId: req.user.id,
       companyId: req.user.companyId,
       role: req.user.role,
+      roles: req.user.roles,
     });
   }
 
@@ -73,6 +75,7 @@ export class AiController {
       userId: req.user.id,
       companyId: req.user.companyId,
       role: req.user.role,
+      roles: req.user.roles,
       conversationId: dto.conversationId,
       confirmationId: dto.confirmationId,
       confirmMutation: dto.confirm === true,
@@ -124,6 +127,7 @@ export class AiController {
         userId: req.user.id,
         companyId: req.user.companyId,
         role: req.user.role,
+        roles: req.user.roles,
         permissions: req.user.permissions,
       },
     });

@@ -20,6 +20,7 @@ const emptyForm: CreateInterestedProfileInput = {
   peopleCount: undefined,
   minAmount: undefined,
   maxAmount: undefined,
+  verifiedMonthlyIncome: undefined,
   hasPets: false,
   preferredCity: "",
   desiredFeatures: [],
@@ -295,6 +296,26 @@ export default function NewInterestedPage() {
               setForm((prev) => ({
                 ...prev,
                 maxAmount: e.target.value ? Number(e.target.value) : undefined,
+              }))
+            }
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+          />
+          <label htmlFor="interested-verified-income" className="sr-only">
+            {t("fields.verifiedMonthlyIncome")}
+          </label>
+          <input
+            id="interested-verified-income"
+            type="number"
+            min={0}
+            step="0.01"
+            placeholder={t("fields.verifiedMonthlyIncome")}
+            value={form.verifiedMonthlyIncome ?? ""}
+            onChange={(e) =>
+              setForm((prev) => ({
+                ...prev,
+                verifiedMonthlyIncome: e.target.value
+                  ? Number(e.target.value)
+                  : undefined,
               }))
             }
             className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"

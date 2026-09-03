@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { tenantsApi } from '@/api/tenants';
 import { Screen } from '@/components/screen';
 import { AppButton, H1 } from '@/components/ui';
-import { canManageTenants } from '@/config/navigation';
+import { canManageTenantsForUser } from '@/config/navigation';
 import { useAuth } from '@/contexts/auth-context';
 
 export default function TenantDetailScreen() {
@@ -15,7 +15,7 @@ export default function TenantDetailScreen() {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
   const { user } = useAuth();
-  const canManage = canManageTenants(user?.role);
+  const canManage = canManageTenantsForUser(user);
 
   const query = useQuery({
     queryKey: ['tenants', id],

@@ -270,6 +270,67 @@ export function ChoiceGroup<T extends string>({
   );
 }
 
+type MultiChoiceGroupProps<T extends string> = {
+  label: string;
+  values: T[];
+  options: Array<ChoiceOption<T>>;
+  onChange: (next: T[]) => void;
+  lockedValues?: T[];
+  testID?: string;
+};
+
+export function MultiChoiceGroup<T extends string>({
+  label,
+  values,
+  options,
+  onChange,
+  lockedValues = [],
+  testID,
+}: Readonly<MultiChoiceGroupProps<T>>) {
+  return (
+    <View style={styles.fieldContainer}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <View style={styles.choicesContainer} accessibilityLabel={label}>
+        {options.map((option) => {
+          const selected = values.includes(option.value);
+          const locked = lockedValues.includes(option.value);
+          return (
+            <Pressable
+              testID={testID ? `${testID}.${option.value}` : undefined}
+              key={option.value}
+              style={[
+                styles.choiceChip,
+                selected && styles.choiceChipSelected,
+                locked && styles.choiceChipLocked,
+              ]}
+              onPress={() =>
+                onChange(
+                  selected
+                    ? values.filter((value) => value !== option.value)
+                    : [...values, option.value],
+                )
+              }
+              disabled={locked}
+              accessibilityRole="checkbox"
+              accessibilityLabel={option.label}
+              accessibilityState={{ checked: selected, disabled: locked }}
+            >
+              <Text
+                style={[
+                  styles.choiceText,
+                  selected && styles.choiceTextSelected,
+                ]}
+              >
+                {option.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   h1: {
     fontSize: 28,
@@ -346,6 +407,9 @@ const styles = StyleSheet.create({
   choiceChipSelected: {
     borderColor: '#1d4ed8',
     backgroundColor: '#dbeafe',
+  },
+  choiceChipLocked: {
+    opacity: 0.75,
   },
   choiceText: {
     color: '#1f2937',

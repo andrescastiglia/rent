@@ -45,7 +45,7 @@ describe('AiController', () => {
       mode: 'FULL',
       tools: [{ name: 'tool-1' }],
     });
-    expect(executor.listTools).toHaveBeenCalledWith(UserRole.ADMIN);
+    expect(executor.listTools).toHaveBeenCalledWith(req.user);
   });
 
   it('listOpenAiTools forwards request context', () => {

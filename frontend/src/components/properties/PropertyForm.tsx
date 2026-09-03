@@ -24,6 +24,7 @@ import { Owner } from "@/types/owner";
 import { useAuth } from "@/contexts/auth-context";
 import { useSearchParams } from "next/navigation";
 import { CurrencySelect } from "@/components/common/CurrencySelect";
+import { hasUserRole } from "@/lib/permissions";
 
 interface PropertyFormProps {
   readonly initialData?: Property;
@@ -269,7 +270,7 @@ export function PropertyForm({
 
   const onSubmit = async (data: PropertyFormData) => {
     setSubmitErrorMessage(null);
-    if (user?.role === "admin" && !data.ownerId) {
+    if (hasUserRole(user, "admin") && !data.ownerId) {
       alert(tValidation("ownerRequired"));
       return;
     }
@@ -407,7 +408,7 @@ export function PropertyForm({
 
           <OwnerField
             isOwnerLocked={isOwnerLocked}
-            isAdmin={user?.role === "admin"}
+            isAdmin={hasUserRole(user, "admin")}
             activeOwner={activeOwner}
             owners={owners}
             register={register}

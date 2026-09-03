@@ -16,6 +16,7 @@ import {
   TrendingUp,
   ClipboardList,
 } from "lucide-react";
+import { hasUserRole } from "@/lib/permissions";
 
 function SummaryCard({
   label,
@@ -56,7 +57,7 @@ export default function OwnerDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && user && user.role !== "owner") {
+    if (!authLoading && user && !hasUserRole(user, "owner")) {
       router.replace("/");
     }
   }, [user, authLoading, router]);
@@ -78,7 +79,7 @@ export default function OwnerDashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (!authLoading && user?.role === "owner") {
+    if (!authLoading && hasUserRole(user, "owner")) {
       fetchData();
     }
   }, [authLoading, user, fetchData]);
@@ -91,7 +92,7 @@ export default function OwnerDashboardPage() {
     );
   }
 
-  if (user?.role !== "owner") return null;
+  if (!user || !hasUserRole(user, "owner")) return null;
 
   const ownerBase = `/${locale}/portal/owner`;
 

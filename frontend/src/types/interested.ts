@@ -36,6 +36,7 @@ export interface InterestedProfile {
   peopleCount?: number;
   minAmount?: number;
   maxAmount?: number;
+  verifiedMonthlyIncome?: number;
   hasPets?: boolean;
   guaranteeTypes?: string[];
   preferredZones?: string[];
@@ -74,6 +75,7 @@ export interface CreateInterestedProfileInput {
   peopleCount?: number;
   minAmount?: number;
   maxAmount?: number;
+  verifiedMonthlyIncome?: number;
   hasPets?: boolean;
   guaranteeTypes?: string[];
   preferredZones?: string[];
@@ -109,6 +111,7 @@ export interface InterestedFilters {
   propertyTypePreference?: InterestedPropertyType;
   status?: InterestedStatus;
   qualificationLevel?: InterestedQualificationLevel;
+  minVerifiedMonthlyIncome?: number;
   page?: number;
   limit?: number;
 }

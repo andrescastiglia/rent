@@ -30,14 +30,56 @@ load_env_file() {
         return 0
     fi
 
-    set -a
-    # shellcheck disable=SC1090
-    if ! . "$env_file"; then
-        set +a
-        echo "Failed to load environment file: $env_file" >&2
-        exit 1
-    fi
-    set +a
+    local line
+    local key
+    local value
+    local line_number=0
+
+    while IFS= read -r line || [ -n "$line" ]; do
+        ((line_number += 1))
+        line="${line%$'\r'}"
+
+        if [[ "$line" =~ ^[[:space:]]*$ ]] || [[ "$line" =~ ^[[:space:]]*# ]]; then
+            continue
+        fi
+
+        line="${line#"${line%%[![:space:]]*}"}"
+        if [[ "$line" =~ ^export[[:space:]]+ ]]; then
+            line="${line#export}"
+            line="${line#"${line%%[![:space:]]*}"}"
+        fi
+
+        if [[ ! "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+            echo "Invalid dotenv assignment at $env_file:$line_number" >&2
+            exit 1
+        fi
+
+        key="${BASH_REMATCH[1]}"
+        value="${BASH_REMATCH[2]}"
+        value="${value#"${value%%[![:space:]]*}"}"
+
+        if [[ "$value" == \"* ]]; then
+            if [[ "$value" != *\" ]]; then
+                echo "Unterminated double-quoted value at $env_file:$line_number" >&2
+                exit 1
+            fi
+            value="${value:1:${#value}-2}"
+        elif [[ "$value" == \'* ]]; then
+            if [[ "$value" != *\' ]]; then
+                echo "Unterminated single-quoted value at $env_file:$line_number" >&2
+                exit 1
+            fi
+            value="${value:1:${#value}-2}"
+        else
+            value="${value%"${value##*[![:space:]]}"}"
+        fi
+
+        # Explicit process variables take precedence over values from the file.
+        if [ -z "${!key+x}" ]; then
+            printf -v "$key" '%s' "$value"
+            export "$key"
+        fi
+    done < "$env_file"
 }
 
 load_env_file

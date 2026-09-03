@@ -5,11 +5,13 @@ import { Settlement, SettlementStatus } from './entities/settlement.entity';
 import { SettlementFiltersDto } from './dto/settlement-filters.dto';
 import { UserRole } from '../users/entities/user.entity';
 import { Owner } from '../owners/entities/owner.entity';
+import { hasRole, isAdminOrStaff } from '../common/helpers/role-scope.helper';
 
 interface UserContext {
   id: string;
   companyId: string;
   role: UserRole;
+  roles?: UserRole[];
 }
 
 export interface SettlementSummary {
@@ -42,7 +44,7 @@ export class SettlementsService {
   private async resolveOwnerIdForUser(
     user: UserContext,
   ): Promise<string | null> {
-    if (user.role !== UserRole.OWNER) return null;
+    if (!hasRole(user, UserRole.OWNER) || isAdminOrStaff(user)) return null;
     const owner = await this.ownersRepository.findOne({
       where: { userId: user.id, companyId: user.companyId },
     });
@@ -56,7 +58,7 @@ export class SettlementsService {
   ): Promise<Settlement[]> {
     let ownerIdFilter = filters.ownerId;
 
-    if (user.role === UserRole.OWNER) {
+    if (hasRole(user, UserRole.OWNER) && !isAdminOrStaff(user)) {
       const ownerId = await this.resolveOwnerIdForUser(user);
       if (!ownerId) return [];
       ownerIdFilter = ownerId;
@@ -125,7 +127,7 @@ export class SettlementsService {
     user: UserContext,
   ): Promise<Settlement> {
     const ownerId = await this.resolveOwnerIdForUser(user);
-    if (user.role === UserRole.OWNER && !ownerId) {
+    if (hasRole(user, UserRole.OWNER) && !isAdminOrStaff(user) && !ownerId) {
       throw new NotFoundException(`Settlement ${id} not found`);
     }
 
@@ -175,7 +177,7 @@ export class SettlementsService {
   ): Promise<SettlementSummary> {
     let ownerIdFilter = ownerId;
 
-    if (user.role === UserRole.OWNER) {
+    if (hasRole(user, UserRole.OWNER) && !isAdminOrStaff(user)) {
       const resolvedId = await this.resolveOwnerIdForUser(user);
       if (!resolvedId) return { ...EMPTY_SETTLEMENT_SUMMARY };
       ownerIdFilter = resolvedId;

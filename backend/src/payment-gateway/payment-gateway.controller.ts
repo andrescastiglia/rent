@@ -26,6 +26,7 @@ interface AuthenticatedRequest {
     email: string;
     companyId: string;
     role: UserRole;
+    roles?: UserRole[];
   };
 }
 
@@ -48,7 +49,7 @@ export class PaymentGatewayController {
       req.user.companyId,
       req.user.id,
       dto,
-      req.user.role,
+      req.user,
     );
   }
 

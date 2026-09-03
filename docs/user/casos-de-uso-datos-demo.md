@@ -1,5 +1,7 @@
 # Casos de Uso de Datos Demo
 
+> **Estado histórico.** Los datos y dependencias de esta guía pueden corresponder al modelo legado.
+
 ## Objetivo
 Documentar los casos de uso minimos para:
 

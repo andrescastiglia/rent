@@ -28,7 +28,6 @@ if [ "$APP_BUILD_TYPE" = "debug" ]; then
     ./node_modules/.bin/metro serve \
     --host 127.0.0.1 \
     --port 8081 \
-    --reset-cache \
     --config metro.config.js \
     >"$METRO_LOG" 2>&1 &
   METRO_PID=$!

@@ -1,9 +1,11 @@
 import {
   canManageLeases,
   canManageOwners,
+  canManageOwnersForUser,
   canManageTenants,
   canUserAccessPath,
   getLandingPathForRole,
+  getLandingPathForUser,
   getNavigationForRole,
   getNavigationForUser,
 } from './navigation';
@@ -41,6 +43,20 @@ describe('buyer navigation', () => {
     ]);
     expect(canUserAccessPath({ role: 'buyer' }, '/dashboard')).toBe(false);
     expect(canUserAccessPath({ role: 'buyer' }, '/ai')).toBe(true);
+  });
+});
+
+describe('multi-role navigation', () => {
+  it('routes a buyer with an operational role to the task dashboard', () => {
+    expect(
+      getLandingPathForUser({ role: 'buyer', roles: ['buyer', 'staff'] }),
+    ).toBe('/dashboard');
+  });
+
+  it('recognizes management granted by a secondary staff role', () => {
+    expect(
+      canManageOwnersForUser({ role: 'owner', roles: ['owner', 'staff'] }),
+    ).toBe(true);
   });
 });
 

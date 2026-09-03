@@ -11,6 +11,7 @@ import { propertiesApi } from "@/lib/api/properties";
 import { CreatePropertyVisitInput, Property } from "@/types/property";
 import { interestedApi } from "@/lib/api/interested";
 import { InterestedProfile } from "@/types/interested";
+import { isInternalUser } from "@/lib/permissions";
 
 export default function CreatePropertyVisitPage() {
   const { loading: authLoading, user } = useAuth();
@@ -52,7 +53,7 @@ export default function CreatePropertyVisitPage() {
       try {
         const data = await propertiesApi.getById(propertyId);
         setProperty(data);
-        if (user && ["admin", "staff"].includes(user.role)) {
+        if (isInternalUser(user)) {
           const profiles = await interestedApi.getAll({
             operation: "sale",
             limit: 100,

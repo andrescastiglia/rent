@@ -13,6 +13,7 @@ import {
 import { MaintenanceTicketComment } from './entities/maintenance-ticket-comment.entity';
 import { PropertiesService } from '../properties/properties.service';
 import { UserRole } from '../users/entities/user.entity';
+import { ContractType, LeaseStatus } from '../leases/entities/lease.entity';
 
 type MockRepository<T extends Record<string, any> = any> = Partial<
   Record<keyof Repository<T>, jest.Mock>
@@ -227,10 +228,12 @@ describe('MaintenanceService', () => {
 
       await service.findAll(ownerActor, {});
 
-      expect(qb.innerJoin).toHaveBeenCalledWith('property.owner', 'scopeOwner');
       expect(qb.andWhere).toHaveBeenCalledWith(
-        'scopeOwner.user_id = :actorId',
-        { actorId: ownerActor.id },
+        expect.stringContaining('scope_owner.user_id = :actorId'),
+        expect.objectContaining({
+          actorId: ownerActor.id,
+          companyId: ownerActor.companyId,
+        }),
       );
     });
 
@@ -239,16 +242,14 @@ describe('MaintenanceService', () => {
 
       await service.findAll(tenantActor, {});
 
-      expect(qb.innerJoin).toHaveBeenCalledWith(
-        'scopeLease.tenant',
-        'scopeTenant',
-      );
       expect(qb.andWhere).toHaveBeenCalledWith(
-        'scopeTenant.user_id = :actorId AND scopeTenant.company_id = :companyId AND scopeTenant.deleted_at IS NULL',
-        {
+        expect.stringContaining('scope_tenant.user_id = :actorId'),
+        expect.objectContaining({
           actorId: tenantActor.id,
           companyId: tenantActor.companyId,
-        },
+          rentalType: ContractType.RENTAL,
+          activeStatus: LeaseStatus.ACTIVE,
+        }),
       );
     });
   });

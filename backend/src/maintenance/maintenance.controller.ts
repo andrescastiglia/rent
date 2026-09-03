@@ -24,6 +24,7 @@ import { CreateMaintenanceTicketDto } from './dto/create-maintenance-ticket.dto'
 import { UpdateMaintenanceTicketDto } from './dto/update-maintenance-ticket.dto';
 import { MaintenanceTicketFiltersDto } from './dto/maintenance-ticket-filters.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { isAdminOrStaff } from '../common/helpers/role-scope.helper';
 
 interface AuthenticatedRequest {
   user: {
@@ -31,6 +32,7 @@ interface AuthenticatedRequest {
     email: string;
     companyId: string;
     role: UserRole;
+    roles?: UserRole[];
   };
 }
 
@@ -93,9 +95,12 @@ export class MaintenanceController {
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
   ): Promise<MaintenanceTicketComment[]> {
-    const isAdminOrStaff =
-      req.user.role === UserRole.ADMIN || req.user.role === UserRole.STAFF;
-    return this.maintenanceService.getComments(id, req.user, isAdminOrStaff);
+    const canSeeInternalComments = isAdminOrStaff(req.user);
+    return this.maintenanceService.getComments(
+      id,
+      req.user,
+      canSeeInternalComments,
+    );
   }
 
   @Post(':id/comments')
@@ -105,11 +110,10 @@ export class MaintenanceController {
     @Body() dto: CreateCommentDto,
     @Request() req: AuthenticatedRequest,
   ): Promise<MaintenanceTicketComment> {
-    const isAdminOrStaff =
-      req.user.role === UserRole.ADMIN || req.user.role === UserRole.STAFF;
+    const canCreateInternalComment = isAdminOrStaff(req.user);
     const safeDto = {
       ...dto,
-      isInternal: isAdminOrStaff ? dto.isInternal : false,
+      isInternal: canCreateInternalComment ? dto.isInternal : false,
     };
     return this.maintenanceService.addComment(id, req.user, safeDto);
   }

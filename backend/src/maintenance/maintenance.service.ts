@@ -16,17 +16,18 @@ import { UpdateMaintenanceTicketDto } from './dto/update-maintenance-ticket.dto'
 import { MaintenanceTicketFiltersDto } from './dto/maintenance-ticket-filters.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { PropertiesService } from '../properties/properties.service';
-import {
-  Lease,
-  ContractType,
-  LeaseStatus,
-} from '../leases/entities/lease.entity';
+import { ContractType, LeaseStatus } from '../leases/entities/lease.entity';
 import { UserRole } from '../users/entities/user.entity';
+import {
+  getUserRoles,
+  isAdminOrStaff,
+} from '../common/helpers/role-scope.helper';
 
 export interface MaintenanceActor {
   id: string;
   companyId: string;
   role: UserRole;
+  roles?: UserRole[];
 }
 
 @Injectable()
@@ -124,7 +125,7 @@ export class MaintenanceService {
       description: dto.description ?? null,
       area: dto.area,
       priority: dto.priority,
-      source: this.resolveTicketSource(actor.role, dto.source),
+      source: this.resolveTicketSource(actor, dto.source),
       scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
       estimatedCost: dto.estimatedCost ?? null,
       costCurrency: dto.costCurrency ?? 'ARS',
@@ -247,34 +248,38 @@ export class MaintenanceService {
     query: SelectQueryBuilder<MaintenanceTicket>,
     actor: MaintenanceActor,
   ): void {
-    if (actor.role === UserRole.ADMIN || actor.role === UserRole.STAFF) {
+    if (isAdminOrStaff(actor)) {
       return;
     }
 
-    if (actor.role === UserRole.OWNER) {
-      query
-        .innerJoin('property.owner', 'scopeOwner')
-        .andWhere('scopeOwner.user_id = :actorId', { actorId: actor.id });
-      return;
-    }
-
-    if (actor.role === UserRole.TENANT) {
-      query
-        .innerJoin(
-          Lease,
-          'scopeLease',
-          'scopeLease.property_id = ticket.property_id AND scopeLease.company_id = :companyId AND scopeLease.contract_type = :rentalType AND scopeLease.status = :activeStatus AND scopeLease.deleted_at IS NULL',
-          {
-            companyId: actor.companyId,
-            rentalType: ContractType.RENTAL,
-            activeStatus: LeaseStatus.ACTIVE,
-          },
-        )
-        .innerJoin('scopeLease.tenant', 'scopeTenant')
-        .andWhere(
-          'scopeTenant.user_id = :actorId AND scopeTenant.company_id = :companyId AND scopeTenant.deleted_at IS NULL',
-          { actorId: actor.id, companyId: actor.companyId },
-        );
+    const roles = getUserRoles(actor);
+    const scopes = [
+      roles.includes(UserRole.OWNER)
+        ? `EXISTS (SELECT 1 FROM owners scope_owner
+            WHERE scope_owner.id = property.owner_id
+              AND scope_owner.user_id = :actorId
+              AND scope_owner.deleted_at IS NULL)`
+        : null,
+      roles.includes(UserRole.TENANT)
+        ? `EXISTS (SELECT 1 FROM leases scope_lease
+            JOIN tenants scope_tenant ON scope_tenant.id = scope_lease.tenant_id
+            WHERE scope_lease.property_id = ticket.property_id
+              AND scope_lease.company_id = :companyId
+              AND scope_lease.contract_type = :rentalType
+              AND scope_lease.status = :activeStatus
+              AND scope_lease.deleted_at IS NULL
+              AND scope_tenant.user_id = :actorId
+              AND scope_tenant.company_id = :companyId
+              AND scope_tenant.deleted_at IS NULL)`
+        : null,
+    ].filter((scope): scope is string => Boolean(scope));
+    if (scopes.length > 0) {
+      query.andWhere(`(${scopes.join(' OR ')})`, {
+        actorId: actor.id,
+        companyId: actor.companyId,
+        rentalType: ContractType.RENTAL,
+        activeStatus: LeaseStatus.ACTIVE,
+      });
       return;
     }
 
@@ -282,12 +287,12 @@ export class MaintenanceService {
   }
 
   private resolveTicketSource(
-    role: UserRole,
+    actor: MaintenanceActor,
     requestedSource?: MaintenanceTicketSource,
   ): MaintenanceTicketSource {
     if (
       requestedSource === MaintenanceTicketSource.INSPECTION &&
-      (role === UserRole.ADMIN || role === UserRole.STAFF)
+      isAdminOrStaff(actor)
     ) {
       return MaintenanceTicketSource.INSPECTION;
     }
@@ -298,7 +303,14 @@ export class MaintenanceService {
       [UserRole.OWNER]: MaintenanceTicketSource.OWNER,
       [UserRole.TENANT]: MaintenanceTicketSource.TENANT,
     };
-    const source = sourceByRole[role];
+    const roles = getUserRoles(actor);
+    const role = [
+      UserRole.ADMIN,
+      UserRole.STAFF,
+      UserRole.OWNER,
+      UserRole.TENANT,
+    ].find((candidate) => roles.includes(candidate));
+    const source = role ? sourceByRole[role] : undefined;
     if (!source) {
       throw new ForbiddenException(
         'Maintenance ticket creation is not allowed',

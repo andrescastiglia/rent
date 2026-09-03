@@ -1,7 +1,9 @@
 import {
   canManageLeases,
   canManageOwners,
+  canManageOwnersForUser,
   canManageTenants,
+  canUserAccessModule,
   hasModuleAccess,
 } from "./permissions";
 
@@ -65,4 +67,37 @@ describe("canManageOwners", () => {
       expect(canManageOwners(role)).toBe(false);
     },
   );
+});
+
+describe("multi-role permissions", () => {
+  it("recognizes internal capabilities held as a secondary role", () => {
+    expect(
+      canManageOwnersForUser({ role: "owner", roles: ["owner", "staff"] }),
+    ).toBe(true);
+  });
+
+  it("combines read access from one role with staff module permissions", () => {
+    expect(
+      canUserAccessModule(
+        {
+          role: "owner",
+          roles: ["owner", "staff"],
+          permissions: { payments: true },
+        },
+        ["staff"],
+        "payments",
+      ),
+    ).toBe(true);
+    expect(
+      canUserAccessModule(
+        {
+          role: "owner",
+          roles: ["owner", "staff"],
+          permissions: { payments: false },
+        },
+        ["staff"],
+        "payments",
+      ),
+    ).toBe(false);
+  });
 });

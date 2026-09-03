@@ -37,10 +37,13 @@ import {
   CommunicationEvent,
   CommunicationRecipientRole,
 } from '../communications/entities/communication-template.entity';
+import { UserRole } from '../users/entities/user.entity';
+import { hasRole, isAdminOrStaff } from '../common/helpers/role-scope.helper';
 
 interface VisitUserContext {
   id: string;
   role: string;
+  roles?: UserRole[];
   companyId: string;
 }
 
@@ -305,7 +308,11 @@ export class PropertyVisitsService {
       throw new NotFoundException(`Property with ID ${propertyId} not found`);
     }
 
-    if (user.role === 'owner' && property.owner?.userId !== user.id) {
+    if (
+      hasRole(user, UserRole.OWNER) &&
+      !isAdminOrStaff(user) &&
+      property.owner?.userId !== user.id
+    ) {
       throw new ForbiddenException('You can only access your own properties');
     }
 

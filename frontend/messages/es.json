@@ -77,8 +77,11 @@
     "captcha": "Verificación de seguridad",
     "role": "Rol",
     "roles": {
+      "admin": "Administrador",
+      "staff": "Personal",
       "owner": "Propietario",
-      "tenant": "Inquilino"
+      "tenant": "Inquilino",
+      "buyer": "Comprador"
     },
     "createAccount": "Crear Cuenta",
     "alreadyHaveAccount": "¿Ya tienes cuenta?",
@@ -528,6 +531,7 @@
       "peopleCount": "Cantidad de personas",
       "minAmount": "Monto mínimo",
       "maxAmount": "Monto máximo",
+      "verifiedMonthlyIncome": "Ingresos mensuales comprobables",
       "hasPets": "Tiene mascotas",
       "guaranteeTypes": "Tipos de garantía (separados por coma)",
       "preferredCity": "Ciudad preferida",
@@ -606,6 +610,7 @@
     "agreements": {
       "new": "Nuevo plan de cuotas",
       "selectFolder": "Selecciona un loteo",
+      "selectProperty": "Selecciona la propiedad",
       "buyerName": "Cliente",
       "buyerPhone": "Teléfono",
       "totalAmount": "Monto total",
@@ -785,6 +790,15 @@
     "showFinalized": "Ver también finalizados",
     "manageTemplates": "Plantillas",
     "versionLabel": "Versión {version}",
+    "signatureStatusLabel": "Firma",
+    "signatureStatus": {
+      "NOT_STARTED": "No iniciada",
+      "PENDING": "Pendiente",
+      "SIGNED": "Firmada",
+      "DECLINED": "Rechazada",
+      "VOIDED": "Anulada",
+      "EXPIRED": "Vencida"
+    },
     "createNewVersion": "Nueva versión",
     "createLease": "Crear Contrato",
     "newLease": "Nuevo Contrato",

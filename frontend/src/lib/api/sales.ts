@@ -31,6 +31,8 @@ const MOCK_AGREEMENTS: SaleAgreement[] = [
   {
     id: "agr-1",
     folderId: "folder-1",
+    propertyId: "property-1",
+    contractId: "contract-1",
     buyerId: "buyer-1",
     buyerName: "Carlos López",
     buyerPhone: "+54 9 11 4444-1234",

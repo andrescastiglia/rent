@@ -170,6 +170,7 @@ describe("usersApi", () => {
       avatarUrl: null,
       language: "es",
       role: "staff",
+      roles: ["staff"],
       isActive: true,
       permissions: { users: true },
     });
@@ -352,6 +353,7 @@ describe("usersApi", () => {
       avatarUrl: null,
       language: undefined,
       role: "admin",
+      roles: ["admin"],
       isActive: undefined,
       companyId: undefined,
       permissions: {},
@@ -373,6 +375,7 @@ describe("usersApi", () => {
       avatarUrl: "/avatar.png",
       language: "en",
       role: "admin",
+      roles: ["admin"],
       permissions: { dashboard: true },
     });
 
@@ -394,6 +397,7 @@ describe("usersApi", () => {
           avatarUrl: null,
           language: "pt",
           role: "owner",
+          roles: ["owner"],
           permissions: {},
         },
       ],
@@ -420,6 +424,7 @@ describe("usersApi", () => {
       avatarUrl: null,
       language: "en",
       role: "staff",
+      roles: ["staff"],
       permissions: { reports: true },
     });
 
@@ -436,6 +441,7 @@ describe("usersApi", () => {
       avatarUrl: null,
       language: "es",
       role: "owner",
+      roles: ["owner"],
       isActive: false,
       permissions: { users: false },
     });
@@ -449,6 +455,7 @@ describe("usersApi", () => {
       avatarUrl: null,
       language: "es",
       role: "owner",
+      roles: ["owner"],
       isActive: true,
       permissions: { users: true },
     });

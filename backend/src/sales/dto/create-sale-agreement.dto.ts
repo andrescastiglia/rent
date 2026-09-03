@@ -14,6 +14,7 @@ import { z } from 'zod';
 const createSaleAgreementZodSchema = z
   .object({
     folderId: z.string().min(1).describe('UUID of the sale folder'),
+    propertyId: z.uuid().describe('UUID of the property being sold'),
     buyerId: z.uuid().describe('UUID of the buyer entity'),
     buyerName: z.string().min(1).optional(),
     buyerPhone: z.string().min(1).optional(),
@@ -46,6 +47,9 @@ export class CreateSaleAgreementDto {
   @IsString()
   @IsNotEmpty()
   folderId: string;
+
+  @IsUUID()
+  propertyId: string;
 
   @IsUUID()
   buyerId: string;

@@ -8,7 +8,7 @@ import { leasesApi } from "@/lib/api/leases";
 import { Search, Loader2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
-import { canManageLeases } from "@/lib/permissions";
+import { canManageLeasesForUser } from "@/lib/permissions";
 import { formatMoneyByCode } from "@/lib/format-money";
 import { normalizeSearchText } from "@/lib/search";
 
@@ -229,7 +229,7 @@ export default function LeasesPage() {
             Vencimientos organizados por prioridad de renovación.
           </p>
         </div>
-        {canManageLeases(user?.role) ? (
+        {canManageLeasesForUser(user) ? (
           <div className="flex items-center gap-3">
             <Link
               href={`/${locale}/leases/import`}

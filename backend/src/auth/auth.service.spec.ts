@@ -126,6 +126,7 @@ describe('AuthService', () => {
       email: 'a@b.com',
       sub: 'u1',
       role: UserRole.ADMIN,
+      roles: [UserRole.ADMIN],
       companyId: 'c1',
     });
     expect(result.accessToken).toBe('token-1');

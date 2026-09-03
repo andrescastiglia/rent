@@ -69,7 +69,7 @@ describe('TenantAccountsService', () => {
       { companyId: 'company-a' },
     );
     expect(query.andWhere).toHaveBeenCalledWith(
-      'tenant.user_id = :scopeUserId',
+      '(tenant.user_id = :scopeUserId)',
       { scopeUserId: 'tenant-user-1' },
     );
   });

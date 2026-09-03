@@ -5,25 +5,46 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
-import { AppButton, ChoiceGroup, Field } from '@/components/ui';
+import {
+  AppButton,
+  ChoiceGroup,
+  Field,
+  MultiChoiceGroup,
+} from '@/components/ui';
 import type { User } from '@/types/auth';
 import type {
   CreateManagedUserInput,
   UpdateManagedUserInput,
 } from '@/api/users';
 
-const createSchema = z.object({
+const userRoleSchema = z.enum(['admin', 'owner', 'tenant', 'staff', 'buyer']);
+
+const formSchema = z.object({
   email: z.email(),
   password: z.string().min(8),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   phone: z.string().optional(),
-  role: z.enum(['admin', 'owner', 'tenant', 'staff', 'buyer']),
+  role: userRoleSchema,
+  roles: z.array(userRoleSchema).min(1),
 });
 
-const editSchema = createSchema.extend({
-  password: z.string().optional(),
-});
+const createSchema = formSchema.refine(
+  (values) => values.roles.includes(values.role),
+  {
+    path: ['roles'],
+    message: 'The primary role must be selected',
+  },
+);
+
+const editSchema = formSchema
+  .extend({
+    password: z.string().optional(),
+  })
+  .refine((values) => values.roles.includes(values.role), {
+    path: ['roles'],
+    message: 'The primary role must be selected',
+  });
 
 type CreateFormValues = z.infer<typeof createSchema>;
 type EditFormValues = z.infer<typeof editSchema>;
@@ -49,13 +70,7 @@ const roleOptions: Array<{ label: string; value: User['role'] }> = [
 ];
 
 const getRoleLabel = (value: User['role'], t: (key: string) => string) => {
-  if (value === 'owner') {
-    return t('auth.roles.owner');
-  }
-  if (value === 'tenant') {
-    return t('auth.roles.tenant');
-  }
-  return value;
+  return t(`auth.roles.${value}`);
 };
 
 export function UserForm({
@@ -76,14 +91,19 @@ export function UserForm({
       lastName: initial?.lastName ?? '',
       phone: initial?.phone ?? '',
       role: initial?.role ?? 'staff',
+      roles:
+        initial?.roles?.length && initial.roles.includes(initial.role)
+          ? initial.roles
+          : [initial?.role ?? 'staff'],
     }),
     [initial],
   );
 
-  const { control, handleSubmit, formState } = useForm<FormValues>({
-    resolver: zodResolver(mode === 'create' ? createSchema : editSchema),
-    defaultValues: defaults,
-  });
+  const { control, getValues, handleSubmit, formState, setValue } =
+    useForm<FormValues>({
+      resolver: zodResolver(mode === 'create' ? createSchema : editSchema),
+      defaultValues: defaults,
+    });
 
   const submit = handleSubmit(async (values) => {
     if (mode === 'create') {
@@ -94,6 +114,7 @@ export function UserForm({
         lastName: values.lastName.trim(),
         phone: values.phone?.trim() || undefined,
         role: values.role,
+        roles: values.roles,
       } satisfies CreateManagedUserInput);
       return;
     }
@@ -103,6 +124,8 @@ export function UserForm({
       firstName: values.firstName.trim(),
       lastName: values.lastName.trim(),
       phone: values.phone?.trim() || undefined,
+      role: values.role,
+      roles: values.roles,
     } satisfies UpdateManagedUserInput);
   });
 
@@ -178,24 +201,47 @@ export function UserForm({
         )}
       />
 
-      {mode === 'create' ? (
-        <Controller
-          control={control}
-          name="role"
-          render={({ field }) => (
-            <ChoiceGroup
-              label={t('auth.role')}
-              value={field.value}
-              onChange={field.onChange}
-              options={roleOptions.map((option) => ({
-                value: option.value,
-                label: getRoleLabel(option.value, t),
-              }))}
-              testID={`${testIDPrefix}.role`}
-            />
-          )}
-        />
-      ) : null}
+      <Controller
+        control={control}
+        name="role"
+        render={({ field }) => (
+          <ChoiceGroup
+            label={t('auth.role')}
+            value={field.value}
+            onChange={(nextRole) => {
+              field.onChange(nextRole);
+              setValue(
+                'roles',
+                Array.from(new Set([nextRole, ...getValues('roles')])),
+                { shouldValidate: true },
+              );
+            }}
+            options={roleOptions.map((option) => ({
+              value: option.value,
+              label: getRoleLabel(option.value, t),
+            }))}
+            testID={`${testIDPrefix}.role`}
+          />
+        )}
+      />
+
+      <Controller
+        control={control}
+        name="roles"
+        render={({ field }) => (
+          <MultiChoiceGroup
+            label={t('auth.rolesLabel')}
+            values={field.value}
+            lockedValues={[getValues('role')]}
+            onChange={field.onChange}
+            options={roleOptions.map((option) => ({
+              value: option.value,
+              label: getRoleLabel(option.value, t),
+            }))}
+            testID={`${testIDPrefix}.roles`}
+          />
+        )}
+      />
 
       {Object.values(formState.errors).map((item) => {
         if (!item?.message) return null;

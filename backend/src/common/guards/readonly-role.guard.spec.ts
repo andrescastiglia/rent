@@ -95,4 +95,21 @@ describe('ReadonlyRoleGuard', () => {
       ).toBe(true);
     }
   });
+
+  it('allows writes when an internal role is present in a multi-role identity', () => {
+    const guard = new ReadonlyRoleGuard(reflector);
+    reflector.getAllAndOverride = jest.fn().mockReturnValue(false);
+    expect(
+      guard.canActivate(
+        makeContext({
+          method: 'POST',
+          path: '/contracts',
+          user: {
+            role: UserRole.OWNER,
+            roles: [UserRole.OWNER, UserRole.STAFF],
+          },
+        }),
+      ),
+    ).toBe(true);
+  });
 });

@@ -211,4 +211,53 @@ describe('RolesGuard', () => {
       guard.canActivate(makeContext({ user: { role: UserRole.OWNER } })),
     ).toBe(false);
   });
+
+  it('accepts any directly allowed role from a multi-role identity', () => {
+    const guard = new RolesGuard(reflector);
+    setPolicy({ roles: [UserRole.TENANT] });
+    expect(
+      guard.canActivate(
+        makeContext({
+          user: {
+            role: UserRole.OWNER,
+            roles: [UserRole.OWNER, UserRole.TENANT],
+          },
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('applies staff permissions when staff is a secondary role', () => {
+    const guard = new RolesGuard(reflector);
+    setPolicy({ roles: [UserRole.ADMIN, UserRole.STAFF] });
+    expect(
+      guard.canActivate(
+        makeContext({
+          path: '/contracts',
+          user: {
+            role: UserRole.OWNER,
+            roles: [UserRole.OWNER, UserRole.STAFF],
+            permissions: { leases: true },
+          },
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('keeps an external directly authenticated role when staff is secondary', () => {
+    const guard = new RolesGuard(reflector);
+    setPolicy({ authenticated: 'leases' });
+    expect(
+      guard.canActivate(
+        makeContext({
+          path: '/contracts',
+          user: {
+            role: UserRole.OWNER,
+            roles: [UserRole.OWNER, UserRole.STAFF],
+            permissions: { leases: false },
+          },
+        }),
+      ),
+    ).toBe(true);
+  });
 });

@@ -143,4 +143,29 @@ describe('AI tools integration', () => {
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
+
+  it('forwards every role when an AI tool calls a scoped domain service', async () => {
+    propertiesService.findAll.mockResolvedValue({ data: [], total: 0 });
+    const definition = catalog.getDefinitionByName('get_properties');
+
+    await definition!.execute(
+      {},
+      {
+        userId: 'person-1',
+        companyId: 'company-1',
+        role: UserRole.OWNER,
+        roles: [UserRole.OWNER, UserRole.TENANT],
+      },
+    );
+
+    expect(propertiesService.findAll).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        id: 'person-1',
+        role: UserRole.OWNER,
+        roles: [UserRole.OWNER, UserRole.TENANT],
+        companyId: 'company-1',
+      }),
+    );
+  });
 });

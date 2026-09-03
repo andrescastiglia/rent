@@ -23,6 +23,7 @@ import { PropertyReservation } from './entities/property-reservation.entity';
 import { PropertyVisit } from '../properties/entities/property-visit.entity';
 import { User } from '../users/entities/user.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
+import { Lease } from '../leases/entities/lease.entity';
 import { SaleAgreement } from '../sales/entities/sale-agreement.entity';
 import { SaleFolder } from '../sales/entities/sale-folder.entity';
 import { I18nContext, I18nService } from 'nestjs-i18n';
@@ -871,6 +872,7 @@ describe('InterestedService', () => {
     const buyerRepo = {
       create: jest.fn((data) => data),
       save: jest.fn().mockResolvedValue({ id: 'buyer-1' }),
+      findOne: jest.fn().mockResolvedValue(null),
     };
     const folderRepo = {
       findOne: jest.fn().mockResolvedValue({
@@ -881,6 +883,16 @@ describe('InterestedService', () => {
     const agreementsRepo = {
       create: jest.fn((data) => data),
       save: jest.fn().mockResolvedValue({ id: 'agr-1' }),
+    };
+    const propertyRepo = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'property-1',
+        ownerId: 'owner-1',
+      }),
+    };
+    const contractRepo = {
+      create: jest.fn((data) => data),
+      save: jest.fn().mockResolvedValue({ id: 'contract-1' }),
     };
     const profileRepo = { save: jest.fn().mockResolvedValue({ id: 'int-1' }) };
     const historyRepo = {
@@ -898,6 +910,8 @@ describe('InterestedService', () => {
           if (entity === Buyer) return buyerRepo;
           if (entity === SaleFolder) return folderRepo;
           if (entity === SaleAgreement) return agreementsRepo;
+          if (entity === Property) return propertyRepo;
+          if (entity === Lease) return contractRepo;
           if (entity === InterestedProfile) return profileRepo;
           if (entity === InterestedStageHistory) return historyRepo;
           if (entity === InterestedActivity) return activityRepo;
@@ -910,6 +924,7 @@ describe('InterestedService', () => {
       'int-1',
       {
         folderId: 'folder-1',
+        propertyId: 'property-1',
         totalAmount: 100000,
         installmentAmount: 10000,
         installmentCount: 10,
@@ -1011,6 +1026,7 @@ describe('InterestedService', () => {
     const tenantRepo = {
       create: jest.fn((d) => d),
       save: jest.fn().mockResolvedValue({ id: 'tenant-1' }),
+      findOne: jest.fn().mockResolvedValue(null),
     };
     const profileRepo = { save: jest.fn().mockResolvedValue({}) };
     const historyRepo = {
@@ -1115,6 +1131,7 @@ describe('InterestedService', () => {
             return {
               create: jest.fn((data) => data),
               save: jest.fn().mockResolvedValue({ id: 'buyer-2' }),
+              findOne: jest.fn().mockResolvedValue(null),
             };
           }
           if (entity === SaleFolder) {
@@ -1132,6 +1149,7 @@ describe('InterestedService', () => {
         'int-2',
         {
           folderId: 'missing',
+          propertyId: 'property-1',
           totalAmount: 1,
           installmentAmount: 1,
           installmentCount: 1,
@@ -1510,6 +1528,7 @@ describe('InterestedService', () => {
     const tenantRepo = {
       create: jest.fn((d: any) => d),
       save: jest.fn().mockResolvedValue({ id: 'tenant-1' }),
+      findOne: jest.fn().mockResolvedValue(null),
     };
     const profileRepo = { save: jest.fn().mockResolvedValue({}) };
     const historyRepo = {
@@ -1607,6 +1626,7 @@ describe('InterestedService', () => {
     const buyerRepo = {
       create: jest.fn((d: any) => d),
       save: jest.fn().mockResolvedValue({ id: 'buyer-1' }),
+      findOne: jest.fn().mockResolvedValue(null),
     };
     const profileRepo = { save: jest.fn().mockResolvedValue({}) };
     const historyRepo = {

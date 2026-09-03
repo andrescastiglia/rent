@@ -12,6 +12,8 @@ import {
 import { SaleFolder } from './sale-folder.entity';
 import { SaleReceipt } from './sale-receipt.entity';
 import { Buyer } from '../../buyers/entities/buyer.entity';
+import { Lease } from '../../leases/entities/lease.entity';
+import { Property } from '../../properties/entities/property.entity';
 
 @Entity('sale_agreements')
 export class SaleAgreement {
@@ -34,6 +36,20 @@ export class SaleAgreement {
   @ManyToOne(() => Buyer, { nullable: true })
   @JoinColumn({ name: 'buyer_id' })
   buyer: Buyer | null;
+
+  @Column({ name: 'contract_id', type: 'uuid', nullable: true })
+  contractId: string | null;
+
+  @ManyToOne(() => Lease, { nullable: true })
+  @JoinColumn({ name: 'contract_id' })
+  contract: Lease | null;
+
+  @Column({ name: 'property_id', type: 'uuid', nullable: true })
+  propertyId: string | null;
+
+  @ManyToOne(() => Property, { nullable: true })
+  @JoinColumn({ name: 'property_id' })
+  property: Property | null;
 
   @Column({ name: 'buyer_name' })
   buyerName: string;

@@ -31,6 +31,7 @@ export type CreateManagedUserInput = {
   firstName: string;
   lastName: string;
   role: User['role'];
+  roles?: User['roles'];
   phone?: string;
 };
 
@@ -39,6 +40,8 @@ export type UpdateManagedUserInput = {
   firstName?: string;
   lastName?: string;
   phone?: string;
+  role?: User['role'];
+  roles?: User['roles'];
 };
 
 export type ResetUserPasswordResult = {
@@ -88,6 +91,7 @@ export const usersApi = {
         lastName: payload.lastName.trim(),
         phone: payload.phone?.trim() || null,
         role: payload.role,
+        roles: payload.roles?.length ? payload.roles : [payload.role],
         language: 'es',
         isActive: true,
       };
@@ -114,6 +118,11 @@ export const usersApi = {
         lastName: payload.lastName?.trim() ?? current.lastName,
         phone:
           payload.phone === undefined ? current.phone : payload.phone || null,
+        roles: payload.roles?.length
+          ? Array.from(
+              new Set([payload.role ?? current.role, ...payload.roles]),
+            )
+          : current.roles,
       };
       MOCK_USERS[index] = updated;
       return updated;

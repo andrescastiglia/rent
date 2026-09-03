@@ -5,6 +5,7 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  IsArray,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -22,6 +23,7 @@ const createUserZodSchema = z
     firstName: z.string().min(1),
     lastName: z.string().min(1),
     role: z.enum(UserRole).describe('admin|owner|tenant|staff|buyer'),
+    roles: z.array(z.enum(UserRole)).min(1).optional(),
     phone: z.string().min(1).optional(),
     permissions: z.record(z.string(), z.boolean()).optional(),
   })
@@ -51,6 +53,11 @@ export class CreateUserDto {
   @IsEnum(UserRole)
   @IsNotEmpty()
   role: UserRole;
+
+  @IsArray()
+  @IsEnum(UserRole, { each: true })
+  @IsOptional()
+  roles?: UserRole[];
 
   @IsString()
   @IsOptional()

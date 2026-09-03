@@ -14,6 +14,12 @@ function sanitizeUserForStorage(
   user: Record<string, unknown>,
 ): Record<string, unknown> {
   const role = getOptionalString(user.role);
+  const roles = Array.isArray(user.roles)
+    ? user.roles.filter(
+        (value): value is string =>
+          typeof value === "string" && USER_ROLES.has(value),
+      )
+    : [];
   const language = getOptionalString(user.language);
   const permissions =
     user.permissions && typeof user.permissions === "object"
@@ -34,8 +40,16 @@ function sanitizeUserForStorage(
     avatarUrl: getOptionalString(user.avatarUrl) ?? null,
     language: language && USER_LANGUAGES.has(language) ? language : undefined,
     role: role && USER_ROLES.has(role) ? role : "staff",
+    roles:
+      roles.length > 0
+        ? roles
+        : [role && USER_ROLES.has(role) ? role : "staff"],
     permissions,
     isActive: typeof user.isActive === "boolean" ? user.isActive : undefined,
+    accessRequested:
+      typeof user.accessRequested === "boolean"
+        ? user.accessRequested
+        : undefined,
   };
 }
 

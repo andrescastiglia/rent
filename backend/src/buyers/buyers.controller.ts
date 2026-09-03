@@ -17,12 +17,14 @@ import { BuyersService } from './buyers.service';
 import { BuyerFiltersDto } from './dto/buyer-filters.dto';
 import { CreateBuyerDto } from './dto/create-buyer.dto';
 import { UpdateBuyerDto } from './dto/update-buyer.dto';
+import { hasRole, isAdminOrStaff } from '../common/helpers/role-scope.helper';
 
 interface AuthenticatedRequest {
   user: {
     id: string;
     companyId: string;
     role: UserRole;
+    roles?: UserRole[];
   };
 }
 
@@ -46,7 +48,7 @@ export class BuyersController {
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    if (req.user.role === UserRole.BUYER) {
+    if (hasRole(req.user, UserRole.BUYER) && !isAdminOrStaff(req.user)) {
       return this.buyersService.findOne(id, req.user.companyId, req.user.id);
     }
 

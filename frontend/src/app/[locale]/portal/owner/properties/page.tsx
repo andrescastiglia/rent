@@ -9,6 +9,7 @@ import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Building2, ChevronRight, Loader2 } from "lucide-react";
+import { hasUserRole } from "@/lib/permissions";
 
 export default function OwnerPropertiesPage() {
   const { user, loading: authLoading } = useAuth();
@@ -20,7 +21,7 @@ export default function OwnerPropertiesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && user && user.role !== "owner") {
+    if (!authLoading && user && !hasUserRole(user, "owner")) {
       router.replace("/");
     }
   }, [user, authLoading, router]);
@@ -38,7 +39,7 @@ export default function OwnerPropertiesPage() {
   }, []);
 
   useEffect(() => {
-    if (!authLoading && user?.role === "owner") {
+    if (!authLoading && hasUserRole(user, "owner")) {
       fetchProperties();
     }
   }, [authLoading, user, fetchProperties]);
@@ -51,7 +52,7 @@ export default function OwnerPropertiesPage() {
     );
   }
 
-  if (user?.role !== "owner") return null;
+  if (!hasUserRole(user, "owner")) return null;
 
   return (
     <div className="space-y-4">
