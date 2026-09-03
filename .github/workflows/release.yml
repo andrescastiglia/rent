@@ -149,7 +149,7 @@ jobs:
 
   deploy-server:
     name: Deploy server
-    needs: [preflight, build-server-artifact]
+    needs: [preflight, build-server-artifact, deploy-android]
     runs-on: ubuntu-latest
     environment: production-release
     steps:
