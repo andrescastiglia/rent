@@ -1,9 +1,18 @@
-import { Body, Controller, Get, Param, Post, Request } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Request,
+} from '@nestjs/common';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { RejectPendingActionDto } from './dto/reject-pending-action.dto';
 import { PendingActionsService } from './pending-actions.service';
+import { ApprovePendingActionDto } from './dto/approve-pending-action.dto';
 
 type StaffRequest = {
   user: { id: string; companyId: string; role: UserRole };
@@ -21,13 +30,17 @@ export class PendingActionsController {
   }
 
   @Post(':id/approve')
-  approve(@Param('id') id: string, @Request() request: StaffRequest) {
-    return this.service.approve(id, request.user);
+  approve(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() request: StaffRequest,
+    @Body() dto: ApprovePendingActionDto,
+  ) {
+    return this.service.approve(id, request.user, dto.reauthToken);
   }
 
   @Post(':id/reject')
   reject(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Request() request: StaffRequest,
     @Body() dto: RejectPendingActionDto,
   ) {

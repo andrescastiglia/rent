@@ -146,6 +146,22 @@
     },
     "recentActivity": "Actividad Reciente",
     "noRecentActivity": "No hay actividad reciente para mostrar.",
+    "review": {
+      "title": "Revisar",
+      "empty": "No hay comunicaciones ni tareas nuevas.",
+      "approve": "Aprobar",
+      "approving": "Aprobando…",
+      "reject": "Rechazar",
+      "markRead": "Marcar leída",
+      "cancel": "Cancelar",
+      "securityTitle": "Confirmación de seguridad",
+      "rejectTitle": "Rechazar propuesta",
+      "rejectConfirm": "¿Confirmás el rechazo?",
+      "approveError": "No se pudo aprobar",
+      "rejectError": "No se pudo rechazar",
+      "readError": "No se pudo marcar como leída",
+      "unexpectedError": "Error inesperado"
+    },
     "activity": {
       "show": "Mostrar {count}",
       "totalJobs": "Mostrando {shown} de {total} ejecuciones",

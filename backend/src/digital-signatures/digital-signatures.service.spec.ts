@@ -1,10 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
   BadRequestException,
   NotFoundException,
   ServiceUnavailableException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DigitalSignaturesService } from './digital-signatures.service';
@@ -14,6 +15,7 @@ import {
   SignatureStatus,
 } from './entities/digital-signature-request.entity';
 import { Lease, LeaseStatus } from '../leases/entities/lease.entity';
+import { createHmac } from 'node:crypto';
 
 type MockRepository<T extends Record<string, any> = any> = Partial<
   Record<keyof Repository<T>, jest.Mock>
@@ -65,8 +67,10 @@ describe('DigitalSignaturesService', () => {
   let service: DigitalSignaturesService;
   let sigRequestRepo: MockRepository<DigitalSignatureRequest>;
   let leaseRepo: MockRepository<Lease>;
+  let dataSource: { query: jest.Mock; transaction: jest.Mock };
 
   beforeEach(async () => {
+    dataSource = { query: jest.fn(), transaction: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DigitalSignaturesService,
@@ -80,7 +84,18 @@ describe('DigitalSignaturesService', () => {
         },
         {
           provide: ConfigService,
-          useValue: { get: jest.fn().mockReturnValue('test') },
+          useValue: {
+            get: jest.fn((key: string) => {
+              if (key === 'NODE_ENV') return 'test';
+              if (key === 'DOCUSIGN_WEBHOOK_SECRET') return 'signing-secret';
+              if (key === 'SIGNATURE_WEBHOOK_TOLERANCE_SECONDS') return '300';
+              return undefined;
+            }),
+          },
+        },
+        {
+          provide: getDataSourceToken(),
+          useValue: dataSource,
         },
       ],
     }).compile();
@@ -141,6 +156,10 @@ describe('DigitalSignaturesService', () => {
           {
             provide: ConfigService,
             useValue: { get: jest.fn().mockReturnValue('production') },
+          },
+          {
+            provide: getDataSourceToken(),
+            useValue: { query: jest.fn(), transaction: jest.fn() },
           },
         ],
       }).compile();
@@ -248,6 +267,7 @@ describe('DigitalSignaturesService', () => {
       await service.processWebhook({
         envelopeId: 'env-123',
         status: 'completed',
+        generatedAt: new Date().toISOString(),
         signerEmail: 'tenant@example.com',
         completedAt: new Date().toISOString(),
       });
@@ -274,6 +294,7 @@ describe('DigitalSignaturesService', () => {
       await service.processWebhook({
         envelopeId: 'env-123',
         status: 'voided',
+        generatedAt: new Date().toISOString(),
         signerEmail: 'tenant@example.com',
       });
 
@@ -300,6 +321,7 @@ describe('DigitalSignaturesService', () => {
       await service.processWebhook({
         envelopeId: 'env-123',
         status: 'declined',
+        generatedAt: new Date().toISOString(),
         signerEmail: 'tenant@example.com',
       });
 
@@ -317,10 +339,84 @@ describe('DigitalSignaturesService', () => {
       await service.processWebhook({
         envelopeId: 'unknown',
         status: 'completed',
+        generatedAt: new Date().toISOString(),
         signerEmail: 'a@b.com',
       });
 
       expect(sigRequestRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('acceptWebhook', () => {
+    const createEvent = () => ({
+      eventId: 'event-1',
+      envelopeId: 'env-123',
+      status: 'completed',
+      generatedAt: new Date().toISOString(),
+    });
+
+    it('authenticates, persists and applies a company-scoped event', async () => {
+      const event = createEvent();
+      const rawBody = Buffer.from(JSON.stringify(event));
+      const signature = createHmac('sha256', 'signing-secret')
+        .update(rawBody)
+        .digest('base64');
+      const manager = { query: jest.fn() };
+      dataSource.query.mockResolvedValueOnce([{ id: 'inbox-1' }]);
+      manager.query
+        .mockResolvedValueOnce([{ id: 'inbox-1' }])
+        .mockResolvedValueOnce([
+          {
+            id: 'sig-1',
+            company_id: 'company-1',
+            lease_id: 'lease-1',
+            status: SignatureStatus.SENT,
+          },
+        ])
+        .mockResolvedValue([]);
+      dataSource.transaction.mockImplementation(async (callback) =>
+        callback(manager),
+      );
+
+      await expect(
+        service.acceptWebhook('docusign', event, rawBody, { signature }),
+      ).resolves.toEqual({ received: true, duplicate: false });
+      expect(manager.query.mock.calls[2][1]).toEqual(
+        expect.arrayContaining(['company-1']),
+      );
+      expect(manager.query.mock.calls[3][1]).toEqual([
+        'lease-1',
+        'company-1',
+        LeaseStatus.SIGNED,
+      ]);
+    });
+
+    it('rejects invalid signatures before persistence', async () => {
+      const event = createEvent();
+      const rawBody = Buffer.from(JSON.stringify(event));
+
+      await expect(
+        service.acceptWebhook('docusign', event, rawBody, {
+          signature: 'invalid',
+        }),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(dataSource.query).not.toHaveBeenCalled();
+    });
+
+    it('rejects replayed events outside the timestamp tolerance', async () => {
+      const event = {
+        ...createEvent(),
+        generatedAt: new Date(Date.now() - 600_000).toISOString(),
+      };
+      const rawBody = Buffer.from(JSON.stringify(event));
+      const signature = createHmac('sha256', 'signing-secret')
+        .update(rawBody)
+        .digest('base64');
+
+      await expect(
+        service.acceptWebhook('docusign', event, rawBody, { signature }),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(dataSource.query).not.toHaveBeenCalled();
     });
   });
 

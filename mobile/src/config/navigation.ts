@@ -58,6 +58,10 @@ const routePolicies: Record<string, RoutePolicy> = {
   },
   sales: { roles: ['admin'], staffPermission: 'sales' },
   reports: { roles: ['admin', 'owner'], staffPermission: 'reports' },
+  maintenance: {
+    roles: ['admin', 'owner', 'tenant'],
+    staffPermission: 'maintenance',
+  },
   users: { roles: ['admin'] },
   ai: {
     roles: ['admin', 'owner', 'tenant', 'buyer'],
@@ -109,6 +113,11 @@ export const navigationItems: NavItem[] = [
   {
     labelKey: 'interested',
     href: '/interested',
+    roles: ['admin', 'staff'],
+  },
+  {
+    labelKey: 'sales',
+    href: '/sales',
     roles: ['admin', 'staff'],
   },
   {

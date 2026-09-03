@@ -19,4 +19,16 @@ describe('AppController', () => {
       expect(appController.getHello()).toBe('Hello World!');
     });
   });
+
+  it('publishes the versioned canonical capability manifest', () => {
+    expect(appController.getCapabilities()).toEqual(
+      expect.objectContaining({
+        schemaVersion: '1.0.0',
+        product: 'rent',
+        capabilities: expect.arrayContaining([
+          expect.objectContaining({ id: 'ai.approve-mutation' }),
+        ]),
+      }),
+    );
+  });
 });

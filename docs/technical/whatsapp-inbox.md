@@ -74,6 +74,16 @@ endpoint autenticado exige una actividad relacionada; batch envía empresa, rol,
 destinatario y una clave estable del evento. Templates con PDF derivan claves
 distintas y estables para cada componente.
 
+Web y mobile crean actividades WhatsApp mediante un único comando
+`POST /whatsapp/activities`. El backend bloquea y valida el destinatario dentro
+de su compañía, comprueba consentimiento, crea la actividad y la entrega
+`queued`, y aplica una reserva opcional, todo en la misma transacción. El cliente
+genera un `requestId` UUID; actividad y entrega derivan su idempotencia de ese
+valor y guardan un hash del comando. Repetir el mismo comando devuelve los
+registros existentes, mientras reutilizar el UUID con otro payload aborta la
+transacción con conflicto. El worker continúa siendo el único proceso que llama
+a Meta después del commit.
+
 Programar el procesador de comunicaciones al menos una vez por minuto:
 
 ```bash
@@ -136,3 +146,8 @@ npm test -- --runInBand src/whatsapp/whatsapp.service.spec.ts \
 cd ../batch
 npm test -- --runInBand src/services/whatsapp.service.spec.ts
 ```
+
+Para rollback de aplicación, el endpoint anterior `POST /whatsapp/messages`
+permanece disponible. No se requiere revertir esquema: las actividades y
+entregas creadas por el comando atómico usan las tablas e índices vigentes. No
+se deben borrar entregas `queued` durante un rollback.

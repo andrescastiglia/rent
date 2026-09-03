@@ -22,6 +22,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { DocumentsService } from '../documents/documents.service';
 import { UserRole } from '../users/entities/user.entity';
 import { SendWhatsappMessageDto } from './dto/send-whatsapp-message.dto';
+import { CreateWhatsappActivityDto } from './dto/create-whatsapp-activity.dto';
 import { WhatsappWebhookQueryDto } from './dto/whatsapp-webhook-query.dto';
 import { WhatsappDocumentQueryDto } from './dto/whatsapp-document-query.dto';
 import { WhatsappService } from './whatsapp.service';
@@ -52,6 +53,15 @@ export class WhatsappController {
       recipientId: dto.relatedEntityId,
       idempotencyKey: `activity:${dto.activityEntity}:${dto.activityId}`,
     });
+  }
+
+  @Post('activities')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  async createActivity(
+    @Body() dto: CreateWhatsappActivityDto,
+    @NestRequest() req: { user: { id: string; companyId: string } },
+  ) {
+    return this.whatsappService.createActivityAndEnqueue(dto, req.user);
   }
 
   @Public()

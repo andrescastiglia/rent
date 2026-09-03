@@ -1,6 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -12,6 +21,7 @@ import {
 } from '@/api/dashboard';
 import { Screen } from '@/components/screen';
 import { i18n } from '@/i18n';
+import { authApi } from '@/api/auth';
 
 function formatMoney(
   amount: number | null | undefined,
@@ -69,15 +79,21 @@ function ActionPill({
   title,
   onPress,
   variant = 'light',
+  disabled = false,
 }: Readonly<{
   title: string;
   onPress: () => void;
   variant?: 'light' | 'dark';
+  disabled?: boolean;
 }>) {
   return (
     <Pressable
       style={[styles.actionPill, variant === 'dark' && styles.actionPillDark]}
       onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled }}
     >
       <Text
         style={[
@@ -208,9 +224,70 @@ function ActivitySection({
   );
 }
 
+function ReviewSection({
+  items,
+  onApprove,
+  onReject,
+  onRead,
+  labels,
+}: Readonly<{
+  items: PersonActivityItem[];
+  onApprove: (item: PersonActivityItem) => void;
+  onReject: (item: PersonActivityItem) => void;
+  onRead: (item: PersonActivityItem) => void;
+  labels: {
+    title: string;
+    empty: string;
+    approve: string;
+    reject: string;
+    markRead: string;
+  };
+}>) {
+  return (
+    <View style={styles.sectionCard}>
+      <Text style={styles.sectionTitle}>{labels.title}</Text>
+      {items.length === 0 ? (
+        <Text style={styles.emptyText}>{labels.empty}</Text>
+      ) : null}
+      {items.map((item) => (
+        <View key={item.id} style={styles.activityCard}>
+          <Text style={styles.itemTitle}>{item.personName}</Text>
+          <Text style={styles.itemMeta}>{item.subject}</Text>
+          {item.body ? <Text style={styles.itemMeta}>{item.body}</Text> : null}
+          <View style={styles.actionsRow}>
+            {item.actionKind === 'pending_action' ? (
+              <>
+                <ActionPill
+                  title={labels.approve}
+                  onPress={() => onApprove(item)}
+                />
+                <ActionPill
+                  title={labels.reject}
+                  onPress={() => onReject(item)}
+                />
+              </>
+            ) : null}
+            {item.actionKind === 'communication' ? (
+              <ActionPill
+                title={labels.markRead}
+                onPress={() => onRead(item)}
+              />
+            ) : null}
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export default function DashboardScreen() {
   const router = useRouter();
   const { t } = useTranslation();
+  const [approvalItem, setApprovalItem] = useState<PersonActivityItem | null>(
+    null,
+  );
+  const [password, setPassword] = useState('');
+  const [approving, setApproving] = useState(false);
 
   const overviewQuery = useQuery({
     queryKey: ['dashboard', 'operations-overview'],
@@ -228,6 +305,78 @@ export default function DashboardScreen() {
   const paymentsPanel = overview?.paymentsPanel;
   const loading = overviewQuery.isLoading || activityQuery.isLoading;
   const error = overviewQuery.error ?? activityQuery.error;
+
+  const refreshActivity = async () => {
+    await activityQuery.refetch();
+  };
+
+  const approve = async () => {
+    if (!approvalItem?.actionId || !password) return;
+    setApproving(true);
+    try {
+      const reauthToken = await authApi.reauthenticate(password);
+      await dashboardApi.approvePendingAction(
+        approvalItem.actionId,
+        reauthToken,
+      );
+      setApprovalItem(null);
+      setPassword('');
+      await refreshActivity();
+    } catch (approvalError) {
+      Alert.alert(
+        t('dashboard.review.approveError'),
+        approvalError instanceof Error
+          ? approvalError.message
+          : t('dashboard.review.unexpectedError'),
+      );
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const reject = (item: PersonActivityItem) => {
+    const actionId = item.actionId;
+    if (!actionId) return;
+    Alert.alert(
+      t('dashboard.review.rejectTitle'),
+      t('dashboard.review.rejectConfirm'),
+      [
+        { text: t('dashboard.review.cancel'), style: 'cancel' },
+        {
+          text: t('dashboard.review.reject'),
+          style: 'destructive',
+          onPress: () => {
+            void dashboardApi
+              .rejectPendingAction(actionId)
+              .then(refreshActivity)
+              .catch((rejectError) =>
+                Alert.alert(
+                  t('dashboard.review.rejectError'),
+                  rejectError instanceof Error
+                    ? rejectError.message
+                    : t('dashboard.review.unexpectedError'),
+                ),
+              );
+          },
+        },
+      ],
+    );
+  };
+
+  const markRead = async (item: PersonActivityItem) => {
+    if (!item.actionId) return;
+    try {
+      await dashboardApi.markCommunicationRead(item.actionId);
+      await refreshActivity();
+    } catch (readError) {
+      Alert.alert(
+        t('dashboard.review.readError'),
+        readError instanceof Error
+          ? readError.message
+          : t('dashboard.review.unexpectedError'),
+      );
+    }
+  };
 
   return (
     <Screen>
@@ -390,6 +539,19 @@ export default function DashboardScreen() {
         </View>
       ) : null}
 
+      <ReviewSection
+        items={peopleActivity?.new ?? []}
+        onApprove={setApprovalItem}
+        onReject={reject}
+        onRead={(item) => void markRead(item)}
+        labels={{
+          title: t('dashboard.review.title'),
+          empty: t('dashboard.review.empty'),
+          approve: t('dashboard.review.approve'),
+          reject: t('dashboard.review.reject'),
+          markRead: t('dashboard.review.markRead'),
+        }}
+      />
       <ActivitySection
         title={t('dashboard.peopleActivity.overdueTitle')}
         items={peopleActivity?.overdue ?? []}
@@ -400,6 +562,50 @@ export default function DashboardScreen() {
         items={peopleActivity?.today ?? []}
         emptyLabel={t('dashboard.peopleActivity.noToday')}
       />
+
+      <Modal
+        visible={approvalItem !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setApprovalItem(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard} accessibilityViewIsModal>
+            <Text style={styles.sectionTitle} accessibilityRole="header">
+              {t('dashboard.review.securityTitle')}
+            </Text>
+            <Text style={styles.itemMeta}>{approvalItem?.subject}</Text>
+            <TextInput
+              accessibilityLabel={t('userSettings.currentPassword')}
+              placeholder={t('userSettings.currentPassword')}
+              secureTextEntry
+              autoComplete="current-password"
+              value={password}
+              onChangeText={setPassword}
+              style={styles.passwordInput}
+            />
+            <View style={styles.actionsRow}>
+              <ActionPill
+                title={t('dashboard.review.cancel')}
+                onPress={() => {
+                  setApprovalItem(null);
+                  setPassword('');
+                }}
+              />
+              <ActionPill
+                title={
+                  approving
+                    ? t('dashboard.review.approving')
+                    : t('dashboard.review.approve')
+                }
+                variant="dark"
+                disabled={approving || !password}
+                onPress={() => void approve()}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -412,6 +618,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff7ed',
     borderWidth: 1,
     borderColor: '#fed7aa',
+  },
+  modalBackdrop: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 440,
+    gap: 12,
+    borderRadius: 20,
+    padding: 18,
+    backgroundColor: '#ffffff',
+  },
+  passwordInput: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderColor: '#94a3b8',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    color: '#0f172a',
   },
   heroEyebrow: {
     color: '#9a3412',

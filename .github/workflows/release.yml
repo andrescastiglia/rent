@@ -75,9 +75,70 @@ jobs:
     uses: ./.github/workflows/ci.yml
     secrets: inherit
 
+  build-server-artifact:
+    name: Build immutable server artifact
+    needs: [preflight, quality-gates]
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_SHA: ${{ needs.preflight.outputs.release_sha }}
+    steps:
+      - name: Checkout immutable release
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.release_sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            batch/package-lock.json
+            frontend/package-lock.json
+            mobile/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          npm ci --prefix backend
+          npm ci --prefix batch
+          npm ci --prefix frontend
+          npm ci --prefix mobile
+
+      - name: Build server applications once
+        env:
+          NEXT_PUBLIC_API_URL: /api
+          API_PROXY_URL: http://127.0.0.1:3001
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+        run: |
+          test -n "$NEXT_PUBLIC_TURNSTILE_SITE_KEY"
+          npm run build --prefix backend
+          npm run build --prefix batch
+          npm run build --prefix frontend
+
+      - name: Retain production runtime dependencies
+        run: |
+          npm prune --omit=dev --package-lock=false --prefix backend
+          # Terminus has not yet widened its Nest peer to v12; the production
+          # graph is lockfile-tested, so do not re-resolve that stale peer.
+          npm prune --omit=dev --legacy-peer-deps --package-lock=false --prefix batch
+
+      - name: Package checksummed artifact and SBOMs
+        run: scripts/build-release-artifact.sh
+
+      - name: Upload immutable server artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: rent-server-${{ needs.preflight.outputs.release_sha }}
+          path: |
+            artifacts/release/rent-server-${{ needs.preflight.outputs.release_sha }}.tar.gz
+            artifacts/release/rent-server-${{ needs.preflight.outputs.release_sha }}.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 30
+
   deploy-server:
     name: Deploy server
-    needs: [preflight, quality-gates]
+    needs: [preflight, quality-gates, build-server-artifact]
     runs-on: ubuntu-latest
     environment: production-release
     steps:
@@ -93,6 +154,16 @@ jobs:
 
       - name: Install pinned Ansible
         run: python -m pip install --disable-pip-version-check ansible-core==2.19.2
+
+      - name: Download immutable server artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: rent-server-${{ needs.preflight.outputs.release_sha }}
+          path: artifacts/release
+
+      - name: Verify artifact checksum
+        working-directory: artifacts/release
+        run: sha256sum --check rent-server-${{ needs.preflight.outputs.release_sha }}.tar.gz.sha256
 
       - name: Configure SSH trust
         env:
@@ -113,12 +184,14 @@ jobs:
         env:
           RELEASE_SHA: ${{ needs.preflight.outputs.release_sha }}
         run: |
+          artifact="../artifacts/release/rent-server-${RELEASE_SHA}.tar.gz"
           ansible-playbook -i inventory/production.yml deploy.yml \
             --private-key ~/.ssh/deploy_key \
             -e "ansible_host=${{ secrets.SSH_HOST }}" \
             -e "ansible_user=${{ secrets.SSH_USER }}" \
             -e "ansible_port=${{ secrets.SSH_PORT || 22 }}" \
-            -e "git_sha=${RELEASE_SHA}"
+            -e "git_sha=${RELEASE_SHA}" \
+            -e "release_archive=${artifact}"
 
   deploy-android:
     name: Deploy Android
@@ -128,9 +201,28 @@ jobs:
 
   publish-release:
     name: Publish GitHub Release
-    needs: [preflight, deploy-server, deploy-android]
+    needs: [preflight, build-server-artifact, deploy-server, deploy-android]
     runs-on: ubuntu-latest
     steps:
+      - name: Download immutable server artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: rent-server-${{ needs.preflight.outputs.release_sha }}
+          path: artifacts/release
+
+      - name: Download immutable Android artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: rent-android-${{ needs.preflight.outputs.release_sha }}
+          path: artifacts/release/android
+
+      - name: Verify published artifact checksums
+        run: |
+          cd artifacts/release
+          sha256sum --check rent-server-${{ needs.preflight.outputs.release_sha }}.tar.gz.sha256
+          cd android
+          sha256sum --check rent-android-${{ needs.preflight.outputs.release_sha }}.aab.sha256
+
       - name: Create immutable release record
         env:
           GH_TOKEN: ${{ github.token }}
@@ -141,4 +233,9 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --generate-notes \
+            "artifacts/release/rent-server-${RELEASE_SHA}.tar.gz" \
+            "artifacts/release/rent-server-${RELEASE_SHA}.tar.gz.sha256" \
+            "artifacts/release/android/rent-android-${RELEASE_SHA}.aab" \
+            "artifacts/release/android/rent-android-${RELEASE_SHA}.aab.sha256" \
+            artifacts/release/android/mobile.cdx.json \
             --notes "Deployed SHA: ${RELEASE_SHA}\nWorkflow: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"

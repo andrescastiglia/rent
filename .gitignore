@@ -151,6 +151,7 @@ backups/
 *.temp
 .tmp/
 tmp/
+/artifacts/
 
 # -----------------------------------------------------------------------------
 # Base de Datos (dumps locales)
@@ -186,6 +187,9 @@ tmp/
 # Documentación Generada
 # -----------------------------------------------------------------------------
 docs/api/
+!docs/api/
+!docs/api/openapi.v1.json
+!docs/api/capabilities.v1.json
 docs/_build/
 .docusaurus/
 

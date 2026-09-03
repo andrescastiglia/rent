@@ -190,7 +190,11 @@ describe("dashboardApi", () => {
 
     await dashboardApi.replyCommunication("communication-1", "Respuesta");
     await dashboardApi.markCommunicationRead("communication-2");
-    await dashboardApi.approvePendingAction("action-1");
+    (apiClient.post as jest.Mock).mockResolvedValueOnce({
+      reauthToken: "reauth-token",
+    });
+    const reauthToken = await dashboardApi.reauthenticate("password");
+    await dashboardApi.approvePendingAction("action-1", reauthToken);
     await dashboardApi.rejectPendingAction("action-2", "Datos incorrectos");
 
     expect(apiClient.post).toHaveBeenNthCalledWith(
@@ -207,12 +211,18 @@ describe("dashboardApi", () => {
     );
     expect(apiClient.post).toHaveBeenNthCalledWith(
       3,
-      "/pending-actions/action-1/approve",
-      {},
+      "/auth/reauthenticate",
+      { password: "password" },
       "token-123",
     );
     expect(apiClient.post).toHaveBeenNthCalledWith(
       4,
+      "/pending-actions/action-1/approve",
+      { reauthToken: "reauth-token" },
+      "token-123",
+    );
+    expect(apiClient.post).toHaveBeenNthCalledWith(
+      5,
       "/pending-actions/action-2/reject",
       { reason: "Datos incorrectos" },
       "token-123",

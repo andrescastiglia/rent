@@ -18,6 +18,32 @@ env:
   NODE_VERSION: "22.22.1"
 
 jobs:
+  observability-rules:
+    name: Observability rules
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Validate Prometheus rules
+        run: >-
+          docker run --rm
+          --entrypoint promtool
+          -v "${PWD}/observability/prometheus:/rules:ro"
+          prom/prometheus:v3.5.0
+          check rules
+          /rules/rag-alerts.yml
+          /rules/service-slo-rules.yml
+      - name: Test SLO alert firing and recovery
+        run: >-
+          docker run --rm
+          --entrypoint promtool
+          -v "${PWD}/observability/prometheus:/rules:ro"
+          -w /rules
+          prom/prometheus:v3.5.0
+          test rules
+          service-slo-rules.test.yml
+
   postgres-image-security:
     name: PostgreSQL image security scan
     runs-on: ubuntu-latest
@@ -160,16 +186,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run unit tests
-        run: npm run test
-        env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
-          #REDIS_URL: redis://localhost:6379
-          JWT_SECRET: test-secret
-          JWT_REFRESH_SECRET: test-refresh-secret
-          NODE_ENV: test
-
-      - name: Run test coverage
+      # Coverage runs the complete Jest suite; a separate `npm test` here would
+      # execute every backend test twice without adding a gate.
+      - name: Run unit tests with coverage
         run: npm run test:cov
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
@@ -262,6 +281,14 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -h localhost -p 5432 -U test -d rent_test -f scripts/verify-rag-migration.sql
         env:
           PGPASSWORD: test
+
+      - name: Verify canonical OpenAPI and generated clients
+        run: npm run openapi:check
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
+          JWT_SECRET: test-secret
+          JWT_REFRESH_SECRET: test-refresh-secret
+          NODE_ENV: test
 
       - name: Run backend E2E tests
         run: npm run test:e2e
@@ -391,12 +418,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run unit tests
-        run: npm run test
-        env:
-          NODE_ENV: test
-
-      - name: Run test coverage
+      # Coverage already executes the complete Jest suite.
+      - name: Run unit tests with coverage
         run: npm run test:cov
         env:
           NODE_ENV: test
@@ -844,6 +867,14 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Cache Next.js build cache
+        uses: actions/cache@v6
+        with:
+          path: frontend/.next/cache
+          key: ${{ runner.os }}-next-${{ hashFiles('frontend/package-lock.json') }}-${{ hashFiles('frontend/src/**', 'frontend/messages/**', 'frontend/next.config.mjs') }}
+          restore-keys: |
+            ${{ runner.os }}-next-${{ hashFiles('frontend/package-lock.json') }}-
+
       - name: Run frontend unit tests with coverage
         working-directory: frontend
         run: npm run test:cov
@@ -860,30 +891,42 @@ jobs:
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
+          key: ${{ runner.os }}-playwright-all-${{ steps.playwright-version.outputs.version }}
 
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: frontend
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium firefox webkit
 
       - name: Install Playwright system dependencies
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         working-directory: frontend
-        run: npx playwright install-deps chromium
+        run: npx playwright install-deps chromium firefox webkit
 
       - name: Build frontend
         working-directory: frontend
         run: npm run build
-      #  env:
-      #    NEXT_PUBLIC_API_URL: http://localhost:3001
-      #    NEXT_PUBLIC_MOCK_MODE: 'true'
+        env:
+          NEXT_PUBLIC_MOCK_MODE: "true"
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: "e2e-test-turnstile-site-key"
 
       - name: Run E2E tests
         working-directory: frontend
         run: npm run test:e2e
         env:
           CI: true
+          NEXT_PUBLIC_MOCK_MODE: "true"
+          PLAYWRIGHT_USE_PRODUCTION_SERVER: "true"
+          PLAYWRIGHT_WORKERS: "4"
+
+      - name: Run WCAG smoke tests in Firefox and WebKit
+        working-directory: frontend
+        run: npm run test:e2e:cross-browser
+        env:
+          CI: true
+          NEXT_PUBLIC_MOCK_MODE: "true"
+          PLAYWRIGHT_USE_PRODUCTION_SERVER: "true"
+          PLAYWRIGHT_WORKERS: "4"
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v7
@@ -1003,12 +1046,6 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Setup Java
-        uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: "17"
-
       - name: Cache npm dependencies
         uses: actions/cache@v6
         with:
@@ -1022,6 +1059,16 @@ jobs:
 
       - name: Generate native Android project
         run: npm run e2e:prebuild
+
+      - name: Setup Java with Gradle cache
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+          cache-dependency-path: |
+            mobile/android/**/*.gradle*
+            mobile/android/gradle.properties
 
       - name: Install Android emulator system libraries
         run: |

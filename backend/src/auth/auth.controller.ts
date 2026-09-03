@@ -16,6 +16,7 @@ import { RegisterDto } from './dto/register.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { CaptchaService } from './services/captcha.service';
+import { ReauthenticateDto } from './dto/reauthenticate.dto';
 
 @Controller('auth')
 @Authenticated()
@@ -71,6 +72,12 @@ export class AuthController {
   @Get('profile')
   getProfile(@Request() req: any) {
     return req.user;
+  }
+
+  @Post('reauthenticate')
+  @HttpCode(200)
+  reauthenticate(@Request() req: any, @Body() dto: ReauthenticateDto) {
+    return this.authService.reauthenticate(req.user, dto.password);
   }
 
   private getRequestIp(req: any): string | undefined {

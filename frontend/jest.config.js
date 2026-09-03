@@ -17,6 +17,7 @@ const config = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
+  modulePathIgnorePatterns: ['<rootDir>/.next/'],
   coveragePathIgnorePatterns: [
     '<rootDir>/src/app/.*/layout\\.tsx$',
     '<rootDir>/src/app/.*/page\\.tsx$',

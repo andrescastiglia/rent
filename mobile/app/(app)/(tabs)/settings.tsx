@@ -47,6 +47,14 @@ export default function SettingsScreen() {
             onPress={() => router.push('/(app)/reports' as never)}
           />
         )}
+        {allowedRoutes.has('/sales') && (
+          <AppButton
+            title={t('sales.title')}
+            variant="secondary"
+            testID="settings.goto.sales"
+            onPress={() => router.push('/(app)/sales' as never)}
+          />
+        )}
         {allowedRoutes.has('/invoices') && (
           <AppButton
             title={t('invoices.title')}

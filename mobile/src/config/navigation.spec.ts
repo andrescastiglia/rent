@@ -50,6 +50,7 @@ describe('getNavigationForRole', () => {
 
     expect(items.some((item) => item.href === '/users')).toBe(true);
     expect(items.some((item) => item.href === '/properties')).toBe(true);
+    expect(items.some((item) => item.href === '/sales')).toBe(true);
   });
 
   it('filters routes for tenants', () => {

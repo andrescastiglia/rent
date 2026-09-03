@@ -3,6 +3,7 @@ import { UnauthorizedException } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { CaptchaService } from './services/captcha.service';
+import { UserRole } from '../users/entities/user.entity';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -15,6 +16,7 @@ describe('AuthController', () => {
     requiresCaptchaForLogin: jest.fn(),
     registerFailedLogin: jest.fn(),
     clearLoginFailures: jest.fn(),
+    reauthenticate: jest.fn(),
   };
 
   const mockCaptchaService = {
@@ -180,6 +182,22 @@ describe('AuthController', () => {
 
   it('getProfile returns request user', () => {
     expect(controller.getProfile({ user: { id: 'u1' } })).toEqual({ id: 'u1' });
+  });
+
+  it('reauthenticate delegates with the authenticated actor', async () => {
+    mockAuthService.reauthenticate.mockResolvedValue({
+      reauthToken: 'token',
+      expiresIn: 300,
+    });
+    const actor = { id: 'u1', companyId: 'c1', role: UserRole.ADMIN };
+
+    await expect(
+      controller.reauthenticate({ user: actor }, { password: 'secret' }),
+    ).resolves.toEqual({ reauthToken: 'token', expiresIn: 300 });
+    expect(mockAuthService.reauthenticate).toHaveBeenCalledWith(
+      actor,
+      'secret',
+    );
   });
 
   it('getRequestIp trusts only the address normalized by Express', () => {

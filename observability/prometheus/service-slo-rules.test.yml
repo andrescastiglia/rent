@@ -1,0 +1,130 @@
+rule_files:
+  - service-slo-rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'http_requests_total{method="GET",route="/api",status_code="200"}'
+        values: '0+100x70'
+      - series: 'http_requests_total{method="GET",route="/api",status_code="500"}'
+        values: '0+2x70'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: RentApiFastErrorBudgetBurn
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              slo: api-availability
+            exp_annotations:
+              summary: API is rapidly consuming its 99.9% availability error budget
+              runbook: docs/deployment/operations-slo.md#rentapifasterrorbudgetburn
+      - eval_time: 40m
+        alertname: RentApiSlowErrorBudgetBurn
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              slo: api-availability
+            exp_annotations:
+              summary: API is consuming its availability error budget
+              runbook: docs/deployment/operations-slo.md#rentapislowerrorbudgetburn
+
+  - interval: 1m
+    input_series:
+      - series: 'http_requests_total{method="GET",route="/api",status_code="200"}'
+        values: '0+100x40'
+      - series: 'http_requests_total{method="GET",route="/api",status_code="500"}'
+        values: '0+0x40'
+    alert_rule_test:
+      - eval_time: 40m
+        alertname: RentApiFastErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: RentApiSlowErrorBudgetBurn
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'http_request_duration_seconds_bucket{method="GET",route="/api",le="0.5"}'
+        values: '0+1x25'
+      - series: 'http_request_duration_seconds_bucket{method="GET",route="/api",le="1"}'
+        values: '0+2x25'
+      - series: 'http_request_duration_seconds_bucket{method="GET",route="/api",le="2"}'
+        values: '0+3x25'
+      - series: 'http_request_duration_seconds_bucket{method="GET",route="/api",le="5"}'
+        values: '0+100x25'
+      - series: 'http_request_duration_seconds_bucket{method="GET",route="/api",le="+Inf"}'
+        values: '0+100x25'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: RentApiHighP95Latency
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              slo: api-latency
+            exp_annotations:
+              summary: API p95 latency has exceeded 2 seconds
+              runbook: docs/deployment/operations-slo.md#rentapihighp95latency
+
+  - interval: 1m
+    input_series:
+      - series: 'http_request_duration_seconds_bucket{method="GET",route="/api",le="0.5"}'
+        values: '0+95x20'
+      - series: 'http_request_duration_seconds_bucket{method="GET",route="/api",le="1"}'
+        values: '0+100x20'
+      - series: 'http_request_duration_seconds_bucket{method="GET",route="/api",le="2"}'
+        values: '0+100x20'
+      - series: 'http_request_duration_seconds_bucket{method="GET",route="/api",le="5"}'
+        values: '0+100x20'
+      - series: 'http_request_duration_seconds_bucket{method="GET",route="/api",le="+Inf"}'
+        values: '0+100x20'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: RentApiHighP95Latency
+        exp_alerts: []
+
+  - interval: 1m
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: RentApiMetricsMissing
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              slo: telemetry
+            exp_annotations:
+              summary: Backend HTTP metrics are missing
+              runbook: docs/deployment/operations-slo.md#rentapimetricsmissing
+
+  - interval: 1m
+    input_series:
+      - series: 'http_requests_total{method="GET",route="/health",status_code="200"}'
+        values: '0+1x20'
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: RentApiMetricsMissing
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'batch_job_runs_total{job_type="billing",status="failed"}'
+        values: '0+1x15'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: RentBatchJobFailures
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              slo: batch-correctness
+            exp_annotations:
+              summary: One or more batch jobs failed
+              runbook: docs/deployment/operations-slo.md#rentbatchjobfailures
+
+  - interval: 1m
+    input_series:
+      - series: 'batch_job_runs_total{job_type="billing",status="failed"}'
+        values: '0+0x15'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: RentBatchJobFailures
+        exp_alerts: []

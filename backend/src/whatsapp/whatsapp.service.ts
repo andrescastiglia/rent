@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   BadGatewayException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -21,6 +22,7 @@ import OpenAI, { toFile } from 'openai';
 import { DataSource } from 'typeorm';
 import { AI_RAG_ROLLOUT } from '../ai/ai.tokens';
 import { UserRole } from '../users/entities/user.entity';
+import { CreateWhatsappActivityDto } from './dto/create-whatsapp-activity.dto';
 
 type AiRagRollout = {
   respond(params: {
@@ -89,6 +91,11 @@ export type QueueWhatsappMessageResult = {
   queued: boolean;
 };
 
+export type CreateWhatsappActivityResult = {
+  activity: Record<string, unknown>;
+  delivery: QueueWhatsappMessageResult;
+};
+
 export type WhatsappRetentionResult = {
   processedInboxDeleted: number;
   deadLettersDeleted: number;
@@ -103,7 +110,7 @@ type WhatsappOutboundLogInput = {
   pdfUrl?: string;
   templateName?: string;
   templateLanguage?: string;
-  status: 'sent' | 'failed';
+  status: 'sending' | 'sent' | 'failed';
   messageId?: string | null;
   raw?: unknown;
   errorMessage?: string;
@@ -238,6 +245,337 @@ export class WhatsappService implements OnApplicationBootstrap {
       deliveryId: rows[0].id,
       status: rows[0].status,
       queued: rows[0].status === 'queued' || rows[0].status === 'processing',
+    };
+  }
+
+  async createActivityAndEnqueue(
+    input: CreateWhatsappActivityDto,
+    actor: { id: string; companyId: string },
+  ): Promise<CreateWhatsappActivityResult> {
+    if (this.dataSource?.options.type !== 'postgres') {
+      throw new ServiceUnavailableException('WhatsApp outbox is unavailable');
+    }
+
+    const subject = input.subject.trim();
+    if (!subject) {
+      throw new BadRequestException('WhatsApp activity subject is empty');
+    }
+    if (
+      input.personType !== 'interested' &&
+      (input.propertyId || input.markReserved)
+    ) {
+      throw new BadRequestException(
+        'Reservations are only supported for interested profiles',
+      );
+    }
+    if (input.markReserved && !input.propertyId) {
+      throw new BadRequestException(
+        'propertyId is required when markReserved is true',
+      );
+    }
+    const body = input.body?.trim() || null;
+    const message = [subject, body].filter(Boolean).join('\n\n');
+    const requestHash = createHash('sha256')
+      .update(
+        JSON.stringify({
+          personType: input.personType,
+          personId: input.personId,
+          subject,
+          body,
+          dueAt: input.dueAt ?? null,
+          propertyId: input.propertyId ?? null,
+          markReserved: input.markReserved ?? false,
+        }),
+      )
+      .digest('hex');
+
+    return this.dataSource.transaction(async (manager) => {
+      const recipientRows =
+        input.personType === 'tenant'
+          ? await manager.query(
+              `SELECT tenant.id AS profile_id, account.phone,
+                      account.whatsapp_enabled AS consented
+                 FROM tenants tenant
+                 JOIN users account ON account.id = tenant.user_id
+                WHERE tenant.user_id = $1::uuid
+                  AND tenant.company_id = $2::uuid
+                  AND tenant.deleted_at IS NULL
+                  AND account.deleted_at IS NULL
+                FOR UPDATE OF tenant, account`,
+              [input.personId, actor.companyId],
+            )
+          : await manager.query(
+              `SELECT profile.id AS profile_id, profile.phone,
+                      profile.consent_contact AS consented
+                 FROM interested_profiles profile
+                WHERE profile.id = $1::uuid
+                  AND profile.company_id = $2::uuid
+                  AND profile.deleted_at IS NULL
+                FOR UPDATE OF profile`,
+              [input.personId, actor.companyId],
+            );
+      const recipient = recipientRows[0] as
+        | { profile_id: string; phone: string | null; consented: boolean }
+        | undefined;
+      if (!recipient)
+        throw new NotFoundException('WhatsApp recipient not found');
+      if (!recipient.consented) {
+        throw new BadRequestException(
+          'The recipient has not consented to WhatsApp',
+        );
+      }
+      const phone = this.normalizePhone(recipient.phone ?? '');
+      if (!phone)
+        throw new BadRequestException('Invalid WhatsApp phone number');
+
+      const metadata = { requestId: input.requestId, requestHash };
+      const insertedRows =
+        input.personType === 'tenant'
+          ? await manager.query(
+              `INSERT INTO tenant_activities (
+                 id, company_id, tenant_id, type, status, subject, body,
+                 due_at, metadata, created_by_user_id
+               ) VALUES (
+                 $1::uuid, $2::uuid, $3::uuid, 'whatsapp', 'pending', $4, $5,
+                 $6::timestamptz, $7::jsonb, $8::uuid
+               )
+               ON CONFLICT (id) DO NOTHING
+               RETURNING *`,
+              [
+                input.requestId,
+                actor.companyId,
+                recipient.profile_id,
+                subject,
+                body,
+                input.dueAt ?? null,
+                JSON.stringify(metadata),
+                actor.id,
+              ],
+            )
+          : await manager.query(
+              `INSERT INTO interested_activities (
+                 id, interested_profile_id, type, status, subject, body,
+                 due_at, metadata, created_by_user_id
+               ) VALUES (
+                 $1::uuid, $2::uuid, 'whatsapp', 'pending', $3, $4,
+                 $5::timestamptz, $6::jsonb, $7::uuid
+               )
+               ON CONFLICT (id) DO NOTHING
+               RETURNING *`,
+              [
+                input.requestId,
+                recipient.profile_id,
+                subject,
+                body,
+                input.dueAt ?? null,
+                JSON.stringify({
+                  ...metadata,
+                  ...(input.propertyId ? { propertyId: input.propertyId } : {}),
+                }),
+                actor.id,
+              ],
+            );
+
+      let activity = insertedRows[0] as Record<string, unknown> | undefined;
+      const created = Boolean(activity);
+      if (!activity) {
+        const existingRows =
+          input.personType === 'tenant'
+            ? await manager.query(
+                `SELECT * FROM tenant_activities
+                  WHERE id = $1::uuid AND tenant_id = $2::uuid
+                    AND company_id = $3::uuid AND deleted_at IS NULL`,
+                [input.requestId, recipient.profile_id, actor.companyId],
+              )
+            : await manager.query(
+                `SELECT activity.*
+                   FROM interested_activities activity
+                   JOIN interested_profiles profile
+                     ON profile.id = activity.interested_profile_id
+                  WHERE activity.id = $1::uuid AND profile.id = $2::uuid
+                    AND profile.company_id = $3::uuid
+                    AND profile.deleted_at IS NULL`,
+                [input.requestId, recipient.profile_id, actor.companyId],
+              );
+        activity = existingRows[0] as Record<string, unknown> | undefined;
+        const existingMetadata = activity?.metadata as
+          Record<string, unknown> | undefined;
+        if (!activity || existingMetadata?.requestHash !== requestHash) {
+          throw new ConflictException(
+            'WhatsApp activity requestId was already used for another command',
+          );
+        }
+      }
+
+      await this.applyInterestedWhatsappActivityEffects(manager, {
+        created,
+        command: input,
+        companyId: actor.companyId,
+        profileId: recipient.profile_id,
+        actorId: actor.id,
+        notes: body,
+      });
+
+      const deliveryRows = await manager.query(
+        `INSERT INTO communication_deliveries (
+           company_id, event, recipient_role, recipient_id, channel, recipient,
+           body, status, attempts, max_attempts, next_attempt_at,
+           related_entity_type, related_entity_id, idempotency_key, metadata
+         ) VALUES (
+           $1::uuid, 'whatsapp_ad_hoc', $2::communication_recipient_role,
+           $3::uuid, 'whatsapp', $4, $5, 'queued', 0, 3, NOW(), $2,
+           $3::uuid, $6, $7::jsonb
+         )
+         ON CONFLICT (company_id, idempotency_key)
+           WHERE idempotency_key IS NOT NULL
+         DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
+         RETURNING id, status`,
+        [
+          actor.companyId,
+          input.personType,
+          recipient.profile_id,
+          phone,
+          message,
+          `activity:${input.personType}:${input.requestId}`,
+          JSON.stringify({
+            activityEntity: input.personType,
+            activityId: input.requestId,
+            requestHash,
+          }),
+        ],
+      );
+      const delivery = deliveryRows[0] as { id: string; status: string };
+      return {
+        activity: this.toWhatsappActivityResponse(
+          activity,
+          input.personType,
+          recipient.profile_id,
+        ),
+        delivery: {
+          deliveryId: delivery.id,
+          status: delivery.status,
+          queued:
+            delivery.status === 'queued' || delivery.status === 'processing',
+        },
+      };
+    });
+  }
+
+  private async applyInterestedWhatsappActivityEffects(
+    manager: { query: DataSource['query'] },
+    input: {
+      created: boolean;
+      command: CreateWhatsappActivityDto;
+      companyId: string;
+      profileId: string;
+      actorId: string;
+      notes: string | null;
+    },
+  ): Promise<void> {
+    if (!input.created || input.command.personType !== 'interested') return;
+
+    await manager.query(
+      `UPDATE interested_profiles
+          SET last_contact_at = NOW(),
+              next_contact_at = COALESCE($2::timestamptz, next_contact_at),
+              updated_at = NOW()
+        WHERE id = $1::uuid AND company_id = $3::uuid`,
+      [input.profileId, input.command.dueAt ?? null, input.companyId],
+    );
+    if (input.command.markReserved && input.command.propertyId) {
+      await this.reservePropertyForWhatsappActivity(manager, {
+        companyId: input.companyId,
+        propertyId: input.command.propertyId,
+        profileId: input.profileId,
+        actorId: input.actorId,
+        notes: input.notes,
+        activityId: input.command.requestId,
+      });
+    }
+  }
+
+  private async reservePropertyForWhatsappActivity(
+    manager: { query: DataSource['query'] },
+    input: {
+      companyId: string;
+      propertyId: string;
+      profileId: string;
+      actorId: string;
+      notes: string | null;
+      activityId: string;
+    },
+  ): Promise<void> {
+    const properties = await manager.query(
+      `SELECT id FROM properties
+        WHERE id = $1::uuid AND company_id = $2::uuid AND deleted_at IS NULL
+        FOR UPDATE`,
+      [input.propertyId, input.companyId],
+    );
+    if (!properties[0]) throw new NotFoundException('Property not found');
+    const reservationRows = await manager.query(
+      `INSERT INTO property_reservations (
+         company_id, property_id, interested_profile_id, status,
+         activity_source, notes, reserved_by_user_id
+       ) VALUES ($1::uuid, $2::uuid, $3::uuid, 'active', 'activity', $4, $5::uuid)
+       ON CONFLICT (property_id, interested_profile_id)
+         WHERE status = 'active'::property_reservation_status
+           AND deleted_at IS NULL
+       DO UPDATE SET updated_at = NOW()
+       RETURNING id`,
+      [
+        input.companyId,
+        input.propertyId,
+        input.profileId,
+        input.notes,
+        input.actorId,
+      ],
+    );
+    await manager.query(
+      `UPDATE properties SET operation_state = 'reserved', updated_at = NOW()
+        WHERE id = $1::uuid AND company_id = $2::uuid`,
+      [input.propertyId, input.companyId],
+    );
+    await manager.query(
+      `INSERT INTO interested_activities (
+         interested_profile_id, type, status, subject, body, completed_at,
+         metadata, created_by_user_id
+       ) VALUES (
+         $1::uuid, 'note', 'completed', 'Propiedad reservada', $2, NOW(),
+         $3::jsonb, $4::uuid
+       )`,
+      [
+        input.profileId,
+        input.notes,
+        JSON.stringify({
+          propertyId: input.propertyId,
+          reservationId: reservationRows[0].id,
+          sourceActivityId: input.activityId,
+        }),
+        input.actorId,
+      ],
+    );
+  }
+
+  private toWhatsappActivityResponse(
+    row: Record<string, unknown>,
+    personType: 'tenant' | 'interested',
+    profileId: string,
+  ): Record<string, unknown> {
+    return {
+      id: row.id,
+      ...(personType === 'tenant'
+        ? { tenantId: profileId }
+        : { interestedProfileId: profileId }),
+      type: row.type,
+      status: row.status,
+      subject: row.subject,
+      body: row.body,
+      dueAt: row.due_at,
+      completedAt: row.completed_at,
+      metadata: row.metadata,
+      createdByUserId: row.created_by_user_id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 
@@ -1135,23 +1473,48 @@ export class WhatsappService implements OnApplicationBootstrap {
     const idempotencyKey = logInput.context?.idempotencyKey;
     if (idempotencyKey && this.dataSource?.options.type === 'postgres') {
       const existing = await this.dataSource.query(
-        `SELECT whatsapp_message_id
+        `SELECT whatsapp_message_id, status, payload_sha256
            FROM whatsapp_messages
-          WHERE idempotency_key = $1::uuid AND status = 'sent'
+          WHERE idempotency_key = $1::uuid
           LIMIT 1`,
         [idempotencyKey],
       );
-      if (existing?.[0]) {
+      const requestPayload = {
+        ...payload,
+        biz_opaque_callback_data: idempotencyKey,
+      };
+      const payloadSha256 = createHash('sha256')
+        .update(JSON.stringify(requestPayload))
+        .digest('hex');
+      if (
+        existing?.[0]?.payload_sha256 &&
+        existing[0].payload_sha256 !== payloadSha256
+      ) {
+        throw new ConflictException(
+          'WhatsApp idempotency key was reused for another payload',
+        );
+      }
+      if (existing?.[0]?.status === 'sent') {
         return {
           messageId: existing[0].whatsapp_message_id ?? null,
           raw: { deduplicated: true },
         };
       }
-      await this.dataSource.query(
-        `DELETE FROM whatsapp_messages
-          WHERE idempotency_key = $1::uuid AND status <> 'sent'`,
-        [idempotencyKey],
+      if (existing?.[0]?.status === 'sending') {
+        throw new ServiceUnavailableException(
+          'WhatsApp acceptance is awaiting provider reconciliation',
+        );
+      }
+      if (existing?.[0] && !existing[0].payload_sha256) {
+        throw new ServiceUnavailableException(
+          'Legacy WhatsApp delivery requires reconciliation before retry',
+        );
+      }
+      await this.reserveOutboundMessage(
+        { ...logInput, status: 'sending' },
+        payloadSha256,
       );
+      payload = requestPayload;
     }
     const url = `${this.apiBaseUrl.replace(/\/$/, '')}/${this.phoneNumberId}/messages`;
     const response = await fetch(url, {
@@ -1255,6 +1618,30 @@ export class WhatsappService implements OnApplicationBootstrap {
     const sentAt = input.status === 'sent' ? new Date() : null;
     const failedAt = input.status === 'failed' ? new Date() : null;
     try {
+      if (input.context?.idempotencyKey) {
+        const updated = await this.dataSource.query(
+          `UPDATE whatsapp_messages
+              SET whatsapp_message_id = COALESCE($2, whatsapp_message_id),
+                  status = $3, sent_at = COALESCE(sent_at, $4),
+                  failed_at = COALESCE(failed_at, $5), error_message = $6,
+                  raw_response = $7::jsonb, updated_at = NOW()
+            WHERE idempotency_key = $1::uuid
+            RETURNING id`,
+          [
+            input.context.idempotencyKey,
+            input.messageId ?? null,
+            input.status,
+            sentAt,
+            failedAt,
+            input.errorMessage ?? null,
+            JSON.stringify(input.raw ?? {}),
+          ],
+        );
+        if (updated[0]) {
+          await this.updateOutboundActivity(input, sentAt, failedAt);
+          return;
+        }
+      }
       await this.dataSource.query(
         `
           INSERT INTO whatsapp_messages (
@@ -1315,25 +1702,76 @@ export class WhatsappService implements OnApplicationBootstrap {
         ],
       );
 
-      if (input.context?.activityEntity && input.context.activityId) {
-        await this.updateActivityMetadata(
-          input.context.activityEntity,
-          input.context.activityId,
-          {
-            messageId: input.messageId ?? null,
-            status: input.status,
-            sentAt: sentAt?.toISOString() ?? null,
-            failedAt: failedAt?.toISOString() ?? null,
-            templateName: input.templateName ?? null,
-            templateLanguage: input.templateLanguage ?? null,
-          },
-        );
-      }
+      await this.updateOutboundActivity(input, sentAt, failedAt);
     } catch (error) {
       this.logger.warn('Failed to record WhatsApp message tracking data', {
         error: error instanceof Error ? error.message : String(error),
       });
     }
+  }
+
+  private async reserveOutboundMessage(
+    input: WhatsappOutboundLogInput,
+    payloadSha256: string,
+  ): Promise<void> {
+    if (!this.dataSource || !input.context?.idempotencyKey) return;
+    const reserved = await this.dataSource.query(
+      `INSERT INTO whatsapp_messages (
+         id, idempotency_key, recipient_phone, message_type, template_name,
+         template_language, text, pdf_url, status, company_id,
+         related_entity_type, related_entity_id, activity_entity, activity_id,
+         payload_sha256, raw_response, raw_status
+       ) VALUES (
+         $1::uuid, $1::uuid, $2, $3, $4, $5, $6, $7, 'sending', $8::uuid,
+         $9, $10::uuid, $11, $12::uuid, $13, '{}'::jsonb, '{}'::jsonb
+       )
+       ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL
+       DO UPDATE SET status = 'sending', failed_at = NULL,
+                     error_message = NULL, updated_at = NOW()
+       WHERE whatsapp_messages.status = 'failed'
+         AND whatsapp_messages.payload_sha256 = EXCLUDED.payload_sha256
+       RETURNING id`,
+      [
+        input.context.idempotencyKey,
+        input.to,
+        input.messageType,
+        input.templateName ?? null,
+        input.templateLanguage ?? null,
+        input.text ?? null,
+        input.pdfUrl ?? null,
+        input.context.companyId ?? null,
+        input.context.relatedEntityType ?? null,
+        input.context.relatedEntityId ?? null,
+        input.context.activityEntity ?? null,
+        input.context.activityId ?? null,
+        payloadSha256,
+      ],
+    );
+    if (!reserved?.[0]) {
+      throw new ServiceUnavailableException(
+        'WhatsApp delivery was claimed by another sender; await reconciliation',
+      );
+    }
+  }
+
+  private async updateOutboundActivity(
+    input: WhatsappOutboundLogInput,
+    sentAt: Date | null,
+    failedAt: Date | null,
+  ): Promise<void> {
+    if (!input.context?.activityEntity || !input.context.activityId) return;
+    await this.updateActivityMetadata(
+      input.context.activityEntity,
+      input.context.activityId,
+      {
+        messageId: input.messageId ?? null,
+        status: input.status,
+        sentAt: sentAt?.toISOString() ?? null,
+        failedAt: failedAt?.toISOString() ?? null,
+        templateName: input.templateName ?? null,
+        templateLanguage: input.templateLanguage ?? null,
+      },
+    );
   }
 
   private async updateMessageStatus(statusPayload: any): Promise<void> {
@@ -1342,6 +1780,7 @@ export class WhatsappService implements OnApplicationBootstrap {
     }
 
     const messageId = statusPayload?.id;
+    const opaqueIdempotencyKey = statusPayload?.biz_opaque_callback_data;
     const status = statusPayload?.status;
     if (
       !messageId ||
@@ -1365,6 +1804,13 @@ export class WhatsappService implements OnApplicationBootstrap {
     const readAt = status === 'read' ? occurredAt : null;
     const failedAt = status === 'failed' ? occurredAt : null;
 
+    const reconciliationKey =
+      typeof opaqueIdempotencyKey === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        opaqueIdempotencyKey,
+      )
+        ? opaqueIdempotencyKey
+        : null;
     const rows = await this.dataSource.query(
       `
         UPDATE whatsapp_messages
@@ -1378,6 +1824,7 @@ export class WhatsappService implements OnApplicationBootstrap {
           raw_status = $8::jsonb,
           updated_at = now()
         WHERE whatsapp_message_id = $1
+           OR ($9::uuid IS NOT NULL AND idempotency_key = $9::uuid)
         RETURNING activity_entity, activity_id
       `,
       [
@@ -1389,8 +1836,20 @@ export class WhatsappService implements OnApplicationBootstrap {
         failedAt,
         errorMessage,
         JSON.stringify(statusPayload ?? {}),
+        reconciliationKey,
       ],
     );
+
+    if (reconciliationKey && status !== 'failed') {
+      await this.dataSource.query(
+        `UPDATE communication_deliveries
+            SET status = 'sent', provider_message_id = COALESCE($2, provider_message_id),
+                sent_at = COALESCE(sent_at, $3), next_attempt_at = NULL,
+                lease_expires_at = NULL, error_message = NULL, updated_at = NOW()
+          WHERE id = $1::uuid AND status IN ('processing', 'failed')`,
+        [reconciliationKey, messageId, occurredAt],
+      );
+    }
 
     const row = rows?.[0];
     if (row?.activity_entity && row?.activity_id) {

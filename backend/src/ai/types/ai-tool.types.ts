@@ -14,6 +14,7 @@ export interface AiExecutionContext {
   mutationApprovalMode?: 'conversation' | 'staff_queue';
   mutationIntent?: boolean;
   roleDataContext?: string;
+  idempotencyKey?: string;
 }
 
 export interface AiToolDefinition<TSchema extends ZodType = ZodType> {

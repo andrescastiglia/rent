@@ -23,11 +23,13 @@ describe('AuthService', () => {
   const mockUsersService = {
     findOneByEmail: jest.fn(),
     findOneByEmailWithPassword: jest.fn(),
+    findOneByIdWithPassword: jest.fn(),
     create: jest.fn(),
   };
 
   const mockJwtService = {
     sign: jest.fn(),
+    verify: jest.fn(),
   };
 
   const mockCompaniesRepository = {
@@ -136,6 +138,53 @@ describe('AuthService', () => {
     expect(service.requiresCaptchaForLogin('a@b.com', '1.1.1.1')).toBe(true);
     service.clearLoginFailures('a@b.com', '1.1.1.1');
     expect(service.requiresCaptchaForLogin('a@b.com', '1.1.1.1')).toBe(false);
+  });
+
+  it('reauthenticates an active user in the same company for five minutes', async () => {
+    mockUsersService.findOneByIdWithPassword.mockResolvedValue({
+      id: 'u1',
+      companyId: 'c1',
+      role: UserRole.ADMIN,
+      passwordHash: 'hash',
+      isActive: true,
+    });
+    mockedBcrypt.compare.mockResolvedValue(true as never);
+    mockJwtService.sign.mockReturnValue('reauth-token');
+
+    await expect(
+      service.reauthenticate(
+        { id: 'u1', companyId: 'c1', role: UserRole.ADMIN },
+        'password',
+      ),
+    ).resolves.toEqual({ reauthToken: 'reauth-token', expiresIn: 300 });
+    expect(mockJwtService.sign).toHaveBeenCalledWith(
+      expect.objectContaining({ sub: 'u1', purpose: 'sensitive-action' }),
+      { expiresIn: 300 },
+    );
+  });
+
+  it('rejects invalid reauthentication and mismatched token claims', async () => {
+    mockUsersService.findOneByIdWithPassword.mockResolvedValue(null);
+    await expect(
+      service.reauthenticate(
+        { id: 'u1', companyId: 'c1', role: UserRole.ADMIN },
+        'bad',
+      ),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    mockJwtService.verify.mockReturnValue({
+      sub: 'another-user',
+      companyId: 'c1',
+      role: UserRole.ADMIN,
+      purpose: 'sensitive-action',
+    });
+    expect(() =>
+      service.verifyReauthentication('token', {
+        id: 'u1',
+        companyId: 'c1',
+        role: UserRole.ADMIN,
+      }),
+    ).toThrow(UnauthorizedException);
   });
 
   it('expires captcha requirement after ttl window', () => {

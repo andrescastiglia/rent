@@ -235,11 +235,24 @@ export const dashboardApi = {
     );
   },
 
-  approvePendingAction: async (id: string): Promise<void> => {
+  reauthenticate: async (password: string): Promise<string> => {
+    const token = getToken();
+    const result = await apiClient.post<{ reauthToken: string }>(
+      "/auth/reauthenticate",
+      { password },
+      token ?? undefined,
+    );
+    return result.reauthToken;
+  },
+
+  approvePendingAction: async (
+    id: string,
+    reauthToken: string,
+  ): Promise<void> => {
     const token = getToken();
     await apiClient.post(
       `/pending-actions/${id}/approve`,
-      {},
+      { reauthToken },
       token ?? undefined,
     );
   },

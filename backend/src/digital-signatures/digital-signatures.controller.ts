@@ -2,15 +2,18 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
   ParseUUIDPipe,
   Post,
   Query,
+  RawBodyRequest,
   Request,
   UseGuards,
 } from '@nestjs/common';
+import { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
@@ -18,6 +21,7 @@ import { DigitalSignaturesService } from './digital-signatures.service';
 import { DigitalSignatureRequest } from './entities/digital-signature-request.entity';
 import { CreateSignatureRequestDto } from './dto/create-signature-request.dto';
 import { WebhookEventDto } from './dto/webhook-event.dto';
+import { Public } from '../common/decorators/public.decorator';
 
 interface AuthenticatedRequest {
   user: {
@@ -71,10 +75,20 @@ export class DigitalSignaturesController {
     return this.digitalSignaturesService.void(id, req.user.companyId);
   }
 
-  @Post('webhook')
-  @Roles(UserRole.ADMIN)
+  @Post('webhook/:provider')
+  @Public()
   @HttpCode(HttpStatus.OK)
-  async processWebhook(@Body() dto: WebhookEventDto): Promise<void> {
-    return this.digitalSignaturesService.processWebhook(dto);
+  async processWebhook(
+    @Param('provider') provider: string,
+    @Body() dto: WebhookEventDto,
+    @Request() req: RawBodyRequest<ExpressRequest>,
+    @Headers('x-docusign-signature-1') signature?: string,
+  ): Promise<{ received: true; duplicate: boolean }> {
+    return this.digitalSignaturesService.acceptWebhook(
+      provider,
+      dto,
+      req.rawBody,
+      { signature },
+    );
   }
 }

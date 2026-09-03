@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
   NotFoundException,
 } from '@nestjs/common';
-import { createHmac } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import OpenAI from 'openai';
 import { WhatsappService } from './whatsapp.service';
 
@@ -120,6 +120,233 @@ describe('WhatsappService', () => {
       'ON CONFLICT (company_id, idempotency_key)',
     );
     expect(query.mock.calls[2][1][4]).toBe('Hola');
+  });
+
+  it('creates a tenant activity and its delivery in one transaction', async () => {
+    const activityId = '123e4567-e89b-12d3-a456-426614174003';
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([
+        {
+          profile_id: '123e4567-e89b-12d3-a456-426614174004',
+          phone: '+54 9 11 1234-5678',
+          consented: true,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: activityId,
+          type: 'whatsapp',
+          status: 'pending',
+          subject: 'Recordatorio',
+          body: 'Enviar comprobante',
+          due_at: null,
+          completed_at: null,
+          metadata: {},
+          created_by_user_id: '123e4567-e89b-12d3-a456-426614174005',
+          created_at: new Date('2026-09-02T12:00:00Z'),
+          updated_at: new Date('2026-09-02T12:00:00Z'),
+        },
+      ])
+      .mockResolvedValueOnce([{ id: 'delivery-1', status: 'queued' }]);
+    const dataSource = buildDataSource(query);
+    const service = buildService(undefined, dataSource);
+
+    await expect(
+      service.createActivityAndEnqueue(
+        {
+          requestId: activityId,
+          personType: 'tenant',
+          personId: '123e4567-e89b-12d3-a456-426614174002',
+          subject: ' Recordatorio ',
+          body: ' Enviar comprobante ',
+        },
+        {
+          id: '123e4567-e89b-12d3-a456-426614174005',
+          companyId: '123e4567-e89b-12d3-a456-426614174001',
+        },
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        activity: expect.objectContaining({
+          id: activityId,
+          type: 'whatsapp',
+          subject: 'Recordatorio',
+        }),
+        delivery: {
+          deliveryId: 'delivery-1',
+          status: 'queued',
+          queued: true,
+        },
+      }),
+    );
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(query.mock.calls[1][0]).toContain('INSERT INTO tenant_activities');
+    expect(query.mock.calls[2][0]).toContain(
+      'INSERT INTO communication_deliveries',
+    );
+    expect(query.mock.calls[2][1][4]).toBe(
+      'Recordatorio\n\nEnviar comprobante',
+    );
+  });
+
+  it('rejects invalid reservation commands before opening a transaction', async () => {
+    const dataSource = buildDataSource();
+    const service = buildService(undefined, dataSource);
+    const actor = {
+      id: '123e4567-e89b-12d3-a456-426614174005',
+      companyId: '123e4567-e89b-12d3-a456-426614174001',
+    };
+    const command = {
+      requestId: '123e4567-e89b-12d3-a456-426614174003',
+      personId: '123e4567-e89b-12d3-a456-426614174002',
+      subject: 'Reserva',
+    };
+
+    await expect(
+      service.createActivityAndEnqueue(
+        {
+          ...command,
+          personType: 'tenant',
+          propertyId: '123e4567-e89b-12d3-a456-426614174006',
+        },
+        actor,
+      ),
+    ).rejects.toThrow('only supported for interested profiles');
+    await expect(
+      service.createActivityAndEnqueue(
+        { ...command, personType: 'interested', markReserved: true },
+        actor,
+      ),
+    ).rejects.toThrow('propertyId is required');
+    await expect(
+      service.createActivityAndEnqueue(
+        { ...command, personType: 'tenant', subject: '   ' },
+        actor,
+      ),
+    ).rejects.toThrow('subject is empty');
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it('returns an idempotent retry and rejects request id payload drift', async () => {
+    const input = {
+      requestId: '123e4567-e89b-12d3-a456-426614174003',
+      personType: 'tenant' as const,
+      personId: '123e4567-e89b-12d3-a456-426614174002',
+      subject: 'Recordatorio',
+    };
+    const requestHash = createHash('sha256')
+      .update(
+        JSON.stringify({
+          personType: input.personType,
+          personId: input.personId,
+          subject: input.subject,
+          body: null,
+          dueAt: null,
+          propertyId: null,
+          markReserved: false,
+        }),
+      )
+      .digest('hex');
+    const recipient = {
+      profile_id: '123e4567-e89b-12d3-a456-426614174004',
+      phone: '+5491112345678',
+      consented: true,
+    };
+    const existing = {
+      id: input.requestId,
+      type: 'whatsapp',
+      status: 'pending',
+      subject: input.subject,
+      metadata: { requestHash },
+    };
+    const retryQuery = jest
+      .fn()
+      .mockResolvedValueOnce([recipient])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([existing])
+      .mockResolvedValueOnce([{ id: 'delivery-1', status: 'processing' }]);
+    const service = buildService(undefined, buildDataSource(retryQuery));
+
+    await expect(
+      service.createActivityAndEnqueue(input, {
+        id: '123e4567-e89b-12d3-a456-426614174005',
+        companyId: '123e4567-e89b-12d3-a456-426614174001',
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        delivery: expect.objectContaining({ queued: true }),
+      }),
+    );
+
+    const driftQuery = jest
+      .fn()
+      .mockResolvedValueOnce([recipient])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { ...existing, metadata: { requestHash: 'different' } },
+      ]);
+    const driftService = buildService(undefined, buildDataSource(driftQuery));
+    await expect(
+      driftService.createActivityAndEnqueue(input, {
+        id: '123e4567-e89b-12d3-a456-426614174005',
+        companyId: '123e4567-e89b-12d3-a456-426614174001',
+      }),
+    ).rejects.toThrow('requestId was already used for another command');
+  });
+
+  it('reserves an interested property inside the activity transaction', async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([
+        {
+          profile_id: '123e4567-e89b-12d3-a456-426614174002',
+          phone: '+5491112345678',
+          consented: true,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: '123e4567-e89b-12d3-a456-426614174003',
+          type: 'whatsapp',
+          status: 'pending',
+          subject: 'Reserva',
+          metadata: {},
+        },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: '123e4567-e89b-12d3-a456-426614174006' }])
+      .mockResolvedValueOnce([{ id: '123e4567-e89b-12d3-a456-426614174007' }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'delivery-2', status: 'queued' }]);
+    const service = buildService(undefined, buildDataSource(query));
+
+    await service.createActivityAndEnqueue(
+      {
+        requestId: '123e4567-e89b-12d3-a456-426614174003',
+        personType: 'interested',
+        personId: '123e4567-e89b-12d3-a456-426614174002',
+        subject: 'Reserva',
+        propertyId: '123e4567-e89b-12d3-a456-426614174006',
+        markReserved: true,
+      },
+      {
+        id: '123e4567-e89b-12d3-a456-426614174005',
+        companyId: '123e4567-e89b-12d3-a456-426614174001',
+      },
+    );
+
+    expect(query.mock.calls[3][0]).toContain('FROM properties');
+    expect(query.mock.calls[4][0]).toContain(
+      'INSERT INTO property_reservations',
+    );
+    expect(query.mock.calls[6][0]).toContain(
+      'INSERT INTO interested_activities',
+    );
+    expect(query.mock.calls[7][0]).toContain(
+      'INSERT INTO communication_deliveries',
+    );
   });
 
   it('rejects unconsented, unknown and mismatched recipients', async () => {
@@ -1112,7 +1339,9 @@ describe('WhatsappService', () => {
   it('deduplicates a retried outbox delivery before calling Meta', async () => {
     const query = jest
       .fn()
-      .mockResolvedValue([{ whatsapp_message_id: 'wamid-already-sent' }]);
+      .mockResolvedValue([
+        { whatsapp_message_id: 'wamid-already-sent', status: 'sent' },
+      ]);
     const service = buildService(undefined, buildDataSource(query));
 
     await expect(
@@ -1128,6 +1357,59 @@ describe('WhatsappService', () => {
       expect.stringContaining('WHERE idempotency_key = $1::uuid'),
       ['123e4567-e89b-12d3-a456-426614174099'],
     );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('reserves an idempotent delivery before calling Meta', async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'delivery-1' }])
+      .mockResolvedValueOnce([{ id: 'delivery-1' }]);
+    const service = buildService(undefined, buildDataSource(query));
+    mockSuccessfulSend('wamid-reserved');
+    const idempotencyKey = '123e4567-e89b-12d3-a456-426614174099';
+
+    await service.sendTextMessage('+5491112345678', 'hola', undefined, {
+      companyId: '123e4567-e89b-12d3-a456-426614174000',
+      idempotencyKey,
+    });
+
+    expect(query.mock.calls[1][0]).toContain("'sending'");
+    expect(query.mock.calls[2][0]).toContain('UPDATE whatsapp_messages');
+    const payload = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(payload.biz_opaque_callback_data).toBe(idempotencyKey);
+  });
+
+  it('does not blindly retry a delivery awaiting provider reconciliation', async () => {
+    const query = jest.fn().mockResolvedValue([
+      {
+        whatsapp_message_id: null,
+        status: 'sending',
+        payload_sha256: null,
+      },
+    ]);
+    const service = buildService(undefined, buildDataSource(query));
+
+    await expect(
+      service.sendTextMessage('+5491112345678', 'hola', undefined, {
+        companyId: '123e4567-e89b-12d3-a456-426614174000',
+        idempotencyKey: '123e4567-e89b-12d3-a456-426614174099',
+      }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('does not send when another worker wins the outbound reservation', async () => {
+    const query = jest.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    const service = buildService(undefined, buildDataSource(query));
+
+    await expect(
+      service.sendTextMessage('+5491112345678', 'hola', undefined, {
+        companyId: '123e4567-e89b-12d3-a456-426614174000',
+        idempotencyKey: '123e4567-e89b-12d3-a456-426614174099',
+      }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

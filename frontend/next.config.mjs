@@ -1,6 +1,9 @@
 import createNextIntlPlugin from 'next-intl/plugin';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const withNextIntl = createNextIntlPlugin('./src/i18n.ts');
+const frontendRoot = dirname(fileURLToPath(import.meta.url));
 
 function getApiOrigin() {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -27,6 +30,11 @@ function getApiProxyUrl() {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    output: 'standalone',
+    outputFileTracingRoot: frontendRoot,
+    turbopack: {
+        root: frontendRoot,
+    },
     images: {
         remotePatterns: [
             {

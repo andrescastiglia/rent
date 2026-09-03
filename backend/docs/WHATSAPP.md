@@ -7,6 +7,7 @@ Endpoints expuestos:
 | Endpoint | Método | Auth | Uso |
 | :--- | :--- | :--- | :--- |
 | `/whatsapp/messages` | `POST` | JWT admin/staff | Encola una actividad de WhatsApp validada |
+| `/whatsapp/activities` | `POST` | JWT admin/staff | Crea actividad y encola entrega en una transacción idempotente |
 | `/whatsapp/messages/internal` | `POST` | `x-batch-whatsapp-token` | Encola un mensaje batch idempotente |
 | `/whatsapp/documents/:documentId?token=...` | `GET` | Público (token firmado) | Descarga pública temporal para PDFs guardados en DB (`db://document/...`) |
 | `/whatsapp/webhook` | `GET` | Público | Verificación de webhook de Meta |
@@ -51,6 +52,12 @@ esperan la respuesta de Meta. El endpoint JWT deriva la idempotencia desde
 `activityEntity` y `activityId`, y exige `relatedEntityId`. El endpoint batch
 exige además `companyId`, `recipientRole`, `recipientId` e `idempotencyKey`.
 El worker de comunicaciones es el único componente que llama a Meta.
+
+Web y mobile usan `/whatsapp/activities` para tenant e interesado. El comando
+recibe un `requestId` UUID estable, resuelve teléfono y consentimiento desde la
+base, y persiste actividad, reserva opcional y outbox en una sola transacción.
+Un reintento con el mismo UUID y payload no duplica efectos; reutilizarlo con un
+payload distinto devuelve conflicto.
 
 ### Configuración de Endpoint
 

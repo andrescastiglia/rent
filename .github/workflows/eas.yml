@@ -82,7 +82,7 @@ jobs:
             '{android:{keystore:{keystorePath:$path,keystorePassword:$password,keyAlias:$alias,keyPassword:$keyPassword}}}' \
             > credentials.json
 
-      - name: Build and submit release
+      - name: Build immutable Android release
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
@@ -91,9 +91,37 @@ jobs:
             --profile production \
             --non-interactive \
             --wait \
-            --auto-submit-with-profile production
+            --json > eas-build.json
+
+          build_id="$(jq -r '.[0].id // .id' eas-build.json)"
+          build_url="$(jq -r '.[0].artifacts.buildUrl // .artifacts.buildUrl' eas-build.json)"
+          test -n "$build_id" && test "$build_id" != null
+          test -n "$build_url" && test "$build_url" != null
+          curl --fail --location --retry 3 \
+            "$build_url" --output "rent-android-${GITHUB_SHA}.aab"
+          sha256sum "rent-android-${GITHUB_SHA}.aab" \
+            > "rent-android-${GITHUB_SHA}.aab.sha256"
+          npm sbom --omit=dev --package-lock-only --sbom-format=cyclonedx > mobile.cdx.json
+
+          eas submit \
+            --platform android \
+            --profile production \
+            --id "$build_id" \
+            --non-interactive \
+            --wait
 
           eas update \
             --platform android \
             --channel production \
             --message "Release ${RELEASE_TAG} (${GITHUB_SHA})"
+
+      - name: Upload checksummed Android artifact and SBOM
+        uses: actions/upload-artifact@v7
+        with:
+          name: rent-android-${{ github.sha }}
+          path: |
+            mobile/rent-android-${{ github.sha }}.aab
+            mobile/rent-android-${{ github.sha }}.aab.sha256
+            mobile/mobile.cdx.json
+          if-no-files-found: error
+          retention-days: 30

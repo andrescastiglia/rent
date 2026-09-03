@@ -85,7 +85,7 @@ function LeaseSection({
 
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.16em] text-slate-400">
+                  <p className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
                     Inicio
                   </p>
                   <p className="text-sm text-slate-700 dark:text-slate-200">
@@ -95,7 +95,7 @@ function LeaseSection({
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-[0.16em] text-slate-400">
+                  <p className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
                     Fin
                   </p>
                   <p className="text-sm text-slate-700 dark:text-slate-200">
@@ -105,7 +105,7 @@ function LeaseSection({
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-[0.16em] text-slate-400">
+                  <p className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
                     Canon
                   </p>
                   <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
@@ -121,7 +121,7 @@ function LeaseSection({
               </div>
 
               <div className="mt-4 rounded-2xl bg-slate-50 p-3 dark:bg-slate-950">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-400">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
                   Alertas de renovación
                 </p>
                 <p className="text-sm text-slate-700 dark:text-slate-200">

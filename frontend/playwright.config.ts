@@ -3,7 +3,15 @@ import { existsSync } from "node:fs";
 
 // Use mock mode by default unless explicitly disabled.
 const useMockMode = process.env.NEXT_PUBLIC_MOCK_MODE !== "false";
-const runSerial = !!process.env.CI || useMockMode;
+const useProductionServer =
+  process.env.PLAYWRIGHT_USE_PRODUCTION_SERVER === "true";
+const requestedWorkers = Number.parseInt(
+  process.env.PLAYWRIGHT_WORKERS ?? "4",
+  10,
+);
+const ciWorkers = Number.isFinite(requestedWorkers)
+  ? Math.max(1, Math.min(requestedWorkers, 8))
+  : 4;
 const localChromeExecutable =
   process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ||
   (existsSync("/usr/bin/google-chrome") ? "/usr/bin/google-chrome" : undefined);
@@ -14,10 +22,12 @@ const localChromeExecutable =
 export default defineConfig({
   testDir: "./e2e",
   timeout: 60000,
-  fullyParallel: !runSerial,
+  // Files have isolated browser contexts and can run concurrently. Keep tests
+  // inside each file ordered to preserve multi-step business scenarios.
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: runSerial ? 1 : undefined,
+  workers: process.env.CI ? ciWorkers : useMockMode ? 1 : undefined,
   reporter: process.env.CI
     ? [
         ["list"],
@@ -50,6 +60,20 @@ export default defineConfig({
           : {}),
       },
     },
+    {
+      name: "firefox",
+      use: {
+        ...devices["Desktop Firefox"],
+        headless: true,
+      },
+    },
+    {
+      name: "webkit",
+      use: {
+        ...devices["Desktop Safari"],
+        headless: true,
+      },
+    },
   ],
 
   webServer: {
@@ -57,7 +81,9 @@ export default defineConfig({
     // When testing with real backend (test:e2e:real), also use dev server
     // Turbopack intermittently hangs compiling auth routes in CI/e2e.
     // Force webpack dev server for stable page navigation (notably /[locale]/login).
-    command: "npm run dev -- --webpack -H 127.0.0.1 -p 3000",
+    command: useProductionServer
+      ? "npm run start -- -H 127.0.0.1 -p 3000"
+      : "npm run dev -- --webpack -H 127.0.0.1 -p 3000",
     url: "http://localhost:3000",
     // In mock-mode, always start a fresh server so env flags are applied deterministically.
     // (If we reuse a manually-started dev server, it may not have NEXT_PUBLIC_MOCK_MODE enabled.)

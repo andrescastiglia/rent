@@ -1,0 +1,237 @@
+{
+  "schemaVersion": "1.0.0",
+  "product": "rent",
+  "capabilities": [
+    {
+      "id": "portfolio.manage",
+      "status": "available",
+      "roles": [
+        "admin",
+        "staff",
+        "owner"
+      ],
+      "permissions": [
+        "properties",
+        "owners"
+      ],
+      "companyScoped": true,
+      "channels": [
+        "api",
+        "web",
+        "mobile",
+        "ai"
+      ],
+      "risk": "write",
+      "confirmation": "explicit",
+      "evidence": [
+        "properties",
+        "owners",
+        "property_images"
+      ]
+    },
+    {
+      "id": "crm.manage",
+      "status": "available",
+      "roles": [
+        "admin",
+        "staff"
+      ],
+      "permissions": [
+        "interested"
+      ],
+      "companyScoped": true,
+      "channels": [
+        "api",
+        "web",
+        "mobile",
+        "ai",
+        "whatsapp"
+      ],
+      "risk": "write",
+      "confirmation": "explicit",
+      "evidence": [
+        "interested_profiles",
+        "interested_activities",
+        "property_reservations"
+      ]
+    },
+    {
+      "id": "leases.manage",
+      "status": "available",
+      "roles": [
+        "admin",
+        "staff"
+      ],
+      "permissions": [
+        "leases"
+      ],
+      "companyScoped": true,
+      "channels": [
+        "api",
+        "web",
+        "mobile",
+        "ai",
+        "batch"
+      ],
+      "risk": "write",
+      "confirmation": "explicit",
+      "evidence": [
+        "leases",
+        "lease_versions",
+        "lease_amendments"
+      ]
+    },
+    {
+      "id": "payments.post",
+      "status": "available",
+      "roles": [
+        "admin",
+        "staff"
+      ],
+      "permissions": [
+        "payments"
+      ],
+      "companyScoped": true,
+      "channels": [
+        "api",
+        "web",
+        "mobile",
+        "ai",
+        "batch"
+      ],
+      "risk": "financial",
+      "confirmation": "explicit",
+      "evidence": [
+        "payments",
+        "payment_allocations",
+        "tenant_account_movements"
+      ]
+    },
+    {
+      "id": "sales.manage",
+      "status": "available",
+      "roles": [
+        "admin",
+        "staff"
+      ],
+      "permissions": [
+        "sales"
+      ],
+      "companyScoped": true,
+      "channels": [
+        "api",
+        "web",
+        "mobile",
+        "ai"
+      ],
+      "risk": "financial",
+      "confirmation": "explicit",
+      "evidence": [
+        "sales",
+        "sale_agreements",
+        "sale_installments",
+        "sale_receipts"
+      ]
+    },
+    {
+      "id": "maintenance.manage",
+      "status": "partial",
+      "roles": [
+        "admin",
+        "staff",
+        "owner",
+        "tenant"
+      ],
+      "permissions": [
+        "maintenance"
+      ],
+      "companyScoped": true,
+      "channels": [
+        "api",
+        "web",
+        "mobile",
+        "ai"
+      ],
+      "risk": "write",
+      "confirmation": "explicit",
+      "evidence": [
+        "maintenance_tickets",
+        "maintenance_ticket_comments"
+      ]
+    },
+    {
+      "id": "communications.review",
+      "status": "available",
+      "roles": [
+        "admin",
+        "staff"
+      ],
+      "permissions": [
+        "communications"
+      ],
+      "companyScoped": true,
+      "channels": [
+        "api",
+        "web",
+        "mobile",
+        "whatsapp"
+      ],
+      "risk": "write",
+      "confirmation": "explicit",
+      "evidence": [
+        "person_communications",
+        "communication_deliveries"
+      ]
+    },
+    {
+      "id": "ai.query",
+      "status": "partial",
+      "roles": [
+        "admin",
+        "staff",
+        "owner",
+        "tenant",
+        "buyer"
+      ],
+      "permissions": [
+        "ai"
+      ],
+      "companyScoped": true,
+      "channels": [
+        "api",
+        "web",
+        "mobile",
+        "whatsapp"
+      ],
+      "risk": "read",
+      "confirmation": "none",
+      "evidence": [
+        "ai_rag_runs",
+        "ai_tool_execution_audit"
+      ]
+    },
+    {
+      "id": "ai.approve-mutation",
+      "status": "available",
+      "roles": [
+        "admin",
+        "staff"
+      ],
+      "permissions": [
+        "approvals"
+      ],
+      "companyScoped": true,
+      "channels": [
+        "api",
+        "web",
+        "mobile"
+      ],
+      "risk": "destructive",
+      "confirmation": "reauthenticated",
+      "evidence": [
+        "pending_actions",
+        "ai_tool_mutation_confirmations"
+      ]
+    }
+  ]
+}
