@@ -149,7 +149,10 @@
       ansible.builtin.copy:
         src: "{{ local_release_archive }}"
         dest: "{{ remote_release_archive }}"
+        owner: deploy
+        group: deploy
         mode: "0600"
+      become_user: root
 
     - name: Unpack release without compiling on the server
       ansible.builtin.unarchive:
@@ -182,8 +185,11 @@
           ansible.builtin.copy:
             src: "{{ local_runtime_env }}"
             dest: "{{ shared_path }}/.env"
+            owner: deploy
+            group: deploy
             mode: "0600"
             backup: true
+          become_user: root
           register: runtime_env_update
           no_log: true
 
