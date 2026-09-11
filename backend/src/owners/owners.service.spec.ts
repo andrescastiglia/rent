@@ -36,7 +36,7 @@ describe('OwnersService', () => {
     query: jest.fn(),
   };
   const documentsService = {
-    downloadByS3Key: jest.fn(),
+    downloadByFileUrl: jest.fn(),
   };
   const communicationsService = {
     dispatchEvent: jest.fn(),
@@ -702,7 +702,7 @@ describe('OwnersService', () => {
         receipt_name: null,
       },
     ]);
-    documentsService.downloadByS3Key.mockResolvedValue({
+    documentsService.downloadByFileUrl.mockResolvedValue({
       buffer: Buffer.from('pdf'),
       contentType: 'application/pdf',
     });

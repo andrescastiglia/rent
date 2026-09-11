@@ -14,7 +14,7 @@ describe('InvoicesController', () => {
     generate: jest.fn(),
   };
   const documentsService = {
-    downloadByS3Key: jest.fn(),
+    downloadByFileUrl: jest.fn(),
   };
   const paymentsService = {
     listCreditNotesByInvoice: jest.fn(),
@@ -71,14 +71,16 @@ describe('InvoicesController', () => {
 
   it('issue returns attachPdf on success and original invoice on pdf failure', async () => {
     invoicesService.issue.mockResolvedValue({ id: 'i1' });
-    invoicePdfService.generate.mockResolvedValueOnce('s3://invoice.pdf');
+    invoicePdfService.generate.mockResolvedValueOnce(
+      'db://document/invoice.pdf',
+    );
     invoicesService.attachPdf.mockResolvedValue({
       id: 'i1',
-      pdfUrl: 's3://invoice.pdf',
+      pdfUrl: 'db://document/invoice.pdf',
     });
     await expect(controller.issue('i1', req)).resolves.toEqual({
       id: 'i1',
-      pdfUrl: 's3://invoice.pdf',
+      pdfUrl: 'db://document/invoice.pdf',
     });
 
     const errorSpy = jest.spyOn(console, 'error').mockImplementation();
@@ -87,7 +89,7 @@ describe('InvoicesController', () => {
     expect(invoicesService.issue).toHaveBeenCalledWith('i1', 'c1');
     expect(invoicesService.attachPdf).toHaveBeenCalledWith(
       'i1',
-      's3://invoice.pdf',
+      'db://document/invoice.pdf',
       'c1',
     );
     expect(errorSpy).toHaveBeenCalled();
@@ -113,9 +115,9 @@ describe('InvoicesController', () => {
     invoicesService.findOneScoped.mockResolvedValueOnce({
       id: 'i1',
       invoiceNumber: '001',
-      pdfUrl: 's3://invoice.pdf',
+      pdfUrl: 'db://document/invoice.pdf',
     });
-    documentsService.downloadByS3Key.mockResolvedValue({
+    documentsService.downloadByFileUrl.mockResolvedValue({
       buffer: Buffer.from('pdf'),
       contentType: 'application/pdf',
     });
@@ -134,10 +136,10 @@ describe('InvoicesController', () => {
     paymentsService.findCreditNoteById.mockResolvedValueOnce({
       invoiceId: 'i1',
       noteNumber: 'CN1',
-      pdfUrl: 's3://cn.pdf',
+      pdfUrl: 'db://document/cn.pdf',
     });
     invoicesService.findOneScoped.mockResolvedValueOnce({ id: 'i1' });
-    documentsService.downloadByS3Key.mockResolvedValue({
+    documentsService.downloadByFileUrl.mockResolvedValue({
       buffer: Buffer.from('pdf-cn'),
       contentType: 'application/pdf',
     });

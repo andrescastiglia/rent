@@ -114,7 +114,7 @@ erDiagram
         string entity_type
         uuid entity_id
         string doc_type
-        string s3_key
+        string file_url
         string mime_type
         int file_size
         string status
@@ -170,7 +170,7 @@ erDiagram
         string entity_type
         uuid entity_id
         string doc_type
-        string s3_key
+        string file_url
     }
 ```
 

@@ -209,7 +209,7 @@ graph TB
         landing["Landing Page<br/>(Next.js SSR)"]
     end
 
-    cdn["📦 CDN<br/>(CloudFront)"]
+    cdn["📦 CDN<br/>(Cloudflare)"]
     gateway["🚪 API Gateway<br/>(Kong/AWS)"]
 
     subgraph backend["⚙️ BACKEND CORE"]
@@ -222,7 +222,7 @@ graph TB
         postgres["PostgreSQL<br/>(Primary DB)"]
         redis["Redis<br/>(Cache/Session)"]
         elastic["Elasticsearch<br/>(Search)"]
-        s3["AWS S3<br/>(Storage)"]
+        documents["Documentos<br/>(PostgreSQL bytea)"]
     end
 
     subgraph external["🔌 INTEGRACIONES EXTERNAS"]
@@ -252,9 +252,9 @@ graph TB
     api --> postgres
     api --> redis
     api --> elastic
-    api --> s3
+    api --> documents
     workers --> postgres
-    workers --> s3
+    workers --> documents
     workers --> elastic
 
     %% Backend a External
@@ -297,7 +297,7 @@ graph TB
 - DocuSign (Firma digital)
 - WhatsApp Cloud API (Email)
 - WhatsApp Cloud API (SMS)
-- AWS S3 (Almacenamiento)
+- PostgreSQL bytea (documentos y PDF)
 
 ## 🚀 Fases del Proyecto
 

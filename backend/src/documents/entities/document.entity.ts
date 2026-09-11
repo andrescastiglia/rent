@@ -62,7 +62,7 @@ export class Document {
   @Column({ name: 'file_url', length: 500 })
   fileUrl: string;
 
-  @Column({ name: 'file_data', type: 'bytea', nullable: true })
+  @Column({ name: 'file_data', type: 'bytea', nullable: true, select: false })
   fileData: Buffer | null;
 
   @Column({ name: 'file_size', type: 'int', nullable: true })

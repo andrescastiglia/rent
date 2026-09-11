@@ -3,30 +3,18 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
-  OnModuleInit,
+  ForbiddenException,
 } from '@nestjs/common';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-  DeleteObjectCommand,
-  CreateBucketCommand,
-  HeadBucketCommand,
-  HeadObjectCommand,
-  CopyObjectCommand,
-} from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import {
   Document,
   DocumentStatus,
   DocumentType,
 } from './entities/document.entity';
 import { GenerateUploadUrlDto } from './dto/generate-upload-url.dto';
-import { getS3Config, S3_BUCKET_NAME } from '../config/s3.config';
 import { UserRole } from '../users/entities/user.entity';
 import {
   getUserRoles,
@@ -69,10 +57,8 @@ const CANONICAL_ENTITY_TYPES: Record<string, string> = {
 };
 
 @Injectable()
-export class DocumentsService implements OnModuleInit {
+export class DocumentsService {
   private readonly logger = new Logger(DocumentsService.name);
-  private s3Client!: S3Client;
-  private bucketName!: string;
 
   constructor(
     @InjectRepository(Document)
@@ -81,32 +67,6 @@ export class DocumentsService implements OnModuleInit {
     @InjectDataSource()
     private readonly dataSource: DataSource,
   ) {}
-
-  async onModuleInit(): Promise<void> {
-    this.s3Client = getS3Config(this.configService);
-    this.bucketName = S3_BUCKET_NAME;
-    if (this.configService.get<string>('NODE_ENV') === 'test') {
-      return;
-    }
-    await this.ensureBucketExists();
-  }
-
-  private async ensureBucketExists() {
-    try {
-      await this.s3Client.send(
-        new HeadBucketCommand({ Bucket: this.bucketName }),
-      );
-    } catch {
-      // Bucket doesn't exist, create it
-      try {
-        await this.s3Client.send(
-          new CreateBucketCommand({ Bucket: this.bucketName }),
-        );
-      } catch (createError) {
-        console.error('Failed to create S3 bucket:', createError);
-      }
-    }
-  }
 
   async generateUploadUrl(
     dto: GenerateUploadUrlDto,
@@ -117,7 +77,11 @@ export class DocumentsService implements OnModuleInit {
     // Validate file size based on type
     const maxSize =
       dto.documentType === DocumentType.PHOTO ? 5242880 : 10485760; // 5MB for photos, 10MB for docs
-    if (dto.fileSize > maxSize) {
+    if (
+      !Number.isSafeInteger(dto.fileSize) ||
+      dto.fileSize < 1 ||
+      dto.fileSize > maxSize
+    ) {
       throw new BadRequestException(
         `File size exceeds maximum allowed (${maxSize / 1048576}MB)`,
       );
@@ -173,10 +137,12 @@ export class DocumentsService implements OnModuleInit {
     }
 
     const entityType = this.normalizeEntityType(dto.entityType);
-    const fileUrl = `quarantine/${companyId}/${randomBytes(24).toString('hex')}`;
+    const id = randomUUID();
+    const fileUrl = `db://document/${id}`;
 
     // Create document record
     const document = this.documentsRepository.create({
+      id,
       companyId,
       entityType,
       entityId: dto.entityId,
@@ -190,20 +156,8 @@ export class DocumentsService implements OnModuleInit {
 
     const savedDocument = await this.documentsRepository.save(document);
 
-    // Generate pre-signed URL for upload
-    const command = new PutObjectCommand({
-      Bucket: this.bucketName,
-      Key: fileUrl,
-      ContentType: dto.mimeType,
-      ContentLength: dto.fileSize,
-    });
-
-    const uploadUrl = await getSignedUrl(this.s3Client, command, {
-      expiresIn: 300,
-    });
-
     return {
-      uploadUrl,
+      uploadUrl: this.createContentUrl(savedDocument.id, 'upload', actor),
       documentId: savedDocument.id,
     };
   }
@@ -230,17 +184,152 @@ export class DocumentsService implements OnModuleInit {
       actor,
     );
 
-    const command = new GetObjectCommand({
-      Bucket: this.bucketName,
-      Key: document.fileUrl,
-      ResponseContentDisposition: `attachment; filename*=UTF-8''${encodeURIComponent(document.name)}`,
-    });
+    return {
+      downloadUrl: this.createContentUrl(document.id, 'download', actor),
+    };
+  }
 
-    const downloadUrl = await getSignedUrl(this.s3Client, command, {
-      expiresIn: 300,
-    });
+  // A capability is scoped to one operation, document and actor for five minutes.
+  // The parent relationship is checked again when the URL is used.
+  private createContentUrl(
+    id: string,
+    operation: 'upload' | 'download',
+    actor: DocumentActor,
+  ): string {
+    const payload = Buffer.from(
+      JSON.stringify({
+        id,
+        operation,
+        actor: {
+          id: actor.id,
+          companyId: actor.companyId,
+          role: actor.role,
+          roles: actor.roles,
+        },
+        expires: Date.now() + 300_000,
+      }),
+    ).toString('base64url');
+    const signature = this.signContentToken(payload);
+    const configuredBase = this.configService.get<string>(
+      'NEXT_PUBLIC_API_URL',
+    );
+    const base = configuredBase?.startsWith('http')
+      ? configuredBase
+      : `${this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000')}/api`;
+    return `${base.replace(/\/$/, '')}/documents/${id}/content?token=${payload}.${signature}`;
+  }
 
-    return { downloadUrl };
+  private signContentToken(payload: string): string {
+    return createHmac(
+      'sha256',
+      this.configService.getOrThrow<string>('JWT_SECRET'),
+    )
+      .update(`document-content:${payload}`)
+      .digest('base64url');
+  }
+
+  private verifyContentToken(
+    id: string,
+    operation: 'upload' | 'download',
+    token?: string,
+  ): DocumentActor {
+    try {
+      if (typeof token !== 'string' || !token || token.length > 4096)
+        throw new Error();
+      const [payload, signature, extra] = token.split('.');
+      const expected = Buffer.from(this.signContentToken(payload));
+      const supplied = Buffer.from(signature ?? '');
+      if (
+        extra ||
+        supplied.length !== expected.length ||
+        !timingSafeEqual(supplied, expected)
+      )
+        throw new Error();
+      const claim = JSON.parse(Buffer.from(payload, 'base64url').toString());
+      if (
+        claim.id !== id ||
+        claim.operation !== operation ||
+        !Number.isFinite(claim.expires) ||
+        claim.expires <= Date.now() ||
+        !claim.actor?.id ||
+        !claim.actor?.companyId
+      )
+        throw new Error();
+      return claim.actor as DocumentActor;
+    } catch {
+      throw new ForbiddenException('Invalid or expired document link');
+    }
+  }
+
+  async uploadContent(
+    id: string,
+    token: string | undefined,
+    buffer: Buffer,
+    contentType: string | undefined,
+  ): Promise<void> {
+    const actor = this.verifyContentToken(id, 'upload', token);
+    const document = await this.documentsRepository.findOne({
+      where: { id, companyId: actor.companyId, status: DocumentStatus.PENDING },
+    });
+    if (!document) throw new NotFoundException('Pending document not found');
+    await this.assertEntityAccessible(
+      document.entityType,
+      document.entityId,
+      actor,
+    );
+    if (
+      !Buffer.isBuffer(buffer) ||
+      buffer.byteLength === 0 ||
+      buffer.byteLength > 10485760 ||
+      buffer.byteLength !== document.fileSize ||
+      contentType !== document.fileMimeType
+    ) {
+      throw new BadRequestException(
+        'Uploaded content does not match declared size and MIME type',
+      );
+    }
+    // A conditional update prevents an upload racing with confirmation from
+    // overwriting already approved bytes.
+    const result = await this.documentsRepository.update(
+      { id, companyId: actor.companyId, status: DocumentStatus.PENDING },
+      { fileData: buffer },
+    );
+    if (!result.affected)
+      throw new BadRequestException('Document is no longer pending');
+  }
+
+  async downloadContent(
+    id: string,
+    token?: string,
+  ): Promise<{ buffer: Buffer; contentType: string; name: string }> {
+    const actor = this.verifyContentToken(id, 'download', token);
+    const document = await this.documentsRepository.findOne({
+      where: {
+        id,
+        companyId: actor.companyId,
+        status: DocumentStatus.APPROVED,
+      },
+      select: [
+        'id',
+        'entityType',
+        'entityId',
+        'fileData',
+        'fileMimeType',
+        'name',
+      ],
+    });
+    if (!document?.fileData)
+      throw new NotFoundException('Document content not found');
+    await this.assertEntityAccessible(
+      document.entityType,
+      document.entityId,
+      actor,
+    );
+    return {
+      buffer: Buffer.from(document.fileData),
+      contentType: document.fileMimeType,
+      name: document.name,
+    };
   }
 
   async confirmUpload(
@@ -264,67 +353,38 @@ export class DocumentsService implements OnModuleInit {
     if (document.status === DocumentStatus.APPROVED) {
       return document;
     }
-    if (
-      document.status !== DocumentStatus.PENDING ||
-      !document.fileUrl.startsWith(`quarantine/${companyId}/`)
-    ) {
-      throw new BadRequestException('Document is not pending quarantine');
+    if (document.status !== DocumentStatus.PENDING) {
+      throw new BadRequestException('Document is not pending');
     }
-
-    let uploaded: { ContentLength?: number; ContentType?: string };
-    try {
-      uploaded = await this.s3Client.send(
-        new HeadObjectCommand({
-          Bucket: this.bucketName,
-          Key: document.fileUrl,
-        }),
-      );
-    } catch {
-      throw new BadRequestException('Quarantined upload was not found');
-    }
-    if (
-      uploaded.ContentLength !== document.fileSize ||
-      uploaded.ContentType !== document.fileMimeType
-    ) {
+    // Validate and approve in one statement so a concurrent PUT cannot change
+    // the content after the approval check. Never return binary data in JSON.
+    const result = await this.documentsRepository
+      .createQueryBuilder()
+      .update(Document)
+      .set({
+        status: DocumentStatus.APPROVED,
+        verifiedBy: actor.id,
+        verifiedAt: new Date(),
+      })
+      .where('id = :id AND company_id = :companyId AND status = :status', {
+        id: documentId,
+        companyId,
+        status: DocumentStatus.PENDING,
+      })
+      .andWhere('file_data IS NOT NULL AND octet_length(file_data) = file_size')
+      .execute();
+    if (!result.affected) {
+      const current = await this.documentsRepository.findOne({
+        where: { id: documentId, companyId },
+      });
+      if (current?.status === DocumentStatus.APPROVED) return current;
       throw new BadRequestException(
-        'Uploaded object does not match declared size and MIME type',
+        'Pending upload content was not found or has invalid size',
       );
     }
-
-    const quarantineKey = document.fileUrl;
-    const opaqueObjectId = createHash('sha256')
-      .update(quarantineKey)
-      .digest('hex');
-    const approvedKey = `documents/${companyId}/${opaqueObjectId}`;
-    await this.s3Client.send(
-      new CopyObjectCommand({
-        Bucket: this.bucketName,
-        CopySource: `${this.bucketName}/${quarantineKey}`,
-        Key: approvedKey,
-        ContentType: document.fileMimeType,
-        MetadataDirective: 'REPLACE',
-      }),
-    );
-    document.fileUrl = approvedKey;
-    document.status = DocumentStatus.APPROVED;
-    document.verifiedBy = actor.id;
-    document.verifiedAt = new Date();
-
-    const approvedDocument = await this.documentsRepository.save(document);
-
-    try {
-      await this.s3Client.send(
-        new DeleteObjectCommand({
-          Bucket: this.bucketName,
-          Key: quarantineKey,
-        }),
-      );
-    } catch (error) {
-      this.logger.warn(
-        `document_quarantine_cleanup_failed documentId=${documentId} companyId=${companyId}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    }
+    const approvedDocument = await this.documentsRepository.findOneOrFail({
+      where: { id: documentId, companyId },
+    });
     this.logger.log(
       `document_upload_approved documentId=${documentId} companyId=${companyId}`,
     );
@@ -365,18 +425,6 @@ export class DocumentsService implements OnModuleInit {
       actor,
     );
 
-    // Delete from S3
-    try {
-      await this.s3Client.send(
-        new DeleteObjectCommand({
-          Bucket: this.bucketName,
-          Key: document.fileUrl,
-        }),
-      );
-    } catch (error) {
-      console.error('Failed to delete from S3:', error);
-    }
-
     // Soft delete from DB
     await this.documentsRepository.softDelete({ id: documentId, companyId });
   }
@@ -410,9 +458,11 @@ export class DocumentsService implements OnModuleInit {
       : getUserRoles(actor);
     for (const role of roles) {
       const query = this.buildEntityAccessQuery(normalized, table, role);
-      const rows = query
-        ? await this.dataSource.query(query, [entityId, companyId, actor.id])
-        : [];
+      const parameters =
+        role === UserRole.ADMIN || role === UserRole.STAFF
+          ? [entityId, companyId]
+          : [entityId, companyId, actor.id];
+      const rows = query ? await this.dataSource.query(query, parameters) : [];
       if (Array.isArray(rows) && rows.length === 1) {
         return;
       }
@@ -466,58 +516,27 @@ export class DocumentsService implements OnModuleInit {
     return queries[role]?.[entityType] ?? null;
   }
 
-  /**
-   * Downloads a file directly from S3 by its key.
-   * @param s3Key The S3 key of the file
-   * @returns Buffer and content type of the file
-   */
-  async downloadByS3Key(
-    s3Key: string,
+  /** Internal download; callers authorize access to the owning business entity. */
+  async downloadByFileUrl(
+    fileUrl: string,
   ): Promise<{ buffer: Buffer; contentType: string }> {
-    if (s3Key.startsWith('db://document/')) {
-      const documentId = s3Key.replace('db://document/', '').trim();
-      const document = await this.documentsRepository.findOne({
-        where: { id: documentId },
-      });
-
-      if (!document?.fileData) {
-        throw new NotFoundException(
-          `File not found in DB document: ${documentId}`,
-        );
-      }
-
-      return {
-        buffer: Buffer.from(document.fileData),
-        contentType: document.fileMimeType || 'application/pdf',
-      };
+    if (!fileUrl.startsWith('db://document/')) {
+      throw new NotFoundException(
+        'Document content is not stored in the database',
+      );
     }
-
-    try {
-      const command = new GetObjectCommand({
-        Bucket: this.bucketName,
-        Key: s3Key,
-      });
-
-      const response = await this.s3Client.send(command);
-      const contentType = response.ContentType || 'application/octet-stream';
-      const buffer = await this.streamToBuffer(response.Body as any);
-
-      return { buffer, contentType };
-    } catch {
-      throw new NotFoundException(`File not found in S3: ${s3Key}`);
-    }
-  }
-
-  /**
-   * Converts a stream to a buffer.
-   * @param stream The readable stream
-   * @returns Buffer
-   */
-  private async streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
-    const chunks: Buffer[] = [];
-    for await (const chunk of stream) {
-      chunks.push(Buffer.from(chunk));
-    }
-    return Buffer.concat(chunks);
+    const documentId = fileUrl.slice('db://document/'.length).trim();
+    const document = await this.documentsRepository.findOne({
+      where: { id: documentId },
+      select: ['id', 'fileData', 'fileMimeType'],
+    });
+    if (!document?.fileData)
+      throw new NotFoundException(
+        `File not found in DB document: ${documentId}`,
+      );
+    return {
+      buffer: Buffer.from(document.fileData),
+      contentType: document.fileMimeType || 'application/pdf',
+    };
   }
 }

@@ -4,11 +4,6 @@ jest.mock('./templates/sale-receipt-template', () => ({
   generateSaleReceiptPdf: jest.fn().mockResolvedValue(Buffer.from('pdf')),
 }));
 
-jest.mock('../config/s3.config', () => ({
-  getS3Config: () => ({ send: jest.fn().mockResolvedValue({}) }),
-  S3_BUCKET_NAME: 'test-bucket',
-}));
-
 describe('SaleReceiptPdfService', () => {
   let service: SaleReceiptPdfService;
   let documentsRepository: any;
@@ -18,17 +13,16 @@ describe('SaleReceiptPdfService', () => {
       create: jest.fn((dto: any) => dto),
       save: jest.fn((entity: any) => ({ id: 'doc-1', ...entity })),
     };
-    const configService = { get: jest.fn() } as any;
-    service = new SaleReceiptPdfService(documentsRepository, configService);
+    service = new SaleReceiptPdfService(documentsRepository);
   });
 
-  it('generates PDF, uploads to S3, and saves document record', async () => {
+  it('persists PDF bytes and its final database URL in a single save', async () => {
     const receipt = { id: 'rec-1', receiptNumber: 'SR-001' } as any;
     const agreement = { companyId: 'company-1' } as any;
 
     const result = await service.generate(receipt, agreement);
 
-    expect(result).toContain('sale-receipts/rec-1/');
+    expect(result).toMatch(/^db:\/\/document\/[a-f0-9-]{36}$/);
     expect(documentsRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         companyId: 'company-1',
@@ -36,8 +30,11 @@ describe('SaleReceiptPdfService', () => {
         entityId: 'rec-1',
         name: 'recibo-venta-SR-001.pdf',
         fileMimeType: 'application/pdf',
+        fileData: Buffer.from('pdf'),
+        fileSize: 3,
+        fileUrl: result,
       }),
     );
-    expect(documentsRepository.save).toHaveBeenCalled();
+    expect(documentsRepository.save).toHaveBeenCalledTimes(1);
   });
 });

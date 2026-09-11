@@ -159,9 +159,10 @@ export class WhatsappController {
       throw new ForbiddenException('Invalid or expired document token');
     }
 
-    const { buffer, contentType } = await this.documentsService.downloadByS3Key(
-      `db://document/${documentId}`,
-    );
+    const { buffer, contentType } =
+      await this.documentsService.downloadByFileUrl(
+        `db://document/${documentId}`,
+      );
 
     res.set({
       'Content-Type': contentType,

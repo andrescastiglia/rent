@@ -5,7 +5,7 @@ describe('LeasesContractController', () => {
     getContractDocument: jest.fn(),
   };
   const documentsService = {
-    downloadByS3Key: jest.fn(),
+    downloadByFileUrl: jest.fn(),
   };
   const leasesService = {
     findOneScoped: jest.fn(),
@@ -37,10 +37,10 @@ describe('LeasesContractController', () => {
 
   it('streams file when contract exists', async () => {
     pdfService.getContractDocument.mockResolvedValue({
-      fileUrl: 's3://contract.pdf',
+      fileUrl: 'db://document/contract.pdf',
       name: 'contract.pdf',
     });
-    documentsService.downloadByS3Key.mockResolvedValue({
+    documentsService.downloadByFileUrl.mockResolvedValue({
       buffer: Buffer.from('pdf'),
       contentType: 'application/pdf',
     });

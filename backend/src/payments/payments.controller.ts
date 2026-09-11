@@ -115,9 +115,8 @@ export class PaymentsController {
       return res.status(404).json({ message: 'Receipt not found' });
     }
 
-    const { buffer, contentType } = await this.documentsService.downloadByS3Key(
-      payment.receipt.pdfUrl,
-    );
+    const { buffer, contentType } =
+      await this.documentsService.downloadByFileUrl(payment.receipt.pdfUrl);
 
     res.set({
       'Content-Type': contentType,

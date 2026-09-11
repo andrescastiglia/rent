@@ -19,7 +19,7 @@ describe('WhatsappController', () => {
   };
 
   const documentsService = {
-    downloadByS3Key: jest.fn(),
+    downloadByFileUrl: jest.fn(),
   };
 
   let controller: WhatsappController;
@@ -280,7 +280,7 @@ describe('WhatsappController', () => {
 
   it('downloadDocument streams file when token is valid', async () => {
     whatsappService.isDocumentTokenValid.mockReturnValue(true);
-    documentsService.downloadByS3Key.mockResolvedValue({
+    documentsService.downloadByFileUrl.mockResolvedValue({
       buffer: Buffer.from('pdf'),
       contentType: 'application/pdf',
     });
@@ -291,7 +291,7 @@ describe('WhatsappController', () => {
 
     await controller.downloadDocument('doc-1', { token: 'ok' } as any, res);
 
-    expect(documentsService.downloadByS3Key).toHaveBeenCalledWith(
+    expect(documentsService.downloadByFileUrl).toHaveBeenCalledWith(
       'db://document/doc-1',
     );
     expect(res.set).toHaveBeenCalledWith({

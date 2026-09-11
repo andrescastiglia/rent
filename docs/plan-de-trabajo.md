@@ -18,7 +18,7 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 
 ### Consistencia financiera
 
-- [ ] Asegurar que PDF, S3, WhatsApp y proveedores se ejecuten desde outbox después del commit.
+- [ ] Asegurar que PDF, WhatsApp y proveedores se ejecuten desde outbox después del commit.
 
 ### WhatsApp seguro
 

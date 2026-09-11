@@ -97,8 +97,6 @@ PROPERTY_IMAGE_SIGNING_SECRET=...
 BATCH_WHATSAPP_INTERNAL_TOKEN=...
 BATCH_BANK_RECONCILIATION_INTERNAL_TOKEN=...
 BATCH_COMMUNICATIONS_INTERNAL_TOKEN=...
-S3_ACCESS_KEY=...
-S3_SECRET_KEY=...
 TURNSTILE_SECRET_KEY=...
 ```
 
@@ -187,6 +185,41 @@ comprueba el tipo por magic bytes y calcula SHA-256. Revisar los conteos; luego
 repetir con `--apply`. La escritura ocurre en una transacción y termina solo si
 ya no quedan referencias `/uploads/properties/`. Conservar salida, conteos y
 backup como evidencia del tag.
+
+## Documentos en PostgreSQL
+
+Los documentos adjuntos y todos los PDF generados se guardan en
+`documents.file_data` (`bytea`), con referencias `db://document/<id>`. El backup
+habitual de PostgreSQL incluye el contenido. No hay un servicio externo de
+almacenamiento ni credenciales adicionales que configurar.
+
+Las URLs de subida y descarga apuntan a la API pública indicada por
+`NEXT_PUBLIC_API_URL` (si es absoluta), o a `FRONTEND_URL/api`. Su firma utiliza
+`JWT_SECRET` y vence en cinco minutos. El proxy debe admitir cuerpos de al menos
+10 MiB; no debe registrar el parámetro `token` ni cachear las descargas.
+Instalar `ansible/files/rent-log-format.conf` en
+`/etc/nginx/conf.d/rent-log-format.conf` y usar en el virtual host de Rent:
+
+```nginx
+access_log /var/log/nginx/rent.access.log rent_no_args;
+```
+
+Verificar `nginx -t` antes de recargar. Este formato conserva la ruta, método y
+resultado de cada solicitud, y excluye query strings y `Referer`.
+
+Antes de actualizar una instalación anterior, verificar que no haya documentos
+aprobados sin contenido local:
+
+```sql
+SELECT count(*) AS missing_document_bytes
+FROM documents
+WHERE deleted_at IS NULL AND status = 'approved' AND file_data IS NULL;
+```
+
+El resultado debe ser cero. Si hay registros sin bytes, recuperar su contenido
+antes de desplegar; cambiar una referencia no recupera un archivo. La revisión
+de producción del 11 de septiembre de 2026 encontró 14 documentos, todos con
+contenido en PostgreSQL. Este cambio no requiere migrar el esquema.
 
 ## Crear el release
 

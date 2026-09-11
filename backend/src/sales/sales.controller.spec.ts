@@ -14,7 +14,7 @@ describe('SalesController', () => {
     getReceipt: jest.fn(),
   };
   const documentsService = {
-    downloadByS3Key: jest.fn(),
+    downloadByFileUrl: jest.fn(),
   };
 
   let controller: SalesController;
@@ -93,15 +93,15 @@ describe('SalesController', () => {
 
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith({ message: 'Receipt PDF not found' });
-    expect(documentsService.downloadByS3Key).not.toHaveBeenCalled();
+    expect(documentsService.downloadByFileUrl).not.toHaveBeenCalled();
   });
 
   it('downloadReceipt sends buffer when pdf exists', async () => {
     salesService.getReceipt.mockResolvedValue({
       receiptNumber: '001',
-      pdfUrl: 's3/key.pdf',
+      pdfUrl: 'db://document/doc-1',
     });
-    documentsService.downloadByS3Key.mockResolvedValue({
+    documentsService.downloadByFileUrl.mockResolvedValue({
       buffer: Buffer.from('pdf'),
       contentType: 'application/pdf',
     });

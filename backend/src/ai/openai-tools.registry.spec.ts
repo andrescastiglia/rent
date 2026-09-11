@@ -58,7 +58,7 @@ describe('openai-tools.registry', () => {
         generateDownloadUrl: jest.fn(),
         findByEntity: jest.fn(),
         remove: jest.fn(),
-        downloadByS3Key: jest.fn(),
+        downloadByFileUrl: jest.fn(),
       },
       interestedService: {
         create: jest.fn(),
@@ -671,7 +671,7 @@ describe('openai-tools.registry', () => {
       currenciesService: {},
       dashboardService: {},
       documentsService: {
-        downloadByS3Key: jest.fn().mockResolvedValue({
+        downloadByFileUrl: jest.fn().mockResolvedValue({
           buffer: Buffer.from('pdf'),
           contentType: 'application/pdf',
         }),

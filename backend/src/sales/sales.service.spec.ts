@@ -41,7 +41,7 @@ describe('SalesService', () => {
 
   beforeEach(async () => {
     receiptPdfService = {
-      generate: jest.fn().mockResolvedValue('s3://receipt.pdf'),
+      generate: jest.fn().mockResolvedValue('db://document/receipt.pdf'),
     };
     contractsRepository = createMockRepository();
     dataSource = {
@@ -290,7 +290,7 @@ describe('SalesService', () => {
     );
 
     expect(receipt.copyCount).toBe(2);
-    expect(receipt.pdfUrl).toBe('s3://receipt.pdf');
+    expect(receipt.pdfUrl).toBe('db://document/receipt.pdf');
     expect(receipt.overdueAmount).toBe(200);
     expect(receipt.balanceAfter).toBe(700);
   });

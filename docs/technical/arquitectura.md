@@ -8,7 +8,7 @@
 
 La plataforma es un monolito modular desplegado como cuatro artefactos coordinados:
 
-- API NestJS (`backend`) con PostgreSQL/pgvector, Redis, S3 compatible y proveedores externos.
+- API NestJS (`backend`) con PostgreSQL/pgvector, Redis y proveedores externos.
 - Web Next.js (`frontend`).
 - Aplicación nativa Expo/React Native (`mobile`).
 - Procesos batch TypeScript (`batch`).
