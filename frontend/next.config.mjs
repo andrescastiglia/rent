@@ -31,6 +31,7 @@ function getApiProxyUrl() {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     output: 'standalone',
+    serverExternalPackages: ['newrelic'],
     outputFileTracingRoot: frontendRoot,
     turbopack: {
         root: frontendRoot,

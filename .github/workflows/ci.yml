@@ -143,7 +143,7 @@ jobs:
 
     services:
       postgres:
-        image: postgis/postgis:16-3.5
+        image: postgis/postgis:16-3.5-alpine@sha256:47e961a569fd52ff31f0fe205ed91eeab17d9f5fff6722e6d7ea6b588748b293
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
@@ -214,7 +214,7 @@ jobs:
 
     services:
       postgres:
-        image: postgis/postgis:16-3.5
+        image: postgis/postgis:16-3.5-alpine@sha256:47e961a569fd52ff31f0fe205ed91eeab17d9f5fff6722e6d7ea6b588748b293
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
@@ -438,7 +438,7 @@ jobs:
 
     services:
       postgres:
-        image: postgis/postgis:16-3.5
+        image: postgis/postgis:16-3.5-alpine@sha256:47e961a569fd52ff31f0fe205ed91eeab17d9f5fff6722e6d7ea6b588748b293
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test

@@ -29,11 +29,13 @@ cp -a "$project_root/backend/dist" "$stage_dir/backend/dist"
 cp "$project_root/backend/package.json" "$project_root/backend/package-lock.json" \
   "$stage_dir/backend/"
 cp -a "$project_root/backend/node_modules" "$stage_dir/backend/node_modules"
+cp "$project_root/backend/newrelic.js" "$stage_dir/backend/newrelic.js"
 
 cp -a "$project_root/batch/dist" "$stage_dir/batch/dist"
 cp "$project_root/batch/package.json" "$project_root/batch/package-lock.json" \
   "$stage_dir/batch/"
 cp -a "$project_root/batch/node_modules" "$stage_dir/batch/node_modules"
+cp "$project_root/batch/newrelic.js" "$stage_dir/batch/newrelic.js"
 
 cp -a "$project_root/frontend/.next/standalone/." "$stage_dir/frontend/"
 mkdir -p "$stage_dir/frontend/.next"
@@ -46,6 +48,7 @@ cp "$project_root/scripts/healthcheck.sh" "$stage_dir/scripts/healthcheck.sh"
 cp "$project_root/scripts/migrate-legacy-property-images.cjs" \
   "$stage_dir/scripts/migrate-legacy-property-images.cjs"
 cp "$project_root/ansible/files/ecosystem.config.cjs" "$stage_dir/deploy/ecosystem.config.cjs"
+cp "$project_root/ansible/files/newrelic-bootstrap.cjs" "$stage_dir/deploy/newrelic-bootstrap.cjs"
 
 printf '%s\n' "$release_sha" > "$stage_dir/RELEASE_SHA"
 (
