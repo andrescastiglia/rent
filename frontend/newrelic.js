@@ -14,6 +14,9 @@ exports.config = {
    * Your New Relic license key.
    */
   license_key: process.env.NEW_RELIC_LICENSE_KEY,
+  opentelemetry: {
+    enabled: true,
+  },
   logging: {
     /**
      * Level at which to log. 'trace' is most useful to New Relic when diagnosing
@@ -28,6 +31,9 @@ exports.config = {
    * much value and creates a lot of unnecessary TraceSegments/Span events.
    */
   instrumentation: {
+    http: { enabled: false },
+    next: { enabled: false },
+    undici: { enabled: false },
     timers: {
       enabled: false,
     },

@@ -1,0 +1,225 @@
+{
+  "name": "Rent — Producción",
+  "description": "Operación de backend NestJS, frontend Next.js y worker batch. Cuenta 8213841. Tráfico, latencia, errores y memoria de proceso.",
+  "permissions": "PUBLIC_READ_ONLY",
+  "pages": [
+    {
+      "name": "Operación",
+      "widgets": [
+        {
+          "title": "Rent · Producción · Cuenta 8213841",
+          "visualization": {
+            "id": "viz.markdown"
+          },
+          "layout": {
+            "column": 1,
+            "row": 1,
+            "width": 12,
+            "height": 2
+          },
+          "rawConfiguration": {
+            "text": "### Rent en producción\nAPM: [Backend](https://one.newrelic.com/redirect/entity/ODIxMzg0MXxBUE18QVBQTElDQVRJT058MTQ4MjMwNDg2Ng) · [Frontend](https://one.newrelic.com/redirect/entity/ODIxMzg0MXxBUE18QVBQTElDQVRJT058MTQ4MjMwMTM1Mg) · [Batch](https://one.newrelic.com/redirect/entity/ODIxMzg0MXxBUE18QVBQTElDQVRJT058MTQ4MjMwMTcxNA)\n\nPeríodo inicial: última hora; puede ajustarse con el selector de tiempo. El worker batch reporta métricas de proceso aunque no tenga transacciones. Frontend corresponde al servidor Next.js; no incluye monitoreo del navegador."
+          }
+        },
+        {
+          "title": "Transacciones recibidas",
+          "visualization": {
+            "id": "viz.billboard"
+          },
+          "layout": {
+            "column": 1,
+            "row": 3,
+            "width": 4,
+            "height": 3
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  8213841
+                ],
+                "query": "SELECT count(*) AS 'Transacciones' FROM Transaction WHERE appName IN ('RENT-Backend-production', 'RENT-Frontend-production', 'RENT-Batch-production') SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Latencia media (ms)",
+          "visualization": {
+            "id": "viz.billboard"
+          },
+          "layout": {
+            "column": 5,
+            "row": 3,
+            "width": 4,
+            "height": 3
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  8213841
+                ],
+                "query": "SELECT average(duration) * 1000 AS 'Latencia (ms)' FROM Transaction WHERE appName IN ('RENT-Backend-production', 'RENT-Frontend-production', 'RENT-Batch-production') SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Transacciones con error (%)",
+          "visualization": {
+            "id": "viz.billboard"
+          },
+          "layout": {
+            "column": 9,
+            "row": 3,
+            "width": 4,
+            "height": 3
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  8213841
+                ],
+                "query": "SELECT percentage(count(*), WHERE error IS true) AS 'Errores (%)' FROM Transaction WHERE appName IN ('RENT-Backend-production', 'RENT-Frontend-production', 'RENT-Batch-production') SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Tráfico por servicio (transacciones/min)",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "layout": {
+            "column": 1,
+            "row": 6,
+            "width": 6,
+            "height": 3
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  8213841
+                ],
+                "query": "SELECT rate(count(*), 1 minute) AS 'Transacciones/min' FROM Transaction WHERE appName IN ('RENT-Backend-production', 'RENT-Frontend-production', 'RENT-Batch-production') FACET appName TIMESERIES AUTO SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Latencia p95 por servicio (ms)",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "layout": {
+            "column": 7,
+            "row": 6,
+            "width": 6,
+            "height": 3
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  8213841
+                ],
+                "query": "SELECT percentile(duration, 95) * 1000 AS 'p95 (ms)' FROM Transaction WHERE appName IN ('RENT-Backend-production', 'RENT-Frontend-production', 'RENT-Batch-production') FACET appName TIMESERIES AUTO SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Errores por servicio (%)",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "layout": {
+            "column": 1,
+            "row": 9,
+            "width": 6,
+            "height": 3
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  8213841
+                ],
+                "query": "SELECT percentage(count(*), WHERE error IS true) AS 'Errores (%)' FROM Transaction WHERE appName IN ('RENT-Backend-production', 'RENT-Frontend-production', 'RENT-Batch-production') FACET appName TIMESERIES AUTO SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Memoria del proceso por servicio (MB)",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "layout": {
+            "column": 7,
+            "row": 9,
+            "width": 6,
+            "height": 3
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  8213841
+                ],
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Memoria (MB)' FROM Metric WHERE metricTimesliceName = 'Memory/Physical' AND appName IN ('RENT-Backend-production', 'RENT-Frontend-production', 'RENT-Batch-production') FACET appName TIMESERIES AUTO SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Procesos con métricas: memoria media (MB)",
+          "visualization": {
+            "id": "viz.table"
+          },
+          "layout": {
+            "column": 1,
+            "row": 12,
+            "width": 6,
+            "height": 4
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  8213841
+                ],
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Memoria (MB)' FROM Metric WHERE metricTimesliceName = 'Memory/Physical' AND appName IN ('RENT-Backend-production', 'RENT-Frontend-production', 'RENT-Batch-production') FACET appName SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Transacciones más lentas (media en ms)",
+          "visualization": {
+            "id": "viz.table"
+          },
+          "layout": {
+            "column": 7,
+            "row": 12,
+            "width": 6,
+            "height": 4
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  8213841
+                ],
+                "query": "SELECT count(*) AS 'Cantidad', average(duration) * 1000 AS 'Latencia media (ms)' FROM Transaction WHERE appName IN ('RENT-Backend-production', 'RENT-Frontend-production', 'RENT-Batch-production') FACET appName, name LIMIT 10 SINCE 1 hour ago"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

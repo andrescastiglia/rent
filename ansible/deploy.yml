@@ -228,9 +228,29 @@
           ansible.builtin.command:
             cmd: mv -Tf "{{ deploy_path }}/current.next" "{{ current_path }}"
 
-        - name: Start or reload the exact release
+        - name: Inspect running processes before replacing release definitions
           ansible.builtin.command:
-            cmd: pm2 startOrReload deploy/ecosystem.config.cjs --update-env
+            cmd: pm2 jlist
+          register: current_pm2_processes
+          changed_when: false
+          no_log: true
+
+        # PM2 reload retains old script paths when adopting legacy processes.
+        # Recreate only Rent processes; the saved dump remains the rollback source.
+        - name: Remove previous Rent process definitions
+          ansible.builtin.command:
+            argv:
+              - pm2
+              - delete
+              - "{{ item }}"
+          loop: >-
+            {{ current_pm2_processes.stdout | from_json
+               | selectattr('name', 'in', ['rent-backend', 'rent-frontend', 'rent-rag-worker'])
+               | map(attribute='name') | unique | list }}
+
+        - name: Start the exact release with fresh process definitions
+          ansible.builtin.command:
+            cmd: pm2 start deploy/ecosystem.config.cjs
             chdir: "{{ current_path }}"
           environment:
             RENT_CURRENT_PATH: "{{ current_path }}"

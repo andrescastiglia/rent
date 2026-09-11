@@ -106,6 +106,31 @@ Los secretos condicionales de WhatsApp, MercadoPago, firma y webhooks también
 son obligatorios cuando su integración está habilitada. `FRONTEND_URL` no debe
 incluir orígenes locales en producción.
 
+## New Relic en producción
+
+Incluir `NEW_RELIC_LICENSE_KEY` (clave de ingesta de la cuenta) y
+`NEW_RELIC_ENABLED=true` en `PRODUCTION_ENV_FILE` del environment
+`production-release`. `NEW_RELIC_API_KEY` es una clave de administración y no
+reemplaza la licencia del agente. Nunca usar variables `NEXT_PUBLIC_*` para
+estas credenciales.
+
+PM2 precarga `deploy/newrelic-bootstrap.cjs`, que lee el `.env` protegido con
+el loader nativo de Node antes de importar New Relic o la aplicación. Los
+servicios aparecen como `RENT-Backend-production`, `RENT-Frontend-production`
+y `RENT-Batch-production`; los logs del agente salen por stdout hacia PM2.
+El artefacto incluye los tres `newrelic.js` y el bootstrap. La instrumentación
+de Next.js incluye el agente y sus dependencias en el standalone y utiliza el
+agente híbrido para Next.js 16.
+
+Tras activar, comprobar `/health` en los puertos 3001 y 3000, el estado online
+de los tres procesos en PM2 y la conexión al collector en los logs del agente.
+Verificar en APM que las tres entidades reporten; el worker puede permanecer
+sin transacciones cuando no tiene trabajo. Para desactivar la integración,
+establecer `NEW_RELIC_ENABLED=false` en el secreto protegido y redesplegar.
+
+Referencia: [Instalación del agente Node.js](https://docs.newrelic.com/docs/apm/agents/nodejs-agent/installation-configuration/install-nodejs-agent/)
+y [agente híbrido para Next.js](https://docs.newrelic.com/docs/apm/agents/nodejs-agent/extend-your-instrumentation/nextjs-instrumentation/).
+
 ## Runner Android aislado
 
 El repositorio tiene un runner exclusivo llamado `oracle-rent`, con etiquetas
