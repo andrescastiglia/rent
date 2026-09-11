@@ -204,6 +204,8 @@ jobs:
           eas update \
             --platform android \
             --channel production \
+            --environment production \
+            --non-interactive \
             --message "Release ${RELEASE_TAG} (${GITHUB_SHA})"
 
       - name: Upload checksummed Android artifact and SBOM
