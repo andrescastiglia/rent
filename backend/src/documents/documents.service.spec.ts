@@ -141,6 +141,7 @@ describe('DocumentsService', () => {
       token + 'x',
       token + '.extra',
       'malformed',
+      [token, token] as any,
     ]) {
       await expect(
         service.uploadContent(

@@ -234,7 +234,8 @@ export class DocumentsService {
     token?: string,
   ): DocumentActor {
     try {
-      if (!token || token.length > 4096) throw new Error();
+      if (typeof token !== 'string' || !token || token.length > 4096)
+        throw new Error();
       const [payload, signature, extra] = token.split('.');
       const expected = Buffer.from(this.signContentToken(payload));
       const supplied = Buffer.from(signature ?? '');
@@ -278,9 +279,9 @@ export class DocumentsService {
     );
     if (
       !Buffer.isBuffer(buffer) ||
-      buffer.length === 0 ||
-      buffer.length > 10485760 ||
-      buffer.length !== document.fileSize ||
+      buffer.byteLength === 0 ||
+      buffer.byteLength > 10485760 ||
+      buffer.byteLength !== document.fileSize ||
       contentType !== document.fileMimeType
     ) {
       throw new BadRequestException(

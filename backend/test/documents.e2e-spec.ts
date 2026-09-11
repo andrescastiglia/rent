@@ -142,6 +142,9 @@ describe('PostgreSQL document lifecycle (e2e)', () => {
       .auth(token, { type: 'bearer' })
       .expect(200);
     await request(server).get(`/documents/${documentId}/content`).expect(403);
+    await request(server)
+      .get(apiPath(link.body.downloadUrl) + '&token=duplicate')
+      .expect(403);
     const downloaded = await request(server)
       .get(apiPath(link.body.downloadUrl))
       .expect(200);
