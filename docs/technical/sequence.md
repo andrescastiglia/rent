@@ -52,7 +52,7 @@ sequenceDiagram
     DocuSign->>Webhook: Evento: Signed
     Webhook->>Backend: Procesar webhook
     Backend->>DocuSign: Descargar PDF firmado
-    Backend->>Backend: Guardar en S3
+    Backend->>Backend: Guardar en PostgreSQL
     Backend->>Backend: Activar contrato en DB
 ```
 
@@ -121,7 +121,6 @@ sequenceDiagram
     participant ReportService
     participant DB
     participant Worker
-    participant S3
     participant WhatsApp
 
     Admin->>ReportAPI: POST /reports/generate (template, params)
@@ -137,13 +136,13 @@ sequenceDiagram
     
     alt Exportar a PDF
         Worker->>Worker: Generar PDF
-        Worker->>S3: Subir archivo PDF
+        Worker->>DB: Guardar bytes del PDF
     else Exportar a Excel
         Worker->>Worker: Generar Excel
-        Worker->>S3: Subir archivo Excel
+        Worker->>DB: Guardar bytes del Excel
     end
     
-    S3-->>Worker: URL del archivo
+    DB-->>Worker: Referencia db://document/id
     Worker->>DB: Actualizar ejecución (Completado)
     Worker->>WhatsApp: Enviar notificación con link
     WhatsApp->>Admin: WhatsApp con reporte adjunto

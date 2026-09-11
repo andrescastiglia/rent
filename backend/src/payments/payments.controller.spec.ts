@@ -12,7 +12,7 @@ describe('PaymentsController', () => {
   };
   const tenantAccountsService = {};
   const documentsService = {
-    downloadByS3Key: jest.fn(),
+    downloadByFileUrl: jest.fn(),
   };
 
   let controller: PaymentsController;
@@ -89,9 +89,9 @@ describe('PaymentsController', () => {
     expect(res.status).toHaveBeenCalledWith(404);
 
     paymentsService.findOneScoped.mockResolvedValueOnce({
-      receipt: { pdfUrl: 's3://r.pdf', receiptNumber: '001' },
+      receipt: { pdfUrl: 'db://document/r.pdf', receiptNumber: '001' },
     });
-    documentsService.downloadByS3Key.mockResolvedValue({
+    documentsService.downloadByFileUrl.mockResolvedValue({
       buffer: Buffer.from('pdf'),
       contentType: 'application/pdf',
     });

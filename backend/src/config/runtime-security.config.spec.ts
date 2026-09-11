@@ -14,8 +14,6 @@ const completeEnvironment = (overrides: Record<string, string> = {}) => ({
   BATCH_WHATSAPP_INTERNAL_TOKEN: 'local-whatsapp-batch-secret',
   BATCH_BANK_RECONCILIATION_INTERNAL_TOKEN: 'local-bank-batch-secret',
   BATCH_COMMUNICATIONS_INTERNAL_TOKEN: 'local-comms-batch-secret',
-  S3_ACCESS_KEY: 'local-s3-access',
-  S3_SECRET_KEY: 'local-s3-secret',
   ...overrides,
 });
 

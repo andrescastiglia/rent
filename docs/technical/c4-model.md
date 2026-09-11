@@ -149,7 +149,7 @@ C4Container
         Container(landing, "Landing Page", "Next.js (SSR)", "Sitio público y captación de leads")
     }
 
-    Container(cdn, "CDN", "CloudFront / Cloudflare", "Cache de assets estáticos")
+    Container(cdn, "CDN", "Cloudflare", "Cache de assets estáticos")
     Container(api_gateway, "API Gateway", "Kong / AWS API Gateway", "Routing, Auth, Rate Limiting")
 
     Rel(user, web_app, "Usa", "HTTPS")
@@ -211,18 +211,18 @@ C4Container
         ContainerDb(db, "Base de Datos", "PostgreSQL", "Datos relacionales")
         ContainerDb(redis, "Cache & Session", "Redis", "Cache y sesiones")
         ContainerDb(search, "Search Engine", "Elasticsearch", "Búsqueda full-text")
-        ContainerDb(s3, "Object Storage", "AWS S3", "Documentos y fotos")
+        ContainerDb(document_store, "Documentos", "PostgreSQL bytea", "Archivos en la base de datos")
     }
 
     %% Backend API to Data
     Rel(backend_api, db, "Reads/Writes", "SQL/ORM")
     Rel(backend_api, redis, "Cache/Session", "TCP")
     Rel(backend_api, search, "Search queries", "HTTP")
-    Rel(backend_api, s3, "Presigned URLs", "HTTP")
+    Rel(backend_api, document_store, "Document bytes", "SQL")
 
     %% Worker to Data
     Rel(worker, db, "Reads/Writes", "SQL")
-    Rel(worker, s3, "Upload reports", "HTTP")
+    Rel(worker, document_store, "Save reports", "SQL")
     Rel(worker, search, "Index updates", "HTTP")
 ```
 
@@ -252,7 +252,7 @@ C4Container
     Container_Boundary(c3, "Data") {
         ContainerDb(db, "Database", "PostgreSQL", "Datos")
         ContainerDb(redis, "Cache", "Redis", "Cache")
-        ContainerDb(s3, "Storage", "S3", "Archivos")
+        ContainerDb(document_store, "Documentos", "PostgreSQL bytea", "Archivos en la base de datos")
     }
 
     System_Ext(psp, "Pagos", "Stripe")
@@ -276,7 +276,7 @@ C4Container
     %% Backend to Data
     Rel(backend_api, db, "R/W", "SQL")
     Rel(backend_api, redis, "Cache", "TCP")
-    Rel(backend_api, s3, "Files", "HTTP")
+    Rel(backend_api, document_store, "Document bytes", "SQL")
 
     %% Worker to Data
     Rel(worker, db, "R/W", "SQL")
@@ -451,7 +451,7 @@ C4Component
 
     Container(api_gateway, "API Gateway", "Kong", "Enrutamiento")
     ContainerDb(db, "Database", "PostgreSQL", "Persistencia")
-    ContainerDb(s3, "Storage", "S3", "Archivos")
+    ContainerDb(document_store, "Documentos", "PostgreSQL bytea", "Archivos en la base de datos")
     ContainerQueue(queue, "Queue", "RabbitMQ", "Eventos")
 
     Container_Boundary(support, "Support Modules") {
@@ -472,10 +472,10 @@ C4Component
         Rel(report_ctrl, report_svc, "Usa")
         
         Rel(report_svc, db, "Read Data")
-        Rel(report_svc, s3, "Upload Reports")
+        Rel(report_svc, document_store, "Upload Reports")
         Rel(report_svc, queue, "Publish jobs")
         
-        Rel(doc_svc, s3, "Upload/Download")
+        Rel(doc_svc, document_store, "Upload/Download")
         
         Rel(notif_svc, queue, "Publish notifications")
         
@@ -524,7 +524,7 @@ C4Component
 
     Container(gateway, "API Gateway", "Kong", "Entry point")
     ContainerDb(db, "DB", "PostgreSQL", "Data")
-    ContainerDb(s3, "S3", "AWS", "Files")
+    ContainerDb(document_store, "Documentos", "PostgreSQL bytea", "Archivos en la base de datos")
     ContainerQueue(queue, "Queue", "RabbitMQ", "Events")
 
     Container_Boundary(api, "Backend API") {
@@ -565,7 +565,7 @@ C4Component
         Rel(prop_s, db, "")
         Rel(lease_s, db, "")
         Rel(pay_s, db, "")
-        Rel(doc_s, s3, "")
+        Rel(doc_s, document_store, "")
         Rel(notif_s, queue, "")
     }
 
@@ -875,7 +875,7 @@ classDiagram
     %% Document Module
     class DocumentService {
         +generatePdf(template, data)
-        +uploadToS3(file)
+        +saveDocumentBytes(file)
         +getSignedUrl(key)
         +signDocument(docId)
     }

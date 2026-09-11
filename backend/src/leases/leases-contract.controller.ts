@@ -48,9 +48,8 @@ export class LeasesContractController {
       return res.status(404).json({ message: 'Contract not found' });
     }
 
-    const { buffer, contentType } = await this.documentsService.downloadByS3Key(
-      document.fileUrl,
-    );
+    const { buffer, contentType } =
+      await this.documentsService.downloadByFileUrl(document.fileUrl);
 
     const filename = document.name || `contrato-${id}.pdf`;
     res.set({

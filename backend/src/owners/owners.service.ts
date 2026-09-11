@@ -761,7 +761,7 @@ export class OwnersService {
       throw new NotFoundException('Settlement receipt not found');
     }
 
-    const file = await this.documentsService.downloadByS3Key(
+    const file = await this.documentsService.downloadByFileUrl(
       row.receipt_pdf_url,
     );
     return {

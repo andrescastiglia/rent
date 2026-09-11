@@ -139,7 +139,7 @@ El sistema se integrará con servicios y plataformas de terceros para potenciar 
 - **Servicios de mensajería**: integración con proveedores de SMS y WhatsApp (p.ej. WhatsApp Cloud API, Nexmo) para enviar alertas y notificaciones; con plataformas de email masivo (p.ej. WhatsApp Cloud API, Mailchimp) para campañas de CRM. Estos servicios permitirán escalar las notificaciones sin cargar el servidor principal.
 - **Servicios de notificaciones push**: en caso de contar con apps móviles futuras, integración con servicios de notificaciones push (Firebase, OneSignal) para alertar eventos en tiempo real.
 - **APIs de análisis y datos externos**: opcionalmente, integración con APIs de datos de mercado (por ejemplo, información de precios de referencia de la zona) para alimentar módulos de analítica.
-- **Infraestructura en la nube**: uso de servicios cloud (bases de datos gestionadas, buckets de almacenamiento) para asegurar escalabilidad. Por ejemplo, almacenamiento de archivos en Amazon S3, base de datos PostgreSQL en RDS, etc.
+- **Infraestructura en la nube**: uso de PostgreSQL para datos y archivos; documentos y PDF se almacenan en columnas bytea junto con sus metadatos y forman parte del mismo backup.
 
 Gracias a estas integraciones el software podrá, por ejemplo, emitir facturas legales automáticamente (via AFIP) [9](#ref-9), registrar pagos con tarjeta a través de Stripe, y sincronizar anuncios de propiedades con portales inmobiliarios externos. La **integración con software contable** facilitará la conciliación financiera [10](#ref-10), mientras que las APIs de firma digital agilizarán la formalización de contratos sin papel.
 

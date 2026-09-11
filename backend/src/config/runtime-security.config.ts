@@ -17,7 +17,7 @@ const REQUIRED_SECRETS = [
 ] as const;
 
 const PLACEHOLDER_SECRET =
-  /(?:change_in_production|replace_with|your_|minioadmin|rent_(?:redis_)?password|^(?:test|dev)[-_])/i;
+  /(?:change_in_production|replace_with|your_|rent_(?:redis_)?password|^(?:test|dev)[-_])/i;
 
 function valueOf(environment: Environment, key: string): string {
   const value = environment[key];
@@ -103,14 +103,6 @@ export function validateRuntimeEnvironment(
 
   getRuntimeHttpSecurityConfig(environment);
   const required: string[] = [...REQUIRED_SECRETS];
-  required.push(
-    valueOf(environment, 'AWS_ACCESS_KEY_ID')
-      ? 'AWS_ACCESS_KEY_ID'
-      : 'S3_ACCESS_KEY',
-    valueOf(environment, 'AWS_SECRET_ACCESS_KEY')
-      ? 'AWS_SECRET_ACCESS_KEY'
-      : 'S3_SECRET_KEY',
-  );
   if (valueOf(environment, 'WHATSAPP_ENABLED').toLowerCase() === 'true') {
     required.push(
       'WHATSAPP_ACCESS_TOKEN',

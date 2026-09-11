@@ -1,8 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { randomUUID } from 'node:crypto';
 import {
   Document,
   DocumentType,
@@ -11,21 +10,13 @@ import {
 import { SaleReceipt } from './entities/sale-receipt.entity';
 import { SaleAgreement } from './entities/sale-agreement.entity';
 import { generateSaleReceiptPdf } from './templates/sale-receipt-template';
-import { getS3Config, S3_BUCKET_NAME } from '../config/s3.config';
 
 @Injectable()
 export class SaleReceiptPdfService {
-  private readonly s3Client: S3Client;
-  private readonly bucketName: string;
-
   constructor(
     @InjectRepository(Document)
     private readonly documentsRepository: Repository<Document>,
-    private readonly configService: ConfigService,
-  ) {
-    this.s3Client = getS3Config(configService);
-    this.bucketName = S3_BUCKET_NAME;
-  }
+  ) {}
 
   async generate(
     receipt: SaleReceipt,
@@ -33,25 +24,18 @@ export class SaleReceiptPdfService {
   ): Promise<string> {
     const pdfBuffer = await generateSaleReceiptPdf(receipt, agreement);
 
-    const timestamp = Date.now();
-    const fileUrl = `sale-receipts/${receipt.id}/sale-receipt-${timestamp}.pdf`;
-
-    await this.s3Client.send(
-      new PutObjectCommand({
-        Bucket: this.bucketName,
-        Key: fileUrl,
-        Body: pdfBuffer,
-        ContentType: 'application/pdf',
-      }),
-    );
+    const id = randomUUID();
+    const fileUrl = `db://document/${id}`;
 
     const document = this.documentsRepository.create({
+      id,
       companyId: agreement.companyId,
       entityType: 'sale_receipt',
       entityId: receipt.id,
       documentType: DocumentType.OTHER,
       name: `recibo-venta-${receipt.receiptNumber}.pdf`,
       fileUrl,
+      fileData: pdfBuffer,
       fileMimeType: 'application/pdf',
       fileSize: pdfBuffer.length,
       status: DocumentStatus.APPROVED,

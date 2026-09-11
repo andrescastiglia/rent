@@ -3421,6 +3421,42 @@ export type DocumentsRemoveResponses = {
   200: unknown;
 };
 
+export type DocumentContentDownloadData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query: {
+    token: string;
+  };
+  url: '/documents/{id}/content';
+};
+
+export type DocumentContentDownloadResponses = {
+  200: Blob | File;
+};
+
+export type DocumentContentDownloadResponse =
+  DocumentContentDownloadResponses[keyof DocumentContentDownloadResponses];
+
+export type DocumentContentUploadData = {
+  body: Blob | File;
+  path: {
+    id: string;
+  };
+  query: {
+    token: string;
+  };
+  url: '/documents/{id}/content';
+};
+
+export type DocumentContentUploadResponses = {
+  204: void;
+};
+
+export type DocumentContentUploadResponse =
+  DocumentContentUploadResponses[keyof DocumentContentUploadResponses];
+
 export type LeasesFindAllData = {
   body?: never;
   path?: never;

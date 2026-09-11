@@ -15,22 +15,25 @@ del proceso. La ruta global `/uploads/` está deshabilitada.
   El propietario queda limitado a sus inmuebles y relaciones; el inquilino, a su
   alquiler activo o contratos propios; y el comprador, a su compraventa. Inquilino
   y comprador sólo tienen lectura.
-- La URL `PUT` vence en cinco minutos, firma tipo y tamaño, y apunta a una clave
-  aleatoria bajo `quarantine/<companyId>/`.
-- La confirmación vuelve a validar compañía, estado, clave, tamaño y MIME del
-  objeto. Después copia a una clave opaca determinista, persiste la aprobación y
-  elimina la copia en cuarentena.
-- Sólo los documentos aprobados se listan o reciben una URL `GET`; esa URL también
-  vence en cinco minutos y vuelve a validar compañía, rol y relación con la entidad
-  padre.
-- Una confirmación ya aprobada es idempotente. Si falla la persistencia, la copia
-  en cuarentena se conserva y la promoción se puede reintentar sobre la misma
-  clave final.
-
-El bucket debe ser privado. Configurar una lifecycle policy para borrar objetos
-`quarantine/` abandonados después de 24 horas. El log
-`document_quarantine_cleanup_failed` requiere alerta; `document_upload_approved`
-permite correlacionar documento y compañía sin registrar nombre ni contenido.
+- `POST /documents/upload-url` crea un registro pendiente con una referencia
+  `db://document/<id>`. Su URL `PUT` apunta a `/documents/:id/content` en la API.
+- La URL lleva una firma HMAC con contexto exclusivo de documentos, basada en
+  `JWT_SECRET`, y vence en cinco minutos. Vincula documento, operación y actor.
+  No se necesita una credencial adicional. No registrar el parámetro `token`.
+- `PUT` recibe el cuerpo binario con el `Content-Type` declarado, hasta 10 MiB
+  (5 MiB para fotos), y verifica tamaño, MIME, compañía y relación con la entidad.
+  Guarda los bytes en `documents.file_data`; un documento aprobado no se puede
+  sobrescribir usando una URL de subida anterior.
+- La confirmación verifica en una única sentencia SQL que los bytes existan y
+  tengan el tamaño declarado, y registra estado, verificador y fecha. Es
+  idempotente y no elimina contenido si falla la persistencia.
+- Los listados y respuestas de metadatos excluyen la columna binaria. Sólo los
+  documentos aprobados reciben una URL `GET` firmada por cinco minutos. Al usarla
+  se vuelven a verificar estado, compañía y relación del actor con la entidad.
+- Las descargas llevan `Content-Disposition: attachment`, `Cache-Control:
+  no-store` y `X-Content-Type-Options: nosniff`. La eliminación es lógica.
+- Todos los PDF generados, incluidos los recibos de compraventa, se guardan en
+  PostgreSQL. Backups y restauraciones deben incluir `documents.file_data`.
 
 ### Imágenes de propiedades
 
@@ -76,6 +79,6 @@ npm test -- --runInBand \
 ```
 
 La cobertura incluye ID de otra compañía, entidad no relacionada dentro de la misma
-compañía, alquiler activo del inquilino, metadata S3 distinta, fallo de DB durante
-la promoción, token temporal ausente/inválido/vencido, MIME falsificado y exceso de
+compañía, alquiler activo del inquilino, contenido de tamaño/MIME distinto, fallo de DB durante
+la confirmación, token temporal ausente/inválido/vencido, MIME falsificado y exceso de
 tamaño.

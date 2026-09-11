@@ -102,9 +102,8 @@ export class SalesController {
       return res.status(404).json({ message: 'Receipt PDF not found' });
     }
 
-    const { buffer, contentType } = await this.documentsService.downloadByS3Key(
-      receipt.pdfUrl,
-    );
+    const { buffer, contentType } =
+      await this.documentsService.downloadByFileUrl(receipt.pdfUrl);
 
     res.set({
       'Content-Type': contentType,

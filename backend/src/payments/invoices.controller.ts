@@ -145,9 +145,8 @@ export class InvoicesController {
       return res.status(404).json({ message: 'PDF not found' });
     }
 
-    const { buffer, contentType } = await this.documentsService.downloadByS3Key(
-      invoice.pdfUrl,
-    );
+    const { buffer, contentType } =
+      await this.documentsService.downloadByFileUrl(invoice.pdfUrl);
 
     res.set({
       'Content-Type': contentType,
@@ -176,9 +175,8 @@ export class InvoicesController {
       return res.status(404).json({ message: 'Credit note PDF not found' });
     }
 
-    const { buffer, contentType } = await this.documentsService.downloadByS3Key(
-      note.pdfUrl,
-    );
+    const { buffer, contentType } =
+      await this.documentsService.downloadByFileUrl(note.pdfUrl);
 
     res.set({
       'Content-Type': contentType,

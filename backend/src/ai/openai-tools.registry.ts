@@ -1362,7 +1362,7 @@ export function buildAiToolDefinitions(
         if (!document) {
           return { message: 'Contract not found' };
         }
-        const file = await deps.documentsService.downloadByS3Key(
+        const file = await deps.documentsService.downloadByFileUrl(
           document.fileUrl,
         );
         return toFilePayload(
@@ -1583,7 +1583,7 @@ export function buildAiToolDefinitions(
         if (!payment.receipt?.pdfUrl) {
           return { message: 'Receipt not found' };
         }
-        const file = await deps.documentsService.downloadByS3Key(
+        const file = await deps.documentsService.downloadByFileUrl(
           payment.receipt.pdfUrl,
         );
         return toFilePayload(
@@ -1742,7 +1742,7 @@ export function buildAiToolDefinitions(
         if (!invoice.pdfUrl) {
           return { message: 'PDF not found' };
         }
-        const file = await deps.documentsService.downloadByS3Key(
+        const file = await deps.documentsService.downloadByFileUrl(
           invoice.pdfUrl,
         );
         return toFilePayload(
@@ -1774,7 +1774,7 @@ export function buildAiToolDefinitions(
         if (!note.pdfUrl) {
           return { message: 'Credit note PDF not found' };
         }
-        const file = await deps.documentsService.downloadByS3Key(note.pdfUrl);
+        const file = await deps.documentsService.downloadByFileUrl(note.pdfUrl);
         return toFilePayload(
           file.buffer,
           file.contentType,
@@ -2883,7 +2883,7 @@ export function buildAiToolDefinitions(
         if (!receipt.pdfUrl) {
           return { message: 'Receipt PDF not found' };
         }
-        const file = await deps.documentsService.downloadByS3Key(
+        const file = await deps.documentsService.downloadByFileUrl(
           receipt.pdfUrl,
         );
         return toFilePayload(

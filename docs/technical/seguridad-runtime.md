@@ -3,7 +3,7 @@
 ## Arranque fail-closed
 
 Todo entorno distinto de `test` debe declarar `FRONTEND_URL` y los secretos de
-JWT, métricas, imágenes temporales, CAPTCHA, jobs internos y S3. WhatsApp,
+JWT, métricas, imágenes temporales, CAPTCHA, jobs internos. WhatsApp,
 MercadoPago y el webhook de email agregan sus secretos cuando la integración
 correspondiente está habilitada/configurada. Producción rechaza valores de
 ejemplo conocidos antes de abrir el puerto.

@@ -56,7 +56,7 @@ La versión histórica de `docs/plan-de-trabajo.md`, evaluada en este corte y di
 - Mobile aparecía como PWA pendiente y la aplicación nativa como futura, aunque el repositorio contiene una aplicación Expo activa.
 - El plan histórico y `docs/functional/drf-original.md:137` usaban “WhatsApp Cloud API” como proveedor de email y SMS, contradiciendo `backend/docs/WHATSAPP.md:39-47` y la migración que deshabilita email/SMS.
 - `docs/technical/arquitectura.md:30-120` presenta gateway, colas, Elasticsearch, Kubernetes y decisiones REST/GraphQL o PWA/nativo como arquitectura vigente o abierta. El runtime real es principalmente un monolito modular NestJS, PostgreSQL/pgvector, web Next.js, mobile Expo y un proceso batch.
-- C4, DER y secuencias conservan `Unit`, `/leads`, DocuSign/S3 y componentes aspiracionales que no representan el modelo implementado.
+- C4, DER y secuencias conservan `Unit`, `/leads`, integraciones externas y componentes aspiracionales que no representan el modelo implementado.
 - `qdrant_plan.md` propone reemplazar PostgreSQL, NestJS, backend y batch por Qdrant/Rust. No existe implementación que respalde esa dirección y contradice `rag_plan.md`, que sí evoluciona la arquitectura actual.
 
 La documentación valiosa a preservar es la que expresa tareas reales del negocio: búsqueda de personas, cobros simples, recibos, contratos, vencimientos, cargos variables, ventas y cuotas en `docs/user/raw.md` y `docs/user/historias-de-usuario.md`.
