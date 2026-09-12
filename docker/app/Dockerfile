@@ -6,6 +6,7 @@ WORKDIR /src
 COPY ${APP}/package*.json ./
 RUN npm ci
 COPY ${APP}/ ./
+COPY shared/database-tls.cjs shared/database-tls.d.cts /shared/
 ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
 ENV NEXT_PUBLIC_API_URL=/api API_PROXY_URL=http://backend.rent.svc.cluster.local:3001
 RUN npm run build
@@ -19,6 +20,7 @@ ENV NODE_ENV=production DOTENV_CONFIG_PATH=/run/rent/runtime.env NEW_RELIC_LOG=s
 USER node
 
 FROM runtime AS server
+COPY shared/database-tls.cjs /shared/
 COPY --from=build --chown=node:node /src/dist ./dist
 COPY --from=build --chown=node:node /src/node_modules ./node_modules
 COPY --from=build /src/package.json /src/newrelic.js ./

@@ -25,6 +25,9 @@ for app in backend batch frontend mobile; do
   )
 done
 
+mkdir -p "$stage_dir/shared"
+cp "$project_root/shared/database-tls.cjs" "$stage_dir/shared/"
+
 cp -a "$project_root/backend/dist" "$stage_dir/backend/dist"
 cp "$project_root/backend/package.json" "$project_root/backend/package-lock.json" \
   "$stage_dir/backend/"
@@ -53,7 +56,7 @@ cp "$project_root/ansible/files/newrelic-bootstrap.cjs" "$stage_dir/deploy/newre
 printf '%s\n' "$release_sha" > "$stage_dir/RELEASE_SHA"
 (
   cd "$stage_dir"
-  find backend batch deploy frontend migrations scripts sbom -type f -print0 \
+  find backend batch deploy frontend migrations scripts shared sbom -type f -print0 \
     | sort -z \
     | xargs -0 sha256sum > SHA256SUMS
 )

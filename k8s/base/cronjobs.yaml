@@ -1025,7 +1025,7 @@ spec:
           volumes:
           - name: tmp
             emptyDir:
-              sizeLimit: 2Gi
+              sizeLimit: 25Gi
           - name: ca
             secret:
               secretName: postgres-ca
@@ -1109,7 +1109,7 @@ spec:
           volumes:
           - name: tmp
             emptyDir:
-              sizeLimit: 2Gi
+              sizeLimit: 25Gi
           - name: ca
             secret:
               secretName: postgres-ca

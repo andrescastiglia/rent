@@ -109,3 +109,8 @@ backups or restore drills. Existing notification destinations are left intact.
 Release assets distinguish `images.json` (images built for the source revision)
 from `deployed-images.json` (actual running references, including the retained
 PostgreSQL image). Recovery must use the latter.
+
+Backup and restore Jobs allow up to 25 GiB of temporary disk for the declared
+20 GiB database capacity; this is shared host disk, not a memory allocation.
+Rent alert notifications use a dedicated workflow and channel connected to the
+existing account owner email destination. Other applications’ workflows are unchanged.
