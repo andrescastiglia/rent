@@ -19,8 +19,8 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { ZodValidationPipe } from './common/pipes/zod-validation.pipe';
-import { startProfiling, stopProfiling } from './profiling';
-import { shutdownTracing, startTracing } from './tracing';
+import { startProfiling } from './profiling';
+import { startTracing } from './tracing';
 import { getRuntimeHttpSecurityConfig } from './config/runtime-security.config';
 
 async function bootstrap() {
@@ -29,6 +29,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
   });
+  app.enableShutdownHooks(['SIGTERM', 'SIGINT']);
   const httpSecurity = getRuntimeHttpSecurityConfig(process.env);
   app.set('trust proxy', httpSecurity.trustProxyHops);
 
@@ -81,11 +82,3 @@ process.nextTick(() => {
     process.exit(1);
   });
 });
-
-const shutdownSignals = ['SIGTERM', 'SIGINT'] as const;
-for (const signal of shutdownSignals) {
-  process.once(signal, () => {
-    void stopProfiling();
-    void shutdownTracing();
-  });
-}

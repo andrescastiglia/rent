@@ -10,6 +10,7 @@ permissions:
   contents: write
   pull-requests: read
   security-events: write
+  packages: write
 
 concurrency:
   group: production-release
@@ -159,9 +160,17 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  container-images:
+    name: Build immutable ARM64 images
+    needs: preflight
+    uses: ./.github/workflows/container-images.yml
+    with:
+      publish: true
+    secrets: inherit
+
   validate-production-environment:
     name: Validate production runtime
-    needs: [preflight, build-server-artifact]
+    needs: [preflight, build-server-artifact, container-images]
     runs-on: ubuntu-latest
     environment: production-release
     env:
@@ -216,6 +225,7 @@ jobs:
       [
         preflight,
         build-server-artifact,
+        container-images,
         validate-production-environment,
         deploy-android,
       ]
@@ -268,19 +278,31 @@ jobs:
           install -m 600 /dev/null /tmp/rent-production.env
           printf '%s\n' "$PRODUCTION_ENV_FILE" > /tmp/rent-production.env
 
+      - name: Download immutable container references
+        uses: actions/download-artifact@v8
+        with:
+          pattern: rent-image-*
+          path: artifacts/images
+          merge-multiple: true
+
+      - name: Validate image revisions
+        env:
+          RELEASE_SHA: ${{ needs.preflight.outputs.release_sha }}
+        run: python3 scripts/k8s/collect-images.py artifacts/images "$RELEASE_SHA" > artifacts/images.json
+
       - name: Run Ansible playbook for exact SHA
         working-directory: ansible
         env:
           RELEASE_SHA: ${{ needs.preflight.outputs.release_sha }}
         run: |
           artifact="../artifacts/release/rent-server-${RELEASE_SHA}.tar.gz"
-          ansible-playbook -i inventory/production.yml deploy.yml \
+          ansible-playbook -i inventory/production.yml deploy-kubernetes.yml \
             --private-key ~/.ssh/deploy_key \
             -e "ansible_host=${{ secrets.SSH_HOST }}" \
             -e "ansible_user=${{ secrets.SSH_USER }}" \
             -e "ansible_port=${{ secrets.SSH_PORT || 22 }}" \
             -e "git_sha=${RELEASE_SHA}" \
-            -e "release_archive=${artifact}" \
+            -e "images_file=../artifacts/images.json" \
             -e "runtime_env_file=/tmp/rent-production.env"
 
       - name: Remove materialized runtime environment
@@ -295,9 +317,10 @@ jobs:
 
   publish-release:
     name: Publish GitHub Release
-    needs: [preflight, build-server-artifact, deploy-server, deploy-android]
+    needs: [preflight, build-server-artifact, container-images, deploy-server, deploy-android]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
       - name: Download immutable server artifact
         uses: actions/download-artifact@v8
         with:
@@ -309,6 +332,18 @@ jobs:
         with:
           name: rent-android-${{ needs.preflight.outputs.release_sha }}
           path: artifacts/release/android
+
+      - name: Download container digest records
+        uses: actions/download-artifact@v8
+        with:
+          pattern: rent-image-*
+          path: artifacts/images
+          merge-multiple: true
+
+      - name: Validate published image revisions
+        env:
+          RELEASE_SHA: ${{ needs.preflight.outputs.release_sha }}
+        run: python3 scripts/k8s/collect-images.py artifacts/images "$RELEASE_SHA" > artifacts/release/images.json
 
       - name: Verify published artifact checksums
         run: |
@@ -332,4 +367,5 @@ jobs:
             "artifacts/release/android/rent-android-${RELEASE_SHA}.aab" \
             "artifacts/release/android/rent-android-${RELEASE_SHA}.aab.sha256" \
             artifacts/release/android/mobile.cdx.json \
+            artifacts/release/images.json \
             --notes "Deployed SHA: ${RELEASE_SHA}\nWorkflow: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"

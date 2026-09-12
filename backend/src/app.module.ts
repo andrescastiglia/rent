@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
+import { TelemetryShutdownService } from './telemetry-shutdown.service';
 import { AppService } from './app.service';
 import { getDatabaseConfig } from './config/database.config';
 import { PostgresExtensionsService } from './config/postgres-extensions.service';
@@ -96,6 +97,7 @@ import * as path from 'node:path';
   ],
   controllers: [AppController],
   providers: [
+    TelemetryShutdownService,
     AppService,
     PostgresExtensionsService,
     {

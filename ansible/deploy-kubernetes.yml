@@ -1,0 +1,71 @@
+---
+- name: Deploy immutable Rent images to the existing oracle cluster
+  hosts: all
+  become: true
+  gather_facts: false
+  vars:
+    root_path: /opt/rent-kubernetes/releases/{{ git_sha }}
+  tasks:
+    - name: Validate release inputs
+      ansible.builtin.assert:
+        that:
+          - git_sha is match('^[0-9a-f]{40}$')
+          - images_file is defined
+          - runtime_env_file is defined
+    - name: Create isolated configuration directories
+      ansible.builtin.file:
+        path: '{{ item }}'
+        state: directory
+        owner: root
+        group: root
+        mode: '0700'
+      loop:
+        - /etc/rent-kubernetes
+        - /etc/rent-backup
+    - name: Prepare the retained PostgreSQL directory
+      ansible.builtin.file:
+        path: /srv/k3s/rent/postgresql
+        state: directory
+        owner: '999'
+        group: '999'
+        mode: '0700'
+    - name: Install reviewed deployment files
+      ansible.builtin.copy:
+        src: '../{{ item }}/'
+        dest: '{{ root_path }}/{{ item }}/'
+        owner: root
+        group: root
+        mode: preserve
+      loop:
+        - k8s
+        - scripts/k8s
+    - name: Install immutable image index
+      ansible.builtin.copy:
+        src: '{{ images_file }}'
+        dest: '{{ root_path }}/images.json'
+        mode: '0600'
+    - name: Materialize protected runtime input
+      ansible.builtin.copy:
+        src: '{{ runtime_env_file }}'
+        dest: /etc/rent-kubernetes/runtime-source.env
+        mode: '0600'
+      no_log: true
+    - name: Initialize the Rent namespace
+      ansible.builtin.command:
+        argv: [k3s, kubectl, apply, -f, '{{ root_path }}/k8s/base/namespace.yaml']
+      changed_when: false
+    - name: Reconcile application and database secrets
+      ansible.builtin.command:
+        argv: [python3, '{{ root_path }}/scripts/k8s/prepare-secrets.py', /etc/rent-kubernetes/runtime-source.env]
+      no_log: true
+      changed_when: false
+    - name: Deploy and validate exact images
+      ansible.builtin.command:
+        argv: [bash, '{{ root_path }}/scripts/k8s/deploy.sh', '{{ root_path }}/images.json', '{{ git_sha }}', '{{ deploy_mode | default("release") }}']
+      changed_when: true
+    - name: Publish current deployment tools
+      ansible.builtin.file:
+        src: '{{ root_path }}'
+        dest: /opt/rent-kubernetes/current
+        state: link
+        force: true

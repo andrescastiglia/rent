@@ -1,0 +1,161 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-headless
+spec:
+  clusterIP: None
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+    targetPort: postgres
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+    targetPort: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+spec:
+  serviceName: postgres-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  template:
+    metadata:
+      labels:
+        app: postgres
+        app.kubernetes.io/part-of: rent
+    spec:
+      serviceAccountName: runtime
+      automountServiceAccountToken: false
+      imagePullSecrets:
+      - name: ghcr-pull
+      terminationGracePeriodSeconds: 120
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: postgres
+        image: ghcr.io/andrescastiglia/rent-postgres:bootstrap
+        args:
+        - -c
+        - ssl=on
+        - -c
+        - ssl_cert_file=/run/postgres-tls/tls.crt
+        - -c
+        - ssl_key_file=/run/postgres-tls/tls.key
+        - -c
+        - shared_buffers=256MB
+        - -c
+        - max_connections=80
+        env:
+        - name: POSTGRES_PASSWORD_FILE
+          value: /run/postgres-admin/password
+        - name: POSTGRES_INITDB_ARGS
+          value: --encoding=UTF8 --locale=C.UTF-8 --data-checksums
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        ports:
+        - containerPort: 5432
+          name: postgres
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: '1'
+            memory: 1536Mi
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+        - name: tls
+          mountPath: /run/postgres-tls
+          readOnly: true
+        - name: admin
+          mountPath: /run/postgres-admin
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+        - name: socket
+          mountPath: /var/run/postgresql
+        - name: shm
+          mountPath: /dev/shm
+        startupProbe:
+          exec:
+            command:
+            - pg_isready
+            - -h
+            - 127.0.0.1
+            - -U
+            - postgres
+          periodSeconds: 5
+          failureThreshold: 120
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -h
+            - 127.0.0.1
+            - -U
+            - postgres
+          periodSeconds: 10
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -h
+            - 127.0.0.1
+            - -U
+            - postgres
+          periodSeconds: 30
+          failureThreshold: 6
+      volumes:
+      - name: tls
+        secret:
+          secretName: postgres-tls
+          defaultMode: 288
+      - name: admin
+        secret:
+          secretName: postgres-admin
+          defaultMode: 288
+      - name: tmp
+        emptyDir: {}
+      - name: socket
+        emptyDir: {}
+      - name: shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 256Mi
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      storageClassName: rent-local-retain
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 20Gi
+      volumeName: rent-postgresql

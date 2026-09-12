@@ -1,0 +1,74 @@
+name: Container images
+on:
+  workflow_call:
+    inputs:
+      publish:
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      publish:
+        type: boolean
+        default: true
+permissions:
+  contents: read
+  packages: write
+jobs:
+  build:
+    name: ARM64 / ${{ matrix.app }}
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [backend, frontend, batch, postgres, maintenance]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Configure Buildx
+        run: docker buildx create --use
+      - name: Build immutable image
+        env:
+          APP: ${{ matrix.app }}
+          SITE_KEY: ${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+        run: |
+          set -euo pipefail
+          args=()
+          case "$APP" in
+            backend|frontend|batch)
+              dockerfile=docker/app/Dockerfile
+              args+=(--target "$APP" --build-arg "APP=$APP" --build-arg "NEXT_PUBLIC_TURNSTILE_SITE_KEY=$SITE_KEY") ;;
+            postgres) dockerfile=docker/postgres-production/Dockerfile ;;
+            maintenance) dockerfile=docker/maintenance/Dockerfile ;;
+          esac
+          docker buildx build --load --platform linux/arm64 \
+            --file "$dockerfile" "${args[@]}" \
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --tag "ghcr.io/andrescastiglia/rent-$APP:$GITHUB_SHA" .
+      - name: Verify runtime and native dependencies
+        env:
+          APP: ${{ matrix.app }}
+        run: bash scripts/k8s/image-smoke.sh "ghcr.io/andrescastiglia/rent-$APP:$GITHUB_SHA" "$APP"
+      - name: Publish image by immutable revision
+        if: inputs.publish
+        env:
+          APP: ${{ matrix.app }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          image="ghcr.io/andrescastiglia/rent-$APP:$GITHUB_SHA"
+          docker push "$image"
+          digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$image")"
+          mkdir -p images
+          python3 - "$APP" "$digest" "$GITHUB_SHA" <<'PY'
+          import json,sys
+          app,image,sha=sys.argv[1:]
+          with open('images/'+app+'.json','w') as f:json.dump({'app':app,'image':image,'sha':sha},f)
+          PY
+      - uses: actions/upload-artifact@v7
+        if: inputs.publish
+        with:
+          name: rent-image-${{ matrix.app }}
+          path: images/*.json
+          if-no-files-found: error
+          retention-days: 30

@@ -1108,3 +1108,13 @@ jobs:
             rent-metro-e2e.log
             rent-e2e-logcat.log
           if-no-files-found: ignore
+
+  container-images:
+    name: Validate ARM64 containers
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/container-images.yml
+    with:
+      publish: ${{ github.event_name == 'push' }}
+    secrets: inherit

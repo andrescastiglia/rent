@@ -1,0 +1,305 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 0
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: rent
+        app: backend
+        database-client: 'true'
+    spec:
+      serviceAccountName: runtime
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      imagePullSecrets:
+      - name: ghcr-pull
+      containers:
+      - name: backend
+        image: ghcr.io/andrescastiglia/rent-backend:bootstrap
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        envFrom:
+        - configMapRef:
+            name: rent-runtime
+        env:
+        - name: NEW_RELIC_APP_NAME
+          value: RENT-Backend-production
+        resources:
+          requests:
+            cpu: 250m
+            memory: 384Mi
+          limits:
+            cpu: '1'
+            memory: 1024Mi
+        volumeMounts:
+        - name: runtime
+          mountPath: /run/rent
+          readOnly: true
+        - name: ca
+          mountPath: /run/postgres
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+        ports:
+        - containerPort: 3001
+          name: http
+        startupProbe:
+          httpGet:
+            path: /health/live
+            port: http
+          failureThreshold: 60
+          periodSeconds: 5
+          timeoutSeconds: 3
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: http
+          periodSeconds: 20
+          timeoutSeconds: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: runtime
+        secret:
+          secretName: rent-backend-runtime
+          defaultMode: 288
+      - name: ca
+        secret:
+          secretName: postgres-ca
+          defaultMode: 288
+      - name: tmp
+        emptyDir:
+          sizeLimit: 512Mi
+      terminationGracePeriodSeconds: 60
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 0
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: rent
+        app: frontend
+        database-client: 'false'
+    spec:
+      serviceAccountName: runtime
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      imagePullSecrets:
+      - name: ghcr-pull
+      containers:
+      - name: frontend
+        image: ghcr.io/andrescastiglia/rent-frontend:bootstrap
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        envFrom:
+        - configMapRef:
+            name: rent-runtime
+        env:
+        - name: NEW_RELIC_APP_NAME
+          value: RENT-Frontend-production
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 768Mi
+        volumeMounts:
+        - name: runtime
+          mountPath: /run/rent
+          readOnly: true
+        - name: ca
+          mountPath: /run/postgres
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+        - name: next-cache
+          mountPath: /app/.next/cache
+        ports:
+        - containerPort: 3000
+          name: http
+        startupProbe:
+          httpGet:
+            path: /health/live
+            port: http
+          failureThreshold: 60
+          periodSeconds: 5
+          timeoutSeconds: 3
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: http
+          periodSeconds: 20
+          timeoutSeconds: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: runtime
+        secret:
+          secretName: rent-frontend-runtime
+          defaultMode: 288
+      - name: ca
+        secret:
+          secretName: postgres-ca
+          defaultMode: 288
+      - name: tmp
+        emptyDir:
+          sizeLimit: 512Mi
+      - name: next-cache
+        emptyDir:
+          sizeLimit: 256Mi
+      terminationGracePeriodSeconds: 60
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-worker
+spec:
+  replicas: 0
+  revisionHistoryLimit: 3
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: rag-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: rent
+        app: rag-worker
+        database-client: 'true'
+    spec:
+      serviceAccountName: runtime
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      imagePullSecrets:
+      - name: ghcr-pull
+      containers:
+      - name: batch
+        image: ghcr.io/andrescastiglia/rent-batch:bootstrap
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        envFrom:
+        - configMapRef:
+            name: rent-runtime
+        env:
+        - name: NEW_RELIC_APP_NAME
+          value: RENT-Batch-production
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        volumeMounts:
+        - name: runtime
+          mountPath: /run/rent
+          readOnly: true
+        - name: ca
+          mountPath: /run/postgres
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: runtime
+        secret:
+          secretName: rent-batch-runtime
+          defaultMode: 288
+      - name: ca
+        secret:
+          secretName: postgres-ca
+          defaultMode: 288
+      - name: tmp
+        emptyDir:
+          sizeLimit: 512Mi
+      terminationGracePeriodSeconds: 120
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  type: NodePort
+  externalTrafficPolicy: Local
+  selector:
+    app: backend
+  ports:
+  - name: http
+    port: 3001
+    targetPort: http
+    nodePort: 30081
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  type: NodePort
+  externalTrafficPolicy: Local
+  selector:
+    app: frontend
+  ports:
+  - name: http
+    port: 3000
+    targetPort: http
+    nodePort: 30080

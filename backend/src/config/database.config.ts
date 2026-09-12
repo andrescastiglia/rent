@@ -1,4 +1,5 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { databaseTls } from './database-tls';
 import { ConfigService } from '@nestjs/config';
 
 export const getDatabaseConfig = (
@@ -25,6 +26,11 @@ export const getDatabaseConfig = (
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],
     // Schema changes are always applied through reviewed SQL migrations.
     synchronize: false,
+    ssl: databaseTls({
+      DATABASE_SSL_MODE: configService.get<string>('DATABASE_SSL_MODE'),
+      DATABASE_SSL_CA_FILE: configService.get<string>('DATABASE_SSL_CA_FILE'),
+      DATABASE_URL: databaseUrl,
+    }),
     logging: !isProduction && !isTest,
   };
 };

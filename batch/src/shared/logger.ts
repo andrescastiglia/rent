@@ -2,6 +2,7 @@ import winston from "winston";
 import * as fs from "node:fs";
 import * as _path from "node:path";
 
+const fileLogging = process.env.LOG_TO_FILE !== "false";
 const logLevel = process.env.LOG_LEVEL || "info";
 
 let logDir = process.env.LOG_DIR || "./logs";
@@ -12,7 +13,7 @@ if (process.env.LOG_FILE) {
   logFile = provided;
 }
 
-if (!fs.existsSync(logDir)) {
+if (fileLogging && !fs.existsSync(logDir)) {
   fs.mkdirSync(logDir, { recursive: true });
 }
 
@@ -34,10 +35,12 @@ const logFormat = winston.format.combine(
 /**
  * File transport (no rotation).
  */
-const fileTransport = new winston.transports.File({
-  filename: logFile,
-  format: winston.format.combine(winston.format.uncolorize(), logFormat),
-});
+const fileTransport = fileLogging
+  ? new winston.transports.File({
+      filename: logFile,
+      format: winston.format.combine(winston.format.uncolorize(), logFormat),
+    })
+  : null;
 
 /**
  * Console transport for development and debugging.
@@ -53,19 +56,31 @@ const consoleTransport = new winston.transports.Console({
 export const logger = winston.createLogger({
   level: logLevel,
   defaultMeta: { service: "billing-batch" },
-  transports: [consoleTransport, fileTransport],
-  exceptionHandlers: [
-    new winston.transports.File({
-      filename: _path.join(logDir, "exceptions.log"),
-      format: winston.format.combine(winston.format.uncolorize(), logFormat),
-    }),
-  ],
-  rejectionHandlers: [
-    new winston.transports.File({
-      filename: _path.join(logDir, "rejections.log"),
-      format: winston.format.combine(winston.format.uncolorize(), logFormat),
-    }),
-  ],
+  transports: fileTransport
+    ? [consoleTransport, fileTransport]
+    : [consoleTransport],
+  exceptionHandlers: fileLogging
+    ? [
+        new winston.transports.File({
+          filename: _path.join(logDir, "exceptions.log"),
+          format: winston.format.combine(
+            winston.format.uncolorize(),
+            logFormat,
+          ),
+        }),
+      ]
+    : [new winston.transports.Console({ format: logFormat })],
+  rejectionHandlers: fileLogging
+    ? [
+        new winston.transports.File({
+          filename: _path.join(logDir, "rejections.log"),
+          format: winston.format.combine(
+            winston.format.uncolorize(),
+            logFormat,
+          ),
+        }),
+      ]
+    : [new winston.transports.Console({ format: logFormat })],
 });
 
 /**

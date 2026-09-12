@@ -51,6 +51,47 @@ describe("shared/logger", () => {
     expect(child).toBeDefined();
   });
 
+  it("avoids all filesystem writes in container console mode", async () => {
+    const existsSync = jest.fn().mockReturnValue(false);
+    const mkdirSync = jest.fn();
+    const childMock = jest.fn().mockReturnValue({ info: jest.fn() });
+    const createLogger = jest.fn().mockReturnValue({ child: childMock });
+
+    const format = {
+      combine: jest.fn((...items: unknown[]) => items),
+      timestamp: jest.fn(() => "timestamp"),
+      errors: jest.fn(() => "errors"),
+      printf: jest.fn((fn) => fn),
+      uncolorize: jest.fn(() => "uncolorize"),
+      colorize: jest.fn(() => "colorize"),
+    };
+    const transports = {
+      File: jest.fn().mockImplementation((opts) => ({ type: "file", opts })),
+      Console: jest
+        .fn()
+        .mockImplementation((opts) => ({ type: "console", opts })),
+    };
+
+    jest.doMock("node:fs", () => ({ existsSync, mkdirSync }));
+    jest.doMock("winston", () => ({
+      __esModule: true,
+      default: { format, transports, createLogger },
+    }));
+
+    process.env.LOG_TO_FILE = "false";
+
+    const mod = await import("./logger");
+
+    expect(existsSync).not.toHaveBeenCalled();
+    expect(mkdirSync).not.toHaveBeenCalled();
+    expect(transports.File).not.toHaveBeenCalled();
+    expect(createLogger).toHaveBeenCalled();
+
+    const child = mod.createLogger({ job: "x" });
+    expect(childMock).toHaveBeenCalledWith({ job: "x" });
+    expect(child).toBeDefined();
+  });
+
   it("uses LOG_FILE path and skips mkdir when dir exists", async () => {
     const existsSync = jest.fn().mockReturnValue(true);
     const mkdirSync = jest.fn();

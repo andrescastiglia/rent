@@ -213,3 +213,6 @@ docs/_build/
 
 
 /auth.json
+
+# Kubernetes administration script bytecode
+__pycache__/

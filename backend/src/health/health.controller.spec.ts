@@ -1,6 +1,10 @@
 import { HealthController } from './health.controller';
 
 describe('HealthController', () => {
+  it('keeps liveness independent of database availability', () => {
+    const controller = new HealthController(undefined as any, undefined as any);
+    expect(controller.live()).toEqual({ status: 'ok' });
+  });
   it('runs health check with db ping indicator', async () => {
     const db = {
       pingCheck: jest.fn().mockResolvedValue({ database: { status: 'up' } }),
