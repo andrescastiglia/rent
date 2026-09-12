@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const backend = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+  const publicApiUrl = process.env.NEXT_PUBLIC_API_URL;
+  const backend =
+    process.env.API_PROXY_URL ||
+    (publicApiUrl?.startsWith("http://") || publicApiUrl?.startsWith("https://")
+      ? publicApiUrl
+      : "http://127.0.0.1:3001");
   const url = `${backend.replace(/\/$/, "")}/health`;
 
   try {
