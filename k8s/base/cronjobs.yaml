@@ -908,6 +908,8 @@ spec:
             - configMapRef:
                 name: rent-runtime
             env:
+            - name: APP_URL
+              value: http://backend.rent.svc.cluster.local:3001
             - name: NEW_RELIC_APP_NAME
               value: RENT-Backend-production
             resources:

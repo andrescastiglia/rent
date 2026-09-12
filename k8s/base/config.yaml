@@ -7,6 +7,8 @@ data:
   HOST: 0.0.0.0
   HOSTNAME: 0.0.0.0
   DOTENV_CONFIG_PATH: /run/rent/runtime.env
+  PGSSLMODE: verify-full
+  PGSSLROOTCERT: /run/postgres/ca.crt
   DATABASE_SSL_MODE: verify-full
   DATABASE_SSL_CA_FILE: /run/postgres/ca.crt
   POSTGRES_HOST: postgres.rent.svc.cluster.local
@@ -14,7 +16,6 @@ data:
   POSTGRES_DB: rent_db
   API_PROXY_URL: http://backend.rent.svc.cluster.local:3001
   BACKEND_INTERNAL_URL: http://backend.rent.svc.cluster.local:3001
-  APP_URL: http://backend.rent.svc.cluster.local:3001
   NEXT_PUBLIC_API_URL: /api
   NODE_OPTIONS: -r /app/deploy/newrelic-bootstrap.cjs
   LOG_TO_FILE: 'false'

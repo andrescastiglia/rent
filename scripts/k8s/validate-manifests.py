@@ -4,6 +4,9 @@ import sys,yaml
 items=[d for d in yaml.safe_load_all(open(sys.argv[1])) if d]
 by_kind={}
 for item in items:by_kind.setdefault(item['kind'],[]).append(item)
+runtime=next(c['data'] for c in by_kind['ConfigMap'] if c['metadata']['name']=='rent-runtime')
+assert 'APP_URL' not in runtime, 'Public payment return URLs must retain production configuration'
+assert runtime['PGSSLMODE']=='verify-full' and runtime['PGSSLROOTCERT']=='/run/postgres/ca.crt'
 pv=by_kind['PersistentVolume'][0]
 assert pv['spec']['persistentVolumeReclaimPolicy']=='Retain'
 assert pv['spec']['local']['path']=='/srv/k3s/rent/postgresql'
