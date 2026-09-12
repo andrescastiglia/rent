@@ -10,6 +10,9 @@ connection = psycopg2.connect(os.getenv('DATABASE_URL', ''))
 connection.set_session(readonly=True, isolation_level='REPEATABLE READ')
 result = {}
 with connection.cursor() as cursor:
+    if os.getenv('PG_SNAPSHOT'):
+        cursor.execute('SET TRANSACTION SNAPSHOT %s',(os.environ['PG_SNAPSHOT'],))
+    cursor.execute("SET LOCAL TIME ZONE 'UTC'")
     cursor.execute("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename")
     for (table,) in cursor.fetchall():
         cursor.execute(sql.SQL("SELECT count(*), encode(digest(COALESCE(string_agg(h, '' ORDER BY h),''),'sha256'),'hex') FROM (SELECT encode(digest(row_to_json(t)::text,'sha256'),'hex') h FROM public.{} t) s").format(sql.Identifier(table)))

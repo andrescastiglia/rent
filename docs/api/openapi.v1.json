@@ -5723,6 +5723,20 @@
         ]
       }
     },
+    "/health/live": {
+      "get": {
+        "operationId": "Health_live",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Health"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "Health_check",

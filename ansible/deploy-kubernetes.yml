@@ -12,6 +12,11 @@
           - git_sha is match('^[0-9a-f]{40}$')
           - images_file is defined
           - runtime_env_file is defined
+    - name: Install host backup and verification tools
+      ansible.builtin.apt:
+        name: [restic, python3-psycopg2, python3-yaml]
+        state: present
+        update_cache: false
     - name: Create isolated configuration directories
       ansible.builtin.file:
         path: '{{ item }}'
@@ -22,6 +27,13 @@
       loop:
         - /etc/rent-kubernetes
         - /etc/rent-backup
+    - name: Materialize protected backup credentials when supplied
+      ansible.builtin.copy:
+        src: '{{ backup_env_file }}'
+        dest: /etc/rent-backup/r2.env
+        mode: '0600'
+      when: backup_env_file is defined
+      no_log: true
     - name: Prepare the retained PostgreSQL directory
       ansible.builtin.file:
         path: /srv/k3s/rent/postgresql
@@ -69,3 +81,23 @@
         dest: /opt/rent-kubernetes/current
         state: link
         force: true
+
+    - name: Install Rent observation and recovery units
+      ansible.builtin.copy:
+        src: 'files/{{ item }}'
+        dest: '/etc/systemd/system/{{ item }}'
+        mode: '0644'
+      loop:
+        - rent-infra-backup.service
+        - rent-infra-backup.timer
+        - rent-k8s-monitor.service
+        - rent-k8s-monitor.timer
+    - name: Enable Rent observation and recovery timers
+      ansible.builtin.systemd_service:
+        name: '{{ item }}'
+        enabled: true
+        state: started
+        daemon_reload: true
+      loop:
+        - rent-infra-backup.timer
+        - rent-k8s-monitor.timer

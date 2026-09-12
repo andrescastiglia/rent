@@ -1,0 +1,12 @@
+[Unit]
+Description=Encrypted Rent Kubernetes recovery backup
+After=k3s.service network-online.target
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/rent-kubernetes/current/scripts/k8s/infra-backup.py
+User=root
+UMask=0077
+Nice=15
+CPUQuota=50%
+MemoryMax=512M
+TimeoutStartSec=3600

@@ -272,11 +272,15 @@ jobs:
       - name: Materialize protected runtime environment
         env:
           PRODUCTION_ENV_FILE: ${{ secrets.PRODUCTION_ENV_FILE }}
+          RENT_BACKUP_ENV: ${{ secrets.RENT_BACKUP_ENV }}
         run: |
           set -euo pipefail
           test -n "$PRODUCTION_ENV_FILE"
+          test -n "$RENT_BACKUP_ENV"
           install -m 600 /dev/null /tmp/rent-production.env
           printf '%s\n' "$PRODUCTION_ENV_FILE" > /tmp/rent-production.env
+          install -m 600 /dev/null /tmp/rent-backup.env
+          printf '%s\n' "$RENT_BACKUP_ENV" > /tmp/rent-backup.env
 
       - name: Download immutable container references
         uses: actions/download-artifact@v8
@@ -303,11 +307,12 @@ jobs:
             -e "ansible_port=${{ secrets.SSH_PORT || 22 }}" \
             -e "git_sha=${RELEASE_SHA}" \
             -e "images_file=../artifacts/images.json" \
-            -e "runtime_env_file=/tmp/rent-production.env"
+            -e "runtime_env_file=/tmp/rent-production.env" \
+            -e "backup_env_file=/tmp/rent-backup.env"
 
       - name: Remove materialized runtime environment
         if: always()
-        run: rm -f /tmp/rent-production.env
+        run: rm -f /tmp/rent-production.env /tmp/rent-backup.env
 
   deploy-android:
     name: Deploy Android

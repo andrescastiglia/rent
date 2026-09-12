@@ -17,10 +17,11 @@ if (
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { TelemetryShutdownService } from './telemetry-shutdown.service';
 import { AppModule } from './app.module';
 import { ZodValidationPipe } from './common/pipes/zod-validation.pipe';
-import { startProfiling } from './profiling';
-import { startTracing } from './tracing';
+import { startProfiling, stopProfiling } from './profiling';
+import { startTracing, shutdownTracing } from './tracing';
 import { getRuntimeHttpSecurityConfig } from './config/runtime-security.config';
 
 async function bootstrap() {
@@ -29,6 +30,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
   });
+  app.get(TelemetryShutdownService).configure([stopProfiling, shutdownTracing]);
   app.enableShutdownHooks(['SIGTERM', 'SIGINT']);
   const httpSecurity = getRuntimeHttpSecurityConfig(process.env);
   app.set('trust proxy', httpSecurity.trustProxyHops);

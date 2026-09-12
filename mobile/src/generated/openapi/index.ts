@@ -251,6 +251,8 @@ export type {
   HealthCheckErrors,
   HealthCheckResponse,
   HealthCheckResponses,
+  HealthLiveData,
+  HealthLiveResponses,
   ImportCurrentLeaseDto,
   ImportLeaseTemplateDocxDto,
   InterestedActivity,

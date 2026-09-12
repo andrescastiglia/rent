@@ -3,8 +3,8 @@
 import json, os, sys, time, urllib.request
 kind = sys.argv[1]
 value = float(sys.argv[2])
-metrics = [{'name': 'rent.backup.' + kind, 'type': 'gauge', 'value': value,
-            'timestamp': int(time.time()), 'attributes': {'service.name': 'rent-backup', 'backup.kind': os.getenv('BACKUP_KIND', 'database')}}]
+metrics = [{'name': os.getenv('METRIC_PREFIX','rent.backup') + '.' + kind, 'type': 'gauge', 'value': value,
+            'timestamp': int(time.time()), 'attributes': {'service.name': os.getenv('SERVICE_NAME','rent-backup'), 'backup.kind': os.getenv('BACKUP_KIND', 'database')}}]
 key = os.getenv('NEW_RELIC_LICENSE_KEY')
 if key:
     req = urllib.request.Request('https://metric-api.newrelic.com/metric/v1',

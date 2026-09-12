@@ -9,6 +9,7 @@ const newRelicLoadMock = jest.fn();
 
 const appMock = {
   set: jest.fn(),
+  get: jest.fn(() => ({ configure: jest.fn() })),
   enableShutdownHooks: jest.fn(),
   enableCors: jest.fn(),
   useGlobalPipes: jest.fn(),

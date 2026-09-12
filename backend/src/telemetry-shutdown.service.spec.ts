@@ -1,15 +1,18 @@
 import { TelemetryShutdownService } from './telemetry-shutdown.service';
-import { stopProfiling } from './profiling';
-import { shutdownTracing } from './tracing';
-jest.mock('./profiling', () => ({ stopProfiling: jest.fn() }));
-jest.mock('./tracing', () => ({ shutdownTracing: jest.fn() }));
-it('awaits both telemetry shutdowns even if one fails', async () => {
-  (stopProfiling as jest.Mock).mockRejectedValue(
-    new Error('profiling unavailable'),
-  );
-  (shutdownTracing as jest.Mock).mockResolvedValue(undefined);
+
+it('awaits all telemetry shutdowns even if one fails', async () => {
+  const stopProfiling = jest
+    .fn()
+    .mockRejectedValue(new Error('profiling unavailable'));
+  const shutdownTracing = jest.fn().mockResolvedValue(undefined);
+  const service = new TelemetryShutdownService();
+  service.configure([stopProfiling, shutdownTracing]);
+  await expect(service.onApplicationShutdown()).resolves.toBeUndefined();
+  expect(shutdownTracing).toHaveBeenCalledTimes(1);
+});
+
+it('allows metadata-only tools to close without starting native telemetry', async () => {
   await expect(
     new TelemetryShutdownService().onApplicationShutdown(),
   ).resolves.toBeUndefined();
-  expect(shutdownTracing).toHaveBeenCalledTimes(1);
 });

@@ -1118,3 +1118,16 @@ jobs:
     with:
       publish: ${{ github.event_name == 'push' }}
     secrets: inherit
+
+  kubernetes-manifests:
+    name: Kubernetes deployment validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate rendered workloads and deployment scripts
+        run: |
+          python3 -m pip install PyYAML==6.0.3
+          kubectl kustomize k8s/overlays/production > /tmp/rent-kubernetes.yaml
+          python3 scripts/k8s/validate-manifests.py /tmp/rent-kubernetes.yaml
+          python3 -m compileall -q scripts/k8s
+          bash -n scripts/k8s/*.sh
