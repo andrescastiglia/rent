@@ -27,6 +27,10 @@ if [ "$mode" != stage ] && [ ! -f "$root/active" ] && [ ! -f "$root/migration-re
   echo 'Final frozen database restore must be verified before activation.' >&2
   exit 1
 fi
+if [ "$mode" != stage ] && [ ! -f "$root/active" ] && [ "$(cat "$root/migration-ready")" != "$sha" ]; then
+  echo 'Verified restore SHA does not match the release.' >&2
+  exit 1
+fi
 # PostgreSQL upgrades are separate operations; application releases retain its
 # already tested digest rather than restarting the database on every app tag.
 python3 - "$images" <<'PY'
@@ -48,8 +52,19 @@ print(yaml.safe_dump_all(items))
 PY
 k3s kubectl -n rent rollout status statefulset/postgres --timeout=300s
 maintenance="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["maintenance"])' "$images")"
-python3 scripts/k8s/run-job.py bootstrap "$sha" --image "$maintenance" | k3s kubectl apply -f - >/dev/null
-k3s kubectl -n rent wait --for=condition=complete "job/rent-bootstrap-${sha:0:12}" --timeout=180s
+run_admin_job() {
+  action="$1"
+  timeout="$2"
+  python3 scripts/k8s/run-job.py "$action" "$sha" --image "$maintenance" > "$root/$action-job.json"
+  job_name="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["metadata"]["name"])' "$root/$action-job.json")"
+  # Job templates are immutable. Reuse an existing release Job instead of
+  # attempting to replace its image on a repeated release invocation.
+  if ! k3s kubectl -n rent get job "$job_name" >/dev/null 2>&1; then
+    k3s kubectl create -f "$root/$action-job.json" >/dev/null
+  fi
+  k3s kubectl -n rent wait --for=condition=complete "job/$job_name" --timeout="$timeout"
+}
+run_admin_job bootstrap 180s
 if [ "$mode" = stage ]; then
   # Create zero-replica deployments only during the initial rehearsal.
   if ! k3s kubectl -n rent get deployment backend >/dev/null 2>&1; then
@@ -61,8 +76,7 @@ PY
   echo 'Database staged; application writers and all schedules remain suspended.'
   exit 0
 fi
-python3 scripts/k8s/run-job.py migrate "$sha" --image "$maintenance" | k3s kubectl apply -f - >/dev/null
-k3s kubectl -n rent wait --for=condition=complete "job/rent-migrate-${sha:0:12}" --timeout=600s
+run_admin_job migrate 600s
 python3 scripts/k8s/render.py "$images" > "$root/candidate.yaml"
 # First activate HTTP applications. RAG and schedules follow the public switch.
 python3 - "$root/candidate.yaml" <<'PY' | k3s kubectl apply -f - >/dev/null
