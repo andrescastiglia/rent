@@ -26,5 +26,8 @@ connection.autocommit = True
 with connection.cursor() as cursor:
     for extension in ['postgis','vector','unaccent','pgcrypto','uuid-ossp']:
         cursor.execute(sql.SQL('CREATE EXTENSION IF NOT EXISTS {}').format(sql.Identifier(extension)))
+    # pg_dump omits ownership changes on extension members. Preserve oracle's
+    # existing Rent ownership even though an administrator installs PostGIS.
+    cursor.execute('ALTER TABLE public.spatial_ref_sys OWNER TO rent_user')
 connection.close()
 print('Dedicated Rent database, roles and extensions ready.')

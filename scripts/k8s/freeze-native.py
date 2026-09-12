@@ -37,4 +37,7 @@ for i in rent_lines:lines[i]='# rent-kubernetes migration: '+lines[i]
 subprocess.run(['crontab','-u','deploy','-'],input='\n'.join(lines)+'\n',text=True,check=True)
 subprocess.run(pm2+['stop',*names],check=True,stdout=subprocess.DEVNULL)
 subprocess.run(pm2+['save'],check=True,stdout=subprocess.DEVNULL)
+# PM2 rotates dump.pm2 into dump.pm2.bak. Save again so its recovery fallback
+# also contains the stopped Rent processes instead of resurrecting old writers.
+subprocess.run(pm2+['save'],check=True,stdout=subprocess.DEVNULL)
 print('Rent maintenance enabled, native schedules disabled and three PM2 processes stopped. Wait for in-flight tasks and sessions before the final dump.')

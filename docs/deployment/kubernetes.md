@@ -52,6 +52,10 @@ run non-root with read-only application filesystems and bounded writable tmp.
    and upload encrypted to the Rent R2 repository. Restore only rent_db with the
    existing rent_user owner, without importing global roles from the host.
    Compare all table counts/hashes, including bytea files, and extensions.
+   Preserve `rent_user` ownership of `public.spatial_ref_sys`: pg_dump does not
+   replay ownership changes to extension members. Bootstrap and monthly restore
+   drills apply this explicitly. Compare effective privileges, since an implicit
+   owner ACL and an explicit grant to the owner are equivalent after restore.
 5. Write the verified SHA to `/etc/rent-kubernetes/migration-ready`; tag that
    exact green main SHA. The release refuses first activation without this marker.
    It runs migrations once, starts HTTP services, checks readiness, switches
