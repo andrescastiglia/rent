@@ -59,6 +59,7 @@
     - name: Materialize protected runtime input
       ansible.builtin.copy:
         src: '{{ runtime_env_file }}'
+        remote_src: '{{ runtime_env_remote | default(false) }}'
         dest: /etc/rent-kubernetes/runtime-source.env
         mode: '0600'
       no_log: true
