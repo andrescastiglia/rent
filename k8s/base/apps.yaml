@@ -26,8 +26,6 @@ spec:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
-      imagePullSecrets:
-      - name: ghcr-pull
       containers:
       - name: backend
         image: ghcr.io/andrescastiglia/rent-backend:bootstrap
@@ -124,8 +122,6 @@ spec:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
-      imagePullSecrets:
-      - name: ghcr-pull
       containers:
       - name: frontend
         image: ghcr.io/andrescastiglia/rent-frontend:bootstrap
@@ -227,8 +223,6 @@ spec:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
-      imagePullSecrets:
-      - name: ghcr-pull
       containers:
       - name: batch
         image: ghcr.io/andrescastiglia/rent-batch:bootstrap

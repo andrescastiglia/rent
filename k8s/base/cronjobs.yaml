@@ -31,8 +31,6 @@ spec:
             fsGroup: 1000
             seccompProfile:
               type: RuntimeDefault
-          imagePullSecrets:
-          - name: ghcr-pull
           containers:
           - name: batch
             image: ghcr.io/andrescastiglia/rent-batch:bootstrap
@@ -117,8 +115,6 @@ spec:
             fsGroup: 1000
             seccompProfile:
               type: RuntimeDefault
-          imagePullSecrets:
-          - name: ghcr-pull
           containers:
           - name: batch
             image: ghcr.io/andrescastiglia/rent-batch:bootstrap
@@ -203,8 +199,6 @@ spec:
             fsGroup: 1000
             seccompProfile:
               type: RuntimeDefault
-          imagePullSecrets:
-          - name: ghcr-pull
           containers:
           - name: batch
             image: ghcr.io/andrescastiglia/rent-batch:bootstrap
@@ -289,8 +283,6 @@ spec:
             fsGroup: 1000
             seccompProfile:
               type: RuntimeDefault
-          imagePullSecrets:
-          - name: ghcr-pull
           containers:
           - name: batch
             image: ghcr.io/andrescastiglia/rent-batch:bootstrap
@@ -375,8 +367,6 @@ spec:
             fsGroup: 1000
             seccompProfile:
               type: RuntimeDefault
-          imagePullSecrets:
-          - name: ghcr-pull
           containers:
           - name: batch
             image: ghcr.io/andrescastiglia/rent-batch:bootstrap
@@ -461,8 +451,6 @@ spec:
             fsGroup: 1000
             seccompProfile:
               type: RuntimeDefault
-          imagePullSecrets:
-          - name: ghcr-pull
           containers:
           - name: batch
             image: ghcr.io/andrescastiglia/rent-batch:bootstrap
@@ -547,8 +535,6 @@ spec:
             fsGroup: 1000
             seccompProfile:
               type: RuntimeDefault
-          imagePullSecrets:
-          - name: ghcr-pull
           containers:
           - name: batch
             image: ghcr.io/andrescastiglia/rent-batch:bootstrap
@@ -633,8 +619,6 @@ spec:
             fsGroup: 1000
             seccompProfile:
               type: RuntimeDefault
-          imagePullSecrets:
-          - name: ghcr-pull
           containers:
           - name: batch
             image: ghcr.io/andrescastiglia/rent-batch:bootstrap
@@ -719,8 +703,6 @@ spec:
             fsGroup: 1000
             seccompProfile:
               type: RuntimeDefault
-          imagePullSecrets:
-          - name: ghcr-pull
           containers:
           - name: batch
             image: ghcr.io/andrescastiglia/rent-batch:bootstrap
@@ -807,8 +789,6 @@ spec:
             fsGroup: 1000
             seccompProfile:
               type: RuntimeDefault
-          imagePullSecrets:
-          - name: ghcr-pull
           containers:
           - name: batch
             image: ghcr.io/andrescastiglia/rent-batch:bootstrap
@@ -893,8 +873,6 @@ spec:
             fsGroup: 1000
             seccompProfile:
               type: RuntimeDefault
-          imagePullSecrets:
-          - name: ghcr-pull
           containers:
           - name: backend
             image: ghcr.io/andrescastiglia/rent-backend:bootstrap
@@ -973,8 +951,6 @@ spec:
         spec:
           serviceAccountName: runtime
           automountServiceAccountToken: false
-          imagePullSecrets:
-          - name: ghcr-pull
           restartPolicy: Never
           securityContext:
             runAsNonRoot: true
@@ -1057,8 +1033,6 @@ spec:
         spec:
           serviceAccountName: runtime
           automountServiceAccountToken: false
-          imagePullSecrets:
-          - name: ghcr-pull
           restartPolicy: Never
           securityContext:
             runAsNonRoot: true

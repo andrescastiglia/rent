@@ -9,3 +9,7 @@ resources:
 - postgres.yaml
 - apps.yaml
 - cronjobs.yaml
+patches:
+- target:
+    kind: CronJob
+  path: wait-for-database.yaml

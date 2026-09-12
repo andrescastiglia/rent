@@ -1,7 +1,16 @@
 #!/usr/bin/env python3
-import os, psycopg2
+import os, time, psycopg2
 from psycopg2 import sql
-connection = psycopg2.connect(dbname='postgres')
+# Pod readiness can precede Service routing convergence. Retry only the initial
+# connection, before any role/database changes; never replay administration SQL.
+for attempt in range(15):
+    try:
+        connection = psycopg2.connect(dbname='postgres', connect_timeout=5)
+        break
+    except psycopg2.OperationalError:
+        if attempt == 14:
+            raise
+        time.sleep(2)
 connection.autocommit = True
 with connection.cursor() as cursor:
     for role, key in [('rent_user','APP_PASSWORD'),('rent_backup','BACKUP_PASSWORD')]:
@@ -17,5 +26,8 @@ connection.autocommit = True
 with connection.cursor() as cursor:
     for extension in ['postgis','vector','unaccent','pgcrypto','uuid-ossp']:
         cursor.execute(sql.SQL('CREATE EXTENSION IF NOT EXISTS {}').format(sql.Identifier(extension)))
+    # pg_dump omits ownership changes on extension members. Preserve oracle's
+    # existing Rent ownership even though an administrator installs PostGIS.
+    cursor.execute('ALTER TABLE public.spatial_ref_sys OWNER TO rent_user')
 connection.close()
 print('Dedicated Rent database, roles and extensions ready.')

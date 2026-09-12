@@ -14,6 +14,11 @@ PM2 applications, native databases, TLS and global cluster settings are outside
 this deployment. PostgreSQL images are retained across application releases;
 upgrades require a separately tested restore/upgrade operation.
 
+`rent-nodeport-guard.service` rejects non-loopback incoming traffic to these two
+ports in the IPv4/IPv6 raw PREROUTING chains, before Kubernetes DNAT. Host Nginx
+continues to use loopback. The guard persists across reboots and does not modify
+other ports; ordinary INPUT rules alone do not protect forwarded NodePorts.
+
 The 20 GiB static local PV is `/srv/k3s/rent/postgresql`, affinity `oracle`, RWO,
 reclaim policy Retain. StatefulSet PVC deletion/scaling retains the claim. This
 capacity is a declaration, not a filesystem quota. The shared disk and node are
@@ -31,7 +36,11 @@ run non-root with read-only application filesystems and bounded writable tmp.
 1. Retrieve the five image digest artifacts from the successful main CI SHA;
    combine with `scripts/k8s/collect-images.py`. Run the Ansible playbook with
    `deploy_mode=stage`. It prepares TLS, isolated roles/database and suspended
-   schedules, leaving existing HTTP services untouched.
+   schedules, leaving existing HTTP services untouched. The isolated rehearsal
+   temporarily requests 50m CPU for PostgreSQL and 25m for its bootstrap Job;
+   memory budgets stay unchanged. Scale only Rent PostgreSQL to zero after the
+   rehearsal if shared CPU capacity is not yet available. Production activation
+   restores the full production CPU requests and requires that capacity first.
 2. Rehearse a custom-format dump restore into `rent_restore_drill` on the new
    PostgreSQL instance. Compare complete per-table row counts and SHA-256
    fingerprints using `scripts/k8s/fingerprint.py`. A fingerprint must be
@@ -48,6 +57,10 @@ run non-root with read-only application filesystems and bounded writable tmp.
    and upload encrypted to the Rent R2 repository. Restore only rent_db with the
    existing rent_user owner, without importing global roles from the host.
    Compare all table counts/hashes, including bytea files, and extensions.
+   Preserve `rent_user` ownership of `public.spatial_ref_sys`: pg_dump does not
+   replay ownership changes to extension members. Bootstrap and monthly restore
+   drills apply this explicitly. Compare effective privileges, since an implicit
+   owner ACL and an explicit grant to the owner are equivalent after restore.
 5. Write the verified SHA to `/etc/rent-kubernetes/migration-ready`; tag that
    exact green main SHA. The release refuses first activation without this marker.
    It runs migrations once, starts HTTP services, checks readiness, switches
@@ -114,3 +127,6 @@ Backup and restore Jobs allow up to 25 GiB of temporary disk for the declared
 20 GiB database capacity; this is shared host disk, not a memory allocation.
 Rent alert notifications use a dedicated workflow and channel connected to the
 existing account owner email destination. Other applications’ workflows are unchanged.
+
+The five GHCR packages are anonymously readable and were verified by digest.
+Workloads do not depend on a registry credential or an expiring workflow token.

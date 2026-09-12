@@ -1,0 +1,28 @@
+# A newly admitted pod can precede network-policy routing convergence. Wait
+# before starting any business command; business jobs still use backoffLimit: 0.
+- op: add
+  path: /spec/jobTemplate/spec/template/spec/initContainers
+  value:
+  - name: wait-for-database
+    image: ghcr.io/andrescastiglia/rent-postgres:bootstrap
+    command:
+    - sh
+    - -ec
+    - |
+      for attempt in $(seq 1 30); do
+        if pg_isready -h postgres.rent.svc.cluster.local -U postgres -d postgres -t 3; then exit 0; fi
+        sleep 2
+      done
+      exit 1
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop: [ALL]
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi

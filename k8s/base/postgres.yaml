@@ -42,8 +42,6 @@ spec:
     spec:
       serviceAccountName: runtime
       automountServiceAccountToken: false
-      imagePullSecrets:
-      - name: ghcr-pull
       terminationGracePeriodSeconds: 120
       securityContext:
         runAsNonRoot: true
