@@ -43,7 +43,9 @@ if r.returncode==0:
         images['postgres']=image
         with open(p,'w') as f:json.dump(images,f)
 PY
-python3 scripts/k8s/render.py "$images" --stage > "$root/staged.yaml"
+render_flags=(--stage)
+if [ "$mode" = stage ]; then render_flags+=(--rehearsal); fi
+python3 scripts/k8s/render.py "$images" "${render_flags[@]}" > "$root/staged.yaml"
 # Select explicitly by kind so staging a release never scales existing apps down.
 python3 - "$root/staged.yaml" <<'PY' | k3s kubectl apply -f - >/dev/null
 import sys,yaml
