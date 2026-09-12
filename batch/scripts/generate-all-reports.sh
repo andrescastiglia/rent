@@ -50,10 +50,10 @@ for OWNER_ID in $OWNERS; do
     fi
     
     echo "Generating monthly summary for owner: $OWNER_ID"
-    npm run start -- reports "${LOG_ARG[@]}" --type monthly --owner-id "$OWNER_ID" --month "$PREV_MONTH"
+    node dist/index.js reports "${LOG_ARG[@]}" --type monthly --owner-id "$OWNER_ID" --month "$PREV_MONTH"
     
     echo "Generating settlement for owner: $OWNER_ID"
-    npm run start -- reports "${LOG_ARG[@]}" --type settlement --owner-id "$OWNER_ID" --month "$PREV_MONTH"
+    node dist/index.js reports "${LOG_ARG[@]}" --type settlement --owner-id "$OWNER_ID" --month "$PREV_MONTH"
 done
 
 echo "Report generation completed!"

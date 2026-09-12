@@ -5131,6 +5131,17 @@ export type DashboardGetReportsResponses = {
 export type DashboardGetReportsResponse =
   DashboardGetReportsResponses[keyof DashboardGetReportsResponses];
 
+export type HealthLiveData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/health/live';
+};
+
+export type HealthLiveResponses = {
+  200: unknown;
+};
+
 export type HealthCheckData = {
   body?: never;
   path?: never;

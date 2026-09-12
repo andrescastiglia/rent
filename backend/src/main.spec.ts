@@ -9,6 +9,8 @@ const newRelicLoadMock = jest.fn();
 
 const appMock = {
   set: jest.fn(),
+  get: jest.fn(() => ({ configure: jest.fn() })),
+  enableShutdownHooks: jest.fn(),
   enableCors: jest.fn(),
   useGlobalPipes: jest.fn(),
   listen: jest.fn().mockResolvedValue(undefined),
@@ -173,15 +175,10 @@ describe('main bootstrap', () => {
       'Backend running on http://127.0.0.1:4100',
     );
 
-    expect(onceSpy).toHaveBeenCalledTimes(2);
-    const registeredSignals = onceSpy.mock.calls.map((call) => call[0]);
-    expect(registeredSignals).toContain('SIGTERM');
-    expect(registeredSignals).toContain('SIGINT');
-
-    const handlers = onceSpy.mock.calls.map((call) => call[1] as () => void);
-    handlers.forEach((fn) => fn());
-    expect(stopProfilingMock).toHaveBeenCalled();
-    expect(shutdownTracingMock).toHaveBeenCalled();
+    expect(appMock.enableShutdownHooks).toHaveBeenCalledWith([
+      'SIGTERM',
+      'SIGINT',
+    ]);
 
     onceSpy.mockRestore();
     logSpy.mockRestore();

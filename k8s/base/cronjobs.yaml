@@ -1,0 +1,1116 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sync-indices
+spec:
+  schedule: 0 6 * * *
+  timeZone: Etc/UTC
+  suspend: true
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/part-of: rent
+            app: sync-indices
+            database-client: 'true'
+        spec:
+          serviceAccountName: runtime
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          imagePullSecrets:
+          - name: ghcr-pull
+          containers:
+          - name: batch
+            image: ghcr.io/andrescastiglia/rent-batch:bootstrap
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            envFrom:
+            - configMapRef:
+                name: rent-runtime
+            env:
+            - name: NEW_RELIC_APP_NAME
+              value: RENT-Batch-production
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            volumeMounts:
+            - name: runtime
+              mountPath: /run/rent
+              readOnly: true
+            - name: ca
+              mountPath: /run/postgres
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            args:
+            - /app/deploy/run-exclusive.cjs
+            - sync-indices
+            - dist/index.js
+            - sync-indices
+          volumes:
+          - name: runtime
+            secret:
+              secretName: rent-batch-runtime
+              defaultMode: 288
+          - name: ca
+            secret:
+              secretName: postgres-ca
+              defaultMode: 288
+          - name: tmp
+            emptyDir:
+              sizeLimit: 512Mi
+          restartPolicy: Never
+          terminationGracePeriodSeconds: 120
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sync-rates
+spec:
+  schedule: 30 6 * * *
+  timeZone: Etc/UTC
+  suspend: true
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/part-of: rent
+            app: sync-rates
+            database-client: 'true'
+        spec:
+          serviceAccountName: runtime
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          imagePullSecrets:
+          - name: ghcr-pull
+          containers:
+          - name: batch
+            image: ghcr.io/andrescastiglia/rent-batch:bootstrap
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            envFrom:
+            - configMapRef:
+                name: rent-runtime
+            env:
+            - name: NEW_RELIC_APP_NAME
+              value: RENT-Batch-production
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            volumeMounts:
+            - name: runtime
+              mountPath: /run/rent
+              readOnly: true
+            - name: ca
+              mountPath: /run/postgres
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            args:
+            - /app/deploy/run-exclusive.cjs
+            - sync-rates
+            - dist/index.js
+            - sync-rates
+          volumes:
+          - name: runtime
+            secret:
+              secretName: rent-batch-runtime
+              defaultMode: 288
+          - name: ca
+            secret:
+              secretName: postgres-ca
+              defaultMode: 288
+          - name: tmp
+            emptyDir:
+              sizeLimit: 512Mi
+          restartPolicy: Never
+          terminationGracePeriodSeconds: 120
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: billing
+spec:
+  schedule: 0 7 * * *
+  timeZone: Etc/UTC
+  suspend: true
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/part-of: rent
+            app: billing
+            database-client: 'true'
+        spec:
+          serviceAccountName: runtime
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          imagePullSecrets:
+          - name: ghcr-pull
+          containers:
+          - name: batch
+            image: ghcr.io/andrescastiglia/rent-batch:bootstrap
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            envFrom:
+            - configMapRef:
+                name: rent-runtime
+            env:
+            - name: NEW_RELIC_APP_NAME
+              value: RENT-Batch-production
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            volumeMounts:
+            - name: runtime
+              mountPath: /run/rent
+              readOnly: true
+            - name: ca
+              mountPath: /run/postgres
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            args:
+            - /app/deploy/run-exclusive.cjs
+            - billing
+            - dist/index.js
+            - billing
+          volumes:
+          - name: runtime
+            secret:
+              secretName: rent-batch-runtime
+              defaultMode: 288
+          - name: ca
+            secret:
+              secretName: postgres-ca
+              defaultMode: 288
+          - name: tmp
+            emptyDir:
+              sizeLimit: 512Mi
+          restartPolicy: Never
+          terminationGracePeriodSeconds: 120
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: overdue
+spec:
+  schedule: 0 8 * * *
+  timeZone: Etc/UTC
+  suspend: true
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/part-of: rent
+            app: overdue
+            database-client: 'true'
+        spec:
+          serviceAccountName: runtime
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          imagePullSecrets:
+          - name: ghcr-pull
+          containers:
+          - name: batch
+            image: ghcr.io/andrescastiglia/rent-batch:bootstrap
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            envFrom:
+            - configMapRef:
+                name: rent-runtime
+            env:
+            - name: NEW_RELIC_APP_NAME
+              value: RENT-Batch-production
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            volumeMounts:
+            - name: runtime
+              mountPath: /run/rent
+              readOnly: true
+            - name: ca
+              mountPath: /run/postgres
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            args:
+            - /app/deploy/run-exclusive.cjs
+            - overdue
+            - dist/index.js
+            - overdue
+          volumes:
+          - name: runtime
+            secret:
+              secretName: rent-batch-runtime
+              defaultMode: 288
+          - name: ca
+            secret:
+              secretName: postgres-ca
+              defaultMode: 288
+          - name: tmp
+            emptyDir:
+              sizeLimit: 512Mi
+          restartPolicy: Never
+          terminationGracePeriodSeconds: 120
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: reminders
+spec:
+  schedule: 0 9 * * *
+  timeZone: Etc/UTC
+  suspend: true
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/part-of: rent
+            app: reminders
+            database-client: 'true'
+        spec:
+          serviceAccountName: runtime
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          imagePullSecrets:
+          - name: ghcr-pull
+          containers:
+          - name: batch
+            image: ghcr.io/andrescastiglia/rent-batch:bootstrap
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            envFrom:
+            - configMapRef:
+                name: rent-runtime
+            env:
+            - name: NEW_RELIC_APP_NAME
+              value: RENT-Batch-production
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            volumeMounts:
+            - name: runtime
+              mountPath: /run/rent
+              readOnly: true
+            - name: ca
+              mountPath: /run/postgres
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            args:
+            - /app/deploy/run-exclusive.cjs
+            - reminders
+            - dist/index.js
+            - reminders
+          volumes:
+          - name: runtime
+            secret:
+              secretName: rent-batch-runtime
+              defaultMode: 288
+          - name: ca
+            secret:
+              secretName: postgres-ca
+              defaultMode: 288
+          - name: tmp
+            emptyDir:
+              sizeLimit: 512Mi
+          restartPolicy: Never
+          terminationGracePeriodSeconds: 120
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: lease-renewal-alerts
+spec:
+  schedule: 0 11 * * *
+  timeZone: Etc/UTC
+  suspend: true
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/part-of: rent
+            app: lease-renewal-alerts
+            database-client: 'true'
+        spec:
+          serviceAccountName: runtime
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          imagePullSecrets:
+          - name: ghcr-pull
+          containers:
+          - name: batch
+            image: ghcr.io/andrescastiglia/rent-batch:bootstrap
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            envFrom:
+            - configMapRef:
+                name: rent-runtime
+            env:
+            - name: NEW_RELIC_APP_NAME
+              value: RENT-Batch-production
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            volumeMounts:
+            - name: runtime
+              mountPath: /run/rent
+              readOnly: true
+            - name: ca
+              mountPath: /run/postgres
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            args:
+            - /app/deploy/run-exclusive.cjs
+            - lease-renewal-alerts
+            - dist/index.js
+            - lease-renewal-alerts
+          volumes:
+          - name: runtime
+            secret:
+              secretName: rent-batch-runtime
+              defaultMode: 288
+          - name: ca
+            secret:
+              secretName: postgres-ca
+              defaultMode: 288
+          - name: tmp
+            emptyDir:
+              sizeLimit: 512Mi
+          restartPolicy: Never
+          terminationGracePeriodSeconds: 120
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: reports
+spec:
+  schedule: 0 10 1 * *
+  timeZone: Etc/UTC
+  suspend: true
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/part-of: rent
+            app: reports
+            database-client: 'true'
+        spec:
+          serviceAccountName: runtime
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          imagePullSecrets:
+          - name: ghcr-pull
+          containers:
+          - name: batch
+            image: ghcr.io/andrescastiglia/rent-batch:bootstrap
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            envFrom:
+            - configMapRef:
+                name: rent-runtime
+            env:
+            - name: NEW_RELIC_APP_NAME
+              value: RENT-Batch-production
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            volumeMounts:
+            - name: runtime
+              mountPath: /run/rent
+              readOnly: true
+            - name: ca
+              mountPath: /run/postgres
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            args:
+            - /app/deploy/run-exclusive.cjs
+            - reports
+            - -e
+            - require('node:child_process').execFileSync('bash',['scripts/generate-all-reports.sh'],{stdio:'inherit'})
+          volumes:
+          - name: runtime
+            secret:
+              secretName: rent-batch-runtime
+              defaultMode: 288
+          - name: ca
+            secret:
+              secretName: postgres-ca
+              defaultMode: 288
+          - name: tmp
+            emptyDir:
+              sizeLimit: 512Mi
+          restartPolicy: Never
+          terminationGracePeriodSeconds: 120
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: process-settlements
+spec:
+  schedule: 0 7 2 * *
+  timeZone: Etc/UTC
+  suspend: true
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/part-of: rent
+            app: process-settlements
+            database-client: 'true'
+        spec:
+          serviceAccountName: runtime
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          imagePullSecrets:
+          - name: ghcr-pull
+          containers:
+          - name: batch
+            image: ghcr.io/andrescastiglia/rent-batch:bootstrap
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            envFrom:
+            - configMapRef:
+                name: rent-runtime
+            env:
+            - name: NEW_RELIC_APP_NAME
+              value: RENT-Batch-production
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            volumeMounts:
+            - name: runtime
+              mountPath: /run/rent
+              readOnly: true
+            - name: ca
+              mountPath: /run/postgres
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            args:
+            - /app/deploy/run-exclusive.cjs
+            - process-settlements
+            - dist/index.js
+            - process-settlements
+          volumes:
+          - name: runtime
+            secret:
+              secretName: rent-batch-runtime
+              defaultMode: 288
+          - name: ca
+            secret:
+              secretName: postgres-ca
+              defaultMode: 288
+          - name: tmp
+            emptyDir:
+              sizeLimit: 512Mi
+          restartPolicy: Never
+          terminationGracePeriodSeconds: 120
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: rag-reconcile
+spec:
+  schedule: 30 2 * * *
+  timeZone: Etc/UTC
+  suspend: true
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/part-of: rent
+            app: rag-reconcile
+            database-client: 'true'
+        spec:
+          serviceAccountName: runtime
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          imagePullSecrets:
+          - name: ghcr-pull
+          containers:
+          - name: batch
+            image: ghcr.io/andrescastiglia/rent-batch:bootstrap
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            envFrom:
+            - configMapRef:
+                name: rent-runtime
+            env:
+            - name: NEW_RELIC_APP_NAME
+              value: RENT-Batch-production
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            volumeMounts:
+            - name: runtime
+              mountPath: /run/rent
+              readOnly: true
+            - name: ca
+              mountPath: /run/postgres
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            args:
+            - /app/deploy/run-exclusive.cjs
+            - rag-reconcile
+            - dist/index.js
+            - rag-reconcile
+            - --entity
+            - all
+          volumes:
+          - name: runtime
+            secret:
+              secretName: rent-batch-runtime
+              defaultMode: 288
+          - name: ca
+            secret:
+              secretName: postgres-ca
+              defaultMode: 288
+          - name: tmp
+            emptyDir:
+              sizeLimit: 512Mi
+          restartPolicy: Never
+          terminationGracePeriodSeconds: 120
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: rag-purge-audit
+spec:
+  schedule: 15 3 * * 0
+  timeZone: Etc/UTC
+  suspend: true
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/part-of: rent
+            app: rag-purge-audit
+            database-client: 'true'
+        spec:
+          serviceAccountName: runtime
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          imagePullSecrets:
+          - name: ghcr-pull
+          containers:
+          - name: batch
+            image: ghcr.io/andrescastiglia/rent-batch:bootstrap
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            envFrom:
+            - configMapRef:
+                name: rent-runtime
+            env:
+            - name: NEW_RELIC_APP_NAME
+              value: RENT-Batch-production
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            volumeMounts:
+            - name: runtime
+              mountPath: /run/rent
+              readOnly: true
+            - name: ca
+              mountPath: /run/postgres
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            args:
+            - /app/deploy/run-exclusive.cjs
+            - rag-purge-audit
+            - dist/index.js
+            - rag-purge-audit
+          volumes:
+          - name: runtime
+            secret:
+              secretName: rent-batch-runtime
+              defaultMode: 288
+          - name: ca
+            secret:
+              secretName: postgres-ca
+              defaultMode: 288
+          - name: tmp
+            emptyDir:
+              sizeLimit: 512Mi
+          restartPolicy: Never
+          terminationGracePeriodSeconds: 120
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: retry-communications
+spec:
+  schedule: '*/5 * * * *'
+  timeZone: Etc/UTC
+  suspend: true
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/part-of: rent
+            app: retry-communications
+            database-client: 'true'
+        spec:
+          serviceAccountName: runtime
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          imagePullSecrets:
+          - name: ghcr-pull
+          containers:
+          - name: backend
+            image: ghcr.io/andrescastiglia/rent-backend:bootstrap
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            envFrom:
+            - configMapRef:
+                name: rent-runtime
+            env:
+            - name: APP_URL
+              value: http://backend.rent.svc.cluster.local:3001
+            - name: NEW_RELIC_APP_NAME
+              value: RENT-Backend-production
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            volumeMounts:
+            - name: runtime
+              mountPath: /run/rent
+              readOnly: true
+            - name: ca
+              mountPath: /run/postgres
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            args:
+            - /app/deploy/run-exclusive.cjs
+            - retry-communications
+            - dist/communications/retry-communications.cli.js
+          volumes:
+          - name: runtime
+            secret:
+              secretName: rent-backend-runtime
+              defaultMode: 288
+          - name: ca
+            secret:
+              secretName: postgres-ca
+              defaultMode: 288
+          - name: tmp
+            emptyDir:
+              sizeLimit: 512Mi
+          restartPolicy: Never
+          terminationGracePeriodSeconds: 120
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: database-backup
+spec:
+  schedule: 45 3 * * *
+  timeZone: Etc/UTC
+  suspend: true
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 604800
+      template:
+        metadata:
+          labels:
+            app: database-backup
+            database-client: 'true'
+            app.kubernetes.io/part-of: rent
+        spec:
+          serviceAccountName: runtime
+          automountServiceAccountToken: false
+          imagePullSecrets:
+          - name: ghcr-pull
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+            fsGroup: 999
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+          - name: database-backup
+            image: ghcr.io/andrescastiglia/rent-maintenance:bootstrap
+            command:
+            - bash
+            - /app/scripts/backup.sh
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            envFrom:
+            - secretRef:
+                name: rent-backup-env
+            - secretRef:
+                name: postgres-backup
+            env:
+            - name: PGHOST
+              value: postgres.rent.svc.cluster.local
+            - name: PGDATABASE
+              value: rent_db
+            - name: PGSSLMODE
+              value: verify-full
+            - name: PGSSLROOTCERT
+              value: /run/postgres/ca.crt
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: ca
+              mountPath: /run/postgres
+              readOnly: true
+          volumes:
+          - name: tmp
+            emptyDir:
+              sizeLimit: 25Gi
+          - name: ca
+            secret:
+              secretName: postgres-ca
+              defaultMode: 288
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: restore-drill
+spec:
+  schedule: 15 4 15 * *
+  timeZone: Etc/UTC
+  suspend: true
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 604800
+      template:
+        metadata:
+          labels:
+            app: restore-drill
+            database-client: 'true'
+            app.kubernetes.io/part-of: rent
+        spec:
+          serviceAccountName: runtime
+          automountServiceAccountToken: false
+          imagePullSecrets:
+          - name: ghcr-pull
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+            fsGroup: 999
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+          - name: restore-drill
+            image: ghcr.io/andrescastiglia/rent-maintenance:bootstrap
+            command:
+            - bash
+            - /app/scripts/restore-drill.sh
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            envFrom:
+            - secretRef:
+                name: rent-backup-env
+            - secretRef:
+                name: postgres-maintenance
+            env:
+            - name: PGHOST
+              value: postgres.rent.svc.cluster.local
+            - name: PGDATABASE
+              value: rent_db
+            - name: PGSSLMODE
+              value: verify-full
+            - name: PGSSLROOTCERT
+              value: /run/postgres/ca.crt
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: ca
+              mountPath: /run/postgres
+              readOnly: true
+          volumes:
+          - name: tmp
+            emptyDir:
+              sizeLimit: 25Gi
+          - name: ca
+            secret:
+              secretName: postgres-ca
+              defaultMode: 288

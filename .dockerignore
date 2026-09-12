@@ -1,0 +1,12 @@
+.git
+**/node_modules
+**/*.tsbuildinfo
+**/dist
+**/.next
+**/coverage
+**/.env
+**/.env.*
+!**/.env.example
+artifacts
+backups
+mobile

@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import { databaseTls } from "./database-tls";
 import { DataSource } from "typeorm";
 import type { DataSourceOptions } from "typeorm";
 import * as path from "node:path";
@@ -37,7 +38,7 @@ const dataSourceOptions: DataSourceOptions = {
   entities,
   synchronize: false, // Never auto-sync in production
   logging: process.env.LOG_LEVEL === "debug",
-  ssl,
+  ssl: databaseTls(process.env) ?? ssl,
 };
 
 export const AppDataSource = new DataSource(dataSourceOptions);

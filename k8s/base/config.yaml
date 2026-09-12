@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rent-runtime
+data:
+  NODE_ENV: production
+  HOST: 0.0.0.0
+  HOSTNAME: 0.0.0.0
+  DOTENV_CONFIG_PATH: /run/rent/runtime.env
+  PGSSLMODE: verify-full
+  PGSSLROOTCERT: /run/postgres/ca.crt
+  DATABASE_SSL_MODE: verify-full
+  DATABASE_SSL_CA_FILE: /run/postgres/ca.crt
+  POSTGRES_HOST: postgres.rent.svc.cluster.local
+  POSTGRES_PORT: '5432'
+  POSTGRES_DB: rent_db
+  API_PROXY_URL: http://backend.rent.svc.cluster.local:3001
+  BACKEND_INTERNAL_URL: http://backend.rent.svc.cluster.local:3001
+  NEXT_PUBLIC_API_URL: /api
+  NODE_OPTIONS: -r /app/deploy/newrelic-bootstrap.cjs
+  LOG_TO_FILE: 'false'
+  NEW_RELIC_LOG: stdout
+  PYROSCOPE_ENABLED: 'false'
+  PYROSCOPE_SERVER_ADDRESS: ''
+  PYROSCOPE_URL: ''
+  PROMETHEUS_PUSHGATEWAY_URL: ''
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: rent-budget
+spec:
+  hard:
+    limits.memory: 6Gi
+    requests.cpu: '2'
+    pods: '24'

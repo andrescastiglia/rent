@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../../base
+replicas:
+- name: backend
+  count: 1
+- name: frontend
+  count: 1
+- name: rag-worker
+  count: 1
+patches:
+- target:
+    kind: CronJob
+  patch: "- op: replace\n  path: /spec/suspend\n  value: false\n"
