@@ -30,6 +30,8 @@ module.exports = {
       script: 'dist/main.js',
       env: {
         ...common.env,
+        RENT_TRACING_PROVIDER: 'otlp',
+        RENT_TRACING_MODULE: './dist/tracing.js',
         NEW_RELIC_APP_NAME: 'RENT-Backend-production',
         NEW_RELIC_HOME: `${current}/backend`,
       },
@@ -59,6 +61,8 @@ module.exports = {
       args: `rag-sync --batch-size 50 --worker-id ${process.env.RENT_WORKER_ID || 'production'}`,
       env: {
         ...common.env,
+        RENT_TRACING_PROVIDER: 'otlp',
+        RENT_TRACING_MODULE: './dist/shared/tracing.js',
         NEW_RELIC_APP_NAME: 'RENT-Batch-production',
         NEW_RELIC_HOME: `${current}/batch`,
       },

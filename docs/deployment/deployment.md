@@ -106,27 +106,57 @@ incluir orígenes locales en producción.
 
 ## New Relic en producción
 
-Incluir `NEW_RELIC_LICENSE_KEY` (clave de ingesta de la cuenta) y
-`NEW_RELIC_ENABLED=true` en `PRODUCTION_ENV_FILE` del environment
-`production-release`. `NEW_RELIC_API_KEY` es una clave de administración y no
-reemplaza la licencia del agente. Nunca usar variables `NEXT_PUBLIC_*` para
-estas credenciales.
+Backend y batch envían trazas por OTLP directamente a New Relic. El frontend
+conserva el agente nativo de New Relic para Next.js. Cada proceso utiliza una
+sola instrumentación: cuando OTLP está configurado y habilitado, backend y
+batch no cargan el agente nativo. Sin destino OTLP, pueden usar el agente
+nativo como alternativa.
+
+Configurar en `PRODUCTION_ENV_FILE` del environment `production-release`:
+
+```dotenv
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp.nr-data.net
+OTEL_EXPORTER_OTLP_HEADERS=api-key=<clave de ingesta>
+OTEL_EXPORTER_OTLP_COMPRESSION=gzip
+OTEL_BSP_MAX_EXPORT_BATCH_SIZE=128
+OTEL_SDK_DISABLED=false
+NEW_RELIC_LICENSE_KEY=<clave de ingesta>
+NEW_RELIC_ENABLED=true
+```
+
+El ejemplo corresponde a la región US; para EU usar `https://otlp.eu01.nr-data.net`.
+Eliminar cualquier destino anterior en `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`,
+porque tiene prioridad sobre el endpoint general. El loader nativo de Node
+no expande referencias a otras variables: materializar el valor real de la
+clave en el header, sin publicarlo. `NEW_RELIC_API_KEY` es una clave de
+administración y no reemplaza la clave de ingesta. Nunca usar variables
+`NEXT_PUBLIC_*` para estas credenciales.
 
 PM2 precarga `deploy/newrelic-bootstrap.cjs`, que lee el `.env` protegido con
 el loader nativo de Node antes de importar New Relic o la aplicación. Los
-servicios aparecen como `RENT-Backend-production`, `RENT-Frontend-production`
-y `RENT-Batch-production`; los logs del agente salen por stdout hacia PM2.
+servicios backend y batch declaran `RENT_TRACING_PROVIDER=otlp` en PM2 para
+precargar su SDK mediante `RENT_TRACING_MODULE` antes de importar HTTP, Nest
+y PostgreSQL, y evitar la precarga del agente nativo. La inicialización del
+SDK es idempotente. Sus nombres OTLP se controlan
+con `OTEL_SERVICE_NAME_BACKEND` y `OTEL_SERVICE_NAME_BATCH`. El frontend aparece
+como `RENT-Frontend-production`; los logs del agente salen por stdout hacia PM2.
 El artefacto incluye los tres `newrelic.js` y el bootstrap. La instrumentación
 de Next.js incluye el agente y sus dependencias en el standalone y utiliza el
 agente híbrido para Next.js 16.
 
 Tras activar, comprobar `/health` en los puertos 3001 y 3000, el estado online
-de los tres procesos en PM2 y la conexión al collector en los logs del agente.
-Verificar en APM que las tres entidades reporten; el worker puede permanecer
-sin transacciones cuando no tiene trabajo. Para desactivar la integración,
-establecer `NEW_RELIC_ENABLED=false` en el secreto protegido y redesplegar.
+de los tres procesos en PM2, spans de backend/batch en New Relic y la conexión
+del agente del frontend. Verificar que Rent deje de enviar trazas al receptor
+local; no detener Tempo, que puede servir a otras aplicaciones. El worker
+puede permanecer sin spans cuando no tiene trabajo. Logs locales y métricas
+de Prometheus conservan su configuración.
 
-Referencia: [Instalación del agente Node.js](https://docs.newrelic.com/docs/apm/agents/nodejs-agent/installation-configuration/install-nodejs-agent/)
+Para revertir, restaurar la versión protegida anterior del entorno y reiniciar
+los procesos. Para desactivar toda esta integración, quitar los destinos OTLP
+y establecer `NEW_RELIC_ENABLED=false` en el secreto protegido.
+
+Referencia: [Ingesta OTLP de New Relic](https://docs.newrelic.com/docs/opentelemetry/best-practices/opentelemetry-otlp/),
+[Instalación del agente Node.js](https://docs.newrelic.com/docs/apm/agents/nodejs-agent/installation-configuration/install-nodejs-agent/)
 y [agente híbrido para Next.js](https://docs.newrelic.com/docs/apm/agents/nodejs-agent/extend-your-instrumentation/nextjs-instrumentation/).
 
 ## Runner Android aislado

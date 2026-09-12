@@ -1,6 +1,17 @@
 #!/usr/bin/env node
 
-if (process.env.NEW_RELIC_LICENSE_KEY) {
+const usesOtlpTracing =
+  process.env.OTEL_SDK_DISABLED !== "true" &&
+  Boolean(
+    process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT?.trim() ||
+    process.env.OTEL_EXPORTER_OTLP_ENDPOINT?.trim(),
+  );
+
+if (
+  process.env.NEW_RELIC_LICENSE_KEY &&
+  process.env.NEW_RELIC_ENABLED !== "false" &&
+  !usesOtlpTracing
+) {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require("newrelic");
 }

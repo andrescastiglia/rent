@@ -5,6 +5,7 @@ const startProfilingMock = jest.fn();
 const stopProfilingMock = jest.fn();
 const startTracingMock = jest.fn();
 const shutdownTracingMock = jest.fn();
+const newRelicLoadMock = jest.fn();
 
 const appMock = {
   set: jest.fn(),
@@ -36,6 +37,11 @@ describe('main bootstrap', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...originalEnv };
+    delete process.env.NEW_RELIC_LICENSE_KEY;
+    delete process.env.NEW_RELIC_ENABLED;
+    delete process.env.OTEL_SDK_DISABLED;
+    delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    delete process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT;
     createMock.mockResolvedValue(appMock);
     appMock.listen.mockResolvedValue(undefined);
     startTracingMock.mockResolvedValue(undefined);
@@ -49,6 +55,10 @@ describe('main bootstrap', () => {
 
   async function loadMain() {
     await jest.isolateModulesAsync(async () => {
+      jest.doMock('newrelic', () => {
+        newRelicLoadMock();
+        return {};
+      });
       jest.doMock('@nestjs/core', () => ({
         NestFactory: {
           create: (...args: unknown[]) => createMock(...args),
@@ -65,6 +75,50 @@ describe('main bootstrap', () => {
       await import('./main');
     });
   }
+
+  it.each([
+    [
+      'OTLP base endpoint',
+      { OTEL_EXPORTER_OTLP_ENDPOINT: 'https://otlp.example' },
+      false,
+    ],
+    [
+      'OTLP trace endpoint',
+      { OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: 'https://otlp.example/v1/traces' },
+      false,
+    ],
+    ['agent explicitly disabled', { NEW_RELIC_ENABLED: 'false' }, false],
+    [
+      'OTLP SDK disabled',
+      {
+        OTEL_EXPORTER_OTLP_ENDPOINT: 'https://otlp.example',
+        OTEL_SDK_DISABLED: 'true',
+      },
+      true,
+    ],
+    ['no OTLP destination', { OTEL_EXPORTER_OTLP_ENDPOINT: ' ' }, true],
+  ] as const)(
+    'selects one instrumentation when %s',
+    async (_name, env, agentExpected) => {
+      Object.assign(process.env, env, {
+        NEW_RELIC_LICENSE_KEY: 'test-license',
+      });
+      const onceSpy = jest.spyOn(process, 'once').mockReturnValue(process);
+      const logSpy = jest
+        .spyOn(console, 'log')
+        .mockImplementation(() => undefined);
+      try {
+        await loadMain();
+        await new Promise((resolve) => setImmediate(resolve));
+        expect(newRelicLoadMock).toHaveBeenCalledTimes(agentExpected ? 1 : 0);
+        expect(startTracingMock).toHaveBeenCalledTimes(1);
+        expect(appMock.listen).toHaveBeenCalledTimes(1);
+      } finally {
+        onceSpy.mockRestore();
+        logSpy.mockRestore();
+      }
+    },
+  );
 
   it('boots app with configured CORS, pipes and listeners', async () => {
     process.env.FRONTEND_URL = 'https://a.dev, https://b.dev';
