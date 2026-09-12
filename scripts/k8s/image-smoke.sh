@@ -4,11 +4,11 @@ image="$1"
 app="$2"
 case "$app" in
   backend)
-    docker run --rm --read-only --entrypoint node "$image" -e "require('bcrypt').hashSync('container-check',4); require('@napi-rs/canvas').createCanvas(8,8); require('pdfkit'); require('./dist/config/database-tls'); console.log('Native ARM64 modules loaded')" ;;
+    docker run --rm --read-only --entrypoint node "$image" -e "require('node:fs').accessSync('dist/main.js'); require('node:fs').accessSync('dist/tracing.js'); require('bcrypt').hashSync('container-check',4); require('@napi-rs/canvas').createCanvas(8,8); require('pdfkit'); require('./dist/config/database-tls'); console.log('Native ARM64 modules loaded')" ;;
   frontend)
     docker run --rm --read-only --entrypoint node "$image" -e "require('next'); require('newrelic/package.json'); require('node:fs').accessSync('server.js'); console.log('Next standalone complete')" ;;
   batch)
-    docker run --rm --read-only --tmpfs /tmp -e LOG_TO_FILE=false --entrypoint node "$image" -e "require('./dist/shared/logger').logger.info('Console-only batch'); require('pdfkit'); require('node:fs').accessSync('scripts/generate-all-reports.sh')" ;;
+    docker run --rm --read-only --tmpfs /tmp -e LOG_TO_FILE=false --entrypoint node "$image" -e "require('node:fs').accessSync('dist/index.js'); require('./dist/shared/logger').logger.info('Console-only batch'); require('pdfkit'); require('node:fs').accessSync('scripts/generate-all-reports.sh')" ;;
   maintenance)
     docker run --rm --read-only --entrypoint bash "$image" -c 'pg_dump --version; restic version; python3 -c "import psycopg2"; bash -n /app/scripts/backup.sh /app/scripts/restore-drill.sh' ;;
   postgres)
