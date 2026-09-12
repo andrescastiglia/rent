@@ -36,7 +36,9 @@ run non-root with read-only application filesystems and bounded writable tmp.
    PostgreSQL instance. Compare complete per-table row counts and SHA-256
    fingerprints using `scripts/k8s/fingerprint.py`. A fingerprint must be
    compared to the same frozen source snapshot; it is not a live backup check.
-3. Enable a Rent-only Nginx maintenance response and create
+3. Record a successful rehearsal in `/etc/rent-kubernetes/rehearsal-verified`,
+   then run `scripts/k8s/freeze-native.py --freeze` as root. This performs the
+   following Rent-only actions and creates
    `/etc/rent-kubernetes/maintenance-active`. Save the Rent PM2 definitions,
    native crontab and source runtime with root-only access. Disable only Rent's
    cron lines; stop only rent-backend, rent-frontend and rent-rag-worker. Wait for
@@ -95,3 +97,15 @@ Dead localhost Pushgateway/Pyroscope destinations are disabled in container conf
 Monitor pod failures/restarts, CronJob failures, last backup success, database
 availability, disk usage and resource pressure during Android builds. Initial
 namespace memory limit is 6 GiB; declared limits are not host reservations.
+
+The host timer records the 24-hour observation in
+`/var/lib/rent-kubernetes/observation.json`. A successful automatic database backup
+within 24 hours and no failed platform checks are required for `verified`.
+`configure-alerts.py` reconciles only the `Rent Kubernetes production` New Relic
+policy: application/database availability, monitor signal loss (20 minutes),
+failed tasks, backup age above 24 hours, disk use above 85%, and failed encrypted
+backups or restore drills. Existing notification destinations are left intact.
+
+Release assets distinguish `images.json` (images built for the source revision)
+from `deployed-images.json` (actual running references, including the retained
+PostgreSQL image). Recovery must use the latter.
