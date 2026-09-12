@@ -73,8 +73,11 @@ The deployment installs an advisory-lock wrapper around scheduled/manual busines
 operations. It excludes two invocations of the same operation across all entry
 points using these Jobs. CronJobs use Etc/UTC and Forbid; automatic retries are
 disabled for business side effects. A skipped duplicate logs its operation name.
-GitHub manual operations preserve both production-ops and production-release gates
-and run the currently deployed image with an allowlisted command and dry-run flag.
+GitHub manual operations run from protected `main` through `production-ops`, using
+the currently deployed image with an allowlisted command and dry-run flag. Store
+only `SSH_HOST`, `SSH_USER`, `SSH_PORT`, `SSH_PRIVATE_KEY` and `SSH_KNOWN_HOSTS` in
+that environment. Keep `production-release` restricted to version tags; manual
+operations do not need its application runtime, Android or backup credentials.
 
 ## Backups and recovery
 
