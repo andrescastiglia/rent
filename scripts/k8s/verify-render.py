@@ -19,6 +19,10 @@ with tempfile.TemporaryDirectory() as temporary:
                 assert budget['limits']=={'cpu':'1','memory':'1536Mi'}
             if kind=='CronJob':
                 assert spec['suspend']==(replicas==0)
+                init=spec['jobTemplate']['spec']['template']['spec']['initContainers']
+                assert len(init)==1 and init[0]['name']=='wait-for-database'
+                assert init[0]['image'].endswith('@sha256:'+'0'*64)
+                assert spec['jobTemplate']['spec']['backoffLimit']==0
                 if resource['metadata']['name']=='database-backup':assert spec['jobTemplate']['spec']['template']['spec']['containers'][0]['resources']['requests']['cpu']==backup_cpu
     invalid=subprocess.run([sys.executable,str(script),str(images),'--rehearsal'],capture_output=True)
     assert invalid.returncode!=0 and not invalid.stdout
