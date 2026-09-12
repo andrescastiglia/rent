@@ -3,6 +3,7 @@ module.exports = {
   testMatch: ["**/*.spec.cjs"],
   testEnvironment: "node",
   collectCoverage: true,
+  coverageReporters: ["text", ["lcov", { projectRoot: __dirname }]],
   collectCoverageFrom: ["database-tls.cjs"],
   coverageDirectory: "../backend/coverage/shared",
   coverageThreshold: {
