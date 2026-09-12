@@ -1,7 +1,16 @@
 #!/usr/bin/env python3
-import os, psycopg2
+import os, time, psycopg2
 from psycopg2 import sql
-connection = psycopg2.connect(dbname='postgres')
+# Pod readiness can precede Service routing convergence. Retry only the initial
+# connection, before any role/database changes; never replay administration SQL.
+for attempt in range(15):
+    try:
+        connection = psycopg2.connect(dbname='postgres', connect_timeout=5)
+        break
+    except psycopg2.OperationalError:
+        if attempt == 14:
+            raise
+        time.sleep(2)
 connection.autocommit = True
 with connection.cursor() as cursor:
     for role, key in [('rent_user','APP_PASSWORD'),('rent_backup','BACKUP_PASSWORD')]:

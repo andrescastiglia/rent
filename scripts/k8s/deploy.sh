@@ -8,6 +8,10 @@ mode="${3:-release}"
 cd "$(dirname "$0")/../.."
 root=/etc/rent-kubernetes
 mkdir -p "$root"
+if [ "$mode" = stage ] && [ -f "$root/active" ]; then
+  echo 'Rehearsal staging is unavailable after production activation.' >&2
+  exit 1
+fi
 rollback() {
   status=$?
   trap - ERR
