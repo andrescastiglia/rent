@@ -101,3 +101,10 @@
       loop:
         - rent-infra-backup.timer
         - rent-k8s-monitor.timer
+
+    - name: Retrieve the actual deployed image references
+      ansible.builtin.fetch:
+        src: /etc/rent-kubernetes/images.json
+        dest: '{{ deployed_images_file }}'
+        flat: true
+      when: deployed_images_file is defined and (deploy_mode | default('release')) == 'release'

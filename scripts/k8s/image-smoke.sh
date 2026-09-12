@@ -12,6 +12,7 @@ case "$app" in
   maintenance)
     docker run --rm --read-only --entrypoint bash "$image" -c 'pg_dump --version; restic version; python3 -c "import psycopg2"; bash -n /app/scripts/backup.sh /app/scripts/restore-drill.sh' ;;
   postgres)
+    docker run --rm --entrypoint postgres "$image" --version | grep -Eq '^postgres \(PostgreSQL\) 17\.9( |$)'
     name=rent-postgres-image-test
     trap 'docker rm -fv "$name" >/dev/null 2>&1 || true' EXIT
     docker run -d --name "$name" -e POSTGRES_PASSWORD=container-test-only "$image"

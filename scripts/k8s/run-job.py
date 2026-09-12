@@ -6,6 +6,7 @@ if not re.fullmatch('[0-9a-f]{40}',args.sha):raise SystemExit('Full release SHA 
 k=['k3s','kubectl','-n','rent']
 cron=json.loads(subprocess.check_output(k+['get','cronjob','database-backup','-o','json']))
 spec=cron['spec']['jobTemplate']['spec'];spec['ttlSecondsAfterFinished']=604800
+spec['template']['metadata']['labels']['app']=args.action
 container=spec['template']['spec']['containers'][0]
 container['name']=args.action
 if args.image:container['image']=args.image

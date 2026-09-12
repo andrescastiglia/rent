@@ -308,7 +308,16 @@ jobs:
             -e "git_sha=${RELEASE_SHA}" \
             -e "images_file=../artifacts/images.json" \
             -e "runtime_env_file=/tmp/rent-production.env" \
-            -e "backup_env_file=/tmp/rent-backup.env"
+            -e "backup_env_file=/tmp/rent-backup.env" \
+            -e "deployed_images_file=../artifacts/deployed-images.json"
+
+      - name: Record actual deployed image digests
+        uses: actions/upload-artifact@v7
+        with:
+          name: rent-deployed-images
+          path: artifacts/deployed-images.json
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Remove materialized runtime environment
         if: always()
@@ -350,6 +359,12 @@ jobs:
           RELEASE_SHA: ${{ needs.preflight.outputs.release_sha }}
         run: python3 scripts/k8s/collect-images.py artifacts/images "$RELEASE_SHA" > artifacts/release/images.json
 
+      - name: Download actual deployed image references
+        uses: actions/download-artifact@v8
+        with:
+          name: rent-deployed-images
+          path: artifacts/release
+
       - name: Verify published artifact checksums
         run: |
           cd artifacts/release
@@ -373,4 +388,5 @@ jobs:
             "artifacts/release/android/rent-android-${RELEASE_SHA}.aab.sha256" \
             artifacts/release/android/mobile.cdx.json \
             artifacts/release/images.json \
+            artifacts/release/deployed-images.json \
             --notes "Deployed SHA: ${RELEASE_SHA}\nWorkflow: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
