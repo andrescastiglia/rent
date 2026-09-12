@@ -1,0 +1,12 @@
+[Unit]
+Description=Keep Rent Kubernetes NodePorts accessible only from the host
+Before=k3s.service
+After=network-pre.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/rent-nodeport-guard
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

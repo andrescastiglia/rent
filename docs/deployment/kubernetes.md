@@ -14,6 +14,11 @@ PM2 applications, native databases, TLS and global cluster settings are outside
 this deployment. PostgreSQL images are retained across application releases;
 upgrades require a separately tested restore/upgrade operation.
 
+`rent-nodeport-guard.service` rejects non-loopback incoming traffic to these two
+ports in the IPv4/IPv6 raw PREROUTING chains, before Kubernetes DNAT. Host Nginx
+continues to use loopback. The guard persists across reboots and does not modify
+other ports; ordinary INPUT rules alone do not protect forwarded NodePorts.
+
 The 20 GiB static local PV is `/srv/k3s/rent/postgresql`, affinity `oracle`, RWO,
 reclaim policy Retain. StatefulSet PVC deletion/scaling retains the claim. This
 capacity is a declaration, not a filesystem quota. The shared disk and node are

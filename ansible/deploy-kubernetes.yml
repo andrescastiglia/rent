@@ -72,6 +72,24 @@
         argv: [python3, '{{ root_path }}/scripts/k8s/prepare-secrets.py', /etc/rent-kubernetes/runtime-source.env]
       no_log: true
       changed_when: false
+    - name: Install the Rent-only NodePort guard
+      ansible.builtin.copy:
+        src: files/rent-nodeport-guard.sh
+        dest: /usr/local/sbin/rent-nodeport-guard
+        owner: root
+        group: root
+        mode: '0755'
+    - name: Install persistent NodePort protection
+      ansible.builtin.copy:
+        src: files/rent-nodeport-guard.service
+        dest: /etc/systemd/system/rent-nodeport-guard.service
+        mode: '0644'
+    - name: Protect Rent ports before publishing workloads
+      ansible.builtin.systemd_service:
+        name: rent-nodeport-guard.service
+        enabled: true
+        state: started
+        daemon_reload: true
     - name: Deploy and validate exact images
       ansible.builtin.command:
         argv: [bash, '{{ root_path }}/scripts/k8s/deploy.sh', '{{ root_path }}/images.json', '{{ git_sha }}', '{{ deploy_mode | default("release") }}']
