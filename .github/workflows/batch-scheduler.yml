@@ -42,7 +42,7 @@ jobs:
     needs: authorize
     runs-on: ubuntu-latest
     timeout-minutes: 65
-    environment: production-release
+    environment: production-ops
     steps:
       - name: Configure SSH trust
         env:
