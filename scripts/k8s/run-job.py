@@ -11,7 +11,9 @@ container=spec['template']['spec']['containers'][0]
 container['name']=args.action
 if args.image:container['image']=args.image
 container['envFrom']=[{'secretRef':{'name':'postgres-bootstrap' if args.action=='bootstrap' else 'postgres-migration'}}]
-container['env'] += [{'name':'POSTGRES_HOST','value':'postgres.rent.svc.cluster.local'},{'name':'POSTGRES_DB','value':'rent_db'},{'name':'MIGRATIONS_SKIP_ENV_FILE','value':'true'}]
+# Kubernetes service links otherwise inject POSTGRES_PORT=tcp://<service>:5432,
+# which the migration runner passes to psql's numeric -p argument.
+container['env'] += [{'name':'POSTGRES_HOST','value':'postgres.rent.svc.cluster.local'},{'name':'POSTGRES_PORT','value':'5432'},{'name':'POSTGRES_DB','value':'rent_db'},{'name':'MIGRATIONS_SKIP_ENV_FILE','value':'true'}]
 container['command']=['python3','/app/scripts/bootstrap-db.py'] if args.action=='bootstrap' else ['bash','/app/migrations/run-migrations.sh']
 name='rent-'+args.action+'-'+args.sha[:12]
 if args.action=='bootstrap':name+='-'+container['image'].rsplit(':',1)[-1][:12]
