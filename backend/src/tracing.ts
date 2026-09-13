@@ -79,6 +79,11 @@ export async function startTracing(): Promise<void> {
     instrumentations: [
       getNodeAutoInstrumentations({
         '@opentelemetry/instrumentation-fs': { enabled: false },
+        '@opentelemetry/instrumentation-http': {
+          // Suppress the entire probe context, including database/client spans.
+          ignoreIncomingRequestHook: (request) =>
+            /^\/health(?:\/live)?\/?$/.test((request.url ?? '').split('?')[0]),
+        },
       }),
     ],
   });
