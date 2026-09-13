@@ -5,6 +5,36 @@ Los SLO, responsables, respuesta y recuperación operativa están definidos en
 reglas validadas por CI viven en `observability/prometheus/`; el bloque de abajo
 se conserva como ejemplos de consultas complementarias.
 
+## Health checks y tracing en New Relic
+
+Backend y frontend excluyen `/health` y `/health/live` del tracing, también
+cuando responden con error. Se admiten barra final y query string; rutas como
+`/healthcheck` o `/health/otra` siguen instrumentadas. Los handlers, respuestas,
+probes de Kubernetes y métricas independientes del tracing mantienen su comportamiento.
+
+El backend OTLP usa `ignoreIncomingRequestHook` en la instrumentación HTTP para
+suprimir el contexto completo, incluida la consulta a PostgreSQL. El agente
+nativo del backend y el agente híbrido de Next.js usan `rules.ignore` en sus
+respectivos `newrelic.js`, preservando la exclusión predeterminada de Socket.IO.
+Esto descarta las transacciones de las probes y sus spans hijos, incluida la
+llamada de readiness del frontend al backend. No se aplica un filtro global a
+consultas SQL ni a llamadas HTTP de las rutas de negocio.
+
+Después de desplegar una release y renovar los procesos de backend y frontend:
+
+1. Comprobar `/health` y `/health/live` en ambos servicios. Readiness conserva
+   su dependencia del backend/base de datos; liveness sigue independiente.
+2. Generar varias peticiones a esas rutas y a una ruta de negocio. Validar los
+   fallos de readiness en un entorno de prueba, sin interrumpir la base productiva.
+3. Esperar la ingesta y consultar `Span` y, para el agente nativo, `Transaction`
+   en New Relic, acotando por servicio y por una ventana posterior al despliegue.
+   Comprobar que no haya eventos de health ni spans hijos de esas peticiones,
+   y que sí haya trazas de la ruta de negocio. Las trazas históricas no se borran.
+
+Si se configura `NEW_RELIC_IGNORING_RULES` en el entorno, debe incluir estas
+exclusiones: la variable reemplaza las reglas del archivo. Una reversión utiliza
+la release anterior; no requiere cambios en las probes ni en la base de datos.
+
 ## Backend
 
 - Scrape: `GET /metrics`

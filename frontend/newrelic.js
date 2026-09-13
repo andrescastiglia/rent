@@ -14,6 +14,14 @@ exports.config = {
    * Your New Relic license key.
    */
   license_key: process.env.NEW_RELIC_LICENSE_KEY,
+  rules: {
+    ignore: [
+      // Preserve the agent's default Socket.IO long-polling exclusion.
+      "^/socket.io/.*/xhr-polling/",
+      // Also applies to transactions synthesized by the Next.js OTel bridge.
+      "^/health(?:/live)?/?(?:\\?.*)?$",
+    ],
+  },
   opentelemetry: {
     enabled: true,
   },

@@ -109,6 +109,9 @@ describe('tracing', () => {
     );
     expect(getInstrumentationsMock).toHaveBeenCalledWith({
       '@opentelemetry/instrumentation-fs': { enabled: false },
+      '@opentelemetry/instrumentation-http': {
+        ignoreIncomingRequestHook: expect.any(Function),
+      },
     });
     expect(sdkStartMock).toHaveBeenCalledTimes(1);
   });
@@ -132,6 +135,46 @@ describe('tracing', () => {
     sdkStartMock.mockResolvedValue(undefined);
     await mod.startTracing();
     expect(nodeSdkCtorMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('suppresses only health probe contexts, including query strings and trailing slashes', async () => {
+    process.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'http://otel:4318/';
+    const { startTracing } = await import('./tracing');
+    await startTracing();
+
+    const config = getInstrumentationsMock.mock.calls[0][0] as {
+      '@opentelemetry/instrumentation-http': {
+        ignoreIncomingRequestHook: (request: { url?: string }) => boolean;
+      };
+    };
+    const ignore =
+      config['@opentelemetry/instrumentation-http'].ignoreIncomingRequestHook;
+
+    for (const url of [
+      '/health',
+      '/health/',
+      '/health?probe=readiness',
+      '/health/?probe=readiness',
+      '/health/live',
+      '/health/live/',
+      '/health/live?probe=liveness',
+      '/health/live/?probe=liveness',
+    ]) {
+      expect([url, ignore({ url })]).toEqual([url, true]);
+    }
+    for (const url of [
+      undefined,
+      '',
+      '/',
+      '/healthcheck',
+      '/health/otra',
+      '/health/live/otra',
+      '/health/lively',
+      '/contracts?redirect=/health',
+      '/api/health',
+    ]) {
+      expect([url, ignore({ url })]).toEqual([url, false]);
+    }
   });
 
   it('shutdown is no-op when sdk was never started', async () => {

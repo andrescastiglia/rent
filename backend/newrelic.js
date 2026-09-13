@@ -14,6 +14,14 @@ exports.config = {
    * Your New Relic license key.
    */
   license_key: process.env.NEW_RELIC_LICENSE_KEY,
+  rules: {
+    ignore: [
+      // Preserve the agent's default Socket.IO long-polling exclusion.
+      '^/socket.io/.*/xhr-polling/',
+      // Ignore readiness/liveness and their child spans, including failures.
+      '^/health(?:/live)?/?(?:\\?.*)?$',
+    ],
+  },
   logging: {
     /**
      * Level at which to log. 'trace' is most useful to New Relic when diagnosing

@@ -108,6 +108,9 @@ Readiness uses `/health` (database-dependent); liveness uses `/health/live` with
 a database dependency. Nest awaits connection shutdown and telemetry flush. RAG
 gets 120 seconds for termination. stdout/stderr replace unbounded batch log files.
 New Relic traces continue directly over OTLP; frontend retains its native agent.
+Both services exclude `/health` and `/health/live` transactions and child spans,
+including failures, while retaining the probes. See the
+[health tracing verification](../technical/observability-prometheus.md#health-checks-y-tracing-en-new-relic).
 Dead localhost Pushgateway/Pyroscope destinations are disabled in container config.
 
 Monitor pod failures/restarts, CronJob failures, last backup success, database
