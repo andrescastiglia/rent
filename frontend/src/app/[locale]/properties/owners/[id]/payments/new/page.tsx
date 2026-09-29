@@ -18,9 +18,7 @@ export default function OwnerSettlementPaymentPage() {
   ) : (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-xl font-semibold">{t("registerOwnerPayment")}</h1>
-      <p role="status" className="mt-4">
-        {t("externalSettlementsDisabled")}
-      </p>
+      <output className="block mt-4">{t("externalSettlementsDisabled")}</output>
     </div>
   );
 }

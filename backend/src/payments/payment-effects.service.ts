@@ -119,6 +119,12 @@ export class PaymentEffectsService {
         'tenantAccount.lease.property',
       ],
     });
+    await this.renderReceipt(manager, payment);
+    await this.renderCreditNotes(manager, paymentId, companyId);
+  }
+
+  private async renderReceipt(manager: EntityManager, payment: Payment) {
+    const { id: paymentId, companyId } = payment;
     const receipts = manager.getRepository(Receipt);
     const receipt = await receipts.findOneOrFail({
       where: { paymentId, companyId },
@@ -168,6 +174,13 @@ export class PaymentEffectsService {
         );
       }
     }
+  }
+
+  private async renderCreditNotes(
+    manager: EntityManager,
+    paymentId: string,
+    companyId: string,
+  ) {
     const notes = manager.getRepository(CreditNote);
     for (const note of await notes.find({
       where: { paymentId, companyId, status: CreditNoteStatus.ISSUED },
@@ -179,7 +192,7 @@ export class PaymentEffectsService {
       ],
     })) {
       if (note.pdfUrl) continue;
-      if (!note.invoice || note.invoice.companyId !== companyId)
+      if (note.invoice?.companyId !== companyId)
         throw new Error('Credit note invoice is unavailable');
       note.pdfUrl = await this.creditNotePdf.generate(
         note,
