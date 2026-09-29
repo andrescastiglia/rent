@@ -1,8 +1,9 @@
+import { PortalPublicationOutboxService } from './portal-publication-outbox.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { PortalsService, PortalAdapterFactory } from './portals.service';
+import { PortalsService } from './portals.service';
 import {
   PortalListing,
   PortalListingStatus,
@@ -64,10 +65,14 @@ describe('PortalsService', () => {
   let listingsRepository: MockRepository<PortalListing>;
   let propertiesRepository: MockRepository<Property>;
 
+  const publications = { enqueue: jest.fn(), assertEnabled: jest.fn() };
+
   beforeEach(async () => {
+    jest.resetAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PortalsService,
+        { provide: PortalPublicationOutboxService, useValue: publications },
         {
           provide: getRepositoryToken(PortalListing),
           useValue: createMockRepository(),
@@ -184,138 +189,81 @@ describe('PortalsService', () => {
     });
   });
 
-  describe('publish', () => {
-    it('calls adapter and sets published status', async () => {
-      const listing = mockListing();
-      listingsRepository
-        .findOne!.mockResolvedValueOnce(listing)
-        .mockResolvedValueOnce(
-          mockListing({ status: PortalListingStatus.PUBLISHED }),
-        );
-      propertiesRepository.findOne!.mockResolvedValue(mockProperty());
-
-      const result = await service.publish('listing-uuid-1', 'company-uuid-1');
-
-      expect(listingsRepository.update).toHaveBeenCalledWith(
-        'listing-uuid-1',
-        expect.objectContaining({
-          status: PortalListingStatus.PUBLISHED,
-          externalId: expect.stringContaining('mock-'),
-          externalUrl: expect.stringContaining('zonaprop.com.ar'),
-        }),
-      );
-      expect(result.status).toBe(PortalListingStatus.PUBLISHED);
-    });
-
-    it('throws NotFoundException when listing not found', async () => {
-      listingsRepository.findOne!.mockResolvedValue(null);
-
-      await expect(
-        service.publish('missing-id', 'company-uuid-1'),
-      ).rejects.toThrow(NotFoundException);
-    });
-  });
-
-  describe('pause', () => {
-    it('sets status to paused', async () => {
-      const listing = mockListing({ status: PortalListingStatus.PUBLISHED });
-      listingsRepository
-        .findOne!.mockResolvedValueOnce(listing)
-        .mockResolvedValueOnce(
-          mockListing({ status: PortalListingStatus.PAUSED }),
-        );
-
-      const result = await service.pause('listing-uuid-1', 'company-uuid-1');
-
-      expect(listingsRepository.update).toHaveBeenCalledWith('listing-uuid-1', {
-        status: PortalListingStatus.PAUSED,
-      });
-      expect(result.status).toBe(PortalListingStatus.PAUSED);
-    });
-  });
-
-  describe('remove', () => {
-    it('sets status to removed', async () => {
+  it.each(['publish', 'pause'] as const)(
+    'enqueues %s without changing provider state before confirmation',
+    async (operation) => {
       const listing = mockListing();
       listingsRepository.findOne!.mockResolvedValue(listing);
-
-      await service.remove('listing-uuid-1', 'company-uuid-1');
-
-      expect(listingsRepository.update).toHaveBeenCalledWith('listing-uuid-1', {
-        status: PortalListingStatus.REMOVED,
-      });
+      expect(await service[operation](listing.id, listing.companyId)).toBe(
+        listing,
+      );
+      expect(publications.enqueue).toHaveBeenCalledWith(
+        listing.id,
+        listing.companyId,
+        operation,
+      );
+      expect(listingsRepository.update).not.toHaveBeenCalled();
+    },
+  );
+  it('queues removal and updated data without direct provider calls', async () => {
+    const listing = mockListing();
+    listingsRepository.findOne!.mockResolvedValue(listing);
+    await service.remove(listing.id, listing.companyId);
+    await service.update(listing.id, listing.companyId, {
+      item: { title: 'Updated' },
     });
-
-    it('throws NotFoundException when listing not found', async () => {
-      listingsRepository.findOne!.mockResolvedValue(null);
-
-      await expect(
-        service.remove('missing-id', 'company-uuid-1'),
-      ).rejects.toThrow(NotFoundException);
-    });
+    expect(publications.enqueue).toHaveBeenCalledWith(
+      listing.id,
+      listing.companyId,
+      'remove',
+    );
+    expect(publications.enqueue).toHaveBeenCalledWith(
+      listing.id,
+      listing.companyId,
+      'update',
+      { item: { title: 'Updated' } },
+    );
+    expect(listingsRepository.update).not.toHaveBeenCalled();
   });
-
-  describe('syncAll', () => {
-    it('refreshes all published listings', async () => {
-      const publishedListing = mockListing({
-        status: PortalListingStatus.PUBLISHED,
-      });
-      listingsRepository.find!.mockResolvedValue([publishedListing]);
-      listingsRepository.findOne!.mockResolvedValue(publishedListing);
-
-      const results = await service.syncAll('company-uuid-1');
-
-      expect(listingsRepository.find).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            companyId: 'company-uuid-1',
+  it('queues company-scoped refreshes only for Mercado Libre', async () => {
+    const listing = mockListing();
+    listingsRepository.find!.mockResolvedValue([listing]);
+    await expect(service.syncAll(listing.companyId)).resolves.toEqual([
+      listing,
+    ]);
+    expect(listingsRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: [
+          {
+            companyId: listing.companyId,
+            portal: PortalName.MERCADOLIBRE,
             status: PortalListingStatus.PUBLISHED,
           },
-        }),
-      );
-      expect(listingsRepository.update).toHaveBeenCalledWith(
-        publishedListing.id,
-        expect.objectContaining({ lastSyncedAt: expect.any(Date) }),
-      );
-      expect(results).toHaveLength(1);
-    });
-
-    it('marks listing as error when adapter fails', async () => {
-      const publishedListing = mockListing({
-        status: PortalListingStatus.PUBLISHED,
-      });
-      listingsRepository.find!.mockResolvedValue([publishedListing]);
-      listingsRepository.findOne!.mockResolvedValue(publishedListing);
-
-      jest.spyOn(PortalAdapterFactory, 'getAdapter').mockReturnValueOnce({
-        publish: jest.fn().mockRejectedValue(new Error('Portal unavailable')),
-      });
-
-      await service.syncAll('company-uuid-1');
-
-      expect(listingsRepository.update).toHaveBeenCalledWith(
-        publishedListing.id,
-        expect.objectContaining({
-          status: PortalListingStatus.ERROR,
-          errorMessage: 'Portal unavailable',
-        }),
-      );
-    });
+          {
+            companyId: listing.companyId,
+            portal: PortalName.MERCADOLIBRE,
+            status: PortalListingStatus.PAUSED,
+          },
+        ],
+      }),
+    );
+    expect(publications.enqueue).toHaveBeenCalledWith(
+      listing.id,
+      listing.companyId,
+      'refresh',
+    );
+    expect(listingsRepository.update).not.toHaveBeenCalled();
   });
-
-  it('keeps mock portal publishing disabled outside tests', async () => {
-    const previous = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'production';
-    try {
-      await expect(
-        service.publish('listing-uuid-1', 'company-uuid-1'),
-      ).rejects.toThrow('disabled until a verified provider');
-      await expect(service.syncAll('company-uuid-1')).rejects.toThrow(
-        'disabled until a verified provider',
-      );
-      expect(listingsRepository.findOne).not.toHaveBeenCalled();
-    } finally {
-      process.env.NODE_ENV = previous;
-    }
+  it('does not query listings when publication processing is disabled', async () => {
+    publications.assertEnabled.mockImplementation(() => {
+      throw new Error('disabled');
+    });
+    publications.enqueue.mockRejectedValue(new Error('disabled'));
+    await expect(service.syncAll('company')).rejects.toThrow('disabled');
+    await expect(service.publish('listing', 'company')).rejects.toThrow(
+      'disabled',
+    );
+    expect(listingsRepository.find).not.toHaveBeenCalled();
+    expect(listingsRepository.findOne).not.toHaveBeenCalled();
   });
 });

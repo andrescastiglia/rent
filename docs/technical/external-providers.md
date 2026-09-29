@@ -79,9 +79,35 @@ Configuración futura: `MERCADOLIBRE_ENABLED` (ausente/false),
 `MERCADOLIBRE_ACCOUNTS_JSON` (mapa por UUID de compañía con accessToken y sellerId),
 `MERCADOLIBRE_CLIENT_ID` y `MERCADOLIBRE_CLIENT_SECRET` para OAuth. El mapa solo
 puede cargarse desde secretos del servidor; no se devuelve a clientes ni logs.
-Pendiente: conectar el cliente al outbox del portal, persistir tokens rotados y
-completar el recorrido de administración. Los endpoints anteriores siguen
-rechazando publicación real fuera de pruebas mientras ese recorrido no esté cerrado.
+Los endpoints de publicación, pausa, actualización y eliminación encolan trabajo
+en `portal_publication_outbox` (migración 114) después de validar compañía y
+propiedad; desaparece el adaptador simulado. `listingData.item` contiene el aviso
+inmobiliario validado y `listingData.description` el texto opcional. Las categorías,
+atributos, ubicación y contacto deben completarse explícitamente; no se adivinan
+IDs del catálogo. Editar un borrador valida y guarda sus datos sin publicar.
+`PATCH /portals/listings/:id` actualiza título, precio, imágenes, atributos y
+descripción de un aviso existente por ID; rechaza cambios de moneda, ubicación
+u otros campos que este recorrido no envía al proveedor. `POST /portals/sync`
+encola consultas de los avisos activos/pausados de la compañía, sin republicarlos.
+
+`GET /portals/listings/:id/operation` devuelve disponibilidad y metadatos del último
+trabajo. Una operación activa por aviso impide cambios concurrentes de su carga;
+solicitudes idénticas comparten trabajo. El worker interno usa el token del cron,
+procesa hasta 25 trabajos y no consulta la cola ni Mercado Libre mientras está
+inhabilitado. Las creaciones persisten su intención antes del envío. Una respuesta
+perdida o caída sin ID externo pasa a `needs_review`, nunca a republicación automática.
+El ID recibido se guarda antes de procesar la descripción: reintentos posteriores
+usan ese ID. La descripción se consulta antes de elegir POST o PUT, según la
+[API oficial](https://developers.mercadolibre.com.ar/es_ar/metricas/descripcion-de-articulos).
+Los estados locales reflejan la respuesta remota, sin marcar éxito al encolar.
+
+Cada claim vence en dos minutos y su token protege contra respuestas tardías.
+Actualizaciones y consultas fallidas esperan un minuto y, tras cinco intentos,
+requieren revisión. El cron informa trabajos fallidos o pendientes de revisión.
+No reencolar creaciones inciertas: comprobar primero el aviso en el vendedor
+correspondiente. La resolución asistida de estas incidencias y la interfaz de
+administración siguen pendientes, al igual que persistir/renovar tokens OAuth.
+Las cuentas y flags continúan sin configurar; no se habilita publicación real.
 
 ## Mercado Pago Payouts
 
@@ -119,7 +145,7 @@ Pruebas PostgreSQL aisladas: `bfa-stamps.e2e-spec.ts`, incluyendo cola deshabili
 aislamiento entre empresas, concurrencia, respuesta perdida y documentos alterados.
 No constituyen evidencia de disponibilidad del proveedor ni validación de cuentas.
 
-La migración 113 es aditiva y no encola documentos históricos. Para rollback,
+Las migraciones 113 y 114 son aditivas y no encolan documentos ni avisos históricos. Para rollback,
 conservar sus registros y mantener proveedores deshabilitados. Si se restaura
 un artefacto anterior, restaurar también el CLI del mismo artefacto para evitar
 invocar un endpoint que aún no exista. No borrar pruebas de sellado.

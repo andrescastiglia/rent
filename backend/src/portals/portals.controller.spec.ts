@@ -13,6 +13,7 @@ const mockPortalsService = {
   findOne: jest.fn(),
   create: jest.fn(),
   publish: jest.fn(),
+  update: jest.fn(),
   pause: jest.fn(),
   remove: jest.fn(),
   syncAll: jest.fn(),
@@ -162,6 +163,20 @@ describe('PortalsController', () => {
         'company-uuid-1',
       );
     });
+  });
+
+  it('passes validated listing data and company scope to the queued update', async () => {
+    const listingData = { item: { title: 'Updated' } };
+    await controller.update(
+      'listing-uuid-1',
+      { listingData },
+      mockRequest as any,
+    );
+    expect(mockPortalsService.update).toHaveBeenCalledWith(
+      'listing-uuid-1',
+      'company-uuid-1',
+      listingData,
+    );
   });
 
   describe('syncAll', () => {

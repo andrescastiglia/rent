@@ -61,6 +61,9 @@ export class PortalListing {
   @Column({ name: 'external_url', type: 'text', nullable: true })
   externalUrl: string | null;
 
+  @Column({ name: 'provider_status', type: 'varchar', nullable: true })
+  providerStatus: string | null;
+
   @Column({ name: 'published_at', type: 'timestamptz', nullable: true })
   publishedAt: Date | null;
 

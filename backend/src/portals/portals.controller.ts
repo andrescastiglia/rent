@@ -1,3 +1,4 @@
+import { UpdatePortalListingDto } from './dto/update-portal-listing.dto';
 import {
   Body,
   Controller,
@@ -6,6 +7,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   ParseUUIDPipe,
   Post,
   Query,
@@ -58,6 +60,16 @@ export class PortalsController {
     @Request() req: AuthenticatedRequest,
   ): Promise<PortalListing> {
     return this.portalsService.create(req.user.companyId, dto);
+  }
+
+  @Patch('listings/:id')
+  @Roles(UserRole.ADMIN)
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdatePortalListingDto,
+    @Request() req: AuthenticatedRequest,
+  ): Promise<PortalListing> {
+    return this.portalsService.update(id, req.user.companyId, dto.listingData);
   }
 
   @Post('listings/:id/publish')
