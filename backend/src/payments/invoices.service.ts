@@ -1,3 +1,4 @@
+import { withDomainOperationReceipt } from '../common/helpers/domain-operation-receipt';
 import { calculateRentAdjustment } from './rent-adjustment';
 import {
   computeBillingPeriod,
@@ -67,61 +68,74 @@ export class InvoicesService {
    * @param dto Datos de la factura
    * @returns La factura creada
    */
-  async create(dto: CreateInvoiceDto, companyId: string): Promise<Invoice> {
-    return this.dataSource.transaction(async (manager) => {
-      const invoicesRepository = manager.getRepository(Invoice);
-      const lease = await this.lockBillingLease(
+  async create(
+    dto: CreateInvoiceDto,
+    companyId: string,
+    executionKey?: string,
+  ): Promise<Invoice> {
+    return this.dataSource.transaction((manager) =>
+      withDomainOperationReceipt(
         manager,
-        dto.leaseId,
         companyId,
-      );
+        executionKey,
+        'invoice.create',
+        { ...dto },
+        async () => {
+          const invoicesRepository = manager.getRepository(Invoice);
+          const lease = await this.lockBillingLease(
+            manager,
+            dto.leaseId,
+            companyId,
+          );
 
-      // Obtener o crear cuenta del inquilino
-      const account = await this.tenantAccountsService.findByLease(
-        dto.leaseId,
-        lease.companyId,
-        manager,
-      );
+          // Obtener o crear cuenta del inquilino
+          const account = await this.tenantAccountsService.findByLease(
+            dto.leaseId,
+            lease.companyId,
+            manager,
+          );
 
-      // Obtener propietario
-      const ownerId = lease.property?.ownerId || lease.ownerId;
-      if (!ownerId) {
-        throw new BadRequestException(
-          'Property owner not found for this lease',
-        );
-      }
+          // Obtener propietario
+          const ownerId = lease.property?.ownerId || lease.ownerId;
+          if (!ownerId) {
+            throw new BadRequestException(
+              'Property owner not found for this lease',
+            );
+          }
 
-      // Calcular total
-      const total =
-        Number(dto.subtotal) +
-        Number(dto.lateFee || 0) +
-        Number(dto.adjustments || 0);
+          // Calcular total
+          const total =
+            Number(dto.subtotal) +
+            Number(dto.lateFee || 0) +
+            Number(dto.adjustments || 0);
 
-      // Generar número de factura si no se proporciona
-      const invoiceNumber =
-        dto.invoiceNumber ||
-        (await this.generateInvoiceNumber(companyId, manager));
+          // Generar número de factura si no se proporciona
+          const invoiceNumber =
+            dto.invoiceNumber ||
+            (await this.generateInvoiceNumber(companyId, manager));
 
-      const invoice = invoicesRepository.create({
-        companyId: lease.companyId,
-        leaseId: dto.leaseId,
-        ownerId,
-        tenantAccountId: account.id,
-        invoiceNumber,
-        periodStart: dto.periodStart,
-        periodEnd: dto.periodEnd,
-        subtotal: dto.subtotal,
-        lateFee: dto.lateFee || 0,
-        adjustments: dto.adjustments || 0,
-        total,
-        currencyCode: lease.currency,
-        dueDate: dto.dueDate,
-        status: InvoiceStatus.DRAFT,
-        notes: dto.notes,
-      });
+          const invoice = invoicesRepository.create({
+            companyId: lease.companyId,
+            leaseId: dto.leaseId,
+            ownerId,
+            tenantAccountId: account.id,
+            invoiceNumber,
+            periodStart: dto.periodStart,
+            periodEnd: dto.periodEnd,
+            subtotal: dto.subtotal,
+            lateFee: dto.lateFee || 0,
+            adjustments: dto.adjustments || 0,
+            total,
+            currencyCode: lease.currency,
+            dueDate: dto.dueDate,
+            status: InvoiceStatus.DRAFT,
+            notes: dto.notes,
+          });
 
-      return invoicesRepository.save(invoice);
-    });
+          return invoicesRepository.save(invoice);
+        },
+      ),
+    );
   }
 
   /**
@@ -337,9 +351,20 @@ export class InvoicesService {
    * @param id ID de la factura
    * @returns La factura emitida
    */
-  async issue(id: string, companyId: string): Promise<Invoice> {
+  async issue(
+    id: string,
+    companyId: string,
+    executionKey?: string,
+  ): Promise<Invoice> {
     return this.dataSource.transaction((manager) =>
-      this.issueWithManager(manager, id, companyId),
+      withDomainOperationReceipt(
+        manager,
+        companyId,
+        executionKey,
+        'invoice.issue',
+        { id },
+        () => this.issueWithManager(manager, id, companyId),
+      ),
     );
   }
 
@@ -706,42 +731,55 @@ export class InvoicesService {
    * @param id ID de la factura
    * @returns La factura cancelada
    */
-  async cancel(id: string, companyId: string): Promise<Invoice> {
-    return this.dataSource.transaction(async (manager) => {
-      const invoicesRepository = manager.getRepository(Invoice);
-      const invoice = await this.findOneForUpdate(
-        invoicesRepository,
-        id,
+  async cancel(
+    id: string,
+    companyId: string,
+    executionKey?: string,
+  ): Promise<Invoice> {
+    return this.dataSource.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
         companyId,
-      );
+        executionKey,
+        'invoice.cancel',
+        { id },
+        async () => {
+          const invoicesRepository = manager.getRepository(Invoice);
+          const invoice = await this.findOneForUpdate(
+            invoicesRepository,
+            id,
+            companyId,
+          );
 
-      if (invoice.status === InvoiceStatus.PAID) {
-        throw new BadRequestException('Cannot cancel a paid invoice');
-      }
+          if (invoice.status === InvoiceStatus.PAID) {
+            throw new BadRequestException('Cannot cancel a paid invoice');
+          }
 
-      // Si ya estaba emitida, revertir el movimiento en cuenta
-      if (
-        [
-          InvoiceStatus.PENDING,
-          InvoiceStatus.SENT,
-          InvoiceStatus.PARTIAL,
-          InvoiceStatus.OVERDUE,
-        ].includes(invoice.status)
-      ) {
-        await this.tenantAccountsService.addMovementWithManager(manager, {
-          accountId: invoice.tenantAccountId,
-          type: MovementType.ADJUSTMENT,
-          amount: -Number(invoice.total),
-          referenceType: 'invoice',
-          referenceId: invoice.id,
-          description: `Anulación factura ${invoice.invoiceNumber}`,
-          companyId: invoice.companyId,
-        });
-      }
+          // Si ya estaba emitida, revertir el movimiento en cuenta
+          if (
+            [
+              InvoiceStatus.PENDING,
+              InvoiceStatus.SENT,
+              InvoiceStatus.PARTIAL,
+              InvoiceStatus.OVERDUE,
+            ].includes(invoice.status)
+          ) {
+            await this.tenantAccountsService.addMovementWithManager(manager, {
+              accountId: invoice.tenantAccountId,
+              type: MovementType.ADJUSTMENT,
+              amount: -Number(invoice.total),
+              referenceType: 'invoice',
+              referenceId: invoice.id,
+              description: `Anulación factura ${invoice.invoiceNumber}`,
+              companyId: invoice.companyId,
+            });
+          }
 
-      invoice.status = InvoiceStatus.CANCELLED;
-      return invoicesRepository.save(invoice);
-    });
+          invoice.status = InvoiceStatus.CANCELLED;
+          return invoicesRepository.save(invoice);
+        },
+      ),
+    );
   }
 
   private async findOneForUpdate(
