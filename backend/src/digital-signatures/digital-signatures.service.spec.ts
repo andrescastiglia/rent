@@ -181,6 +181,18 @@ describe('DigitalSignaturesService', () => {
             tenantName: 'A',
           }),
       ).rejects.toBeInstanceOf(ServiceUnavailableException);
+      await expect(
+        productionModule
+          .get(DigitalSignaturesService)
+          .void('signature-uuid-1', 'company-uuid-1'),
+      ).rejects.toBeInstanceOf(ServiceUnavailableException);
+      expect(
+        productionModule.get(getRepositoryToken(DigitalSignatureRequest))
+          .findOne,
+      ).not.toHaveBeenCalled();
+      expect(
+        productionModule.get(getRepositoryToken(Lease)).findOne,
+      ).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException when lease not found', async () => {
