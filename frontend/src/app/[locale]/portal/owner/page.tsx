@@ -8,7 +8,7 @@ import { Property } from "@/types/property";
 import { formatMoneyByCode } from "@/lib/format-money";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Building2,
   FileText,
@@ -18,29 +18,42 @@ import {
 } from "lucide-react";
 import { hasUserRole } from "@/lib/permissions";
 
+function formatExactAmount(amount: string, locale: string): string {
+  const [whole, fraction] = amount.split(".");
+  const fullLocale =
+    locale === "es" ? "es-AR" : locale === "pt" ? "pt-BR" : "en-US";
+  const separator =
+    new Intl.NumberFormat(fullLocale)
+      .formatToParts(1.1)
+      .find((part) => part.type === "decimal")?.value ?? ".";
+  return `${new Intl.NumberFormat(fullLocale).format(BigInt(whole))}${separator}${fraction}`;
+}
+
 function SummaryCard({
   label,
   value,
   icon: Icon,
   colorClass,
+  wide = false,
 }: {
   readonly label: string;
-  readonly value: string | number;
+  readonly value: React.ReactNode;
   readonly icon: React.ElementType;
   readonly colorClass: string;
+  readonly wide?: boolean;
 }) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm flex items-center gap-3">
+    <div
+      className={`bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm flex items-center gap-3 ${wide ? "col-span-full" : ""}`}
+    >
       <div className={`rounded-lg p-2 ${colorClass}`}>
         <Icon className="h-5 w-5 text-white" />
       </div>
       <div className="min-w-0">
-        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-          {label}
-        </p>
-        <p className="text-lg font-bold text-gray-900 dark:text-white">
+        <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+        <div className="text-lg font-bold text-gray-900 dark:text-white break-words">
           {value}
-        </p>
+        </div>
       </div>
     </div>
   );
@@ -52,41 +65,69 @@ export default function OwnerDashboardPage() {
   const locale = useLocale();
   const t = useTranslations("ownerPortal");
 
-  const [summary, setSummary] = useState<OwnerSummary | null>(null);
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [loading, setLoading] = useState(true);
+  const scope = `${user?.companyId ?? ""}:${user?.id ?? ""}`;
+  const [result, setResult] = useState<{
+    scope: string;
+    summary: OwnerSummary;
+    properties: Property[];
+  } | null>(null);
+  const [failedScope, setFailedScope] = useState<string | null>(null);
+  const [revision, setRevision] = useState(0);
+  const isOwner = hasUserRole(user, "owner");
 
   useEffect(() => {
-    if (!authLoading && user && !hasUserRole(user, "owner")) {
-      router.replace("/");
-    }
-  }, [user, authLoading, router]);
-
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const [summaryData, propertiesData] = await Promise.all([
-        ownersApi.getMySummary(),
-        propertiesApi.getAll(),
-      ]);
-      setSummary(summaryData);
-      setProperties(propertiesData.slice(0, 5));
-    } catch (error) {
-      console.error("Error fetching owner dashboard data:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    if (!authLoading && user && !isOwner) router.replace("/");
+  }, [user, authLoading, isOwner, router]);
 
   useEffect(() => {
-    if (!authLoading && hasUserRole(user, "owner")) {
-      fetchData();
-    }
-  }, [authLoading, user, fetchData]);
+    if (authLoading || !isOwner) return;
+    let current = true;
+    Promise.all([ownersApi.getMySummary(), propertiesApi.getAll()])
+      .then(([summary, properties]) => {
+        if (current) {
+          setFailedScope(null);
+          setResult({ scope, summary, properties: properties.slice(0, 5) });
+        }
+      })
+      .catch(() => {
+        if (current) setFailedScope(scope);
+      });
+    return () => {
+      current = false;
+    };
+  }, [authLoading, isOwner, scope, revision]);
 
+  const failed = failedScope === scope;
+  const data = result?.scope === scope ? result : null;
+  const loading = !failed && !data;
+  if (!authLoading && (!user || !isOwner)) return null;
+  if (failed)
+    return (
+      <div
+        role="alert"
+        className="space-y-3 rounded-xl border border-red-300 p-4"
+      >
+        <p>{t("summaryError")}</p>
+        <button
+          type="button"
+          className="rounded border px-4 py-2 focus-visible:outline-2"
+          onClick={() => {
+            setFailedScope(null);
+            setResult(null);
+            setRevision((value) => value + 1);
+          }}
+        >
+          {t("retry")}
+        </button>
+      </div>
+    );
   if (authLoading || loading) {
     return (
-      <div className="flex justify-center items-center min-h-[200px]">
+      <div
+        role="status"
+        aria-label={t("loading")}
+        className="flex justify-center items-center min-h-[200px]"
+      >
         <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
       </div>
     );
@@ -96,7 +137,8 @@ export default function OwnerDashboardPage() {
 
   const ownerBase = `/${locale}/portal/owner`;
 
-  const currencyCode = summary?.currencyCode ?? "ARS";
+  if (!data) return null;
+  const { summary, properties } = data;
 
   return (
     <div className="space-y-6">
@@ -107,7 +149,7 @@ export default function OwnerDashboardPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <SummaryCard
           label={t("propertiesCount")}
           value={summary?.propertiesCount ?? 0}
@@ -127,16 +169,27 @@ export default function OwnerDashboardPage() {
           colorClass="bg-yellow-500"
         />
         <SummaryCard
+          wide
           label={t("totalIncomeMonth")}
-          value={formatMoneyByCode(
-            summary?.totalIncomeCurrentMonth ?? 0,
-            currencyCode,
-            locale,
-          )}
+          value={
+            summary.collectionsByCurrency.length
+              ? summary.collectionsByCurrency.map((total) => (
+                  <div key={total.currencyCode}>
+                    <span>{total.currencyCode}</span>{" "}
+                    <span>{formatExactAmount(total.amount, locale)}</span>
+                  </div>
+                ))
+              : t("noCollections")
+          }
           icon={TrendingUp}
           colorClass="bg-purple-500"
         />
       </div>
+
+      <p className="text-sm text-gray-600 dark:text-gray-300">
+        {t("collectionsPeriod", { period: summary.period })}{" "}
+        {t("collectionsHelp")}
+      </p>
 
       {/* Properties list */}
       <section>
@@ -170,7 +223,7 @@ export default function OwnerDashboardPage() {
                   {property.rentPrice
                     ? formatMoneyByCode(
                         Number(property.rentPrice),
-                        currencyCode,
+                        "ARS",
                         locale,
                       )
                     : "-"}

@@ -248,8 +248,9 @@ describe("ownersApi", () => {
         propertiesCount: 3,
         activeLeases: 2,
         pendingSettlements: 1,
-        totalIncomeCurrentMonth: 150000,
-        currencyCode: "ARS",
+        period: "2026-09",
+        timeZone: "America/Argentina/Buenos_Aires",
+        collectionsByCurrency: [{ currencyCode: "ARS", amount: "150000.00" }],
       });
     });
   });
@@ -611,68 +612,45 @@ describe("ownersApi", () => {
       expect(result.phone).toBe("123-4567");
     });
 
-    it("getMySummary calls apiClient.get('/owners/me/summary') and maps primary alias fields", async () => {
+    it("loads the generated summary contract without converting exact amounts", async () => {
       const { ownersApi, apiClient, auth } = await loadOwnersApi(false);
       auth.getToken.mockReturnValue("token-xyz");
-      apiClient.get.mockResolvedValue({
-        activeLeaseCount: 5,
-        pendingSettlementsCount: 3,
-        totalIncomeCurrentMonth: 200000,
-        properties: [{}, {}, {}, {}],
-        currencyCode: "USD",
-      });
-
-      const result = await ownersApi.getMySummary();
-
+      const summary = {
+        propertiesCount: 4,
+        activeLeases: 5,
+        pendingSettlements: 3,
+        period: "2026-09",
+        timeZone: "America/Argentina/Buenos_Aires",
+        collectionsByCurrency: [
+          { currencyCode: "ARS", amount: "9007199254740993.01" },
+          { currencyCode: "USD", amount: "25.99" },
+        ],
+      };
+      apiClient.get.mockResolvedValue(summary);
+      expect(await ownersApi.getMySummary()).toEqual(summary);
       expect(apiClient.get).toHaveBeenCalledWith(
         "/owners/me/summary",
         "token-xyz",
       );
-      expect(result).toEqual({
-        propertiesCount: 4,
-        activeLeases: 5,
-        pendingSettlements: 3,
-        totalIncomeCurrentMonth: 200000,
-        currencyCode: "USD",
-      });
     });
-
-    it("getMySummary maps alternative alias fields (activeLeases, pendingSettlements, totalIncome, propertiesCount)", async () => {
-      const { ownersApi, apiClient, auth } = await loadOwnersApi(false);
-      auth.getToken.mockReturnValue("token-xyz");
-      apiClient.get.mockResolvedValue({
-        activeLeases: 3,
-        pendingSettlements: 1,
-        totalIncome: 150000,
-        propertiesCount: 2,
-      });
-
-      const result = await ownersApi.getMySummary();
-
-      expect(result).toEqual({
-        propertiesCount: 2,
-        activeLeases: 3,
-        pendingSettlements: 1,
-        totalIncomeCurrentMonth: 150000,
-        currencyCode: "ARS",
-      });
-    });
-
-    it("getMySummary falls back to zeroes and 'ARS' when raw response has no matching fields", async () => {
-      const { ownersApi, apiClient, auth } = await loadOwnersApi(false);
-      auth.getToken.mockReturnValue("token-xyz");
-      apiClient.get.mockResolvedValue({});
-
-      const result = await ownersApi.getMySummary();
-
-      expect(result).toEqual({
-        propertiesCount: 0,
-        activeLeases: 0,
+    it.each([
+      {},
+      {
+        propertiesCount: 1,
+        activeLeases: 1,
         pendingSettlements: 0,
-        totalIncomeCurrentMonth: 0,
-        currencyCode: "ARS",
-      });
-    });
+        period: "2026-09",
+        timeZone: "America/Argentina/Buenos_Aires",
+        collectionsByCurrency: [{ currencyCode: "ARS", amount: 123 }],
+      },
+    ])(
+      "rejects missing or inexact summary data instead of displaying zeroes",
+      async (response) => {
+        const { ownersApi, apiClient } = await loadOwnersApi(false);
+        apiClient.get.mockResolvedValue(response);
+        await expect(ownersApi.getMySummary()).rejects.toThrow();
+      },
+    );
 
     it("downloadSettlementReceipt triggers file download when response is ok", async () => {
       const { ownersApi, auth } = await loadOwnersApi(false);

@@ -6,13 +6,29 @@ import {
   UpdateOwnerInput,
 } from "@/types/owner";
 
-export interface OwnerSummary {
-  propertiesCount: number;
-  activeLeases: number;
-  pendingSettlements: number;
-  totalIncomeCurrentMonth: number;
-  currencyCode: string;
-}
+import type { OwnerSummaryDto } from "@/generated/openapi";
+import { z } from "zod";
+
+export type OwnerSummary = OwnerSummaryDto;
+const ownerSummarySchema = z.object({
+  propertiesCount: z.number().int().nonnegative(),
+  activeLeases: z.number().int().nonnegative(),
+  pendingSettlements: z.number().int().nonnegative(),
+  period: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+  timeZone: z.literal("America/Argentina/Buenos_Aires"),
+  collectionsByCurrency: z
+    .array(
+      z.object({
+        currencyCode: z.string().regex(/^[A-Z]{3}$/),
+        amount: z.string().regex(/^\d+\.\d{2}$/),
+      }),
+    )
+    .refine(
+      (values) =>
+        new Set(values.map((value) => value.currencyCode)).size ===
+        values.length,
+    ),
+});
 import { apiClient } from "../api";
 import { getToken } from "../auth";
 
@@ -396,34 +412,16 @@ export const ownersApi = {
         propertiesCount: 3,
         activeLeases: 2,
         pendingSettlements: 1,
-        totalIncomeCurrentMonth: 150000,
-        currencyCode: "ARS",
+        period: "2026-09",
+        timeZone: "America/Argentina/Buenos_Aires",
+        collectionsByCurrency: [{ currencyCode: "ARS", amount: "150000.00" }],
       };
     }
     const token = getToken();
-    const raw = await apiClient.get<{
-      activeLeaseCount?: number | string;
-      activeLeases?: number | string;
-      pendingSettlementsCount?: number | string;
-      pendingSettlements?: number | string;
-      totalIncomeCurrentMonth?: number | string;
-      totalIncome?: number | string;
-      properties?: unknown[];
-      propertiesCount?: number | string;
-      currencyCode?: string;
-    }>("/owners/me/summary", token ?? undefined);
-    return {
-      propertiesCount: Number(
-        raw.propertiesCount ?? raw.properties?.length ?? 0,
-      ),
-      activeLeases: Number(raw.activeLeaseCount ?? raw.activeLeases ?? 0),
-      pendingSettlements: Number(
-        raw.pendingSettlementsCount ?? raw.pendingSettlements ?? 0,
-      ),
-      totalIncomeCurrentMonth: Number(
-        raw.totalIncomeCurrentMonth ?? raw.totalIncome ?? 0,
-      ),
-      currencyCode: raw.currencyCode ?? "ARS",
-    };
+    const raw = await apiClient.get<unknown>(
+      "/owners/me/summary",
+      token ?? undefined,
+    );
+    return ownerSummarySchema.parse(raw);
   },
 };

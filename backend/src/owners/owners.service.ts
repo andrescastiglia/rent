@@ -1,3 +1,4 @@
+import { OwnerSummaryDto } from './dto/owner-summary.dto';
 import {
   BadRequestException,
   ConflictException,
@@ -35,15 +36,6 @@ import {
   CommunicationEvent,
   CommunicationRecipientRole,
 } from '../communications/entities/communication-template.entity';
-
-export interface OwnerSummary {
-  owner: Owner;
-  properties: Property[];
-  activeLeaseCount: number;
-  pendingSettlementsCount: number;
-  totalIncomeCurrentMonth: number;
-  currencyCode: string;
-}
 
 interface UserContext {
   id: string;
@@ -942,72 +934,45 @@ export class OwnersService {
   async getOwnerSummary(
     userId: string,
     companyId: string,
-  ): Promise<OwnerSummary> {
-    const owner = await this.ownersRepository.findOne({
-      where: { userId, companyId, deletedAt: IsNull() },
-      relations: ['user'],
-    });
-
-    if (!owner) {
-      throw new NotFoundException(`Owner profile not found for user ${userId}`);
-    }
-
-    const properties = await this.propertiesRepository.find({
-      where: { ownerId: owner.id, companyId, deletedAt: IsNull() },
-      order: { createdAt: 'DESC' },
-    });
-
-    const now = new Date();
-    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const firstOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-
-    const summaryRows: Array<{
-      active_leases: string;
-      pending_settlements: string;
-      total_income: string;
-    }> = await this.dataSource.query(
-      `
-      SELECT
-        (
-          SELECT COUNT(*)
-          FROM leases l
-          WHERE l.owner_id = $1
-            AND l.company_id = $2
-            AND l.status = 'active'
-            AND l.deleted_at IS NULL
-        )::text AS active_leases,
-        (
-          SELECT COUNT(*)
-          FROM settlements s
-          WHERE s.owner_id = $1
-            AND s.company_id = $2
-            AND s.status IN ('pending', 'processing')
-        )::text AS pending_settlements,
-        (
-          SELECT COALESCE(SUM(p.amount), 0)
-          FROM payments p
-          INNER JOIN leases l ON l.id = p.lease_id
-          WHERE l.owner_id = $1
-            AND l.company_id = $2
-            AND p.status = 'completed'
-            AND p.paid_at >= $3
-            AND p.paid_at < $4
-            AND p.deleted_at IS NULL
-        )::text AS total_income
-      `,
-      [owner.id, companyId, firstOfMonth, firstOfNextMonth],
+  ): Promise<OwnerSummaryDto> {
+    if (!companyId) throw new ForbiddenException('Company scope required');
+    // One statement gives counters and monetary totals the same database snapshot.
+    // The business month uses Argentina time, independently of the process/database zone.
+    const [summary] = await this.dataSource.query<OwnerSummaryDto[]>(
+      `WITH subject AS (
+         SELECT id FROM owners WHERE user_id=$1 AND company_id=$2 AND deleted_at IS NULL
+       ), bounds AS (
+         SELECT date_trunc('month', $3::timestamptz AT TIME ZONE 'America/Argentina/Buenos_Aires')::date AS start_date
+       ), collections AS (
+         SELECT p.currency, SUM(a.amount)::text AS amount
+         FROM subject o
+         JOIN invoices i ON i.owner_id=o.id AND i.company_id=$2 AND i.deleted_at IS NULL
+           AND i.status IN ('pending','sent','partial','paid','overdue')
+         JOIN leases l ON l.id=i.lease_id AND l.company_id=$2 AND l.owner_id=o.id AND l.deleted_at IS NULL
+         JOIN tenant_accounts ta ON ta.id=i.tenant_account_id AND ta.company_id=$2
+           AND ta.lease_id=l.id AND ta.tenant_id=l.tenant_id AND ta.currency=i.currency AND ta.deleted_at IS NULL
+         JOIN payment_allocations a ON a.invoice_id=i.id AND a.company_id=$2 AND a.reversed_at IS NULL AND a.amount>0
+         JOIN payments p ON p.id=a.payment_id AND p.company_id=$2 AND p.status='completed'
+           AND p.allocations_recorded AND p.deleted_at IS NULL AND p.currency=i.currency AND p.tenant_id=ta.tenant_id
+         LEFT JOIN invoices pi ON pi.id=p.invoice_id AND pi.company_id=$2
+         CROSS JOIN bounds b
+         WHERE COALESCE(p.tenant_account_id, pi.tenant_account_id)=ta.id
+           AND p.payment_date>=b.start_date AND p.payment_date<b.start_date+INTERVAL '1 month'
+           AND (SELECT SUM(pa.amount) FROM payment_allocations pa WHERE pa.payment_id=p.id AND pa.reversed_at IS NULL)<=p.amount
+         GROUP BY p.currency
+       )
+       SELECT
+         (SELECT COUNT(*)::int FROM properties WHERE owner_id=o.id AND company_id=$2 AND deleted_at IS NULL) AS "propertiesCount",
+         (SELECT COUNT(*)::int FROM leases WHERE owner_id=o.id AND company_id=$2 AND status='active' AND deleted_at IS NULL) AS "activeLeases",
+         (SELECT COUNT(*)::int FROM settlements WHERE owner_id=o.id AND status IN ('pending','processing')) AS "pendingSettlements",
+         to_char(b.start_date,'YYYY-MM') AS period,
+         'America/Argentina/Buenos_Aires' AS "timeZone",
+         COALESCE((SELECT jsonb_agg(jsonb_build_object('currencyCode',currency,'amount',amount) ORDER BY currency) FROM collections),'[]'::jsonb) AS "collectionsByCurrency"
+       FROM subject o CROSS JOIN bounds b`,
+      [userId, companyId, new Date()],
     );
-
-    const row = summaryRows[0];
-
-    return {
-      owner,
-      properties,
-      activeLeaseCount: Number.parseInt(row.active_leases, 10),
-      pendingSettlementsCount: Number.parseInt(row.pending_settlements, 10),
-      totalIncomeCurrentMonth: Number.parseFloat(row.total_income),
-      currencyCode: 'ARS',
-    };
+    if (!summary) throw new NotFoundException('Owner profile not found');
+    return summary;
   }
 
   private async assertOwnerAccess(

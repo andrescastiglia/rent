@@ -33,8 +33,14 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
   en web/portal. Ver [operación y pruebas](technical/confirmed-contracts.md).
   Importación de contratos vigente ahora guarda contrato, archivo original, inmueble
   y cuenta en una transacción; hash/actor/versión y rechazo de importaciones concurrentes.
-  Pendiente: gates de contratos/importación, recuperación histórica,
+  Confirmación incorporada a main con los 23 gates del PR #230 aprobados.
+  Pendiente: gates de importación, recuperación histórica,
   verificar los demás productores de documentos/proveedores y desplegar.
+
+El resumen del propietario usa el esquema contable actual y devuelve cobros
+imputados por moneda, con mes de Argentina y errores explícitos en web. Ver
+[contrato y límites](technical/owner-summary.md). Pendiente: gates y despliegue
+coordinado de este contrato de API y su frontend.
 
 ### WhatsApp seguro
 

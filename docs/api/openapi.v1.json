@@ -5042,13 +5042,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/OwnerSummaryDto"
                 }
               }
             }
           }
         },
-        "summary": "Get owner summary for the authenticated user (role=OWNER).\nReturns: properties list, active leases, pending settlements, total income current month.",
+        "summary": "Get owner summary for the authenticated user (role=OWNER).\nReturns scoped counts and gross allocated collections by currency for the Argentina business month.",
         "tags": [
           "Owners"
         ]
@@ -15738,6 +15738,62 @@
         "required": [
           "firstName",
           "lastName"
+        ]
+      },
+      "OwnerCollectionTotalDto": {
+        "type": "object",
+        "properties": {
+          "currencyCode": {
+            "type": "string",
+            "example": "ARS"
+          },
+          "amount": {
+            "type": "string",
+            "example": "150000.25",
+            "description": "Exact decimal amount of gross allocated collections."
+          }
+        },
+        "required": [
+          "currencyCode",
+          "amount"
+        ]
+      },
+      "OwnerSummaryDto": {
+        "type": "object",
+        "properties": {
+          "propertiesCount": {
+            "type": "number"
+          },
+          "activeLeases": {
+            "type": "number"
+          },
+          "pendingSettlements": {
+            "type": "number"
+          },
+          "period": {
+            "type": "string",
+            "example": "2026-09"
+          },
+          "timeZone": {
+            "type": "string",
+            "enum": [
+              "America/Argentina/Buenos_Aires"
+            ]
+          },
+          "collectionsByCurrency": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OwnerCollectionTotalDto"
+            }
+          }
+        },
+        "required": [
+          "propertiesCount",
+          "activeLeases",
+          "pendingSettlements",
+          "period",
+          "timeZone",
+          "collectionsByCurrency"
         ]
       },
       "UpdateOwnerDto": {

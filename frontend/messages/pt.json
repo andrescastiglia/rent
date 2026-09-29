@@ -1403,7 +1403,7 @@
     "settlements": "Liquidações",
     "activeLeases": "Contratos Vigentes",
     "pendingSettlements": "Liquidações Pendentes",
-    "totalIncomeMonth": "Receita do Mês",
+    "totalIncomeMonth": "Recebimentos alocados do mês",
     "noSettlements": "Sem liquidações",
     "downloadReceipt": "Baixar Recibo",
     "noProperties": "Sem imóveis",
@@ -1420,14 +1420,19 @@
     "rent": "Aluguel",
     "available": "Disponível",
     "rented": "Alugado",
-    "loading": "Carregando...",
+    "loading": "Carregando resumo",
     "settlementStatus": {
       "pending": "Pendente",
       "processing": "Em processamento",
       "completed": "Concluído",
       "failed": "Falhou",
       "cancelled": "Cancelada"
-    }
+    },
+    "summaryError": "Não foi possível carregar o resumo.",
+    "retry": "Tentar novamente",
+    "noCollections": "Sem recebimentos alocados",
+    "collectionsPeriod": "Período: {period} (Argentina).",
+    "collectionsHelp": "Recebimentos brutos por data de pagamento. As liquidações mostram o valor a transferir."
   },
   "tenantPortal": {
     "welcome": "Bem-vindo/a",

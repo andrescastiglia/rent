@@ -1,3 +1,5 @@
+import { ApiOkResponse } from '@nestjs/swagger';
+import { OwnerSummaryDto } from './dto/owner-summary.dto';
 import {
   Body,
   Controller,
@@ -114,9 +116,10 @@ export class OwnersController {
 
   /**
    * Get owner summary for the authenticated user (role=OWNER).
-   * Returns: properties list, active leases, pending settlements, total income current month.
+   * Returns scoped counts and gross allocated collections by currency for the Argentina business month.
    */
   @Get('me/summary')
+  @ApiOkResponse({ type: OwnerSummaryDto })
   @Roles(UserRole.OWNER)
   async getMyProfileSummary(@Request() req: AuthenticatedRequest) {
     return this.ownersService.getOwnerSummary(req.user.id, req.user.companyId);
