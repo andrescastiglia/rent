@@ -30,6 +30,7 @@ describe('InvoicesService', () => {
   let inflationIndexRepository: MockRepository<InflationIndex>;
   let tenantAccountsService: Partial<TenantAccountsService>;
   let dataSource: { transaction: jest.Mock };
+  let manager: any;
 
   type MockRepository<T extends Record<string, any> = any> = Partial<
     Record<keyof Repository<T>, jest.Mock>
@@ -51,18 +52,20 @@ describe('InvoicesService', () => {
       addMovement: jest.fn(),
       addMovementWithManager: jest.fn(),
     };
-    dataSource = {
-      transaction: jest.fn(async (callback: (manager: any) => unknown) =>
-        callback({
-          query: jest.fn(),
-          getRepository: (entity: unknown) => {
-            if (entity === Invoice) return invoicesRepository;
-            if (entity === CommissionInvoice) return _commissionRepository;
-            if (entity === Lease) return leasesRepository;
-            throw new Error('Unexpected transaction repository');
-          },
-        }),
+    manager = {
+      query: jest.fn(async (sql: string) =>
+        sql.includes('AS sequence') ? [{ sequence: '10' }] : [],
       ),
+      getRepository: (entity: unknown) => {
+        if (entity === Invoice) return invoicesRepository;
+        if (entity === CommissionInvoice) return _commissionRepository;
+        if (entity === Lease) return leasesRepository;
+        if (entity === InflationIndex) return inflationIndexRepository;
+        throw new Error('Unexpected transaction repository');
+      },
+    };
+    dataSource = {
+      transaction: jest.fn(async (callback) => callback(manager)),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -99,6 +102,9 @@ describe('InvoicesService', () => {
     invoicesRepository = module.get(getRepositoryToken(Invoice));
     _commissionRepository = module.get(getRepositoryToken(CommissionInvoice));
     leasesRepository = module.get(getRepositoryToken(Lease));
+    leasesRepository.findOneOrFail!.mockImplementation((...args) =>
+      leasesRepository.findOne!(...args),
+    );
     inflationIndexRepository = module.get(getRepositoryToken(InflationIndex));
   });
 
@@ -138,6 +144,7 @@ describe('InvoicesService', () => {
     expect(tenantAccountsService.calculateLateFee).toHaveBeenCalledWith(
       'acc-1',
       'company-1',
+      manager,
     );
     expect(invoicesRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -180,7 +187,7 @@ describe('InvoicesService', () => {
 
     const created = invoicesRepository.create!.mock.calls[0][0];
     expect(new Date(created.periodStart).toISOString()).toBe(
-      '2025-01-01T00:00:00.000Z',
+      '2025-01-01T12:00:00.000Z',
     );
     expect(new Date(created.periodEnd).getUTCDate()).toBe(31);
     expect(new Date(created.dueDate).getDate()).toBe(5);
@@ -209,7 +216,10 @@ describe('InvoicesService', () => {
 
     expect(inflationIndexRepository.findOne).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { indexType: IndexTypeEntity.IPC },
+        where: expect.objectContaining({
+          indexType: IndexTypeEntity.IPC,
+          periodDate: expect.anything(),
+        }),
       }),
     );
     expect(result).toBe(1100);
@@ -226,6 +236,26 @@ describe('InvoicesService', () => {
         where: { id: 'missing', companyId: 'company-1' },
       }),
     );
+  });
+
+  it('does not silently advance adjustment dates when the required index is unavailable', async () => {
+    inflationIndexRepository.findOne!.mockResolvedValue(null);
+    const lease = {
+      monthlyRent: 1000,
+      nextAdjustmentDate: new Date('2026-01-01'),
+      adjustmentType: AdjustmentType.INFLATION_INDEX,
+      inflationIndexType: InflationIndexType.IPC,
+    };
+    await expect(
+      (service as any).applyAdjustmentIfNeeded(
+        lease,
+        new Date('2026-02-01'),
+        true,
+        manager,
+      ),
+    ).rejects.toThrow('Inflation index unavailable');
+    expect(leasesRepository.save).not.toHaveBeenCalled();
+    expect(lease.monthlyRent).toBe(1000);
   });
 
   it('create throws when owner is missing on lease', async () => {
@@ -459,12 +489,12 @@ describe('InvoicesService', () => {
     );
   });
 
-  it('generateInvoiceNumber increments sequence from last invoice', async () => {
+  it('generateInvoiceNumber uses a company transaction lock and the database sequence', async () => {
     invoicesRepository.findOne!.mockResolvedValue({
       invoiceNumber: 'INV-202501-0009',
     } as any);
 
-    const number = await service.generateInvoiceNumber('owner-1');
+    const number = await service.generateInvoiceNumber('company-1', manager);
     expect(number).toMatch(/^INV-\d{6}-0010$/);
   });
 
@@ -495,17 +525,20 @@ describe('InvoicesService', () => {
     _commissionRepository.create!.mockImplementation((d) => d);
     _commissionRepository.save!.mockResolvedValue({ id: 'com-1' });
 
-    await (service as any).createCommissionInvoice({
-      id: 'inv-1',
-      leaseId: 'lease-1',
-      ownerId: 'owner-1',
-      subtotal: 1000,
-      currencyCode: 'ARS',
-      periodStart: new Date('2025-01-01'),
-      periodEnd: new Date('2025-01-31'),
-      invoiceNumber: 'INV-1',
-      companyId: 'company-1',
-    } as any);
+    await (service as any).createCommissionInvoice(
+      {
+        id: 'inv-1',
+        leaseId: 'lease-1',
+        ownerId: 'owner-1',
+        subtotal: 1000,
+        currencyCode: 'ARS',
+        periodStart: new Date('2025-01-01'),
+        periodEnd: new Date('2025-01-31'),
+        invoiceNumber: 'INV-1',
+        companyId: 'company-1',
+      } as any,
+      manager,
+    );
 
     expect(_commissionRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({

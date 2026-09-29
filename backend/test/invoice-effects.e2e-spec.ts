@@ -169,11 +169,11 @@ describe('Durable issued invoice documents (e2e)', () => {
     if (oldFrontendUrl === undefined) delete process.env.FRONTEND_URL;
     else process.env.FRONTEND_URL = oldFrontendUrl;
   });
-  const seed = async () => {
+  const seed = async (property = propertyId, owner = ownerId) => {
     const [lease] = await db.query(
       `INSERT INTO leases(company_id,property_id,owner_id,tenant_id,contract_type,status,start_date,end_date,monthly_rent,currency)
       VALUES($1,$2,$3,$4,'rental','active','2026-09-01','2027-09-01',1000,'ARS') RETURNING id`,
-      [companyId, propertyId, ownerId, tenantId],
+      [companyId, property, owner, tenantId],
     );
     const [account] = await db.query(
       "INSERT INTO tenant_accounts(company_id,lease_id,tenant_id,current_balance,currency) VALUES($1,$2,$3,0,'ARS') RETURNING id",
@@ -410,6 +410,10 @@ describe('Durable issued invoice documents (e2e)', () => {
 
   it('queues monthly auto-issuance and the IA tool through the same domain transaction', async () => {
     const { id, leaseId } = await seed();
+    await db.query(
+      "UPDATE leases SET next_billing_date='2026-10-01' WHERE id=$1",
+      [leaseId],
+    );
     const tool = buildAiToolDefinitions({
       invoicesService: app.get(InvoicesService),
     } as any).find((t) => t.name === 'patch_invoice_issue')!;
@@ -441,5 +445,213 @@ describe('Durable issued invoice documents (e2e)', () => {
       .set('x-batch-communications-token', 'contracts-test-token')
       .send({})
       .expect(201);
+  });
+
+  const generate = (
+    leaseId: string,
+    body: Record<string, unknown> = {},
+    auth = token,
+  ) =>
+    request(app.getHttpServer())
+      .post(`/invoices/lease/${leaseId}/generate`)
+      .auth(auth, { type: 'bearer' })
+      .send(body);
+  const october = {
+    periodStart: '2026-10-01',
+    periodEnd: '2026-10-31',
+    dueDate: '2026-11-10',
+  };
+
+  it('rolls back rent adjustment, calendar, invoice, account, commission and job together if auto-issuance fails', async () => {
+    const { leaseId, accountId } = await seed();
+    await db.query(
+      "UPDATE leases SET next_billing_date='2026-10-01',next_adjustment_date='2026-10-01',adjustment_type='percentage',adjustment_value=10 WHERE id=$1",
+      [leaseId],
+    );
+    const before = (
+      await db.query(
+        'SELECT monthly_rent,next_billing_date,last_billing_date,next_adjustment_date,last_adjustment_date FROM leases WHERE id=$1',
+        [leaseId],
+      )
+    )[0];
+    const capture = jest
+      .spyOn(app.get(InvoicePdfService), 'captureSnapshot')
+      .mockRejectedValueOnce(new Error('snapshot failed'));
+    await expect(
+      app
+        .get(InvoicesService)
+        .generateForLease(leaseId, { issue: true }, companyId),
+    ).rejects.toThrow('snapshot failed');
+    capture.mockRestore();
+    expect(
+      (
+        await db.query(
+          'SELECT monthly_rent,next_billing_date,last_billing_date,next_adjustment_date,last_adjustment_date FROM leases WHERE id=$1',
+          [leaseId],
+        )
+      )[0],
+    ).toEqual(before);
+    expect(
+      (
+        await db.query(
+          'SELECT current_balance FROM tenant_accounts WHERE id=$1',
+          [accountId],
+        )
+      )[0].current_balance,
+    ).toBe('0.00');
+    expect(await jobs()).toHaveLength(0);
+    expect(
+      await db.query('SELECT id FROM invoices WHERE company_id=$1', [
+        companyId,
+      ]),
+    ).toHaveLength(1);
+    expect(
+      await db.query('SELECT id FROM commission_invoices WHERE company_id=$1', [
+        companyId,
+      ]),
+    ).toHaveLength(0);
+  });
+
+  it('serializes repeated custom periods, applies rent adjustment once and advances the calendar atomically', async () => {
+    const { leaseId } = await seed();
+    await db.query(
+      "UPDATE leases SET next_billing_date='2026-10-01',next_adjustment_date='2026-10-01',adjustment_type='percentage',adjustment_value=10 WHERE id=$1",
+      [leaseId],
+    );
+    await generate(leaseId, { ...october, issue: true }, foreignToken).expect(
+      404,
+    );
+    const responses = await Promise.all([
+      generate(leaseId, { ...october, issue: true }),
+      generate(leaseId, { ...october, issue: true }),
+    ]);
+    expect(responses.map((r) => r.status).sort()).toEqual([201, 409]);
+    const [row] = await db.query(
+      'SELECT monthly_rent,next_billing_date::text,last_billing_date::text FROM leases WHERE id=$1',
+      [leaseId],
+    );
+    expect(row).toEqual({
+      monthly_rent: '1100.00',
+      next_billing_date: '2026-11-01',
+      last_billing_date: '2026-10-01',
+    });
+    expect(await jobs()).toHaveLength(1);
+    expect((await jobs())[0].snapshot.invoice.total).toBe('1100.00');
+    expect(
+      await db.query('SELECT id FROM commission_invoices WHERE company_id=$1', [
+        companyId,
+      ]),
+    ).toHaveLength(1);
+  });
+
+  it('allocates company-wide invoice and commission numbers across different owners concurrently', async () => {
+    const first = await seed();
+    const secondUser = await createActiveTestUser(app.get(UsersService), {
+      companyId,
+      role: UserRole.ADMIN,
+      email: `second-${randomUUID()}@billing.test`,
+      password,
+      firstName: 'Second',
+      lastName: 'Owner',
+    });
+    const [owner] = await db.query(
+      'INSERT INTO owners(company_id,user_id,commission_rate) VALUES($1,$2,10) RETURNING id',
+      [companyId, secondUser.id],
+    );
+    const property = await db.getRepository(Property).save({
+      companyId,
+      ownerId: owner.id,
+      name: 'Second billing property',
+      propertyType: PropertyType.APARTMENT,
+      addressStreet: 'Test 200',
+      addressCity: 'Buenos Aires',
+      addressState: 'Buenos Aires',
+    });
+    const second = await seed(property.id, owner.id);
+    const results = await Promise.all(
+      Array.from({ length: 6 }, (_, i) =>
+        request(app.getHttpServer())
+          .post('/invoices')
+          .auth(token, { type: 'bearer' })
+          .send({
+            ...october,
+            leaseId: i % 2 ? first.leaseId : second.leaseId,
+            subtotal: 100,
+          })
+          .expect(201),
+      ),
+    );
+    const numbers = results.map((r) => r.body.invoiceNumber);
+    expect(new Set(numbers).size).toBe(6);
+    for (const number of numbers) expect(number).toMatch(/^INV-\d{6}-\d{4}$/);
+    await Promise.all(results.map((r) => issue(r.body.id).expect(200)));
+    const commissions = await db.query(
+      'SELECT invoice_number FROM commission_invoices WHERE company_id=$1',
+      [companyId],
+    );
+    expect(
+      new Set(
+        commissions.map((r: { invoice_number: string }) => r.invoice_number),
+      ).size,
+    ).toBe(6);
+    expect(await jobs()).toHaveLength(6);
+  });
+
+  it('rejects partial and reversed custom dates before changing invoices or billing dates', async () => {
+    const { leaseId } = await seed();
+    await generate(leaseId, { periodStart: '2026-10-01' }).expect(400);
+    await generate(leaseId, { ...october, periodEnd: '2026-09-01' }).expect(
+      400,
+    );
+    expect(
+      await db.query('SELECT id FROM invoices WHERE company_id=$1', [
+        companyId,
+      ]),
+    ).toHaveLength(1);
+    expect(
+      (
+        await db.query('SELECT next_billing_date FROM leases WHERE id=$1', [
+          leaseId,
+        ])
+      )[0].next_billing_date,
+    ).toBeNull();
+  });
+
+  it('keeps historical numbers reserved after soft deletion and ignores manual number formats', async () => {
+    const { id, leaseId } = await seed();
+    await db.query(
+      "UPDATE invoices SET invoice_number='INV-202001-0099',deleted_at=now() WHERE id=$1",
+      [id],
+    );
+    const response = await request(app.getHttpServer())
+      .post('/invoices')
+      .auth(token, { type: 'bearer' })
+      .send({ ...october, leaseId, subtotal: 100 })
+      .expect(201);
+    expect(response.body.invoiceNumber).toMatch(/^INV-\d{6}-0100$/);
+  });
+
+  it('does not rewind billing dates when an explicit older period is created', async () => {
+    const { leaseId } = await seed();
+    await db.query(
+      "UPDATE leases SET last_billing_date='2026-09-01',next_billing_date='2026-10-01' WHERE id=$1",
+      [leaseId],
+    );
+    await generate(leaseId, {
+      periodStart: '2026-08-01',
+      periodEnd: '2026-08-31',
+      dueDate: '2026-08-10',
+    }).expect(201);
+    expect(
+      (
+        await db.query(
+          'SELECT last_billing_date::text,next_billing_date::text FROM leases WHERE id=$1',
+          [leaseId],
+        )
+      )[0],
+    ).toEqual({
+      last_billing_date: '2026-09-01',
+      next_billing_date: '2026-10-01',
+    });
   });
 });

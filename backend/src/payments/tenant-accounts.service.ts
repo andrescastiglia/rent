@@ -135,8 +135,11 @@ export class TenantAccountsService {
   async findByLease(
     leaseId: string,
     companyId: string = '',
+    manager?: EntityManager,
   ): Promise<TenantAccount> {
-    const account = await this.accountsRepository.findOne({
+    const account = await (
+      manager?.getRepository(TenantAccount) ?? this.accountsRepository
+    ).findOne({
       where: { leaseId, companyId },
       relations: ['lease', 'lease.tenant', 'lease.property'],
     });
@@ -281,8 +284,11 @@ export class TenantAccountsService {
   async calculateLateFee(
     accountId: string,
     companyId: string = '',
+    manager?: EntityManager,
   ): Promise<number> {
-    const account = await this.accountsRepository.findOne({
+    const account = await (
+      manager?.getRepository(TenantAccount) ?? this.accountsRepository
+    ).findOne({
       where: { id: accountId, companyId },
       relations: ['lease', 'invoices'],
     });
