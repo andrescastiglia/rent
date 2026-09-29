@@ -126,11 +126,17 @@ Pendiente: despliegue de backend/clientes compatibles.
   La importación de contratos vigentes admite clave UUID y vincula términos/archivo
   a su respuesta original. Web conserva la clave de un intento fallido para reintentar;
   ver [contrato y pruebas](technical/recoverable-contract-imports.md).
+  Importación recuperable incorporada a main con los 23 gates del PR #253 aprobados.
   Enmiendas incorporan envío, recuperación transaccional y aplicación automática
   en la fecha de vigencia de Argentina, con auditoría, reintentos y protección de
   facturación. Ver [reglas y pruebas](technical/automatic-lease-amendments.md).
-  Pendiente: gates y despliegue de importación/enmiendas; interfaz de enmiendas,
-  resolución administrativa de aprobaciones históricas o inválidas y worker en producción.
+  Aplicación automática incorporada a main con los 23 gates del PR #254 aprobados.
+  Revisión administrativa implementada: anulación de cambios aún no aplicados,
+  habilitación explícita de aprobaciones históricas, versión observada, motivo e
+  historial atómicos y recuperación. Web permite consultar enmiendas y confirmar
+  revisiones. Ver [operación y pruebas](technical/amendment-review.md).
+  Pendiente: gates y despliegue de revisión; formulario web de alta/envío/aprobación/
+  rechazo, revisión de datos históricos reales y worker en producción.
   Pendiente: idempotencia transaccional de las demás herramientas mutables y despliegue.
 
 ## 2. Completar recorridos de producto

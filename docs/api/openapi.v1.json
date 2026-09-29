@@ -3460,6 +3460,77 @@
         ]
       }
     },
+    "/amendments/{id}/reviews": {
+      "post": {
+        "operationId": "Amendments_review",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewAmendmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewAmendmentResultDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Amendments"
+        ]
+      },
+      "get": {
+        "operationId": "Amendments_reviews",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AmendmentReviewDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Amendments"
+        ]
+      }
+    },
     "/amendments/{id}/submit": {
       "patch": {
         "operationId": "Amendments_submit",
@@ -14869,6 +14940,96 @@
           "effectiveDate",
           "changeType",
           "description"
+        ]
+      },
+      "ReviewAmendmentDto": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "cancel",
+              "schedule"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 2000
+          },
+          "expectedUpdatedAt": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "action",
+          "reason",
+          "expectedUpdatedAt",
+          "idempotencyKey"
+        ]
+      },
+      "AmendmentReviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "amendmentId": {
+            "type": "string"
+          },
+          "action": {
+            "enum": [
+              "cancel",
+              "schedule"
+            ],
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "performedBy": {
+            "type": "string"
+          },
+          "performedAt": {
+            "type": "string"
+          },
+          "before": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "after": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "id",
+          "amendmentId",
+          "action",
+          "reason",
+          "performedBy",
+          "performedAt",
+          "before",
+          "after"
+        ]
+      },
+      "ReviewAmendmentResultDto": {
+        "type": "object",
+        "properties": {
+          "amendment": {
+            "$ref": "#/components/schemas/LeaseAmendment"
+          },
+          "review": {
+            "$ref": "#/components/schemas/AmendmentReviewDto"
+          }
+        },
+        "required": [
+          "amendment",
+          "review"
         ]
       },
       "LeaseContractStatusDto": {

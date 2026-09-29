@@ -1,3 +1,4 @@
+import { ReviewAmendmentDto } from '../leases/dto/review-amendment.dto';
 import {
   settlementFiltersSchema,
   settlementSummaryFiltersSchema,
@@ -1529,6 +1530,31 @@ export function buildAiToolDefinitions(
           id,
           toRequestUser(context) as any,
           context.idempotencyKey,
+        );
+      },
+    },
+
+    {
+      name: 'post_amendment_review',
+      description:
+        'Resolves an unapplied amendment with an audited reason. cancel withdraws a draft, pending or approved change; schedule explicitly enables a historical approval awaiting review. Read the current amendment first and supply its updatedAt. Applied amendments cannot be undone.',
+      responseDescription:
+        'The amendment and administrative review record. Check applicationStatus/applicationError; scheduling may still require correction of billing or contract conflicts. Recovery returns the original result.',
+      mutability: 'mutable',
+      supportsIdempotentRecovery: true,
+      allowedRoles: ADMIN_STAFF,
+      parameters: ReviewAmendmentDto.zodSchema
+        .omit({ idempotencyKey: true })
+        .extend({ id: uuidSchema }),
+      execute: async (args, context) => {
+        const { id, ...dto } = ReviewAmendmentDto.zodSchema
+          .omit({ idempotencyKey: true })
+          .extend({ id: uuidSchema })
+          .parse(args);
+        return deps.amendmentsService.review(
+          id,
+          { ...dto, idempotencyKey: context.idempotencyKey ?? '' },
+          toRequestUser(context) as any,
         );
       },
     },

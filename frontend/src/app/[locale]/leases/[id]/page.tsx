@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Lease, LeaseTemplateFormat } from "@/types/lease";
 import { leasesApi } from "@/lib/api/leases";
+import { LeaseAmendments } from "@/components/leases/LeaseAmendments";
+import { canUserAccessModule } from "@/lib/permissions";
 import { ContractDocument } from "@/components/leases/ContractDocument";
 import { BfaStamps } from "@/components/leases/BfaStamps";
 import { LeaseStatusBadge } from "@/components/leases/LeaseStatusBadge";
@@ -1091,6 +1093,19 @@ export default function LeaseDetailPage() {
                 lease={lease}
                 t={t as (key: string) => string}
               />
+
+              {user?.companyId && (
+                <LeaseAmendments
+                  key={`${user.companyId}:${user.id}:${lease.id}`}
+                  leaseId={lease.id}
+                  canReview={canUserAccessModule(
+                    user,
+                    ["admin", "staff"],
+                    "leases",
+                  )}
+                  onChanged={() => loadLease(lease.id)}
+                />
+              )}
 
               {user?.companyId && (
                 <ContractDocument

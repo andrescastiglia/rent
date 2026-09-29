@@ -1,4 +1,9 @@
 import {
+  AmendmentReviewDto,
+  ReviewAmendmentDto,
+  ReviewAmendmentResultDto,
+} from './dto/review-amendment.dto';
+import {
   amendmentDay,
   amendmentValues,
   applyDueAmendments,
@@ -224,6 +229,161 @@ export class AmendmentsService {
         },
       );
     });
+  }
+
+  async review(
+    id: string,
+    dto: ReviewAmendmentDto,
+    user: AmendmentActor,
+  ): Promise<ReviewAmendmentResultDto> {
+    this.requireReviewer(user);
+    const parsed = ReviewAmendmentDto.zodSchema.safeParse(dto);
+    if (!parsed.success)
+      throw new BadRequestException(
+        'Valid review action, reason, observed version and recovery key are required',
+      );
+    const { idempotencyKey, ...request } = parsed.data;
+    return this.amendmentsRepository.manager.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        user.companyId,
+        idempotencyKey,
+        'amendment.review',
+        { id, ...request },
+        async () => {
+          const repository = manager.getRepository(LeaseAmendment);
+          const source = await repository.findOneBy({
+            id,
+            companyId: user.companyId,
+          });
+          if (!source) throw new NotFoundException('Amendment not found');
+          const cancelling = request.action === 'cancel';
+          await lockLeaseRows(
+            manager,
+            source.leaseId,
+            user.companyId,
+            undefined,
+            cancelling,
+          );
+          const lease = await this.findLeaseScoped(
+            source.leaseId,
+            user,
+            manager,
+            cancelling,
+          );
+          const amendment = await repository.findOne({
+            where: { id, companyId: user.companyId, deletedAt: IsNull() },
+            lock: { mode: 'for_no_key_update' },
+          });
+          if (!amendment || amendment.leaseId !== lease.id)
+            throw new ConflictException(
+              'Amendment changed; reload before reviewing',
+            );
+          if (amendment.updatedAt.toISOString() !== request.expectedUpdatedAt)
+            throw new ConflictException(
+              'Amendment changed; reload before reviewing',
+            );
+          const before = this.reviewSnapshot(amendment);
+          this.prepareReview(amendment, lease, request.action);
+          await repository.save(amendment);
+          if (request.action === 'schedule')
+            await applyDueAmendments(manager, lease.id, user.companyId);
+          const result = await repository.findOneByOrFail({
+            id,
+            companyId: user.companyId,
+          });
+          const [review] = await manager.query(
+            `INSERT INTO lease_amendment_reviews(company_id,amendment_id,action,reason,performed_by,before_snapshot,after_snapshot) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb) RETURNING id,amendment_id AS "amendmentId",action,reason,performed_by AS "performedBy",performed_at AS "performedAt",before_snapshot AS "before",after_snapshot AS "after"`,
+            [
+              user.companyId,
+              id,
+              request.action,
+              request.reason,
+              user.id,
+              JSON.stringify(before),
+              JSON.stringify(this.reviewSnapshot(result)),
+            ],
+          );
+          return { amendment: result, review };
+        },
+      ),
+    );
+  }
+
+  async reviewHistory(
+    id: string,
+    user: AmendmentActor,
+  ): Promise<AmendmentReviewDto[]> {
+    this.requireReviewer(user);
+    const amendment = await this.amendmentsRepository.findOneBy({
+      id,
+      companyId: user.companyId,
+    });
+    if (!amendment) throw new NotFoundException('Amendment not found');
+    return this.amendmentsRepository.manager.query(
+      `SELECT id,amendment_id AS "amendmentId",action,reason,performed_by AS "performedBy",performed_at AS "performedAt",before_snapshot AS "before",after_snapshot AS "after" FROM lease_amendment_reviews WHERE company_id=$1 AND amendment_id=$2 ORDER BY performed_at,id`,
+      [user.companyId, id],
+    );
+  }
+
+  private prepareReview(
+    amendment: LeaseAmendment,
+    lease: Lease,
+    action: 'cancel' | 'schedule',
+  ): void {
+    if (amendment.applicationStatus === 'applied' || amendment.appliedAt)
+      throw new ConflictException(
+        'Applied amendments cannot be cancelled or scheduled again',
+      );
+    if (action === 'cancel') {
+      if (
+        ![
+          AmendmentStatus.DRAFT,
+          AmendmentStatus.PENDING_APPROVAL,
+          AmendmentStatus.APPROVED,
+        ].includes(amendment.status)
+      )
+        throw new ConflictException(
+          'Only open, unapplied amendments can be cancelled',
+        );
+      amendment.status = AmendmentStatus.CANCELLED;
+      amendment.applicationStatus = 'none';
+      amendment.applicationError = null;
+      return;
+    }
+    if (
+      amendment.status !== AmendmentStatus.APPROVED ||
+      amendment.applicationStatus !== 'legacy_review'
+    )
+      throw new ConflictException(
+        'Only historical approvals awaiting review can be scheduled',
+      );
+    this.requireActive(lease);
+    amendmentDay(amendment.effectiveDate);
+    amendmentValues(amendment.changeType, amendment.newValues);
+    amendment.applicationStatus = 'pending';
+    amendment.applicationError = null;
+  }
+
+  private reviewSnapshot(amendment: LeaseAmendment): Record<string, unknown> {
+    return {
+      status: amendment.status,
+      applicationStatus: amendment.applicationStatus,
+      applicationError: amendment.applicationError,
+      effectiveDate: amendment.effectiveDate,
+      changeType: amendment.changeType,
+      newValues: amendment.newValues,
+      appliedAt: amendment.appliedAt,
+      applicationSnapshot: amendment.applicationSnapshot,
+      approvedBy: amendment.approvedBy,
+      approvedAt: amendment.approvedAt,
+    };
+  }
+
+  private requireReviewer(user: AmendmentActor): void {
+    this.requireCompany(user);
+    if (!user.id || !isAdminOrStaff(user))
+      throw new ForbiddenException('Administrative review is required');
   }
 
   async processDue(): Promise<{ applied: number; failed: number }> {

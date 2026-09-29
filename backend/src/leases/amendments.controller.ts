@@ -1,10 +1,16 @@
 import {
+  AmendmentReviewDto,
+  ReviewAmendmentDto,
+  ReviewAmendmentResultDto,
+} from './dto/review-amendment.dto';
+import {
   Controller,
   Get,
   Post,
   Body,
   Patch,
   Param,
+  ParseUUIDPipe,
   UseGuards,
   Request,
 } from '@nestjs/common';
@@ -35,6 +41,25 @@ export class AmendmentsController {
   @Get(':id')
   findOne(@Param('id') id: string, @Request() req: any) {
     return this.amendmentsService.findOne(id, req.user);
+  }
+
+  @Post(':id/reviews')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  review(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReviewAmendmentDto,
+    @Request() req: any,
+  ): Promise<ReviewAmendmentResultDto> {
+    return this.amendmentsService.review(id, dto, req.user);
+  }
+
+  @Get(':id/reviews')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  reviews(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: any,
+  ): Promise<AmendmentReviewDto[]> {
+    return this.amendmentsService.reviewHistory(id, req.user);
   }
 
   @Patch(':id/submit')

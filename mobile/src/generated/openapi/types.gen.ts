@@ -1311,6 +1311,33 @@ export type CreateAmendmentDto = {
   };
 };
 
+export type ReviewAmendmentDto = {
+  action: 'cancel' | 'schedule';
+  reason: string;
+  expectedUpdatedAt: string;
+  idempotencyKey: string;
+};
+
+export type AmendmentReviewDto = {
+  id: string;
+  amendmentId: string;
+  action: 'cancel' | 'schedule';
+  reason: string;
+  performedBy: string;
+  performedAt: string;
+  before: {
+    [key: string]: unknown;
+  };
+  after: {
+    [key: string]: unknown;
+  };
+};
+
+export type ReviewAmendmentResultDto = {
+  amendment: LeaseAmendment;
+  review: AmendmentReviewDto;
+};
+
 export type LeaseContractStatusDto = {
   status: 'queued' | 'completed' | 'dead_letter' | 'unavailable';
   available: boolean;
@@ -4560,6 +4587,38 @@ export type AmendmentsFindOneResponses = {
 
 export type AmendmentsFindOneResponse =
   AmendmentsFindOneResponses[keyof AmendmentsFindOneResponses];
+
+export type AmendmentsReviewsData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/amendments/{id}/reviews';
+};
+
+export type AmendmentsReviewsResponses = {
+  200: Array<AmendmentReviewDto>;
+};
+
+export type AmendmentsReviewsResponse =
+  AmendmentsReviewsResponses[keyof AmendmentsReviewsResponses];
+
+export type AmendmentsReviewData = {
+  body: ReviewAmendmentDto;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/amendments/{id}/reviews';
+};
+
+export type AmendmentsReviewResponses = {
+  201: ReviewAmendmentResultDto;
+};
+
+export type AmendmentsReviewResponse =
+  AmendmentsReviewResponses[keyof AmendmentsReviewResponses];
 
 export type AmendmentsSubmitData = {
   body?: never;
