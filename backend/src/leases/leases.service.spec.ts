@@ -195,7 +195,11 @@ describe('LeasesService', () => {
       },
     });
     expect(leaseRepository.create).toHaveBeenCalledWith(
-      expect.objectContaining({ companyId: 'company-1' }),
+      expect.objectContaining({
+        companyId: 'company-1',
+        startDate: new Date('2025-01-01T12:00:00Z'),
+        endDate: new Date('2025-12-31T12:00:00Z'),
+      }),
     );
   });
 
@@ -897,6 +901,41 @@ describe('LeasesService', () => {
     );
     expect(tenantAccountsService.createForLease).not.toHaveBeenCalled();
     expect(result.status).toBe(LeaseStatus.ACTIVE);
+  });
+
+  it('preserves a day-31 schedule anchor when saving unchanged settings and resets it for a new schedule', async () => {
+    const lease = {
+      companyId: 'company-1',
+      contractType: ContractType.RENTAL,
+      adjustmentFrequencyMonths: 1,
+      startDate: new Date('2025-01-01T12:00:00Z'),
+      endDate: new Date('2026-01-01T12:00:00Z'),
+      nextAdjustmentDate: '2025-02-28',
+      adjustmentAnchorDate: new Date('2025-01-31T12:00:00Z'),
+    } as unknown as Lease;
+    const internal = service as any;
+    for (const method of [
+      'normalizeBuyerInputs',
+      'applyPropertyUpdate',
+      'validatePartiesForCompany',
+      'applyTemplateUpdate',
+    ])
+      jest.spyOn(internal, method).mockResolvedValue(undefined);
+    const anchor = lease.adjustmentAnchorDate;
+    await internal.applyUpdateToLease(
+      lease,
+      { adjustmentFrequencyMonths: 1, nextAdjustmentDate: '2025-02-28' },
+      ContractType.RENTAL,
+      'company-1',
+    );
+    expect(lease.adjustmentAnchorDate).toBe(anchor);
+    await internal.applyUpdateToLease(
+      lease,
+      { nextAdjustmentDate: '2025-03-15' },
+      ContractType.RENTAL,
+      'company-1',
+    );
+    expect(lease.adjustmentAnchorDate).toBeNull();
   });
 
   it('update creates revision when original lease is not draft', async () => {

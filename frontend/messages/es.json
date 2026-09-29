@@ -880,7 +880,8 @@
       "contractType": "Tipo de contrato",
       "template": "Plantilla",
       "buyer": "Comprador",
-      "fiscalValue": "Valor fiscal"
+      "fiscalValue": "Valor fiscal",
+      "inflationIndexLagMonths": "Rezago del índice (meses)"
     },
     "templates": {
       "title": "Plantillas de contratos",
@@ -927,7 +928,8 @@
     },
     "adjustments": {
       "title": "Configuración de Ajustes",
-      "description": "Define cómo se ajustará el alquiler"
+      "description": "Define cómo se ajustará el alquiler",
+      "indexLagHelp": "Meses anteriores al mes base y al mes de ajuste, según el contrato. 0 usa el mismo mes; 1 usa el anterior. No se usará otro mes si falta el dato."
     },
     "paymentFrequencies": {
       "monthly": "Mensual",
@@ -1838,5 +1840,17 @@
     "refresh": "Actualizar documento",
     "download": "Descargar factura",
     "loading": "Cargando…"
+  },
+  "rentCalculation": {
+    "title": "Cálculo del alquiler",
+    "rent": "Alquiler del período",
+    "unchanged": "Sin ajustes aplicados en esta generación.",
+    "effective": "Fecha de ajuste",
+    "base": "Fecha base",
+    "lag": "Rezago mensual",
+    "evidence": "Datos utilizados",
+    "revision": "Revisión",
+    "fixed": "Importe fijo",
+    "percentage": "Porcentaje"
   }
 }

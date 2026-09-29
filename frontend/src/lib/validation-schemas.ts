@@ -20,6 +20,7 @@ type LeaseRefinementData = {
   endDate?: string;
   rentAmount?: number | null;
   fiscalValue?: number | null;
+  inflationIndexLagMonths?: number;
   renewalAlertPeriodicity?: "monthly" | "four_months" | "custom";
   renewalAlertCustomDays?: number | null;
 };
@@ -229,7 +230,16 @@ export const createLeaseSchema = (t: TranslationFunction) =>
         .enum(["fixed", "percentage", "inflation_index"] as const)
         .optional(),
       adjustmentValue: z.coerce.number().min(0).optional(),
-      adjustmentFrequencyMonths: z.coerce.number().min(1).optional(),
+      adjustmentFrequencyMonths: z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(120)
+        .optional(),
+      inflationIndexLagMonths: z.preprocess(
+        (value) => (value === "" || value == null ? undefined : value),
+        z.coerce.number().int().min(0).max(12).optional(),
+      ),
       inflationIndexType: z.enum(["icl", "ipc", "igp_m"] as const).optional(),
       nextAdjustmentDate: z.string().optional(),
     })
@@ -242,6 +252,15 @@ export const createLeaseSchema = (t: TranslationFunction) =>
         validateSaleLease(data, ctx, t);
       }
 
+      if (
+        data.contractType === "rental" &&
+        data.adjustmentType === "inflation_index" &&
+        (data.inflationIndexType === "ipc" ||
+          data.inflationIndexType === "igp_m") &&
+        data.inflationIndexLagMonths === undefined
+      ) {
+        addCustomIssue(ctx, "inflationIndexLagMonths", t("required"));
+      }
       validateRenewalAlertSettings(data, ctx, t);
     });
 

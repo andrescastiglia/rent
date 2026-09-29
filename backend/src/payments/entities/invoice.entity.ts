@@ -8,6 +8,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
+import type { RentCalculation } from '../rent-adjustment';
 import { Lease } from '../../leases/entities/lease.entity';
 import { Owner } from '../../owners/entities/owner.entity';
 import { TenantAccount } from './tenant-account.entity';
@@ -54,6 +55,9 @@ export enum ArcaTipoComprobante {
 export class Invoice {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ name: 'rent_calculation', type: 'jsonb', nullable: true })
+  rentCalculation: RentCalculation | null;
 
   @Column({ name: 'company_id' })
   companyId: string;

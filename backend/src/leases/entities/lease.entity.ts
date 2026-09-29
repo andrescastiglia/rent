@@ -293,6 +293,16 @@ export class Contract {
   @Column({ name: 'adjustment_frequency_months', type: 'integer', default: 12 })
   adjustmentFrequencyMonths: number;
 
+  @Column({
+    name: 'inflation_index_lag_months',
+    type: 'integer',
+    nullable: true,
+  })
+  inflationIndexLagMonths: number | null;
+
+  @Column({ name: 'adjustment_anchor_date', type: 'date', nullable: true })
+  adjustmentAnchorDate: Date | null;
+
   @Column({ name: 'last_adjustment_date', type: 'date', nullable: true })
   lastAdjustmentDate: Date;
 

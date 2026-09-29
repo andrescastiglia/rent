@@ -123,7 +123,13 @@ describe('Durable issued invoice documents (e2e)', () => {
       .spyOn(app.get(ProviderHttpService), 'request')
       .mockRejectedValue(new Error('Unexpected provider request'));
   });
+  const observationIds: string[] = [];
   const clear = async () => {
+    if (observationIds.length)
+      await db.query(
+        'DELETE FROM inflation_observations WHERE id=ANY($1::uuid[])',
+        [observationIds.splice(0)],
+      );
     await db.query(
       'DELETE FROM tenant_account_movements WHERE tenant_account_id IN (SELECT id FROM tenant_accounts WHERE company_id=$1)',
       [companyId],
@@ -474,6 +480,178 @@ describe('Durable issued invoice documents (e2e)', () => {
     periodEnd: '2026-10-31',
     dueDate: '2026-11-10',
   };
+
+  const addObservation = async (
+    index: string,
+    date: string,
+    value: string,
+    revision = 1,
+  ) => {
+    const id = randomUUID();
+    await db.query(
+      `INSERT INTO inflation_observations(id,index_type,observation_date,value,value_kind,source,source_series,source_url,revision,retrieved_at)
+      VALUES($1,$2,$3,$4,$5,'invoice fixture','fixture','https://example.test',$6,now())`,
+      [
+        id,
+        index,
+        date,
+        value,
+        index === 'igp_m' ? 'monthly_percent' : 'level',
+        revision,
+      ],
+    );
+    observationIds.push(id);
+    return id;
+  };
+  const april = {
+    periodStart: '2088-04-01',
+    periodEnd: '2088-04-30',
+    dueDate: '2088-05-10',
+  };
+  const indexedLease = async (index: string, lag: number | null) => {
+    const seeded = await seed();
+    await db.query(
+      `UPDATE leases SET start_date='2088-01-01',end_date='2089-01-01',next_billing_date='2088-04-01',
+      next_adjustment_date='2088-04-01',adjustment_type='inflation_index',inflation_index_type=$2,inflation_index_lag_months=$3,adjustment_frequency_months=3 WHERE id=$1`,
+      [seeded.leaseId, index, lag],
+    );
+    return seeded;
+  };
+
+  it('stores exact ICL evidence, applies once concurrently and recovers the same calculation after provider revisions', async () => {
+    const { leaseId } = await indexedLease('icl', null);
+    const first = await addObservation('icl', '2088-01-01', '1.50');
+    const last = await addObservation('icl', '2088-04-01', '2.47');
+    const idempotencyKey = randomUUID(),
+      body = { ...april, issue: true, idempotencyKey };
+    const responses = await Promise.all([
+      generate(leaseId, body),
+      generate(leaseId, body),
+    ]);
+    expect(responses.map((response) => response.status)).toEqual([201, 201]);
+    expect(responses[0].body.id).toBe(responses[1].body.id);
+    const invoice = responses[0].body;
+    expect(Number(invoice.total)).toBe(1646.67);
+    const calculation = invoice.rentCalculation;
+    expect(calculation.finalRent).toBe('1646.67');
+    expect(
+      calculation.adjustments[0].observations.map((row: any) => row.id),
+    ).toEqual([first, last]);
+    expect(
+      (
+        await db.query(
+          'SELECT next_adjustment_date::text,last_adjustment_date::text,adjustment_anchor_date::text FROM leases WHERE id=$1',
+          [leaseId],
+        )
+      )[0],
+    ).toEqual({
+      next_adjustment_date: '2088-07-01',
+      last_adjustment_date: '2088-04-01',
+      adjustment_anchor_date: '2088-04-01',
+    });
+    await addObservation('icl', '2088-04-01', '3', 2);
+    const recovered = await generate(leaseId, body).expect(201);
+    expect(recovered.body.rentCalculation).toEqual(calculation);
+    await request(app.getHttpServer())
+      .get(`/invoices/${invoice.id}`)
+      .auth(foreignToken, { type: 'bearer' })
+      .expect(404);
+    const read = await request(app.getHttpServer())
+      .get(`/invoices/${invoice.id}`)
+      .auth(token, { type: 'bearer' })
+      .expect(200);
+    expect(read.body.rentCalculation).toEqual(calculation);
+    await expect(
+      db.query("UPDATE invoices SET rent_calculation='{}' WHERE id=$1", [
+        invoice.id,
+      ]),
+    ).rejects.toThrow('immutable');
+    await generate(leaseId, {
+      periodStart: '2088-03-01',
+      periodEnd: '2088-03-31',
+      dueDate: '2088-04-10',
+      applyAdjustment: false,
+    }).expect(400);
+  });
+
+  it.each([
+    ['ipc', '1210.00'],
+    ['igp_m', '1197.90'],
+  ])(
+    'uses accumulated %s with an explicit lag and complete monthly evidence',
+    async (index, expected) => {
+      const { leaseId } = await indexedLease(index, 1);
+      if (index === 'ipc') {
+        await addObservation(index, '2087-12-01', '100');
+        await addObservation(index, '2088-03-01', '121');
+      } else {
+        await addObservation(index, '2088-01-01', '10');
+        await addObservation(index, '2088-02-01', '10');
+        await addObservation(index, '2088-03-01', '-1');
+      }
+      const result = await generate(leaseId, { ...april, issue: true }).expect(
+        201,
+      );
+      expect(result.body.rentCalculation.finalRent).toBe(expected);
+      expect(result.body.rentCalculation.adjustments[0].lagMonths).toBe(1);
+    },
+  );
+
+  it('rolls back a missing monthly observation without changing rent, calendar, invoice or generation key', async () => {
+    const { leaseId } = await indexedLease('igp_m', 1);
+    await addObservation('igp_m', '2088-01-01', '10');
+    await addObservation('igp_m', '2088-03-01', '-1');
+    const before = (
+      await db.query(
+        'SELECT monthly_rent,next_billing_date,last_adjustment_date,next_adjustment_date FROM leases WHERE id=$1',
+        [leaseId],
+      )
+    )[0];
+    const idempotencyKey = randomUUID();
+    const failed = await generate(leaseId, {
+      ...april,
+      issue: true,
+      idempotencyKey,
+    }).expect(400);
+    expect(failed.body.message).toContain('2088-02-01');
+    expect(
+      (
+        await db.query(
+          'SELECT monthly_rent,next_billing_date,last_adjustment_date,next_adjustment_date FROM leases WHERE id=$1',
+          [leaseId],
+        )
+      )[0],
+    ).toEqual(before);
+    expect(
+      await db.query('SELECT id FROM invoice_generations WHERE company_id=$1', [
+        companyId,
+      ]),
+    ).toEqual([]);
+    await addObservation('igp_m', '2088-02-01', '10');
+    expect(
+      (
+        await generate(leaseId, {
+          ...april,
+          issue: true,
+          idempotencyKey,
+        }).expect(201)
+      ).body.rentCalculation.finalRent,
+    ).toBe('1197.90');
+  });
+
+  it('requires an explicit monthly lag without inventing one for existing contracts', async () => {
+    const { leaseId } = await indexedLease('ipc', null);
+    const failed = await generate(leaseId, april).expect(400);
+    expect(failed.body.message).toContain('explicitly');
+    expect(
+      (
+        await db.query(
+          'SELECT monthly_rent,inflation_index_lag_months FROM leases WHERE id=$1',
+          [leaseId],
+        )
+      )[0],
+    ).toEqual({ monthly_rent: '1000.00', inflation_index_lag_months: null });
+  });
 
   it('rolls back rent adjustment, calendar, invoice, account, commission and job together if auto-issuance fails', async () => {
     const { leaseId, accountId } = await seed();

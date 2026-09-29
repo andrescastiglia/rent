@@ -1,7 +1,7 @@
+import { calculateRentAdjustment } from './rent-adjustment';
 import {
   computeBillingPeriod,
   advanceBillingCalendar,
-  addCalendarMonths,
 } from './billing-calendar';
 import { SCHEDULED_BILLING_ELIGIBILITY } from './scheduled-billing';
 import {
@@ -17,27 +17,18 @@ import {
   EntityManager,
   Repository,
   SelectQueryBuilder,
-  LessThanOrEqual,
 } from 'typeorm';
 import { Invoice, InvoiceStatus } from './entities/invoice.entity';
 import {
   CommissionInvoice,
   CommissionInvoiceStatus,
 } from './entities/commission-invoice.entity';
-import {
-  AdjustmentType,
-  InflationIndexType,
-  Lease,
-} from '../leases/entities/lease.entity';
+import { Lease } from '../leases/entities/lease.entity';
 import { TenantAccountsService } from './tenant-accounts.service';
 import { MovementType } from './entities/tenant-account-movement.entity';
 import { InvoicePdfService } from './invoice-pdf.service';
 import { InvoiceDocumentStatusDto } from './dto/invoice-document-status.dto';
 import { CreateInvoiceDto, GenerateInvoiceDto } from './dto';
-import {
-  InflationIndex,
-  InflationIndexType as IndexTypeEntity,
-} from './entities/inflation-index.entity';
 import { UserRole } from '../users/entities/user.entity';
 import {
   getUserRoles,
@@ -65,8 +56,6 @@ export class InvoicesService {
     private readonly commissionInvoicesRepository: Repository<CommissionInvoice>,
     @InjectRepository(Lease)
     private readonly leasesRepository: Repository<Lease>,
-    @InjectRepository(InflationIndex)
-    private readonly inflationIndexRepository: Repository<InflationIndex>,
     private readonly tenantAccountsService: TenantAccountsService,
     @InjectDataSource()
     private readonly dataSource: DataSource,
@@ -246,14 +235,14 @@ export class InvoicesService {
           'An invoice already exists for this billing period',
         );
 
-      const baseRent = await this.applyAdjustmentIfNeeded(
+      const calculation = await this.applyAdjustmentIfNeeded(
         lease,
         periodStart,
         dto.applyAdjustment !== false,
         manager,
       );
 
-      const subtotal = Number(baseRent) + Number(lease.additionalExpenses || 0);
+      const subtotal = calculation.rent + Number(lease.additionalExpenses || 0);
       const lateFee =
         dto.applyLateFee === true
           ? await this.tenantAccountsService.calculateLateFee(
@@ -290,6 +279,7 @@ export class InvoicesService {
         dueDate,
         status: InvoiceStatus.DRAFT,
         notes: '',
+        rentCalculation: calculation.snapshot,
       });
 
       const saved = await invoicesRepository.save(invoice);
@@ -546,88 +536,24 @@ export class InvoicesService {
     lease: Lease,
     periodStart: Date,
     apply: boolean,
-    manager?: EntityManager,
-  ): Promise<number> {
-    if (!apply || !lease.nextAdjustmentDate) {
-      return Number(lease.monthlyRent);
-    }
-
-    const nextAdjustment = new Date(lease.nextAdjustmentDate);
-    if (periodStart < nextAdjustment) {
-      return Number(lease.monthlyRent);
-    }
-
-    let newRent = Number(lease.monthlyRent);
-
-    if (lease.adjustmentType === AdjustmentType.FIXED) {
-      newRent += Number(lease.adjustmentValue || 0);
-    } else if (lease.adjustmentType === AdjustmentType.PERCENTAGE) {
-      newRent += newRent * (Number(lease.adjustmentValue || 0) / 100);
-    } else if (
-      lease.adjustmentType === AdjustmentType.INFLATION_INDEX &&
-      lease.inflationIndexType
-    ) {
-      const index = await this.findLatestIndex(
-        lease.inflationIndexType,
-        manager,
-        periodStart,
-      );
-      if (
-        !index ||
-        index.variationMonthly == null ||
-        !Number.isFinite(Number(index.variationMonthly))
-      )
-        throw new BadRequestException(
-          'Inflation index unavailable for billing period',
-        );
-      if (index.variationMonthly) {
-        newRent += newRent * (Number(index.variationMonthly) / 100);
-      }
-    }
-
-    lease.monthlyRent = Number(newRent.toFixed(2));
-    lease.lastAdjustmentDate = periodStart;
-    lease.nextAdjustmentDate = addCalendarMonths(
-      periodStart,
-      lease.adjustmentFrequencyMonths || 12,
-    );
-    await (manager?.getRepository(Lease) ?? this.leasesRepository).save(lease);
-
-    return Number(lease.monthlyRent);
-  }
-
-  private async findLatestIndex(
-    type: InflationIndexType,
-    manager?: EntityManager,
-    periodStart?: Date,
+    manager: EntityManager,
   ) {
-    let mapped: IndexTypeEntity;
-    if (type === InflationIndexType.IGP_M) {
-      mapped = IndexTypeEntity.IGPM;
-    } else if (type === InflationIndexType.IPC) {
-      mapped = IndexTypeEntity.IPC;
-    } else if (type === InflationIndexType.ICL) {
-      mapped = IndexTypeEntity.ICL;
-    } else {
-      return null;
+    const calculation = await calculateRentAdjustment(
+      manager,
+      lease,
+      periodStart,
+      apply,
+    );
+    if (calculation.snapshot.adjustments.length) {
+      lease.monthlyRent = calculation.rent;
+      lease.lastAdjustmentDate = new Date(`${calculation.lastDate}T12:00:00Z`);
+      lease.nextAdjustmentDate = new Date(`${calculation.nextDate}T12:00:00Z`);
+      lease.adjustmentAnchorDate = new Date(`${calculation.anchor}T12:00:00Z`);
+      await manager.getRepository(Lease).save(lease);
     }
-
-    return (
-      manager?.getRepository(InflationIndex) ?? this.inflationIndexRepository
-    ).findOne({
-      where: {
-        indexType: mapped,
-        ...(periodStart ? { periodDate: LessThanOrEqual(periodStart) } : {}),
-      },
-      order: { periodDate: 'DESC' },
-    });
+    return calculation;
   }
 
-  /**
-   * Asigna un número único por compañía dentro de la transacción del escritor.
-   * @param companyId Compañía autenticada
-   * @returns Número de factura
-   */
   async generateInvoiceNumber(
     companyId: string,
     manager: EntityManager,

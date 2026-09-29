@@ -131,12 +131,25 @@ export const createLeaseZodSchema = z
       .describe('Adjustment amount or percentage'),
     adjustmentFrequencyMonths: z.coerce
       .number()
+      .int()
+      .min(1)
+      .max(120)
       .optional()
       .describe('Months between rent adjustments'),
     nextAdjustmentDate: z.iso
       .date()
       .optional()
       .describe('Next scheduled adjustment date (YYYY-MM-DD)'),
+    inflationIndexLagMonths: z
+      .number()
+      .int()
+      .min(0)
+      .max(12)
+      .nullable()
+      .optional()
+      .describe(
+        'Explicit months before each base/adjustment month for IPC or IGP-M; required when calculating monthly indexed rent',
+      ),
     inflationIndexType: z
       .enum(InflationIndexType)
       .optional()
@@ -292,6 +305,12 @@ export class CreateLeaseDto {
   @IsDateString()
   @IsOptional()
   nextAdjustmentDate?: string;
+
+  @IsInt()
+  @Min(0)
+  @Max(12)
+  @IsOptional()
+  inflationIndexLagMonths?: number | null;
 
   @IsEnum(InflationIndexType)
   @IsOptional()

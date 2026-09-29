@@ -12004,6 +12004,15 @@
           "adjustmentFrequencyMonths": {
             "type": "number"
           },
+          "inflationIndexLagMonths": {
+            "type": "number",
+            "nullable": true
+          },
+          "adjustmentAnchorDate": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
           "lastAdjustmentDate": {
             "format": "date-time",
             "type": "string"
@@ -12195,6 +12204,8 @@
           "adjustmentType",
           "adjustmentValue",
           "adjustmentFrequencyMonths",
+          "inflationIndexLagMonths",
+          "adjustmentAnchorDate",
           "lastAdjustmentDate",
           "nextAdjustmentDate",
           "increaseClauseType",
@@ -14157,6 +14168,12 @@
           "nextAdjustmentDate": {
             "type": "string"
           },
+          "inflationIndexLagMonths": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 12
+          },
           "inflationIndexType": {
             "type": "string",
             "enum": [
@@ -14470,6 +14487,10 @@
           "id": {
             "type": "string"
           },
+          "rentCalculation": {
+            "type": "object",
+            "nullable": true
+          },
           "companyId": {
             "type": "string"
           },
@@ -14670,6 +14691,7 @@
         },
         "required": [
           "id",
+          "rentCalculation",
           "companyId",
           "company",
           "leaseId",
