@@ -391,7 +391,7 @@ describe('DocumentsService', () => {
     });
     expect(repository.findOne).toHaveBeenLastCalledWith({
       where: { id: 'doc-1' },
-      select: ['id', 'fileData', 'fileMimeType'],
+      select: ['id', 'fileData', 'fileMimeType', 'metadata'],
     });
     repository.findOne.mockResolvedValueOnce(null);
     await expect(

@@ -11,6 +11,7 @@ export async function processQueues() {
     '/digital-signatures/internal/process-stamps',
     '/portals/internal/process-publications',
     '/settlements/internal/process-payouts',
+    '/settlements/internal/process-payout-receipts',
     '/communications/internal/retry-due',
   ]) {
     const response = await fetch(`${baseUrl}${path}`, {

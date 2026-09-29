@@ -1,3 +1,4 @@
+import { enqueuePayoutReceipt } from './settlement-payout-effects.service';
 import {
   BadRequestException,
   ConflictException,
@@ -150,7 +151,7 @@ export class SettlementPayoutsService {
       [settlementId, companyId],
     );
     const movements = await this.db.query(
-      `SELECT id,kind,amount::text,currency,transaction_id AS "transactionId",provider_updated_at AS "providerUpdatedAt",created_at AS "createdAt" FROM settlement_payout_movements WHERE settlement_id=$1::uuid AND company_id=$2::uuid ORDER BY created_at,id`,
+      `SELECT m.id,m.kind,m.amount::text,m.currency,(m.document_id IS NOT NULL) AS "receiptAvailable",e.status AS "receiptStatus",m.transaction_id AS "transactionId",m.provider_updated_at AS "providerUpdatedAt",m.created_at AS "createdAt" FROM settlement_payout_movements m LEFT JOIN settlement_payout_effects_outbox e ON e.movement_id=m.id AND e.company_id=m.company_id WHERE m.settlement_id=$1::uuid AND m.company_id=$2::uuid ORDER BY m.created_at,m.id`,
       [settlementId, companyId],
     );
     const reviews = job
@@ -475,6 +476,11 @@ export class SettlementPayoutsService {
       } else if (remote.status_detail === 'partially_refunded') {
         status = 'needs_review';
         error = 'partial_refund_requires_review';
+        await this.blockQueuedPaidNotices(
+          manager,
+          current,
+          'Partial refund requires review',
+        );
         await manager.query(
           "UPDATE settlements SET status='processing',updated_at=now() WHERE id=$1::uuid",
           [current.settlement_id],
@@ -482,6 +488,11 @@ export class SettlementPayoutsService {
       } else if (ledger.transfers || ledger.reversals) {
         status = 'needs_review';
         error = 'status_changed_after_accreditation';
+        await this.blockQueuedPaidNotices(
+          manager,
+          current,
+          'Provider status requires review',
+        );
       } else if (['rejected', 'canceled', 'error'].includes(remote.status)) {
         status = 'failed';
         error = 'transfer_not_accredited';
@@ -521,8 +532,8 @@ export class SettlementPayoutsService {
     kind: string,
     observedAt: Date,
   ) {
-    await manager.query(
-      `INSERT INTO settlement_payout_movements(company_id,settlement_id,payout_job_id,kind,amount,currency,transaction_id,provider_updated_at) VALUES($1::uuid,$2::uuid,$3::uuid,$4,$5::numeric,$6,$7,$8::timestamptz) ON CONFLICT(payout_job_id,kind) DO NOTHING`,
+    const [movement] = await manager.query(
+      `WITH inserted AS (INSERT INTO settlement_payout_movements(company_id,settlement_id,payout_job_id,kind,amount,currency,transaction_id,provider_updated_at) VALUES($1::uuid,$2::uuid,$3::uuid,$4,$5::numeric,$6,$7,$8::timestamptz) ON CONFLICT(payout_job_id,kind) DO NOTHING RETURNING id) SELECT id FROM inserted`,
       [
         job.company_id,
         job.settlement_id,
@@ -534,7 +545,27 @@ export class SettlementPayoutsService {
         observedAt.toISOString(),
       ],
     );
+    if (movement) await enqueuePayoutReceipt(manager, movement.id);
+    if (kind === 'reversal')
+      await this.blockQueuedPaidNotices(
+        manager,
+        job,
+        'Settlement transfer reversed',
+      );
   }
+  private async blockQueuedPaidNotices(
+    manager: EntityManager,
+    job: Job,
+    reason: string,
+  ) {
+    await manager.query(
+      `UPDATE communication_deliveries SET status='blocked',next_attempt_at=NULL,error_message=$3,updated_at=now()
+       WHERE company_id=$1::uuid AND metadata->>'settlementId'=$2 AND metadata->>'payoutMovementKind'='transfer'
+       AND status IN ('queued','pending_approval','failed')`,
+      [job.company_id, job.settlement_id, reason],
+    );
+  }
+
   private async finish(
     manager: EntityManager,
     job: Job,

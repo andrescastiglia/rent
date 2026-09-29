@@ -99,8 +99,11 @@ El cron `process-settlements` permanece suspendido.
   deshabilitada. Núcleo incorporado a main con los 23 gates del PR #223 aprobados.
   UI administrativa con confirmación de importe/destino, historial,
   bloqueo tras respuesta perdida y revisión auditada, sin reenvío de creaciones inciertas.
-  Pendiente: validar gates; generación durable, recibos/notificaciones, resolución de
-  devoluciones parciales/nuevas órdenes verificadas y despliegue deshabilitado.
+  Comprobantes de acreditación/reversión y avisos en cola después del commit,
+  snapshots inmutables, hash de PDF, descarga por movimiento y reintentos/dead letters
+  implementados; conservan el consentimiento y bloquean avisos de pagos revertidos.
+  Pendiente: validar gates; generación durable, resolución de devoluciones parciales/
+  nuevas órdenes verificadas y despliegue deshabilitado.
 - [ ] Verificar que ninguna integración real se invoque mientras está deshabilitada.
 
 ## Criterio de cierre

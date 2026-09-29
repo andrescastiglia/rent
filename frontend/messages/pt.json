@@ -1749,6 +1749,10 @@
     "transfer": "Creditação",
     "reversal": "Reversão completa",
     "history": "Histórico de revisões",
-    "actor": "Usuário"
+    "actor": "Usuário",
+    "downloadReceipt": "Baixar comprovante",
+    "receiptError": "Não foi possível baixar o comprovante. Tente novamente.",
+    "receiptNeedsReview": "O comprovante requer revisão.",
+    "receiptPending": "Comprovante pendente de geração."
   }
 }

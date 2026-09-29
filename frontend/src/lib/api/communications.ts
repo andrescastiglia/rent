@@ -11,6 +11,7 @@ export type CommunicationEvent =
   | "rent_adjustment"
   | "settlement_available"
   | "settlement_paid"
+  | "settlement_reversed"
   | "office_prospect_welcome_rent"
   | "office_prospect_welcome_sale"
   | "property_visit_scheduled"

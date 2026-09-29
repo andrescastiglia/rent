@@ -1,3 +1,7 @@
+import { SettlementPayoutEffectsService } from '../src/settlements/settlement-payout-effects.service';
+import { SettlementPayoutReceiptPdfService } from '../src/settlements/settlement-payout-receipt-pdf.service';
+import { CommunicationsService } from '../src/communications/communications.service';
+import { WhatsappService } from '../src/whatsapp/whatsapp.service';
 import { INestApplication, ServiceUnavailableException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
@@ -35,6 +39,7 @@ describe('Durable settlement payouts (e2e)', () => {
   let token: string;
   let foreignToken: string;
   let ownerToken: string;
+  let otherOwnerToken: string;
   let enabled = false;
   let create: jest.SpyInstance;
   let transaction: jest.SpyInstance;
@@ -161,6 +166,19 @@ describe('Durable settlement payouts (e2e)', () => {
       role: UserRole.OWNER,
     });
     ownerToken = await loginTestUser(app, owner.email!, password);
+    const otherOwner = await createActiveTestUser(app.get(UsersService), {
+      email: `other-owner-${unique}@payout.test`,
+      password,
+      firstName: 'Other',
+      lastName: 'Owner',
+      companyId,
+      role: UserRole.OWNER,
+    });
+    await db.query('INSERT INTO owners(company_id,user_id) VALUES($1,$2)', [
+      companyId,
+      otherOwner.id,
+    ]);
+    otherOwnerToken = await loginTestUser(app, otherOwner.email!, password);
     for (const [company, userId] of [
       [companyId, owner.id],
       [foreignId, foreign.user.id],
@@ -183,12 +201,29 @@ describe('Durable settlement payouts (e2e)', () => {
       );
     create = jest.spyOn(app.get(MercadoPagoPayoutsClient), 'create');
     transaction = jest.spyOn(app.get(MercadoPagoPayoutsClient), 'transaction');
+    jest
+      .spyOn(app.get(WhatsappService), 'sendTextMessage')
+      .mockRejectedValue(new Error('External messages forbidden'));
+    jest
+      .spyOn(app.get(WhatsappService), 'sendTemplateMessage')
+      .mockRejectedValue(new Error('External messages forbidden'));
     http = jest
       .spyOn(app.get(ProviderHttpService), 'request')
       .mockRejectedValue(new Error('Live provider calls forbidden in fixture'));
   });
   beforeEach(async () => {
     enabled = true;
+    await db.query('DELETE FROM communication_deliveries WHERE company_id=$1', [
+      companyId,
+    ]);
+    await db.query(
+      "UPDATE owners SET contact_consent=true,preferred_contact_channel='whatsapp' WHERE company_id=$1",
+      [companyId],
+    );
+    await db.query(
+      "UPDATE users SET phone='+5491155551234',whatsapp_enabled=true WHERE company_id=$1",
+      [companyId],
+    );
     create.mockReset().mockImplementation(async () => accepted());
     transaction.mockReset().mockImplementation(async () => remote());
     http.mockClear();
@@ -197,25 +232,34 @@ describe('Durable settlement payouts (e2e)', () => {
       [companyId],
     );
     await db.query(
+      'DELETE FROM settlement_payout_effects_outbox WHERE company_id=$1',
+      [companyId],
+    );
+    await db.query(
       'DELETE FROM settlement_payout_movements WHERE company_id=$1',
       [companyId],
     );
+    await db.query('DELETE FROM documents WHERE company_id=$1', [companyId]);
     await db.query('DELETE FROM settlement_payout_outbox WHERE company_id=$1', [
       companyId,
     ]);
     await db.query(
-      "UPDATE settlements SET status='pending',net_amount=100,currency='ARS',processed_at=NULL,transfer_reference=NULL WHERE id=$1",
+      "UPDATE settlements SET status='pending',gross_amount=100,net_amount=100,currency='ARS',processed_at=NULL,transfer_reference=NULL WHERE id=$1",
       [settlementId],
     );
   });
   afterEach(() => {
     if (http) expect(http).not.toHaveBeenCalled();
+    expect(app.get(WhatsappService).sendTextMessage).not.toHaveBeenCalled();
+    expect(app.get(WhatsappService).sendTemplateMessage).not.toHaveBeenCalled();
   });
   afterAll(async () => {
     jest.restoreAllMocks();
     for (const id of [companyId, foreignId].filter(Boolean)) {
       for (const table of [
+        'communication_deliveries',
         'settlement_payout_reviews',
+        'settlement_payout_effects_outbox',
         'settlement_payout_movements',
         'settlement_payout_outbox',
         'documents',
@@ -454,6 +498,7 @@ describe('Durable settlement payouts (e2e)', () => {
   it('requires review for partial refunds without inventing an amount to reverse', async () => {
     await post().expect(201);
     await worker();
+    await effectWorker();
     await due();
     transaction.mockResolvedValue(
       remote('approved', 'partially_refunded', '2026-09-02T10:00:00Z'),
@@ -461,6 +506,10 @@ describe('Durable settlement payouts (e2e)', () => {
     await worker();
     expect((await job()).status).toBe('needs_review');
     expect((await settlement()).status).toBe('processing');
+    expect((await deliveries())[0]).toMatchObject({
+      status: 'blocked',
+      error_message: 'Partial refund requires review',
+    });
     expect(await movements()).toHaveLength(1);
   });
   it('rejects changed settlement snapshots before sending', async () => {
@@ -500,29 +549,32 @@ describe('Durable settlement payouts (e2e)', () => {
     expect((await job()).status).toBe('needs_review');
     expect(await movements()).toHaveLength(0);
   });
-  it('requires a configured internal batch credential and checks it before processing', async () => {
-    const previous = process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN;
-    try {
-      delete process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN;
-      await request(app.getHttpServer())
-        .post('/settlements/internal/process-payouts')
-        .expect(503);
-      process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN = 'payout-test-batch';
-      await request(app.getHttpServer())
-        .post('/settlements/internal/process-payouts')
-        .expect(401);
-      enabled = false;
-      const response = await request(app.getHttpServer())
-        .post('/settlements/internal/process-payouts')
-        .set('x-batch-communications-token', 'payout-test-batch')
-        .expect(201);
-      expect(response.body.disabled).toBe(true);
-    } finally {
-      if (previous === undefined)
+  it.each(['process-payouts', 'process-payout-receipts'])(
+    'requires a configured internal batch credential for %s',
+    async (endpoint) => {
+      const previous = process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN;
+      try {
         delete process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN;
-      else process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN = previous;
-    }
-  });
+        await request(app.getHttpServer())
+          .post(`/settlements/internal/${endpoint}`)
+          .expect(503);
+        process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN = 'payout-test-batch';
+        await request(app.getHttpServer())
+          .post(`/settlements/internal/${endpoint}`)
+          .expect(401);
+        enabled = false;
+        const response = await request(app.getHttpServer())
+          .post(`/settlements/internal/${endpoint}`)
+          .set('x-batch-communications-token', 'payout-test-batch')
+          .expect(201);
+        expect(response.body.disabled).toBe(true);
+      } finally {
+        if (previous === undefined)
+          delete process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN;
+        else process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN = previous;
+      }
+    },
+  );
   it('rolls back the movement and completion together when the settlement update fails', async () => {
     await post().expect(201);
     await db.query(
@@ -534,6 +586,7 @@ describe('Durable settlement payouts (e2e)', () => {
     try {
       await worker();
       expect(await movements()).toHaveLength(0);
+      expect(await receiptJobs()).toHaveLength(0);
       expect((await settlement()).status).toBe('processing');
       expect((await job()).status).toBe('awaiting');
     } finally {
@@ -613,5 +666,240 @@ describe('Durable settlement payouts (e2e)', () => {
     }).expect(500);
     expect((await job()).payout_id).toBeNull();
     expect(await movements()).toHaveLength(0);
+  });
+  const receiptJobs = () =>
+    db.query(
+      'SELECT * FROM settlement_payout_effects_outbox WHERE company_id=$1 ORDER BY created_at',
+      [companyId],
+    );
+  const effectWorker = () =>
+    app.get(SettlementPayoutEffectsService).processDue();
+  const deliveries = () =>
+    db.query(
+      "SELECT * FROM communication_deliveries WHERE company_id=$1 AND metadata ? 'payoutMovementId' ORDER BY created_at",
+      [companyId],
+    );
+  const receiptPath = (movementId: string, id = settlementId) =>
+    `/settlements/${id}/payout/movements/${movementId}/receipt`;
+  const getReceipt = (movementId: string, auth = token, id = settlementId) =>
+    request(app.getHttpServer())
+      .get(receiptPath(movementId, id))
+      .set('Authorization', `Bearer ${auth}`);
+  it('queues an immutable receipt snapshot in the accreditation commit and renders it once after commit', async () => {
+    await post().expect(201);
+    const pdf = jest.spyOn(
+      app.get(SettlementPayoutReceiptPdfService),
+      'generate',
+    );
+    await worker();
+    expect(pdf).not.toHaveBeenCalled();
+    const [event] = await receiptJobs();
+    expect(event.snapshot).toMatchObject({
+      version: 1,
+      amount: '100.00',
+      kind: 'transfer',
+      period: '2026-09',
+    });
+    await expect(
+      db.query(
+        "UPDATE settlement_payout_effects_outbox SET snapshot='{}' WHERE id=$1",
+        [event.id],
+      ),
+    ).rejects.toThrow('immutable');
+    await db.query(
+      "UPDATE settlements SET gross_amount=999,notes='changed later' WHERE id=$1",
+      [settlementId],
+    );
+    await Promise.all([effectWorker(), effectWorker()]);
+    expect(pdf).toHaveBeenCalledTimes(1);
+    expect(pdf.mock.calls[0][0].grossAmount).toBe('100.00');
+    const [movement] = await movements();
+    const response = await getReceipt(movement.id)
+      .expect(200)
+      .expect('Content-Type', /application\/pdf/);
+    expect(response.body.subarray(0, 4).toString()).toBe('%PDF');
+    expect((await receiptJobs())[0].status).toBe('completed');
+    expect(await deliveries()).toHaveLength(1);
+    expect((await deliveries())[0]).toMatchObject({
+      event: 'settlement_paid',
+      status: 'queued',
+    });
+    await effectWorker();
+    expect(pdf).toHaveBeenCalledTimes(1);
+    pdf.mockRestore();
+  });
+  it('rolls back PDF, reference and notification together when enqueueing fails, then recovers', async () => {
+    await post().expect(201);
+    await worker();
+    const dispatch = jest
+      .spyOn(app.get(CommunicationsService), 'dispatchEvent')
+      .mockRejectedValueOnce(new Error('queue unavailable'));
+    expect(await effectWorker()).toMatchObject({ failed: 1 });
+    expect(
+      await db.query('SELECT id FROM documents WHERE company_id=$1', [
+        companyId,
+      ]),
+    ).toHaveLength(0);
+    expect((await movements())[0]).toMatchObject({ document_id: null });
+    expect(await deliveries()).toHaveLength(0);
+    dispatch.mockRestore();
+    await db.query(
+      'UPDATE settlement_payout_effects_outbox SET next_attempt_at=now() WHERE company_id=$1',
+      [companyId],
+    );
+    expect(await effectWorker()).toMatchObject({ completed: 1 });
+    expect(await deliveries()).toHaveLength(1);
+  });
+  it('keeps failed PDF rendering retryable and exposes exhausted work as dead letters', async () => {
+    await post().expect(201);
+    await worker();
+    const pdf = jest
+      .spyOn(app.get(SettlementPayoutReceiptPdfService), 'generate')
+      .mockRejectedValue(new Error('render unavailable'));
+    for (let i = 0; i < 5; i++) {
+      await db.query(
+        'UPDATE settlement_payout_effects_outbox SET next_attempt_at=now() WHERE company_id=$1',
+        [companyId],
+      );
+      expect(await effectWorker()).toMatchObject({ failed: 1 });
+    }
+    expect((await receiptJobs())[0]).toMatchObject({
+      status: 'dead_letter',
+      attempts: 5,
+    });
+    expect(await effectWorker()).toMatchObject({ processed: 0, deadLetter: 1 });
+    expect(await deliveries()).toHaveLength(0);
+    pdf.mockRestore();
+  });
+  it('authorizes receipt bytes by company, settlement, movement and owner even while disabled', async () => {
+    await post().expect(201);
+    await worker();
+    await effectWorker();
+    enabled = false;
+    const [movement] = await movements();
+    await getReceipt(movement.id, ownerToken).expect(200);
+    await getReceipt(movement.id, foreignToken).expect(404);
+    await getReceipt(movement.id, otherOwnerToken).expect(404);
+    await getReceipt(movement.id, token, foreignSettlementId).expect(404);
+    await getReceipt(randomUUID()).expect(404);
+    await request(app.getHttpServer())
+      .get(receiptPath(movement.id))
+      .expect(401);
+    const scan = jest.spyOn(db, 'query');
+    const before = scan.mock.calls.length;
+    expect(await effectWorker()).toMatchObject({
+      disabled: true,
+      processed: 0,
+    });
+    expect(scan.mock.calls.length).toBe(before);
+    scan.mockRestore();
+  });
+  it('blocks delivery when WhatsApp consent is absent and never falls back to email or SMS', async () => {
+    await db.query(
+      'UPDATE owners SET contact_consent=false WHERE company_id=$1',
+      [companyId],
+    );
+    await post().expect(201);
+    await worker();
+    await effectWorker();
+    expect((await deliveries())[0]).toMatchObject({ status: 'blocked' });
+    expect((await receiptJobs())[0].status).toBe('completed');
+  });
+  it('creates a historical receipt without a notice when the owner chose a different channel', async () => {
+    await db.query(
+      "UPDATE owners SET preferred_contact_channel='email' WHERE company_id=$1",
+      [companyId],
+    );
+    await post().expect(201);
+    await worker();
+    await effectWorker();
+    expect(await deliveries()).toHaveLength(0);
+    await getReceipt((await movements())[0].id).expect(200);
+  });
+  it('records a refund receipt and blocks a queued accreditation notice', async () => {
+    await post().expect(201);
+    await worker();
+    await effectWorker();
+    transaction.mockResolvedValue(
+      remote('refunded', 'refunded', '2026-09-02T10:00:00Z'),
+    );
+    await due();
+    await worker();
+    expect((await deliveries())[0]).toMatchObject({
+      status: 'blocked',
+      error_message: 'Settlement transfer reversed',
+    });
+    await effectWorker();
+    expect(await receiptJobs()).toHaveLength(2);
+    expect(
+      (await deliveries()).map((d: { event: string; status: string }) => [
+        d.event,
+        d.status,
+      ]),
+    ).toEqual([
+      ['settlement_paid', 'blocked'],
+      ['settlement_reversed', 'queued'],
+    ]);
+    const [reversal, transfer] = await movements();
+    await getReceipt(reversal.id).expect(200);
+    await getReceipt(transfer.id).expect(200);
+    const latest = await request(app.getHttpServer())
+      .get(`/owners/settlements/${settlementId}/receipt`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(200);
+    expect(latest.headers['content-disposition']).toContain('reversal');
+  });
+  it('suppresses a stale paid notice if a refund arrived before receipt rendering', async () => {
+    await post().expect(201);
+    await worker();
+    transaction.mockResolvedValue(
+      remote('refunded', 'refunded', '2026-09-02T10:00:00Z'),
+    );
+    await due();
+    await worker();
+    await db.query(
+      "UPDATE settlement_payout_effects_outbox SET next_attempt_at=now()-interval '1 day' WHERE company_id=$1 AND snapshot->>'kind'='reversal'",
+      [companyId],
+    );
+    await Promise.all([effectWorker(), effectWorker()]);
+    expect(await receiptJobs()).toHaveLength(2);
+    expect(await deliveries()).toHaveLength(1);
+    expect((await deliveries())[0].event).toBe('settlement_reversed');
+    const latest = await request(app.getHttpServer())
+      .get(`/owners/settlements/${settlementId}/receipt`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(200);
+    expect(latest.headers['content-disposition']).toContain('reversal');
+  });
+  it('rejects modified receipt bytes on both movement and legacy receipt download paths', async () => {
+    await post().expect(201);
+    await worker();
+    await effectWorker();
+    await db.query('UPDATE documents SET file_data=$2 WHERE company_id=$1', [
+      companyId,
+      Buffer.from('modified'),
+    ]);
+    await getReceipt((await movements())[0].id).expect(409);
+    await request(app.getHttpServer())
+      .get(`/owners/settlements/${settlementId}/receipt`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(409);
+  });
+  it('does not follow a receipt URL to another company document', async () => {
+    await post().expect(201);
+    await worker();
+    await effectWorker();
+    const [foreignDoc] = await db.query(
+      "INSERT INTO documents(company_id,entity_type,entity_id,document_type,status,name,file_url,file_data) VALUES($1,'owner_settlement',$2,'other','approved','private.pdf','db://document/pending',$3) RETURNING id",
+      [foreignId, foreignSettlementId, Buffer.from('foreign private bytes')],
+    );
+    await db.query('UPDATE documents SET file_url=$2 WHERE company_id=$1', [
+      companyId,
+      `db://document/${foreignDoc.id}`,
+    ]);
+    await request(app.getHttpServer())
+      .get(`/owners/settlements/${settlementId}/receipt`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(404);
   });
 });

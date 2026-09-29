@@ -70,6 +70,13 @@ export class SettlementPayoutJobDto {
   @ApiProperty() updatedAt: string;
 }
 export class SettlementPayoutMovementDto {
+  @ApiProperty() receiptAvailable: boolean;
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    enum: ['queued', 'completed', 'dead_letter'],
+  })
+  receiptStatus: string | null;
   @ApiProperty() id: string;
   @ApiProperty({ enum: ['transfer', 'reversal'] }) kind: string;
   @ApiProperty() amount: string;

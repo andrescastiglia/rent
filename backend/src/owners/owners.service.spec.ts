@@ -339,6 +339,7 @@ describe('OwnersService', () => {
         owner_id: 'o1',
         owner_name: 'Owner Test',
         period: '2025-01',
+        currency: 'USD',
         gross_amount: '100000',
         commission_amount: '10000',
         withholdings_amount: '5000',
@@ -368,6 +369,7 @@ describe('OwnersService', () => {
         id: 's1',
         ownerId: 'o1',
         netAmount: 85000,
+        currencyCode: 'USD',
         receiptPdfUrl: 'db://document/1',
       }),
     );
@@ -715,6 +717,10 @@ describe('OwnersService', () => {
 
     expect(result.contentType).toBe('application/pdf');
     expect(result.filename).toContain('recibo-liquidacion-2025-01-s1');
+    expect(documentsService.downloadByFileUrl).toHaveBeenCalledWith(
+      'db://document/1',
+      { companyId: 'co1', entityType: 'owner_settlement', entityId: 's1' },
+    );
   });
 
   it('getSettlementReceipt throws when settlement or receipt is missing', async () => {

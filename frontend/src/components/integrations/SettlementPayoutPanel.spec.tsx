@@ -11,6 +11,7 @@ jest.mock("@/lib/api/settlement-payouts", () => ({
     overview: jest.fn(),
     request: jest.fn(),
     review: jest.fn(),
+    downloadReceipt: jest.fn(),
   },
 }));
 jest.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }));
@@ -297,6 +298,8 @@ it("shows partial refunds and their existing ledger without offering another tra
     movements: [
       {
         id: "m",
+        receiptAvailable: true,
+        receiptStatus: "completed",
         kind: "transfer",
         amount: "100.25",
         currency: "ARS",
@@ -328,4 +331,35 @@ it("blocks writes when initial history fails and permits a read-only recovery", 
   fireEvent.click(screen.getByRole("button", { name: "reload" }));
   await screen.findByText("status.none");
   expect(api.request).not.toHaveBeenCalled();
+});
+it("downloads a recorded receipt while disabled and reports failures without resending money", async () => {
+  api.overview.mockResolvedValue({
+    ...state("completed", { payoutId: "POP1", transactionId: "TOP1" }),
+    enabled: false,
+    movements: [
+      {
+        id: "m",
+        receiptAvailable: true,
+        receiptStatus: "completed",
+        kind: "transfer",
+        amount: "100.25",
+        currency: "ARS",
+        transactionId: "TOP1",
+        providerUpdatedAt: "2026-09-01",
+        createdAt: "2026-09-01",
+      },
+    ],
+  });
+  api.downloadReceipt.mockRejectedValueOnce(new Error("unavailable"));
+  await mount();
+  fireEvent.click(screen.getByRole("button", { name: "downloadReceipt" }));
+  await screen.findByText("receiptError");
+  expect(api.downloadReceipt).toHaveBeenCalledWith("settlement", "m");
+  api.downloadReceipt.mockResolvedValue();
+  fireEvent.click(screen.getByRole("button", { name: "downloadReceipt" }));
+  await waitFor(() =>
+    expect(screen.queryByText("receiptError")).not.toBeInTheDocument(),
+  );
+  expect(api.request).not.toHaveBeenCalled();
+  expect(api.review).not.toHaveBeenCalled();
 });

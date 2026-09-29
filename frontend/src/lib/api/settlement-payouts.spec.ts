@@ -65,3 +65,42 @@ it("does not invent an authentication token", async () => {
     undefined,
   );
 });
+it("downloads receipt bytes through the authenticated scoped route and releases the object URL", async () => {
+  const fetchMock = jest.fn().mockResolvedValue({
+    ok: true,
+    blob: async () => new Blob(["pdf"], { type: "application/pdf" }),
+  });
+  const originalFetch = global.fetch;
+  global.fetch = fetchMock;
+  const originalCreate = URL.createObjectURL,
+    originalRevoke = URL.revokeObjectURL;
+  URL.createObjectURL = jest.fn().mockReturnValue("blob:test");
+  URL.revokeObjectURL = jest.fn();
+  const click = jest
+    .spyOn(HTMLAnchorElement.prototype, "click")
+    .mockImplementation(() => {});
+  try {
+    await payouts.downloadReceipt("s/?", "m/?");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/settlements/s%2F%3F/payout/movements/m%2F%3F/receipt",
+      { headers: { Authorization: "Bearer token" } },
+    );
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:test");
+    expect(document.querySelector("a[download]")).toBeNull();
+    fetchMock.mockResolvedValueOnce({ ok: false });
+    await expect(payouts.downloadReceipt("s", "m")).rejects.toThrow(
+      "Receipt download failed",
+    );
+    jest.mocked(getToken).mockReturnValue(null);
+    await expect(payouts.downloadReceipt("s", "m")).rejects.toThrow(
+      "Authentication required",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  } finally {
+    global.fetch = originalFetch;
+    URL.createObjectURL = originalCreate;
+    URL.revokeObjectURL = originalRevoke;
+    click.mockRestore();
+  }
+});
