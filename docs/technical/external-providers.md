@@ -93,6 +93,50 @@ propietario/período ni borrar generaciones si existen liquidaciones suplementar
 preferir una corrección hacia adelante y una versión de UI compatible con
 `cancelled`. No se enviaron fondos ni se crearon cuentas durante estas pruebas.
 
+### Interfaz y recuperación de solicitudes
+
+La pantalla administrativa del propietario incorpora vista previa por período y
+moneda, detalle de facturas/notas de crédito, retenciones explícitas y confirmación
+del neto exacto. Generar y anular permanecen bloqueados con la integración apagada;
+las lecturas y el historial siguen disponibles. No hay activación desde la pantalla.
+
+`GET /settlements/generation/overview` exige propietario de la compañía y admite
+un selector de liquidación o de clave de solicitud. Devuelve disponibilidad,
+snapshot y elegibilidad orientativa para anular; la mutación vuelve a comprobar
+las condiciones bajo bloqueo. Una liquidación histórica sin snapshot se distingue
+de un fallo de lectura. Las vistas se reinician al cambiar compañía/usuario/propietario.
+
+Antes del POST se conserva la solicitud en `sessionStorage`, separada por compañía,
+usuario y propietario; no incluye facturas, destinos bancarios ni credenciales.
+Un resultado incierto bloquea solicitudes nuevas incluso después de recargar o de
+fallar la consulta inicial. Se puede consultar el resultado por GET o confirmar un
+reintento de exactamente la misma solicitud y clave; nunca se reenvía al montar la
+pantalla. Si no se puede conservar la clave, no se envía la generación.
+
+`POST /settlements/generation/cancel-request` permite descartar una solicitud con
+confirmación explícita. La migración 120 conserva una marca inmutable de cancelación
+con compañía, propietario, clave, actor y fecha. La operación se serializa con la
+generación: si esta ya existe, devuelve su resultado sin anularla; si no, bloquea
+para siempre los intentos tardíos con esa clave. Esta acción administrativa local
+funciona también con el proveedor deshabilitado: no crea ni anula liquidaciones,
+no consulta proveedores y no mueve dinero. Una respuesta perdida conserva la
+solicitud hasta verificar su resultado.
+
+La anulación requiere motivo y confirmación renovada al cambiarlo. Después de una
+respuesta incierta exige consultar el estado antes de otra escritura. La auditoría
+y los textos están disponibles en español, inglés y portugués.
+
+Validación: 204 E2E del backend sobre PostgreSQL aislado, suite frontend y
+Chromium móvil/escritorio con transporte local explícito: bloqueo deshabilitado,
+confirmación, recuperación después de respuesta perdida y recarga, un único POST
+y anulación auditada. Sin errores de ejecución, llamadas externas ni infracciones
+en el análisis automatizado de accesibilidad de la vista probada. No reemplaza
+la validación completa de accesibilidad pendiente en el plan.
+
+Rollback: conservar también las cancelaciones de la migración 120; no restaurar
+un generador anterior que ignore esas marcas. Mantener generación/proveedores
+apagados y el cron suspendido hasta desplegar una corrección compatible.
+
 ## BFA: sellado e integridad
 
 El [servicio BFA](https://bfa.ar/sello2) acredita existencia e integridad del
@@ -480,9 +524,9 @@ proveedores; solo encola la entrega. La migración no genera avisos históricos 
 no activa cuentas, credenciales ni cron. Los dos modelos de PDF fueron renderizados
 con Poppler para revisar legibilidad y correspondencia de importes y fechas.
 
-Pendiente: generación durable de liquidaciones, resolución contable de devoluciones
-parciales o nuevas órdenes tras rechazos/reversiones verificados, gates y despliegue
-deshabilitado.
+Pendiente: recuperación de deuda por cobros anulados después de transferir,
+resolución contable de devoluciones parciales o nuevas órdenes tras rechazos/
+reversiones verificados, gates de interfaz y despliegue deshabilitado.
 
 ## Validación y rollback
 
@@ -491,7 +535,7 @@ Pruebas PostgreSQL aisladas: `bfa-stamps.e2e-spec.ts`, incluyendo cola deshabili
 aislamiento entre empresas, concurrencia, respuesta perdida y documentos alterados.
 No constituyen evidencia de disponibilidad del proveedor ni validación de cuentas.
 
-Las migraciones 113 a 118 conservan los datos y no encolan documentos ni avisos históricos. Para rollback,
+Las migraciones 113 a 120 conservan los datos y no encolan documentos ni avisos históricos. Para rollback,
 conservar sus registros y mantener proveedores deshabilitados. Si se restaura
 un artefacto anterior, restaurar también el CLI del mismo artefacto para evitar
 invocar un endpoint que aún no exista. No borrar pruebas de sellado ni resoluciones;

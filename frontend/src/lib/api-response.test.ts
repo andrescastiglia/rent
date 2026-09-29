@@ -1,4 +1,4 @@
-import { apiClient } from "./api";
+import { apiClient, ApiRequestError } from "./api";
 import { reportApiError } from "./frontend-metrics";
 jest.mock("./frontend-metrics", () => ({
   reportApiError: jest.fn(),
@@ -36,9 +36,10 @@ it("still rejects and reports failed close requests", async () => {
     status: 409,
     json: async () => ({ message: "Pending operation" }),
   });
-  await expect(apiClient.delete("/portals/listings/id")).rejects.toThrow(
-    "Pending operation",
-  );
+  const operation = apiClient.delete("/portals/listings/id");
+  await expect(operation).rejects.toThrow("Pending operation");
+  await expect(operation).rejects.toBeInstanceOf(ApiRequestError);
+  await expect(operation).rejects.toMatchObject({ status: 409 });
   expect(reportApiError).toHaveBeenCalledWith(
     expect.objectContaining({ statusCode: 409, method: "DELETE" }),
   );

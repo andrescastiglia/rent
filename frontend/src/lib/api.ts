@@ -122,6 +122,16 @@ interface RequestOptions extends RequestInit {
   token?: string;
 }
 
+export class ApiRequestError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "ApiRequestError";
+  }
+}
+
 class ApiClient {
   private readonly baseUrl: string;
 
@@ -192,7 +202,10 @@ class ApiClient {
       const error = await response
         .json()
         .catch(() => ({ message: response.statusText }));
-      throw new Error(error.message || "API request failed");
+      throw new ApiRequestError(
+        response.status,
+        error.message || "API request failed",
+      );
     }
 
     if (response.status === 204) return undefined as T;

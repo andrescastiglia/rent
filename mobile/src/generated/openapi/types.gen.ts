@@ -2236,17 +2236,6 @@ export type UpdateBankAccountDto = {
   [key: string]: unknown;
 };
 
-export type GenerateSettlementDto = {
-  confirmed: true;
-  idempotencyKey: string;
-  expectedFingerprint: string;
-  additionalWithholdings: string;
-  withholdingReason: string;
-  ownerId: string;
-  period: string;
-  currency: string;
-};
-
 export type SettlementSourceAllocationDto = {
   id: string;
   paymentId: string;
@@ -2312,6 +2301,30 @@ export type SettlementGenerationDto = {
   voidedAt: string | null;
   voidReason: string | null;
   snapshot: SettlementGenerationSnapshotDto;
+};
+
+export type SettlementGenerationOverviewDto = {
+  enabled: boolean;
+  canVoid: boolean;
+  requestCancelled: boolean;
+  generation: SettlementGenerationDto | null;
+};
+
+export type CancelSettlementGenerationRequestDto = {
+  confirmed: true;
+  ownerId: string;
+  requestKey: string;
+};
+
+export type GenerateSettlementDto = {
+  confirmed: true;
+  idempotencyKey: string;
+  expectedFingerprint: string;
+  additionalWithholdings: string;
+  withholdingReason: string;
+  ownerId: string;
+  period: string;
+  currency: string;
 };
 
 export type VoidSettlementGenerationDto = {
@@ -6311,6 +6324,38 @@ export type BankAccountsUpdateResponses = {
 
 export type BankAccountsUpdateResponse =
   BankAccountsUpdateResponses[keyof BankAccountsUpdateResponses];
+
+export type SettlementGenerationOverviewData = {
+  body?: never;
+  path?: never;
+  query: {
+    ownerId: string;
+    settlementId?: string;
+    requestKey?: string;
+  };
+  url: '/settlements/generation/overview';
+};
+
+export type SettlementGenerationOverviewResponses = {
+  200: SettlementGenerationOverviewDto;
+};
+
+export type SettlementGenerationOverviewResponse =
+  SettlementGenerationOverviewResponses[keyof SettlementGenerationOverviewResponses];
+
+export type SettlementGenerationCancelRequestData = {
+  body: CancelSettlementGenerationRequestDto;
+  path?: never;
+  query?: never;
+  url: '/settlements/generation/cancel-request';
+};
+
+export type SettlementGenerationCancelRequestResponses = {
+  201: SettlementGenerationOverviewDto;
+};
+
+export type SettlementGenerationCancelRequestResponse =
+  SettlementGenerationCancelRequestResponses[keyof SettlementGenerationCancelRequestResponses];
 
 export type SettlementGenerationGenerateData = {
   body: GenerateSettlementDto;
