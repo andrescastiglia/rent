@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { z } from 'zod';
 import { MercadoLibreOAuthClient } from './mercadolibre-oauth.client';
 import { ConfigService } from '@nestjs/config';
@@ -32,14 +33,20 @@ function setup(values: Record<string, string> = {}) {
         }),
       ),
   };
+  const catalog = { assertPublishableCategory: jest.fn() };
   return {
+    catalog,
     settings,
     config,
     http,
     bfa: new BfaClient(config, http as never),
     payouts: new MercadoPagoPayoutsClient(config, http as never),
     accounts,
-    ml: new MercadoLibreClient(accounts as never, http as never),
+    ml: new MercadoLibreClient(
+      accounts as never,
+      http as never,
+      catalog as never,
+    ),
     oauth: new MercadoLibreOAuthClient(config, http as never),
   };
 }
@@ -480,6 +487,20 @@ describe('Mercado Libre classifieds protocol', () => {
     ).rejects.toThrow('disabled');
   });
 
+  it('rejects unsupported categories before any item validation or creation request', async () => {
+    const f = setup(mlSettings);
+    f.catalog.assertPublishableCategory.mockRejectedValue(
+      new BadRequestException('Unsupported category'),
+    );
+    await expect(f.ml.create(company, item)).rejects.toThrow(
+      'Unsupported category',
+    );
+    expect(f.catalog.assertPublishableCategory).toHaveBeenCalledWith(
+      company,
+      item.category_id,
+    );
+    expect(f.http.request).not.toHaveBeenCalled();
+  });
   it('verifies the seller, validates then creates without silently posting a description twice', async () => {
     const f = setup(mlSettings);
     f.http.request

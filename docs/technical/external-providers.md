@@ -161,6 +161,38 @@ correspondiente. La persistencia y renovación OAuth ya usan
 el almacén cifrado, con pruebas de concurrencia y aislamiento.
 Las cuentas y flags continúan sin configurar; no se habilita publicación real.
 
+### Catálogo y borradores
+
+Las rutas administrativas `GET /portals/mercadolibre/catalog/categories/:id`,
+`/states`, `/states/:id/cities` y `/cities/:id/neighborhoods` usan la conexión
+cifrada de la compañía autenticada. No admiten una cuenta o token proporcionados
+por el navegador, ni hacen llamadas si Mercado Libre está deshabilitado.
+Las consultas son GET; la renovación OAuth conserva sus reglas de un solo uso.
+
+El árbol comienza en `MLA1459` (Inmuebles de Argentina) y valida la raíz y el
+último elemento del camino recibido. Las categorías intermedias devuelven
+navegación; solo una categoría final habilitada devuelve atributos, unidades,
+valores permitidos y tipos de publicación disponibles para ese vendedor.
+Se excluyen tipos de otro país o con cupo cero. Las ubicaciones verifican país
+Argentina e identidad de la provincia/ciudad solicitada. No se guarda un catálogo
+estático ni se sustituyen datos inválidos del proveedor por opciones inventadas.
+
+Fuentes: [categorías inmobiliarias](https://developers.mercadolibre.com.ar/productos-recibe-notificaciones/categorias-inmuebles),
+[atributos](https://developers.mercadolibre.com.ar/atributos-inmuebles),
+[tipos disponibles por vendedor](https://developers.mercadolibre.com.ar/en_us/listing-types-item-upgrades-tutorial)
+y [ubicación](https://developers.mercadolibre.com.ar/es_ar/como-empezar/localizar-inmuebles).
+La interfaz de alta/editor que consume este catálogo sigue pendiente.
+
+Crear un borrador exige integración habilitada, compañía, propiedad de esa
+compañía y datos completos validados localmente. Solo admite Mercado Libre.
+Las altas concurrentes para la misma propiedad devuelven un borrador y conflictos
+409 para las demás solicitudes, sin trabajos ni publicaciones automáticas.
+Guardar un borrador existente sigue sin encolar. El cliente verifica nuevamente
+que la categoría sea inmobiliaria, final y publicable antes de iniciar la
+creación externa; un fallo en esta consulta no se confunde con una creación incierta.
+La validación definitiva de atributos y reglas de publicación sigue en
+`POST /items/validate` antes de `POST /items`.
+
 ### Revisión de publicaciones
 
 La ficha de la propiedad enlaza la vista administrativa
