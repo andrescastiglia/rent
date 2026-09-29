@@ -8,6 +8,7 @@ export async function processQueues() {
   for (const path of [
     '/payments/internal/process-effects',
     '/sales/internal/process-receipts',
+    '/digital-signatures/internal/process-stamps',
     '/communications/internal/retry-due',
   ]) {
     const response = await fetch(`${baseUrl}${path}`, {

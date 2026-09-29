@@ -6527,3 +6527,53 @@ export type DigitalSignaturesProcessWebhookData = {
 export type DigitalSignaturesProcessWebhookResponses = {
   200: unknown;
 };
+
+export type BfaStampsFindData = {
+  body?: never;
+  path: {
+    documentId: string;
+  };
+  query?: never;
+  url: '/digital-signatures/documents/{documentId}/stamp';
+};
+
+export type BfaStampsFindResponses = {
+  200: {
+    [key: string]: unknown;
+  };
+};
+
+export type BfaStampsFindResponse =
+  BfaStampsFindResponses[keyof BfaStampsFindResponses];
+
+export type BfaStampsRequestData = {
+  body?: never;
+  path: {
+    documentId: string;
+  };
+  query?: never;
+  url: '/digital-signatures/documents/{documentId}/stamp';
+};
+
+export type BfaStampsRequestResponses = {
+  201: {
+    [key: string]: unknown;
+  };
+};
+
+export type BfaStampsRequestResponse =
+  BfaStampsRequestResponses[keyof BfaStampsRequestResponses];
+
+export type BfaStampsProcessData = {
+  body?: never;
+  headers: {
+    'x-batch-communications-token': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/digital-signatures/internal/process-stamps';
+};
+
+export type BfaStampsProcessResponses = {
+  201: unknown;
+};
