@@ -93,7 +93,9 @@ describe('LeasesController', () => {
       controller.listTemplates({ contractType: 'bad' } as any, req),
     ).toThrow(BadRequestException);
 
-    leasesService.remove.mockResolvedValue(undefined);
+    leasesService.remove.mockResolvedValue({
+      message: 'Lease deleted successfully',
+    });
     await expect(controller.remove('l1', req)).resolves.toEqual({
       message: 'Lease deleted successfully',
     });

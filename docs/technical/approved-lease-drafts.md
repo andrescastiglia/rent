@@ -48,7 +48,8 @@ históricas sin garantía mantienen su revisión manual. No se reescriben revisi
 históricas duplicadas ni se normalizan automáticamente ramas de versiones antiguas.
 
 La renovación continúa en [su recorrido atómico](approved-lease-renewals.md).
-Siguen pendientes importación, baja y modificaciones de plantillas,
+Las bajas y modificaciones de plantillas continúan en [su recorrido recuperable](approved-lease-deletions-templates.md).
+Siguen pendientes importación y enmiendas,
 además de otras herramientas mutables. La política completa de cambios de partes
 o inmueble y las versiones históricas requieren su revisión de producto; este
 avance asegura la transacción y la recuperación de estos dos recorridos. No

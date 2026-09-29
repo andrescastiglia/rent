@@ -116,8 +116,12 @@ Pendiente: despliegue de backend/clientes compatibles.
   La renovación ahora guarda cierre del original, inmueble, nuevo borrador y
   constancia aprobada juntos; preserva términos omitidos y vincula la versión
   nueva, con bloqueo contra sucesores simultáneos. Ver [reglas y pruebas](technical/approved-lease-renewals.md).
-  Pendiente: gates y despliegue de estos avances; importaciones, bajas y plantillas
-  de contratos aún requieren recuperación.
+  Bajas y altas/ediciones de plantillas también guardan constancia atómica;
+  la baja se serializa con confirmación/renovación y preserva sucesores y contabilidad.
+  Las ediciones parciales de plantillas conservan HTML y no pierden cambios concurrentes.
+  Ver [reglas y pruebas](technical/approved-lease-deletions-templates.md).
+  Pendiente: gates y despliegue de estos avances; importaciones de contratos y
+  enmiendas aún requieren recuperación.
   Pendiente: idempotencia transaccional de las demás herramientas mutables y despliegue.
 
 ## 2. Completar recorridos de producto

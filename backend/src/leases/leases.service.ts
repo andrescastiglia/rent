@@ -945,22 +945,37 @@ export class LeasesService {
   async createTemplate(
     dto: CreateLeaseContractTemplateDto,
     companyId: string,
+    executionKey?: string,
   ): Promise<LeaseContractTemplate> {
-    const templateFormat = dto.templateFormat ?? 'plain_text';
-    const template = this.templatesRepository.create({
-      companyId,
-      name: dto.name.trim(),
-      contractType: dto.contractType,
-      templateBody: this.normalizeContractBody(
-        dto.templateBody,
-        templateFormat,
+    if (!companyId) throw new ForbiddenException('Company scope is required');
+    return this.templatesRepository.manager.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        companyId,
+        executionKey,
+        'lease.template.create',
+        { ...dto },
+        async () => {
+          const repository = manager.getRepository(LeaseContractTemplate);
+          const templateFormat = dto.templateFormat ?? 'plain_text';
+          return repository.save(
+            repository.create({
+              companyId,
+              name: dto.name.trim(),
+              contractType: dto.contractType,
+              templateBody: this.normalizeContractBody(
+                dto.templateBody,
+                templateFormat,
+              ),
+              templateFormat,
+              sourceFileName: null,
+              sourceMimeType: null,
+              isActive: dto.isActive ?? true,
+            }),
+          );
+        },
       ),
-      templateFormat,
-      sourceFileName: null,
-      sourceMimeType: null,
-      isActive: dto.isActive ?? true,
-    });
-    return this.templatesRepository.save(template);
+    );
   }
 
   async importTemplateFromDocx(
@@ -1007,27 +1022,39 @@ export class LeasesService {
     id: string,
     dto: UpdateLeaseContractTemplateDto,
     companyId: string,
+    executionKey?: string,
   ): Promise<LeaseContractTemplate> {
-    const template = await this.templatesRepository.findOne({
-      where: { id, companyId, deletedAt: IsNull() },
-    });
-    if (!template) {
-      throw new NotFoundException(`Template with ID ${id} not found`);
-    }
-
-    if (dto.name !== undefined) template.name = dto.name.trim();
-    if (dto.contractType !== undefined)
-      template.contractType = dto.contractType;
-    if (dto.templateFormat !== undefined)
-      template.templateFormat = dto.templateFormat;
-    if (dto.templateBody !== undefined)
-      template.templateBody = this.normalizeContractBody(
-        dto.templateBody,
-        dto.templateFormat ?? template.templateFormat,
-      );
-    if (dto.isActive !== undefined) template.isActive = dto.isActive;
-
-    return this.templatesRepository.save(template);
+    if (!companyId) throw new ForbiddenException('Company scope is required');
+    return this.templatesRepository.manager.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        companyId,
+        executionKey,
+        'lease.template.update',
+        { id, ...dto },
+        async () => {
+          const repository = manager.getRepository(LeaseContractTemplate);
+          const template = await repository.findOne({
+            where: { id, companyId, deletedAt: IsNull() },
+            lock: { mode: 'for_no_key_update' },
+          });
+          if (!template)
+            throw new NotFoundException(`Template with ID ${id} not found`);
+          if (dto.name !== undefined) template.name = dto.name.trim();
+          if (dto.contractType !== undefined)
+            template.contractType = dto.contractType;
+          if (dto.templateFormat !== undefined)
+            template.templateFormat = dto.templateFormat;
+          if (dto.templateBody !== undefined)
+            template.templateBody = this.normalizeContractBody(
+              dto.templateBody,
+              dto.templateFormat ?? template.templateFormat,
+            );
+          if (dto.isActive !== undefined) template.isActive = dto.isActive;
+          return repository.save(template);
+        },
+      ),
+    );
   }
 
   async importCurrentContract(
@@ -1102,16 +1129,42 @@ export class LeasesService {
     return this.findOne(importedId, user.companyId);
   }
 
-  async remove(id: string, user: RequestUser): Promise<void> {
-    const lease = await this.findOne(id, user.companyId);
-
-    if (lease.status === LeaseStatus.ACTIVE) {
-      throw new BadRequestException(
-        'Cannot delete an active contract. Finalize it first.',
-      );
-    }
-
-    await this.leasesRepository.softDelete({ id, companyId: user.companyId });
+  async remove(
+    id: string,
+    user: RequestUser,
+    executionKey?: string,
+  ): Promise<{ message: string }> {
+    this.requireCompanyScope(user);
+    return this.leasesRepository.manager.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        user.companyId,
+        executionKey,
+        'lease.delete',
+        { id },
+        async () => {
+          const lease = await this.lockLease(manager, id, user.companyId);
+          if (lease.status === LeaseStatus.ACTIVE)
+            throw new BadRequestException(
+              'Cannot delete an active contract. Finalize it first.',
+            );
+          const repository = manager.getRepository(Lease);
+          const successor = await repository.findOne({
+            where: {
+              companyId: user.companyId,
+              previousLeaseId: id,
+              deletedAt: IsNull(),
+            },
+          });
+          if (successor)
+            throw new ConflictException(
+              'Cannot delete a contract with a live successor',
+            );
+          await repository.softDelete({ id, companyId: user.companyId });
+          return { message: 'Lease deleted successfully' };
+        },
+      ),
+    );
   }
 
   private async createRevision(

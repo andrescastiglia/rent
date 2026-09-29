@@ -1150,7 +1150,11 @@ export type ImportLeaseTemplateDocxDto = {
 };
 
 export type UpdateLeaseContractTemplateDto = {
-  [key: string]: unknown;
+  name?: string;
+  contractType?: "rental" | "sale";
+  templateFormat?: "plain_text" | "html";
+  templateBody?: string;
+  isActive?: boolean;
 };
 
 export type UpdateLeaseDto = {

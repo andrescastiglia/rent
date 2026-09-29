@@ -233,7 +233,6 @@ export class LeasesController {
   @Delete(':id')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   async remove(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
-    await this.leasesService.remove(id, req.user);
-    return { message: 'Lease deleted successfully' };
+    return this.leasesService.remove(id, req.user);
   }
 }
