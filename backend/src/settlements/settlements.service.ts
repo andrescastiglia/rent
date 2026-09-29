@@ -5,8 +5,15 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { Settlement, SettlementStatus } from './entities/settlement.entity';
-import { SettlementFiltersDto } from './dto/settlement-filters.dto';
+import { Settlement } from './entities/settlement.entity';
+import {
+  SettlementFiltersDto,
+  SettlementSummaryFiltersDto,
+} from './dto/settlement-filters.dto';
+import {
+  SettlementStatusTotalDto,
+  SettlementSummaryDto,
+} from './dto/settlement-summary.dto';
 import { UserRole } from '../users/entities/user.entity';
 import { Owner } from '../owners/entities/owner.entity';
 import { hasRole, isAdminOrStaff } from '../common/helpers/role-scope.helper';
@@ -17,22 +24,6 @@ interface UserContext {
   role: UserRole;
   roles?: UserRole[];
 }
-
-export interface SettlementSummary {
-  totalPending: number;
-  totalCompleted: number;
-  lastSettlementDate: string | null;
-  pendingCount: number;
-  completedCount: number;
-}
-
-const EMPTY_SETTLEMENT_SUMMARY: SettlementSummary = {
-  totalPending: 0,
-  totalCompleted: 0,
-  lastSettlementDate: null,
-  pendingCount: 0,
-  completedCount: 0,
-};
 
 @Injectable()
 export class SettlementsService {
@@ -60,45 +51,54 @@ export class SettlementsService {
     return owner?.id ?? null;
   }
 
+  private async buildScope(
+    companyId: string,
+    user: UserContext,
+    filters: SettlementSummaryFiltersDto,
+  ) {
+    this.assertCompany(companyId, user);
+    if (
+      filters.periodStart &&
+      filters.periodEnd &&
+      filters.periodStart > filters.periodEnd
+    )
+      throw new BadRequestException('periodStart must not exceed periodEnd');
+    let ownerId = filters.ownerId;
+    if (hasRole(user, UserRole.OWNER) && !isAdminOrStaff(user)) {
+      const own = await this.resolveOwnerIdForUser(user);
+      if (!own) return null;
+      ownerId = own;
+    }
+    const params: Array<string | number> = [companyId];
+    const conditions = [
+      'owner_entity.company_id = $1',
+      'owner_entity.deleted_at IS NULL',
+    ];
+    for (const [column, operator, value] of [
+      ['s.owner_id', '=', ownerId],
+      ['s.status', '=', filters.status],
+      ['s.currency', '=', filters.currency],
+      ['s.period', '>=', filters.periodStart],
+      ['s.period', '<=', filters.periodEnd],
+    ]) {
+      if (value) {
+        params.push(value);
+        conditions.push(`${column} ${operator} $${params.length}`);
+      }
+    }
+    return { params, conditions };
+  }
+
   async findAll(
     companyId: string,
     filters: SettlementFiltersDto,
     user: UserContext,
   ): Promise<Settlement[]> {
-    this.assertCompany(companyId, user);
-    let ownerIdFilter = filters.ownerId;
-
-    if (hasRole(user, UserRole.OWNER) && !isAdminOrStaff(user)) {
-      const ownerId = await this.resolveOwnerIdForUser(user);
-      if (!ownerId) return [];
-      ownerIdFilter = ownerId;
-    }
-
-    const params: Array<string> = [companyId];
-    const conditions: string[] = [
-      `owner_entity.company_id = $1`,
-      `owner_entity.deleted_at IS NULL`,
-    ];
-
-    if (ownerIdFilter) {
-      params.push(ownerIdFilter);
-      conditions.push(`s.owner_id = $${params.length}`);
-    }
-
-    if (filters.status) {
-      params.push(filters.status);
-      conditions.push(`s.status = $${params.length}`);
-    }
-
-    if (filters.periodStart) {
-      params.push(filters.periodStart);
-      conditions.push(`s.period >= $${params.length}`);
-    }
-
-    if (filters.periodEnd) {
-      params.push(filters.periodEnd);
-      conditions.push(`s.period <= $${params.length}`);
-    }
+    const scope = await this.buildScope(companyId, user, filters);
+    if (!scope) return [];
+    const { params, conditions } = scope;
+    const limit =
+      filters.limit === undefined ? '' : `LIMIT $${params.push(filters.limit)}`;
 
     const rows = await this.dataSource.query<Settlement[]>(
       `SELECT
@@ -133,7 +133,7 @@ export class SettlementsService {
            ORDER BY COALESCE(pm.provider_updated_at,d.created_at) DESC, d.id DESC LIMIT 1
          ) receipt ON TRUE
          WHERE ${conditions.join(' AND ')}
-         ORDER BY COALESCE(s.processed_at, s.scheduled_date, s.created_at) DESC`,
+         ORDER BY COALESCE(s.processed_at, s.scheduled_date, s.created_at) DESC, s.id DESC ${limit}`,
       params,
     );
 
@@ -202,80 +202,20 @@ export class SettlementsService {
   async getSummary(
     companyId: string,
     user: UserContext,
-    ownerId?: string,
-  ): Promise<SettlementSummary> {
-    this.assertCompany(companyId, user);
-    let ownerIdFilter = ownerId;
-
-    if (hasRole(user, UserRole.OWNER) && !isAdminOrStaff(user)) {
-      const resolvedId = await this.resolveOwnerIdForUser(user);
-      if (!resolvedId) return { ...EMPTY_SETTLEMENT_SUMMARY };
-      ownerIdFilter = resolvedId;
-    }
-
-    const params: Array<string> = [companyId];
-    const conditions: string[] = [
-      `owner_entity.company_id = $1`,
-      `owner_entity.deleted_at IS NULL`,
-    ];
-
-    if (ownerIdFilter) {
-      params.push(ownerIdFilter);
-      conditions.push(`s.owner_id = $${params.length}`);
-    }
-
-    const rows = await this.dataSource.query<
-      {
-        status: SettlementStatus;
-        total_net: string;
-        count: string;
-        last_date: string | null;
-      }[]
-    >(
-      `SELECT
-          s.status,
-          SUM(s.net_amount)::text AS total_net,
-          COUNT(*)::text AS count,
-          MAX(COALESCE(s.processed_at, s.scheduled_date, s.created_at))::text AS last_date
+    filters: SettlementSummaryFiltersDto = {},
+  ): Promise<SettlementSummaryDto> {
+    const scope = await this.buildScope(companyId, user, filters);
+    if (!scope) return { totals: [] };
+    const totals = await this.dataSource.query<SettlementStatusTotalDto[]>(
+      `SELECT s.currency AS "currencyCode", s.status,
+          SUM(s.net_amount)::text AS "netAmount", COUNT(*)::int AS count,
+          MAX(s.processed_at) AS "lastProcessedAt"
          FROM settlements s
-         INNER JOIN owners owner_entity
-           ON owner_entity.id = s.owner_id
-         WHERE ${conditions.join(' AND ')}
-         GROUP BY s.status`,
-      params,
+         JOIN owners owner_entity ON owner_entity.id=s.owner_id
+         WHERE ${scope.conditions.join(' AND ')}
+         GROUP BY s.currency, s.status ORDER BY s.currency, s.status`,
+      scope.params,
     );
-
-    let totalPending = 0;
-    let totalCompleted = 0;
-    let pendingCount = 0;
-    let completedCount = 0;
-    let lastSettlementDate: string | null = null;
-
-    for (const row of rows) {
-      if (
-        row.status === SettlementStatus.PENDING ||
-        row.status === SettlementStatus.PROCESSING
-      ) {
-        totalPending += Number(row.total_net);
-        pendingCount += Number(row.count);
-      } else if (row.status === SettlementStatus.COMPLETED) {
-        totalCompleted += Number(row.total_net);
-        completedCount += Number(row.count);
-        if (
-          row.last_date &&
-          (!lastSettlementDate || row.last_date > lastSettlementDate)
-        ) {
-          lastSettlementDate = row.last_date;
-        }
-      }
-    }
-
-    return {
-      totalPending,
-      totalCompleted,
-      lastSettlementDate,
-      pendingCount,
-      completedCount,
-    };
+    return { totals };
   }
 }

@@ -832,6 +832,8 @@ export type {
   SettlementSourceAllocationDto,
   SettlementSourceCreditDto,
   SettlementSourceInvoiceDto,
+  SettlementStatusTotalDto,
+  SettlementSummaryDto,
   SetUserActivationDto,
   Staff,
   StaffActivateData,

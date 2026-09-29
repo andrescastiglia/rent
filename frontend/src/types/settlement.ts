@@ -21,17 +21,15 @@ export interface Settlement {
   updatedAt: string;
 }
 
-export interface SettlementSummary {
-  totalPending: number;
-  totalCompleted: number;
-  totalProcessing: number;
-  pendingAmount: number;
-  completedAmount: number;
-}
+export type SettlementSummary =
+  import("@/generated/openapi").SettlementSummaryDto;
 
 export interface SettlementFilters {
   status?: SettlementStatus | "all";
   ownerId?: string;
   period?: string;
+  periodStart?: string;
+  periodEnd?: string;
+  currency?: string;
   limit?: number;
 }

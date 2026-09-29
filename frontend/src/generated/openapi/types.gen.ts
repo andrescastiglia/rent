@@ -2372,6 +2372,24 @@ export type Settlement = {
   updatedAt: string;
 };
 
+export type SettlementStatusTotalDto = {
+  currencyCode: string;
+  status: "pending" | "processing" | "completed" | "failed" | "cancelled";
+  /**
+   * Exact sum of settlement net amounts in this currency and recorded status.
+   */
+  netAmount: string;
+  count: number;
+  /**
+   * Latest recorded processed_at; never inferred from a scheduled or creation date.
+   */
+  lastProcessedAt: string | null;
+};
+
+export type SettlementSummaryDto = {
+  totals: Array<SettlementStatusTotalDto>;
+};
+
 export type SettlementPayoutJobDto = {
   id: string;
   status:
@@ -6498,8 +6516,10 @@ export type SettlementsFindAllData = {
   query?: {
     ownerId?: string;
     status?: "pending" | "processing" | "completed" | "failed" | "cancelled";
+    currency?: string;
     periodStart?: string;
     periodEnd?: string;
+    limit?: number;
   };
   url: "/settlements";
 };
@@ -6516,14 +6536,16 @@ export type SettlementsGetSummaryData = {
   path?: never;
   query?: {
     ownerId?: string;
+    status?: "pending" | "processing" | "completed" | "failed" | "cancelled";
+    currency?: string;
+    periodStart?: string;
+    periodEnd?: string;
   };
   url: "/settlements/summary";
 };
 
 export type SettlementsGetSummaryResponses = {
-  200: {
-    [key: string]: unknown;
-  };
+  200: SettlementSummaryDto;
 };
 
 export type SettlementsGetSummaryResponse =

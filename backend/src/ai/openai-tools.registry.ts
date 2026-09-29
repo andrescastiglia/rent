@@ -1,3 +1,7 @@
+import {
+  settlementFiltersSchema,
+  settlementSummaryFiltersSchema,
+} from '../settlements/dto/settlement-filters.dto';
 import { resolveAiToolPermission } from './ai-tool-access-policy';
 import { UpdateProfileDto } from '../users/dto/update-profile.dto';
 import { UnauthorizedException } from '@nestjs/common';
@@ -112,7 +116,6 @@ import {
 } from '../maintenance/entities/maintenance-ticket.entity';
 import { BankAccountsService } from '../bank-accounts/bank-accounts.service';
 import { SettlementsService } from '../settlements/settlements.service';
-import { SettlementStatus } from '../settlements/entities/settlement.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import {
   NotificationFrequency,
@@ -3196,7 +3199,7 @@ export function buildAiToolDefinitions(
     {
       name: 'get_settlements',
       description:
-        'Lists settlements with optional filters: ownerId, status, periodStart, periodEnd. Owners see only their own settlements.',
+        'Lists settlements with optional ownerId, status, currency, inclusive YYYY-MM periodStart/periodEnd and limit (1..500). Owners see only their own settlements.',
       responseDescription: 'Array of settlement records.',
       mutability: 'readonly',
       allowedRoles: ADMIN_OWNER_STAFF,
@@ -3229,20 +3232,18 @@ export function buildAiToolDefinitions(
     {
       name: 'get_settlements_summary',
       description:
-        'Returns a summary of settlements: totals pending/completed, counts, and last settlement date. Optional ownerId filter for admins.',
+        'Returns exact net amounts and counts grouped by currency and recorded settlement status. Filters match the list: ownerId, status, currency, inclusive YYYY-MM periodStart/periodEnd. Owners remain scoped to their own profile. Never add amounts across currencies.',
       responseDescription:
-        'Settlement summary with totalPending, totalCompleted, pendingCount, completedCount, lastSettlementDate.',
+        'Object with totals: currencyCode, status, netAmount (decimal string), count, lastProcessedAt (recorded timestamp or null). These are settlement document totals, not a reconciliation of provider cash movements.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER_STAFF,
-      parameters: z.object({ ownerId: z.uuid().optional() }).strict(),
+      allowedRoles: ADMIN_OWNER,
+      parameters: settlementSummaryFiltersSchema,
       execute: async (args, context) => {
-        const { ownerId } = z
-          .object({ ownerId: z.uuid().optional() })
-          .parse(args) as any;
+        const filters = settlementSummaryFiltersSchema.parse(args) as any;
         return deps.settlementsService.getSummary(
           context.companyId ?? '',
           toScopedUser(context) as any,
-          ownerId,
+          filters,
         );
       },
     },
@@ -3402,22 +3403,6 @@ const createBankAccountSchema = z
   .strict();
 
 const updateBankAccountSchema = createBankAccountSchema.partial().strict();
-
-const settlementFiltersSchema = z
-  .object({
-    ownerId: z.uuid().optional(),
-    status: z
-      .enum([
-        SettlementStatus.PENDING,
-        SettlementStatus.PROCESSING,
-        SettlementStatus.COMPLETED,
-        SettlementStatus.FAILED,
-      ])
-      .optional(),
-    periodStart: z.string().optional(),
-    periodEnd: z.string().optional(),
-  })
-  .strict();
 
 const notificationTypeEnum = z.enum([
   NotificationType.INVOICE_ISSUED,
