@@ -80,19 +80,74 @@ test.describe('Business Critical Flows', () => {
       'recibo',
     );
 
-    await page.goto(localePath('/invoices/inv2'));
-    const downloadInvoiceButton = page.getByRole('button', {
-      name: /descargar pdf|download pdf|baixar pdf/i,
+    // This suite uses mock business records; exercise the new document reads via HTTP fixtures.
+    let documentReady = false;
+    let failDownload = false;
+    const invoiceBytes = Buffer.from("%PDF-1.4\ninvoice e2e fixture\n%%EOF");
+    await page.route("**/invoices/inv2/document-status", async (route) => {
+      expect(route.request().headers().authorization).toMatch(/^Bearer /);
+      await route.fulfill({
+        json: {
+          status: documentReady ? "completed" : "queued",
+          available: documentReady,
+        },
+      });
+    });
+    await page.route("**/invoices/inv2/pdf", async (route) => {
+      expect(route.request().headers().authorization).toMatch(/^Bearer /);
+      await route.fulfill(
+        failDownload
+          ? {
+              status: 409,
+              json: { message: "Document integrity check failed" },
+            }
+          : { contentType: "application/pdf", body: invoiceBytes },
+      );
+    });
+    await page.goto(localePath("/invoices/inv2"));
+    const downloadInvoiceButton = page.getByRole("button", {
+      name: /descargar factura|download invoice|baixar fatura/i,
     });
     await expect(downloadInvoiceButton).toBeVisible();
+    await expect(downloadInvoiceButton).toBeDisabled();
+    await expect(
+      page
+        .getByRole("status")
+        .filter({
+          hasText:
+            /PDF está pendiente|PDF generation is pending|geração do PDF está pendente/i,
+        }),
+    ).toBeVisible();
+    documentReady = true;
+    const refreshDocument = page.getByRole("button", {
+      name: /actualizar documento|refresh document|atualizar documento/i,
+    });
+    await expect(refreshDocument).toBeEnabled();
+    await refreshDocument.focus();
+    await page.keyboard.press("Enter");
+    await expect(downloadInvoiceButton).toBeEnabled();
 
     const [invoiceDownload] = await Promise.all([
-      page.waitForEvent('download'),
+      page.waitForEvent("download"),
       downloadInvoiceButton.click(),
     ]);
     expect(invoiceDownload.suggestedFilename().toLowerCase()).toContain(
-      'factura',
+      "factura",
     );
+    const stream = await invoiceDownload.createReadStream();
+    expect(stream).not.toBeNull();
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
+    expect(Buffer.concat(chunks)).toEqual(invoiceBytes);
+    failDownload = true;
+    await downloadInvoiceButton.click();
+    await expect(
+      page.getByRole("alert").filter({
+        hasText:
+          /no se pudo descargar|could not download|não foi possível baixar/i,
+      }),
+    ).toBeVisible();
+    await expect(downloadInvoiceButton).toBeDisabled();
   });
 
   test('lease detail supports contract actions and delete', async ({ page }) => {
