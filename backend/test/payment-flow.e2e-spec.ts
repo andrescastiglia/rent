@@ -1591,4 +1591,182 @@ describe('Payment accounting flow (e2e)', () => {
       )[0].amount,
     ).toBe('0.80');
   });
+  async function fractionalReversalFixture(
+    status = 'pending',
+    dueDate = '2080-11-10',
+  ) {
+    const {
+      dto,
+      accountId,
+      invoiceId: freshInvoiceId,
+    } = await recoveryFixture();
+    await dataSource.query(
+      'UPDATE invoices SET subtotal=0.80,late_fee_amount=0,total_amount=0.80,status=$2,due_date=$3 WHERE id=$1',
+      [freshInvoiceId, status, dueDate],
+    );
+    await dataSource.query(
+      'UPDATE tenant_accounts SET current_balance=0.80 WHERE id=$1',
+      [accountId],
+    );
+    const service = app.get(PaymentsService);
+    const payments = [];
+    for (const amount of [0.1, 0.7]) {
+      const payment = await service.create(
+        { ...dto, amount, items: [] },
+        adminId,
+        companyId,
+      );
+      await service.confirm(payment.id, companyId);
+      payments.push(payment);
+    }
+    const invoiceState = async () =>
+      (
+        await dataSource.query(
+          'SELECT paid_amount::text,status FROM invoices WHERE id=$1',
+          [freshInvoiceId],
+        )
+      )[0];
+    return { accountId, invoiceId: freshInvoiceId, payments, invoiceState };
+  }
+
+  it.each([
+    ['pending', '2080-11-10'],
+    ['sent', '2080-11-10'],
+    ['overdue', '2000-01-01'],
+  ])(
+    'recomputes %s invoice status from surviving payments during out-of-order reversal',
+    async (status, dueDate) => {
+      const { payments, invoiceState, accountId } =
+          await fractionalReversalFixture(status, dueDate),
+        service = app.get(PaymentsService);
+      expect(await invoiceState()).toEqual({
+        paid_amount: '0.80',
+        status: 'paid',
+      });
+      await service.cancel(payments[0].id, companyId);
+      expect(await invoiceState()).toEqual({
+        paid_amount: '0.70',
+        status: 'partial',
+      });
+      await service.cancel(payments[1].id, companyId);
+      expect(await invoiceState()).toEqual({ paid_amount: '0.00', status });
+      expect(
+        (
+          await dataSource.query(
+            'SELECT current_balance::text FROM tenant_accounts WHERE id=$1',
+            [accountId],
+          )
+        )[0].current_balance,
+      ).toBe('0.80');
+    },
+  );
+
+  it('does not reactivate a cancelled invoice when reversing its remaining payment', async () => {
+    const {
+        dto,
+        accountId,
+        invoiceId: freshInvoiceId,
+      } = await recoveryFixture(),
+      service = app.get(PaymentsService);
+    const payment = await service.create(
+      { ...dto, amount: 10, items: [] },
+      adminId,
+      companyId,
+    );
+    await service.confirm(payment.id, companyId);
+    await app.get(InvoicesService).cancel(freshInvoiceId, companyId);
+    await service.cancel(payment.id, companyId);
+    expect(
+      (
+        await dataSource.query(
+          'SELECT status,paid_amount::text FROM invoices WHERE id=$1',
+          [freshInvoiceId],
+        )
+      )[0],
+    ).toEqual({ status: 'cancelled', paid_amount: '0.00' });
+    expect(
+      (
+        await dataSource.query(
+          'SELECT current_balance::text FROM tenant_accounts WHERE id=$1',
+          [accountId],
+        )
+      )[0].current_balance,
+    ).toBe('0.00');
+  });
+
+  it('serializes concurrent payment reversals and recovers each original result without another adjustment', async () => {
+    const { payments, invoiceState, accountId } =
+        await fractionalReversalFixture(),
+      service = app.get(PaymentsService);
+    const keys = payments.map(() => randomUUID());
+    const results = await Promise.all(
+      payments.map((p, index) => service.cancel(p.id, companyId, keys[index])),
+    );
+    expect(await invoiceState()).toEqual({
+      paid_amount: '0.00',
+      status: 'pending',
+    });
+    const recovered = await Promise.all(
+      payments.map((p, index) => service.cancel(p.id, companyId, keys[index])),
+    );
+    expect(recovered).toEqual(JSON.parse(JSON.stringify(results)));
+    expect(
+      await dataSource.query(
+        "SELECT id FROM tenant_account_movements WHERE tenant_account_id=$1 AND movement_type='adjustment'",
+        [accountId],
+      ),
+    ).toHaveLength(2);
+    expect(
+      (
+        await dataSource.query(
+          'SELECT current_balance::text FROM tenant_accounts WHERE id=$1',
+          [accountId],
+        )
+      )[0].current_balance,
+    ).toBe('0.80');
+  });
+
+  it('rolls back an inconsistent allocation reversal instead of silently clamping the paid amount', async () => {
+    const {
+        payments,
+        invoiceId: freshInvoiceId,
+        accountId,
+      } = await fractionalReversalFixture(),
+      service = app.get(PaymentsService);
+    await dataSource.query('UPDATE invoices SET paid_amount=0 WHERE id=$1', [
+      freshInvoiceId,
+    ]);
+    const before = await dataSource.query(
+      'SELECT * FROM tenant_account_movements WHERE tenant_account_id=$1 ORDER BY id',
+      [accountId],
+    );
+    await expect(service.cancel(payments[0].id, companyId)).rejects.toThrow(
+      'allocation',
+    );
+    expect((await service.findOne(payments[0].id, companyId)).status).toBe(
+      'completed',
+    );
+    expect(
+      await dataSource.query(
+        'SELECT * FROM tenant_account_movements WHERE tenant_account_id=$1 ORDER BY id',
+        [accountId],
+      ),
+    ).toEqual(before);
+    expect(
+      (
+        await dataSource.query(
+          'SELECT reversed_at FROM payment_allocations WHERE payment_id=$1',
+          [payments[0].id],
+        )
+      )[0].reversed_at,
+    ).toBeNull();
+    expect(
+      (
+        await dataSource.query(
+          'SELECT cancelled_at FROM receipts WHERE payment_id=$1',
+          [payments[0].id],
+        )
+      )[0].cancelled_at,
+    ).toBeNull();
+  });
 });

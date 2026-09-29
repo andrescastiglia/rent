@@ -3,6 +3,7 @@ import {
   paymentCents,
   paymentNumber,
 } from './payment-amount';
+import { reversedInvoiceStatus } from './reversed-invoice-status';
 import { withDomainOperationReceipt } from '../common/helpers/domain-operation-receipt';
 import {
   Injectable,
@@ -951,11 +952,36 @@ export class PaymentsService {
           `Invoice with ID ${allocation.invoiceId} not found`,
         );
       }
-      invoice.amountPaid = Math.max(
-        0,
-        Number(invoice.amountPaid) - Number(allocation.amount),
+      const paid = paymentCents(invoice.amountPaid),
+        allocated = paymentCents(allocation.amount);
+      if (allocated <= 0n || allocated > paid)
+        throw new BadRequestException(
+          'Payment allocation exceeds the recorded paid amount; manual review is required',
+        );
+      const remainingPaid = paid - allocated;
+      let previousUnpaidStatus = allocation.previousInvoiceStatus;
+      if (
+        remainingPaid === 0n &&
+        ![InvoiceStatus.CANCELLED, InvoiceStatus.REFUNDED].includes(
+          invoice.status,
+        )
+      ) {
+        // Latest allocation from an unpaid state belongs to the current payment cycle.
+        const [baseline] = await manager.query(
+          `SELECT previous_invoice_status FROM payment_allocations
+           WHERE company_id=$1 AND invoice_id=$2 AND previous_invoice_status IN ('pending','sent','overdue')
+           ORDER BY created_at DESC,id DESC LIMIT 1`,
+          [payment.companyId, invoice.id],
+        );
+        previousUnpaidStatus =
+          baseline?.previous_invoice_status ?? previousUnpaidStatus;
+      }
+      invoice.status = reversedInvoiceStatus(
+        invoice,
+        remainingPaid,
+        previousUnpaidStatus,
       );
-      invoice.status = allocation.previousInvoiceStatus;
+      invoice.amountPaid = paymentNumber(remainingPaid);
       await invoicesRepository.save(invoice);
       allocation.reversedAt = new Date();
       await allocationsRepository.save(allocation);

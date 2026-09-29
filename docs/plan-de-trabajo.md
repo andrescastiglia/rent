@@ -118,6 +118,11 @@ Pendiente: despliegue de backend/clientes compatibles.
   ya no dejan facturas pagadas en estado parcial. Ver
   [alcance y límites](technical/payment-amounts.md). Pendiente: gates, despliegue
   y los demás requisitos de cobros.
+  Anulación de cobros implementada con saldo imputado en centavos, estado según
+  pagos remanentes/vencimiento, preservación de facturas anuladas y rechazo de
+  imputaciones incompatibles. Ver [reglas y pruebas](technical/payment-reversals.md).
+  Pendiente: gates y despliegue; revisar la mora bonificada por otro cobro de la
+  misma factura y la recuperación de deuda tras liquidaciones ya transferidas.
 - [ ] Propiedades: filtros útiles, interesados, visitas y aviso consentido al propietario con fecha, oferta y valor.
 - [ ] Ventas: cuotas transaccionales, atrasos, saldo a favor/crédito y original/duplicado verificables.
 - [ ] Mantenimiento: solicitud, asignación, seguimiento, cierre, adjuntos, auditoría y notificaciones idempotentes.
