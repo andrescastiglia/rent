@@ -138,7 +138,7 @@ describe('PaymentsService', () => {
       ],
     };
 
-    (tenantAccountsService.findOne as jest.Mock).mockResolvedValue({
+    tenantAccountsRepository.findOne!.mockResolvedValue({
       id: 'acc-1',
       companyId: 'company-1',
       tenantId: 'tenant-1',
@@ -314,7 +314,12 @@ describe('PaymentsService', () => {
 
     const result = await service.confirm('pay-1', 'company-1');
 
-    expect(service.findOne).toHaveBeenNthCalledWith(1, 'pay-1', 'company-1');
+    expect(service.findOne).toHaveBeenNthCalledWith(
+      1,
+      'pay-1',
+      'company-1',
+      transactionManager,
+    );
     expect(tenantAccountsService.addMovementWithManager).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
@@ -434,7 +439,7 @@ describe('PaymentsService', () => {
   });
 
   it('should throw when creating without amount and without items', async () => {
-    (tenantAccountsService.findOne as jest.Mock).mockResolvedValue({
+    tenantAccountsRepository.findOne!.mockResolvedValue({
       id: 'acc-1',
       companyId: 'company-1',
       tenantId: 'tenant-1',
@@ -456,7 +461,7 @@ describe('PaymentsService', () => {
   });
 
   it('should throw when amount does not match item total', async () => {
-    (tenantAccountsService.findOne as jest.Mock).mockResolvedValue({
+    tenantAccountsRepository.findOne!.mockResolvedValue({
       id: 'acc-1',
       companyId: 'company-1',
       tenantId: 'tenant-1',
@@ -515,7 +520,12 @@ describe('PaymentsService', () => {
 
     const result = await service.cancel('pay-2', 'company-1');
 
-    expect(service.findOne).toHaveBeenNthCalledWith(1, 'pay-2', 'company-1');
+    expect(service.findOne).toHaveBeenNthCalledWith(
+      1,
+      'pay-2',
+      'company-1',
+      transactionManager,
+    );
     expect(tenantAccountsService.addMovementWithManager).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
@@ -760,7 +770,7 @@ describe('PaymentsService', () => {
   });
 
   it('should throw when item total is not greater than zero', async () => {
-    (tenantAccountsService.findOne as jest.Mock).mockResolvedValue({
+    tenantAccountsRepository.findOne!.mockResolvedValue({
       id: 'acc-1',
       companyId: 'company-1',
       tenantId: 'tenant-1',
@@ -794,10 +804,8 @@ describe('PaymentsService', () => {
       amount: 100,
     } as Payment;
     const updated = { ...payment, amount: 250 } as Payment;
-    jest
-      .spyOn(service, 'findOne')
-      .mockResolvedValueOnce(payment)
-      .mockResolvedValueOnce(updated);
+    paymentsRepository.findOne!.mockResolvedValue(payment);
+    jest.spyOn(service, 'findOne').mockResolvedValue(updated);
     paymentsRepository.save!.mockResolvedValue(updated);
 
     const result = await service.update(

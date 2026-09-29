@@ -67,7 +67,8 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
   compuesto, rezago mensual explícito, calendario por fechas programadas,
   centavos exactos y snapshot inmutable visible en factura. Se retiró el calculador
   batch antiguo. Ver [operación y límites](technical/rent-adjustments.md).
-  Pendiente: gates, revisión de calendarios/rezagos y datos reales, recuperación
+  Incorporado a main con los 23 gates del PR #240 aprobados.
+  Pendiente: revisión de calendarios/rezagos y datos reales, recuperación
   histórica y despliegue; los crons siguen suspendidos.
   Pendiente: recuperación histórica,
   verificar los demás productores de documentos/proveedores y desplegar.
@@ -96,9 +97,13 @@ Pendiente: despliegue de backend/clientes compatibles.
   Las ejecuciones históricas sin garantía no se vuelven a ejecutar y las propuestas
   de la bandeja no admiten confirmación directa. Ver
   [alcance y pruebas](technical/approved-invoice-recovery.md).
+  Generación recuperable incorporada a main con los 23 gates del PR #241 aprobados.
   Alta manual, emisión y anulación de facturas también guardan el resultado en
   su transacción (migración 128), con recuperación tras baja lógica y rollback
   de todos los efectos si falla la persistencia de la constancia.
+  Alta, edición, confirmación y anulación de cobros usan la misma constancia
+  transaccional; conceptos y pago se guardan juntos y la edición bloquea
+  confirmaciones concurrentes. Ver [contrato y pruebas](technical/approved-payment-recovery.md).
   Pendiente: gates de este avance, idempotencia transaccional de las demás
   herramientas mutables y despliegue.
 

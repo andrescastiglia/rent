@@ -1,3 +1,4 @@
+import { withDomainOperationReceipt } from '../common/helpers/domain-operation-receipt';
 import {
   Injectable,
   NotFoundException,
@@ -75,48 +76,20 @@ export class PaymentsService {
    */
   async create(
     dto: CreatePaymentDto,
-    _userId: string | undefined,
+    userId: string | undefined,
     companyId: string,
+    executionKey?: string,
   ): Promise<Payment> {
-    // Verificar que la cuenta existe (throws NotFoundException if not found)
-    const account = await this.tenantAccountsService.findOne(
-      dto.tenantAccountId,
-      companyId,
+    return this.dataSource.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        companyId,
+        executionKey,
+        'payment.create',
+        { ...dto },
+        () => this.createWithManager(manager, dto, userId, companyId),
+      ),
     );
-
-    // Crear pago
-    const computedAmount = this.computePaymentAmount(dto);
-
-    const payment = this.paymentsRepository.create({
-      companyId: account.companyId,
-      tenantId: account.tenantId,
-      tenantAccountId: dto.tenantAccountId,
-      amount: computedAmount,
-      currencyCode: dto.currencyCode || 'ARS',
-      paymentDate: dto.paymentDate,
-      method: dto.method,
-      activityType: dto.activityType ?? PaymentActivityType.MONTHLY,
-      reference: dto.reference,
-      status: PaymentStatus.PENDING,
-      notes: dto.notes,
-    });
-
-    const savedPayment = await this.paymentsRepository.save(payment);
-
-    if (dto.items && dto.items.length > 0) {
-      const items = dto.items.map((item) =>
-        this.paymentItemsRepository.create({
-          paymentId: savedPayment.id,
-          description: item.description,
-          amount: item.amount,
-          quantity: item.quantity ?? 1,
-          type: item.type ?? PaymentItemType.CHARGE,
-        }),
-      );
-      await this.paymentItemsRepository.save(items);
-    }
-
-    return savedPayment;
   }
 
   async createWithManager(
@@ -176,41 +149,64 @@ export class PaymentsService {
     id: string,
     dto: UpdatePaymentDto,
     companyId: string,
+    executionKey?: string,
   ): Promise<Payment> {
-    const payment = await this.findOne(id, companyId);
+    return this.dataSource.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        companyId,
+        executionKey,
+        'payment.update',
+        { id, ...dto },
+        async () => {
+          const paymentsRepository = manager.getRepository(Payment);
+          const paymentItemsRepository = manager.getRepository(PaymentItem);
+          const payment = await this.findPaymentForUpdate(
+            paymentsRepository,
+            id,
+            companyId,
+          );
 
-    if (payment.status !== PaymentStatus.PENDING) {
-      throw new BadRequestException('Only pending payments can be edited');
-    }
+          if (payment.status !== PaymentStatus.PENDING) {
+            throw new BadRequestException(
+              'Only pending payments can be edited',
+            );
+          }
 
-    if (dto.paymentDate) payment.paymentDate = new Date(dto.paymentDate) as any;
-    if (dto.method) payment.method = dto.method;
-    if (dto.activityType) payment.activityType = dto.activityType;
-    if (dto.reference !== undefined) payment.reference = dto.reference;
-    if (dto.notes !== undefined) payment.notes = dto.notes;
-    if (dto.currencyCode) payment.currencyCode = dto.currencyCode;
+          if (dto.paymentDate)
+            payment.paymentDate = new Date(dto.paymentDate) as any;
+          if (dto.method) payment.method = dto.method;
+          if (dto.activityType) payment.activityType = dto.activityType;
+          if (dto.reference !== undefined) payment.reference = dto.reference;
+          if (dto.notes !== undefined) payment.notes = dto.notes;
+          if (dto.currencyCode) payment.currencyCode = dto.currencyCode;
 
-    if (dto.items) {
-      await this.paymentItemsRepository.delete({ paymentId: payment.id });
-      if (dto.items.length > 0) {
-        const items = dto.items.map((item) =>
-          this.paymentItemsRepository.create({
-            paymentId: payment.id,
-            description: item.description,
-            amount: item.amount,
-            quantity: item.quantity ?? 1,
-            type: item.type ?? PaymentItemType.CHARGE,
-          }),
-        );
-        await this.paymentItemsRepository.save(items);
-        payment.amount = this.computePaymentAmount(dto);
-      }
-    } else if (dto.amount !== undefined) {
-      payment.amount = dto.amount;
-    }
+          if (dto.items) {
+            await paymentItemsRepository.delete({ paymentId: payment.id });
+            if (dto.items.length > 0) {
+              const items = dto.items.map((item) =>
+                paymentItemsRepository.create({
+                  paymentId: payment.id,
+                  description: item.description,
+                  amount: item.amount,
+                  quantity: item.quantity ?? 1,
+                  type: item.type ?? PaymentItemType.CHARGE,
+                }),
+              );
+              await paymentItemsRepository.save(items);
+              payment.amount = this.computePaymentAmount(dto);
+            } else if (dto.amount !== undefined) {
+              payment.amount = dto.amount;
+            }
+          } else if (dto.amount !== undefined) {
+            payment.amount = dto.amount;
+          }
 
-    await this.paymentsRepository.save(payment);
-    return this.findOne(id, companyId);
+          await paymentsRepository.save(payment);
+          return this.findOne(id, companyId, manager);
+        },
+      ),
+    );
   }
 
   /**
@@ -218,12 +214,24 @@ export class PaymentsService {
    * @param id ID del pago
    * @returns El pago confirmado con recibo
    */
-  async confirm(id: string, companyId: string): Promise<Payment> {
-    await this.dataSource.transaction((manager) =>
-      this.confirmWithManager(manager, id, companyId),
+  async confirm(
+    id: string,
+    companyId: string,
+    executionKey?: string,
+  ): Promise<Payment> {
+    return this.dataSource.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        companyId,
+        executionKey,
+        'payment.confirm',
+        { id },
+        async () => {
+          await this.confirmWithManager(manager, id, companyId);
+          return this.findOne(id, companyId, manager);
+        },
+      ),
     );
-
-    return this.findOne(id, companyId);
   }
 
   async confirmWithManager(
@@ -418,8 +426,14 @@ export class PaymentsService {
    * @param id ID del pago
    * @returns El pago
    */
-  async findOne(id: string, companyId: string): Promise<Payment> {
-    const payment = await this.paymentsRepository.findOne({
+  async findOne(
+    id: string,
+    companyId: string,
+    manager?: EntityManager,
+  ): Promise<Payment> {
+    const payment = await (
+      manager?.getRepository(Payment) ?? this.paymentsRepository
+    ).findOne({
       where: { id, companyId },
       relations: [
         'tenantAccount',
@@ -645,42 +659,55 @@ export class PaymentsService {
    * @param id ID del pago
    * @returns El pago cancelado
    */
-  async cancel(id: string, companyId: string): Promise<Payment> {
-    await this.dataSource.transaction(async (manager) => {
-      const paymentsRepository = manager.getRepository(Payment);
-      const payment = await this.findPaymentForUpdate(
-        paymentsRepository,
-        id,
+  async cancel(
+    id: string,
+    companyId: string,
+    executionKey?: string,
+  ): Promise<Payment> {
+    return this.dataSource.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
         companyId,
-      );
-
-      if (payment.status === PaymentStatus.CANCELLED) {
-        throw new BadRequestException('Payment is already cancelled');
-      }
-
-      if (payment.status === PaymentStatus.COMPLETED) {
-        if (!payment.allocationsRecorded) {
-          throw new BadRequestException(
-            'Legacy payment lacks allocation history and requires manual reversal',
+        executionKey,
+        'payment.cancel',
+        { id },
+        async () => {
+          const paymentsRepository = manager.getRepository(Payment);
+          const payment = await this.findPaymentForUpdate(
+            paymentsRepository,
+            id,
+            companyId,
           );
-        }
-        await this.tenantAccountsService.addMovementWithManager(manager, {
-          accountId: payment.tenantAccountId,
-          type: MovementType.ADJUSTMENT,
-          amount: Number(payment.amount),
-          referenceType: 'payment',
-          referenceId: payment.id,
-          description: `Anulación pago`,
-          companyId: payment.companyId,
-        });
-        await this.reverseCompletedPayment(manager, payment);
-      }
 
-      await paymentsRepository.update(payment.id, {
-        status: PaymentStatus.CANCELLED,
-      });
-    });
-    return this.findOne(id, companyId);
+          if (payment.status === PaymentStatus.CANCELLED) {
+            throw new BadRequestException('Payment is already cancelled');
+          }
+
+          if (payment.status === PaymentStatus.COMPLETED) {
+            if (!payment.allocationsRecorded) {
+              throw new BadRequestException(
+                'Legacy payment lacks allocation history and requires manual reversal',
+              );
+            }
+            await this.tenantAccountsService.addMovementWithManager(manager, {
+              accountId: payment.tenantAccountId,
+              type: MovementType.ADJUSTMENT,
+              amount: Number(payment.amount),
+              referenceType: 'payment',
+              referenceId: payment.id,
+              description: `Anulación pago`,
+              companyId: payment.companyId,
+            });
+            await this.reverseCompletedPayment(manager, payment);
+          }
+
+          await paymentsRepository.update(payment.id, {
+            status: PaymentStatus.CANCELLED,
+          });
+          return this.findOne(id, companyId, manager);
+        },
+      ),
+    );
   }
 
   private async createCreditNotesForSettledLateFees(

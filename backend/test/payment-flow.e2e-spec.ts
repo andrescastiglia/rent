@@ -1,3 +1,7 @@
+import { createHash, randomUUID } from 'node:crypto';
+import { PaymentsService } from '../src/payments/payments.service';
+import { AiToolExecutorService } from '../src/ai/ai-tool-executor.service';
+import { PaymentItemType } from '../src/payments/entities/payment-item.entity';
 import { verifyFinancialDocumentAccess } from './financial-document-helpers';
 import { InvoicePdfService } from '../src/payments/invoice-pdf.service';
 import { InvoicesService } from '../src/payments/invoices.service';
@@ -9,7 +13,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import request from 'supertest';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { Company } from '../src/companies/entities/company.entity';
 import { Currency } from '../src/currencies/entities/currency.entity';
@@ -56,6 +60,10 @@ describe('Payment accounting flow (e2e)', () => {
   let invoiceRepository: Repository<Invoice>;
   let usersService: UsersService;
   let companyId: string;
+  let adminId: string,
+    requesterId: string,
+    foreignCompanyId: string,
+    foreignAdminId: string;
   let adminToken: string;
   let tenantAccountId: string;
   let invoiceId: string;
@@ -112,6 +120,23 @@ describe('Payment accounting flow (e2e)', () => {
         companyId,
       },
     );
+    adminId = adminUser.id;
+    foreignCompanyId = (
+      await createTestCompany(companyRepository, {
+        name: 'Foreign payment recovery',
+        taxId: `${uniqueId}-foreign-recovery`,
+      })
+    ).id;
+    foreignAdminId = (
+      await createActiveTestUser(usersService, {
+        companyId: foreignCompanyId,
+        role: UserRole.ADMIN,
+        email: `foreign-${uniqueId}@payment-flow.test`,
+        password: 'Password123!',
+        firstName: 'Foreign',
+        lastName: 'Admin',
+      })
+    ).id;
     adminToken = await loginTestUser(
       app,
       adminUser.email as string,
@@ -126,6 +151,7 @@ describe('Payment accounting flow (e2e)', () => {
       role: UserRole.OWNER,
       companyId,
     });
+    requesterId = ownerUser.id;
     const owner = await ownerRepository.save(
       ownerRepository.create({ userId: ownerUser.id, companyId }),
     );
@@ -205,6 +231,15 @@ describe('Payment accounting flow (e2e)', () => {
 
   afterAll(async () => {
     if (companyId) {
+      for (const table of [
+        'pending_actions',
+        'ai_tool_mutation_confirmations',
+        'ai_conversations',
+        'domain_operation_receipts',
+      ])
+        await dataSource.query(`DELETE FROM ${table} WHERE company_id=$1`, [
+          companyId,
+        ]);
       await dataSource.query(
         'DELETE FROM payment_effects_outbox WHERE company_id = $1::uuid',
         [companyId],
@@ -294,6 +329,13 @@ describe('Payment accounting flow (e2e)', () => {
       await dataSource.query(`DELETE FROM companies WHERE id = $1::uuid`, [
         companyId,
       ]);
+    }
+    if (foreignCompanyId) {
+      for (const table of ['admins', 'users', 'companies'])
+        await dataSource.query(
+          `DELETE FROM ${table} WHERE ${table === 'companies' ? 'id' : 'company_id'}=$1`,
+          [foreignCompanyId],
+        );
     }
     await app?.close();
   });
@@ -880,5 +922,481 @@ describe('Payment accounting flow (e2e)', () => {
         expect.objectContaining({ id: alert.id, status: 'resolved' }),
       ]),
     );
+  });
+  // Isolated account/invoice per recovery scenario; earlier accounting fixtures stay intact.
+  async function recoveryFixture() {
+    const account = await tenantAccountRepository.findOneByOrFail({
+      id: tenantAccountId,
+    });
+    const property = await propertyRepository.save({
+      companyId,
+      ownerId,
+      name: 'Recovery property',
+      propertyType: PropertyType.APARTMENT,
+      addressStreet: 'Recovery 100',
+      addressCity: 'Buenos Aires',
+      addressState: 'Buenos Aires',
+    });
+    const [lease] = await dataSource.query(
+      `INSERT INTO leases(company_id,property_id,owner_id,tenant_id,contract_type,status,start_date,end_date,monthly_rent,currency)
+      VALUES($1,$2,$3,$4,'rental','active','2026-01-01','2026-12-31',100,'ARS') RETURNING id`,
+      [companyId, property.id, ownerId, account.tenantId],
+    );
+    const [fresh] = await dataSource.query(
+      `INSERT INTO tenant_accounts(company_id,lease_id,tenant_id,current_balance,currency) VALUES($1,$2,$3,110,'ARS') RETURNING id`,
+      [companyId, lease.id, account.tenantId],
+    );
+    const invoice = await invoiceRepository.save({
+      companyId,
+      leaseId: lease.id,
+      ownerId,
+      tenantAccountId: fresh.id,
+      invoiceNumber: `REC-${randomUUID()}`,
+      periodStart: new Date('2026-10-01T12:00:00Z'),
+      periodEnd: new Date('2026-10-31T12:00:00Z'),
+      dueDate: new Date('2026-11-10T12:00:00Z'),
+      subtotal: 100,
+      lateFee: 10,
+      total: 110,
+      amountPaid: 0,
+      currencyCode: 'ARS',
+      status: InvoiceStatus.PENDING,
+    });
+    return {
+      accountId: fresh.id as string,
+      invoiceId: invoice.id,
+      dto: {
+        tenantAccountId: fresh.id as string,
+        amount: 110,
+        currencyCode: 'ARS',
+        paymentDate: '2026-11-10',
+        method: PaymentMethod.CASH,
+        items: [
+          {
+            description: 'Rent and fee',
+            amount: 110,
+            quantity: 1,
+            type: PaymentItemType.CHARGE,
+          },
+        ],
+      },
+    };
+  }
+
+  it.each([
+    ['post_payments', 'pending'],
+    ['patch_payment_by_id', 'pending'],
+    ['patch_payment_confirm', 'completed'],
+    ['patch_payment_cancel', 'cancelled'],
+  ])(
+    'recovers approved %s after losing its committed response',
+    async (toolName, status) => {
+      const { accountId, dto } = await recoveryFixture();
+      const service = app.get(PaymentsService);
+      const payment =
+        toolName === 'post_payments'
+          ? undefined
+          : await service.create(dto, adminId, companyId);
+      if (toolName === 'patch_payment_cancel')
+        await service.confirm(payment!.id, companyId);
+      const payload =
+        toolName === 'post_payments'
+          ? dto
+          : toolName === 'patch_payment_by_id'
+            ? { id: payment!.id, notes: 'Approved edit' }
+            : { id: payment!.id };
+      const sort = (value: any): any =>
+        Array.isArray(value)
+          ? value.map(sort)
+          : value && typeof value === 'object'
+            ? Object.fromEntries(
+                Object.entries(value)
+                  .sort(([a], [b]) => a.localeCompare(b))
+                  .map(([key, item]) => [key, sort(item)]),
+              )
+            : value;
+      const [action] = await dataSource.query(
+        `INSERT INTO pending_actions(company_id,requested_by,tool_name,action_type,entity_type,summary,payload,payload_hash,expires_at)
+      VALUES($1,$2,$3,'update','payment','Payment recovery',$4::jsonb,$5,now()+interval '15 minutes') RETURNING id,execution_key`,
+        [
+          companyId,
+          requesterId,
+          toolName,
+          JSON.stringify(payload),
+          createHash('sha256')
+            .update(JSON.stringify(sort(payload)))
+            .digest('hex'),
+        ],
+      );
+      const reauthToken = (
+        await request(app.getHttpServer())
+          .post('/auth/reauthenticate')
+          .auth(adminToken, { type: 'bearer' })
+          .send({ password: 'Password123!' })
+          .expect(200)
+      ).body.reauthToken;
+      const executor = app.get(AiToolExecutorService),
+        original = executor.executeApproved.bind(executor),
+        mode = process.env.AI_TOOLS_MODE;
+      process.env.AI_TOOLS_MODE = 'FULL';
+      const lost = jest
+        .spyOn(executor, 'executeApproved')
+        .mockImplementationOnce(async (...args) => {
+          await original(...args);
+          throw new Error('committed response lost');
+        });
+      const approve = () =>
+        request(app.getHttpServer())
+          .post(`/pending-actions/${action.id}/approve`)
+          .auth(adminToken, { type: 'bearer' })
+          .send({ reauthToken });
+      try {
+        expect((await approve().expect(201)).body.status).toBe('failed');
+        lost.mockRestore();
+        const [receipt] = await dataSource.query(
+          'SELECT result FROM domain_operation_receipts WHERE company_id=$1 AND execution_key=$2',
+          [companyId, action.execution_key],
+        );
+        expect(receipt.result.status).toBe(status);
+        const id = receipt.result.id;
+        if (status !== 'cancelled') await service.cancel(id, companyId);
+        await dataSource.query(
+          'UPDATE payments SET deleted_at=now() WHERE id=$1',
+          [id],
+        );
+        const recovered = (await approve().expect(201)).body;
+        expect(recovered.status).toBe('executed');
+        expect(recovered.result).toMatchObject({ id, status });
+        expect(recovered.result.items ?? []).toEqual(
+          receipt.result.items ?? [],
+        );
+        expect(JSON.stringify(recovered.result)).not.toMatch(
+          /passwordHash|passwordResetToken/,
+        );
+        const context = {
+          companyId,
+          userId: adminId,
+          role: UserRole.ADMIN,
+          idempotencyKey: action.execution_key,
+        };
+        expect(
+          await Promise.all(
+            Array.from({ length: 3 }, () =>
+              executor.executeApproved(toolName, payload, context),
+            ),
+          ),
+        ).toEqual([recovered.result, recovered.result, recovered.result]);
+        await expect(
+          executor.executeApproved(toolName, payload, {
+            ...context,
+            companyId: foreignCompanyId,
+            userId: foreignAdminId,
+          }),
+        ).rejects.toThrow();
+        await expect(
+          executor.executeApproved(toolName, payload, {
+            ...context,
+            role: UserRole.TENANT,
+          }),
+        ).rejects.toThrow();
+        const movements = await dataSource.query(
+          'SELECT movement_type FROM tenant_account_movements WHERE tenant_account_id=$1',
+          [accountId],
+        );
+        const completed = status !== 'pending';
+        expect(
+          movements.filter((r: any) => r.movement_type === 'payment'),
+        ).toHaveLength(completed ? 1 : 0);
+        expect(
+          movements.filter((r: any) => r.movement_type === 'discount'),
+        ).toHaveLength(completed ? 1 : 0);
+        expect(
+          movements.filter((r: any) => r.movement_type === 'adjustment'),
+        ).toHaveLength(completed ? 2 : 0);
+        expect(
+          await dataSource.query(
+            'SELECT id FROM receipts WHERE payment_id=$1',
+            [id],
+          ),
+        ).toHaveLength(completed ? 1 : 0);
+        expect(
+          await dataSource.query(
+            'SELECT id FROM payment_allocations WHERE payment_id=$1',
+            [id],
+          ),
+        ).toHaveLength(completed ? 1 : 0);
+        expect(
+          await dataSource.query(
+            'SELECT id FROM payment_effects_outbox WHERE payment_id=$1',
+            [id],
+          ),
+        ).toHaveLength(completed ? 1 : 0);
+        expect(
+          (
+            await dataSource.query(
+              'SELECT current_balance::text FROM tenant_accounts WHERE id=$1',
+              [accountId],
+            )
+          )[0].current_balance,
+        ).toBe('110.00');
+      } finally {
+        lost.mockRestore();
+        if (mode === undefined) delete process.env.AI_TOOLS_MODE;
+        else process.env.AI_TOOLS_MODE = mode;
+      }
+    },
+  );
+
+  it.each(['create', 'update', 'confirm', 'cancel'])(
+    'rolls back payment %s and every accounting effect if its recovery receipt cannot be saved',
+    async (operation) => {
+      const {
+        accountId,
+        invoiceId: freshInvoiceId,
+        dto,
+      } = await recoveryFixture();
+      const service = app.get(PaymentsService),
+        key = randomUUID();
+      const payment =
+        operation === 'create'
+          ? undefined
+          : await service.create(dto, adminId, companyId);
+      if (operation === 'cancel') await service.confirm(payment!.id, companyId);
+      const snapshot = async () => ({
+        account: await dataSource.query(
+          'SELECT * FROM tenant_accounts WHERE id=$1',
+          [accountId],
+        ),
+        payments: await dataSource.query(
+          'SELECT * FROM payments WHERE tenant_account_id=$1 ORDER BY id',
+          [accountId],
+        ),
+        items: await dataSource.query(
+          'SELECT * FROM payment_items WHERE payment_id IN (SELECT id FROM payments WHERE tenant_account_id=$1) ORDER BY id',
+          [accountId],
+        ),
+        invoice: await dataSource.query('SELECT * FROM invoices WHERE id=$1', [
+          freshInvoiceId,
+        ]),
+        movements: await dataSource.query(
+          'SELECT * FROM tenant_account_movements WHERE tenant_account_id=$1 ORDER BY id',
+          [accountId],
+        ),
+        allocations: await dataSource.query(
+          'SELECT * FROM payment_allocations WHERE invoice_id=$1 ORDER BY id',
+          [freshInvoiceId],
+        ),
+        notes: await dataSource.query(
+          'SELECT * FROM credit_notes WHERE invoice_id=$1 ORDER BY id',
+          [freshInvoiceId],
+        ),
+        receipts: await dataSource.query(
+          'SELECT * FROM receipts WHERE payment_id IN (SELECT id FROM payments WHERE tenant_account_id=$1) ORDER BY id',
+          [accountId],
+        ),
+        jobs: await dataSource.query(
+          'SELECT * FROM payment_effects_outbox WHERE payment_id IN (SELECT id FROM payments WHERE tenant_account_id=$1) ORDER BY id',
+          [accountId],
+        ),
+      });
+      const before = await snapshot();
+      const execute = () =>
+        operation === 'create'
+          ? service.create(dto, adminId, companyId, key)
+          : operation === 'update'
+            ? service.update(
+                payment!.id,
+                {
+                  items: [
+                    {
+                      description: 'Adjusted',
+                      amount: 120,
+                      quantity: 1,
+                      type: PaymentItemType.CHARGE,
+                    },
+                  ],
+                },
+                companyId,
+                key,
+              )
+            : operation === 'confirm'
+              ? service.confirm(payment!.id, companyId, key)
+              : service.cancel(payment!.id, companyId, key);
+      const original = EntityManager.prototype.query;
+      const write = jest
+        .spyOn(EntityManager.prototype, 'query')
+        .mockImplementation(function (this: EntityManager, sql, parameters) {
+          if (
+            sql.includes('INSERT INTO domain_operation_receipts') &&
+            parameters?.[0] === companyId
+          )
+            return Promise.reject(new Error('receipt persistence failed'));
+          return original.call(this, sql, parameters);
+        });
+      try {
+        await expect(execute()).rejects.toThrow('receipt persistence failed');
+      } finally {
+        write.mockRestore();
+      }
+      expect(await snapshot()).toEqual(before);
+      expect(
+        await dataSource.query(
+          'SELECT execution_key FROM domain_operation_receipts WHERE company_id=$1 AND execution_key=$2',
+          [companyId, key],
+        ),
+      ).toHaveLength(0);
+      const result = await execute();
+      expect(await execute()).toEqual(JSON.parse(JSON.stringify(result)));
+    },
+  );
+
+  it('serializes concurrent approved payment creation including all its items', async () => {
+    const { dto, accountId } = await recoveryFixture(),
+      key = randomUUID(),
+      service = app.get(PaymentsService);
+    const results = await Promise.all(
+      Array.from({ length: 4 }, () =>
+        service.create(dto, adminId, companyId, key),
+      ),
+    );
+    expect(new Set(results.map((p) => p.id)).size).toBe(1);
+    expect(
+      await dataSource.query(
+        'SELECT id FROM payments WHERE tenant_account_id=$1',
+        [accountId],
+      ),
+    ).toHaveLength(1);
+    expect(
+      await dataSource.query(
+        'SELECT id FROM payment_items WHERE payment_id=$1',
+        [results[0].id],
+      ),
+    ).toHaveLength(1);
+    await expect(
+      service.create(
+        { ...dto, notes: 'Different request' },
+        adminId,
+        companyId,
+        key,
+      ),
+    ).rejects.toThrow('different operation or request');
+    await expect(
+      service.confirm(results[0].id, companyId, key),
+    ).rejects.toThrow('different operation or request');
+  });
+  it.each([true, false])(
+    'keeps edited amount, concepts and confirmation consistent under concurrency (update first: %s)',
+    async (updateFirst) => {
+      const { dto, accountId } = await recoveryFixture(),
+        service = app.get(PaymentsService);
+      const payment = await service.create(dto, adminId, companyId);
+      const edit = () =>
+        service.update(
+          payment.id,
+          {
+            items: [
+              {
+                description: 'Updated concepts',
+                amount: 120,
+                quantity: 1,
+                type: PaymentItemType.CHARGE,
+              },
+            ],
+          },
+          companyId,
+        );
+      const confirm = () => service.confirm(payment.id, companyId);
+      const outcomes = await Promise.allSettled(
+        updateFirst ? [edit(), confirm()] : [confirm(), edit()],
+      );
+      const edited = outcomes[updateFirst ? 0 : 1],
+        confirmed = outcomes[updateFirst ? 1 : 0];
+      expect(confirmed.status).toBe('fulfilled');
+      if (edited.status === 'rejected')
+        expect(edited.reason.message).toBe(
+          'Only pending payments can be edited',
+        );
+      const persisted = await service.findOne(payment.id, companyId);
+      const expected = edited.status === 'fulfilled' ? 120 : 110;
+      expect(persisted.status).toBe('completed');
+      expect(Number(persisted.amount)).toBe(expected);
+      expect(Number(persisted.receipt?.amount)).toBe(expected);
+      expect(
+        persisted.items.reduce(
+          (sum, item) => sum + Number(item.amount) * item.quantity,
+          0,
+        ),
+      ).toBe(expected);
+      const [movement] = await dataSource.query(
+        "SELECT amount::text FROM tenant_account_movements WHERE reference_id=$1 AND movement_type='payment'",
+        [payment.id],
+      );
+      expect(Number(movement.amount)).toBe(-expected);
+      await service.cancel(payment.id, companyId);
+      expect(
+        (
+          await dataSource.query(
+            'SELECT current_balance::text FROM tenant_accounts WHERE id=$1',
+            [accountId],
+          )
+        )[0].current_balance,
+      ).toBe('110.00');
+    },
+  );
+  it('preserves omitted currency and activity in HTTP and approved AI edits, and applies amount when clearing concepts', async () => {
+    const {
+      dto,
+      accountId,
+      invoiceId: freshInvoiceId,
+    } = await recoveryFixture();
+    await dataSource.query(
+      "INSERT INTO currencies(code,name,symbol,decimal_places,is_active) VALUES('USD','US Dollar','$',2,true) ON CONFLICT(code) DO NOTHING",
+    );
+    await dataSource.query(
+      "UPDATE tenant_accounts SET currency='USD' WHERE id=$1",
+      [accountId],
+    );
+    await dataSource.query("UPDATE invoices SET currency='USD' WHERE id=$1", [
+      freshInvoiceId,
+    ]);
+    const created = await request(app.getHttpServer())
+      .post('/payments')
+      .auth(adminToken, { type: 'bearer' })
+      .send({ ...dto, currencyCode: 'USD', activityType: 'annual' })
+      .expect(201);
+    const edited = await request(app.getHttpServer())
+      .patch(`/payments/${created.body.id}`)
+      .auth(adminToken, { type: 'bearer' })
+      .send({ notes: 'HTTP notes' })
+      .expect(200);
+    expect(edited.body).toMatchObject({
+      currencyCode: 'USD',
+      activityType: 'annual',
+      notes: 'HTTP notes',
+    });
+    const mode = process.env.AI_TOOLS_MODE;
+    process.env.AI_TOOLS_MODE = 'FULL';
+    try {
+      const result = await app.get(AiToolExecutorService).executeApproved(
+        'patch_payment_by_id',
+        { id: created.body.id, notes: 'AI notes', items: [], amount: 115 },
+        {
+          userId: adminId,
+          companyId,
+          role: UserRole.ADMIN,
+          idempotencyKey: randomUUID(),
+        },
+      );
+      expect(result).toMatchObject({
+        currencyCode: 'USD',
+        activityType: 'annual',
+        notes: 'AI notes',
+        amount: '115.00',
+        items: [],
+      });
+    } finally {
+      if (mode === undefined) delete process.env.AI_TOOLS_MODE;
+      else process.env.AI_TOOLS_MODE = mode;
+    }
   });
 });
