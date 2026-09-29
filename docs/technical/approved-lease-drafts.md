@@ -47,7 +47,8 @@ el backend y los clientes con el esquema PATCH regenerado. Las aprobaciones
 históricas sin garantía mantienen su revisión manual. No se reescriben revisiones
 históricas duplicadas ni se normalizan automáticamente ramas de versiones antiguas.
 
-Siguen pendientes renovación, importación, baja y modificaciones de plantillas,
+La renovación continúa en [su recorrido atómico](approved-lease-renewals.md).
+Siguen pendientes importación, baja y modificaciones de plantillas,
 además de otras herramientas mutables. La política completa de cambios de partes
 o inmueble y las versiones históricas requieren su revisión de producto; este
 avance asegura la transacción y la recuperación de estos dos recorridos. No

@@ -1221,7 +1221,45 @@ export type LeaseStatusReasonDto = {
 };
 
 export type RenewLeaseDto = {
-  [key: string]: unknown;
+  templateId?: string;
+  leaseNumber?: string;
+  startDate?: string;
+  endDate?: string;
+  monthlyRent?: number;
+  fiscalValue?: number;
+  securityDeposit?: number;
+  renewalAlertCustomDays?: number;
+  billingFrequency?:
+    "first_of_month" | "last_of_month" | "contract_date" | "custom";
+  billingDay?: number;
+  lateFeeType?:
+    "none" | "fixed" | "percentage" | "daily_fixed" | "daily_percentage";
+  lateFeeValue?: number;
+  lateFeeGraceDays?: number;
+  lateFeeMax?: number;
+  autoGenerateInvoices?: boolean;
+  adjustmentType?: "fixed" | "percentage" | "inflation_index";
+  adjustmentValue?: number;
+  adjustmentFrequencyMonths?: number;
+  nextAdjustmentDate?: string;
+  inflationIndexLagMonths?: number | null;
+  inflationIndexType?: "icl" | "ipc" | "igp_m";
+  increaseClauseType?:
+    | "none"
+    | "annual_fixed"
+    | "annual_percentage"
+    | "inflation_linked"
+    | "custom_schedule";
+  increaseClauseValue?: number;
+  termsAndConditions?: string;
+  specialClauses?: string;
+  notes?: string;
+  currency?: string;
+  paymentFrequency?:
+    "monthly" | "bimonthly" | "quarterly" | "semiannual" | "annual";
+  paymentDueDay?: number;
+  renewalAlertEnabled?: boolean;
+  renewalAlertPeriodicity?: "monthly" | "four_months" | "custom";
 };
 
 export type ImportCurrentLeaseDto = {
