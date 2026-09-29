@@ -6,11 +6,7 @@
 
 Este documento contiene solo trabajo pendiente. El historial Git conserva lo terminado y su evidencia.
 
-## 1. Completar releases y despliegue
-
-- [ ] Revisar las GitHub Apps instaladas y cualquier autodeploy externo; el repositorio no tiene webhooks configurados.
-
-## 2. Cerrar bloqueantes P0
+## 1. Cerrar bloqueantes P0
 
 ### Autorización y aislamiento
 
@@ -32,7 +28,7 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 
 - [ ] Garantizar ejecución exactamente una vez para cada herramienta mutable aprobada, incluso si el proceso cae después del efecto de dominio y antes de persistir el resultado.
 
-## 3. Completar recorridos de producto
+## 2. Completar recorridos de producto
 
 - [ ] Personas/CRM: multirrol, deduplicación, importación, perfil de interés, matching, reservas, embudo configurable, timeline, consentimiento y métricas.
 - [ ] Cobros: conceptos variables editables antes de emitir, mora opcional auditada, período/vencimiento automáticos, recibo y nota de crédito persistentes.
@@ -41,14 +37,14 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 - [ ] Mantenimiento: solicitud, asignación, seguimiento, cierre, adjuntos, auditoría y notificaciones idempotentes.
 - [ ] Corregir `FT-WCAG-001..010` y validar WCAG 2.2 AA, teclado, lector de pantalla, contraste y estados de error.
 
-## 4. Completar canales e integraciones
+## 3. Completar canales e integraciones
 
 - [ ] Validar lectura WhatsApp por capacidad y rol con evidencia, fecha, paginación, desambiguación y deep links seguros.
 - [ ] Habilitar propuestas WhatsApp por dominio solo después de cerrar inbox/outbox y la bandeja de revisión.
 - [ ] Llevar MercadoPago al flujo contable común con firma, replay, idempotencia y conciliación productiva.
 - [ ] Persistir PDFs con checksum, versión, autorización y regeneración controlada.
 
-## 5. Operación, calidad y documentación
+## 4. Operación, calidad y documentación
 
 - [ ] Completar E2E con backend real en Android e iOS y conservar evidencia por plataforma.
 - [ ] Cerrar gates RAG: integridad, recall ≥ 0,95, errores < 1 %, respuesta p95 < 8 s y frescura p95 < 60 s; conservar evidencia por tag/compañía.
