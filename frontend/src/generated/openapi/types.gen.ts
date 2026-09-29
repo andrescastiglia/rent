@@ -1460,6 +1460,7 @@ export type CreateInvoiceDto = {
 };
 
 export type GenerateInvoiceDto = {
+  idempotencyKey?: string;
   issue?: boolean;
   applyLateFee?: boolean;
   applyAdjustment?: boolean;

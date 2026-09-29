@@ -1,17 +1,21 @@
-import { IsBoolean, IsDateString, IsOptional } from 'class-validator';
+import { IsBoolean, IsDateString, IsOptional, IsUUID } from 'class-validator';
 import { z } from 'zod';
 
 const generateInvoiceZodSchema = z
   .object({
-    issue: z.coerce
+    idempotencyKey: z
+      .uuid()
+      .optional()
+      .describe('Reuse this key when retrying the same generation request'),
+    issue: z
       .boolean()
       .optional()
       .describe('Auto-issue the invoice after generation'),
-    applyLateFee: z.coerce
+    applyLateFee: z
       .boolean()
       .optional()
       .describe('Calculate and apply late fees'),
-    applyAdjustment: z.coerce
+    applyAdjustment: z
       .boolean()
       .optional()
       .describe('Calculate and apply rent adjustment'),
@@ -29,6 +33,10 @@ const generateInvoiceZodSchema = z
 
 export class GenerateInvoiceDto {
   static readonly zodSchema = generateInvoiceZodSchema;
+
+  @IsUUID()
+  @IsOptional()
+  idempotencyKey?: string;
 
   @IsBoolean()
   @IsOptional()

@@ -46,8 +46,11 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
   Generación HTTP/IA implementada con ajuste, borrador, calendario y emisión opcional
   atómicos; numeración por compañía y rechazo de períodos duplicados concurrentes.
   Ver [evidencia y límites](technical/invoice-generation.md). Pendiente: gates,
-  despliegue, idempotencia por solicitud y unificación del escritor independiente
+  despliegue y unificación del escritor independiente
   del batch, que aún genera PDF y notificación fuera de este recorrido.
+  Generación con clave UUID implementada para HTTP/IA (migración 123): recupera
+  la factura original, rechaza cambios de parámetros y conserva claves tras bajas.
+  Pendiente: gates, adopción por clientes/batch y despliegue.
   Pendiente: recuperación histórica,
   verificar los demás productores de documentos/proveedores y desplegar.
 

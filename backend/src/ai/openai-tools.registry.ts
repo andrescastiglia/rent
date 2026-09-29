@@ -1644,21 +1644,23 @@ export function buildAiToolDefinitions(
     {
       name: 'post_invoices_generate_for_lease',
       description:
-        'Auto-generates invoices for a lease based on its billing settings (frequency, amounts, dates). Use for bulk invoice creation.',
+        'Generates one invoice for a lease based on its billing settings. Reuse idempotencyKey and the same options when retrying the same request.',
       responseDescription:
-        'Array of newly generated invoice records for the lease period.',
+        'The generated invoice, or its current record when recovering the same request.',
       mutability: 'mutable',
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(GenerateInvoiceDto.zodSchema, {
         leaseId: uuidSchema,
       }),
       execute: async (args, context) => {
-        const parsed = withParams(GenerateInvoiceDto.zodSchema, {
-          leaseId: uuidSchema,
-        }).parse(args) as any;
+        const { leaseId, ...dto } = GenerateInvoiceDto.zodSchema
+          .extend({
+            leaseId: uuidSchema,
+          })
+          .parse(args);
         return deps.invoicesService.generateForLease(
-          parsed.leaseId,
-          parsed,
+          leaseId,
+          dto,
           context.companyId ?? '',
         );
       },
