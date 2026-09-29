@@ -31,6 +31,25 @@ requieren una revisión nueva. Esto impide que un guardado tardío de un borrado
 sobrescriba una versión confirmada. Los contratos importados/históricos no reciben
 trabajos automáticos ni se regeneran con datos actuales.
 
+## Importación de contratos vigentes
+
+`POST /contracts/import-current` interpreta el archivo antes de adquirir bloqueos.
+Luego bloquea el inmueble por compañía y valida las partes y los contratos abiertos
+con el mismo administrador de transacciones. Guarda juntos el contrato activo, los
+bytes originales, la referencia del documento, el estado del inmueble y la cuenta
+del inquilino. Un fallo, incluso después de persistir la cuenta, revierte todo.
+Dos importaciones simultáneas del mismo alquiler o venta a la misma parte producen
+un único contrato y un conflicto explícito, sin documentos ni cuentas huérfanos.
+Un alquiler activo previo se conserva y bloquea otra importación.
+
+El documento aprobado conserva SHA-256, versión, fecha y actor de importación;
+las descargas directa y por enlace temporal verifican los bytes y rechazan alteraciones.
+La consulta del enlace temporal incluye ahora los metadatos del hash; antes los
+omitía y podía entregar contenido alterado. No se convierte el archivo
+original a PDF ni se agrega trabajo de generación, firma, sello BFA o mensaje.
+Las importaciones históricas conservan su comportamiento de lectura: este cambio
+no hace backfill de hashes ni modifica sus archivos.
+
 ## Procesamiento y descarga
 
 `POST /leases/internal/process-contracts` requiere
@@ -65,15 +84,17 @@ de los PDF generados y rechazan contenido alterado. Ninguna lectura llama a BFA.
 Revisar `status`, `attempts`, `error_code` y `next_attempt_at` en la cola. Antes de
 recuperar un `dead_letter`, resolver la causa y comprobar que `document_id` siga
 vacío; no borrar snapshots ni sobrescribir documentos completados. La recuperación
-administrativa de versiones históricas y la importación transaccional siguen
-pendientes en el plan general.
+administrativa de versiones históricas sigue
+pendiente en el plan general.
 
 `lease-contract-effects.e2e-spec.ts` usa PostgreSQL real y HTTP autenticado: dos
 compañías, roles, confirmación concurrente, reemplazos, rollback de cuenta/cola,
 trabajadores simultáneos, fallo después de persistir PDF, reintento sin duplicados,
 dead letters, hash alterado y descarga histórica. El transporte de proveedores
 rechaza cualquier llamada inesperada. `lease-flow.e2e-spec.ts` conserva el recorrido
-integral de contratos con limpieza de la nueva cola. Las pruebas frontend cubren
+integral de contratos con limpieza de la nueva cola. La suite de efectos también
+comprueba importaciones de alquiler/venta concurrentes, rollback después del archivo
+y de la cuenta, bytes originales, hash alterado y partes de otra compañía. Las pruebas frontend cubren
 estado, error de descarga, ausencia de reenvíos y cambio de compañía.
 
 Validación visual: PDF de texto y HTML renderizados con Poppler; Chromium móvil y
@@ -86,6 +107,10 @@ frontend; lint/tipos backend/frontend/mobile, compilación de producción y migr
 repetida. La consulta productiva de solo lectura del 29/09/2026 encontró cero
 grupos duplicados de alquileres activos. Repetirla al desplegar: no reserva el
 estado de producción ni sustituye la validación del índice.
+
+Validación de importación: 230 E2E y 1.392 unitarias backend. La regresión del enlace
+temporal se reprodujo con HTTP 200 para bytes alterados; la corrección exige 409.
+No se requieren nuevas migraciones ni configuración para esta importación.
 
 Aplicar 121 antes de desplegar el backend/CLI compatibles. La migración es repetible,
 no hace backfill y no activa proveedores. En rollback conservar tabla, vínculos, índice y

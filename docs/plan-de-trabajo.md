@@ -31,7 +31,9 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
   Confirmación de contratos y cuenta/inmueble se guardan con una cola de PDF
   (migración 121); snapshot inmutable, reintentos, hash, descarga autorizada y estados
   en web/portal. Ver [operación y pruebas](technical/confirmed-contracts.md).
-  Pendiente: gates de contratos, importación transaccional, recuperación histórica,
+  Importación de contratos vigente ahora guarda contrato, archivo original, inmueble
+  y cuenta en una transacción; hash/actor/versión y rechazo de importaciones concurrentes.
+  Pendiente: gates de contratos/importación, recuperación histórica,
   verificar los demás productores de documentos/proveedores y desplegar.
 
 ### WhatsApp seguro

@@ -130,7 +130,17 @@ describe('LeasesService', () => {
     manager = {
       query: jest.fn().mockResolvedValue([{ property_id: null }]),
       getRepository: jest.fn((entity) =>
-        entity === Lease ? leaseRepository : propertyRepository,
+        entity === Lease
+          ? leaseRepository
+          : entity === Buyer
+            ? buyerRepository
+            : entity === Tenant
+              ? tenantRepository
+              : entity === Document
+                ? documentRepository
+                : entity === InterestedProfile
+                  ? interestedRepository
+                  : propertyRepository,
       ),
       transaction: jest.fn(),
     };

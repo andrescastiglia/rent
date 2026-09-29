@@ -322,6 +322,7 @@ export class DocumentsService {
         'fileData',
         'fileMimeType',
         'name',
+        'metadata',
       ],
     });
     if (!document?.fileData)
