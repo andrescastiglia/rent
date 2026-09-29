@@ -15,7 +15,6 @@ import { InvoiceEffectsService } from '../src/payments/invoice-effects.service';
 import { InvoicePdfService } from '../src/payments/invoice-pdf.service';
 import { InvoicesService } from '../src/payments/invoices.service';
 import { buildAiToolDefinitions } from '../src/ai/openai-tools.registry';
-import { writeFileSync, mkdirSync } from 'node:fs';
 import { ProviderHttpService } from '../src/integrations/provider-http.service';
 import {
   configureE2eApp,
@@ -264,8 +263,6 @@ describe('Durable issued invoice documents (e2e)', () => {
       createHash('sha256').update(document.file_data).digest('hex'),
     );
     expect((await worker.processDue()).processed).toBe(0);
-    mkdirSync('/tmp/rent-invoice-pdf-qa', { recursive: true });
-    writeFileSync('/tmp/rent-invoice-pdf-qa/default.pdf', response.body);
   });
 
   it('rolls back invoice, account and commission if the durable snapshot cannot be captured', async () => {
@@ -383,8 +380,7 @@ describe('Durable issued invoice documents (e2e)', () => {
     expect((await worker.processDue()).completed).toBe(1);
     expect(render.mock.calls[0][0]).toEqual(job.snapshot);
     render.mockRestore();
-    const response = await pdf(id).expect(200);
-    writeFileSync('/tmp/rent-invoice-pdf-qa/custom.pdf', response.body);
+    await pdf(id).expect(200);
     await expect(
       db.query(
         "UPDATE invoice_effects_outbox SET snapshot='{}' WHERE invoice_id=$1",
