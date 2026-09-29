@@ -363,3 +363,31 @@ it("downloads a recorded receipt while disabled and reports failures without res
   expect(api.request).not.toHaveBeenCalled();
   expect(api.review).not.toHaveBeenCalled();
 });
+
+it("shows withdrawn receipts as unavailable without offering download or another transfer", async () => {
+  api.overview.mockResolvedValue({
+    ...state("completed", { payoutId: "POP1", transactionId: "TOP1" }),
+    movements: [
+      {
+        id: "m",
+        receiptAvailable: false,
+        receiptStatus: "unavailable",
+        kind: "transfer",
+        amount: "100.25",
+        currency: "ARS",
+        transactionId: "TOP1",
+        providerUpdatedAt: "2026-09-01",
+        createdAt: "2026-09-01",
+      },
+    ],
+  });
+  await mount();
+  expect(screen.getByText("receiptUnavailable")).toBeInTheDocument();
+  expect(screen.queryByText("receiptPending")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "downloadReceipt" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "request" }),
+  ).not.toBeInTheDocument();
+});

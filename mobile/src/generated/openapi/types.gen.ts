@@ -2413,7 +2413,7 @@ export type SettlementPayoutJobDto = {
 
 export type SettlementPayoutMovementDto = {
   receiptAvailable: boolean;
-  receiptStatus: 'queued' | 'completed' | 'dead_letter';
+  receiptStatus: 'queued' | 'completed' | 'dead_letter' | 'unavailable';
   id: string;
   kind: 'transfer' | 'reversal';
   amount: string;

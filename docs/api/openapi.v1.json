@@ -18601,7 +18601,8 @@
             "enum": [
               "queued",
               "completed",
-              "dead_letter"
+              "dead_letter",
+              "unavailable"
             ]
           },
           "id": {

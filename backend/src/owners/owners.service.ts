@@ -409,7 +409,7 @@ export class OwnersService {
            LEFT JOIN settlement_payout_movements pm ON pm.document_id=d.id AND pm.company_id=d.company_id
           WHERE d.company_id = $1 AND d.entity_type = 'owner_settlement'
             AND d.entity_id = s.id
-            AND d.deleted_at IS NULL
+            AND d.deleted_at IS NULL AND d.status='approved'
           ORDER BY COALESCE(pm.provider_updated_at,d.created_at) DESC,d.id DESC
           LIMIT 1
        ) rd ON TRUE
@@ -466,7 +466,7 @@ export class OwnersService {
            LEFT JOIN settlement_payout_movements pm ON pm.document_id=d.id AND pm.company_id=d.company_id
           WHERE d.company_id = $1 AND d.entity_type = 'owner_settlement'
             AND d.entity_id = s.id
-            AND d.deleted_at IS NULL
+            AND d.deleted_at IS NULL AND d.status='approved'
           ORDER BY COALESCE(pm.provider_updated_at,d.created_at) DESC,d.id DESC
           LIMIT 1
        ) rd ON TRUE
@@ -526,7 +526,7 @@ export class OwnersService {
            LEFT JOIN settlement_payout_movements pm ON pm.document_id=d.id AND pm.company_id=d.company_id
           WHERE d.company_id = $1 AND d.entity_type = 'owner_settlement'
             AND d.entity_id = s.id
-            AND d.deleted_at IS NULL
+            AND d.deleted_at IS NULL AND d.status='approved'
           ORDER BY COALESCE(pm.provider_updated_at,d.created_at) DESC,d.id DESC
           LIMIT 1
        ) rd ON TRUE
@@ -651,7 +651,7 @@ export class OwnersService {
            LEFT JOIN settlement_payout_movements pm ON pm.document_id=d.id AND pm.company_id=d.company_id
           WHERE d.company_id = $1 AND d.entity_type = 'owner_settlement'
             AND d.entity_id = s.id
-            AND d.deleted_at IS NULL
+            AND d.deleted_at IS NULL AND d.status='approved'
           ORDER BY COALESCE(pm.provider_updated_at,d.created_at) DESC,d.id DESC
           LIMIT 1
        ) rd ON TRUE
@@ -738,7 +738,7 @@ export class OwnersService {
            LEFT JOIN settlement_payout_movements pm ON pm.document_id=d.id AND pm.company_id=d.company_id
           WHERE d.company_id = $1 AND d.entity_type = 'owner_settlement'
             AND d.entity_id = s.id
-            AND d.deleted_at IS NULL
+            AND d.deleted_at IS NULL AND d.status='approved'
           ORDER BY COALESCE(pm.provider_updated_at,d.created_at) DESC,d.id DESC
           LIMIT 1
        ) rd ON TRUE

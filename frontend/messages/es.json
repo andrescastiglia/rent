@@ -1759,7 +1759,8 @@
     "downloadReceipt": "Descargar comprobante",
     "receiptError": "No se pudo descargar el comprobante. Volvé a intentarlo.",
     "receiptNeedsReview": "El comprobante requiere revisión.",
-    "receiptPending": "Comprobante pendiente de generación."
+    "receiptPending": "Comprobante pendiente de generación.",
+    "receiptUnavailable": "Comprobante no disponible."
   },
   "settlementGeneration": {
     "title": "Generar liquidación",

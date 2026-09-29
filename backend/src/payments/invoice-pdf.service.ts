@@ -1,3 +1,4 @@
+import { financialDocumentMetadata } from '../documents/document-integrity';
 import { Injectable } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -67,6 +68,7 @@ export class InvoicePdfService {
         fileMimeType: 'application/pdf',
         fileSize: pdfBuffer.length,
         status: DocumentStatus.APPROVED,
+        metadata: financialDocumentMetadata(pdfBuffer),
       }),
     );
 

@@ -74,7 +74,7 @@ export class SettlementPayoutMovementDto {
   @ApiProperty({
     type: String,
     nullable: true,
-    enum: ['queued', 'completed', 'dead_letter'],
+    enum: ['queued', 'completed', 'dead_letter', 'unavailable'],
   })
   receiptStatus: string | null;
   @ApiProperty() id: string;

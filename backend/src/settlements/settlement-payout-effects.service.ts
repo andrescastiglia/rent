@@ -181,7 +181,7 @@ export class SettlementPayoutEffectsService {
   async download(settlementId: string, movementId: string, companyId: string) {
     const [row] = await this.db.query(
       `SELECT d.file_data,d.metadata->>'sha256' AS checksum FROM settlement_payout_movements m
-       JOIN documents d ON d.id=m.document_id AND d.company_id=m.company_id AND d.entity_type='owner_settlement' AND d.entity_id=m.settlement_id AND d.deleted_at IS NULL
+       JOIN documents d ON d.id=m.document_id AND d.company_id=m.company_id AND d.entity_type='owner_settlement' AND d.entity_id=m.settlement_id AND d.deleted_at IS NULL AND d.status='approved'
        WHERE m.id=$1::uuid AND m.settlement_id=$2::uuid AND m.company_id=$3::uuid`,
       [movementId, settlementId, companyId],
     );

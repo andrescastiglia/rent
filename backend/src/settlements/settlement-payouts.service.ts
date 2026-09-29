@@ -161,7 +161,7 @@ export class SettlementPayoutsService {
       [settlementId, companyId],
     );
     const movements = await this.db.query(
-      `SELECT m.id,m.kind,m.amount::text,m.currency,(m.document_id IS NOT NULL) AS "receiptAvailable",e.status AS "receiptStatus",m.transaction_id AS "transactionId",m.provider_updated_at AS "providerUpdatedAt",m.created_at AS "createdAt" FROM settlement_payout_movements m LEFT JOIN settlement_payout_effects_outbox e ON e.movement_id=m.id AND e.company_id=m.company_id WHERE m.settlement_id=$1::uuid AND m.company_id=$2::uuid ORDER BY m.created_at,m.id`,
+      `SELECT m.id,m.kind,m.amount::text,m.currency,(d.id IS NOT NULL) AS "receiptAvailable",CASE WHEN e.status='completed' AND d.id IS NULL THEN 'unavailable' ELSE e.status END AS "receiptStatus",m.transaction_id AS "transactionId",m.provider_updated_at AS "providerUpdatedAt",m.created_at AS "createdAt" FROM settlement_payout_movements m LEFT JOIN documents d ON d.id=m.document_id AND d.company_id=m.company_id AND d.entity_type='owner_settlement' AND d.entity_id=m.settlement_id AND d.deleted_at IS NULL AND d.status='approved' AND d.file_data IS NOT NULL LEFT JOIN settlement_payout_effects_outbox e ON e.movement_id=m.id AND e.company_id=m.company_id WHERE m.settlement_id=$1::uuid AND m.company_id=$2::uuid ORDER BY m.created_at,m.id`,
       [settlementId, companyId],
     );
     const reviews = job

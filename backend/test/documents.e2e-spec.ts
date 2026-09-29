@@ -1,3 +1,4 @@
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -21,6 +22,8 @@ describe('PostgreSQL document lifecycle (e2e)', () => {
   let otherToken: string;
   let ownerId: string;
   let companyId: string;
+  const previousLinkSecret = process.env.WHATSAPP_DOCUMENT_LINK_SECRET;
+  const linkSecret = 'document-capability-e2e-secret';
   const pdf = Buffer.from('%PDF-1.4\nprivate document\n%%EOF');
   const apiPath = (url: string) => {
     const parsed = new URL(url);
@@ -28,6 +31,7 @@ describe('PostgreSQL document lifecycle (e2e)', () => {
   };
 
   beforeAll(async () => {
+    process.env.WHATSAPP_DOCUMENT_LINK_SECRET = linkSecret;
     const module = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -72,6 +76,9 @@ describe('PostgreSQL document lifecycle (e2e)', () => {
   });
   afterAll(async () => {
     await app?.close();
+    if (previousLinkSecret === undefined)
+      delete process.env.WHATSAPP_DOCUMENT_LINK_SECRET;
+    else process.env.WHATSAPP_DOCUMENT_LINK_SECRET = previousLinkSecret;
   });
 
   it('uploads, confirms, downloads and deletes with real bytea persistence and company isolation', async () => {
@@ -154,5 +161,62 @@ describe('PostgreSQL document lifecycle (e2e)', () => {
       .auth(token, { type: 'bearer' })
       .expect(200);
     await request(server).get(apiPath(link.body.downloadUrl)).expect(404);
+  });
+  it('checks approval and integrity for an expiring WhatsApp document capability', async () => {
+    const [document] = await db.query(
+      "INSERT INTO documents(company_id,entity_type,entity_id,document_type,status,name,file_url,file_data,file_mime_type,metadata) VALUES($1,'owner',$2,'other','approved','capability.pdf','db://document/pending',$3,'application/pdf',$4::jsonb) RETURNING id",
+      [
+        companyId,
+        ownerId,
+        pdf,
+        JSON.stringify({
+          source: 'financial_document',
+          integrityVersion: 1,
+          sha256: createHash('sha256').update(pdf).digest('hex'),
+        }),
+      ],
+    );
+    const id = document.id;
+    const link = (expires: number) => {
+      const signature = createHmac('sha256', linkSecret)
+        .update(`${id}:${expires}`)
+        .digest('hex');
+      return `/whatsapp/documents/${id}?token=${expires}.${signature}`;
+    };
+    const url = link(Math.floor(Date.now() / 1000) + 300);
+    try {
+      await request(app.getHttpServer())
+        .get(`/whatsapp/documents/${id}`)
+        .expect(400);
+      await request(app.getHttpServer())
+        .get(url.replace(id, randomUUID()))
+        .expect(403);
+      await request(app.getHttpServer())
+        .get(link(Math.floor(Date.now() / 1000) - 10))
+        .expect(403);
+      const signed = await request(app.getHttpServer())
+        .get(`/documents/${id}/download-url`)
+        .auth(token, { type: 'bearer' })
+        .expect(200);
+      const signedPath = apiPath(signed.body.downloadUrl);
+      await request(app.getHttpServer()).get(signedPath).expect(200);
+      const response = await request(app.getHttpServer()).get(url).expect(200);
+      expect(response.body).toEqual(pdf);
+      for (const status of ['pending', 'rejected', 'expired']) {
+        await db.query('UPDATE documents SET status=$2 WHERE id=$1', [
+          id,
+          status,
+        ]);
+        await request(app.getHttpServer()).get(url).expect(404);
+      }
+      await db.query(
+        "UPDATE documents SET status='approved',file_data=$2 WHERE id=$1",
+        [id, Buffer.from('changed')],
+      );
+      await request(app.getHttpServer()).get(url).expect(409);
+      await request(app.getHttpServer()).get(signedPath).expect(409);
+    } finally {
+      await db.query('DELETE FROM documents WHERE id=$1', [id]);
+    }
   });
 });

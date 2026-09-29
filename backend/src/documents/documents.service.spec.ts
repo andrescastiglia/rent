@@ -384,21 +384,39 @@ describe('DocumentsService', () => {
       fileMimeType: 'application/pdf',
     });
     await expect(
-      service.downloadByFileUrl('db://document/doc-1'),
+      service.downloadByFileUrl('db://document/doc-1', {
+        companyId: 'co1',
+        entityType: 'invoice',
+        entityId: 'invoice-1',
+      }),
     ).resolves.toEqual({
       buffer: Buffer.from('pdf'),
       contentType: 'application/pdf',
     });
     expect(repository.findOne).toHaveBeenLastCalledWith({
-      where: { id: 'doc-1' },
+      where: {
+        id: 'doc-1',
+        companyId: 'co1',
+        entityType: 'invoice',
+        entityId: 'invoice-1',
+        status: DocumentStatus.APPROVED,
+      },
       select: ['id', 'fileData', 'fileMimeType', 'metadata'],
     });
     repository.findOne.mockResolvedValueOnce(null);
     await expect(
-      service.downloadByFileUrl('db://document/missing'),
+      service.downloadByFileUrl('db://document/missing', {
+        companyId: 'co1',
+        entityType: 'invoice',
+        entityId: 'invoice-1',
+      }),
     ).rejects.toBeInstanceOf(NotFoundException);
     await expect(
-      service.downloadByFileUrl('external/file.pdf'),
+      service.downloadByFileUrl('external/file.pdf', {
+        companyId: 'co1',
+        entityType: 'invoice',
+        entityId: 'invoice-1',
+      }),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

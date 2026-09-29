@@ -146,7 +146,11 @@ export class InvoicesController {
     }
 
     const { buffer, contentType } =
-      await this.documentsService.downloadByFileUrl(invoice.pdfUrl);
+      await this.documentsService.downloadByFileUrl(invoice.pdfUrl, {
+        companyId: req.user.companyId,
+        entityType: 'invoice',
+        entityId: invoice.id,
+      });
 
     res.set({
       'Content-Type': contentType,
@@ -176,7 +180,11 @@ export class InvoicesController {
     }
 
     const { buffer, contentType } =
-      await this.documentsService.downloadByFileUrl(note.pdfUrl);
+      await this.documentsService.downloadByFileUrl(note.pdfUrl, {
+        companyId: req.user.companyId,
+        entityType: 'credit_note',
+        entityId: note.id,
+      });
 
     res.set({
       'Content-Type': contentType,

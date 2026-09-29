@@ -111,6 +111,7 @@ describe('Settlement read schema and company boundaries (e2e)', () => {
       [companyIds[0], 'valid.pdf', '2026-09-01', null],
       [companyIds[1], 'foreign.pdf', '2026-09-02', null],
       [companyIds[0], 'deleted.pdf', '2026-09-03', '2026-09-04'],
+      [companyIds[0], 'pending.pdf', '2026-09-05', null],
     ])
       await db.query(
         "INSERT INTO documents(company_id,entity_type,entity_id,document_type,status,name,file_url,created_at,deleted_at) VALUES($1,'owner_settlement',$2,'other','approved',$3,$4,$5,$6)",
@@ -123,6 +124,10 @@ describe('Settlement read schema and company boundaries (e2e)', () => {
           deletedAt,
         ],
       );
+    await db.query(
+      "UPDATE documents SET status='pending' WHERE company_id=$1 AND name='pending.pdf'",
+      [companyIds[0]],
+    );
   });
   afterAll(async () => {
     if (db) {

@@ -30,6 +30,11 @@ const emptyBank: Bank = {
   ownerValue: "",
   ownerType: "",
 };
+const receiptStateLabels: Record<string, string> = {
+  dead_letter: "receiptNeedsReview",
+  unavailable: "receiptUnavailable",
+};
+
 export function SettlementPayoutPanel({
   settlementId,
   ownerId,
@@ -444,9 +449,8 @@ export function SettlementPayoutPanel({
                 {!item.receiptAvailable && (
                   <p>
                     {t(
-                      item.receiptStatus === "dead_letter"
-                        ? "receiptNeedsReview"
-                        : "receiptPending",
+                      receiptStateLabels[item.receiptStatus ?? ""] ??
+                        "receiptPending",
                     )}
                   </p>
                 )}
