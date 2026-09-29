@@ -295,9 +295,56 @@ bancarios. Para destinos bancarios exige cuenta corriente, titular, número de
 cuenta, banco de tres dígitos y documento del titular; la sucursal es opcional.
 No deriva esos datos a partir de un alias ni admite cajas de ahorro. El protocolo
 bancario está documentado también en la [versión Markdown oficial](https://www.mercadopago.com.ar/developers/es/docs/payouts/integration-configuration/money-transfers.md).
-Pendiente: outbox/conciliación de liquidaciones y reflejo contable de
-resultados/reversiones. `process-settlements` permanece
-suspendido y no debe habilitarse durante un rollback.
+### Cola y conciliación de liquidaciones
+
+`POST /settlements/:id/payout` exige administrador, compañía, confirmación expresa,
+importe neto esperado en centavos y un único destino (correo o cuenta corriente).
+Solo admite liquidaciones pendientes sin referencia de transferencia. La migración
+117 guarda una solicitud inmutable por liquidación, con actor, destino e importe,
+UUID de idempotencia y referencia estable `rent_settlement_<id>`. El cambio local
+a `processing` y la solicitud se confirman juntos; las solicitudes simultáneas
+iguales devuelven la misma orden. No hay HTTP dentro de esta transacción.
+
+`POST /settlements/internal/process-payouts` requiere la credencial interna de
+batch. Procesa hasta 25 órdenes con leases de dos minutos y fencing. Registra la
+intención antes del POST y conserva los IDs aceptados antes de consultar el estado.
+Un timeout, respuesta inválida, conflicto de idempotencia o caída después del envío
+sin IDs persistidos queda en `needs_review`; no se reenvía automáticamente.
+Solo se reintentan lecturas por IDs conocidos, hasta cinco fallos consecutivos.
+
+Únicamente `success/accredited`, con identidad, referencia, importe, moneda y fecha
+de actualización verificados, genera el movimiento `transfer` y completa la
+liquidación en la misma transacción. Una aceptación o estado intermedio no paga.
+Las lecturas repetidas no duplican asientos. Las acreditadas se consultan diariamente
+para detectar devoluciones: `refunded/refunded` genera una única reversión del
+movimiento previo y retira el estado pagado. Las observaciones antiguas se ignoran;
+las contradictorias o parciales se envían a revisión sin inventar importes.
+Estos movimientos documentan la transferencia de la liquidación; no reemplazan
+la cuenta corriente del inquilino ni contabilizan comisiones del proveedor.
+
+`GET /settlements/:id/payout` conserva el historial local aun deshabilitado,
+sin exponer destinos ni credenciales. `POST /settlements/:id/payout/review` exige
+motivo y confirmación y registra al actor. Permite vincular una creación incierta
+solo después de verificar su transacción con el proveedor; reanudar una consulta
+por IDs; o reintentar la misma solicitud/clave después de un rechazo HTTP definitivo
+(400/401/403/422) o falta de configuración local. Un conflicto HTTP 409 nunca prueba
+que la transferencia no exista. No permite cambiar el destino de una orden,
+reenviar una creación incierta ni crear otra orden para la misma liquidación.
+
+El CLI de reintentos invoca esta cola junto a las otras. Deshabilitada devuelve
+cero procesados antes de consultar la base o el proveedor; incluir el endpoint
+no habilita transferencias. `process-settlements` permanece suspendido y no debe
+habilitarse durante un rollback. No se crearon cuentas ni credenciales.
+
+Pruebas: `settlement-payouts.e2e-spec.ts`, con PostgreSQL real y transporte sustituido
+explícitamente: concurrencia, rollback contable, dos compañías, respuestas perdidas,
+leases vencidos, conciliación repetida, devolución completa y revisión de casos
+parciales/contradictorios. CI incorpora la cobertura de todos los E2E del backend a
+Sonar junto a las pruebas unitarias; conserva los umbrales y controles existentes.
+
+Pendiente: generación durable de liquidaciones, recibos/notificaciones posteriores
+al commit, interfaz administrativa y resolución contable de devoluciones parciales
+o nuevas órdenes tras rechazos/reversiones verificados, gates y despliegue deshabilitado.
 
 ## Validación y rollback
 
@@ -306,7 +353,7 @@ Pruebas PostgreSQL aisladas: `bfa-stamps.e2e-spec.ts`, incluyendo cola deshabili
 aislamiento entre empresas, concurrencia, respuesta perdida y documentos alterados.
 No constituyen evidencia de disponibilidad del proveedor ni validación de cuentas.
 
-Las migraciones 113 a 116 conservan los datos y no encolan documentos ni avisos históricos. Para rollback,
+Las migraciones 113 a 117 conservan los datos y no encolan documentos ni avisos históricos. Para rollback,
 conservar sus registros y mantener proveedores deshabilitados. Si se restaura
 un artefacto anterior, restaurar también el CLI del mismo artefacto para evitar
 invocar un endpoint que aún no exista. No borrar pruebas de sellado ni resoluciones;

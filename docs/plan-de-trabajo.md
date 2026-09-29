@@ -92,6 +92,12 @@ El cron `process-settlements` permanece suspendido.
   Editor incorporado a main con los 23 gates del PR #221 aprobados.
   Pendiente: despliegue deshabilitado.
 - [ ] Implementar transferencias Mercado Pago con idempotencia y conciliación.
+  Avance: solicitud inmutable y cola por liquidación, deduplicación, intención antes
+  del envío, conservación de IDs, conciliación y movimientos de acreditación/reversión
+  atómicos. API administrativa con revisión auditada y bloqueo total mientras está
+  deshabilitada. Pendiente: validar gates; generación durable, recibos/notificaciones,
+  UI administrativa, resolución de devoluciones parciales/nuevas órdenes verificadas
+  y despliegue deshabilitado.
 - [ ] Verificar que ninguna integración real se invoque mientras está deshabilitada.
 
 ## Criterio de cierre

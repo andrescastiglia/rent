@@ -2250,6 +2250,134 @@ export type Settlement = {
   updatedAt: string;
 };
 
+export type SettlementPayoutJobDto = {
+  id: string;
+  status:
+    | 'queued'
+    | 'dispatching'
+    | 'awaiting'
+    | 'completed'
+    | 'failed'
+    | 'needs_review'
+    | 'reversed';
+  payoutId: string | null;
+  transactionId: string | null;
+  amount: string;
+  currency: string;
+  remoteStatus: string | null;
+  remoteDetail: string | null;
+  errorCode: string | null;
+  attempts: number;
+  updatedAt: string;
+};
+
+export type SettlementPayoutMovementDto = {
+  id: string;
+  kind: 'transfer' | 'reversal';
+  amount: string;
+  currency: string;
+  transactionId: string;
+  providerUpdatedAt: string;
+  createdAt: string;
+};
+
+export type SettlementPayoutReviewDto = {
+  id: string;
+  actorId: string;
+  action: 'retry' | 'link' | 'refresh';
+  reason: string;
+  createdAt: string;
+};
+
+export type SettlementPayoutOverviewDto = {
+  enabled: boolean;
+  job: SettlementPayoutJobDto | null;
+  movements: Array<SettlementPayoutMovementDto>;
+  reviews: Array<SettlementPayoutReviewDto>;
+};
+
+export type PayoutBankAccountDto = {
+  accountType: 'checking';
+  holder: string;
+  number: string;
+  bankId: string;
+  branch?: string;
+  ownerValue: string;
+  ownerType: string;
+};
+
+export type RequestSettlementPayoutDto = {
+  confirmed: true;
+  currency: 'ARS';
+  expectedAmount: string;
+  recipientEmail?: string;
+  bankAccount?: PayoutBankAccountDto;
+};
+
+export type ReviewSettlementPayoutDto = {
+  confirmed: true;
+  action: 'retry' | 'link' | 'refresh';
+  reason: string;
+  payoutId?: string;
+  transactionId?: string;
+};
+
+export type MercadoLibreConnectionStatusDto = {
+  enabled: boolean;
+  status:
+    | 'unconfigured'
+    | 'active'
+    | 'connecting'
+    | 'refreshing'
+    | 'reconnect_required'
+    | 'disconnected';
+  sellerId: string | null;
+  expiresAt: string | null;
+};
+
+export type MercadoLibreAuthorizationDto = {
+  authorizationUrl: string;
+};
+
+export type CompleteMercadoLibreAuthorizationDto = {
+  code: string;
+  state: string;
+};
+
+export type MercadoLibreOptionDto = {
+  id: string;
+  name: string;
+};
+
+export type MercadoLibreAttributeDto = {
+  id: string;
+  name: string;
+  valueType: string;
+  required: boolean;
+  readOnly: boolean;
+  maxLength: number;
+  values: Array<MercadoLibreOptionDto>;
+  units: Array<MercadoLibreOptionDto>;
+  defaultUnit: string | null;
+};
+
+export type MercadoLibreListingTypeDto = {
+  id: string;
+  name: string;
+  remainingListings: number | null;
+};
+
+export type MercadoLibreCategoryDto = {
+  id: string;
+  name: string;
+  path: Array<MercadoLibreOptionDto>;
+  children: Array<MercadoLibreOptionDto>;
+  listingAllowed: boolean;
+  currencies: Array<string>;
+  attributes: Array<MercadoLibreAttributeDto>;
+  listingTypes: Array<MercadoLibreListingTypeDto>;
+};
+
 export type NotificationPreference = {
   id: string;
   userId: string;
@@ -2505,62 +2633,6 @@ export type PortalResolutionDto = {
   externalId: string | null;
   followupJobId: string | null;
   createdAt: string;
-};
-
-export type MercadoLibreConnectionStatusDto = {
-  enabled: boolean;
-  status:
-    | 'unconfigured'
-    | 'active'
-    | 'connecting'
-    | 'refreshing'
-    | 'reconnect_required'
-    | 'disconnected';
-  sellerId: string | null;
-  expiresAt: string | null;
-};
-
-export type MercadoLibreAuthorizationDto = {
-  authorizationUrl: string;
-};
-
-export type CompleteMercadoLibreAuthorizationDto = {
-  code: string;
-  state: string;
-};
-
-export type MercadoLibreOptionDto = {
-  id: string;
-  name: string;
-};
-
-export type MercadoLibreAttributeDto = {
-  id: string;
-  name: string;
-  valueType: string;
-  required: boolean;
-  readOnly: boolean;
-  maxLength: number;
-  values: Array<MercadoLibreOptionDto>;
-  units: Array<MercadoLibreOptionDto>;
-  defaultUnit: string | null;
-};
-
-export type MercadoLibreListingTypeDto = {
-  id: string;
-  name: string;
-  remainingListings: number | null;
-};
-
-export type MercadoLibreCategoryDto = {
-  id: string;
-  name: string;
-  path: Array<MercadoLibreOptionDto>;
-  children: Array<MercadoLibreOptionDto>;
-  listingAllowed: boolean;
-  currencies: Array<string>;
-  attributes: Array<MercadoLibreAttributeDto>;
-  listingTypes: Array<MercadoLibreListingTypeDto>;
 };
 
 export type DigitalSignatureRequest = {
@@ -6204,6 +6276,186 @@ export type SettlementsFindOneResponses = {
 export type SettlementsFindOneResponse =
   SettlementsFindOneResponses[keyof SettlementsFindOneResponses];
 
+export type SettlementPayoutsOverviewData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/settlements/{id}/payout';
+};
+
+export type SettlementPayoutsOverviewResponses = {
+  200: SettlementPayoutOverviewDto;
+};
+
+export type SettlementPayoutsOverviewResponse =
+  SettlementPayoutsOverviewResponses[keyof SettlementPayoutsOverviewResponses];
+
+export type SettlementPayoutsRequestData = {
+  body: RequestSettlementPayoutDto;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/settlements/{id}/payout';
+};
+
+export type SettlementPayoutsRequestResponses = {
+  201: SettlementPayoutOverviewDto;
+};
+
+export type SettlementPayoutsRequestResponse =
+  SettlementPayoutsRequestResponses[keyof SettlementPayoutsRequestResponses];
+
+export type SettlementPayoutsReviewData = {
+  body: ReviewSettlementPayoutDto;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/settlements/{id}/payout/review';
+};
+
+export type SettlementPayoutsReviewResponses = {
+  201: SettlementPayoutOverviewDto;
+};
+
+export type SettlementPayoutsReviewResponse =
+  SettlementPayoutsReviewResponses[keyof SettlementPayoutsReviewResponses];
+
+export type SettlementPayoutsProcessData = {
+  body?: never;
+  headers: {
+    'x-batch-communications-token': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/settlements/internal/process-payouts';
+};
+
+export type SettlementPayoutsProcessResponses = {
+  201: unknown;
+};
+
+export type MercadoLibreConnectionsStatusData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/integrations/mercadolibre/status';
+};
+
+export type MercadoLibreConnectionsStatusResponses = {
+  200: MercadoLibreConnectionStatusDto;
+};
+
+export type MercadoLibreConnectionsStatusResponse =
+  MercadoLibreConnectionsStatusResponses[keyof MercadoLibreConnectionsStatusResponses];
+
+export type MercadoLibreConnectionsBeginData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/integrations/mercadolibre/authorization';
+};
+
+export type MercadoLibreConnectionsBeginResponses = {
+  201: MercadoLibreAuthorizationDto;
+};
+
+export type MercadoLibreConnectionsBeginResponse =
+  MercadoLibreConnectionsBeginResponses[keyof MercadoLibreConnectionsBeginResponses];
+
+export type MercadoLibreConnectionsCompleteData = {
+  body: CompleteMercadoLibreAuthorizationDto;
+  path?: never;
+  query?: never;
+  url: '/integrations/mercadolibre/authorization/complete';
+};
+
+export type MercadoLibreConnectionsCompleteResponses = {
+  201: MercadoLibreConnectionStatusDto;
+};
+
+export type MercadoLibreConnectionsCompleteResponse =
+  MercadoLibreConnectionsCompleteResponses[keyof MercadoLibreConnectionsCompleteResponses];
+
+export type MercadoLibreConnectionsDisconnectData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/integrations/mercadolibre/connection';
+};
+
+export type MercadoLibreConnectionsDisconnectResponses = {
+  200: MercadoLibreConnectionStatusDto;
+};
+
+export type MercadoLibreConnectionsDisconnectResponse =
+  MercadoLibreConnectionsDisconnectResponses[keyof MercadoLibreConnectionsDisconnectResponses];
+
+export type MercadoLibreCatalogCategoryData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/portals/mercadolibre/catalog/categories/{id}';
+};
+
+export type MercadoLibreCatalogCategoryResponses = {
+  200: MercadoLibreCategoryDto;
+};
+
+export type MercadoLibreCatalogCategoryResponse =
+  MercadoLibreCatalogCategoryResponses[keyof MercadoLibreCatalogCategoryResponses];
+
+export type MercadoLibreCatalogStatesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/portals/mercadolibre/catalog/states';
+};
+
+export type MercadoLibreCatalogStatesResponses = {
+  200: Array<MercadoLibreOptionDto>;
+};
+
+export type MercadoLibreCatalogStatesResponse =
+  MercadoLibreCatalogStatesResponses[keyof MercadoLibreCatalogStatesResponses];
+
+export type MercadoLibreCatalogCitiesData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/portals/mercadolibre/catalog/states/{id}/cities';
+};
+
+export type MercadoLibreCatalogCitiesResponses = {
+  200: Array<MercadoLibreOptionDto>;
+};
+
+export type MercadoLibreCatalogCitiesResponse =
+  MercadoLibreCatalogCitiesResponses[keyof MercadoLibreCatalogCitiesResponses];
+
+export type MercadoLibreCatalogNeighborhoodsData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/portals/mercadolibre/catalog/cities/{id}/neighborhoods';
+};
+
+export type MercadoLibreCatalogNeighborhoodsResponses = {
+  200: Array<MercadoLibreOptionDto>;
+};
+
+export type MercadoLibreCatalogNeighborhoodsResponse =
+  MercadoLibreCatalogNeighborhoodsResponses[keyof MercadoLibreCatalogNeighborhoodsResponses];
+
 export type NotificationsGetMyPreferencesData = {
   body?: never;
   path?: never;
@@ -6698,124 +6950,6 @@ export type PortalPublicationReviewHistoryResponses = {
 
 export type PortalPublicationReviewHistoryResponse =
   PortalPublicationReviewHistoryResponses[keyof PortalPublicationReviewHistoryResponses];
-
-export type MercadoLibreConnectionsStatusData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/integrations/mercadolibre/status';
-};
-
-export type MercadoLibreConnectionsStatusResponses = {
-  200: MercadoLibreConnectionStatusDto;
-};
-
-export type MercadoLibreConnectionsStatusResponse =
-  MercadoLibreConnectionsStatusResponses[keyof MercadoLibreConnectionsStatusResponses];
-
-export type MercadoLibreConnectionsBeginData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/integrations/mercadolibre/authorization';
-};
-
-export type MercadoLibreConnectionsBeginResponses = {
-  201: MercadoLibreAuthorizationDto;
-};
-
-export type MercadoLibreConnectionsBeginResponse =
-  MercadoLibreConnectionsBeginResponses[keyof MercadoLibreConnectionsBeginResponses];
-
-export type MercadoLibreConnectionsCompleteData = {
-  body: CompleteMercadoLibreAuthorizationDto;
-  path?: never;
-  query?: never;
-  url: '/integrations/mercadolibre/authorization/complete';
-};
-
-export type MercadoLibreConnectionsCompleteResponses = {
-  201: MercadoLibreConnectionStatusDto;
-};
-
-export type MercadoLibreConnectionsCompleteResponse =
-  MercadoLibreConnectionsCompleteResponses[keyof MercadoLibreConnectionsCompleteResponses];
-
-export type MercadoLibreConnectionsDisconnectData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/integrations/mercadolibre/connection';
-};
-
-export type MercadoLibreConnectionsDisconnectResponses = {
-  200: MercadoLibreConnectionStatusDto;
-};
-
-export type MercadoLibreConnectionsDisconnectResponse =
-  MercadoLibreConnectionsDisconnectResponses[keyof MercadoLibreConnectionsDisconnectResponses];
-
-export type MercadoLibreCatalogCategoryData = {
-  body?: never;
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/portals/mercadolibre/catalog/categories/{id}';
-};
-
-export type MercadoLibreCatalogCategoryResponses = {
-  200: MercadoLibreCategoryDto;
-};
-
-export type MercadoLibreCatalogCategoryResponse =
-  MercadoLibreCatalogCategoryResponses[keyof MercadoLibreCatalogCategoryResponses];
-
-export type MercadoLibreCatalogStatesData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/portals/mercadolibre/catalog/states';
-};
-
-export type MercadoLibreCatalogStatesResponses = {
-  200: Array<MercadoLibreOptionDto>;
-};
-
-export type MercadoLibreCatalogStatesResponse =
-  MercadoLibreCatalogStatesResponses[keyof MercadoLibreCatalogStatesResponses];
-
-export type MercadoLibreCatalogCitiesData = {
-  body?: never;
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/portals/mercadolibre/catalog/states/{id}/cities';
-};
-
-export type MercadoLibreCatalogCitiesResponses = {
-  200: Array<MercadoLibreOptionDto>;
-};
-
-export type MercadoLibreCatalogCitiesResponse =
-  MercadoLibreCatalogCitiesResponses[keyof MercadoLibreCatalogCitiesResponses];
-
-export type MercadoLibreCatalogNeighborhoodsData = {
-  body?: never;
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/portals/mercadolibre/catalog/cities/{id}/neighborhoods';
-};
-
-export type MercadoLibreCatalogNeighborhoodsResponses = {
-  200: Array<MercadoLibreOptionDto>;
-};
-
-export type MercadoLibreCatalogNeighborhoodsResponse =
-  MercadoLibreCatalogNeighborhoodsResponses[keyof MercadoLibreCatalogNeighborhoodsResponses];
 
 export type DigitalSignaturesFindAllData = {
   body?: never;

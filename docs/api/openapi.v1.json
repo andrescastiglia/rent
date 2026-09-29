@@ -7730,6 +7730,351 @@
         ]
       }
     },
+    "/settlements/{id}/payout": {
+      "get": {
+        "operationId": "SettlementPayouts_overview",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementPayoutOverviewDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "SettlementPayouts"
+        ]
+      },
+      "post": {
+        "operationId": "SettlementPayouts_request",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestSettlementPayoutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementPayoutOverviewDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "SettlementPayouts"
+        ]
+      }
+    },
+    "/settlements/{id}/payout/review": {
+      "post": {
+        "operationId": "SettlementPayouts_review",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewSettlementPayoutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementPayoutOverviewDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "SettlementPayouts"
+        ]
+      }
+    },
+    "/settlements/internal/process-payouts": {
+      "post": {
+        "operationId": "SettlementPayouts_process",
+        "parameters": [
+          {
+            "name": "x-batch-communications-token",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "SettlementPayouts"
+        ]
+      }
+    },
+    "/integrations/mercadolibre/status": {
+      "get": {
+        "operationId": "MercadoLibreConnections_status",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercadoLibreConnectionStatusDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MercadoLibreConnections"
+        ]
+      }
+    },
+    "/integrations/mercadolibre/authorization": {
+      "post": {
+        "operationId": "MercadoLibreConnections_begin",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercadoLibreAuthorizationDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MercadoLibreConnections"
+        ]
+      }
+    },
+    "/integrations/mercadolibre/authorization/complete": {
+      "post": {
+        "operationId": "MercadoLibreConnections_complete",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteMercadoLibreAuthorizationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercadoLibreConnectionStatusDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MercadoLibreConnections"
+        ]
+      }
+    },
+    "/integrations/mercadolibre/connection": {
+      "delete": {
+        "operationId": "MercadoLibreConnections_disconnect",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercadoLibreConnectionStatusDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MercadoLibreConnections"
+        ]
+      }
+    },
+    "/portals/mercadolibre/catalog/categories/{id}": {
+      "get": {
+        "operationId": "MercadoLibreCatalog_category",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercadoLibreCategoryDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MercadoLibreCatalog"
+        ]
+      }
+    },
+    "/portals/mercadolibre/catalog/states": {
+      "get": {
+        "operationId": "MercadoLibreCatalog_states",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MercadoLibreOptionDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MercadoLibreCatalog"
+        ]
+      }
+    },
+    "/portals/mercadolibre/catalog/states/{id}/cities": {
+      "get": {
+        "operationId": "MercadoLibreCatalog_cities",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MercadoLibreOptionDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MercadoLibreCatalog"
+        ]
+      }
+    },
+    "/portals/mercadolibre/catalog/cities/{id}/neighborhoods": {
+      "get": {
+        "operationId": "MercadoLibreCatalog_neighborhoods",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MercadoLibreOptionDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MercadoLibreCatalog"
+        ]
+      }
+    },
     "/notifications/preferences": {
       "get": {
         "operationId": "Notifications_getMyPreferences",
@@ -8756,220 +9101,6 @@
         },
         "tags": [
           "PortalPublicationReview"
-        ]
-      }
-    },
-    "/integrations/mercadolibre/status": {
-      "get": {
-        "operationId": "MercadoLibreConnections_status",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MercadoLibreConnectionStatusDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "MercadoLibreConnections"
-        ]
-      }
-    },
-    "/integrations/mercadolibre/authorization": {
-      "post": {
-        "operationId": "MercadoLibreConnections_begin",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MercadoLibreAuthorizationDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "MercadoLibreConnections"
-        ]
-      }
-    },
-    "/integrations/mercadolibre/authorization/complete": {
-      "post": {
-        "operationId": "MercadoLibreConnections_complete",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CompleteMercadoLibreAuthorizationDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MercadoLibreConnectionStatusDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "MercadoLibreConnections"
-        ]
-      }
-    },
-    "/integrations/mercadolibre/connection": {
-      "delete": {
-        "operationId": "MercadoLibreConnections_disconnect",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MercadoLibreConnectionStatusDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "MercadoLibreConnections"
-        ]
-      }
-    },
-    "/portals/mercadolibre/catalog/categories/{id}": {
-      "get": {
-        "operationId": "MercadoLibreCatalog_category",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MercadoLibreCategoryDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "MercadoLibreCatalog"
-        ]
-      }
-    },
-    "/portals/mercadolibre/catalog/states": {
-      "get": {
-        "operationId": "MercadoLibreCatalog_states",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/MercadoLibreOptionDto"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "MercadoLibreCatalog"
-        ]
-      }
-    },
-    "/portals/mercadolibre/catalog/states/{id}/cities": {
-      "get": {
-        "operationId": "MercadoLibreCatalog_cities",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/MercadoLibreOptionDto"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "MercadoLibreCatalog"
-        ]
-      }
-    },
-    "/portals/mercadolibre/catalog/cities/{id}/neighborhoods": {
-      "get": {
-        "operationId": "MercadoLibreCatalog_neighborhoods",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/MercadoLibreOptionDto"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "MercadoLibreCatalog"
         ]
       }
     },
@@ -17449,6 +17580,493 @@
           "updatedAt"
         ]
       },
+      "SettlementPayoutJobDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "dispatching",
+              "awaiting",
+              "completed",
+              "failed",
+              "needs_review",
+              "reversed"
+            ]
+          },
+          "payoutId": {
+            "type": "string",
+            "nullable": true
+          },
+          "transactionId": {
+            "type": "string",
+            "nullable": true
+          },
+          "amount": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "remoteStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "remoteDetail": {
+            "type": "string",
+            "nullable": true
+          },
+          "errorCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "attempts": {
+            "type": "number"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "payoutId",
+          "transactionId",
+          "amount",
+          "currency",
+          "remoteStatus",
+          "remoteDetail",
+          "errorCode",
+          "attempts",
+          "updatedAt"
+        ]
+      },
+      "SettlementPayoutMovementDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "transfer",
+              "reversal"
+            ]
+          },
+          "amount": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "transactionId": {
+            "type": "string"
+          },
+          "providerUpdatedAt": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "amount",
+          "currency",
+          "transactionId",
+          "providerUpdatedAt",
+          "createdAt"
+        ]
+      },
+      "SettlementPayoutReviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actorId": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "retry",
+              "link",
+              "refresh"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "actorId",
+          "action",
+          "reason",
+          "createdAt"
+        ]
+      },
+      "SettlementPayoutOverviewDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "job": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SettlementPayoutJobDto"
+              }
+            ]
+          },
+          "movements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SettlementPayoutMovementDto"
+            }
+          },
+          "reviews": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SettlementPayoutReviewDto"
+            }
+          }
+        },
+        "required": [
+          "enabled",
+          "job",
+          "movements",
+          "reviews"
+        ]
+      },
+      "PayoutBankAccountDto": {
+        "type": "object",
+        "properties": {
+          "accountType": {
+            "type": "string",
+            "enum": [
+              "checking"
+            ]
+          },
+          "holder": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "number": {
+            "type": "string",
+            "pattern": "^\\d{1,34}$"
+          },
+          "bankId": {
+            "type": "string",
+            "pattern": "^\\d{3}$"
+          },
+          "branch": {
+            "type": "string",
+            "pattern": "^\\d{1,10}$"
+          },
+          "ownerValue": {
+            "type": "string",
+            "pattern": "^\\d{1,20}$"
+          },
+          "ownerType": {
+            "type": "string",
+            "pattern": "^[A-Z]{2,10}$"
+          }
+        },
+        "required": [
+          "accountType",
+          "holder",
+          "number",
+          "bankId",
+          "ownerValue",
+          "ownerType"
+        ]
+      },
+      "RequestSettlementPayoutDto": {
+        "type": "object",
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "ARS"
+            ]
+          },
+          "expectedAmount": {
+            "type": "string",
+            "pattern": "^\\d{1,11}\\.\\d{2}$"
+          },
+          "recipientEmail": {
+            "type": "string",
+            "format": "email"
+          },
+          "bankAccount": {
+            "$ref": "#/components/schemas/PayoutBankAccountDto"
+          }
+        },
+        "required": [
+          "confirmed",
+          "currency",
+          "expectedAmount"
+        ]
+      },
+      "ReviewSettlementPayoutDto": {
+        "type": "object",
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "retry",
+              "link",
+              "refresh"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          },
+          "payoutId": {
+            "type": "string",
+            "pattern": "^POP[A-Za-z0-9]{1,100}$"
+          },
+          "transactionId": {
+            "type": "string",
+            "pattern": "^TOP[A-Za-z0-9]{1,100}$"
+          }
+        },
+        "required": [
+          "confirmed",
+          "action",
+          "reason"
+        ]
+      },
+      "MercadoLibreConnectionStatusDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "unconfigured",
+              "active",
+              "connecting",
+              "refreshing",
+              "reconnect_required",
+              "disconnected"
+            ],
+            "type": "string"
+          },
+          "sellerId": {
+            "type": "string",
+            "nullable": true
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "enabled",
+          "status",
+          "sellerId",
+          "expiresAt"
+        ]
+      },
+      "MercadoLibreAuthorizationDto": {
+        "type": "object",
+        "properties": {
+          "authorizationUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "authorizationUrl"
+        ]
+      },
+      "CompleteMercadoLibreAuthorizationDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "state": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          }
+        },
+        "required": [
+          "code",
+          "state"
+        ]
+      },
+      "MercadoLibreOptionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "MercadoLibreAttributeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "valueType": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "readOnly": {
+            "type": "boolean"
+          },
+          "maxLength": {
+            "type": "number"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MercadoLibreOptionDto"
+            }
+          },
+          "units": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MercadoLibreOptionDto"
+            }
+          },
+          "defaultUnit": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "valueType",
+          "required",
+          "readOnly",
+          "maxLength",
+          "values",
+          "units",
+          "defaultUnit"
+        ]
+      },
+      "MercadoLibreListingTypeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "remainingListings": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "remainingListings"
+        ]
+      },
+      "MercadoLibreCategoryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MercadoLibreOptionDto"
+            }
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MercadoLibreOptionDto"
+            }
+          },
+          "listingAllowed": {
+            "type": "boolean"
+          },
+          "currencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "attributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MercadoLibreAttributeDto"
+            }
+          },
+          "listingTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MercadoLibreListingTypeDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "path",
+          "children",
+          "listingAllowed",
+          "currencies",
+          "attributes",
+          "listingTypes"
+        ]
+      },
       "NotificationPreference": {
         "type": "object",
         "properties": {
@@ -18422,208 +19040,6 @@
           "externalId",
           "followupJobId",
           "createdAt"
-        ]
-      },
-      "MercadoLibreConnectionStatusDto": {
-        "type": "object",
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          },
-          "status": {
-            "enum": [
-              "unconfigured",
-              "active",
-              "connecting",
-              "refreshing",
-              "reconnect_required",
-              "disconnected"
-            ],
-            "type": "string"
-          },
-          "sellerId": {
-            "type": "string",
-            "nullable": true
-          },
-          "expiresAt": {
-            "format": "date-time",
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "enabled",
-          "status",
-          "sellerId",
-          "expiresAt"
-        ]
-      },
-      "MercadoLibreAuthorizationDto": {
-        "type": "object",
-        "properties": {
-          "authorizationUrl": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "authorizationUrl"
-        ]
-      },
-      "CompleteMercadoLibreAuthorizationDto": {
-        "type": "object",
-        "properties": {
-          "code": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 2048
-          },
-          "state": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]{43}$"
-          }
-        },
-        "required": [
-          "code",
-          "state"
-        ]
-      },
-      "MercadoLibreOptionDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name"
-        ]
-      },
-      "MercadoLibreAttributeDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "valueType": {
-            "type": "string"
-          },
-          "required": {
-            "type": "boolean"
-          },
-          "readOnly": {
-            "type": "boolean"
-          },
-          "maxLength": {
-            "type": "number"
-          },
-          "values": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MercadoLibreOptionDto"
-            }
-          },
-          "units": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MercadoLibreOptionDto"
-            }
-          },
-          "defaultUnit": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "valueType",
-          "required",
-          "readOnly",
-          "maxLength",
-          "values",
-          "units",
-          "defaultUnit"
-        ]
-      },
-      "MercadoLibreListingTypeDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "remainingListings": {
-            "type": "number",
-            "nullable": true
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "remainingListings"
-        ]
-      },
-      "MercadoLibreCategoryDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "path": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MercadoLibreOptionDto"
-            }
-          },
-          "children": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MercadoLibreOptionDto"
-            }
-          },
-          "listingAllowed": {
-            "type": "boolean"
-          },
-          "currencies": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "attributes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MercadoLibreAttributeDto"
-            }
-          },
-          "listingTypes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MercadoLibreListingTypeDto"
-            }
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "path",
-          "children",
-          "listingAllowed",
-          "currencies",
-          "attributes",
-          "listingTypes"
         ]
       },
       "DigitalSignatureRequest": {
