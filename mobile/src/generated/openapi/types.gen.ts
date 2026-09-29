@@ -1541,7 +1541,24 @@ export type CreatePaymentDto = {
 };
 
 export type UpdatePaymentDto = {
-  [key: string]: unknown;
+  tenantAccountId?: string;
+  amount?: number;
+  paymentDate?: string;
+  method?:
+    | 'cash'
+    | 'bank_transfer'
+    | 'credit_card'
+    | 'debit_card'
+    | 'check'
+    | 'digital_wallet'
+    | 'crypto'
+    | 'other';
+  reference?: string;
+  notes?: string;
+  items?: Array<PaymentItemDto>;
+  currencyCode?: string;
+  activityType?:
+    'monthly' | 'annual' | 'adjustment' | 'late_fee' | 'extraordinary';
 };
 
 export type PaymentDocumentTemplate = {

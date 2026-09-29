@@ -1484,8 +1484,9 @@ export function buildAiToolDefinitions(
       description:
         'Creates a new payment record for a tenant account. Specify leaseId or tenantAccountId, amount, date, and payment method.',
       responseDescription:
-        'The created payment record in pending status with assigned UUID.',
+        'The created payment record in pending status with assigned UUID. Recovery returns the original result; query the payment for its current state.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: CreatePaymentDto.zodSchema,
       execute: async (args, context) =>
@@ -1493,6 +1494,7 @@ export function buildAiToolDefinitions(
           CreatePaymentDto.zodSchema.parse(args),
           context.userId,
           context.companyId ?? '',
+          context.idempotencyKey,
         ),
     },
     {
@@ -1500,31 +1502,39 @@ export function buildAiToolDefinitions(
       description:
         'Confirms a pending payment: creates a PAYMENT movement, applies FIFO allocation to outstanding invoices, generates receipt PDF, and auto-creates credit notes for late fees.',
       responseDescription:
-        'The confirmed payment record with receipt info and allocated invoice list.',
+        'The confirmed payment record with receipt info and allocated invoice list. Recovery returns the original result; query the payment for its current state.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.paymentsService.confirm(id, context.companyId ?? '');
+        return deps.paymentsService.confirm(
+          id,
+          context.companyId ?? '',
+          context.idempotencyKey,
+        );
       },
     },
     {
       name: 'patch_payment_by_id',
       description:
         "Updates a payment's editable fields (amount, date, notes, method) by UUID.",
-      responseDescription: 'The updated payment record.',
+      responseDescription:
+        'The original updated payment record. Recovery returns the original result; query the payment for its current state.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(UpdatePaymentDto.zodSchema, { id: uuidSchema }),
       execute: async (args, context) => {
-        const parsed = withParams(UpdatePaymentDto.zodSchema, {
+        const { id, ...dto } = withParams(UpdatePaymentDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
         return deps.paymentsService.update(
-          parsed.id,
-          parsed,
+          id,
+          dto,
           context.companyId ?? '',
+          context.idempotencyKey,
         );
       },
     },
@@ -1584,13 +1594,18 @@ export function buildAiToolDefinitions(
       description:
         'Cancels a payment by UUID. If the payment was completed, reverses all associated movements and allocations.',
       responseDescription:
-        'The cancelled payment record with reversal details.',
+        'The cancelled payment record with reversal details. Recovery returns the original result; query the payment for its current state.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.paymentsService.cancel(id, context.companyId ?? '');
+        return deps.paymentsService.cancel(
+          id,
+          context.companyId ?? '',
+          context.idempotencyKey,
+        );
       },
     },
     {
