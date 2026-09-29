@@ -58,7 +58,7 @@ describe('PaymentEffectsService', () => {
     const events = [
       {
         id: 'event-1',
-        payment_id: 'payment-1',
+        entity_id: 'payment-1',
         company_id: 'company-1',
         attempts: 0,
       },
@@ -191,7 +191,7 @@ describe('PaymentEffectsService', () => {
         failed: 1,
       });
       const sql = f.manager.query.mock.calls.map(([query]) => query);
-      expect(sql).toContain('ROLLBACK TO SAVEPOINT payment_effects');
+      expect(sql).toContain('ROLLBACK TO SAVEPOINT document_effects');
       expect(sql.some((query) => query.includes("THEN 'dead_letter'"))).toBe(
         true,
       );

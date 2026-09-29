@@ -22,6 +22,8 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
   Avance: confirmación de pagos y conciliación bancaria usan `payment_effects_outbox`
   (migración 111), con documentos y entregas atómicos, reintentos y dead letters.
   Ver [operación y pruebas](technical/payments.md#efectos-recuperables-de-confirmación).
+  Ventas guarda cobro y `sale_receipt_effects_outbox` juntos (migración 112),
+  con PDF recuperable, descarga autenticada y pruebas de concurrencia/rollback.
   Pendiente: verificar los demás productores de documentos/proveedores y desplegar.
 
 ### WhatsApp seguro

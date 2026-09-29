@@ -624,6 +624,8 @@
       "create": "Registrar parcela",
       "amount": "Valor",
       "download": "Baixar recibo PDF",
+      "preparingPdf": "Preparando PDF. Estará disponível em alguns minutos.",
+      "downloadError": "Não foi possível baixar o recibo. Tente novamente.",
       "duplicate": "Impressão em duplicado obrigatória",
       "empty": "Sem recibos ainda.",
       "overdue": "Atraso",

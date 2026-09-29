@@ -11,6 +11,9 @@ import { Document } from '../documents/entities/document.entity';
 import { Buyer } from '../buyers/entities/buyer.entity';
 import { Lease } from '../leases/entities/lease.entity';
 import { Property } from '../properties/entities/property.entity';
+import { CommunicationsModule } from '../communications/communications.module';
+import { SaleReceiptEffectsService } from './sale-receipt-effects.service';
+import { SaleReceiptEffectsController } from './sale-receipt-effects.controller';
 
 @Module({
   imports: [
@@ -24,9 +27,10 @@ import { Property } from '../properties/entities/property.entity';
       Document,
     ]),
     DocumentsModule,
+    CommunicationsModule,
   ],
-  controllers: [SalesController],
-  providers: [SalesService, SaleReceiptPdfService],
+  controllers: [SalesController, SaleReceiptEffectsController],
+  providers: [SalesService, SaleReceiptPdfService, SaleReceiptEffectsService],
   exports: [SalesService, TypeOrmModule],
 })
 export class SalesModule {}

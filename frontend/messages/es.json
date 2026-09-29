@@ -624,6 +624,8 @@
       "create": "Registrar cuota",
       "amount": "Monto",
       "download": "Descargar recibo PDF",
+      "preparingPdf": "Preparando PDF. Estará disponible en unos minutos.",
+      "downloadError": "No se pudo descargar el recibo. Intentá nuevamente.",
       "duplicate": "Impresión duplicada obligatoria",
       "empty": "Sin recibos aún.",
       "overdue": "Atraso",

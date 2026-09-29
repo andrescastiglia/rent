@@ -5666,6 +5666,25 @@ export type SalesDownloadReceiptResponses = {
   200: unknown;
 };
 
+export type SaleReceiptEffectsProcessData = {
+  body?: never;
+  headers: {
+    'x-batch-communications-token': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/sales/internal/process-receipts';
+};
+
+export type SaleReceiptEffectsProcessResponses = {
+  201: {
+    [key: string]: unknown;
+  };
+};
+
+export type SaleReceiptEffectsProcessResponse =
+  SaleReceiptEffectsProcessResponses[keyof SaleReceiptEffectsProcessResponses];
+
 export type AiListToolsData = {
   body?: never;
   path?: never;

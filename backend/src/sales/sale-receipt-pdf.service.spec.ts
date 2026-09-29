@@ -37,4 +37,20 @@ describe('SaleReceiptPdfService', () => {
     );
     expect(documentsRepository.save).toHaveBeenCalledTimes(1);
   });
+  it('uses the supplied transaction instead of saving outside it', async () => {
+    const transactionRepository = {
+      create: jest.fn((data) => data),
+      save: jest.fn(),
+    };
+    const manager = {
+      getRepository: jest.fn().mockReturnValue(transactionRepository),
+    };
+    await service.generate(
+      { id: 'rec-2', receiptNumber: 'SR-002' } as never,
+      { companyId: 'company-1' } as never,
+      manager as never,
+    );
+    expect(transactionRepository.save).toHaveBeenCalledTimes(1);
+    expect(documentsRepository.save).not.toHaveBeenCalled();
+  });
 });

@@ -22,7 +22,6 @@ import { CurrencySelect } from "@/components/common/CurrencySelect";
 export default function SalesPage() {
   const { loading: authLoading } = useAuth();
   const t = useTranslations("sales");
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
   const tCommon = useTranslations("common");
   const tCurrencies = useTranslations("currencies");
 
@@ -32,6 +31,59 @@ export default function SalesPage() {
   const [agreements, setAgreements] = useState<SaleAgreement[]>([]);
   const [receipts, setReceipts] = useState<Record<string, SaleReceipt[]>>({});
   const [loading, setLoading] = useState(true);
+  const [downloadingReceipt, setDownloadingReceipt] = useState<string | null>(
+    null,
+  );
+  const [downloadError, setDownloadError] = useState(false);
+  const pendingAgreements = JSON.stringify(
+    Object.entries(receipts)
+      .filter(([, items]) => items.some((receipt) => !receipt.pdfUrl))
+      .map(([id]) => id),
+  );
+
+  useEffect(() => {
+    const ids = JSON.parse(pendingAgreements) as string[];
+    if (!ids.length || authLoading) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const refresh = async () => {
+      const results = await Promise.allSettled(
+        ids.map(async (id) => ({ id, items: await salesApi.getReceipts(id) })),
+      );
+      if (cancelled) return;
+      setReceipts((previous) => {
+        const next = { ...previous };
+        for (const result of results) {
+          if (result.status !== "fulfilled") continue;
+          const { id, items } = result.value;
+          // Preserve newly created receipts that were not in the poll's snapshot.
+          next[id] = (previous[id] ?? []).map(
+            (receipt) =>
+              items.find((item) => item.id === receipt.id) ?? receipt,
+          );
+        }
+        return next;
+      });
+      timer = setTimeout(refresh, 5000);
+    };
+    timer = setTimeout(refresh, 5000);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [pendingAgreements, authLoading]);
+
+  const downloadReceipt = async (receipt: SaleReceipt) => {
+    setDownloadingReceipt(receipt.id);
+    setDownloadError(false);
+    try {
+      await salesApi.downloadReceiptPdf(receipt.id, receipt.receiptNumber);
+    } catch {
+      setDownloadError(true);
+    } finally {
+      setDownloadingReceipt(null);
+    }
+  };
 
   const [folderForm, setFolderForm] = useState<CreateSaleFolderInput>({
     name: "",
@@ -167,6 +219,11 @@ export default function SalesPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {downloadError && (
+        <p role="alert" className="text-red-600">
+          {t("receipts.downloadError")}
+        </p>
+      )}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
           {t("title")}
@@ -468,16 +525,19 @@ export default function SalesPage() {
                           {t("receipts.balanceAfter")}:{" "}
                           {receipt.balanceAfter.toLocaleString()}
                         </span>
-                        {receipt.pdfUrl && (
-                          <a
-                            href={`${apiUrl}/sales/receipts/${receipt.id}/pdf`}
-                            className="action-link action-link-primary"
-                            target="_blank"
-                            rel="noreferrer"
+                        {receipt.pdfUrl ? (
+                          <button
+                            type="button"
+                            onClick={() => downloadReceipt(receipt)}
+                            disabled={downloadingReceipt !== null}
+                            aria-busy={downloadingReceipt === receipt.id}
+                            className="action-link action-link-primary disabled:opacity-50"
                           >
                             <Download size={14} />
                             {t("receipts.download")}
-                          </a>
+                          </button>
+                        ) : (
+                          <span>{t("receipts.preparingPdf")}</span>
                         )}
                       </div>
                     ))}

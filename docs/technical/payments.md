@@ -233,3 +233,38 @@ productivo y se retiró de los comandos manuales publicados. Se verificó
 `suspend=true` en `oracle`, sin ejecuciones activas al aplicar el cambio. No
 reactivar este cron durante un rollback. La consulta de liquidaciones existentes
 continúa disponible.
+
+## Recibos de ventas recuperables
+
+El cobro de una cuota de venta bloquea el acuerdo, actualiza el saldo y guarda el
+recibo junto con `sale_receipt_effects_outbox` en una transacción. La migración 112
+es aditiva e idempotente y encola recibos anteriores sin PDF. No vuelve a cobrar
+ni modifica importes históricos.
+
+El mismo cron `retry-communications` llama a
+`POST /sales/internal/process-receipts` después de pagos y antes de entregar
+comunicaciones, con el token interno compartido. Usa el mismo mecanismo de
+bloqueo, rollback, backoff y límite de cinco intentos descrito arriba; procesa
+hasta 25 recibos por llamada. Guarda los bytes PDF, la referencia del recibo y el
+estado completado juntos. Un reintento de un recibo con PDF conserva el documento.
+
+La web muestra que el documento está preparándose y consulta cada cinco segundos
+mientras haya recibos pendientes. La descarga envía la sesión autenticada; el
+backend exige compañía y rechaza recibos ajenos. El PDF contiene original y
+duplicado. Las cuotas concurrentes preservan el saldo acumulado.
+
+Los eventos `sale_receipt_effects_failed` y `sale_receipt_effects_processed`
+exponen intentos y conteos. Aplicar las consultas de diagnóstico y recuperación
+anteriores a `sale_receipt_effects_outbox`; investigar antes de reencolar un dead
+letter. El cron señala fallo si cualquiera de las dos colas documentales tiene
+fallos o dead letters, incluso si la otra termina correctamente.
+
+Prueba reproducible en PostgreSQL aislado:
+`npm run test:e2e -- --runInBand sale-receipt-effects.e2e-spec.ts`.
+Cubre cobros concurrentes, rollback por fallo de outbox, fallo posterior a guardar
+PDF, workers concurrentes, replay, descarga por compañía y dead letters.
+
+Rollback: conservar la tabla y sus filas; suspender el cron de comunicaciones
+mientras se restaura un backend anterior que genere PDFs sincrónicamente. No
+borrar recibos ni volver a registrar cobros para recuperar documentos. El cron
+`process-settlements` debe permanecer suspendido.

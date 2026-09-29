@@ -6906,6 +6906,36 @@
         ]
       }
     },
+    "/sales/internal/process-receipts": {
+      "post": {
+        "operationId": "SaleReceiptEffects_process",
+        "parameters": [
+          {
+            "name": "x-batch-communications-token",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "SaleReceiptEffects"
+        ]
+      }
+    },
     "/ai/tools": {
       "get": {
         "operationId": "Ai_listTools",

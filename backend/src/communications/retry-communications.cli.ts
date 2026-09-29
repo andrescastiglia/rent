@@ -4,9 +4,10 @@ export async function processQueues() {
   if (!token) {
     throw new Error('BATCH_COMMUNICATIONS_INTERNAL_TOKEN is required');
   }
-  let paymentEffectsFailed = false;
+  let documentEffectsFailed = false;
   for (const path of [
     '/payments/internal/process-effects',
+    '/sales/internal/process-receipts',
     '/communications/internal/retry-due',
   ]) {
     const response = await fetch(`${baseUrl}${path}`, {
@@ -17,13 +18,13 @@ export async function processQueues() {
     if (!response.ok)
       throw new Error(`Queue processing failed (${response.status}): ${body}`);
     process.stdout.write(`${path}: ${body}\n`);
-    if (path === '/payments/internal/process-effects') {
+    if (path !== '/communications/internal/retry-due') {
       const counts = JSON.parse(body) as { failed: number; deadLetter: number };
-      paymentEffectsFailed = counts.failed > 0 || counts.deadLetter > 0;
+      documentEffectsFailed ||= counts.failed > 0 || counts.deadLetter > 0;
     }
   }
-  if (paymentEffectsFailed)
-    throw new Error('Payment effects require retry or dead-letter recovery');
+  if (documentEffectsFailed)
+    throw new Error('Document effects require retry or dead-letter recovery');
 }
 
 if (require.main === module) {

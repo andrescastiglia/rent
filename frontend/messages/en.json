@@ -624,6 +624,8 @@
       "create": "Log installment",
       "amount": "Amount",
       "download": "Download receipt PDF",
+      "preparingPdf": "Preparing PDF. It will be available in a few minutes.",
+      "downloadError": "Could not download the receipt. Please try again.",
       "duplicate": "Duplicate printing required",
       "empty": "No receipts yet.",
       "overdue": "Overdue",

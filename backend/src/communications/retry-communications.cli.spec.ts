@@ -27,6 +27,7 @@ describe('communication queue worker', () => {
     await processQueues();
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
       'http://127.0.0.1:3001/payments/internal/process-effects',
+      'http://127.0.0.1:3001/sales/internal/process-receipts',
       'http://127.0.0.1:3001/communications/internal/retry-due',
     ]);
     expect(fetchMock).toHaveBeenCalledWith(expect.any(String), {
@@ -59,9 +60,9 @@ describe('communication queue worker', () => {
     async (counts) => {
       fetchMock.mockResolvedValueOnce(response(counts));
       await expect(processQueues()).rejects.toThrow(
-        'Payment effects require retry or dead-letter recovery',
+        'Document effects require retry or dead-letter recovery',
       );
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledTimes(3);
     },
   );
 
@@ -70,5 +71,14 @@ describe('communication queue worker', () => {
     await expect(processQueues()).rejects.toThrow(
       'Queue processing failed (503)',
     );
+  });
+  it('reports unhealthy sale receipt effects while still delivering communications', async () => {
+    fetchMock
+      .mockResolvedValueOnce(response({ failed: 0, deadLetter: 0 }))
+      .mockResolvedValueOnce(response({ failed: 1, deadLetter: 0 }));
+    await expect(processQueues()).rejects.toThrow(
+      'Document effects require retry',
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });

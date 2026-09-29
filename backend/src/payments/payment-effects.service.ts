@@ -1,3 +1,4 @@
+import { processDocumentEffects } from '../common/helpers/document-effects-outbox';
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { CommunicationsService } from '../communications/communications.service';
@@ -23,72 +24,14 @@ export class PaymentEffectsService {
     private readonly communications: CommunicationsService,
   ) {}
 
-  async processDue() {
-    const counts = { processed: 0, completed: 0, failed: 0 };
-    for (let index = 0; index < 25; index++) {
-      const outcome = await this.dataSource.transaction(async (manager) => {
-        const rows: {
-          id: string;
-          company_id: string;
-          payment_id: string;
-          attempts: number;
-        }[] = await manager.query(
-          `SELECT id, company_id, payment_id, attempts FROM payment_effects_outbox
-             WHERE status = 'queued' AND next_attempt_at <= NOW()
-             ORDER BY next_attempt_at, created_at
-             LIMIT 1 FOR UPDATE SKIP LOCKED`,
-        );
-        const event = rows[0];
-        if (!event) return null;
-        // Keep the claim lock while rolling back failed rendering. No external
-        // provider is called here; PDFs and queued deliveries commit together.
-        await manager.query('SAVEPOINT payment_effects');
-        try {
-          await this.render(manager, event.payment_id, event.company_id);
-          await manager.query(
-            `UPDATE payment_effects_outbox
-             SET status = 'completed', attempts = attempts + 1,
-                 completed_at = NOW(), error_code = NULL WHERE id = $1::uuid`,
-            [event.id],
-          );
-          return 'completed' as const;
-        } catch {
-          await manager.query('ROLLBACK TO SAVEPOINT payment_effects');
-          await manager.query(
-            `UPDATE payment_effects_outbox
-             SET attempts = attempts + 1,
-                 status = CASE WHEN attempts + 1 >= 5 THEN 'dead_letter' ELSE 'queued' END,
-                 next_attempt_at = NOW() + (LEAST(3600, 30 * power(2, attempts)) * INTERVAL '1 second'),
-                 error_code = 'render_or_enqueue_failed' WHERE id = $1::uuid`,
-            [event.id],
-          );
-          this.logger.warn(
-            JSON.stringify({
-              event: 'payment_effects_failed',
-              id: event.id,
-              attempt: event.attempts + 1,
-            }),
-          );
-          return 'failed' as const;
-        }
-      });
-      if (!outcome) break;
-      counts.processed++;
-      counts[outcome]++;
-    }
-    const [queue] = await this.dataSource.query(
-      `SELECT count(*) FILTER (WHERE status = 'queued')::integer AS queued,
-              count(*) FILTER (WHERE status = 'dead_letter')::integer AS "deadLetter"
-       FROM payment_effects_outbox`,
+  processDue() {
+    return processDocumentEffects(
+      this.dataSource,
+      'payment',
+      this.logger,
+      (manager, paymentId, companyId) =>
+        this.render(manager, paymentId, companyId),
     );
-    this.logger.log(
-      JSON.stringify({
-        event: 'payment_effects_processed',
-        ...counts,
-        ...queue,
-      }),
-    );
-    return { ...counts, ...queue };
   }
 
   private async render(
