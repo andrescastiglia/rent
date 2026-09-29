@@ -1,3 +1,5 @@
+import { z } from 'zod';
+import { MercadoLibreOAuthClient } from './mercadolibre-oauth.client';
 import { ConfigService } from '@nestjs/config';
 import { generateKeyPairSync, verify } from 'node:crypto';
 import { ProviderConfigService } from './provider-config.service';
@@ -18,13 +20,27 @@ function setup(values: Record<string, string> = {}) {
   const settings = new ConfigService(values);
   const config = new ProviderConfigService(settings);
   const http = { request: jest.fn() };
+  const accounts = {
+    invalidate: jest.fn(),
+    access: async (companyId: string) =>
+      config.account(
+        'MERCADOLIBRE',
+        companyId,
+        z.object({
+          accessToken: z.string().min(1),
+          sellerId: z.number().int().positive(),
+        }),
+      ),
+  };
   return {
     settings,
     config,
     http,
     bfa: new BfaClient(config, http as never),
     payouts: new MercadoPagoPayoutsClient(config, http as never),
-    ml: new MercadoLibreClient(config, http as never),
+    accounts,
+    ml: new MercadoLibreClient(accounts as never, http as never),
+    oauth: new MercadoLibreOAuthClient(config, http as never),
   };
 }
 const payout: PayoutRequest = {
@@ -100,9 +116,9 @@ describe('disabled external providers', () => {
     await expect(f.ml.create(company, item)).rejects.toThrow(
       'temporarily disabled',
     );
-    await expect(f.ml.exchangeToken({ refreshToken: 'token' })).rejects.toThrow(
-      'temporarily disabled',
-    );
+    await expect(
+      f.oauth.exchangeToken({ refreshToken: 'token' }),
+    ).rejects.toThrow('temporarily disabled');
     expect(f.http.request).not.toHaveBeenCalled();
   });
 
@@ -405,6 +421,20 @@ describe('Mercado Pago Payouts protocol', () => {
 });
 
 describe('Mercado Libre classifieds protocol', () => {
+  it('invalidates only the company credential rejected by the provider without replaying the request', async () => {
+    const f = setup(mlSettings);
+    f.http.request.mockRejectedValue(
+      new ProviderRequestError('MERCADOLIBRE', false, 401),
+    );
+    await expect(f.ml.get(company, 'MLA123')).rejects.toMatchObject({
+      status: 401,
+    });
+    expect(f.accounts.invalidate).toHaveBeenCalledWith(
+      company,
+      'private-token',
+    );
+    expect(f.http.request).toHaveBeenCalledTimes(1);
+  });
   it('validates a stored publication without any provider request', () => {
     const f = setup();
     expect(f.ml.validateListing(item)).toEqual(item);
@@ -468,6 +498,23 @@ describe('Mercado Libre classifieds protocol', () => {
       seller_contact: item.seller_contact,
     });
   });
+  it.each([
+    new ProviderRequestError('MERCADOLIBRE', true, 500),
+    new Error('response lost'),
+  ])(
+    'does not classify a failed validation as an uncertain creation',
+    async (error) => {
+      const f = setup(mlSettings);
+      f.http.request
+        .mockResolvedValueOnce({ id: 42 })
+        .mockRejectedValueOnce(error);
+      await expect(f.ml.create(company, item)).rejects.toMatchObject({
+        outcomeUnknown: false,
+      });
+      expect(f.http.request).toHaveBeenCalledTimes(2);
+      expect(f.http.request.mock.calls[1][1]).toContain('/items/validate');
+    },
+  );
   it('refuses a token for another seller or incomplete publication data', async () => {
     const f = setup(mlSettings);
     f.http.request.mockResolvedValue({ id: 99 });
@@ -536,14 +583,14 @@ describe('Mercado Libre classifieds protocol', () => {
     };
     f.http.request.mockResolvedValue(token);
     await expect(
-      f.ml.exchangeToken({
+      f.oauth.exchangeToken({
         code: 'code',
         codeVerifier: 'pkce',
         redirectUri: 'https://rent.example.test/callback',
       }),
     ).resolves.toEqual(token);
     await expect(
-      f.ml.exchangeToken({ refreshToken: 'refresh' }),
+      f.oauth.exchangeToken({ refreshToken: 'refresh' }),
     ).resolves.toEqual(token);
     expect(f.http.request.mock.calls[1][2].body).toContain(
       'grant_type=refresh_token',
@@ -552,7 +599,7 @@ describe('Mercado Libre classifieds protocol', () => {
       f.http.request.mock.calls.every((call) => !call[1].includes('secret')),
     ).toBe(true);
     await expect(
-      f.ml.exchangeToken({
+      f.oauth.exchangeToken({
         code: 'code',
         codeVerifier: 'pkce',
         redirectUri: 'http://unsafe',
@@ -560,7 +607,7 @@ describe('Mercado Libre classifieds protocol', () => {
     ).rejects.toThrow('HTTPS');
     f.http.request.mockResolvedValue({});
     await expect(
-      f.ml.exchangeToken({ refreshToken: 'refresh' }),
+      f.oauth.exchangeToken({ refreshToken: 'refresh' }),
     ).rejects.toBeInstanceOf(ProviderRequestError);
   });
 });

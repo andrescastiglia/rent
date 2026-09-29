@@ -71,8 +71,10 @@ El cron `process-settlements` permanece suspendido.
 - [ ] Implementar publicación, actualización y estados con Mercado Libre.
   Avance: cliente, cola durable y endpoints por compañía; creación sin reenvíos
   inciertos, recuperación por ID y estados confirmados por el proveedor.
-  Pendiente: persistencia/renovación OAuth, administración y resolución de incidencias,
-  gates y despliegue deshabilitado.
+  Cola incorporada a main con gates del PR #216 aprobados. OAuth persiste tokens
+  cifrados por compañía, usa PKCE/estado de un solo uso y serializa renovaciones.
+  Pendiente: interfaz de autorización/administración, resolución de incidencias,
+  gates OAuth y despliegue deshabilitado.
 - [ ] Implementar transferencias Mercado Pago con idempotencia y conciliación.
 - [ ] Verificar que ninguna integración real se invoque mientras está deshabilitada.
 

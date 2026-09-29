@@ -8602,6 +8602,100 @@
         ]
       }
     },
+    "/integrations/mercadolibre/status": {
+      "get": {
+        "operationId": "MercadoLibreConnections_status",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercadoLibreConnectionStatusDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MercadoLibreConnections"
+        ]
+      }
+    },
+    "/integrations/mercadolibre/authorization": {
+      "post": {
+        "operationId": "MercadoLibreConnections_begin",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercadoLibreAuthorizationDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MercadoLibreConnections"
+        ]
+      }
+    },
+    "/integrations/mercadolibre/authorization/complete": {
+      "post": {
+        "operationId": "MercadoLibreConnections_complete",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteMercadoLibreAuthorizationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercadoLibreConnectionStatusDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MercadoLibreConnections"
+        ]
+      }
+    },
+    "/integrations/mercadolibre/connection": {
+      "delete": {
+        "operationId": "MercadoLibreConnections_disconnect",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercadoLibreConnectionStatusDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MercadoLibreConnections"
+        ]
+      }
+    },
     "/digital-signatures": {
       "get": {
         "operationId": "DigitalSignatures_findAll",
@@ -17943,6 +18037,69 @@
         "required": [
           "enabled",
           "job"
+        ]
+      },
+      "MercadoLibreConnectionStatusDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "unconfigured",
+              "active",
+              "connecting",
+              "refreshing",
+              "reconnect_required",
+              "disconnected"
+            ],
+            "type": "string"
+          },
+          "sellerId": {
+            "type": "string",
+            "nullable": true
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "enabled",
+          "status",
+          "sellerId",
+          "expiresAt"
+        ]
+      },
+      "MercadoLibreAuthorizationDto": {
+        "type": "object",
+        "properties": {
+          "authorizationUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "authorizationUrl"
+        ]
+      },
+      "CompleteMercadoLibreAuthorizationDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "state": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          }
+        },
+        "required": [
+          "code",
+          "state"
         ]
       },
       "DigitalSignatureRequest": {

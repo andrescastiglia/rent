@@ -263,7 +263,9 @@ export class PortalPublicationOutboxService {
       job.operation === 'publish' && job.status === 'dispatching';
     if (uncertainCreate) {
       const definitive =
-        error instanceof ProviderRequestError && !error.outcomeUnknown;
+        (error instanceof ProviderRequestError && !error.outcomeUnknown) ||
+        error instanceof BadRequestException ||
+        error instanceof ServiceUnavailableException;
       return this.finish(
         job,
         definitive ? 'failed' : 'needs_review',

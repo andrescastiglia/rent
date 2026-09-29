@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ProviderRequestError } from '../integrations/provider-http.service';
 import { PortalPublicationController } from './portal-publication.controller';
 import {
@@ -305,6 +309,17 @@ describe('Portal publication outbox', () => {
       );
     },
   );
+  it('keeps a refused credential preflight distinct from an uncertain publication', async () => {
+    const f = setup();
+    f.client.create.mockRejectedValue(
+      new ServiceUnavailableException('Account requires reconnection'),
+    );
+    await f.service.processDue();
+    expect(f.query).toHaveBeenCalledWith(
+      expect.stringContaining('SET status = $3, error_code = $4'),
+      ['job', 'claim', 'failed', 'provider_rejected'],
+    );
+  });
   it('requires review for a recovered creation intent instead of posting again', async () => {
     const f = setup();
     f.job.status = 'dispatching';
