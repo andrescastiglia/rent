@@ -103,9 +103,13 @@ Fuentes: [Payouts](https://www.mercadopago.com.ar/developers/es/docs/payouts/int
 Configuración futura: `MERCADOPAGO_PAYOUTS_ENABLED` (ausente/false) y
 `MERCADOPAGO_PAYOUTS_ACCOUNTS_JSON` (mapa por compañía con accessToken, sandbox
 explícito y signingPrivateKey para producción). No se generaron ni registraron
-claves reales. El cliente actual soporta destinos Mercado Pago por correo;
-pendiente completar destinos bancarios, outbox/conciliación de liquidaciones y
-reflejo contable de resultados/reversiones. `process-settlements` permanece
+claves reales. El cliente admite un único destino: correo de Mercado Pago o datos
+bancarios. Para destinos bancarios exige cuenta corriente, titular, número de
+cuenta, banco de tres dígitos y documento del titular; la sucursal es opcional.
+No deriva esos datos a partir de un alias ni admite cajas de ahorro. El protocolo
+bancario está documentado también en la [versión Markdown oficial](https://www.mercadopago.com.ar/developers/es/docs/payouts/integration-configuration/money-transfers.md).
+Pendiente: outbox/conciliación de liquidaciones y reflejo contable de
+resultados/reversiones. `process-settlements` permanece
 suspendido y no debe habilitarse durante un rollback.
 
 ## Validación y rollback

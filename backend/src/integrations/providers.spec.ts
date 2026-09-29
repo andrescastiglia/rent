@@ -202,6 +202,80 @@ describe('BFA TSA2 protocol', () => {
 });
 
 describe('Mercado Pago Payouts protocol', () => {
+  const bankAccount = {
+    accountType: 'checking' as const,
+    holder: 'Test Recipient',
+    number: '0000001234567876543210',
+    bankId: '015',
+    ownerValue: '12345678',
+    ownerType: 'DNI',
+  };
+  it.each([undefined, '0001'])(
+    'serializes a bank destination with optional branch %s',
+    async (branch) => {
+      const f = setup(mpSettings);
+      f.http.request.mockResolvedValue(payoutResult);
+      await f.payouts.create(company, {
+        ...payout,
+        recipientEmail: undefined,
+        bankAccount: { ...bankAccount, branch },
+      });
+      const request = f.http.request.mock.calls[0][2];
+      expect(JSON.parse(request.body).transactions[0].account).toEqual({
+        holder: bankAccount.holder,
+        number: bankAccount.number,
+        bank_id: bankAccount.bankId,
+        owner_value: bankAccount.ownerValue,
+        owner_type: bankAccount.ownerType,
+        ...(branch ? { branch } : {}),
+      });
+      expect(request.headers['X-Idempotency-Key']).toBe(payout.idempotencyKey);
+    },
+  );
+  it.each([
+    { recipientEmail: undefined },
+    { bankAccount },
+    {
+      recipientEmail: undefined,
+      bankAccount: { ...bankAccount, accountType: 'savings' },
+    },
+    {
+      recipientEmail: undefined,
+      bankAccount: { ...bankAccount, ownerValue: '' },
+    },
+    {
+      recipientEmail: undefined,
+      bankAccount: { ...bankAccount, bankId: '15' },
+    },
+    {
+      recipientEmail: undefined,
+      bankAccount: { ...bankAccount, number: 'invalid' },
+    },
+  ])(
+    'rejects missing, conflicting or invalid recipients without provider traffic: %p',
+    async (destination) => {
+      const f = setup(mpSettings);
+      await expect(
+        f.payouts.create(company, {
+          ...payout,
+          ...destination,
+        } as PayoutRequest),
+      ).rejects.toThrow('Invalid payout request');
+      expect(f.http.request).not.toHaveBeenCalled();
+    },
+  );
+  it('keeps bank transfers disabled when unconfigured', async () => {
+    const f = setup();
+    await expect(
+      f.payouts.create(company, {
+        ...payout,
+        recipientEmail: undefined,
+        bankAccount,
+      }),
+    ).rejects.toThrow('disabled');
+    expect(f.http.request).not.toHaveBeenCalled();
+  });
+
   it('reuses the supplied idempotency key and leaves accepted transfers unconfirmed', async () => {
     const f = setup(mpSettings);
     f.http.request.mockResolvedValue(payoutResult);

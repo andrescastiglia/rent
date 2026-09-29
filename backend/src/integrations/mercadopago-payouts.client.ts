@@ -17,17 +17,35 @@ const accountSchema = z.object({
   signingPrivateKey: z.string().optional(),
 });
 const reference = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
-const payoutSchema = z.object({
-  externalReference: reference,
-  idempotencyKey: z.string().uuid(),
-  // Monetary decimal string is converted only after enforcing a cent-exact range.
-  amount: z
+const bankAccountSchema = z.object({
+  // Payouts currently supports checking accounts, not savings accounts.
+  accountType: z.literal('checking'),
+  holder: z.string().trim().min(1).max(200),
+  number: z.string().regex(/^\d{1,34}$/),
+  bankId: z.string().regex(/^\d{3}$/),
+  branch: z
     .string()
-    .regex(/^\d{1,11}\.\d{2}$/)
-    .refine((v) => Number(v) >= 1 && Number(v) <= 10000000000),
-  currency: z.literal('ARS'),
-  recipientEmail: z.string().email(),
+    .regex(/^\d{1,10}$/)
+    .optional(),
+  ownerValue: z.string().regex(/^\d{1,20}$/),
+  ownerType: z.string().regex(/^[A-Z]{2,10}$/),
 });
+const payoutSchema = z
+  .object({
+    externalReference: reference,
+    idempotencyKey: z.string().uuid(),
+    // Monetary decimal string is converted only after enforcing a cent-exact range.
+    amount: z
+      .string()
+      .regex(/^\d{1,11}\.\d{2}$/)
+      .refine((v) => Number(v) >= 1 && Number(v) <= 10000000000),
+    currency: z.literal('ARS'),
+    recipientEmail: z.string().email().optional(),
+    bankAccount: bankAccountSchema.optional(),
+  })
+  .refine(
+    (value) => Boolean(value.recipientEmail) !== Boolean(value.bankAccount),
+  );
 export type PayoutRequest = z.infer<typeof payoutSchema>;
 const payoutResponse = z.object({
   id: z.string().regex(/^POP[A-Za-z0-9]+$/),
@@ -74,7 +92,18 @@ export class MercadoPagoPayoutsClient {
       transactions: [
         {
           type: 'account',
-          account: { email: data.recipientEmail },
+          account: data.bankAccount
+            ? {
+                holder: data.bankAccount.holder,
+                number: data.bankAccount.number,
+                bank_id: data.bankAccount.bankId,
+                ...(data.bankAccount.branch
+                  ? { branch: data.bankAccount.branch }
+                  : {}),
+                owner_value: data.bankAccount.ownerValue,
+                owner_type: data.bankAccount.ownerType,
+              }
+            : { email: data.recipientEmail },
           amount: { currency: data.currency, value: Number(data.amount) },
           external_reference: data.externalReference,
         },
