@@ -62,8 +62,13 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
   Historial de índices implementado (migración 125): ICL diario, IPC nivel mensual,
   IGP-M porcentaje mensual, revisiones inmutables y reintentos sin sobrescritura.
   Ver [ingestión, pruebas y límites](technical/inflation-observations.md).
-  Pendiente: gates, cálculo acumulado común con base temporal y auditoría por ajuste,
-  migración de consumidores y despliegue; los crons siguen suspendidos.
+  Historial incorporado a main con los 23 gates del PR #239 aprobados.
+  Cálculo común acumulado implementado: ICL diario, IPC por niveles e IGP-M
+  compuesto, rezago mensual explícito, calendario por fechas programadas,
+  centavos exactos y snapshot inmutable visible en factura. Se retiró el calculador
+  batch antiguo. Ver [operación y límites](technical/rent-adjustments.md).
+  Pendiente: gates, revisión de calendarios/rezagos y datos reales, recuperación
+  histórica y despliegue; los crons siguen suspendidos.
   Pendiente: recuperación histórica,
   verificar los demás productores de documentos/proveedores y desplegar.
 

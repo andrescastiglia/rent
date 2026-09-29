@@ -81,6 +81,7 @@ type BackendLease = {
   adjustmentType?: string | null;
   adjustmentValue?: number | null;
   adjustmentFrequencyMonths?: number | null;
+  inflationIndexLagMonths?: number | null;
   inflationIndexType?: string | null;
   nextAdjustmentDate?: string | Date | null;
   lastAdjustmentDate?: string | Date | null;
@@ -140,6 +141,7 @@ type BackendLeasePayload = {
   adjustmentType?: string;
   adjustmentValue?: number;
   adjustmentFrequencyMonths?: number;
+  inflationIndexLagMonths?: number;
   inflationIndexType?: string;
   nextAdjustmentDate?: string;
   termsAndConditions?: string;
@@ -225,6 +227,7 @@ const getLeasePayloadMappedFields = (
   ["adjustmentValue", data.adjustmentValue],
   ["adjustmentFrequencyMonths", data.adjustmentFrequencyMonths],
   ["inflationIndexType", data.inflationIndexType],
+  ["inflationIndexLagMonths", data.inflationIndexLagMonths],
   ["nextAdjustmentDate", data.nextAdjustmentDate],
   ["termsAndConditions", data.terms],
 ];
@@ -402,6 +405,7 @@ const mapLeaseRules = (raw: BackendLease) => ({
   adjustmentType: (raw.adjustmentType as any) ?? undefined,
   adjustmentValue: raw.adjustmentValue ?? undefined,
   adjustmentFrequencyMonths: raw.adjustmentFrequencyMonths ?? undefined,
+  inflationIndexLagMonths: raw.inflationIndexLagMonths ?? undefined,
   inflationIndexType: isSupportedInflationIndexType(raw.inflationIndexType)
     ? raw.inflationIndexType
     : undefined,

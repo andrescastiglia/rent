@@ -16,6 +16,9 @@ describe('Users and templates critical flows', () => {
     const email = `e2e.user.${stamp}@example.com`;
 
     await element(by.id('tab.settings')).tap();
+    await waitFor(element(by.id('settings.goto.users')))
+      .toBeVisible()
+      .withTimeout(15000);
     await element(by.id('settings.goto.users')).tap();
 
     await waitFor(element(by.id('users.new')))
@@ -75,6 +78,9 @@ describe('Users and templates critical flows', () => {
     const updatedTemplateName = `${templateName} Updated`;
 
     await element(by.id('tab.settings')).tap();
+    await waitFor(element(by.id('settings.goto.templates')))
+      .toBeVisible()
+      .withTimeout(15000);
     await element(by.id('settings.goto.templates')).tap();
 
     await waitFor(element(by.id('templates.new')))

@@ -88,6 +88,7 @@ export interface Lease {
   adjustmentType?: AdjustmentType;
   adjustmentValue?: number;
   adjustmentFrequencyMonths?: number;
+  inflationIndexLagMonths?: number;
   inflationIndexType?: InflationIndexType;
   nextAdjustmentDate?: string;
   lastAdjustmentDate?: string;
@@ -134,6 +135,7 @@ export interface CreateLeaseInput {
   adjustmentType?: AdjustmentType;
   adjustmentValue?: number;
   adjustmentFrequencyMonths?: number;
+  inflationIndexLagMonths?: number;
   inflationIndexType?: InflationIndexType;
   nextAdjustmentDate?: string;
 }

@@ -54,13 +54,12 @@ unidades. No se agrega una conversión implícita ni se solicita un tipo de camb
 por red dentro de la transacción. Las conversiones que requieran una decisión
 comercial explícita siguen siendo un trabajo separado.
 
-Los ajustes por índice también pasan al cálculo actual del backend, que usa la
-última variación disponible y respeta la fecha de ajuste. El batch anterior usaba
-una razón entre niveles de índice; no se afirma equivalencia entre ambas fórmulas.
-La revisión de índices acumulados y su base temporal sigue pendiente y debe
-resolverse antes de habilitar la facturación programada en producción. La
-[ingestión de observaciones versionadas](inflation-observations.md) prepara las
-fuentes diarias/mensuales; todavía no reemplaza ese cálculo.
+Los ajustes por índice pasan al [cálculo común con evidencia](rent-adjustments.md):
+ICL por cociente diario, IPC por niveles mensuales e IGP-M por porcentajes compuestos.
+Se usan observaciones versionadas, fechas contractuales y rezago mensual explícito;
+no se toma solo la última variación ni se sustituye un período faltante. La revisión
+de contratos/datos reales y su configuración sigue pendiente antes de habilitar
+la facturación programada en producción.
 
 Tampoco se restan automáticamente las retenciones fiscales del propietario a la
 deuda del inquilino. Se mantiene el flujo de retenciones explícitas de liquidaciones,

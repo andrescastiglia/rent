@@ -541,6 +541,8 @@ export type Contract = {
   adjustmentType: "fixed" | "percentage" | "inflation_index";
   adjustmentValue: number;
   adjustmentFrequencyMonths: number;
+  inflationIndexLagMonths: number | null;
+  adjustmentAnchorDate: string | null;
   lastAdjustmentDate: string;
   nextAdjustmentDate: string;
   increaseClauseType:
@@ -1120,6 +1122,7 @@ export type CreateLeaseDto = {
   adjustmentValue?: number;
   adjustmentFrequencyMonths?: number;
   nextAdjustmentDate?: string;
+  inflationIndexLagMonths?: number | null;
   inflationIndexType?: "icl" | "ipc" | "igp_m";
   increaseClauseType?:
     | "none"
@@ -1229,6 +1232,9 @@ export type ScheduledBillingDto = {
 
 export type Invoice = {
   id: string;
+  rentCalculation: {
+    [key: string]: unknown;
+  } | null;
   companyId: string;
   company: Company;
   leaseId: string;

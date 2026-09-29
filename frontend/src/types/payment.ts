@@ -94,7 +94,41 @@ export interface TenantAccountMovement {
 /**
  * Factura al inquilino
  */
+export interface RentCalculation {
+  version: 1;
+  asOf: string;
+  currency: string;
+  initialRent: string;
+  finalRent: string;
+  applied: boolean;
+  adjustments: Array<{
+    baseDate: string;
+    effectiveDate: string;
+    previousRent: string;
+    newRent: string;
+    type: string;
+    index: string | null;
+    lagMonths: number | null;
+    frequencyMonths: number;
+    scheduleAnchor: string;
+    numerator: string;
+    denominator: string;
+    observations: Array<{
+      id: string;
+      date: string;
+      value: string;
+      revision: number;
+      value_kind: string;
+      source: string;
+      source_series: string;
+      source_url: string;
+      retrieved_at: string;
+    }>;
+  }>;
+}
+
 export interface Invoice {
+  rentCalculation?: RentCalculation | null;
   id: string;
   companyId?: string;
   leaseId: string;

@@ -184,14 +184,14 @@ export class LeasesService {
     const isRental = contractType === ContractType.RENTAL;
     const startDate =
       isRental && createLeaseDto.startDate
-        ? new Date(createLeaseDto.startDate)
+        ? new Date(`${createLeaseDto.startDate}T12:00:00Z`)
         : null;
     const endDate =
       isRental && createLeaseDto.endDate
-        ? new Date(createLeaseDto.endDate)
+        ? new Date(`${createLeaseDto.endDate}T12:00:00Z`)
         : null;
     const nextAdjustmentDate = createLeaseDto.nextAdjustmentDate
-      ? new Date(createLeaseDto.nextAdjustmentDate)
+      ? new Date(`${createLeaseDto.nextAdjustmentDate}T12:00:00Z`)
       : undefined;
 
     return {
@@ -706,6 +706,10 @@ export class LeasesService {
       adjustmentFrequencyMonths:
         newTerms.adjustmentFrequencyMonths ??
         oldLease.adjustmentFrequencyMonths,
+      inflationIndexLagMonths:
+        newTerms.inflationIndexLagMonths !== undefined
+          ? newTerms.inflationIndexLagMonths
+          : oldLease.inflationIndexLagMonths,
       inflationIndexType:
         newTerms.inflationIndexType || oldLease.inflationIndexType,
       increaseClauseType:
@@ -743,8 +747,10 @@ export class LeasesService {
     return this.toIsoDate(fallback);
   }
 
-  private toIsoDate(date: Date): string {
-    return date.toISOString().slice(0, 10);
+  private toIsoDate(date: Date | string): string {
+    return (date instanceof Date ? date : new Date(date))
+      .toISOString()
+      .slice(0, 10);
   }
 
   private truncateText(value: string, maxLength: number): string {
@@ -978,6 +984,8 @@ export class LeasesService {
       adjustmentType: original.adjustmentType,
       adjustmentValue: original.adjustmentValue,
       adjustmentFrequencyMonths: original.adjustmentFrequencyMonths,
+      inflationIndexLagMonths: original.inflationIndexLagMonths,
+      adjustmentAnchorDate: original.adjustmentAnchorDate,
       lastAdjustmentDate: original.lastAdjustmentDate,
       nextAdjustmentDate: original.nextAdjustmentDate,
       increaseClauseType: original.increaseClauseType,
@@ -1045,6 +1053,16 @@ export class LeasesService {
       effectiveType,
       previousContractType,
     );
+    if (
+      (dto.nextAdjustmentDate !== undefined &&
+        dto.nextAdjustmentDate !==
+          (lease.nextAdjustmentDate
+            ? this.toIsoDate(lease.nextAdjustmentDate)
+            : undefined)) ||
+      (dto.adjustmentFrequencyMonths !== undefined &&
+        dto.adjustmentFrequencyMonths !== lease.adjustmentFrequencyMonths)
+    )
+      lease.adjustmentAnchorDate = null;
     this.applyCoreLeaseUpdate(lease, dto, effectiveType);
     this.resetRentalFieldsWhenSale(lease, effectiveType);
   }
@@ -1234,12 +1252,16 @@ export class LeasesService {
     const { companyId: _companyId, ownerId: _ownerId, ...mutableDto } = dto;
     let resolvedEndDate: Date | null | undefined = lease.endDate;
     if (dto.endDate !== undefined) {
-      resolvedEndDate = dto.endDate ? new Date(dto.endDate) : null;
+      resolvedEndDate = dto.endDate
+        ? new Date(`${dto.endDate}T12:00:00Z`)
+        : null;
     }
 
     let resolvedStartDate: Date | null | undefined = lease.startDate;
     if (dto.startDate !== undefined) {
-      resolvedStartDate = dto.startDate ? new Date(dto.startDate) : null;
+      resolvedStartDate = dto.startDate
+        ? new Date(`${dto.startDate}T12:00:00Z`)
+        : null;
     }
 
     Object.assign(lease, {
@@ -1562,11 +1584,11 @@ export class LeasesService {
       status: LeaseStatus.ACTIVE,
       startDate:
         contractType === ContractType.RENTAL && dto.startDate
-          ? new Date(dto.startDate)
+          ? new Date(`${dto.startDate}T12:00:00Z`)
           : null,
       endDate:
         contractType === ContractType.RENTAL && dto.endDate
-          ? new Date(dto.endDate)
+          ? new Date(`${dto.endDate}T12:00:00Z`)
           : null,
       monthlyRent:
         contractType === ContractType.RENTAL

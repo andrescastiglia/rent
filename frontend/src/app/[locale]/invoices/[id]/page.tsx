@@ -1,5 +1,6 @@
 "use client";
 import { formatInvoiceDate } from "@/lib/invoice-date";
+import { RentCalculationDetails } from "@/components/invoices/RentCalculationDetails";
 import { InvoiceDocument } from "@/components/invoices/InvoiceDocument";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -240,6 +241,8 @@ function InvoiceDetailContent() {
               </div>
             </div>
           </div>
+
+          <RentCalculationDetails calculation={invoice.rentCalculation} />
 
           {/* Payment Status */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">

@@ -880,7 +880,8 @@
       "contractType": "Contract type",
       "template": "Template",
       "buyer": "Buyer",
-      "fiscalValue": "Fiscal value"
+      "fiscalValue": "Fiscal value",
+      "inflationIndexLagMonths": "Index lag (months)"
     },
     "templates": {
       "title": "Contract templates",
@@ -927,7 +928,8 @@
     },
     "adjustments": {
       "title": "Adjustment Configuration",
-      "description": "Define how rent will be adjusted"
+      "description": "Define how rent will be adjusted",
+      "indexLagHelp": "Months before the base and adjustment months, as agreed in the contract. 0 uses the same month; 1 uses the previous month. Missing observations are not replaced."
     },
     "paymentFrequencies": {
       "monthly": "Monthly",
@@ -957,7 +959,7 @@
     "inflationIndexTypes": {
       "icl": "ICL (Argentina)",
       "ipc": "IPC",
-      "igp_m": "IGP-M (Brazil)",
+      "igp_m": "IGP-M (Brasil)",
       "igp_m_disabled": "IGP-M (Brazil) - disabled"
     },
     "selectOwner": "Select Owner",
@@ -1838,5 +1840,17 @@
     "refresh": "Refresh document",
     "download": "Download invoice",
     "loading": "Loading…"
+  },
+  "rentCalculation": {
+    "title": "Rent calculation",
+    "rent": "Rent for this period",
+    "unchanged": "No adjustments applied in this generation.",
+    "effective": "Adjustment date",
+    "base": "Base date",
+    "lag": "Monthly lag",
+    "evidence": "Observations used",
+    "revision": "Revision",
+    "fixed": "Fixed amount",
+    "percentage": "Percentage"
   }
 }

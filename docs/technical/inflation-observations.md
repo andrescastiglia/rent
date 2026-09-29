@@ -47,12 +47,11 @@ entregó; el cálculo debe exigir las observaciones necesarias para cada contrat
 
 `inflation_indices` queda intacta y deja de ser el destino de este comando. Sus
 antiguos valores mensuales de ICL no se copian como si fueran observaciones diarias.
-El backend y el antiguo servicio de ajuste batch todavía leen esa tabla: esta
-entrega prepara el historial, pero **no corrige aún el cálculo de alquileres**.
-Antes de habilitar facturación o sincronización productiva hay que migrar el
-cálculo común, definir la base temporal/rezago contractual mensual y registrar
-las revisiones usadas por cada ajuste en la transacción de la factura. Tampoco
-se recalculan facturas históricas. Los crons permanecen suspendidos.
+El [cálculo común con evidencia](rent-adjustments.md) ya consume el historial y
+reemplaza el ajuste mensual anterior; el antiguo calculador batch fue retirado.
+Antes de habilitar facturación o sincronización productiva hay que revisar las
+observaciones, calendarios y rezagos explícitos de los contratos reales. No se
+recalculan facturas históricas. Los crons permanecen suspendidos.
 
 La metodología del BCRA usa el cociente entre ICL de fecha de ajuste y de fecha
 inicial o del último ajuste. Los porcentajes mensuales de IGP-M requieren

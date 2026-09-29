@@ -880,7 +880,8 @@
       "contractType": "Tipo de contrato",
       "template": "Modelo",
       "buyer": "Comprador",
-      "fiscalValue": "Valor fiscal"
+      "fiscalValue": "Valor fiscal",
+      "inflationIndexLagMonths": "Defasagem do índice (meses)"
     },
     "templates": {
       "title": "Modelos de contrato",
@@ -927,7 +928,8 @@
     },
     "adjustments": {
       "title": "Configuração de Reajustes",
-      "description": "Defina como o aluguel será reajustado"
+      "description": "Defina como o aluguel será reajustado",
+      "indexLagHelp": "Meses anteriores ao mês base e ao mês de reajuste, conforme o contrato. 0 usa o mesmo mês; 1 usa o anterior. Dados ausentes não são substituídos."
     },
     "paymentFrequencies": {
       "monthly": "Mensal",
@@ -1838,5 +1840,17 @@
     "refresh": "Atualizar documento",
     "download": "Baixar fatura",
     "loading": "Carregando…"
+  },
+  "rentCalculation": {
+    "title": "Cálculo do aluguel",
+    "rent": "Aluguel do período",
+    "unchanged": "Nenhum reajuste aplicado nesta geração.",
+    "effective": "Data de reajuste",
+    "base": "Data base",
+    "lag": "Defasagem mensal",
+    "evidence": "Dados utilizados",
+    "revision": "Revisão",
+    "fixed": "Valor fixo",
+    "percentage": "Percentual"
   }
 }

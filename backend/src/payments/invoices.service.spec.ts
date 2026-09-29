@@ -14,10 +14,7 @@ import {
   AdjustmentType,
   InflationIndexType,
 } from '../leases/entities/lease.entity';
-import {
-  InflationIndex,
-  InflationIndexType as IndexTypeEntity,
-} from './entities/inflation-index.entity';
+import { InflationIndex } from './entities/inflation-index.entity';
 import { TenantAccountsService } from './tenant-accounts.service';
 import { UserRole } from '../users/entities/user.entity';
 import { MovementType } from './entities/tenant-account-movement.entity';
@@ -195,36 +192,48 @@ describe('InvoicesService', () => {
     expect(new Date(created.dueDate).getDate()).toBe(5);
   });
 
-  it('should use IPC index for inflation adjustments', async () => {
+  it('uses accumulated IPC levels and saves the calculation with the lease update', async () => {
     const lease = {
       id: 'lease-3',
+      currency: 'ARS',
+      startDate: '2024-01-01',
       monthlyRent: 1000,
       adjustmentType: AdjustmentType.INFLATION_INDEX,
       inflationIndexType: InflationIndexType.IPC,
+      inflationIndexLagMonths: 1,
       adjustmentFrequencyMonths: 12,
-      nextAdjustmentDate: new Date('2024-01-01T00:00:00Z'),
+      nextAdjustmentDate: '2025-01-01',
     } as unknown as Lease;
-
-    inflationIndexRepository.findOne!.mockResolvedValue({
-      variationMonthly: 10,
-    } as any);
-    leasesRepository.save!.mockResolvedValue(lease);
-
+    manager.query.mockResolvedValue([
+      {
+        id: 'base',
+        date: '2023-12-01',
+        value: '100',
+        revision: 1,
+        value_kind: 'level',
+      },
+      {
+        id: 'end',
+        date: '2024-12-01',
+        value: '150',
+        revision: 1,
+        value_kind: 'level',
+      },
+    ]);
     const result = await (service as any).applyAdjustmentIfNeeded(
       lease,
-      new Date('2025-01-01T00:00:00Z'),
+      new Date('2025-01-01'),
       true,
+      manager,
     );
-
-    expect(inflationIndexRepository.findOne).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          indexType: IndexTypeEntity.IPC,
-          periodDate: expect.anything(),
-        }),
-      }),
+    expect(result.rent).toBe(1500);
+    expect(
+      result.snapshot.adjustments[0].observations.map((row: any) => row.id),
+    ).toEqual(['base', 'end']);
+    expect(leasesRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ monthlyRent: 1500 }),
     );
-    expect(result).toBe(1100);
+    expect(inflationIndexRepository.findOne).not.toHaveBeenCalled();
   });
 
   it('create throws when lease does not exist', async () => {
@@ -244,6 +253,8 @@ describe('InvoicesService', () => {
     inflationIndexRepository.findOne!.mockResolvedValue(null);
     const lease = {
       monthlyRent: 1000,
+      startDate: '2025-01-01',
+      inflationIndexLagMonths: 1,
       nextAdjustmentDate: new Date('2026-01-01'),
       adjustmentType: AdjustmentType.INFLATION_INDEX,
       inflationIndexType: InflationIndexType.IPC,
@@ -255,7 +266,7 @@ describe('InvoicesService', () => {
         true,
         manager,
       ),
-    ).rejects.toThrow('Inflation index unavailable');
+    ).rejects.toThrow('Inflation observation unavailable');
     expect(leasesRepository.save).not.toHaveBeenCalled();
     expect(lease.monthlyRent).toBe(1000);
   });

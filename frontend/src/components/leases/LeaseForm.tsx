@@ -752,6 +752,8 @@ function LateFeeFields({
 function AdjustmentFields({
   register,
   adjustmentType,
+  inflationIndexType,
+  lagError,
   labelClass,
   inputClass,
   sectionClass,
@@ -760,6 +762,8 @@ function AdjustmentFields({
 }: {
   readonly register: UseFormRegister<LeaseFormData>;
   readonly adjustmentType: string | undefined;
+  readonly inflationIndexType: string | undefined;
+  readonly lagError?: string;
   readonly labelClass: string;
   readonly inputClass: string;
   readonly sectionClass: string;
@@ -822,12 +826,52 @@ function AdjustmentFields({
                 >
                   <option value="icl">{t("inflationIndexTypes.icl")}</option>
                   <option value="ipc">{t("inflationIndexTypes.ipc")}</option>
-                  <option value="igp_m" disabled>
-                    {t("inflationIndexTypes.igp_m_disabled")}
+                  <option value="igp_m">
+                    {t("inflationIndexTypes.igp_m")}
                   </option>
                 </select>
               </div>
             )}
+
+            {adjustmentType === "inflation_index" &&
+              (inflationIndexType === "ipc" ||
+                inflationIndexType === "igp_m") && (
+                <div>
+                  <label
+                    htmlFor="inflationIndexLagMonths"
+                    className={labelClass}
+                  >
+                    {t("fields.inflationIndexLagMonths")}
+                  </label>
+                  <input
+                    id="inflationIndexLagMonths"
+                    type="number"
+                    min="0"
+                    max="12"
+                    step="1"
+                    required
+                    aria-invalid={Boolean(lagError)}
+                    aria-describedby="inflation-index-lag-help inflation-index-lag-error"
+                    {...register("inflationIndexLagMonths")}
+                    className={inputClass}
+                  />
+                  {lagError && (
+                    <p
+                      id="inflation-index-lag-error"
+                      role="alert"
+                      className="text-sm text-red-600"
+                    >
+                      {lagError}
+                    </p>
+                  )}
+                  <p
+                    id="inflation-index-lag-help"
+                    className="text-sm text-gray-500 dark:text-gray-400"
+                  >
+                    {t("adjustments.indexLagHelp")}
+                  </p>
+                </div>
+              )}
 
             <div>
               <label htmlFor="adjustmentFrequencyMonths" className={labelClass}>
@@ -1539,6 +1583,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   const formValues = useWatch({ control });
   const lateFeeType = useWatch({ control, name: "lateFeeType" });
   const adjustmentType = useWatch({ control, name: "adjustmentType" });
+  const inflationIndexType = useWatch({ control, name: "inflationIndexType" });
   const renewalAlertPeriodicity = useWatch({
     control,
     name: "renewalAlertPeriodicity",
@@ -1860,6 +1905,9 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           formValues.adjustmentFrequencyMonths,
         ),
         inflationIndexType: formValues.inflationIndexType,
+        inflationIndexLagMonths: toNumberOrUndefined(
+          formValues.inflationIndexLagMonths,
+        ),
         nextAdjustmentDate: toDateString(formValues.nextAdjustmentDate),
         autoGenerateInvoices: formValues.autoGenerateInvoices,
         securityDeposit: toNumberOrUndefined(formValues.depositAmount),
@@ -1909,6 +1957,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     formValues.endDate,
     formValues.fiscalValue,
     formValues.inflationIndexType,
+    formValues.inflationIndexLagMonths,
     formValues.lateFeeGraceDays,
     formValues.lateFeeMax,
     formValues.lateFeeType,
@@ -2389,6 +2438,8 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           <AdjustmentFields
             register={register}
             adjustmentType={adjustmentType}
+            inflationIndexType={inflationIndexType}
+            lagError={errors.inflationIndexLagMonths?.message}
             labelClass={labelClass}
             inputClass={inputClass}
             sectionClass={sectionClass}
