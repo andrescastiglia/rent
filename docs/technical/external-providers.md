@@ -71,14 +71,48 @@ Fuentes: [publicación inmobiliaria](https://developers.mercadolibre.com.ar/esa/
 [atributos](https://developers.mercadolibre.com.ar/atributos-inmuebles),
 [actualizaciones](https://developers.mercadolibre.com.ar/es_ar/publica-productos/actualiza-tus-publicaciones),
 [OAuth](https://developers.mercadolibre.com.ar/en_us/authentication-and-authorization).
-El cliente también implementa intercambio y renovación de tokens. El consumidor
-debe persistir ambos tokens juntos y serializar su renovación; no se instaló
-ninguna cuenta ni se realizó un intercambio real.
+El intercambio OAuth y la renovación están conectados al almacén por compañía
+(migración 115), sin intercambios reales durante la implementación. El protocolo
+sigue la [autenticación oficial](https://developers.mercadolibre.com.ar/en_us/authentication-and-authorization)
+y las pautas de [protección de tokens](https://developers.mercadolibre.com.ar/en_us/list-products/identity-and-access-management-oauth-and-tokens).
 
 Configuración futura: `MERCADOLIBRE_ENABLED` (ausente/false),
-`MERCADOLIBRE_ACCOUNTS_JSON` (mapa por UUID de compañía con accessToken y sellerId),
-`MERCADOLIBRE_CLIENT_ID` y `MERCADOLIBRE_CLIENT_SECRET` para OAuth. El mapa solo
-puede cargarse desde secretos del servidor; no se devuelve a clientes ni logs.
+`MERCADOLIBRE_CLIENT_ID`, `MERCADOLIBRE_CLIENT_SECRET`,
+`MERCADOLIBRE_REDIRECT_URI` (URL HTTPS fija registrada en la aplicación) y
+`MERCADOLIBRE_TOKEN_ENCRYPTION_KEY` (32 bytes aleatorios codificados en base64,
+solo en secretos del servidor). No se carga `MERCADOLIBRE_ACCOUNTS_JSON`: los
+clientes obtienen credenciales del almacén cifrado, sin alternativa de otra cuenta.
+
+El administrador inicia `POST /integrations/mercadolibre/authorization`; recibe
+una URL con estado aleatorio y PKCE S256. La aplicación futura debe devolver
+`code` y `state` por `POST /integrations/mercadolibre/authorization/complete`
+con la misma sesión de usuario y compañía. El estado vence en diez minutos,
+se almacena como SHA-256 y solo se consume una vez; el verificador queda cifrado.
+Los callbacks ajenos, vencidos o repetidos no llegan al proveedor.
+
+Ambos tokens se guardan juntos con AES-256-GCM y contexto de compañía/vendedor.
+El cliente reutiliza credenciales vigentes y renueva cuando quedan 60 segundos.
+Antes de renovar persiste una intención y libera la transacción; otros workers
+esperan mediante sus reintentos normales. La respuesta sustituye ambos tokens
+mediante el ID de operación. Una respuesta incierta o un proceso interrumpido
+exige reconectar; nunca se reutiliza automáticamente el token de renovación.
+Un HTTP 401 invalida solo el token rechazado: una respuesta tardía no borra un
+par más reciente. No se repite la solicitud del aviso automáticamente.
+Un vendedor no puede vincularse a dos compañías y una reconexión conserva la
+identidad del vendedor para proteger los avisos existentes.
+
+`GET /integrations/mercadolibre/status` devuelve únicamente disponibilidad,
+estado, vendedor y vencimiento. `DELETE /integrations/mercadolibre/connection`
+elimina tokens locales, invalida estados pendientes y bloquea respuestas tardías,
+incluso con la función deshabilitada. Esta desvinculación es local: la revocación
+del permiso concedido en Mercado Libre se realiza desde su administración de
+aplicaciones. Los eventos de conexión/renovación/desconexión conservan compañía,
+actor cuando corresponde y fecha; no contienen credenciales. Todos los endpoints
+exigen administrador. La interfaz de autorización y callback sigue pendiente.
+
+Conservar la clave de cifrado fuera de la base y de sus backups. Su sustitución
+invalida los sobres anteriores y requiere reconectar las cuentas; no existe una
+clave predeterminada ni recuperación a texto plano.
 Los endpoints de publicación, pausa, actualización y eliminación encolan trabajo
 en `portal_publication_outbox` (migración 114) después de validar compañía y
 propiedad; desaparece el adaptador simulado. `listingData.item` contiene el aviso
@@ -106,7 +140,8 @@ Actualizaciones y consultas fallidas esperan un minuto y, tras cinco intentos,
 requieren revisión. El cron informa trabajos fallidos o pendientes de revisión.
 No reencolar creaciones inciertas: comprobar primero el aviso en el vendedor
 correspondiente. La resolución asistida de estas incidencias y la interfaz de
-administración siguen pendientes, al igual que persistir/renovar tokens OAuth.
+administración siguen pendientes. La persistencia y renovación OAuth ya usan
+el almacén cifrado, con pruebas de concurrencia y aislamiento.
 Las cuentas y flags continúan sin configurar; no se habilita publicación real.
 
 ## Mercado Pago Payouts
@@ -145,7 +180,7 @@ Pruebas PostgreSQL aisladas: `bfa-stamps.e2e-spec.ts`, incluyendo cola deshabili
 aislamiento entre empresas, concurrencia, respuesta perdida y documentos alterados.
 No constituyen evidencia de disponibilidad del proveedor ni validación de cuentas.
 
-Las migraciones 113 y 114 son aditivas y no encolan documentos ni avisos históricos. Para rollback,
+Las migraciones 113, 114 y 115 son aditivas y no encolan documentos ni avisos históricos. Para rollback,
 conservar sus registros y mantener proveedores deshabilitados. Si se restaura
 un artefacto anterior, restaurar también el CLI del mismo artefacto para evitar
 invocar un endpoint que aún no exista. No borrar pruebas de sellado.

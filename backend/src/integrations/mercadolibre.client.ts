@@ -4,16 +4,17 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { z } from 'zod';
-import { ProviderConfigService } from './provider-config.service';
+import { MercadoLibreConnectionsService } from './mercadolibre-connections.service';
 import {
   ProviderHttpService,
   ProviderRequestError,
 } from './provider-http.service';
 
-const accountSchema = z.object({
-  accessToken: z.string().min(1),
-  sellerId: z.number().int().positive(),
-});
+type MercadoLibreAccount = {
+  accessToken: string;
+  sellerId: number;
+  companyId: string;
+};
 const httpsUrl = z
   .string()
   .url()
@@ -67,19 +68,11 @@ const responseSchema = z.object({
   permalink: z.string().url(),
   status: z.string(),
 });
-const oauthSchema = z.object({
-  access_token: z.string().min(1),
-  refresh_token: z.string().min(1),
-  expires_in: z.number().int().positive(),
-  user_id: z.number().int().positive(),
-  token_type: z.literal('bearer'),
-});
-
 @Injectable()
 export class MercadoLibreClient {
   private readonly base = 'https://api.mercadolibre.com';
   constructor(
-    private readonly config: ProviderConfigService,
+    private readonly accounts: MercadoLibreConnectionsService,
     private readonly http: ProviderHttpService,
   ) {}
 
@@ -97,11 +90,7 @@ export class MercadoLibreClient {
     itemId: string,
     plainText: string,
   ) {
-    const account = this.config.account(
-      'MERCADOLIBRE',
-      companyId,
-      accountSchema,
-    );
+    const account = await this.account(companyId);
     await this.ownedItem(account, itemId);
     if (!plainText.trim() || plainText.length > 50000)
       throw new BadRequestException('Invalid listing description');
@@ -122,11 +111,7 @@ export class MercadoLibreClient {
   }
 
   async create(companyId: string, input: MercadoLibreItem) {
-    const account = this.config.account(
-      'MERCADOLIBRE',
-      companyId,
-      accountSchema,
-    );
+    const account = await this.account(companyId);
     const parsed = itemSchema.safeParse(input);
     if (!parsed.success)
       throw new BadRequestException(
@@ -139,7 +124,16 @@ export class MercadoLibreClient {
       throw new ServiceUnavailableException(
         'Mercado Libre seller does not match company configuration',
       );
-    await this.call(account, '/items/validate', 'POST', parsed.data);
+    try {
+      await this.call(account, '/items/validate', 'POST', parsed.data);
+    } catch (error) {
+      // Validation does not create an item, even when its response is lost.
+      throw new ProviderRequestError(
+        'MERCADOLIBRE',
+        false,
+        error instanceof ProviderRequestError ? error.status : undefined,
+      );
+    }
     return this.result(
       await this.call(account, '/items', 'POST', parsed.data),
       account.sellerId,
@@ -148,11 +142,7 @@ export class MercadoLibreClient {
   }
 
   async get(companyId: string, itemId: string) {
-    const account = this.config.account(
-      'MERCADOLIBRE',
-      companyId,
-      accountSchema,
-    );
+    const account = await this.account(companyId);
     return this.ownedItem(account, itemId);
   }
 
@@ -164,11 +154,7 @@ export class MercadoLibreClient {
       'title' | 'price' | 'pictures' | 'attributes'
     >,
   ) {
-    const account = this.config.account(
-      'MERCADOLIBRE',
-      companyId,
-      accountSchema,
-    );
+    const account = await this.account(companyId);
     await this.ownedItem(account, itemId);
     const payload = itemSchema
       .pick({ title: true, price: true, pictures: true, attributes: true })
@@ -187,11 +173,7 @@ export class MercadoLibreClient {
     itemId: string,
     status: 'active' | 'paused' | 'closed',
   ) {
-    const account = this.config.account(
-      'MERCADOLIBRE',
-      companyId,
-      accountSchema,
-    );
+    const account = await this.account(companyId);
     if (!['active', 'paused', 'closed'].includes(status))
       throw new BadRequestException('Invalid listing status');
     await this.ownedItem(account, itemId);
@@ -208,11 +190,7 @@ export class MercadoLibreClient {
     plainText: string,
     create: boolean,
   ) {
-    const account = this.config.account(
-      'MERCADOLIBRE',
-      companyId,
-      accountSchema,
-    );
+    const account = await this.account(companyId);
     await this.ownedItem(account, itemId);
     if (!plainText.trim() || plainText.length > 50000)
       throw new BadRequestException('Invalid listing description');
@@ -224,43 +202,7 @@ export class MercadoLibreClient {
     );
   }
 
-  async exchangeToken(
-    input:
-      | { code: string; redirectUri: string; codeVerifier: string }
-      | { refreshToken: string },
-  ) {
-    this.config.assertEnabled('MERCADOLIBRE');
-    const form = new URLSearchParams({
-      client_id: this.config.required('MERCADOLIBRE_CLIENT_ID'),
-      client_secret: this.config.required('MERCADOLIBRE_CLIENT_SECRET'),
-    });
-    if ('refreshToken' in input) {
-      form.set('grant_type', 'refresh_token');
-      form.set('refresh_token', input.refreshToken);
-    } else {
-      if (!httpsUrl.safeParse(input.redirectUri).success)
-        throw new BadRequestException('HTTPS redirect URI required');
-      form.set('grant_type', 'authorization_code');
-      form.set('code', input.code);
-      form.set('redirect_uri', input.redirectUri);
-      form.set('code_verifier', input.codeVerifier);
-    }
-    const raw = await this.http.request(
-      'MERCADOLIBRE',
-      `${this.base}/oauth/token`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: form.toString(),
-      },
-    );
-    const token = oauthSchema.safeParse(raw);
-    if (!token.success) throw new ProviderRequestError('MERCADOLIBRE', true);
-    // Caller must durably replace both tokens together before using this result.
-    return token.data;
-  }
-
-  private async ownedItem(account: z.infer<typeof accountSchema>, id: string) {
+  private async ownedItem(account: MercadoLibreAccount, id: string) {
     if (!/^MLA\d+$/.test(id))
       throw new BadRequestException('Invalid Mercado Libre item ID');
     const item = this.result(
@@ -285,19 +227,29 @@ export class MercadoLibreClient {
     return result.data;
   }
 
-  private call(
-    account: z.infer<typeof accountSchema>,
+  private async account(companyId: string): Promise<MercadoLibreAccount> {
+    return { ...(await this.accounts.access(companyId)), companyId };
+  }
+
+  private async call(
+    account: MercadoLibreAccount,
     path: string,
     method: string,
     payload?: unknown,
   ) {
-    return this.http.request('MERCADOLIBRE', `${this.base}${path}`, {
-      method,
-      headers: {
-        Authorization: `Bearer ${account.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: payload === undefined ? undefined : JSON.stringify(payload),
-    });
+    try {
+      return await this.http.request('MERCADOLIBRE', `${this.base}${path}`, {
+        method,
+        headers: {
+          Authorization: `Bearer ${account.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: payload === undefined ? undefined : JSON.stringify(payload),
+      });
+    } catch (error) {
+      if (error instanceof ProviderRequestError && error.status === 401)
+        await this.accounts.invalidate(account.companyId, account.accessToken);
+      throw error;
+    }
   }
 }

@@ -2480,6 +2480,28 @@ export type PortalOperationOverviewDto = {
   job: PortalOperationDto | null;
 };
 
+export type MercadoLibreConnectionStatusDto = {
+  enabled: boolean;
+  status:
+    | "unconfigured"
+    | "active"
+    | "connecting"
+    | "refreshing"
+    | "reconnect_required"
+    | "disconnected";
+  sellerId: string | null;
+  expiresAt: string | null;
+};
+
+export type MercadoLibreAuthorizationDto = {
+  authorizationUrl: string;
+};
+
+export type CompleteMercadoLibreAuthorizationDto = {
+  code: string;
+  state: string;
+};
+
 export type DigitalSignatureRequest = {
   id: string;
   companyId: string;
@@ -6548,6 +6570,62 @@ export type PortalPublicationProcessData = {
 export type PortalPublicationProcessResponses = {
   201: unknown;
 };
+
+export type MercadoLibreConnectionsStatusData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/integrations/mercadolibre/status";
+};
+
+export type MercadoLibreConnectionsStatusResponses = {
+  200: MercadoLibreConnectionStatusDto;
+};
+
+export type MercadoLibreConnectionsStatusResponse =
+  MercadoLibreConnectionsStatusResponses[keyof MercadoLibreConnectionsStatusResponses];
+
+export type MercadoLibreConnectionsBeginData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/integrations/mercadolibre/authorization";
+};
+
+export type MercadoLibreConnectionsBeginResponses = {
+  201: MercadoLibreAuthorizationDto;
+};
+
+export type MercadoLibreConnectionsBeginResponse =
+  MercadoLibreConnectionsBeginResponses[keyof MercadoLibreConnectionsBeginResponses];
+
+export type MercadoLibreConnectionsCompleteData = {
+  body: CompleteMercadoLibreAuthorizationDto;
+  path?: never;
+  query?: never;
+  url: "/integrations/mercadolibre/authorization/complete";
+};
+
+export type MercadoLibreConnectionsCompleteResponses = {
+  201: MercadoLibreConnectionStatusDto;
+};
+
+export type MercadoLibreConnectionsCompleteResponse =
+  MercadoLibreConnectionsCompleteResponses[keyof MercadoLibreConnectionsCompleteResponses];
+
+export type MercadoLibreConnectionsDisconnectData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/integrations/mercadolibre/connection";
+};
+
+export type MercadoLibreConnectionsDisconnectResponses = {
+  200: MercadoLibreConnectionStatusDto;
+};
+
+export type MercadoLibreConnectionsDisconnectResponse =
+  MercadoLibreConnectionsDisconnectResponses[keyof MercadoLibreConnectionsDisconnectResponses];
 
 export type DigitalSignaturesFindAllData = {
   body?: never;
