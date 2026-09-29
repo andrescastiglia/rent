@@ -44,6 +44,6 @@ herencia HTTP/IA, fechas persistidas, sucesores concurrentes y revisión simult�
 Se verifica que una renovación rechazada no cierre el original ni altere el
 inmueble, y que no sustituya otro alquiler activo.
 
-No agrega migraciones ni habilita proveedores o crons. Importaciones, bajas y
-plantillas como recursos independientes aún requieren recuperación transaccional;
-la release y los demás requisitos del plan siguen pendientes.
+No agrega migraciones ni habilita proveedores o crons. Bajas y plantillas continúan
+en [su recorrido recuperable](approved-lease-deletions-templates.md). Importaciones,
+enmiendas, la release y los demás requisitos del plan siguen pendientes.

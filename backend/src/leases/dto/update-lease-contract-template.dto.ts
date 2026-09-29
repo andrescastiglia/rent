@@ -1,4 +1,4 @@
-import { PartialType } from '@nestjs/mapped-types';
+import { PartialType } from '@nestjs/swagger';
 import {
   CreateLeaseContractTemplateDto,
   createLeaseContractTemplateZodSchema,
@@ -8,6 +8,10 @@ export class UpdateLeaseContractTemplateDto extends PartialType(
   CreateLeaseContractTemplateDto,
 ) {
   static readonly zodSchema = createLeaseContractTemplateZodSchema
+    .extend({
+      templateFormat:
+        createLeaseContractTemplateZodSchema.shape.templateFormat.removeDefault(),
+    })
     .partial()
     .strict();
 }

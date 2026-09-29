@@ -14265,7 +14265,32 @@
       },
       "UpdateLeaseContractTemplateDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "contractType": {
+            "enum": [
+              "rental",
+              "sale"
+            ],
+            "type": "string"
+          },
+          "templateFormat": {
+            "enum": [
+              "plain_text",
+              "html"
+            ],
+            "type": "string"
+          },
+          "templateBody": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
       },
       "UpdateLeaseDto": {
         "type": "object",

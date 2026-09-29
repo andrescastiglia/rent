@@ -1144,12 +1144,14 @@ export function buildAiToolDefinitions(
         'Creates a new contract template with name, type (rental/sale), and template body with variable placeholders.',
       responseDescription: 'The newly created contract template record.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: CreateLeaseContractTemplateDto.zodSchema,
       execute: async (args, context) =>
         deps.leasesService.createTemplate(
           CreateLeaseContractTemplateDto.zodSchema.parse(args),
           context.companyId ?? '',
+          context.idempotencyKey,
         ),
     },
     {
@@ -1157,6 +1159,7 @@ export function buildAiToolDefinitions(
       description: "Updates a contract template's name, body, or type by UUID.",
       responseDescription: 'The updated contract template record.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(UpdateLeaseContractTemplateDto.zodSchema, {
         templateId: uuidSchema,
@@ -1169,6 +1172,7 @@ export function buildAiToolDefinitions(
           parsed.templateId,
           parsed,
           context.companyId ?? '',
+          context.idempotencyKey,
         );
       },
     },
@@ -1374,15 +1378,19 @@ export function buildAiToolDefinitions(
     {
       name: 'delete_lease_by_id',
       description:
-        'Deletes a draft lease by UUID. Only works on leases in draft status.',
-      responseDescription: 'Confirmation that the draft lease was deleted.',
+        'Soft-deletes a non-active lease without a live successor. Approved retries recover the original result.',
+      responseDescription: 'Confirmation that the lease was deleted.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        await deps.leasesService.remove(id, toRequestUser(context) as any);
-        return { message: 'Lease deleted successfully' };
+        return deps.leasesService.remove(
+          id,
+          toRequestUser(context) as any,
+          context.idempotencyKey,
+        );
       },
     },
     {

@@ -755,6 +755,9 @@ describe('Durable confirmed contracts (e2e)', () => {
       .expect(201);
   });
   const recoveryTools = [
+    'post_lease_templates',
+    'patch_lease_template_by_id',
+    'delete_lease_by_id',
     'post_leases',
     'patch_lease_by_id',
     'patch_lease_renew',
@@ -767,6 +770,19 @@ describe('Durable confirmed contracts (e2e)', () => {
   ];
   const actor = () => ({ id: userId, companyId, role: UserRole.ADMIN });
   async function recoveryInput(toolName: string): Promise<any> {
+    const templatePayload = {
+      name: 'Approved template',
+      contractType: ContractType.RENTAL,
+      templateFormat: 'html' as const,
+      templateBody: '<p>Approved body</p>',
+    };
+    if (toolName === 'post_lease_templates') return templatePayload;
+    if (toolName === 'patch_lease_template_by_id') {
+      const template = await app
+        .get(LeasesService)
+        .createTemplate(templatePayload, companyId);
+      return { templateId: template.id, name: 'Approved rename' };
+    }
     if (toolName === 'post_leases') {
       const template = await app.get(LeasesService).createTemplate(
         {
@@ -841,6 +857,10 @@ describe('Durable confirmed contracts (e2e)', () => {
       [companyId],
     ),
     jobs: await jobs(),
+    templates: await db.query(
+      'SELECT * FROM lease_contract_templates WHERE company_id=$1 ORDER BY id',
+      [companyId],
+    ),
     properties: await db.query(
       'SELECT * FROM properties WHERE company_id=$1 ORDER BY id',
       [companyId],
@@ -901,35 +921,52 @@ describe('Durable confirmed contracts (e2e)', () => {
           'SELECT result FROM domain_operation_receipts WHERE company_id=$1 AND execution_key=$2',
           [companyId, action.execution_key],
         );
-        const leaseId = receipt.result.id as string;
-        const expectedStatus = [
-          'post_leases',
-          'patch_lease_by_id',
-          'patch_lease_renew',
-          'post_lease_draft_render',
-          'patch_lease_draft_text',
-        ].includes(toolName)
-          ? 'draft'
-          : ['patch_lease_terminate', 'patch_lease_finalize'].includes(toolName)
-            ? 'finalized'
-            : 'active';
-        expect(receipt.result.status).toBe(expectedStatus);
-        if (expectedStatus === 'draft')
-          await app.get(LeasesService).confirmDraft(leaseId, userId, actor());
-        if ((await row(leaseId)).status === 'active')
-          await app
-            .get(LeasesService)
-            .terminate(leaseId, actor(), 'Later closure');
-        await db.query('UPDATE leases SET deleted_at=now() WHERE id=$1', [
-          leaseId,
-        ]);
+        const templateTool = [
+          'post_lease_templates',
+          'patch_lease_template_by_id',
+        ].includes(toolName);
+        const deleting = toolName === 'delete_lease_by_id';
+        const leaseId = deleting ? payload.id : receipt.result.id;
+        if (templateTool) {
+          expect(receipt.result.templateFormat).toBe('html');
+          await db.query(
+            "UPDATE lease_contract_templates SET name='Later change',deleted_at=now() WHERE id=$1",
+            [receipt.result.id],
+          );
+        } else if (deleting) {
+          expect((await row(leaseId)).deleted_at).not.toBeNull();
+          expect(receipt.result).toEqual({
+            message: 'Lease deleted successfully',
+          });
+        } else {
+          const expectedStatus = [
+            'post_leases',
+            'patch_lease_by_id',
+            'patch_lease_renew',
+            'post_lease_draft_render',
+            'patch_lease_draft_text',
+          ].includes(toolName)
+            ? 'draft'
+            : ['patch_lease_terminate', 'patch_lease_finalize'].includes(
+                  toolName,
+                )
+              ? 'finalized'
+              : 'active';
+          expect(receipt.result.status).toBe(expectedStatus);
+          if (expectedStatus === 'draft')
+            await app.get(LeasesService).confirmDraft(leaseId, userId, actor());
+          if ((await row(leaseId)).status === 'active')
+            await app
+              .get(LeasesService)
+              .terminate(leaseId, actor(), 'Later closure');
+          await db.query('UPDATE leases SET deleted_at=now() WHERE id=$1', [
+            leaseId,
+          ]);
+        }
         const before = await snapshot();
         const recovered = (await approve().expect(201)).body;
         expect(recovered.status).toBe('executed');
-        expect(recovered.result).toMatchObject({
-          id: leaseId,
-          status: expectedStatus,
-        });
+        expect(recovered.result).toEqual(receipt.result);
         expect(JSON.stringify(recovered.result)).not.toMatch(
           /passwordHash|passwordResetToken/,
         );
@@ -946,12 +983,30 @@ describe('Durable confirmed contracts (e2e)', () => {
             ),
           ),
         ).toEqual([recovered.result, recovered.result, recovered.result]);
-        await expect(
-          executor.executeApproved(toolName, payload, {
+        if (toolName === 'post_lease_templates') {
+          // Creating in another authenticated company is valid, but must not recover this company's receipt.
+          const foreign = (await executor.executeApproved(toolName, payload, {
             ...context,
             companyId: foreignId,
-          }),
-        ).rejects.toThrow();
+          })) as any;
+          expect(foreign.companyId).toBe(foreignId);
+          expect(foreign.id).not.toBe(receipt.result.id);
+          await db.query(
+            'DELETE FROM domain_operation_receipts WHERE company_id=$1',
+            [foreignId],
+          );
+          await db.query(
+            'DELETE FROM lease_contract_templates WHERE company_id=$1',
+            [foreignId],
+          );
+        } else {
+          await expect(
+            executor.executeApproved(toolName, payload, {
+              ...context,
+              companyId: foreignId,
+            }),
+          ).rejects.toThrow();
+        }
         await expect(
           executor.executeApproved(toolName, payload, {
             ...context,
@@ -960,13 +1015,17 @@ describe('Durable confirmed contracts (e2e)', () => {
         ).rejects.toThrow();
         expect(await snapshot()).toEqual(before);
         expect(await jobs()).toHaveLength(
-          toolName === 'patch_lease_renew' ? 2 : 1,
+          templateTool || deleting
+            ? 0
+            : toolName === 'patch_lease_renew'
+              ? 2
+              : 1,
         );
         expect(
           await db.query('SELECT id FROM tenant_accounts WHERE lease_id=$1', [
             leaseId,
           ]),
-        ).toHaveLength(1);
+        ).toHaveLength(templateTool || deleting ? 0 : 1);
       } finally {
         lost.mockRestore();
       }
@@ -1529,5 +1588,207 @@ describe('Durable confirmed contracts (e2e)', () => {
       ),
     ).rejects.toThrow();
     expect(await snapshot()).toEqual(before);
+  });
+  it('keeps HTTP template format and activation unchanged for a name-only edit', async () => {
+    const template = await app.get(LeasesService).createTemplate(
+      {
+        name: 'HTML',
+        contractType: ContractType.RENTAL,
+        templateFormat: 'html',
+        templateBody: '<p>Original</p>',
+        isActive: false,
+      },
+      companyId,
+    );
+    const response = await request(app.getHttpServer())
+      .patch(`/contracts/templates/${template.id}`)
+      .auth(token, { type: 'bearer' })
+      .send({ name: 'Renamed HTML' })
+      .expect(200);
+    expect(response.body).toMatchObject({
+      name: 'Renamed HTML',
+      templateFormat: 'html',
+      templateBody: '<p>Original</p>',
+      isActive: false,
+    });
+    await request(app.getHttpServer())
+      .patch(`/contracts/templates/${template.id}`)
+      .auth(foreignToken, { type: 'bearer' })
+      .send({ name: 'Foreign' })
+      .expect(404);
+    await request(app.getHttpServer())
+      .patch(`/contracts/templates/${template.id}`)
+      .auth(tenantToken, { type: 'bearer' })
+      .send({ name: 'Tenant' })
+      .expect(403);
+  });
+
+  it('serializes independent template edits without overwriting the other field', async () => {
+    const service = app.get(LeasesService);
+    const template = await service.createTemplate(
+      {
+        name: 'Initial',
+        contractType: ContractType.RENTAL,
+        templateFormat: 'html',
+        templateBody: '<p>Initial</p>',
+      },
+      companyId,
+    );
+    await Promise.all([
+      service.updateTemplate(
+        template.id,
+        { name: 'Concurrent rename' },
+        companyId,
+        randomUUID(),
+      ),
+      service.updateTemplate(
+        template.id,
+        { templateBody: '<p>Concurrent body</p>' },
+        companyId,
+        randomUUID(),
+      ),
+    ]);
+    const [persisted] = await db.query(
+      'SELECT * FROM lease_contract_templates WHERE id=$1',
+      [template.id],
+    );
+    expect(persisted).toMatchObject({
+      name: 'Concurrent rename',
+      template_body: '<p>Concurrent body</p>',
+      template_format: 'html',
+    });
+  });
+
+  it.each(['post_lease_templates', 'patch_lease_template_by_id'])(
+    'rejects changed parameters under the same approved key for %s',
+    async (toolName) => {
+      const payload = await recoveryInput(toolName);
+      const context = {
+        companyId,
+        userId,
+        role: UserRole.ADMIN,
+        idempotencyKey: randomUUID(),
+      };
+      const executor = app.get(AiToolExecutorService);
+      await executor.executeApproved(toolName, payload, context);
+      const before = await snapshot();
+      await expect(
+        executor.executeApproved(
+          toolName,
+          { ...payload, name: 'Other name' },
+          context,
+        ),
+      ).rejects.toThrow('different operation or request');
+      expect(await snapshot()).toEqual(before);
+    },
+  );
+
+  it('does not soft-delete an active contract or allow another company or tenant to delete it', async () => {
+    const id = await seed(),
+      service = app.get(LeasesService);
+    await service.confirmDraft(id, userId, actor());
+    const before = await snapshot();
+    await request(app.getHttpServer())
+      .delete(`/contracts/${id}`)
+      .auth(token, { type: 'bearer' })
+      .expect(400);
+    await request(app.getHttpServer())
+      .delete(`/contracts/${id}`)
+      .auth(foreignToken, { type: 'bearer' })
+      .expect(404);
+    await request(app.getHttpServer())
+      .delete(`/contracts/${id}`)
+      .auth(tenantToken, { type: 'bearer' })
+      .expect(403);
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it('serializes draft deletion with confirmation and never leaves a deleted active contract', async () => {
+    const id = await seed(),
+      service = app.get(LeasesService);
+    const outcomes = await Promise.allSettled([
+      service.remove(id, actor(), randomUUID()),
+      service.confirmDraft(id, userId, actor()),
+    ]);
+    expect(outcomes.filter((o) => o.status === 'fulfilled')).toHaveLength(1);
+    expect(outcomes.filter((o) => o.status === 'rejected')).toHaveLength(1);
+    const saved = await row(id);
+    if (saved.deleted_at) {
+      expect(saved.status).toBe('draft');
+      expect(await jobs()).toHaveLength(0);
+      expect(
+        await db.query('SELECT id FROM tenant_accounts WHERE lease_id=$1', [
+          id,
+        ]),
+      ).toHaveLength(0);
+    } else {
+      expect(saved.status).toBe('active');
+      expect(await jobs()).toHaveLength(1);
+      expect(
+        await db.query('SELECT id FROM tenant_accounts WHERE lease_id=$1', [
+          id,
+        ]),
+      ).toHaveLength(1);
+    }
+  });
+
+  it('prevents deleting an original with a live successor and serializes deletion with renewal', async () => {
+    const id = await seed(),
+      service = app.get(LeasesService);
+    await service.confirmDraft(id, userId, actor());
+    await service.terminate(id, actor());
+    const outcomes = await Promise.allSettled([
+      service.renew(id, {}, actor(), randomUUID()),
+      service.remove(id, actor(), randomUUID()),
+    ]);
+    expect(outcomes.filter((o) => o.status === 'fulfilled')).toHaveLength(1);
+    expect(outcomes.filter((o) => o.status === 'rejected')).toHaveLength(1);
+    const children = await db.query(
+      'SELECT id FROM leases WHERE previous_lease_id=$1',
+      [id],
+    );
+    const saved = await row(id);
+    if (children.length) {
+      expect(saved.deleted_at).toBeNull();
+      await expect(service.remove(id, actor(), randomUUID())).rejects.toThrow(
+        'live successor',
+      );
+    } else expect(saved.deleted_at).not.toBeNull();
+  });
+
+  it('retains finalized accounting and the immutable PDF job while recovering duplicate deletion', async () => {
+    const id = await seed(),
+      service = app.get(LeasesService);
+    await service.confirmDraft(id, userId, actor());
+    await service.terminate(id, actor());
+    const accounts = await db.query(
+      'SELECT * FROM tenant_accounts WHERE lease_id=$1',
+      [id],
+    );
+    const beforeJobs = await jobs(),
+      key = randomUUID();
+    const results = await Promise.all([
+      service.remove(id, actor(), key),
+      service.remove(id, actor(), key),
+    ]);
+    expect(results).toEqual([
+      { message: 'Lease deleted successfully' },
+      { message: 'Lease deleted successfully' },
+    ]);
+    expect((await row(id)).deleted_at).not.toBeNull();
+    expect(await jobs()).toEqual(beforeJobs);
+    expect(
+      await db.query('SELECT * FROM tenant_accounts WHERE lease_id=$1', [id]),
+    ).toEqual(accounts);
+    const other = await seed();
+    await expect(service.remove(other, actor(), key)).rejects.toThrow(
+      'different operation or request',
+    );
+    expect((await row(other)).deleted_at).toBeNull();
+    await expect(service.remove(id, actor(), randomUUID())).rejects.toThrow(
+      'Lease not found',
+    );
+    await worker.processDue();
+    expect((await jobs())[0].document_id).not.toBeNull();
   });
 });

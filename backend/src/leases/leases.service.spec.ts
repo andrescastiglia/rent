@@ -148,6 +148,7 @@ describe('LeasesService', () => {
     };
     manager.transaction.mockImplementation(async (work) => work(manager));
     Object.assign(leaseRepository, { manager });
+    Object.assign(_templateRepository, { manager });
   });
 
   it('creates a rental lease in draft', async () => {
@@ -482,9 +483,9 @@ describe('LeasesService', () => {
       status: LeaseStatus.DRAFT,
     } as Lease);
     leaseRepository.softDelete!.mockResolvedValue({ affected: 1 });
-    await expect(
-      service.remove('lease-draft', adminActor),
-    ).resolves.toBeUndefined();
+    await expect(service.remove('lease-draft', adminActor)).resolves.toEqual({
+      message: 'Lease deleted successfully',
+    });
     expect(leaseRepository.softDelete).toHaveBeenCalledWith({
       id: 'lease-draft',
       companyId: 'company-1',
