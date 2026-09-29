@@ -8405,6 +8405,44 @@
           "Portals"
         ]
       },
+      "patch": {
+        "operationId": "Portals_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePortalListingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalListing"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Portals"
+        ]
+      },
       "delete": {
         "operationId": "Portals_remove",
         "parameters": [
@@ -8508,6 +8546,59 @@
         },
         "tags": [
           "Portals"
+        ]
+      }
+    },
+    "/portals/listings/{id}/operation": {
+      "get": {
+        "operationId": "PortalPublication_latest",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalOperationOverviewDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "PortalPublication"
+        ]
+      }
+    },
+    "/portals/internal/process-publications": {
+      "post": {
+        "operationId": "PortalPublication_process",
+        "parameters": [
+          {
+            "name": "x-batch-communications-token",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PortalPublication"
         ]
       }
     },
@@ -17697,6 +17788,10 @@
             "type": "string",
             "nullable": true
           },
+          "providerStatus": {
+            "type": "string",
+            "nullable": true
+          },
           "publishedAt": {
             "format": "date-time",
             "type": "string",
@@ -17733,6 +17828,7 @@
           "status",
           "externalId",
           "externalUrl",
+          "providerStatus",
           "publishedAt",
           "lastSyncedAt",
           "errorMessage",
@@ -17766,6 +17862,87 @@
         "required": [
           "propertyId",
           "portal"
+        ]
+      },
+      "UpdatePortalListingDto": {
+        "type": "object",
+        "properties": {
+          "listingData": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "listingData"
+        ]
+      },
+      "PortalOperationDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "operation": {
+            "enum": [
+              "publish",
+              "update",
+              "pause",
+              "remove",
+              "refresh"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "dispatching",
+              "retry",
+              "completed",
+              "failed",
+              "needs_review"
+            ],
+            "type": "string"
+          },
+          "attempts": {
+            "type": "number"
+          },
+          "errorCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "operation",
+          "status",
+          "attempts",
+          "errorCode",
+          "updatedAt"
+        ]
+      },
+      "PortalOperationOverviewDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "job": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PortalOperationDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "job"
         ]
       },
       "DigitalSignatureRequest": {

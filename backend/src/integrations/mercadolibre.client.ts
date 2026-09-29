@@ -83,6 +83,44 @@ export class MercadoLibreClient {
     private readonly http: ProviderHttpService,
   ) {}
 
+  validateListing(input: unknown): MercadoLibreItem {
+    const result = itemSchema.safeParse(input);
+    if (!result.success)
+      throw new BadRequestException(
+        'Mercado Libre listing data is incomplete or invalid',
+      );
+    return result.data;
+  }
+
+  async upsertDescription(
+    companyId: string,
+    itemId: string,
+    plainText: string,
+  ) {
+    const account = this.config.account(
+      'MERCADOLIBRE',
+      companyId,
+      accountSchema,
+    );
+    await this.ownedItem(account, itemId);
+    if (!plainText.trim() || plainText.length > 50000)
+      throw new BadRequestException('Invalid listing description');
+    let create = false;
+    try {
+      await this.call(account, `/items/${itemId}/description`, 'GET');
+    } catch (error) {
+      if (!(error instanceof ProviderRequestError) || error.status !== 404)
+        throw error;
+      create = true;
+    }
+    return this.call(
+      account,
+      `/items/${itemId}/description`,
+      create ? 'POST' : 'PUT',
+      { plain_text: plainText },
+    );
+  }
+
   async create(companyId: string, input: MercadoLibreItem) {
     const account = this.config.account(
       'MERCADOLIBRE',

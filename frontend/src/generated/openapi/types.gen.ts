@@ -2435,6 +2435,7 @@ export type PortalListing = {
   status: "draft" | "published" | "paused" | "removed" | "error";
   externalId: string | null;
   externalUrl: string | null;
+  providerStatus: string | null;
   publishedAt: string | null;
   lastSyncedAt: string | null;
   errorMessage: string | null;
@@ -2451,6 +2452,32 @@ export type CreatePortalListingDto = {
   listingData?: {
     [key: string]: unknown;
   };
+};
+
+export type UpdatePortalListingDto = {
+  listingData: {
+    [key: string]: unknown;
+  };
+};
+
+export type PortalOperationDto = {
+  id: string;
+  operation: "publish" | "update" | "pause" | "remove" | "refresh";
+  status:
+    | "queued"
+    | "dispatching"
+    | "retry"
+    | "completed"
+    | "failed"
+    | "needs_review";
+  attempts: number;
+  errorCode: string | null;
+  updatedAt: string;
+};
+
+export type PortalOperationOverviewDto = {
+  enabled: boolean;
+  job: PortalOperationDto | null;
 };
 
 export type DigitalSignatureRequest = {
@@ -6430,6 +6457,22 @@ export type PortalsFindOneResponses = {
 export type PortalsFindOneResponse =
   PortalsFindOneResponses[keyof PortalsFindOneResponses];
 
+export type PortalsUpdateData = {
+  body: UpdatePortalListingDto;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/portals/listings/{id}";
+};
+
+export type PortalsUpdateResponses = {
+  200: PortalListing;
+};
+
+export type PortalsUpdateResponse =
+  PortalsUpdateResponses[keyof PortalsUpdateResponses];
+
 export type PortalsPublishData = {
   body?: never;
   path: {
@@ -6475,6 +6518,36 @@ export type PortalsSyncAllResponses = {
 
 export type PortalsSyncAllResponse =
   PortalsSyncAllResponses[keyof PortalsSyncAllResponses];
+
+export type PortalPublicationLatestData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/portals/listings/{id}/operation";
+};
+
+export type PortalPublicationLatestResponses = {
+  200: PortalOperationOverviewDto;
+};
+
+export type PortalPublicationLatestResponse =
+  PortalPublicationLatestResponses[keyof PortalPublicationLatestResponses];
+
+export type PortalPublicationProcessData = {
+  body?: never;
+  headers: {
+    "x-batch-communications-token": string;
+  };
+  path?: never;
+  query?: never;
+  url: "/portals/internal/process-publications";
+};
+
+export type PortalPublicationProcessResponses = {
+  201: unknown;
+};
 
 export type DigitalSignaturesFindAllData = {
   body?: never;

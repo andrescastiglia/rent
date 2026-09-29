@@ -1,6 +1,6 @@
 # Plan de trabajo pendiente
 
-**Actualizado:** 2026-09-28
+**Actualizado:** 2026-09-29
 
 **Fuente:** [Auditoría integral](auditoria-integral-2026-08-27.md)
 
@@ -66,8 +66,13 @@ El cron `process-settlements` permanece suspendido.
 - [ ] Implementar BFA sin confundir sellado temporal con firma de las partes.
   Avance: cliente TSA2, cola durable, API por documento y consulta administrativa
   de constancias/versiones con alcance de compañía; interfaz bloqueada por defecto.
-  Pendiente: completar gates y despliegue deshabilitado.
+  Gates del PR #215 aprobados y cambios incorporados a main.
+  Pendiente: despliegue deshabilitado.
 - [ ] Implementar publicación, actualización y estados con Mercado Libre.
+  Avance: cliente, cola durable y endpoints por compañía; creación sin reenvíos
+  inciertos, recuperación por ID y estados confirmados por el proveedor.
+  Pendiente: persistencia/renovación OAuth, administración y resolución de incidencias,
+  gates y despliegue deshabilitado.
 - [ ] Implementar transferencias Mercado Pago con idempotencia y conciliación.
 - [ ] Verificar que ninguna integración real se invoque mientras está deshabilitada.
 

@@ -405,6 +405,51 @@ describe('Mercado Pago Payouts protocol', () => {
 });
 
 describe('Mercado Libre classifieds protocol', () => {
+  it('validates a stored publication without any provider request', () => {
+    const f = setup();
+    expect(f.ml.validateListing(item)).toEqual(item);
+    expect(() => f.ml.validateListing({})).toThrow('incomplete');
+    expect(f.http.request).not.toHaveBeenCalled();
+  });
+  it.each([true, false])(
+    'checks whether the description exists before writing it (%s)',
+    async (exists) => {
+      const f = setup(mlSettings);
+      f.http.request.mockResolvedValueOnce(itemResult);
+      if (exists) f.http.request.mockResolvedValueOnce({ plain_text: 'Old' });
+      else
+        f.http.request.mockRejectedValueOnce(
+          new ProviderRequestError('MERCADOLIBRE', false, 404),
+        );
+      f.http.request.mockResolvedValueOnce({});
+      await f.ml.upsertDescription(company, 'MLA123', 'New');
+      expect(f.http.request.mock.calls.map((call) => call[2].method)).toEqual([
+        'GET',
+        'GET',
+        exists ? 'PUT' : 'POST',
+      ]);
+    },
+  );
+  it('does not create a description on a failed read or invalid input', async () => {
+    const f = setup(mlSettings);
+    f.http.request
+      .mockResolvedValueOnce(itemResult)
+      .mockRejectedValueOnce(
+        new ProviderRequestError('MERCADOLIBRE', false, 503),
+      );
+    await expect(
+      f.ml.upsertDescription(company, 'MLA123', 'New'),
+    ).rejects.toThrow();
+    expect(f.http.request).toHaveBeenCalledTimes(2);
+    f.http.request.mockResolvedValue(itemResult);
+    await expect(f.ml.upsertDescription(company, 'MLA123', '')).rejects.toThrow(
+      'Invalid listing description',
+    );
+    await expect(
+      setup().ml.upsertDescription(company, 'MLA123', 'New'),
+    ).rejects.toThrow('disabled');
+  });
+
   it('verifies the seller, validates then creates without silently posting a description twice', async () => {
     const f = setup(mlSettings);
     f.http.request
