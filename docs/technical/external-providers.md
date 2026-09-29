@@ -342,9 +342,27 @@ leases vencidos, conciliación repetida, devolución completa y revisión de cas
 parciales/contradictorios. CI incorpora la cobertura de todos los E2E del backend a
 Sonar junto a las pruebas unitarias; conserva los umbrales y controles existentes.
 
+La pantalla administrativa del propietario permite seleccionar una liquidación,
+consultar su estado local y revisar movimientos e historial aun deshabilitada.
+Solo administradores acceden al flujo. La solicitud exige revisar el importe ARS,
+el destino por correo o cuenta corriente y confirmar explícitamente; cambiar
+los datos invalida esa confirmación. No reutiliza el formulario simulado anterior.
+Una respuesta perdida bloquea las escrituras hasta recargar el estado local.
+Las solicitudes en cola o en proceso no ofrecen otro envío. La revisión exige
+motivo y confirmación: vincular IDs verificados, reintentar un rechazo definitivo
+con los datos originales o volver a consultar una transacción conocida.
+La navegación mantiene la compañía, usuario y propietario separados y no persiste
+datos bancarios en el almacenamiento local del navegador. Textos disponibles en español, inglés y portugués.
+
+Validación de interfaz: 370 pruebas frontend aprobadas, lint/tipos y comprobación
+Chromium con transporte local explícito: integración deshabilitada, confirmación,
+cola sin duplicado, revisión, denegación de staff y ausencia de llamadas externas.
+La revisión automatizada de accesibilidad no detectó infracciones en la vista probada;
+no reemplaza la validación completa de accesibilidad pendiente en el plan.
+
 Pendiente: generación durable de liquidaciones, recibos/notificaciones posteriores
-al commit, interfaz administrativa y resolución contable de devoluciones parciales
-o nuevas órdenes tras rechazos/reversiones verificados, gates y despliegue deshabilitado.
+al commit y resolución contable de devoluciones parciales o nuevas órdenes tras
+rechazos/reversiones verificados, gates y despliegue deshabilitado.
 
 ## Validación y rollback
 

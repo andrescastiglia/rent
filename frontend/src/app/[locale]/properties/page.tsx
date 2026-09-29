@@ -1,6 +1,5 @@
 "use client";
 
-import { EXTERNAL_SETTLEMENTS_ENABLED } from "@/config/deferred-features";
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Property, PropertyMaintenanceTask } from "@/types/property";
@@ -472,7 +471,7 @@ type OwnerListItemProps = {
   leasesByProperty: Record<string, Lease[]>;
   maintenanceByProperty: Record<string, PropertyMaintenanceTask[]>;
   loadingPaymentsOwnerId: string | null;
-  canManageOwnerBackoffice: boolean;
+  canManagePayouts: boolean;
   t: (key: string) => string;
   tc: (key: string) => string;
   formatSalePrice: (property: Property) => string;
@@ -608,7 +607,7 @@ function OwnerListItem({
   leasesByProperty,
   maintenanceByProperty,
   loadingPaymentsOwnerId,
-  canManageOwnerBackoffice,
+  canManagePayouts,
   t,
   tc,
   formatSalePrice,
@@ -658,13 +657,13 @@ function OwnerListItem({
             <Edit size={14} />
             {tc("edit")}
           </Link>
-          {canManageOwnerBackoffice && EXTERNAL_SETTLEMENTS_ENABLED ? (
+          {canManagePayouts ? (
             <Link
               href={`/${locale}/properties/owners/${owner.id}/payments/new`}
               className={ownerActionClass}
             >
               <Wallet size={14} />
-              {t("ownerPay")}
+              {t("ownerPayouts")}
             </Link>
           ) : null}
           <span className="ml-auto text-gray-400 dark:text-gray-500 md:ml-0">
@@ -736,7 +735,7 @@ type OwnersResultsProps = {
   leasesByProperty: Record<string, Lease[]>;
   maintenanceByProperty: Record<string, PropertyMaintenanceTask[]>;
   loadingPaymentsOwnerId: string | null;
-  canManageOwnerBackoffice: boolean;
+  canManagePayouts: boolean;
   t: (key: string) => string;
   tc: (key: string) => string;
   formatSalePrice: (property: Property) => string;
@@ -758,7 +757,7 @@ function OwnersResults({
   leasesByProperty,
   maintenanceByProperty,
   loadingPaymentsOwnerId,
-  canManageOwnerBackoffice,
+  canManagePayouts,
   t,
   tc,
   formatSalePrice,
@@ -792,7 +791,7 @@ function OwnersResults({
           leasesByProperty={leasesByProperty}
           maintenanceByProperty={maintenanceByProperty}
           loadingPaymentsOwnerId={loadingPaymentsOwnerId}
-          canManageOwnerBackoffice={canManageOwnerBackoffice}
+          canManagePayouts={canManagePayouts}
           t={t}
           tc={tc}
           formatSalePrice={formatSalePrice}
@@ -809,6 +808,7 @@ function OwnersResults({
 export default function PropertiesPage() {
   const { loading: authLoading, user } = useAuth();
   const canManageOwnerBackoffice = canManageOwnersForUser(user);
+  const canManagePayouts = getUserRoles(user).includes("admin");
   const t = useTranslations("properties");
   const tc = useTranslations("common");
   const locale = useLocale();
@@ -1040,7 +1040,7 @@ export default function PropertiesPage() {
             leasesByProperty={leasesByProperty}
             maintenanceByProperty={maintenanceByProperty}
             loadingPaymentsOwnerId={loadingPaymentsOwnerId}
-            canManageOwnerBackoffice={canManageOwnerBackoffice}
+            canManagePayouts={canManagePayouts}
             t={t}
             tc={tc}
             formatSalePrice={formatSalePrice}
