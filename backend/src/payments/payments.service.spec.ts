@@ -726,6 +726,8 @@ describe('PaymentsService', () => {
       id: 'invoice-1',
       companyId: 'company-1',
       amountPaid: 100,
+      total: 100,
+      dueDate: new Date('2020-01-01T12:00:00Z'),
       status: InvoiceStatus.PAID,
     } as Invoice;
     const note = {
