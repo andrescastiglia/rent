@@ -15371,6 +15371,14 @@
       "CreditNote": {
         "type": "object",
         "properties": {
+          "origin": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "late_fee_settlement",
+              null
+            ]
+          },
           "id": {
             "type": "string"
           },
@@ -15436,6 +15444,15 @@
               "cancelled"
             ]
           },
+          "cancelledAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "cancelledByPaymentId": {
+            "type": "string",
+            "nullable": true
+          },
           "pdfUrl": {
             "type": "string",
             "nullable": true
@@ -15459,6 +15476,7 @@
           }
         },
         "required": [
+          "origin",
           "id",
           "companyId",
           "company",
@@ -15474,6 +15492,8 @@
           "currency",
           "reason",
           "status",
+          "cancelledAt",
+          "cancelledByPaymentId",
           "pdfUrl",
           "issuedAt",
           "createdAt",

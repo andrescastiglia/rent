@@ -1,4 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { WhatsappService } from '../src/whatsapp/whatsapp.service';
+import { CommunicationDelivery } from '../src/communications/entities/communication-delivery.entity';
+import { CreditNote } from '../src/payments/entities/credit-note.entity';
 import { PaymentsService } from '../src/payments/payments.service';
 import { AiToolExecutorService } from '../src/ai/ai-tool-executor.service';
 import { PaymentItemType } from '../src/payments/entities/payment-item.entity';
@@ -1769,4 +1772,436 @@ describe('Payment accounting flow (e2e)', () => {
       )[0].cancelled_at,
     ).toBeNull();
   });
+  async function splitLateFeeFixture() {
+    const fixture = await recoveryFixture(),
+      service = app.get(PaymentsService);
+    const payments = [];
+    for (const amount of [50, 60]) {
+      const payment = await service.create(
+        { ...fixture.dto, amount, items: [] },
+        adminId,
+        companyId,
+      );
+      await service.confirm(payment.id, companyId);
+      payments.push(payment);
+    }
+    const [note] = await dataSource.query(
+      'SELECT * FROM credit_notes WHERE invoice_id=$1',
+      [fixture.invoiceId],
+    );
+    return { ...fixture, payments, note, service };
+  }
+
+  it('revokes the conditional late-fee note when an earlier payment is cancelled, only once', async () => {
+    const f = await splitLateFeeFixture();
+    expect(f.note.origin).toBe('late_fee_settlement');
+    await f.service.cancel(f.payments[0].id, companyId);
+    const [note] = await dataSource.query(
+      'SELECT status,payment_id,cancelled_at,cancelled_by_payment_id FROM credit_notes WHERE id=$1',
+      [f.note.id],
+    );
+    expect(note).toEqual({
+      status: 'cancelled',
+      payment_id: f.payments[1].id,
+      cancelled_at: expect.any(Date),
+      cancelled_by_payment_id: f.payments[0].id,
+    });
+    expect((await f.service.findOne(f.payments[1].id, companyId)).status).toBe(
+      'completed',
+    );
+    expect(
+      (
+        await dataSource.query(
+          'SELECT current_balance::text FROM tenant_accounts WHERE id=$1',
+          [f.accountId],
+        )
+      )[0].current_balance,
+    ).toBe('50.00');
+    await f.service.cancel(f.payments[1].id, companyId);
+    expect(
+      (
+        await dataSource.query(
+          'SELECT current_balance::text FROM tenant_accounts WHERE id=$1',
+          [f.accountId],
+        )
+      )[0].current_balance,
+    ).toBe('110.00');
+    expect(
+      await dataSource.query(
+        "SELECT id FROM tenant_account_movements WHERE reference_type='credit_note_cancellation' AND reference_id=$1",
+        [f.note.id],
+      ),
+    ).toHaveLength(1);
+    await expect(
+      dataSource.query("UPDATE credit_notes SET status='issued' WHERE id=$1", [
+        f.note.id,
+      ]),
+    ).rejects.toThrow('cancellation is immutable');
+    await expect(
+      dataSource.query(
+        'UPDATE credit_notes SET cancelled_by_payment_id=$2 WHERE id=$1',
+        [f.note.id, f.payments[1].id],
+      ),
+    ).rejects.toThrow('cancellation is immutable');
+  });
+
+  it('issues one new conditional credit after a replacement payment settles the invoice again', async () => {
+    const f = await splitLateFeeFixture();
+    await f.service.cancel(f.payments[0].id, companyId);
+    const replacement = await f.service.create(
+      { ...f.dto, amount: 50, items: [] },
+      adminId,
+      companyId,
+    );
+    await f.service.confirm(replacement.id, companyId);
+    const notes = await dataSource.query(
+      'SELECT status,payment_id FROM credit_notes WHERE invoice_id=$1 ORDER BY created_at',
+      [f.invoiceId],
+    );
+    expect(notes).toEqual([
+      { status: 'cancelled', payment_id: f.payments[1].id },
+      { status: 'issued', payment_id: replacement.id },
+    ]);
+    expect(
+      (
+        await dataSource.query(
+          'SELECT current_balance::text FROM tenant_accounts WHERE id=$1',
+          [f.accountId],
+        )
+      )[0].current_balance,
+    ).toBe('-10.00');
+    await expect(
+      dataSource.query(
+        `INSERT INTO credit_notes(company_id,invoice_id,payment_id,tenant_account_id,note_number,amount,currency,origin,status)
+      VALUES($1,$2,$3,$4,$5,10,'ARS','late_fee_settlement','issued')`,
+        [
+          companyId,
+          f.invoiceId,
+          f.payments[0].id,
+          f.accountId,
+          `DUP-${randomUUID()}`,
+        ],
+      ),
+    ).rejects.toThrow('idx_credit_notes_active_late_fee');
+  });
+
+  it('serializes concurrent cancellations of split payments without reversing the same credit twice', async () => {
+    const f = await splitLateFeeFixture();
+    await Promise.all(f.payments.map((p) => f.service.cancel(p.id, companyId)));
+    expect(
+      (
+        await dataSource.query(
+          'SELECT current_balance::text FROM tenant_accounts WHERE id=$1',
+          [f.accountId],
+        )
+      )[0].current_balance,
+    ).toBe('110.00');
+    expect(
+      await dataSource.query(
+        "SELECT id FROM tenant_account_movements WHERE reference_type='credit_note_cancellation' AND reference_id=$1",
+        [f.note.id],
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('leaves independent manual credits intact and rolls back cross-payment reversal for unknown legacy credits', async () => {
+    const f = await splitLateFeeFixture();
+    const legacyPayment = await f.service.create(
+      { ...f.dto, amount: 1, items: [] },
+      adminId,
+      companyId,
+    );
+    const [manual] = await dataSource.query(
+      `INSERT INTO credit_notes(company_id,invoice_id,tenant_account_id,note_number,amount,currency,status,created_at)
+      VALUES($1,$2,$3,$4,3,'ARS','issued','2000-01-01') RETURNING id`,
+      [companyId, f.invoiceId, f.accountId, `MAN-${randomUUID()}`],
+    );
+    const [legacy] = await dataSource.query(
+      `INSERT INTO credit_notes(company_id,invoice_id,payment_id,tenant_account_id,note_number,amount,currency,status,created_at)
+      VALUES($1,$2,$3,$4,$5,2,'ARS','issued','2000-01-01') RETURNING id`,
+      [
+        companyId,
+        f.invoiceId,
+        legacyPayment.id,
+        f.accountId,
+        `LEG-${randomUUID()}`,
+      ],
+    );
+    const before = await dataSource.query(
+      'SELECT * FROM tenant_account_movements WHERE tenant_account_id=$1 ORDER BY id',
+      [f.accountId],
+    );
+    await expect(f.service.cancel(f.payments[0].id, companyId)).rejects.toThrow(
+      'manual review',
+    );
+    expect((await f.service.findOne(f.payments[0].id, companyId)).status).toBe(
+      'completed',
+    );
+    expect(
+      await dataSource.query(
+        'SELECT * FROM tenant_account_movements WHERE tenant_account_id=$1 ORDER BY id',
+        [f.accountId],
+      ),
+    ).toEqual(before);
+    expect(
+      (
+        await dataSource.query(
+          'SELECT paid_amount::text FROM invoices WHERE id=$1',
+          [f.invoiceId],
+        )
+      )[0].paid_amount,
+    ).toBe('110.00');
+    // Remove only the artificial, unposted legacy test record; production origin is never inferred.
+    await dataSource.query('DELETE FROM credit_notes WHERE id=$1', [legacy.id]);
+    await f.service.cancel(f.payments[0].id, companyId);
+    expect(
+      (
+        await dataSource.query(
+          'SELECT status,origin FROM credit_notes WHERE id=$1',
+          [manual.id],
+        )
+      )[0],
+    ).toEqual({ status: 'issued', origin: null });
+    await expect(
+      dataSource.query(
+        "UPDATE credit_notes SET origin='late_fee_settlement' WHERE id=$1",
+        [manual.id],
+      ),
+    ).rejects.toThrow('origin is immutable');
+  });
+
+  it('requires review before settling an invoice with a legacy payment-linked credit', async () => {
+    const f = await recoveryFixture(),
+      service = app.get(PaymentsService);
+    const first = await service.create(
+      { ...f.dto, amount: 50, items: [] },
+      adminId,
+      companyId,
+    );
+    await service.confirm(first.id, companyId);
+    await dataSource.query(
+      `INSERT INTO credit_notes(company_id,invoice_id,payment_id,tenant_account_id,note_number,amount,currency,status,created_at)
+      VALUES($1,$2,$3,$4,$5,2,'ARS','issued','2000-01-01')`,
+      [companyId, f.invoiceId, first.id, f.accountId, `LEG-${randomUUID()}`],
+    );
+    const second = await service.create(
+      { ...f.dto, amount: 60, items: [] },
+      adminId,
+      companyId,
+    );
+    await expect(service.confirm(second.id, companyId)).rejects.toThrow(
+      'manual review',
+    );
+    expect((await service.findOne(second.id, companyId)).status).toBe(
+      'pending',
+    );
+    expect(
+      (
+        await dataSource.query(
+          'SELECT current_balance::text FROM tenant_accounts WHERE id=$1',
+          [f.accountId],
+        )
+      )[0].current_balance,
+    ).toBe('60.00');
+  });
+
+  it('does not render or queue a revoked credit while the originating payment remains completed', async () => {
+    const f = await splitLateFeeFixture();
+    await f.service.cancel(f.payments[0].id, companyId);
+    // Exercise the same transaction callback used by the outbox, scoped to this payment.
+    await dataSource.transaction((manager) =>
+      (app.get(PaymentEffectsService) as any).render(
+        manager,
+        f.payments[1].id,
+        companyId,
+      ),
+    );
+    const [note] = await dataSource.query(
+      'SELECT status,pdf_url FROM credit_notes WHERE id=$1',
+      [f.note.id],
+    );
+    expect(note).toEqual({ status: 'cancelled', pdf_url: null });
+    expect(
+      await dataSource.query(
+        "SELECT id FROM communication_deliveries WHERE metadata->>'creditNoteId'=$1",
+        [f.note.id],
+      ),
+    ).toHaveLength(0);
+    expect(
+      (
+        await dataSource.query(
+          'SELECT cancelled_at,pdf_url FROM receipts WHERE payment_id=$1',
+          [f.payments[1].id],
+        )
+      )[0],
+    ).toEqual({
+      cancelled_at: null,
+      pdf_url: expect.stringMatching(/^db:\/\/document\//),
+    });
+  });
+
+  it('waits for credit-note rendering before cancellation and rejects the queued notice afterwards', async () => {
+    const f = await splitLateFeeFixture();
+    const renderer = app.get(CreditNotePdfService),
+      original = renderer.generate.bind(renderer);
+    let entered!: () => void, release!: () => void;
+    const enteredPromise = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const releasePromise = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const paused = jest
+      .spyOn(renderer, 'generate')
+      .mockImplementationOnce(async (...args) => {
+        entered();
+        await releasePromise;
+        return original(...args);
+      });
+    const worker = dataSource.transaction((manager) =>
+      (app.get(PaymentEffectsService) as any).render(
+        manager,
+        f.payments[1].id,
+        companyId,
+      ),
+    );
+    try {
+      await enteredPromise;
+      // A second DB session cannot acquire the note while its renderer is paused.
+      await expect(
+        dataSource.transaction((manager) =>
+          manager.query(
+            'SELECT id FROM credit_notes WHERE id=$1 FOR UPDATE NOWAIT',
+            [f.note.id],
+          ),
+        ),
+      ).rejects.toThrow('could not obtain lock');
+      const cancellation = f.service.cancel(f.payments[0].id, companyId);
+      release();
+      await Promise.all([worker, cancellation]);
+    } finally {
+      release();
+      paused.mockRestore();
+    }
+    expect(
+      (
+        await dataSource
+          .getRepository(CreditNote)
+          .findOneByOrFail({ id: f.note.id })
+      ).status,
+    ).toBe('cancelled');
+    const [row] = await dataSource.query(
+      "SELECT id FROM communication_deliveries WHERE metadata->>'creditNoteId'=$1",
+      [f.note.id],
+    );
+    expect(row).toBeDefined();
+    const delivery = await dataSource
+      .getRepository(CommunicationDelivery)
+      .findOneByOrFail({ id: row.id });
+    const sendText = jest
+      .spyOn(app.get(WhatsappService), 'sendTextMessage')
+      .mockResolvedValue({ messageId: 'test' } as never);
+    const sendTemplate = jest
+      .spyOn(app.get(WhatsappService), 'sendTemplateMessage')
+      .mockResolvedValue({ messageId: 'test' } as never);
+    try {
+      await expect(
+        (app.get(CommunicationsService) as any).send(delivery),
+      ).rejects.toThrow('no longer eligible');
+      expect(sendText).not.toHaveBeenCalled();
+      expect(sendTemplate).not.toHaveBeenCalled();
+    } finally {
+      sendText.mockRestore();
+      sendTemplate.mockRestore();
+    }
+  });
+  it.each([
+    'eligible',
+    'consent',
+    'phone',
+    'preference',
+    'whatsapp',
+    'recipient',
+    'company',
+    'note',
+    'payment',
+    'attachment',
+  ])(
+    'revalidates %s before sending a queued credit-note notice',
+    async (scenario) => {
+      const f = await splitLateFeeFixture();
+      await dataSource.transaction((manager) =>
+        (app.get(PaymentEffectsService) as any).render(
+          manager,
+          f.payments[1].id,
+          companyId,
+        ),
+      );
+      const [row] = await dataSource.query(
+        "SELECT id FROM communication_deliveries WHERE metadata->>'creditNoteId'=$1",
+        [f.note.id],
+      );
+      const delivery = await dataSource
+        .getRepository(CommunicationDelivery)
+        .findOneByOrFail({ id: row.id });
+      const [person] = await dataSource.query(
+        'SELECT t.id,t.user_id,t.contact_consent,t.preferred_contact_channel,u.phone,u.whatsapp_enabled FROM tenants t JOIN users u ON u.id=t.user_id WHERE t.id=$1',
+        [delivery.recipientId],
+      );
+      const sendText = jest
+        .spyOn(app.get(WhatsappService), 'sendTextMessage')
+        .mockResolvedValue({ messageId: 'test' } as never);
+      const sendTemplate = jest
+        .spyOn(app.get(WhatsappService), 'sendTemplateMessage')
+        .mockResolvedValue({ messageId: 'test' } as never);
+      try {
+        if (scenario === 'consent')
+          await dataSource.query(
+            'UPDATE tenants SET contact_consent=false WHERE id=$1',
+            [person.id],
+          );
+        if (scenario === 'phone')
+          await dataSource.query(
+            "UPDATE users SET phone='5491100000099' WHERE id=$1",
+            [person.user_id],
+          );
+        if (scenario === 'preference')
+          await dataSource.query(
+            "UPDATE tenants SET preferred_contact_channel='email' WHERE id=$1",
+            [person.id],
+          );
+        if (scenario === 'whatsapp')
+          await dataSource.query(
+            'UPDATE users SET whatsapp_enabled=false WHERE id=$1',
+            [person.user_id],
+          );
+        if (scenario === 'recipient') delivery.recipientId = randomUUID();
+        if (scenario === 'company') delivery.companyId = foreignCompanyId;
+        if (scenario === 'note') delivery.metadata!.creditNoteId = randomUUID();
+        if (scenario === 'payment') delivery.relatedEntityId = f.payments[0].id;
+        if (scenario === 'attachment')
+          delivery.metadata!.attachmentUrl = 'db://document/wrong';
+        const send = (app.get(CommunicationsService) as any).send(delivery);
+        if (scenario === 'eligible') {
+          await expect(send).resolves.toBe('test');
+          expect(sendTemplate).toHaveBeenCalledTimes(1);
+        } else {
+          await expect(send).rejects.toThrow('no longer eligible');
+          expect(sendTemplate).not.toHaveBeenCalled();
+        }
+        expect(sendText).not.toHaveBeenCalled();
+      } finally {
+        sendText.mockRestore();
+        sendTemplate.mockRestore();
+        await dataSource.query(
+          'UPDATE tenants SET contact_consent=$2,preferred_contact_channel=$3 WHERE id=$1',
+          [person.id, person.contact_consent, person.preferred_contact_channel],
+        );
+        await dataSource.query(
+          'UPDATE users SET phone=$2,whatsapp_enabled=$3 WHERE id=$1',
+          [person.user_id, person.phone, person.whatsapp_enabled],
+        );
+      }
+    },
+  );
 });

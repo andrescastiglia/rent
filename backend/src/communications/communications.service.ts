@@ -527,6 +527,38 @@ export class CommunicationsService {
           'Invoice notice recipient or consent is no longer eligible',
         );
     }
+    if (delivery.event === CommunicationEvent.CREDIT_NOTE_ISSUED) {
+      const [eligible] = await this.dataSource.query(
+        `SELECT n.id FROM credit_notes n
+         JOIN payments p ON p.id=n.payment_id AND p.company_id=$2 AND p.deleted_at IS NULL AND p.status='completed'
+         JOIN invoices i ON i.id=n.invoice_id AND i.company_id=$2 AND i.deleted_at IS NULL
+         JOIN leases l ON l.id=i.lease_id AND l.company_id=$2 AND l.deleted_at IS NULL
+         JOIN tenants t ON t.id=l.tenant_id AND t.company_id=$2 AND t.deleted_at IS NULL
+         JOIN users u ON u.id=t.user_id AND u.company_id=$2 AND u.deleted_at IS NULL
+         WHERE n.id::text=$1 AND n.company_id=$2 AND n.deleted_at IS NULL AND n.status='issued'
+         AND n.payment_id=$5 AND n.pdf_url=$6 AND t.id=$3 AND u.phone=$4
+         AND t.contact_consent=true AND u.whatsapp_enabled=true
+         AND (t.preferred_contact_channel IS NULL OR t.preferred_contact_channel='whatsapp')`,
+        [
+          typeof delivery.metadata?.creditNoteId === 'string'
+            ? delivery.metadata.creditNoteId
+            : null,
+          delivery.companyId,
+          delivery.recipientId,
+          delivery.recipient,
+          delivery.relatedEntityType === 'payment'
+            ? delivery.relatedEntityId
+            : null,
+          typeof delivery.metadata?.attachmentUrl === 'string'
+            ? delivery.metadata.attachmentUrl
+            : null,
+        ],
+      );
+      if (!eligible)
+        throw new BadRequestException(
+          'Credit note notice or recipient is no longer eligible',
+        );
+    }
     const context = {
       companyId: delivery.companyId,
       idempotencyKey: delivery.id,

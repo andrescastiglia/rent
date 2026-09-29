@@ -125,15 +125,21 @@ export class PaymentEffectsService {
     companyId: string,
   ) {
     const notes = manager.getRepository(CreditNote);
-    for (const note of await notes.find({
+    for (const locked of await notes.find({
       where: { paymentId, companyId, status: CreditNoteStatus.ISSUED },
-      relations: [
-        'invoice',
-        'invoice.lease',
-        'invoice.lease.tenant',
-        'invoice.lease.tenant.user',
-      ],
+      order: { id: 'ASC' },
+      lock: { mode: 'pessimistic_write' },
     })) {
+      // Another payment can revoke this note; retain its lock through PDF persistence.
+      const note = await notes.findOneOrFail({
+        where: { id: locked.id, companyId, status: CreditNoteStatus.ISSUED },
+        relations: [
+          'invoice',
+          'invoice.lease',
+          'invoice.lease.tenant',
+          'invoice.lease.tenant.user',
+        ],
+      });
       if (note.pdfUrl) continue;
       if (note.invoice?.companyId !== companyId)
         throw new Error('Credit note invoice is unavailable');
@@ -145,7 +151,13 @@ export class PaymentEffectsService {
       await notes.save(note);
       const tenant = note.invoice.lease?.tenant;
       const user = tenant?.user;
-      if (!tenant || !user?.phone) continue;
+      if (
+        !tenant ||
+        !user?.phone ||
+        (tenant.preferredContactChannel &&
+          tenant.preferredContactChannel !== CommunicationChannel.WHATSAPP)
+      )
+        continue;
       const amount = `${note.currencyCode} ${Number(note.amount).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
       await this.communications.dispatchEvent(
         {

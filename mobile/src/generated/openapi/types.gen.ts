@@ -1490,6 +1490,7 @@ export type InvoiceDocumentStatusDto = {
 };
 
 export type CreditNote = {
+  origin: 'late_fee_settlement' | null;
   id: string;
   companyId: string;
   company: Company;
@@ -1505,6 +1506,8 @@ export type CreditNote = {
   currency: Currency;
   reason: string | null;
   status: 'draft' | 'issued' | 'cancelled';
+  cancelledAt: string | null;
+  cancelledByPaymentId: string | null;
   pdfUrl: string | null;
   issuedAt: string;
   createdAt: string;

@@ -53,6 +53,9 @@ describe('PaymentEffectsService', () => {
     };
     const noteRepo = {
       find: jest.fn().mockResolvedValue(notes),
+      findOneOrFail: jest.fn(async ({ where }) =>
+        notes.find((note) => note.id === where.id),
+      ),
       save: jest.fn(),
     };
     const events = [

@@ -17,6 +17,7 @@ import {
   EntityManager,
   In,
   IsNull,
+  Not,
   Repository,
   SelectQueryBuilder,
 } from 'typeorm';
@@ -29,7 +30,11 @@ import { PaymentItem, PaymentItemType } from './entities/payment-item.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { Receipt } from './entities/receipt.entity';
 import { Invoice, InvoiceStatus } from './entities/invoice.entity';
-import { CreditNote, CreditNoteStatus } from './entities/credit-note.entity';
+import {
+  CreditNote,
+  CreditNoteOrigin,
+  CreditNoteStatus,
+} from './entities/credit-note.entity';
 import { TenantAccount } from './entities/tenant-account.entity';
 import { TenantAccountsService } from './tenant-accounts.service';
 import { MovementType } from './entities/tenant-account-movement.entity';
@@ -781,8 +786,26 @@ export class PaymentsService {
       }
 
       const existing = await creditNotesRepository.findOne({
-        where: { invoiceId: invoice.id, paymentId: payment.id },
+        where: {
+          companyId: payment.companyId,
+          invoiceId: invoice.id,
+          status: CreditNoteStatus.ISSUED,
+          origin: CreditNoteOrigin.LATE_FEE_SETTLEMENT,
+        },
       });
+      const legacy = await creditNotesRepository.findOne({
+        where: {
+          companyId: payment.companyId,
+          invoiceId: invoice.id,
+          status: CreditNoteStatus.ISSUED,
+          origin: IsNull(),
+          paymentId: Not(IsNull()),
+        },
+      });
+      if (legacy)
+        throw new BadRequestException(
+          'Legacy credit note requires manual review before settling late fees',
+        );
       if (!existing)
         await this.issueLateFeeCreditNote({
           payment,
@@ -824,6 +847,7 @@ export class PaymentsService {
       amount: lateFeeAmount,
       currencyCode: invoice.currencyCode || payment.currencyCode || 'ARS',
       reason: `Mora vinculada a factura ${invoice.invoiceNumber}`,
+      origin: CreditNoteOrigin.LATE_FEE_SETTLEMENT,
       status: CreditNoteStatus.ISSUED,
     });
     const savedNote = await creditNotesRepository.save(note);
@@ -942,6 +966,7 @@ export class PaymentsService {
       lock: { mode: 'pessimistic_write' },
     });
 
+    const unsettledInvoiceIds: string[] = [];
     for (const allocation of allocations) {
       const invoice = await invoicesRepository.findOne({
         where: { id: allocation.invoiceId, companyId: payment.companyId },
@@ -982,20 +1007,47 @@ export class PaymentsService {
         previousUnpaidStatus,
       );
       invoice.amountPaid = paymentNumber(remainingPaid);
+      if (
+        remainingPaid < paymentCents(invoice.total) ||
+        [InvoiceStatus.CANCELLED, InvoiceStatus.REFUNDED].includes(
+          invoice.status,
+        )
+      )
+        unsettledInvoiceIds.push(invoice.id);
       await invoicesRepository.save(invoice);
       allocation.reversedAt = new Date();
       await allocationsRepository.save(allocation);
     }
 
     const creditNotes = await creditNotesRepository.find({
-      where: {
-        companyId: payment.companyId,
-        paymentId: payment.id,
-        status: CreditNoteStatus.ISSUED,
-      },
+      where: [
+        {
+          companyId: payment.companyId,
+          paymentId: payment.id,
+          status: CreditNoteStatus.ISSUED,
+        },
+        ...(unsettledInvoiceIds.length
+          ? [
+              {
+                companyId: payment.companyId,
+                invoiceId: In(unsettledInvoiceIds),
+                paymentId: Not(IsNull()),
+                status: CreditNoteStatus.ISSUED,
+              },
+            ]
+          : []),
+      ],
+      order: { id: 'ASC' },
       lock: { mode: 'pessimistic_write' },
     });
     for (const note of creditNotes) {
+      if (
+        note.paymentId !== payment.id &&
+        note.origin !== CreditNoteOrigin.LATE_FEE_SETTLEMENT
+      )
+        throw new BadRequestException(
+          'Legacy credit note requires manual review before reversing this payment',
+        );
       if (note.tenantAccountId) {
         await this.tenantAccountsService.addMovementWithManager(manager, {
           accountId: note.tenantAccountId,
@@ -1008,6 +1060,8 @@ export class PaymentsService {
         });
       }
       note.status = CreditNoteStatus.CANCELLED;
+      note.cancelledAt = new Date();
+      note.cancelledByPaymentId = payment.id;
       await creditNotesRepository.save(note);
     }
 

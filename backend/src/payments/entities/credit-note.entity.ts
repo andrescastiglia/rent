@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import {
   Column,
   CreateDateColumn,
@@ -18,6 +19,10 @@ export enum CreditNoteStatus {
   DRAFT = 'draft',
   ISSUED = 'issued',
   CANCELLED = 'cancelled',
+}
+
+export enum CreditNoteOrigin {
+  LATE_FEE_SETTLEMENT = 'late_fee_settlement',
 }
 
 @Entity('credit_notes')
@@ -76,6 +81,20 @@ export class CreditNote {
     default: CreditNoteStatus.ISSUED,
   })
   status: CreditNoteStatus;
+
+  @ApiProperty({
+    type: String,
+    enum: [...Object.values(CreditNoteOrigin), null],
+    nullable: true,
+  })
+  @Column({ type: 'text', nullable: true })
+  origin: CreditNoteOrigin | null;
+
+  @Column({ name: 'cancelled_at', type: 'timestamptz', nullable: true })
+  cancelledAt: Date | null;
+
+  @Column({ name: 'cancelled_by_payment_id', type: 'uuid', nullable: true })
+  cancelledByPaymentId: string | null;
 
   @Column({ name: 'pdf_url', type: 'text', nullable: true })
   pdfUrl: string | null;
