@@ -1,5 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { WhatsappService } from '../src/whatsapp/whatsapp.service';
+import {
+  CommunicationEvent,
+  CommunicationRecipientRole,
+} from '../src/communications/entities/communication-template.entity';
 import { CommunicationDelivery } from '../src/communications/entities/communication-delivery.entity';
 import { CreditNote } from '../src/payments/entities/credit-note.entity';
 import { PaymentsService } from '../src/payments/payments.service';
@@ -2204,4 +2208,245 @@ describe('Payment accounting flow (e2e)', () => {
       }
     },
   );
+  async function queuedReceiptFixture() {
+    const f = await recoveryFixture(),
+      service = app.get(PaymentsService);
+    const payment = await service.create(
+      { ...f.dto, amount: 50, items: [] },
+      adminId,
+      companyId,
+    );
+    await service.confirm(payment.id, companyId);
+    await dataSource.transaction((manager) =>
+      (app.get(PaymentEffectsService) as any).render(
+        manager,
+        payment.id,
+        companyId,
+      ),
+    );
+    const delivery = await dataSource
+      .getRepository(CommunicationDelivery)
+      .findOneByOrFail({
+        relatedEntityId: payment.id,
+        event: CommunicationEvent.PAYMENT_RECEIVED,
+      });
+    return { ...f, service, payment, delivery };
+  }
+
+  it.each([
+    'eligible',
+    'cancelled-payment',
+    'cancelled-receipt',
+    'refunded-payment',
+    'deleted-payment',
+    'consent',
+    'phone',
+    'preference',
+    'whatsapp',
+    'deleted-tenant',
+    'deleted-user',
+    'deleted-account',
+    'deleted-lease',
+    'recipient',
+    'role',
+    'company',
+    'receipt',
+    'missing-receipt',
+    'payment',
+    'entity-type',
+    'attachment',
+    'receipt-amount',
+    'receipt-currency',
+    'pending-payment',
+    'missing-attachment',
+  ])('revalidates queued receipt after %s changes', async (scenario) => {
+    const f = await queuedReceiptFixture(),
+      delivery = f.delivery;
+    const [person] = await dataSource.query(
+      'SELECT t.id,t.user_id,t.contact_consent,t.preferred_contact_channel,t.deleted_at AS tenant_deleted,u.phone,u.whatsapp_enabled,u.deleted_at AS user_deleted FROM tenants t JOIN users u ON u.id=t.user_id WHERE t.id=$1',
+      [delivery.recipientId],
+    );
+    const [account] = await dataSource.query(
+      'SELECT lease_id FROM tenant_accounts WHERE id=$1',
+      [f.accountId],
+    );
+    const sendText = jest
+      .spyOn(app.get(WhatsappService), 'sendTextMessage')
+      .mockResolvedValue({ messageId: 'receipt-test' } as never);
+    const sendTemplate = jest
+      .spyOn(app.get(WhatsappService), 'sendTemplateMessage')
+      .mockResolvedValue({ messageId: 'receipt-template-test' } as never);
+    try {
+      if (scenario === 'cancelled-payment')
+        await f.service.cancel(f.payment.id, companyId);
+      if (scenario === 'cancelled-receipt')
+        await dataSource.query(
+          'UPDATE receipts SET cancelled_at=now() WHERE payment_id=$1',
+          [f.payment.id],
+        );
+      if (scenario === 'refunded-payment')
+        await dataSource.query(
+          "UPDATE payments SET status='refunded' WHERE id=$1",
+          [f.payment.id],
+        );
+      if (scenario === 'deleted-payment')
+        await dataSource.query(
+          'UPDATE payments SET deleted_at=now() WHERE id=$1',
+          [f.payment.id],
+        );
+      if (scenario === 'consent')
+        await dataSource.query(
+          'UPDATE tenants SET contact_consent=false WHERE id=$1',
+          [person.id],
+        );
+      if (scenario === 'phone')
+        await dataSource.query(
+          "UPDATE users SET phone='5491100000088' WHERE id=$1",
+          [person.user_id],
+        );
+      if (scenario === 'preference')
+        await dataSource.query(
+          "UPDATE tenants SET preferred_contact_channel='email' WHERE id=$1",
+          [person.id],
+        );
+      if (scenario === 'whatsapp')
+        await dataSource.query(
+          'UPDATE users SET whatsapp_enabled=false WHERE id=$1',
+          [person.user_id],
+        );
+      if (scenario === 'deleted-tenant')
+        await dataSource.query(
+          'UPDATE tenants SET deleted_at=now() WHERE id=$1',
+          [person.id],
+        );
+      if (scenario === 'deleted-user')
+        await dataSource.query(
+          'UPDATE users SET deleted_at=now() WHERE id=$1',
+          [person.user_id],
+        );
+      if (scenario === 'deleted-account')
+        await dataSource.query(
+          'UPDATE tenant_accounts SET deleted_at=now() WHERE id=$1',
+          [f.accountId],
+        );
+      if (scenario === 'deleted-lease')
+        await dataSource.query(
+          'UPDATE leases SET deleted_at=now() WHERE id=$1',
+          [account.lease_id],
+        );
+      if (scenario === 'recipient') delivery.recipientId = randomUUID();
+      if (scenario === 'role')
+        delivery.recipientRole = CommunicationRecipientRole.OWNER;
+      if (scenario === 'company') delivery.companyId = foreignCompanyId;
+      if (scenario === 'receipt') delivery.metadata.receiptId = randomUUID();
+      if (scenario === 'missing-receipt') delete delivery.metadata.receiptId;
+      if (scenario === 'payment') delivery.relatedEntityId = randomUUID();
+      if (scenario === 'entity-type') delivery.relatedEntityType = 'invoice';
+      if (scenario === 'attachment')
+        delivery.metadata.attachmentUrl = 'db://document/wrong-receipt';
+      if (scenario === 'receipt-amount')
+        await dataSource.query(
+          'UPDATE receipts SET amount=1 WHERE payment_id=$1',
+          [f.payment.id],
+        );
+      if (scenario === 'receipt-currency')
+        await dataSource.query(
+          "UPDATE receipts SET currency='USD' WHERE payment_id=$1",
+          [f.payment.id],
+        );
+      if (scenario === 'pending-payment')
+        await dataSource.query(
+          "UPDATE payments SET status='pending' WHERE id=$1",
+          [f.payment.id],
+        );
+      if (scenario === 'missing-attachment')
+        delete delivery.metadata.attachmentUrl;
+      const send = (app.get(CommunicationsService) as any).send(delivery);
+      if (scenario === 'eligible') {
+        await expect(send).resolves.toBe('receipt-test');
+        expect(sendText).toHaveBeenCalledTimes(1);
+        expect(sendText).toHaveBeenCalledWith(
+          delivery.recipient,
+          delivery.body,
+          delivery.metadata.attachmentUrl,
+          expect.objectContaining({
+            companyId,
+            idempotencyKey: delivery.id,
+            relatedEntityId: f.payment.id,
+          }),
+        );
+      } else {
+        await expect(send).rejects.toThrow('no longer eligible');
+        expect(sendText).not.toHaveBeenCalled();
+      }
+      expect(sendTemplate).not.toHaveBeenCalled();
+    } finally {
+      sendText.mockRestore();
+      sendTemplate.mockRestore();
+      await dataSource.query(
+        'UPDATE users SET phone=$2,whatsapp_enabled=$3,deleted_at=$4 WHERE id=$1',
+        [
+          person.user_id,
+          person.phone,
+          person.whatsapp_enabled,
+          person.user_deleted,
+        ],
+      );
+      await dataSource.query(
+        'UPDATE tenants SET contact_consent=$2,preferred_contact_channel=$3,deleted_at=$4 WHERE id=$1',
+        [
+          person.id,
+          person.contact_consent,
+          person.preferred_contact_channel,
+          person.tenant_deleted,
+        ],
+      );
+    }
+  });
+
+  it('rejects an already queued receipt through the real retry worker after cancelling its payment', async () => {
+    const f = await queuedReceiptFixture();
+    await f.service.cancel(f.payment.id, companyId);
+    // Park other fixture deliveries so the public global worker claims just this notice.
+    await dataSource.query(
+      "UPDATE communication_deliveries SET next_attempt_at=now()+interval '1 day' WHERE company_id=$1 AND id<>$2",
+      [companyId, f.delivery.id],
+    );
+    const sendText = jest
+      .spyOn(app.get(WhatsappService), 'sendTextMessage')
+      .mockResolvedValue({ messageId: 'unexpected' } as never);
+    const sendTemplate = jest
+      .spyOn(app.get(WhatsappService), 'sendTemplateMessage')
+      .mockResolvedValue({ messageId: 'unexpected' } as never);
+    try {
+      await app.get(CommunicationsService).retryDue();
+      const failed = await dataSource
+        .getRepository(CommunicationDelivery)
+        .findOneByOrFail({ id: f.delivery.id });
+      expect(failed).toMatchObject({
+        status: 'failed',
+        attempts: 1,
+        providerMessageId: null,
+        sentAt: null,
+        errorMessage: expect.stringContaining('no longer eligible'),
+      });
+      expect(sendText).not.toHaveBeenCalled();
+      expect(sendTemplate).not.toHaveBeenCalled();
+      // An explicit retry still revalidates the domain and never bypasses cancellation.
+      await app.get(CommunicationsService).retry(f.delivery.id, companyId);
+      await app.get(CommunicationsService).retryDue();
+      expect(
+        (
+          await dataSource
+            .getRepository(CommunicationDelivery)
+            .findOneByOrFail({ id: f.delivery.id })
+        ).attempts,
+      ).toBe(2);
+      expect(sendText).not.toHaveBeenCalled();
+      expect(sendTemplate).not.toHaveBeenCalled();
+    } finally {
+      sendText.mockRestore();
+      sendTemplate.mockRestore();
+    }
+  });
 });

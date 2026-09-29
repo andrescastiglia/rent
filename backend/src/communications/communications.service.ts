@@ -505,6 +505,8 @@ export class CommunicationsService {
 
   private async send(delivery: CommunicationDelivery): Promise<string | null> {
     this.assertWhatsappOnly(delivery.channel);
+    if (delivery.event === CommunicationEvent.PAYMENT_RECEIVED)
+      await this.assertPaymentReceiptEligible(delivery);
     if (delivery.event === CommunicationEvent.INVOICE_ISSUED) {
       const [eligible] = await this.dataSource.query(
         `SELECT i.id FROM invoices i
@@ -603,6 +605,43 @@ export class CommunicationsService {
       context,
     );
     return result.messageId;
+  }
+
+  private async assertPaymentReceiptEligible(delivery: CommunicationDelivery) {
+    const [eligible] = await this.dataSource.query(
+      `SELECT r.id FROM receipts r
+       JOIN payments p ON p.id=r.payment_id AND p.company_id=$2
+         AND p.deleted_at IS NULL AND p.status='completed'
+       JOIN tenant_accounts a ON a.id=p.tenant_account_id AND a.company_id=$2 AND a.deleted_at IS NULL
+       JOIN leases l ON l.id=a.lease_id AND l.company_id=$2 AND l.deleted_at IS NULL
+       JOIN tenants t ON t.id=COALESCE(p.tenant_id,l.tenant_id) AND t.id=a.tenant_id
+         AND t.company_id=$2 AND t.deleted_at IS NULL
+       JOIN users u ON u.id=t.user_id AND u.company_id=$2 AND u.deleted_at IS NULL
+       WHERE r.id::text=$1 AND r.company_id=$2 AND r.cancelled_at IS NULL
+         AND r.payment_id=$5 AND r.pdf_url=$6 AND r.amount=p.amount AND r.currency=p.currency
+         AND t.id=$3 AND u.phone=$4 AND t.contact_consent=true AND u.whatsapp_enabled=true
+         AND (t.preferred_contact_channel IS NULL OR t.preferred_contact_channel='whatsapp')`,
+      [
+        typeof delivery.metadata?.receiptId === 'string'
+          ? delivery.metadata.receiptId
+          : null,
+        delivery.companyId,
+        delivery.recipientRole === CommunicationRecipientRole.TENANT
+          ? delivery.recipientId
+          : null,
+        delivery.recipient,
+        delivery.relatedEntityType === 'payment'
+          ? delivery.relatedEntityId
+          : null,
+        typeof delivery.metadata?.attachmentUrl === 'string'
+          ? delivery.metadata.attachmentUrl
+          : null,
+      ],
+    );
+    if (!eligible)
+      throw new BadRequestException(
+        'Payment receipt notice or recipient is no longer eligible',
+      );
   }
 
   private assertWhatsappOnly(channel: CommunicationChannel): void {

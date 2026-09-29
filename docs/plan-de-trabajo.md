@@ -125,12 +125,17 @@ Pendiente: despliegue de backend/clientes compatibles.
   Las nuevas bonificaciones de mora registran origen y se revierten al anular
   otro cobro de la factura, con auditoría, bloqueo del PDF y revalidación del
   aviso pendiente. Ver [alcance y límites](technical/conditional-late-fee-credits.md).
+  Incorporado a main con los 23 gates del PR #246 aprobados.
   Numeración de recibos/notas implementada con contadores persistentes,
   historial/importaciones, inmutabilidad y asignación dentro de la transacción
   contable (migración 131). Ver [reglas y pruebas](technical/payment-document-numbers.md).
-  Pendiente: gates y despliegue; política opcional de mora, notas históricas,
-  anulación directa de facturas con notas, avisos de recibos, verificación de los
-  demás numeradores y recuperación de deuda tras liquidaciones ya transferidas.
+  Pendiente: gates y despliegue de la numeración.
+  Los avisos de recibos ahora revalidan cobro, documento, destinatario, adjunto
+  y consentimiento antes de cada intento; ver [reglas y pruebas](technical/payment-receipt-notices.md).
+  Pendiente: gates/despliegue de este control y revisión de avisos históricos.
+  Pendientes además: política opcional de mora, notas históricas, anulación directa
+  de facturas con notas, verificación de los demás numeradores y recuperación de
+  deuda tras liquidaciones ya transferidas.
 - [ ] Propiedades: filtros útiles, interesados, visitas y aviso consentido al propietario con fecha, oferta y valor.
 - [ ] Ventas: cuotas transaccionales, atrasos, saldo a favor/crédito y original/duplicado verificables.
 - [ ] Mantenimiento: solicitud, asignación, seguimiento, cierre, adjuntos, auditoría y notificaciones idempotentes.
