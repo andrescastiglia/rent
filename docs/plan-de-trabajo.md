@@ -96,7 +96,8 @@ El cron `process-settlements` permanece suspendido.
   Avance: solicitud inmutable y cola por liquidación, deduplicación, intención antes
   del envío, conservación de IDs, conciliación y movimientos de acreditación/reversión
   atómicos. API administrativa con revisión auditada y bloqueo total mientras está
-  deshabilitada. UI administrativa con confirmación de importe/destino, historial,
+  deshabilitada. Núcleo incorporado a main con los 23 gates del PR #223 aprobados.
+  UI administrativa con confirmación de importe/destino, historial,
   bloqueo tras respuesta perdida y revisión auditada, sin reenvío de creaciones inciertas.
   Pendiente: validar gates; generación durable, recibos/notificaciones, resolución de
   devoluciones parciales/nuevas órdenes verificadas y despliegue deshabilitado.

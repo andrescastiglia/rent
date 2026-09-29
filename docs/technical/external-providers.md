@@ -341,6 +341,7 @@ explícitamente: concurrencia, rollback contable, dos compañías, respuestas pe
 leases vencidos, conciliación repetida, devolución completa y revisión de casos
 parciales/contradictorios. CI incorpora la cobertura de todos los E2E del backend a
 Sonar junto a las pruebas unitarias; conserva los umbrales y controles existentes.
+Núcleo incorporado a main mediante el PR #223, con sus 23 controles aprobados.
 
 La pantalla administrativa del propietario permite seleccionar una liquidación,
 consultar su estado local y revisar movimientos e historial aun deshabilitada.
