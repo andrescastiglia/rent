@@ -73,8 +73,10 @@ El cron `process-settlements` permanece suspendido.
   inciertos, recuperación por ID y estados confirmados por el proveedor.
   Cola incorporada a main con gates del PR #216 aprobados. OAuth persiste tokens
   cifrados por compañía, usa PKCE/estado de un solo uso y serializa renovaciones.
-  Pendiente: interfaz de autorización/administración, resolución de incidencias,
-  gates OAuth y despliegue deshabilitado.
+  Interfaz administrativa de conexión y callback implementada, con bloqueo mientras
+  esté deshabilitada, retorno sin persistir códigos y desvinculación local confirmada.
+  Pendiente: administración de avisos, resolución de incidencias, gates OAuth/UI
+  y despliegue deshabilitado.
 - [ ] Implementar transferencias Mercado Pago con idempotencia y conciliación.
 - [ ] Verificar que ninguna integración real se invoque mientras está deshabilitada.
 

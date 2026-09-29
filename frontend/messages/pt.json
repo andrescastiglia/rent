@@ -1530,5 +1530,32 @@
       "failed": "Falha no processamento. Requer revisão.",
       "needs_review": "Resultado pendente de revisão"
     }
+  },
+  "mercadoLibre": {
+    "title": "Mercado Libre",
+    "description": "Conta da empresa para anúncios imobiliários.",
+    "disabled": "Integração temporariamente desabilitada. Nenhum anúncio será publicado.",
+    "seller": "Vendedor: {id}",
+    "error": "Não foi possível confirmar o resultado. Atualize o status antes de continuar; se a conexão não foi concluída, inicie uma nova autorização.",
+    "invalidCallback": "A autorização foi cancelada, expirou ou é inválida. Inicie uma nova conexão.",
+    "completed": "Conta conectada. Isso não publica anúncios.",
+    "loading": "Carregando…",
+    "refresh": "Atualizar status",
+    "complete": "Concluir conexão",
+    "connect": "Iniciar nova autorização",
+    "disconnect": "Desvincular conta",
+    "disconnectHint": "O acesso salvo no Rent será removido. Os anúncios existentes não serão excluídos. Para também revogar a permissão no Mercado Libre, use a administração de aplicativos.",
+    "cancel": "Cancelar",
+    "confirmDisconnect": "Confirmar desvinculação",
+    "sessionRequired": "Entre com o mesmo administrador que iniciou a autorização e inicie uma nova conexão.",
+    "back": "Voltar ao Rent",
+    "status": {
+      "unconfigured": "Não configurada",
+      "active": "Conta conectada",
+      "connecting": "Conexão em andamento",
+      "refreshing": "Renovação em andamento",
+      "reconnect_required": "Reconexão necessária",
+      "disconnected": "Conta desvinculada"
+    }
   }
 }
