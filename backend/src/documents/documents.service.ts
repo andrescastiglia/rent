@@ -4,8 +4,14 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
-import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import {
+  createHash,
+  createHmac,
+  randomUUID,
+  timingSafeEqual,
+} from 'node:crypto';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -325,6 +331,12 @@ export class DocumentsService {
       document.entityId,
       actor,
     );
+    if (
+      document.metadata?.source === 'mercadopago_payout' &&
+      createHash('sha256').update(document.fileData).digest('hex') !==
+        document.metadata.sha256
+    )
+      throw new ConflictException('Payout receipt integrity check failed');
     return {
       buffer: Buffer.from(document.fileData),
       contentType: document.fileMimeType,
@@ -519,6 +531,7 @@ export class DocumentsService {
   /** Internal download; callers authorize access to the owning business entity. */
   async downloadByFileUrl(
     fileUrl: string,
+    scope?: { companyId: string; entityType: string; entityId: string },
   ): Promise<{ buffer: Buffer; contentType: string }> {
     if (!fileUrl.startsWith('db://document/')) {
       throw new NotFoundException(
@@ -527,13 +540,19 @@ export class DocumentsService {
     }
     const documentId = fileUrl.slice('db://document/'.length).trim();
     const document = await this.documentsRepository.findOne({
-      where: { id: documentId },
-      select: ['id', 'fileData', 'fileMimeType'],
+      where: { id: documentId, ...scope },
+      select: ['id', 'fileData', 'fileMimeType', 'metadata'],
     });
     if (!document?.fileData)
       throw new NotFoundException(
         `File not found in DB document: ${documentId}`,
       );
+    if (
+      document.metadata?.source === 'mercadopago_payout' &&
+      createHash('sha256').update(document.fileData).digest('hex') !==
+        document.metadata.sha256
+    )
+      throw new ConflictException('Payout receipt integrity check failed');
     return {
       buffer: Buffer.from(document.fileData),
       contentType: document.fileMimeType || 'application/pdf',

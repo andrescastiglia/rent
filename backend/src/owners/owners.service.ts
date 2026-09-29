@@ -60,6 +60,7 @@ type OwnerSettlementRow = {
   id: string;
   owner_id: string;
   owner_name: string;
+  currency?: string;
   period: string;
   gross_amount: string | number;
   commission_amount: string | number;
@@ -388,6 +389,7 @@ export class OwnersService {
           s.owner_id,
           COALESCE(NULLIF(TRIM(owner_user.first_name || ' ' || owner_user.last_name), ''), owner_user.email) AS owner_name,
           s.period,
+          s.currency,
           s.gross_amount,
           s.commission_amount,
           s.withholdings_amount,
@@ -411,10 +413,11 @@ export class OwnersService {
        LEFT JOIN LATERAL (
          SELECT d.file_url, d.name
            FROM documents d
-          WHERE d.entity_type = 'owner_settlement'
+           LEFT JOIN settlement_payout_movements pm ON pm.document_id=d.id AND pm.company_id=d.company_id
+          WHERE d.company_id = $1 AND d.entity_type = 'owner_settlement'
             AND d.entity_id = s.id
             AND d.deleted_at IS NULL
-          ORDER BY d.created_at DESC
+          ORDER BY COALESCE(pm.provider_updated_at,d.created_at) DESC,d.id DESC
           LIMIT 1
        ) rd ON TRUE
        WHERE ${where.join(' AND ')}
@@ -443,6 +446,7 @@ export class OwnersService {
           s.owner_id,
           COALESCE(NULLIF(TRIM(owner_user.first_name || ' ' || owner_user.last_name), ''), owner_user.email) AS owner_name,
           s.period,
+          s.currency,
           s.gross_amount,
           s.commission_amount,
           s.withholdings_amount,
@@ -466,10 +470,11 @@ export class OwnersService {
        LEFT JOIN LATERAL (
          SELECT d.file_url, d.name
            FROM documents d
-          WHERE d.entity_type = 'owner_settlement'
+           LEFT JOIN settlement_payout_movements pm ON pm.document_id=d.id AND pm.company_id=d.company_id
+          WHERE d.company_id = $1 AND d.entity_type = 'owner_settlement'
             AND d.entity_id = s.id
             AND d.deleted_at IS NULL
-          ORDER BY d.created_at DESC
+          ORDER BY COALESCE(pm.provider_updated_at,d.created_at) DESC,d.id DESC
           LIMIT 1
        ) rd ON TRUE
        WHERE s.status = $${params.length - 1}
@@ -501,6 +506,7 @@ export class OwnersService {
           s.owner_id,
           COALESCE(NULLIF(TRIM(owner_user.first_name || ' ' || owner_user.last_name), ''), owner_user.email) AS owner_name,
           s.period,
+          s.currency,
           s.gross_amount,
           s.commission_amount,
           s.withholdings_amount,
@@ -524,10 +530,11 @@ export class OwnersService {
        LEFT JOIN LATERAL (
          SELECT d.file_url, d.name
            FROM documents d
-          WHERE d.entity_type = 'owner_settlement'
+           LEFT JOIN settlement_payout_movements pm ON pm.document_id=d.id AND pm.company_id=d.company_id
+          WHERE d.company_id = $1 AND d.entity_type = 'owner_settlement'
             AND d.entity_id = s.id
             AND d.deleted_at IS NULL
-          ORDER BY d.created_at DESC
+          ORDER BY COALESCE(pm.provider_updated_at,d.created_at) DESC,d.id DESC
           LIMIT 1
        ) rd ON TRUE
        WHERE s.id = $2
@@ -624,6 +631,7 @@ export class OwnersService {
           s.owner_id,
           COALESCE(NULLIF(TRIM(owner_user.first_name || ' ' || owner_user.last_name), ''), owner_user.email) AS owner_name,
           s.period,
+          s.currency,
           s.gross_amount,
           s.commission_amount,
           s.withholdings_amount,
@@ -647,10 +655,11 @@ export class OwnersService {
        LEFT JOIN LATERAL (
          SELECT d.file_url, d.name
            FROM documents d
-          WHERE d.entity_type = 'owner_settlement'
+           LEFT JOIN settlement_payout_movements pm ON pm.document_id=d.id AND pm.company_id=d.company_id
+          WHERE d.company_id = $1 AND d.entity_type = 'owner_settlement'
             AND d.entity_id = s.id
             AND d.deleted_at IS NULL
-          ORDER BY d.created_at DESC
+          ORDER BY COALESCE(pm.provider_updated_at,d.created_at) DESC,d.id DESC
           LIMIT 1
        ) rd ON TRUE
        WHERE s.id = $2
@@ -733,10 +742,11 @@ export class OwnersService {
        LEFT JOIN LATERAL (
          SELECT d.file_url, d.name
            FROM documents d
-          WHERE d.entity_type = 'owner_settlement'
+           LEFT JOIN settlement_payout_movements pm ON pm.document_id=d.id AND pm.company_id=d.company_id
+          WHERE d.company_id = $1 AND d.entity_type = 'owner_settlement'
             AND d.entity_id = s.id
             AND d.deleted_at IS NULL
-          ORDER BY d.created_at DESC
+          ORDER BY COALESCE(pm.provider_updated_at,d.created_at) DESC,d.id DESC
           LIMIT 1
        ) rd ON TRUE
        WHERE s.id = $2
@@ -763,6 +773,7 @@ export class OwnersService {
 
     const file = await this.documentsService.downloadByFileUrl(
       row.receipt_pdf_url,
+      { companyId, entityType: 'owner_settlement', entityId: settlementId },
     );
     return {
       ...file,
@@ -921,7 +932,7 @@ export class OwnersService {
       notes: row.notes,
       receiptPdfUrl: row.receipt_pdf_url,
       receiptName: row.receipt_name,
-      currencyCode: 'ARS',
+      currencyCode: row.currency ?? 'ARS',
       createdAt: new Date(row.created_at).toISOString(),
       updatedAt: new Date(row.updated_at).toISOString(),
     };

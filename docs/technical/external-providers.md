@@ -361,9 +361,40 @@ cola sin duplicado, revisión, denegación de staff y ausencia de llamadas exter
 La revisión automatizada de accesibilidad no detectó infracciones en la vista probada;
 no reemplaza la validación completa de accesibilidad pendiente en el plan.
 
-Pendiente: generación durable de liquidaciones, recibos/notificaciones posteriores
-al commit y resolución contable de devoluciones parciales o nuevas órdenes tras
-rechazos/reversiones verificados, gates y despliegue deshabilitado.
+Los comprobantes se procesan desde `settlement_payout_effects_outbox` (migración
+118). Cada acreditación o reversión completa guarda el movimiento y una copia
+inmutable de sus importes, propietario, empresa, período y fecha del proveedor
+en la misma transacción. Después del commit, el worker genera un PDF versionado,
+guarda su checksum SHA-256 y encola el aviso en una única transacción local.
+Un fallo de PDF o de encolado revierte ambos efectos; reintenta hasta cinco veces
+y luego informa `dead_letter`, sin borrar el movimiento financiero.
+
+`POST /settlements/internal/process-payout-receipts` usa el token interno y está
+incluido en el CLI. Con Mercado Pago deshabilitado no consulta la cola ni genera
+avisos. Las descargas locales siguen disponibles: el endpoint por movimiento
+`GET /settlements/:id/payout/movements/:movementId/receipt` exige autorización
+sobre la liquidación, compañía coincidente y checksum válido. La descarga histórica
+del propietario también valida la compañía y entidad del documento referenciado.
+Las lecturas eligen el último comprobante según la fecha del movimiento del proveedor,
+para evitar que un reintento tardío de PDF oculte una devolución posterior.
+
+La pantalla distingue comprobantes pendientes, disponibles o que requieren revisión.
+Cada documento acredita un hecho en una fecha; una devolución genera su propia
+constancia y conserva la acreditación histórica. No se envía un aviso de pago si
+la liquidación ya dejó de estar completada. Una reversión bloquea avisos de pago
+aún en cola, pendientes de aprobación o fallidos. Una devolución parcial o un
+cambio incierto de estado también bloquea avisos de pago pendientes. No pretende retirar mensajes
+que ya estén enviándose o hayan sido entregados.
+
+Los avisos respetan el canal elegido y el consentimiento del propietario y de
+WhatsApp. No usan correo ni SMS como alternativa. El renderizador no contacta
+proveedores; solo encola la entrega. La migración no genera avisos históricos y
+no activa cuentas, credenciales ni cron. Los dos modelos de PDF fueron renderizados
+con Poppler para revisar legibilidad y correspondencia de importes y fechas.
+
+Pendiente: generación durable de liquidaciones, resolución contable de devoluciones
+parciales o nuevas órdenes tras rechazos/reversiones verificados, gates y despliegue
+deshabilitado.
 
 ## Validación y rollback
 
@@ -372,7 +403,7 @@ Pruebas PostgreSQL aisladas: `bfa-stamps.e2e-spec.ts`, incluyendo cola deshabili
 aislamiento entre empresas, concurrencia, respuesta perdida y documentos alterados.
 No constituyen evidencia de disponibilidad del proveedor ni validación de cuentas.
 
-Las migraciones 113 a 117 conservan los datos y no encolan documentos ni avisos históricos. Para rollback,
+Las migraciones 113 a 118 conservan los datos y no encolan documentos ni avisos históricos. Para rollback,
 conservar sus registros y mantener proveedores deshabilitados. Si se restaura
 un artefacto anterior, restaurar también el CLI del mismo artefacto para evitar
 invocar un endpoint que aún no exista. No borrar pruebas de sellado ni resoluciones;

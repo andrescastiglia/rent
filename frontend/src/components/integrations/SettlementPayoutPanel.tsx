@@ -42,6 +42,8 @@ export function SettlementPayoutPanel({
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [downloadError, setDownloadError] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [mode, setMode] = useState("email");
   const [email, setEmail] = useState("");
   const [bank, setBank] = useState<Bank>(emptyBank);
@@ -176,6 +178,18 @@ export function SettlementPayoutPanel({
       if (mounted.current) setBusy(false);
     }
   };
+  const download = async (movementId: string) => {
+    if (downloading || busy) return;
+    setDownloading(true);
+    setDownloadError(false);
+    try {
+      await api.downloadReceipt(settlementId, movementId);
+    } catch {
+      if (mounted.current) setDownloadError(true);
+    } finally {
+      if (mounted.current) setDownloading(false);
+    }
+  };
   const status = job
     ? statuses.includes(job.status)
       ? job.status
@@ -186,6 +200,7 @@ export function SettlementPayoutPanel({
       <h2 className="text-xl font-semibold">{t("detail")}</h2>
       {busy && <p role="status">{t("loading")}</p>}
       {error && <p role="alert">{t("error")}</p>}
+      {downloadError && <p role="alert">{t("receiptError")}</p>}
       {overview && !overview.enabled && <p role="status">{t("disabled")}</p>}
       <button
         type="button"
@@ -426,6 +441,25 @@ export function SettlementPayoutPanel({
                 {t(item.kind === "transfer" ? "transfer" : "reversal")} ·{" "}
                 {item.amount} {item.currency} · {item.providerUpdatedAt} ·{" "}
                 {item.transactionId}
+                {!item.receiptAvailable && (
+                  <p>
+                    {t(
+                      item.receiptStatus === "dead_letter"
+                        ? "receiptNeedsReview"
+                        : "receiptPending",
+                    )}
+                  </p>
+                )}
+                {item.receiptAvailable && (
+                  <button
+                    type="button"
+                    className={buttonClass}
+                    disabled={busy || downloading}
+                    onClick={() => void download(item.id)}
+                  >
+                    {t("downloadReceipt")}
+                  </button>
+                )}
               </li>
             ))}
           </ul>

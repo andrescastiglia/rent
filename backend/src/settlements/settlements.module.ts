@@ -1,3 +1,6 @@
+import { SettlementPayoutEffectsService } from './settlement-payout-effects.service';
+import { SettlementPayoutReceiptPdfService } from './settlement-payout-receipt-pdf.service';
+import { SettlementPayoutReceiptsController } from './settlement-payout-receipts.controller';
 import { SettlementPayoutsService } from './settlement-payouts.service';
 import { SettlementPayoutsController } from './settlement-payouts.controller';
 import { IntegrationsModule } from '../integrations/integrations.module';
@@ -15,8 +18,17 @@ import { SettlementsController } from './settlements.controller';
     CommunicationsModule,
     TypeOrmModule.forFeature([Settlement, Owner]),
   ],
-  controllers: [SettlementsController, SettlementPayoutsController],
-  providers: [SettlementsService, SettlementPayoutsService],
+  controllers: [
+    SettlementsController,
+    SettlementPayoutsController,
+    SettlementPayoutReceiptsController,
+  ],
+  providers: [
+    SettlementsService,
+    SettlementPayoutsService,
+    SettlementPayoutEffectsService,
+    SettlementPayoutReceiptPdfService,
+  ],
   exports: [TypeOrmModule, SettlementsService],
 })
 export class SettlementsModule {}

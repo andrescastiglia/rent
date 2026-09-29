@@ -36,6 +36,7 @@ export enum CommunicationEvent {
   RENT_ADJUSTMENT = 'rent_adjustment',
   SETTLEMENT_AVAILABLE = 'settlement_available',
   SETTLEMENT_PAID = 'settlement_paid',
+  SETTLEMENT_REVERSED = 'settlement_reversed',
   OFFICE_PROSPECT_WELCOME_RENT = 'office_prospect_welcome_rent',
   OFFICE_PROSPECT_WELCOME_SALE = 'office_prospect_welcome_sale',
   PROPERTY_VISIT_SCHEDULED = 'property_visit_scheduled',

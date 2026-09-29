@@ -127,9 +127,10 @@ export class SettlementsService {
            ON owner_entity.id = s.owner_id
          LEFT JOIN LATERAL (
            SELECT d.file_url, d.name FROM documents d
+           LEFT JOIN settlement_payout_movements pm ON pm.document_id=d.id AND pm.company_id=d.company_id
            WHERE d.company_id = $1 AND d.entity_type = 'owner_settlement'
              AND d.entity_id = s.id AND d.deleted_at IS NULL
-           ORDER BY d.created_at DESC, d.id DESC LIMIT 1
+           ORDER BY COALESCE(pm.provider_updated_at,d.created_at) DESC, d.id DESC LIMIT 1
          ) receipt ON TRUE
          WHERE ${conditions.join(' AND ')}
          ORDER BY COALESCE(s.processed_at, s.scheduled_date, s.created_at) DESC`,
@@ -181,9 +182,10 @@ export class SettlementsService {
           AND owner_entity.deleted_at IS NULL
          LEFT JOIN LATERAL (
            SELECT d.file_url, d.name FROM documents d
+           LEFT JOIN settlement_payout_movements pm ON pm.document_id=d.id AND pm.company_id=d.company_id
            WHERE d.company_id = $1 AND d.entity_type = 'owner_settlement'
              AND d.entity_id = s.id AND d.deleted_at IS NULL
-           ORDER BY d.created_at DESC, d.id DESC LIMIT 1
+           ORDER BY COALESCE(pm.provider_updated_at,d.created_at) DESC, d.id DESC LIMIT 1
          ) receipt ON TRUE
          WHERE s.id = $2
            ${ownerCondition}`,

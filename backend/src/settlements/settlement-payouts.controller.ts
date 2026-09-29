@@ -1,3 +1,4 @@
+import { SettlementPayoutEffectsService } from './settlement-payout-effects.service';
 import {
   Body,
   Controller,
@@ -25,6 +26,7 @@ export class SettlementPayoutsController {
   constructor(
     private readonly payouts: SettlementPayoutsService,
     private readonly communications: CommunicationsService,
+    private readonly effects: SettlementPayoutEffectsService,
   ) {}
   @Get(':id/payout')
   @Roles(UserRole.ADMIN)
@@ -57,5 +59,11 @@ export class SettlementPayoutsController {
   process(@Headers('x-batch-communications-token') token?: string) {
     this.communications.assertBatchToken(token);
     return this.payouts.processDue();
+  }
+  @Post('internal/process-payout-receipts')
+  @Public()
+  processReceipts(@Headers('x-batch-communications-token') token?: string) {
+    this.communications.assertBatchToken(token);
+    return this.effects.processDue();
   }
 }

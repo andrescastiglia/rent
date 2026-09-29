@@ -22,6 +22,32 @@ export type PayoutSettlement = {
 };
 const path = (id: string) => `/settlements/${encodeURIComponent(id)}`;
 export const settlementPayoutsApi = {
+  downloadReceipt: async (
+    settlementId: string,
+    movementId: string,
+  ): Promise<void> => {
+    const token = getToken();
+    if (!token) throw new Error("Authentication required");
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+    const response = await fetch(
+      `${baseUrl}${path(settlementId)}/payout/movements/${encodeURIComponent(movementId)}/receipt`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+    if (!response.ok) throw new Error("Receipt download failed");
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    try {
+      link.href = url;
+      link.download = `liquidacion-${movementId.replaceAll(/[^a-zA-Z0-9-]/g, "")}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+    } finally {
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+  },
   list: (ownerId: string) =>
     apiClient.get<PayoutSettlement[]>(
       `/settlements?ownerId=${encodeURIComponent(ownerId)}`,

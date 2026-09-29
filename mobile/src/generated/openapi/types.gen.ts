@@ -814,6 +814,7 @@ export type CommunicationTemplate = {
     | 'rent_adjustment'
     | 'settlement_available'
     | 'settlement_paid'
+    | 'settlement_reversed'
     | 'office_prospect_welcome_rent'
     | 'office_prospect_welcome_sale'
     | 'property_visit_scheduled'
@@ -847,6 +848,7 @@ export type CreateCommunicationTemplateDto = {
     | 'rent_adjustment'
     | 'settlement_available'
     | 'settlement_paid'
+    | 'settlement_reversed'
     | 'office_prospect_welcome_rent'
     | 'office_prospect_welcome_sale'
     | 'property_visit_scheduled'
@@ -878,6 +880,7 @@ export type UpdateCommunicationTemplateDto = {
     | 'rent_adjustment'
     | 'settlement_available'
     | 'settlement_paid'
+    | 'settlement_reversed'
     | 'office_prospect_welcome_rent'
     | 'office_prospect_welcome_sale'
     | 'property_visit_scheduled'
@@ -933,6 +936,7 @@ export type CommunicationDelivery = {
     | 'rent_adjustment'
     | 'settlement_available'
     | 'settlement_paid'
+    | 'settlement_reversed'
     | 'office_prospect_welcome_rent'
     | 'office_prospect_welcome_sale'
     | 'property_visit_scheduled'
@@ -2272,6 +2276,8 @@ export type SettlementPayoutJobDto = {
 };
 
 export type SettlementPayoutMovementDto = {
+  receiptAvailable: boolean;
+  receiptStatus: 'queued' | 'completed' | 'dead_letter';
   id: string;
   kind: 'transfer' | 'reversal';
   amount: string;
@@ -6337,6 +6343,42 @@ export type SettlementPayoutsProcessData = {
 export type SettlementPayoutsProcessResponses = {
   201: unknown;
 };
+
+export type SettlementPayoutsProcessReceiptsData = {
+  body?: never;
+  headers: {
+    'x-batch-communications-token': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/settlements/internal/process-payout-receipts';
+};
+
+export type SettlementPayoutsProcessReceiptsResponses = {
+  201: {
+    [key: string]: unknown;
+  };
+};
+
+export type SettlementPayoutsProcessReceiptsResponse =
+  SettlementPayoutsProcessReceiptsResponses[keyof SettlementPayoutsProcessReceiptsResponses];
+
+export type SettlementPayoutReceiptsDownloadData = {
+  body?: never;
+  path: {
+    id: string;
+    movementId: string;
+  };
+  query?: never;
+  url: '/settlements/{id}/payout/movements/{movementId}/receipt';
+};
+
+export type SettlementPayoutReceiptsDownloadResponses = {
+  200: Blob | File;
+};
+
+export type SettlementPayoutReceiptsDownloadResponse =
+  SettlementPayoutReceiptsDownloadResponses[keyof SettlementPayoutReceiptsDownloadResponses];
 
 export type MercadoLibreConnectionsStatusData = {
   body?: never;

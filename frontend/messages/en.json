@@ -1749,6 +1749,10 @@
     "transfer": "Accreditation",
     "reversal": "Full reversal",
     "history": "Review history",
-    "actor": "User"
+    "actor": "User",
+    "downloadReceipt": "Download receipt",
+    "receiptError": "Could not download the receipt. Please try again.",
+    "receiptNeedsReview": "The receipt requires review.",
+    "receiptPending": "Receipt pending generation."
   }
 }

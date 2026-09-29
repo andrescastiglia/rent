@@ -7861,6 +7861,75 @@
         ]
       }
     },
+    "/settlements/internal/process-payout-receipts": {
+      "post": {
+        "operationId": "SettlementPayouts_processReceipts",
+        "parameters": [
+          {
+            "name": "x-batch-communications-token",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "SettlementPayouts"
+        ]
+      }
+    },
+    "/settlements/{id}/payout/movements/{movementId}/receipt": {
+      "get": {
+        "operationId": "SettlementPayoutReceipts_download",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "movementId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "SettlementPayoutReceipts"
+        ]
+      }
+    },
     "/integrations/mercadolibre/status": {
       "get": {
         "operationId": "MercadoLibreConnections_status",
@@ -12635,6 +12704,7 @@
               "rent_adjustment",
               "settlement_available",
               "settlement_paid",
+              "settlement_reversed",
               "office_prospect_welcome_rent",
               "office_prospect_welcome_sale",
               "property_visit_scheduled",
@@ -12736,6 +12806,7 @@
               "rent_adjustment",
               "settlement_available",
               "settlement_paid",
+              "settlement_reversed",
               "office_prospect_welcome_rent",
               "office_prospect_welcome_sale",
               "property_visit_scheduled",
@@ -12820,6 +12891,7 @@
               "rent_adjustment",
               "settlement_available",
               "settlement_paid",
+              "settlement_reversed",
               "office_prospect_welcome_rent",
               "office_prospect_welcome_sale",
               "property_visit_scheduled",
@@ -12971,6 +13043,7 @@
               "rent_adjustment",
               "settlement_available",
               "settlement_paid",
+              "settlement_reversed",
               "office_prospect_welcome_rent",
               "office_prospect_welcome_sale",
               "property_visit_scheduled",
@@ -17648,6 +17721,18 @@
       "SettlementPayoutMovementDto": {
         "type": "object",
         "properties": {
+          "receiptAvailable": {
+            "type": "boolean"
+          },
+          "receiptStatus": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "queued",
+              "completed",
+              "dead_letter"
+            ]
+          },
           "id": {
             "type": "string"
           },
@@ -17675,6 +17760,8 @@
           }
         },
         "required": [
+          "receiptAvailable",
+          "receiptStatus",
           "id",
           "kind",
           "amount",
