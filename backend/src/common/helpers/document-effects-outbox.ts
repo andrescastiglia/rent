@@ -1,8 +1,13 @@
 import { Logger } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 
-type DocumentEffectsStream = 'payment' | 'sale_receipt' | 'settlement_payout';
+type DocumentEffectsStream =
+  'payment' | 'sale_receipt' | 'settlement_payout' | 'lease_contract';
 const STREAMS = {
+  lease_contract: {
+    table: 'lease_contract_effects_outbox',
+    column: 'lease_id',
+  },
   settlement_payout: {
     table: 'settlement_payout_effects_outbox',
     column: 'movement_id',

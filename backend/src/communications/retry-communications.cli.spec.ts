@@ -28,6 +28,7 @@ describe('communication queue worker', () => {
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
       'http://127.0.0.1:3001/payments/internal/process-effects',
       'http://127.0.0.1:3001/sales/internal/process-receipts',
+      'http://127.0.0.1:3001/leases/internal/process-contracts',
       'http://127.0.0.1:3001/digital-signatures/internal/process-stamps',
       'http://127.0.0.1:3001/portals/internal/process-publications',
       'http://127.0.0.1:3001/settlements/internal/process-payouts',
@@ -66,7 +67,7 @@ describe('communication queue worker', () => {
       await expect(processQueues()).rejects.toThrow(
         'Document effects require retry or dead-letter recovery',
       );
-      expect(fetchMock).toHaveBeenCalledTimes(7);
+      expect(fetchMock).toHaveBeenCalledTimes(8);
     },
   );
 
@@ -83,6 +84,6 @@ describe('communication queue worker', () => {
     await expect(processQueues()).rejects.toThrow(
       'Document effects require retry',
     );
-    expect(fetchMock).toHaveBeenCalledTimes(7);
+    expect(fetchMock).toHaveBeenCalledTimes(8);
   });
 });

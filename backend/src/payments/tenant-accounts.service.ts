@@ -64,8 +64,12 @@ export class TenantAccountsService {
   async createForLease(
     leaseId: string,
     companyId: string = '',
+    manager?: EntityManager,
   ): Promise<TenantAccount> {
-    const lease = await this.leasesRepository.findOne({
+    const leases = manager?.getRepository(Lease) ?? this.leasesRepository;
+    const accounts =
+      manager?.getRepository(TenantAccount) ?? this.accountsRepository;
+    const lease = await leases.findOne({
       where: { id: leaseId, companyId },
     });
 
@@ -73,7 +77,7 @@ export class TenantAccountsService {
       throw new NotFoundException(`Lease with ID ${leaseId} not found`);
     }
 
-    const existingAccount = await this.accountsRepository.findOne({
+    const existingAccount = await accounts.findOne({
       where: { leaseId, companyId },
     });
 
@@ -87,7 +91,7 @@ export class TenantAccountsService {
       );
     }
 
-    const account = this.accountsRepository.create({
+    const account = accounts.create({
       companyId: lease.companyId,
       tenantId: lease.tenantId,
       leaseId,
@@ -95,7 +99,7 @@ export class TenantAccountsService {
       currencyCode: lease.currency,
     });
 
-    return this.accountsRepository.save(account);
+    return accounts.save(account);
   }
 
   /**

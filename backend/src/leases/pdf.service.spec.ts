@@ -49,6 +49,9 @@ describe('PdfService', () => {
 
     service = module.get(PdfService);
     documentsRepository = module.get(getRepositoryToken(Document));
+    Object.assign(documentsRepository, {
+      manager: { query: jest.fn().mockResolvedValue([]) },
+    });
   });
 
   it('stores contract PDF in DB and sets db:// URL', async () => {
@@ -91,11 +94,13 @@ describe('PdfService', () => {
 
   it('returns latest contract document by lease id', async () => {
     documentsRepository.findOne!.mockResolvedValue({ id: 'doc-1' } as any);
-    await service.getContractDocument('lease-1');
+    await service.getContractDocument('lease-1', 'company-1');
     expect(documentsRepository.findOne).toHaveBeenCalledWith({
       where: {
+        companyId: 'company-1',
         entityType: 'lease',
         entityId: 'lease-1',
+        status: DocumentStatus.APPROVED,
         documentType: DocumentType.LEASE_CONTRACT,
       },
       order: { createdAt: 'DESC' },

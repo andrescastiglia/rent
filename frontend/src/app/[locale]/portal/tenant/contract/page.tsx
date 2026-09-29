@@ -4,17 +4,11 @@ import React, { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { leasesApi } from "@/lib/api/leases";
 import { tenantsApi } from "@/lib/api/tenants";
-import { getToken } from "@/lib/auth";
+import { useAuth } from "@/contexts/auth-context";
+import { ContractDocument } from "@/components/leases/ContractDocument";
 import { Lease } from "@/types/lease";
 import { TenantSummary } from "@/types/tenant";
-import {
-  Download,
-  Loader2,
-  MapPin,
-  Calendar,
-  DollarSign,
-  RefreshCw,
-} from "lucide-react";
+import { Loader2, MapPin, Calendar, DollarSign, RefreshCw } from "lucide-react";
 
 function getLocaleCode(loc: string): string {
   if (loc === "en") return "en-US";
@@ -24,6 +18,7 @@ function getLocaleCode(loc: string): string {
 
 export default function TenantContractPage() {
   const t = useTranslations("tenantPortal");
+  const { user } = useAuth();
   const locale = useLocale();
   const [lease, setLease] = useState<Lease | null>(null);
   const [summary, setSummary] = useState<TenantSummary | null>(null);
@@ -183,36 +178,12 @@ export default function TenantContractPage() {
         </div>
       )}
 
-      {/* Download PDF button */}
-      <button
-        type="button"
-        className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors"
-        onClick={() => {
-          if (lease.id) {
-            const baseUrl =
-              process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-            const token = getToken();
-            fetch(`${baseUrl}/leases/${lease.id}/contract`, {
-              headers: token ? { Authorization: `Bearer ${token}` } : {},
-            })
-              .then((r) => r.blob())
-              .then((blob) => {
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `contrato-${lease.id}.pdf`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                URL.revokeObjectURL(url);
-              })
-              .catch(console.error);
-          }
-        }}
-      >
-        <Download className="h-4 w-4" />
-        {t("downloadPdf")}
-      </button>
+      {user?.companyId && (
+        <ContractDocument
+          leaseId={lease.id}
+          scopeKey={`${user.companyId}:${user.id}`}
+        />
+      )}
     </div>
   );
 }

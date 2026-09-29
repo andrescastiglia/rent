@@ -1808,5 +1808,17 @@
     "voidReason": "Motivo de anulación",
     "confirmVoid": "Confirmo anular esta liquidación y liberar sus facturas. Esta acción no revierte una transferencia.",
     "void": "Anular liquidación"
+  },
+  "contractDocument": {
+    "title": "Documento del contrato",
+    "queued": "El PDF se está preparando. Podés actualizar el estado en unos momentos.",
+    "deadLetter": "El contrato está confirmado, pero su PDF requiere revisión administrativa.",
+    "available": "PDF disponible.",
+    "unavailable": "Todavía no hay un PDF disponible para este contrato.",
+    "readError": "No se pudo consultar el documento. Volvé a actualizar.",
+    "downloadError": "No se pudo descargar el PDF. Actualizá el estado antes de reintentar.",
+    "refresh": "Actualizar documento",
+    "download": "Descargar contrato",
+    "loading": "Cargando…"
   }
 }

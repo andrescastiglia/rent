@@ -1,3 +1,6 @@
+import { CommunicationsModule } from '../communications/communications.module';
+import { LeaseContractEffectsService } from './lease-contract-effects.service';
+import { LeaseContractEffectsController } from './lease-contract-effects.controller';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Lease } from './entities/lease.entity';
@@ -30,14 +33,21 @@ import { PaymentsModule } from '../payments/payments.module';
       Tenant,
     ]),
     DocumentsModule,
+    CommunicationsModule,
     PaymentsModule,
   ],
   controllers: [
     LeasesController,
+    LeaseContractEffectsController,
     AmendmentsController,
     LeasesContractController,
   ],
-  providers: [LeasesService, AmendmentsService, PdfService],
+  providers: [
+    LeasesService,
+    AmendmentsService,
+    PdfService,
+    LeaseContractEffectsService,
+  ],
   exports: [TypeOrmModule, LeasesService, AmendmentsService, PdfService],
 })
 export class LeasesModule {}

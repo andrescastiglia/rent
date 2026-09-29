@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Lease, LeaseTemplateFormat } from "@/types/lease";
 import { leasesApi } from "@/lib/api/leases";
+import { ContractDocument } from "@/components/leases/ContractDocument";
 import { BfaStamps } from "@/components/leases/BfaStamps";
 import { LeaseStatusBadge } from "@/components/leases/LeaseStatusBadge";
 import { ownersApi } from "@/lib/api/owners";
@@ -22,7 +23,6 @@ import {
   DollarSign,
   User,
   Home,
-  Download,
 } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
@@ -684,14 +684,10 @@ function LeaseDurationSection({
 }
 
 function LeaseDocumentsSection({
-  downloadingContract,
   lease,
-  onDownloadContract,
   t,
 }: Readonly<{
-  downloadingContract: boolean;
   lease: Lease;
-  onDownloadContract: () => void;
   t: (key: string) => string;
 }>) {
   return (
@@ -729,14 +725,6 @@ function LeaseDocumentsSection({
         ) : (
           <div className="text-center py-4 text-gray-500 dark:text-gray-400">
             <p className="text-sm italic mb-2">{t("noDocuments")}</p>
-            <button
-              type="button"
-              onClick={onDownloadContract}
-              disabled={downloadingContract}
-              className="btn btn-primary btn-sm"
-            >
-              <Download size={14} className="mr-1" /> {t("downloadContract")}
-            </button>
           </div>
         )}
       </div>
@@ -818,7 +806,6 @@ export default function LeaseDetailPage() {
   const [paymentHistory, setPaymentHistory] = useState<Payment[]>([]);
   const [balanceInfo, setBalanceInfo] = useState<AccountBalance | null>(null);
   const [loadingCollections, setLoadingCollections] = useState(false);
-  const [downloadingContract, setDownloadingContract] = useState(false);
   const [draftText, setDraftText] = useState("");
   const [renderingDraft, setRenderingDraft] = useState(false);
   const [savingDraftText, setSavingDraftText] = useState(false);
@@ -919,19 +906,6 @@ export default function LeaseDetailPage() {
     } catch (error) {
       console.error("Failed to delete lease", error);
       alert(tCommon("error"));
-    }
-  };
-
-  const handleDownloadContract = async () => {
-    if (!lease) return;
-    setDownloadingContract(true);
-    try {
-      await leasesApi.downloadContract(lease.id);
-    } catch (error) {
-      console.error("Failed to download contract", error);
-      alert(tCommon("error"));
-    } finally {
-      setDownloadingContract(false);
     }
   };
 
@@ -1114,13 +1088,16 @@ export default function LeaseDetailPage() {
               />
 
               <LeaseDocumentsSection
-                downloadingContract={downloadingContract}
                 lease={lease}
-                onDownloadContract={() => {
-                  void handleDownloadContract();
-                }}
                 t={t as (key: string) => string}
               />
+
+              {user?.companyId && (
+                <ContractDocument
+                  leaseId={lease.id}
+                  scopeKey={`${user.companyId}:${user.id}:${lease.status}`}
+                />
+              )}
 
               {user?.role === "admin" && (
                 <BfaStamps

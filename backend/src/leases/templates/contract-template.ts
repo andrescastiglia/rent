@@ -32,6 +32,7 @@ export function generateContractPdf(
   lang: string = 'es',
   contractText?: string,
   contractFormat: 'plain_text' | 'html' = 'plain_text',
+  issuedAt: Date = new Date(),
 ): Promise<Buffer> {
   return new Promise<Buffer>((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
@@ -56,7 +57,7 @@ export function generateContractPdf(
         .fontSize(10)
         .font('Helvetica')
         .text(
-          `${i18n.t('contract.issued_date', { lang })}: ${new Date().toLocaleDateString(lang)}`,
+          `${i18n.t('contract.issued_date', { lang })}: ${new Date(issuedAt).toLocaleDateString(lang)}`,
           { align: 'right' },
         )
         .moveDown(2);

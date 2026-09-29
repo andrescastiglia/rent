@@ -1213,6 +1213,11 @@ export type CreateAmendmentDto = {
   };
 };
 
+export type LeaseContractStatusDto = {
+  status: "queued" | "completed" | "dead_letter" | "unavailable";
+  available: boolean;
+};
+
 export type Invoice = {
   id: string;
   companyId: string;
@@ -4305,6 +4310,25 @@ export type LeasesImportCurrentContractLegacyResponses = {
 export type LeasesImportCurrentContractLegacyResponse =
   LeasesImportCurrentContractLegacyResponses[keyof LeasesImportCurrentContractLegacyResponses];
 
+export type LeaseContractEffectsProcessData = {
+  body?: never;
+  headers: {
+    "x-batch-communications-token": string;
+  };
+  path?: never;
+  query?: never;
+  url: "/leases/internal/process-contracts";
+};
+
+export type LeaseContractEffectsProcessResponses = {
+  201: {
+    [key: string]: unknown;
+  };
+};
+
+export type LeaseContractEffectsProcessResponse =
+  LeaseContractEffectsProcessResponses[keyof LeaseContractEffectsProcessResponses];
+
 export type AmendmentsCreateData = {
   body: CreateAmendmentDto;
   path?: never;
@@ -4382,6 +4406,38 @@ export type AmendmentsRejectResponses = {
 
 export type AmendmentsRejectResponse =
   AmendmentsRejectResponses[keyof AmendmentsRejectResponses];
+
+export type LeasesContractStatusData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/contracts/{id}/contract-status";
+};
+
+export type LeasesContractStatusResponses = {
+  200: LeaseContractStatusDto;
+};
+
+export type LeasesContractStatusResponse =
+  LeasesContractStatusResponses[keyof LeasesContractStatusResponses];
+
+export type LeasesContractStatusLegacyData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/leases/{id}/contract-status";
+};
+
+export type LeasesContractStatusLegacyResponses = {
+  200: LeaseContractStatusDto;
+};
+
+export type LeasesContractStatusLegacyResponse =
+  LeasesContractStatusLegacyResponses[keyof LeasesContractStatusLegacyResponses];
 
 export type LeasesContractDownloadContractData = {
   body?: never;
