@@ -425,4 +425,22 @@ describe('Portal publication outbox', () => {
     });
     expect(() => controller.process()).toThrow('unauthorized');
   });
+  it('queues a scoped remote refresh and returns its local operation status', async () => {
+    const outbox = {
+      enqueue: jest.fn(),
+      latest: jest.fn().mockResolvedValue({ enabled: true, job: null }),
+    };
+    const controller = new PortalPublicationController(
+      outbox as never,
+      {} as never,
+    );
+    await expect(
+      controller.refresh('listing', { user: { companyId: 'company' } }),
+    ).resolves.toEqual({ enabled: true, job: null });
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      'listing',
+      'company',
+      'refresh',
+    );
+  });
 });

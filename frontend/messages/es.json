@@ -62,7 +62,8 @@
     "new": "Nuevo",
     "edit": "Editar",
     "details": "Detalles",
-    "ariaLabel": "Navegación"
+    "ariaLabel": "Navegación",
+    "portals": "Publicaciones"
   },
   "auth": {
     "login": "Iniciar Sesión",
@@ -1556,6 +1557,55 @@
       "refreshing": "Renovación en curso",
       "reconnect_required": "Requiere reconexión",
       "disconnected": "Cuenta desvinculada"
+    }
+  },
+  "portalReview": {
+    "title": "Publicaciones en Mercado Libre",
+    "connection": "Administrar conexión",
+    "listing": "Aviso",
+    "externalId": "Aviso: {id}",
+    "disabled": "Integración deshabilitada. Solo está disponible la consulta local.",
+    "noOperation": "Sin operaciones pendientes",
+    "error": "No se pudo confirmar el resultado. Actualizá el estado antes de continuar; no se repetirá la operación automáticamente.",
+    "loading": "Cargando…",
+    "read": "Actualizar estado local",
+    "refresh": "Consultar estado en Mercado Libre",
+    "reviewHint": "Revisá el aviso en la cuenta del vendedor antes de resolver. Una nueva publicación puede duplicar un aviso creado cuya respuesta no llegó.",
+    "actionLabel": "Resolución",
+    "choose": "Seleccionar una resolución",
+    "itemId": "Número del aviso en Mercado Libre",
+    "verify": "Verificar aviso",
+    "seller": "Vendedor: {id}",
+    "remoteStatus": "Estado del proveedor: {status}",
+    "view": "Ver aviso en Mercado Libre",
+    "reason": "Motivo y evidencia de la revisión",
+    "absenceConfirmation": "Revisé la cuenta del vendedor y confirmé que este aviso no se creó. Entiendo que esto permitirá solicitar otra publicación por separado.",
+    "linkConfirmation": "Verifiqué que el aviso seleccionado corresponde a esta propiedad.",
+    "confirmation": "Revisé el resultado y confirmo esta resolución.",
+    "resolve": "Confirmar resolución",
+    "history": "Últimas 50 resoluciones",
+    "noHistory": "Sin resoluciones registradas.",
+    "empty": "Esta propiedad no tiene avisos de Mercado Libre registrados.",
+    "action": {
+      "link": "Vincular un aviso existente",
+      "retry": "Reintentar la operación",
+      "confirm_not_created": "Confirmar que no se creó ningún aviso",
+      "accept_remote": "Aceptar el estado actual sin repetir el cambio"
+    },
+    "status": {
+      "queued": "En cola",
+      "dispatching": "Envío en curso",
+      "retry": "Reintento programado",
+      "completed": "Operación completada",
+      "failed": "Operación fallida",
+      "needs_review": "Requiere revisión",
+      "resolved": "Incidencia resuelta"
+    },
+    "remoteStates": {
+      "active": "Activo",
+      "paused": "Pausado",
+      "closed": "Cerrado",
+      "under_review": "En revisión"
     }
   }
 }

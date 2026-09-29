@@ -62,7 +62,8 @@
     "new": "New",
     "edit": "Edit",
     "details": "Details",
-    "ariaLabel": "Navigation"
+    "ariaLabel": "Navigation",
+    "portals": "Listings"
   },
   "auth": {
     "login": "Sign In",
@@ -1556,6 +1557,55 @@
       "refreshing": "Refresh in progress",
       "reconnect_required": "Reconnection required",
       "disconnected": "Account disconnected"
+    }
+  },
+  "portalReview": {
+    "title": "Mercado Libre listings",
+    "connection": "Manage connection",
+    "listing": "Listing",
+    "externalId": "Listing: {id}",
+    "disabled": "Integration disabled. Only local records are available.",
+    "noOperation": "No pending operations",
+    "error": "The result could not be confirmed. Refresh local status before continuing; the operation will not be repeated automatically.",
+    "loading": "Loading…",
+    "read": "Refresh local status",
+    "refresh": "Check status in Mercado Libre",
+    "reviewHint": "Review the listing in the seller account before resolving. A new publication may duplicate an item whose creation response was lost.",
+    "actionLabel": "Resolution",
+    "choose": "Choose a resolution",
+    "itemId": "Mercado Libre listing number",
+    "verify": "Verify listing",
+    "seller": "Seller: {id}",
+    "remoteStatus": "Provider status: {status}",
+    "view": "View listing in Mercado Libre",
+    "reason": "Review reason and evidence",
+    "absenceConfirmation": "I reviewed the seller account and confirmed that this listing was not created. I understand this allows a separate new publication request.",
+    "linkConfirmation": "I verified that the selected listing belongs to this property.",
+    "confirmation": "I reviewed the outcome and confirm this resolution.",
+    "resolve": "Confirm resolution",
+    "history": "Last 50 resolutions",
+    "noHistory": "No resolutions recorded.",
+    "empty": "This property has no registered Mercado Libre listings.",
+    "action": {
+      "link": "Link an existing listing",
+      "retry": "Retry the operation",
+      "confirm_not_created": "Confirm that no listing was created",
+      "accept_remote": "Accept current status without repeating the change"
+    },
+    "status": {
+      "queued": "Queued",
+      "dispatching": "Sending",
+      "retry": "Retry scheduled",
+      "completed": "Operation completed",
+      "failed": "Operation failed",
+      "needs_review": "Review required",
+      "resolved": "Incident resolved"
+    },
+    "remoteStates": {
+      "active": "Active",
+      "paused": "Paused",
+      "closed": "Closed",
+      "under_review": "Under review"
     }
   }
 }

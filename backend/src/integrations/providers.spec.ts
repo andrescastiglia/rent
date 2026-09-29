@@ -568,6 +568,17 @@ describe('Mercado Libre classifieds protocol', () => {
       f.http.request.mock.calls.every((call) => call[2].method === 'GET'),
     ).toBe(true);
   });
+  it.each([
+    'ftp://mercadolibre.com.ar/item',
+    'https://user@mercadolibre.com.ar/item',
+    'https://mercadolibre.com.ar:8443/item',
+  ])('rejects unsafe provider permalink %s', async (permalink) => {
+    const f = setup(mlSettings);
+    f.http.request.mockResolvedValue({ ...itemResult, permalink });
+    await expect(f.ml.get(company, 'MLA123')).rejects.toBeInstanceOf(
+      ProviderRequestError,
+    );
+  });
   it('exchanges and rotates OAuth tokens without disclosing client credentials in the URL', async () => {
     const f = setup({
       ...mlSettings,

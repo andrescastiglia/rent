@@ -2469,7 +2469,8 @@ export type PortalOperationDto = {
     | 'retry'
     | 'completed'
     | 'failed'
-    | 'needs_review';
+    | 'needs_review'
+    | 'resolved';
   attempts: number;
   errorCode: string | null;
   updatedAt: string;
@@ -2478,6 +2479,32 @@ export type PortalOperationDto = {
 export type PortalOperationOverviewDto = {
   enabled: boolean;
   job: PortalOperationDto | null;
+};
+
+export type PortalCandidateDto = {
+  id: string;
+  seller_id: number;
+  permalink: string;
+  status: string;
+  title?: string;
+};
+
+export type ResolvePortalPublicationDto = {
+  action: 'link' | 'retry' | 'confirm_not_created' | 'accept_remote';
+  reason: string;
+  externalId?: string;
+  confirmedNoPublication?: true;
+};
+
+export type PortalResolutionDto = {
+  id: string;
+  jobId: string;
+  actorId: string;
+  action: 'link' | 'retry' | 'confirm_not_created' | 'accept_remote';
+  reason: string;
+  externalId: string | null;
+  followupJobId: string | null;
+  createdAt: string;
 };
 
 export type MercadoLibreConnectionStatusDto = {
@@ -6557,6 +6584,22 @@ export type PortalPublicationLatestResponses = {
 export type PortalPublicationLatestResponse =
   PortalPublicationLatestResponses[keyof PortalPublicationLatestResponses];
 
+export type PortalPublicationRefreshData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/portals/listings/{id}/refresh';
+};
+
+export type PortalPublicationRefreshResponses = {
+  201: PortalOperationOverviewDto;
+};
+
+export type PortalPublicationRefreshResponse =
+  PortalPublicationRefreshResponses[keyof PortalPublicationRefreshResponses];
+
 export type PortalPublicationProcessData = {
   body?: never;
   headers: {
@@ -6570,6 +6613,57 @@ export type PortalPublicationProcessData = {
 export type PortalPublicationProcessResponses = {
   201: unknown;
 };
+
+export type PortalPublicationReviewCandidateData = {
+  body?: never;
+  path: {
+    listingId: string;
+    jobId: string;
+    externalId: string;
+  };
+  query?: never;
+  url: '/portals/listings/{listingId}/operations/{jobId}/candidate/{externalId}';
+};
+
+export type PortalPublicationReviewCandidateResponses = {
+  200: PortalCandidateDto;
+};
+
+export type PortalPublicationReviewCandidateResponse =
+  PortalPublicationReviewCandidateResponses[keyof PortalPublicationReviewCandidateResponses];
+
+export type PortalPublicationReviewResolveData = {
+  body: ResolvePortalPublicationDto;
+  path: {
+    listingId: string;
+    jobId: string;
+  };
+  query?: never;
+  url: '/portals/listings/{listingId}/operations/{jobId}/resolve';
+};
+
+export type PortalPublicationReviewResolveResponses = {
+  201: PortalResolutionDto;
+};
+
+export type PortalPublicationReviewResolveResponse =
+  PortalPublicationReviewResolveResponses[keyof PortalPublicationReviewResolveResponses];
+
+export type PortalPublicationReviewHistoryData = {
+  body?: never;
+  path: {
+    listingId: string;
+  };
+  query?: never;
+  url: '/portals/listings/{listingId}/resolutions';
+};
+
+export type PortalPublicationReviewHistoryResponses = {
+  200: Array<PortalResolutionDto>;
+};
+
+export type PortalPublicationReviewHistoryResponse =
+  PortalPublicationReviewHistoryResponses[keyof PortalPublicationReviewHistoryResponses];
 
 export type MercadoLibreConnectionsStatusData = {
   body?: never;

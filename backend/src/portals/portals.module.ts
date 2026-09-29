@@ -1,3 +1,5 @@
+import { PortalPublicationReviewService } from './portal-publication-review.service';
+import { PortalPublicationReviewController } from './portal-publication-review.controller';
 import { IntegrationsModule } from '../integrations/integrations.module';
 import { CommunicationsModule } from '../communications/communications.module';
 import { PortalPublicationOutboxService } from './portal-publication-outbox.service';
@@ -15,8 +17,16 @@ import { PortalsService } from './portals.service';
     CommunicationsModule,
     TypeOrmModule.forFeature([PortalListing, Property]),
   ],
-  controllers: [PortalsController, PortalPublicationController],
-  providers: [PortalsService, PortalPublicationOutboxService],
+  controllers: [
+    PortalsController,
+    PortalPublicationController,
+    PortalPublicationReviewController,
+  ],
+  providers: [
+    PortalsService,
+    PortalPublicationOutboxService,
+    PortalPublicationReviewService,
+  ],
   exports: [PortalsService],
 })
 export class PortalsModule {}

@@ -157,10 +157,59 @@ Cada claim vence en dos minutos y su token protege contra respuestas tardías.
 Actualizaciones y consultas fallidas esperan un minuto y, tras cinco intentos,
 requieren revisión. El cron informa trabajos fallidos o pendientes de revisión.
 No reencolar creaciones inciertas: comprobar primero el aviso en el vendedor
-correspondiente. La resolución asistida de estas incidencias y la interfaz de
-administración de avisos siguen pendientes. La persistencia y renovación OAuth ya usan
+correspondiente. La persistencia y renovación OAuth ya usan
 el almacén cifrado, con pruebas de concurrencia y aislamiento.
 Las cuentas y flags continúan sin configurar; no se habilita publicación real.
+
+### Revisión de publicaciones
+
+La ficha de la propiedad enlaza la vista administrativa
+`/{locale}/properties/{propertyId}/portals`. Muestra la última operación y las
+últimas 50 resoluciones, incluso deshabilitada. «Actualizar estado local» solo
+lee Rent; «Consultar estado en Mercado Libre» encola un `refresh` por ID, sin
+crear ni reactivar avisos. El editor y alta de avisos siguen pendientes.
+
+`GET /portals/listings/:listingId/operations/:jobId/candidate/:externalId`
+consulta el aviso mediante [GET /items/:id](https://developers.mercadolibre.com.ar/publica-productos)
+y valida que pertenezca al vendedor de la compañía. Devuelve ID, título cuando
+está disponible, vendedor, estado y enlace oficial. No vincula ni publica.
+`POST /portals/listings/:listingId/operations/:jobId/resolve` exige administrador,
+compañía, última operación `failed`/`needs_review` y motivo de 10 a 1000 caracteres:
+
+- `link`: vuelve a verificar el ID fuera de la transacción y, bajo locks,
+  revalida la incidencia. Vincula un aviso existente de una creación pendiente.
+  El ID no puede estar asociado a otro registro, tampoco en otra compañía.
+  Conserva el estado remoto; si faltaba descripción encola lectura/descripción,
+  sin reactivar un aviso pausado ni volver a crearlo.
+- `retry`: crea un nuevo trabajo conservando el original. Solo permite una
+  creación sin ID cuando fue rechazada de forma definitiva; las demás
+  operaciones se reintentan por su ID externo conocido.
+- `confirm_not_created`: requiere `confirmedNoPublication: true`, declaración
+  explícita de que el administrador revisó la cuenta y no encontró el aviso.
+  Es evidencia humana, no una certificación automática de ausencia. Cierra la
+  incidencia sin encolar; publicar nuevamente requiere otra solicitud expresa.
+- `accept_remote`: consulta el ID ya vinculado y acepta su estado actual sin
+  repetir el cambio fallido. Sirve para descartar una modificación pendiente.
+
+La UI pide motivo y confirmación; vincular exige además consultar el candidato y
+confirmar que corresponde a la propiedad. Los links se restringen al dominio
+oficial y se abren con HTTPS/noopener/noreferrer. Ante errores se bloquean
+nuevas escrituras hasta consultar el estado local, sin repetir resoluciones.
+
+La migración 116 agrega `portal_publication_resolutions`, estado terminal
+`resolved` e índice único del ID externo de Mercado Libre. Cada resolución
+conserva actor, motivo, acción, incidencia original, metadatos remotos verificados
+cuando corresponden y trabajo posterior. El registro y el trabajo nuevo se
+confirman juntos; una resolución simultánea o una respuesta tardía no puede
+aplicarse sobre una incidencia ya resuelta. El historial local se consulta en
+`GET /portals/listings/:listingId/resolutions`. Todos los cambios y consultas al
+proveedor siguen bloqueados mientras la integración esté deshabilitada.
+
+Antes de aplicar 116, comprobar que no haya IDs externos de Mercado Libre
+repetidos en `portal_listings`; el índice rechaza duplicados existentes sin
+eliminarlos ni reasignarlos automáticamente. Pruebas: `portal-publications.e2e-spec.ts`
+(concurrencia, dos compañías, ausencia manual, vinculación, respuesta tardía,
+reintento por ID y aceptación remota), más pruebas de API y controles de la UI.
 
 ## Mercado Pago Payouts
 
@@ -198,7 +247,8 @@ Pruebas PostgreSQL aisladas: `bfa-stamps.e2e-spec.ts`, incluyendo cola deshabili
 aislamiento entre empresas, concurrencia, respuesta perdida y documentos alterados.
 No constituyen evidencia de disponibilidad del proveedor ni validación de cuentas.
 
-Las migraciones 113, 114 y 115 son aditivas y no encolan documentos ni avisos históricos. Para rollback,
+Las migraciones 113 a 116 conservan los datos y no encolan documentos ni avisos históricos. Para rollback,
 conservar sus registros y mantener proveedores deshabilitados. Si se restaura
 un artefacto anterior, restaurar también el CLI del mismo artefacto para evitar
-invocar un endpoint que aún no exista. No borrar pruebas de sellado.
+invocar un endpoint que aún no exista. No borrar pruebas de sellado ni resoluciones;
+conservar la restricción de IDs externos únicos y los trabajos `resolved` como terminales.

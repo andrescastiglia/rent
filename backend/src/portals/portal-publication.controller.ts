@@ -1,4 +1,4 @@
-import { ApiOkResponse } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 import { PortalOperationOverviewDto } from './dto/portal-operation.dto';
 import {
   Controller,
@@ -29,6 +29,17 @@ export class PortalPublicationController {
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: { user: { companyId: string } },
   ) {
+    return this.outbox.latest(id, req.user.companyId);
+  }
+
+  @ApiCreatedResponse({ type: PortalOperationOverviewDto })
+  @Post('listings/:id/refresh')
+  @Roles(UserRole.ADMIN)
+  async refresh(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: { user: { companyId: string } },
+  ) {
+    await this.outbox.enqueue(id, req.user.companyId, 'refresh');
     return this.outbox.latest(id, req.user.companyId);
   }
 

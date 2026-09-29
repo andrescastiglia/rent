@@ -8579,6 +8579,36 @@
         ]
       }
     },
+    "/portals/listings/{id}/refresh": {
+      "post": {
+        "operationId": "PortalPublication_refresh",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalOperationOverviewDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "PortalPublication"
+        ]
+      }
+    },
     "/portals/internal/process-publications": {
       "post": {
         "operationId": "PortalPublication_process",
@@ -8599,6 +8629,133 @@
         },
         "tags": [
           "PortalPublication"
+        ]
+      }
+    },
+    "/portals/listings/{listingId}/operations/{jobId}/candidate/{externalId}": {
+      "get": {
+        "operationId": "PortalPublicationReview_candidate",
+        "parameters": [
+          {
+            "name": "listingId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "externalId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalCandidateDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "PortalPublicationReview"
+        ]
+      }
+    },
+    "/portals/listings/{listingId}/operations/{jobId}/resolve": {
+      "post": {
+        "operationId": "PortalPublicationReview_resolve",
+        "parameters": [
+          {
+            "name": "listingId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolvePortalPublicationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalResolutionDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "PortalPublicationReview"
+        ]
+      }
+    },
+    "/portals/listings/{listingId}/resolutions": {
+      "get": {
+        "operationId": "PortalPublicationReview_history",
+        "parameters": [
+          {
+            "name": "listingId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PortalResolutionDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "PortalPublicationReview"
         ]
       }
     },
@@ -17993,7 +18150,8 @@
               "retry",
               "completed",
               "failed",
-              "needs_review"
+              "needs_review",
+              "resolved"
             ],
             "type": "string"
           },
@@ -18037,6 +18195,113 @@
         "required": [
           "enabled",
           "job"
+        ]
+      },
+      "PortalCandidateDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "seller_id": {
+            "type": "number"
+          },
+          "permalink": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "seller_id",
+          "permalink",
+          "status"
+        ]
+      },
+      "ResolvePortalPublicationDto": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "link",
+              "retry",
+              "confirm_not_created",
+              "accept_remote"
+            ],
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          },
+          "externalId": {
+            "type": "string",
+            "pattern": "^MLA[0-9]+$"
+          },
+          "confirmedNoPublication": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "action",
+          "reason"
+        ]
+      },
+      "PortalResolutionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "jobId": {
+            "type": "string"
+          },
+          "actorId": {
+            "type": "string"
+          },
+          "action": {
+            "enum": [
+              "link",
+              "retry",
+              "confirm_not_created",
+              "accept_remote"
+            ],
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "externalId": {
+            "type": "string",
+            "nullable": true
+          },
+          "followupJobId": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "jobId",
+          "actorId",
+          "action",
+          "reason",
+          "externalId",
+          "followupJobId",
+          "createdAt"
         ]
       },
       "MercadoLibreConnectionStatusDto": {

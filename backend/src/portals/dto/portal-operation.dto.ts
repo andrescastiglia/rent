@@ -15,6 +15,7 @@ export class PortalOperationDto {
       'completed',
       'failed',
       'needs_review',
+      'resolved',
     ],
   })
   status:
@@ -23,7 +24,8 @@ export class PortalOperationDto {
     | 'retry'
     | 'completed'
     | 'failed'
-    | 'needs_review';
+    | 'needs_review'
+    | 'resolved';
 
   @ApiProperty()
   attempts: number;
