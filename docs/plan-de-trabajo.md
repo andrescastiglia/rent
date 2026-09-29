@@ -96,6 +96,9 @@ Pendiente: despliegue de backend/clientes compatibles.
   Las ejecuciones históricas sin garantía no se vuelven a ejecutar y las propuestas
   de la bandeja no admiten confirmación directa. Ver
   [alcance y pruebas](technical/approved-invoice-recovery.md).
+  Alta manual, emisión y anulación de facturas también guardan el resultado en
+  su transacción (migración 128), con recuperación tras baja lógica y rollback
+  de todos los efectos si falla la persistencia de la constancia.
   Pendiente: gates de este avance, idempotencia transaccional de las demás
   herramientas mutables y despliegue.
 

@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { Company } from '../src/companies/entities/company.entity';
@@ -145,6 +145,7 @@ describe('Durable issued invoice documents (e2e)', () => {
       'ai_conversations',
       'communication_deliveries',
       'invoice_generations',
+      'domain_operation_receipts',
       'invoice_effects_outbox',
       'commission_invoices',
       'invoices',
@@ -742,6 +743,263 @@ describe('Durable issued invoice documents (e2e)', () => {
       else process.env.AI_TOOLS_MODE = mode;
     }
   });
+
+  it.each([
+    ['post_invoices', 'draft'],
+    ['patch_invoice_issue', 'pending'],
+    ['patch_invoice_cancel', 'cancelled'],
+  ])(
+    'recovers %s through approval after a committed response is lost',
+    async (toolName, originalStatus) => {
+      const { id, leaseId, accountId } = await seed();
+      if (toolName === 'patch_invoice_cancel') await issue(id).expect(200);
+      const payload =
+        toolName === 'post_invoices'
+          ? {
+              leaseId,
+              periodStart: '2026-10-01',
+              periodEnd: '2026-10-31',
+              dueDate: '2026-11-10',
+              subtotal: 1200,
+            }
+          : { id };
+      const [{ user_id: requester }] = await db.query(
+        'SELECT user_id FROM tenants WHERE id=$1',
+        [tenantId],
+      );
+      const ordered = Object.fromEntries(
+        Object.entries(payload).sort(([left], [right]) =>
+          left.localeCompare(right),
+        ),
+      );
+      const [action] = await db.query(
+        `INSERT INTO pending_actions(company_id,requested_by,tool_name,action_type,entity_type,summary,payload,payload_hash,expires_at)
+       VALUES($1,$2,$3,'update','invoice','Invoice action',$4::jsonb,$5,now()+interval '15 minutes') RETURNING id,execution_key`,
+        [
+          companyId,
+          requester,
+          toolName,
+          JSON.stringify(payload),
+          createHash('sha256').update(JSON.stringify(ordered)).digest('hex'),
+        ],
+      );
+      const reauthToken = (
+        await request(app.getHttpServer())
+          .post('/auth/reauthenticate')
+          .auth(token, { type: 'bearer' })
+          .send({ password })
+          .expect(200)
+      ).body.reauthToken;
+      const executor = app.get(AiToolExecutorService),
+        original = executor.executeApproved.bind(executor),
+        mode = process.env.AI_TOOLS_MODE;
+      process.env.AI_TOOLS_MODE = 'FULL';
+      const lost = jest
+        .spyOn(executor, 'executeApproved')
+        .mockImplementationOnce(async (...args) => {
+          await original(...args);
+          throw new Error('response lost after committed invoice action');
+        });
+      const approve = () =>
+        request(app.getHttpServer())
+          .post(`/pending-actions/${action.id}/approve`)
+          .auth(token, { type: 'bearer' })
+          .send({ reauthToken });
+      try {
+        expect((await approve().expect(201)).body.status).toBe('failed');
+        lost.mockRestore();
+        const [receipt] = await db.query(
+          'SELECT result FROM domain_operation_receipts WHERE company_id=$1 AND execution_key=$2',
+          [companyId, action.execution_key],
+        );
+        expect(receipt.result.status).toBe(originalStatus);
+        const invoiceId = receipt.result.id;
+        if (originalStatus !== 'cancelled')
+          await app.get(InvoicesService).cancel(invoiceId, companyId);
+        await db.query('UPDATE invoices SET deleted_at=now() WHERE id=$1', [
+          invoiceId,
+        ]);
+        const recovered = (await approve().expect(201)).body;
+        expect(recovered.status).toBe('executed');
+        expect(recovered.result).toEqual(receipt.result);
+        // All concurrent deliveries recover the same archived result without a domain write.
+        const results = await Promise.all(
+          Array.from({ length: 3 }, () =>
+            executor.executeApproved(toolName, payload, {
+              userId,
+              companyId,
+              role: UserRole.ADMIN,
+              idempotencyKey: action.execution_key,
+            }),
+          ),
+        );
+        expect(results).toEqual([
+          receipt.result,
+          receipt.result,
+          receipt.result,
+        ]);
+        const movements = await db.query(
+          'SELECT movement_type FROM tenant_account_movements WHERE tenant_account_id=$1',
+          [accountId],
+        );
+        expect(
+          movements.filter((row: any) => row.movement_type === 'charge'),
+        ).toHaveLength(toolName === 'post_invoices' ? 0 : 1);
+        expect(
+          movements.filter((row: any) => row.movement_type === 'adjustment'),
+        ).toHaveLength(toolName === 'post_invoices' ? 0 : 1);
+        expect(await jobs()).toHaveLength(toolName === 'post_invoices' ? 0 : 1);
+        expect(
+          await db.query(
+            'SELECT execution_key FROM domain_operation_receipts WHERE company_id=$1',
+            [companyId],
+          ),
+        ).toHaveLength(1);
+        await expect(
+          db.query(
+            "UPDATE domain_operation_receipts SET result='{}' WHERE company_id=$1",
+            [companyId],
+          ),
+        ).rejects.toThrow('immutable');
+        await expect(
+          executor.executeApproved(toolName, payload, {
+            userId,
+            companyId,
+            role: UserRole.TENANT,
+            idempotencyKey: action.execution_key,
+          }),
+        ).rejects.toThrow();
+        await expect(
+          executor.executeApproved(toolName, payload, {
+            userId,
+            companyId: foreignId,
+            role: UserRole.ADMIN,
+            idempotencyKey: action.execution_key,
+          }),
+        ).rejects.toThrow();
+      } finally {
+        lost.mockRestore();
+        if (mode === undefined) delete process.env.AI_TOOLS_MODE;
+        else process.env.AI_TOOLS_MODE = mode;
+      }
+    },
+  );
+
+  it('serializes concurrent manual creates and rejects changed requests or operation names under the same key', async () => {
+    const { leaseId } = await seed();
+    const service = app.get(InvoicesService),
+      key = randomUUID();
+    const payload = {
+      leaseId,
+      periodStart: '2026-10-01',
+      periodEnd: '2026-10-31',
+      dueDate: '2026-11-10',
+      subtotal: 1000,
+    };
+    const results = await Promise.all(
+      Array.from({ length: 4 }, () => service.create(payload, companyId, key)),
+    );
+    expect(new Set(results.map((invoice) => invoice.id)).size).toBe(1);
+    expect(
+      await db.query('SELECT id FROM invoices WHERE company_id=$1', [
+        companyId,
+      ]),
+    ).toHaveLength(2);
+    await expect(
+      service.create({ ...payload, subtotal: 999 }, companyId, key),
+    ).rejects.toThrow('different operation or request');
+    await expect(service.issue(results[0].id, companyId, key)).rejects.toThrow(
+      'different operation or request',
+    );
+    expect(await jobs()).toHaveLength(0);
+    expect(
+      await db.query(
+        'SELECT execution_key FROM domain_operation_receipts WHERE company_id=$1',
+        [companyId],
+      ),
+    ).toHaveLength(1);
+  });
+
+  it.each([
+    ['create', 'draft'],
+    ['issue', 'pending'],
+    ['cancel', 'cancelled'],
+  ])(
+    'rolls back invoice %s and its effects if receipt persistence fails',
+    async (operation, expectedStatus) => {
+      const { id, leaseId, accountId } = await seed();
+      if (operation === 'cancel') await issue(id).expect(200);
+      const snapshot = async () => ({
+        invoices: await db.query(
+          'SELECT * FROM invoices WHERE company_id=$1 ORDER BY id',
+          [companyId],
+        ),
+        account: await db.query('SELECT * FROM tenant_accounts WHERE id=$1', [
+          accountId,
+        ]),
+        movements: await db.query(
+          'SELECT * FROM tenant_account_movements WHERE tenant_account_id=$1 ORDER BY id',
+          [accountId],
+        ),
+        commissions: await db.query(
+          'SELECT * FROM commission_invoices WHERE company_id=$1 ORDER BY id',
+          [companyId],
+        ),
+        jobs: await jobs(),
+      });
+      const before = await snapshot();
+      const key = randomUUID(),
+        service = app.get(InvoicesService);
+      const execute = () =>
+        operation === 'create'
+          ? service.create(
+              {
+                leaseId,
+                periodStart: '2026-10-01',
+                periodEnd: '2026-10-31',
+                dueDate: '2026-11-10',
+                subtotal: 1200,
+              },
+              companyId,
+              key,
+            )
+          : operation === 'issue'
+            ? service.issue(id, companyId, key)
+            : service.cancel(id, companyId, key);
+      const original = EntityManager.prototype.query;
+      const write = jest
+        .spyOn(EntityManager.prototype, 'query')
+        .mockImplementation(function (this: EntityManager, sql, parameters) {
+          if (
+            sql.includes('INSERT INTO domain_operation_receipts') &&
+            parameters?.[0] === companyId
+          )
+            return Promise.reject(new Error('receipt write unavailable'));
+          return original.call(this, sql, parameters);
+        });
+      try {
+        await expect(execute()).rejects.toThrow('receipt write unavailable');
+      } finally {
+        write.mockRestore();
+      }
+      expect(await snapshot()).toEqual(before);
+      expect(
+        await db.query(
+          'SELECT execution_key FROM domain_operation_receipts WHERE company_id=$1',
+          [companyId],
+        ),
+      ).toHaveLength(0);
+      const retry = await execute();
+      expect(retry.status).toBe(expectedStatus);
+      expect(await execute()).toEqual(JSON.parse(JSON.stringify(retry)));
+      expect(
+        await db.query(
+          'SELECT execution_key FROM domain_operation_receipts WHERE company_id=$1',
+          [companyId],
+        ),
+      ).toHaveLength(1);
+    },
+  );
 
   it('recovers explicit conversation confirmations and prevents bypassing queued administrative approval', async () => {
     const { leaseId } = await seed(),

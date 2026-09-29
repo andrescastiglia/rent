@@ -1631,14 +1631,16 @@ export function buildAiToolDefinitions(
       description:
         'Creates a new invoice manually. Specify leaseId, tenant, line items, amounts, and due date.',
       responseDescription:
-        'The created invoice record in draft status with assigned UUID.',
+        'The original created invoice in draft status with assigned UUID. Recovery returns that original result; query the invoice for its current state.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: CreateInvoiceDto.zodSchema,
       execute: async (args, context) =>
         deps.invoicesService.create(
           CreateInvoiceDto.zodSchema.parse(args),
           context.companyId ?? '',
+          context.idempotencyKey,
         ),
     },
     {
@@ -1678,14 +1680,20 @@ export function buildAiToolDefinitions(
       name: 'patch_invoice_issue',
       description:
         'Issues a draft invoice: sets issuedAt timestamp, creates a CHARGE movement on tenant account, and triggers commission invoice if applicable.',
-      responseDescription: 'The issued invoice record with movement reference.',
+      responseDescription:
+        'The original issued invoice record with movement reference. Recovery returns that original result; query the invoice for its current state.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
         const companyId = context.companyId ?? '';
-        return deps.invoicesService.issue(id, companyId);
+        return deps.invoicesService.issue(
+          id,
+          companyId,
+          context.idempotencyKey,
+        );
       },
     },
     {
@@ -1754,13 +1762,18 @@ export function buildAiToolDefinitions(
       description:
         'Cancels a non-PAID invoice by UUID. Reverses the CHARGE movement on the tenant account.',
       responseDescription:
-        'The cancelled invoice record with reversal confirmation.',
+        'The original cancelled invoice record with reversal confirmation. Recovery returns that original result; query the invoice for its current state.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.invoicesService.cancel(id, context.companyId ?? '');
+        return deps.invoicesService.cancel(
+          id,
+          context.companyId ?? '',
+          context.idempotencyKey,
+        );
       },
     },
     {
