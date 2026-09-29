@@ -362,6 +362,12 @@ export function PortalPublicationReview({
   return (
     <div className="space-y-5">
       <h1 className="text-2xl font-semibold">{t("title")}</h1>
+      <Link
+        href={`/${locale}/properties/${propertyId}/portals/editor`}
+        className="mr-4 inline-block underline"
+      >
+        {t("editor")}
+      </Link>
       <Link href={`/${locale}/settings/mercadolibre`} className="underline">
         {t("connection")}
       </Link>

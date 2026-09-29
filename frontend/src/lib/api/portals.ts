@@ -1,6 +1,8 @@
 import { apiClient } from "../api";
 import { getToken } from "../auth";
 import type {
+  MercadoLibreCategoryDto,
+  MercadoLibreOptionDto,
   PortalListing,
   PortalOperationOverviewDto,
   PortalCandidateDto,
@@ -17,6 +19,52 @@ export type {
 const listingPath = (id: string) =>
   `/portals/listings/${encodeURIComponent(id)}`;
 export const portalsApi = {
+  category: (id: string) =>
+    apiClient.get<MercadoLibreCategoryDto>(
+      `/portals/mercadolibre/catalog/categories/${encodeURIComponent(id)}`,
+      getToken() || undefined,
+    ),
+  states: () =>
+    apiClient.get<MercadoLibreOptionDto[]>(
+      "/portals/mercadolibre/catalog/states",
+      getToken() || undefined,
+    ),
+  cities: (id: string) =>
+    apiClient.get<MercadoLibreOptionDto[]>(
+      `/portals/mercadolibre/catalog/states/${encodeURIComponent(id)}/cities`,
+      getToken() || undefined,
+    ),
+  neighborhoods: (id: string) =>
+    apiClient.get<MercadoLibreOptionDto[]>(
+      `/portals/mercadolibre/catalog/cities/${encodeURIComponent(id)}/neighborhoods`,
+      getToken() || undefined,
+    ),
+  create: (propertyId: string, listingData: Record<string, unknown>) =>
+    apiClient.post<PortalListing>(
+      "/portals/listings",
+      { propertyId, portal: "mercadolibre", listingData },
+      getToken() || undefined,
+    ),
+  update: (id: string, listingData: Record<string, unknown>) =>
+    apiClient.patch<PortalListing>(
+      listingPath(id),
+      { listingData },
+      getToken() || undefined,
+    ),
+  publish: (id: string) =>
+    apiClient.post<PortalListing>(
+      `${listingPath(id)}/publish`,
+      {},
+      getToken() || undefined,
+    ),
+  pause: (id: string) =>
+    apiClient.post<PortalListing>(
+      `${listingPath(id)}/pause`,
+      {},
+      getToken() || undefined,
+    ),
+  close: (id: string) =>
+    apiClient.delete<void>(listingPath(id), getToken() || undefined),
   get: (id: string) =>
     apiClient.get<PortalListing>(listingPath(id), getToken() || undefined),
   list: (propertyId: string) =>
