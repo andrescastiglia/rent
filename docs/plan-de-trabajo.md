@@ -51,13 +51,22 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 - [ ] Completar E2E con backend real en Android e iOS y conservar evidencia por plataforma.
 - [ ] Cerrar gates RAG: integridad, recall ≥ 0,95, errores < 1 %, respuesta p95 < 8 s y frescura p95 < 60 s; conservar evidencia por tag/compañía.
 
-## Integraciones postergadas por decisión de producto
+## Integraciones a implementar, temporalmente deshabilitadas
 
 Firma digital, publicación en portales y transferencias externas de liquidaciones
 permanecen temporalmente deshabilitadas por instrucción del usuario (2026-09-28).
-La integración de proveedores reales queda fuera de esta entrega. Se conserva la
-consulta histórica; no deben ejecutarse simulaciones ni marcar transferencias como
-pagadas en producción. El cron `process-settlements` permanece suspendido.
+La implementación de proveedores reales forma parte de esta entrega, por
+aclaración del usuario: BFA únicamente para sellado/verificación documental,
+Mercado Libre para publicación inmobiliaria y Mercado Pago Payouts para
+transferencias de liquidaciones. No existen cuentas ni credenciales; implementar
+sin configurar ni activar proveedores. Se conserva la consulta histórica; no
+deben ejecutarse simulaciones ni marcar transferencias como pagadas en producción.
+El cron `process-settlements` permanece suspendido.
+
+- [ ] Implementar BFA sin confundir sellado temporal con firma de las partes.
+- [ ] Implementar publicación, actualización y estados con Mercado Libre.
+- [ ] Implementar transferencias Mercado Pago con idempotencia y conciliación.
+- [ ] Verificar que ninguna integración real se invoque mientras está deshabilitada.
 
 ## Criterio de cierre
 
