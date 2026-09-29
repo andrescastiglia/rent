@@ -7606,6 +7606,55 @@
         ]
       }
     },
+    "/settlements/calculation/preview": {
+      "get": {
+        "operationId": "SettlementCalculation_preview",
+        "parameters": [
+          {
+            "name": "ownerId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "period",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "pattern": "^[1-9]\\d{3}-(0[1-9]|1[0-2])$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "currency",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "pattern": "^[A-Z]{3}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementCalculationDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "SettlementCalculation"
+        ]
+      }
+    },
     "/settlements": {
       "get": {
         "operationId": "Settlements_findAll",
@@ -17571,6 +17620,158 @@
       "UpdateBankAccountDto": {
         "type": "object",
         "properties": {}
+      },
+      "SettlementSourceAllocationDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "paymentId": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "paymentDate": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "paymentId",
+          "amount",
+          "paymentDate"
+        ]
+      },
+      "SettlementSourceCreditDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "amount"
+        ]
+      },
+      "SettlementSourceInvoiceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "invoiceNumber": {
+            "type": "string"
+          },
+          "totalAmount": {
+            "type": "string"
+          },
+          "dueDate": {
+            "type": "string"
+          },
+          "collectedAmount": {
+            "type": "string"
+          },
+          "creditedAmount": {
+            "type": "string"
+          },
+          "grossAmount": {
+            "type": "string"
+          },
+          "scheduledDate": {
+            "type": "string"
+          },
+          "allocations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SettlementSourceAllocationDto"
+            }
+          },
+          "creditNotes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SettlementSourceCreditDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "invoiceNumber",
+          "totalAmount",
+          "dueDate",
+          "collectedAmount",
+          "creditedAmount",
+          "grossAmount",
+          "scheduledDate",
+          "allocations",
+          "creditNotes"
+        ]
+      },
+      "SettlementCalculationDto": {
+        "type": "object",
+        "properties": {
+          "ownerId": {
+            "type": "string"
+          },
+          "period": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "commissionRate": {
+            "type": "string"
+          },
+          "grossAmount": {
+            "type": "string"
+          },
+          "commissionAmount": {
+            "type": "string"
+          },
+          "netBeforeWithholdings": {
+            "type": "string",
+            "description": "Before any additional settlement withholding; not a transfer authorization."
+          },
+          "scheduledDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "existingSettlementIds": {
+            "description": "Existing settlements require reconciliation before generation; amounts are not unreserved balances.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "invoices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SettlementSourceInvoiceDto"
+            }
+          },
+          "fingerprint": {
+            "type": "string",
+            "description": "Hash of the source calculation, excluding calculation time."
+          }
+        },
+        "required": [
+          "ownerId",
+          "period",
+          "currency",
+          "commissionRate",
+          "grossAmount",
+          "commissionAmount",
+          "netBeforeWithholdings",
+          "scheduledDate",
+          "existingSettlementIds",
+          "invoices",
+          "fingerprint"
+        ]
       },
       "Settlement": {
         "type": "object",
