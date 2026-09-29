@@ -87,13 +87,13 @@ export class MercadoLibreCatalogService {
       this.read(
         companyId,
         account,
-        `/categories/${categoryId}/attributes`,
+        `/categories/${encodeURIComponent(categoryId)}/attributes`,
         attributeSchema,
       ),
       this.read(
         companyId,
         account,
-        `/users/${account.sellerId}/available_listing_types?category_id=${categoryId}`,
+        `/users/${account.sellerId}/available_listing_types?category_id=${encodeURIComponent(categoryId)}`,
         listingTypesSchema,
       ),
     ]);
@@ -186,7 +186,7 @@ export class MercadoLibreCatalogService {
     const category = await this.read(
       companyId,
       account,
-      `/categories/${id}`,
+      `/categories/${encodeURIComponent(id)}`,
       categorySchema,
     );
     if (
