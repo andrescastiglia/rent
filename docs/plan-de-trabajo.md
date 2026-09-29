@@ -121,8 +121,12 @@ Pendiente: despliegue de backend/clientes compatibles.
   Anulación de cobros implementada con saldo imputado en centavos, estado según
   pagos remanentes/vencimiento, preservación de facturas anuladas y rechazo de
   imputaciones incompatibles. Ver [reglas y pruebas](technical/payment-reversals.md).
-  Pendiente: gates y despliegue; revisar la mora bonificada por otro cobro de la
-  misma factura y la recuperación de deuda tras liquidaciones ya transferidas.
+  Las nuevas bonificaciones de mora registran origen y se revierten al anular
+  otro cobro de la factura, con auditoría, bloqueo del PDF y revalidación del
+  aviso pendiente. Ver [alcance y límites](technical/conditional-late-fee-credits.md).
+  Pendiente: gates y despliegue; política opcional de mora, notas históricas,
+  anulación directa de facturas con notas, avisos de recibos, numeración persistente
+  y recuperación de deuda tras liquidaciones ya transferidas.
 - [ ] Propiedades: filtros útiles, interesados, visitas y aviso consentido al propietario con fecha, oferta y valor.
 - [ ] Ventas: cuotas transaccionales, atrasos, saldo a favor/crédito y original/duplicado verificables.
 - [ ] Mantenimiento: solicitud, asignación, seguimiento, cierre, adjuntos, auditoría y notificaciones idempotentes.

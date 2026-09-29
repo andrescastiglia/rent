@@ -24,10 +24,11 @@ de facturas anuladas, reversiones concurrentes, recuperación y rollback ante
 imputación incompatible. La prueba de fecha cubre el cambio de día en Argentina
 a las 03:00 UTC; estados terminales y fechas inválidas tienen cobertura unitaria.
 
-Este cambio no recalcula ni revoca notas por mora que otro cobro de la misma
-factura haya generado. Esa política y los saldos de liquidaciones ya transferidas
-continúan pendientes. No se modifica automáticamente el historial de reversiones
-anteriores ni se presume que los estados históricos incorrectos estén reparados.
+La revocación de bonificaciones emitidas por otro cobro se agrega mediante la
+migración 130 y el [contrato de notas condicionales](conditional-late-fee-credits.md).
+Los saldos de liquidaciones ya transferidas continúan pendientes. No se modifica
+automáticamente el historial de reversiones anteriores ni se presume que los
+estados históricos incorrectos estén reparados.
 
 Aplicar la migración 129 antes del backend; es repetible y no cambia datos. Para
 rollback puede conservarse el índice. Revisar incidencias de imputación en la

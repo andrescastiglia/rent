@@ -999,7 +999,9 @@ describe('PaymentsService', () => {
   });
 
   it('should skip credit note creation when one already exists', async () => {
-    _creditNotesRepository.findOne!.mockResolvedValue({ id: 'existing-cn' });
+    _creditNotesRepository
+      .findOne!.mockResolvedValueOnce({ id: 'existing-cn' })
+      .mockResolvedValueOnce(null);
 
     await (service as any).createCreditNotesForSettledLateFees(
       {
