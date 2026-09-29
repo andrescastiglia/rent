@@ -10,13 +10,40 @@ deja un borrador/calendario adelantado si falla la emisión.
 Dos generaciones del mismo período explícito sobre un contrato se serializan: la
 segunda encuentra la factura existente y responde 409. Se consideran las facturas
 no borradas ni canceladas/reintegradas. Cada solicitud sin fechas explícitas toma
-el siguiente período del calendario ya confirmado; dos solicitudes pueden avanzar
-dos períodos distintos. Esto no equivale a idempotencia de solicitud: la recuperación
-de una respuesta perdida aún requiere una clave durable antes de habilitar reenvíos
-automáticos. Las altas manuales siguen permitiendo conceptos adicionales en un
+el siguiente período del calendario ya confirmado; dos solicitudes sin clave pueden
+avanzar dos períodos distintos. Las altas manuales siguen permitiendo conceptos adicionales en un
 mismo período.
 La creación explícita de un período histórico conserva las fechas más avanzadas
 del calendario; no vuelve a programar meses ya recorridos.
+
+## Recuperación de una solicitud
+
+HTTP e IA aceptan `idempotencyKey`, un UUID generado por el cliente antes del primer
+envío. La migración 123 guarda compañía, contrato, parámetros normalizados e ID de
+factura en `invoice_generations`, dentro de la misma transacción que la factura,
+el calendario, cargo, comisión y cola documental. Un fallo revierte también la clave.
+El bloqueo por compañía/clave serializa peticiones concurrentes antes del bloqueo
+del contrato. Un reenvío con la misma clave y opciones recupera el estado actual de
+la factura, incluso si el calendario ya avanzó; no vuelve a calcular importes ni a
+emitirla. No promete devolver una copia byte a byte de la respuesta inicial.
+
+Cambiar contrato, fechas u opciones con una clave usada devuelve 409. Los valores
+omitidos equivalen a `issue=false`, `applyLateFee=false` y `applyAdjustment=true`.
+Los booleanos deben ser booleanos JSON: las cadenas `"false"`/`"true"` se rechazan
+también en IA. Las claves UUID no distinguen mayúsculas de minúsculas.
+La consulta exige la compañía autenticada y los roles administrativos habituales;
+conocer una clave no concede acceso al documento de otra compañía.
+
+Una factura cancelada, reintegrada o borrada conserva su clave y el reintento devuelve
+409; nunca crea un reemplazo automáticamente. La asociación es inmutable y la FK
+impide borrar físicamente la factura mientras exista el registro. No hay caducidad
+ni limpieza automática de claves. No eliminar esos registros al revertir el backend.
+
+La clave es opcional para conservar compatibilidad. Los clientes que no la mandan
+siguen teniendo el comportamiento anterior y no deben reintentar automáticamente.
+El cliente debe conservar la misma clave hasta resolver una respuesta perdida; crear
+un UUID nuevo en cada reintento anula esta protección. Esto no resuelve por sí solo
+la ventana entre aprobación de una acción IA y almacenamiento de su resultado.
 
 ## Numeración y calendario
 
@@ -54,13 +81,22 @@ después se validaron los 13 casos de facturación, incluido el nuevo caso que
 impide retroceder el calendario (255 E2E cubiertos en total). Lint, tipos y
 contrato OpenAPI comprobados. No se cambió la interfaz ni el formato del PDF.
 
-No hay migración ni configuración nueva. Requiere la migración 122 y el backend
-compatible con la cola de PDF. Mantener los triggers y documentos al revertir;
+Validación de claves: 1.404 unitarias y 261 E2E en regresión completa; después,
+20 casos de facturación aprobados incluyendo el nuevo rechazo de una clave usada
+en otro contrato (262 E2E cubiertos en total). Se verificaron cuatro solicitudes
+automáticas concurrentes, parámetros cambiados, UUID en mayúsculas, alcance por
+compañía/rol, recuperación por IA, booleanos inválidos, cancelación, reintegro,
+borrado lógico, inmutabilidad y rollback de la clave ante un fallo de emisión.
+La migración 123 se aplicó dos veces correctamente en PostgreSQL local. Lint,
+tipos y generación OpenAPI aprobados. CI y despliegue se comprueban por separado.
+
+Requiere las migraciones 122 y 123 antes del backend compatible; no agrega
+credenciales ni activa procesos. Mantener los triggers, claves y documentos al revertir;
 volver al escritor anterior reintroduce generación parcial y colisiones de números.
 
 El batch conserva por ahora un escritor independiente en `billing.service.ts` e
 `invoice.service.ts`, con cálculos de conversión/retenciones, PDF y notificación
 separados. Su unificación con el servicio común sigue pendiente y el cron no se
 habilita. La transacción descrita aquí prueba HTTP/IA, no ese batch. También quedan
-pendientes idempotencia por solicitud, mora auditada, conceptos, recuperación
+pendientes adopción de claves en todos los clientes, mora auditada, conceptos, recuperación
 histórica y validación productiva.

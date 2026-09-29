@@ -128,6 +128,7 @@ describe('Durable issued invoice documents (e2e)', () => {
       [companyId],
     );
     for (const table of [
+      'invoice_generations',
       'invoice_effects_outbox',
       'commission_invoices',
       'invoices',
@@ -464,6 +465,7 @@ describe('Durable issued invoice documents (e2e)', () => {
 
   it('rolls back rent adjustment, calendar, invoice, account, commission and job together if auto-issuance fails', async () => {
     const { leaseId, accountId } = await seed();
+    const idempotencyKey = randomUUID();
     await db.query(
       "UPDATE leases SET next_billing_date='2026-10-01',next_adjustment_date='2026-10-01',adjustment_type='percentage',adjustment_value=10 WHERE id=$1",
       [leaseId],
@@ -480,7 +482,7 @@ describe('Durable issued invoice documents (e2e)', () => {
     await expect(
       app
         .get(InvoicesService)
-        .generateForLease(leaseId, { issue: true }, companyId),
+        .generateForLease(leaseId, { issue: true, idempotencyKey }, companyId),
     ).rejects.toThrow('snapshot failed');
     capture.mockRestore();
     expect(
@@ -510,6 +512,188 @@ describe('Durable issued invoice documents (e2e)', () => {
         companyId,
       ]),
     ).toHaveLength(0);
+    expect(
+      await db.query('SELECT id FROM invoice_generations WHERE company_id=$1', [
+        companyId,
+      ]),
+    ).toHaveLength(0);
+    const retry = await generate(leaseId, {
+      issue: true,
+      idempotencyKey,
+    }).expect(201);
+    expect(
+      (await generate(leaseId, { issue: true, idempotencyKey }).expect(201))
+        .body.id,
+    ).toBe(retry.body.id);
+    expect(await jobs()).toHaveLength(1);
+  });
+
+  it('recovers concurrent automatic requests without advancing another period or repeating charges', async () => {
+    const { leaseId, accountId } = await seed();
+    const idempotencyKey = randomUUID();
+    await db.query(
+      "UPDATE leases SET next_billing_date='2026-10-01' WHERE id=$1",
+      [leaseId],
+    );
+    const results = await Promise.all(
+      Array.from({ length: 4 }, () =>
+        generate(leaseId, { issue: true, idempotencyKey }),
+      ),
+    );
+    expect(results.map((r) => r.status)).toEqual([201, 201, 201, 201]);
+    expect(new Set(results.map((r) => r.body.id)).size).toBe(1);
+    const id = results[0].body.id;
+    expect(
+      (
+        await generate(leaseId, {
+          issue: true,
+          applyLateFee: false,
+          applyAdjustment: true,
+          idempotencyKey: idempotencyKey.toUpperCase(),
+        }).expect(201)
+      ).body.id,
+    ).toBe(id);
+    expect(await jobs()).toHaveLength(1);
+    expect(
+      (
+        await db.query(
+          'SELECT current_balance FROM tenant_accounts WHERE id=$1',
+          [accountId],
+        )
+      )[0].current_balance,
+    ).toBe('1000.00');
+    expect(
+      await db.query(
+        'SELECT id FROM tenant_account_movements WHERE reference_id=$1',
+        [id],
+      ),
+    ).toHaveLength(1);
+    expect(
+      await db.query('SELECT id FROM commission_invoices WHERE company_id=$1', [
+        companyId,
+      ]),
+    ).toHaveLength(1);
+    expect(
+      (
+        await db.query(
+          'SELECT next_billing_date::text FROM leases WHERE id=$1',
+          [leaseId],
+        )
+      )[0].next_billing_date,
+    ).toBe('2026-11-01');
+    await generate(
+      leaseId,
+      { issue: true, idempotencyKey },
+      foreignToken,
+    ).expect(404);
+    await generate(
+      leaseId,
+      { issue: true, idempotencyKey },
+      tenantToken,
+    ).expect(403);
+    await expect(
+      db.query(
+        "UPDATE invoice_generations SET request='{}' WHERE invoice_id=$1",
+        [id],
+      ),
+    ).rejects.toThrow('immutable');
+  });
+
+  it('rejects reusing a key with different options and preserves the original result', async () => {
+    const { leaseId } = await seed();
+    const idempotencyKey = randomUUID();
+    const body = { ...october, idempotencyKey };
+    const first = await generate(leaseId, body).expect(201);
+    for (const change of [
+      { issue: true },
+      { applyLateFee: true },
+      { applyAdjustment: false },
+      { dueDate: '2026-11-11' },
+    ])
+      await generate(leaseId, { ...body, ...change }).expect(409);
+    await generate(leaseId, { idempotencyKey }).expect(409);
+    expect((await generate(leaseId, body).expect(201)).body.id).toBe(
+      first.body.id,
+    );
+    expect(
+      await db.query('SELECT id FROM invoice_generations WHERE company_id=$1', [
+        companyId,
+      ]),
+    ).toHaveLength(1);
+    expect(await jobs()).toHaveLength(0);
+  });
+
+  it('rejects reusing a company key for another lease', async () => {
+    const firstLease = await seed();
+    const body = { ...october, idempotencyKey: randomUUID() };
+    const first = await generate(firstLease.leaseId, body).expect(201);
+    await db.query("UPDATE leases SET status='finalized' WHERE id=$1", [
+      firstLease.leaseId,
+    ]);
+    const secondLease = await seed();
+    await generate(secondLease.leaseId, body).expect(409);
+    expect((await generate(firstLease.leaseId, body).expect(201)).body.id).toBe(
+      first.body.id,
+    );
+    expect(
+      await db.query('SELECT id FROM invoices WHERE lease_id=$1', [
+        secondLease.leaseId,
+      ]),
+    ).toHaveLength(1);
+  });
+
+  it.each(['cancelled', 'refunded', 'deleted'])(
+    'keeps the key consumed after the original is %s',
+    async (state) => {
+      const { leaseId } = await seed();
+      const body = { ...october, idempotencyKey: randomUUID() };
+      const first = await generate(leaseId, body).expect(201);
+      if (state === 'deleted')
+        await db.query('UPDATE invoices SET deleted_at=now() WHERE id=$1', [
+          first.body.id,
+        ]);
+      else
+        await db.query('UPDATE invoices SET status=$2 WHERE id=$1', [
+          first.body.id,
+          state,
+        ]);
+      await generate(leaseId, body).expect(409);
+      expect(
+        await db.query('SELECT id FROM invoices WHERE lease_id=$1', [leaseId]),
+      ).toHaveLength(2);
+      expect(
+        await db.query(
+          'SELECT id FROM invoice_generations WHERE company_id=$1',
+          [companyId],
+        ),
+      ).toHaveLength(1);
+    },
+  );
+
+  it('recovers the same result through the real AI tool and rejects string booleans', async () => {
+    const { leaseId } = await seed();
+    const args = {
+      leaseId,
+      ...october,
+      issue: true,
+      idempotencyKey: randomUUID(),
+    };
+    const tool = buildAiToolDefinitions({
+      invoicesService: app.get(InvoicesService),
+    } as any).find((t) => t.name === 'post_invoices_generate_for_lease')!;
+    const context = { companyId, userId, role: UserRole.ADMIN } as any;
+    const first = await tool.execute(args, context);
+    const second = await tool.execute(args, context);
+    expect((second as any).id).toBe((first as any).id);
+    await expect(
+      tool.execute({ ...args, issue: 'false' }, context),
+    ).rejects.toThrow();
+    await generate(leaseId, { ...october, issue: 'false' }).expect(400);
+    await generate(leaseId, {
+      ...october,
+      idempotencyKey: 'not-a-uuid',
+    }).expect(400);
+    expect(await jobs()).toHaveLength(1);
   });
 
   it('serializes repeated custom periods, applies rent adjustment once and advances the calendar atomically', async () => {

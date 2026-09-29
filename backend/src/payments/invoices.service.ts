@@ -142,9 +142,56 @@ export class InvoicesService {
     dto: GenerateInvoiceDto,
     companyId: string,
   ): Promise<Invoice> {
+    const parsed = GenerateInvoiceDto.zodSchema.safeParse(dto);
+    if (!parsed.success)
+      throw new BadRequestException('Invalid invoice generation request');
+    dto = parsed.data;
+    const key = dto.idempotencyKey?.toLowerCase();
+    const generationRequest = JSON.stringify({
+      leaseId,
+      issue: dto.issue === true,
+      applyLateFee: dto.applyLateFee === true,
+      applyAdjustment: dto.applyAdjustment !== false,
+      periodStart: dto.periodStart ?? null,
+      periodEnd: dto.periodEnd ?? null,
+      dueDate: dto.dueDate ?? null,
+    });
     return this.dataSource.transaction(async (manager) => {
       const invoicesRepository = manager.getRepository(Invoice);
+      if (key)
+        await manager.query(
+          'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
+          [`invoice-generation:${companyId}:${key}`],
+        );
       const lease = await this.lockBillingLease(manager, leaseId, companyId);
+
+      if (key) {
+        const [previous] = await manager.query(
+          `SELECT invoice_id, request=$3::jsonb AS matches FROM invoice_generations
+           WHERE company_id=$1 AND idempotency_key=$2`,
+          [companyId, key, generationRequest],
+        );
+        if (previous) {
+          if (!previous.matches)
+            throw new ConflictException(
+              'Generation key was already used with a different request',
+            );
+          const recovered = await invoicesRepository.findOne({
+            where: { id: previous.invoice_id, companyId, leaseId },
+            lock: { mode: 'pessimistic_write' },
+          });
+          if (
+            !recovered ||
+            [InvoiceStatus.CANCELLED, InvoiceStatus.REFUNDED].includes(
+              recovered.status,
+            )
+          )
+            throw new ConflictException(
+              'Original invoice is no longer available; generation key cannot be reused',
+            );
+          return recovered;
+        }
+      }
 
       const account = await this.tenantAccountsService.findByLease(
         leaseId,
@@ -210,6 +257,13 @@ export class InvoicesService {
       });
 
       const saved = await invoicesRepository.save(invoice);
+
+      if (key)
+        await manager.query(
+          `INSERT INTO invoice_generations(company_id,lease_id,idempotency_key,request,invoice_id)
+         VALUES($1,$2,$3,$4::jsonb,$5)`,
+          [companyId, leaseId, key, generationRequest, saved.id],
+        );
 
       advanceBillingCalendar(lease, periodStart, periodEnd);
       await manager.getRepository(Lease).save(lease);

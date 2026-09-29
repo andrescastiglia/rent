@@ -15232,6 +15232,10 @@
       "GenerateInvoiceDto": {
         "type": "object",
         "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          },
           "issue": {
             "type": "boolean"
           },
