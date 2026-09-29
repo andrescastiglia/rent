@@ -17,7 +17,7 @@ const accountSchema = z.object({
   signingPrivateKey: z.string().optional(),
 });
 const reference = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
-const bankAccountSchema = z.object({
+export const bankAccountSchema = z.object({
   // Payouts currently supports checking accounts, not savings accounts.
   accountType: z.literal('checking'),
   holder: z.string().trim().min(1).max(200),
@@ -66,6 +66,7 @@ const transactionSchema = z.object({
   external_reference: reference,
   status: z.string(),
   status_detail: z.string().optional(),
+  last_update_date: z.string().datetime({ offset: true }),
   amount: z.object({ currency: z.string(), value: z.number() }),
 });
 export type PayoutTransaction = z.infer<typeof transactionSchema>;
@@ -77,16 +78,20 @@ export class MercadoPagoPayoutsClient {
     private readonly http: ProviderHttpService,
   ) {}
 
+  validate(input: unknown): PayoutRequest {
+    const parsed = payoutSchema.safeParse(input);
+    if (!parsed.success)
+      throw new BadRequestException('Invalid payout request');
+    return parsed.data;
+  }
+
   async create(companyId: string, input: PayoutRequest) {
     const account = this.config.account(
       'MERCADOPAGO_PAYOUTS',
       companyId,
       accountSchema,
     );
-    const parsed = payoutSchema.safeParse(input);
-    if (!parsed.success)
-      throw new BadRequestException('Invalid payout request');
-    const data = parsed.data;
+    const data = this.validate(input);
     const body = JSON.stringify({
       external_reference: data.externalReference,
       transactions: [
@@ -147,7 +152,7 @@ export class MercadoPagoPayoutsClient {
       throw new BadRequestException('Invalid payout identifiers');
     const raw = await this.http.request(
       'MERCADOPAGO_PAYOUTS',
-      `https://api.mercadopago.com/v1/payouts/${payoutId}/transactions/${transactionId}`,
+      `https://api.mercadopago.com/v1/payouts/${encodeURIComponent(payoutId)}/transactions/${encodeURIComponent(transactionId)}`,
       {
         method: 'GET',
         headers: this.headers(account),

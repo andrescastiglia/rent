@@ -318,6 +318,7 @@ describe('Mercado Pago Payouts protocol', () => {
     expect(
       f.payouts.isAccredited({
         ...payoutResult.transactions[0],
+        last_update_date: '2026-09-29T00:00:00Z',
         status: 'success',
         status_detail: 'in_progress',
       }),
@@ -392,6 +393,7 @@ describe('Mercado Pago Payouts protocol', () => {
     const f = setup(mpSettings);
     const transaction = {
       ...payoutResult.transactions[0],
+      last_update_date: '2026-09-29T00:00:00Z',
       status: 'success',
       status_detail: 'accredited',
     };
@@ -698,3 +700,20 @@ describe('provider HTTP boundary', () => {
     ).rejects.toThrow('HTTPS');
   });
 });
+
+it.each([undefined, 'not-a-date', '2026-09-01'])(
+  'rejects transaction observations without a valid offset timestamp: %s',
+  async (last_update_date) => {
+    const f = setup(mpSettings);
+    f.http.request.mockResolvedValue({
+      ...payoutResult.transactions[0],
+      status: 'success',
+      status_detail: 'accredited',
+      last_update_date,
+    });
+    await expect(
+      f.payouts.transaction(company, 'POP123', 'TOP123', payout),
+    ).rejects.toMatchObject({ outcomeUnknown: false });
+    expect(f.http.request).toHaveBeenCalledTimes(1);
+  },
+);
