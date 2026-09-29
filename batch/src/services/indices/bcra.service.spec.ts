@@ -138,6 +138,26 @@ describe("BcraService", () => {
     });
   });
 
+  it.each([
+    {},
+    { results: [], metadata: { resultset: { count: 1 } } },
+    {
+      results: [
+        { idVariable: 99, detalle: [{ fecha: "2025-01-01", valor: 1 }] },
+      ],
+    },
+    {
+      results: [
+        { idVariable: 40, detalle: [{ fecha: "2025-01-01", valor: null }] },
+      ],
+    },
+  ])("rejects malformed, truncated and unrelated series", async (data) => {
+    getMock.mockResolvedValue({ data });
+    await expect(
+      new BcraService().getIcl(new Date("2025-01-01"), new Date("2025-01-31")),
+    ).rejects.toThrow();
+  });
+
   it("covers private helpers", () => {
     const service = new BcraService();
     const anyService = service as any;
