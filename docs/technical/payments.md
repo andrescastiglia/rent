@@ -222,7 +222,9 @@ entrega, reintento concurrente, cancelación y dead letters.
 ## Integraciones externas temporalmente deshabilitadas
 
 Por decisión de producto del 28/09/2026, firma digital, publicación en portales y
-transferencias de liquidaciones quedan postergadas. Las APIs de firma, portales
+transferencias de liquidaciones permanecen deshabilitadas. Su implementación con
+BFA, Mercado Libre y Mercado Pago está incluida en el plan; ver
+[proveedores externos](external-providers.md). Las APIs de firma, portales
 y pago de liquidaciones rechazan operaciones simuladas fuera de pruebas. Batch
 también rechaza transferencias antes de modificar datos; `--dry-run` conserva
 el cálculo sin efectos. Web y mobile ocultan la acción de pago y muestran su

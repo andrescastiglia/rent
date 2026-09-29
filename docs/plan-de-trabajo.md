@@ -64,6 +64,9 @@ deben ejecutarse simulaciones ni marcar transferencias como pagadas en producci�
 El cron `process-settlements` permanece suspendido.
 
 - [ ] Implementar BFA sin confundir sellado temporal con firma de las partes.
+  Avance: cliente TSA2, cola durable, API por documento y consulta administrativa
+  de constancias/versiones con alcance de compañía; interfaz bloqueada por defecto.
+  Pendiente: completar gates y despliegue deshabilitado.
 - [ ] Implementar publicación, actualización y estados con Mercado Libre.
 - [ ] Implementar transferencias Mercado Pago con idempotencia y conciliación.
 - [ ] Verificar que ninguna integración real se invoque mientras está deshabilitada.

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Lease, LeaseTemplateFormat } from "@/types/lease";
 import { leasesApi } from "@/lib/api/leases";
+import { BfaStamps } from "@/components/leases/BfaStamps";
 import { LeaseStatusBadge } from "@/components/leases/LeaseStatusBadge";
 import { ownersApi } from "@/lib/api/owners";
 import { paymentsApi, tenantAccountsApi } from "@/lib/api/payments";
@@ -1120,6 +1121,13 @@ export default function LeaseDetailPage() {
                 }}
                 t={t as (key: string) => string}
               />
+
+              {user?.role === "admin" && (
+                <BfaStamps
+                  key={`${user.companyId}-${lease.id}`}
+                  leaseId={lease.id}
+                />
+              )}
 
               <RecentPaymentsSection
                 lease={lease}

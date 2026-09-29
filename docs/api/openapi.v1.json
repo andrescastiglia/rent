@@ -8673,6 +8673,117 @@
           "DigitalSignatures"
         ]
       }
+    },
+    "/digital-signatures/bfa/leases/{leaseId}": {
+      "get": {
+        "operationId": "BfaStamps_forLease",
+        "parameters": [
+          {
+            "name": "leaseId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BfaLeaseOverviewDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "BfaStamps"
+        ]
+      }
+    },
+    "/digital-signatures/documents/{documentId}/stamp": {
+      "post": {
+        "operationId": "BfaStamps_request",
+        "parameters": [
+          {
+            "name": "documentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "BfaStamps"
+        ]
+      },
+      "get": {
+        "operationId": "BfaStamps_find",
+        "parameters": [
+          {
+            "name": "documentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "BfaStamps"
+        ]
+      }
+    },
+    "/digital-signatures/internal/process-stamps": {
+      "post": {
+        "operationId": "BfaStamps_process",
+        "parameters": [
+          {
+            "name": "x-batch-communications-token",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "BfaStamps"
+        ]
+      }
     }
   },
   "info": {
@@ -17848,6 +17959,114 @@
           "envelopeId",
           "status",
           "generatedAt"
+        ]
+      },
+      "BfaBlockProofDto": {
+        "type": "object",
+        "properties": {
+          "whostamped": {
+            "type": "string"
+          },
+          "blocknumber": {
+            "type": "string"
+          },
+          "blocktimestamp": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "whostamped",
+          "blocknumber",
+          "blocktimestamp"
+        ]
+      },
+      "BfaProofDto": {
+        "type": "object",
+        "properties": {
+          "stamped": {
+            "type": "boolean"
+          },
+          "stamps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BfaBlockProofDto"
+            }
+          }
+        },
+        "required": [
+          "stamped",
+          "stamps"
+        ]
+      },
+      "BfaDocumentDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "nullable": true,
+            "enum": [
+              "queued",
+              "submitted",
+              "stamped",
+              "failed",
+              "needs_review",
+              null
+            ],
+            "type": "string"
+          },
+          "currentVersion": {
+            "type": "boolean"
+          },
+          "verifiedAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "proof": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BfaProofDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "sha256",
+          "status",
+          "currentVersion",
+          "verifiedAt",
+          "proof"
+        ]
+      },
+      "BfaLeaseOverviewDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BfaDocumentDto"
+            }
+          }
+        },
+        "required": [
+          "enabled",
+          "documents"
         ]
       }
     }

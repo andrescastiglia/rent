@@ -1508,5 +1508,27 @@
       "cancelled": "Cancelled",
       "refunded": "Refunded"
     }
+  },
+  "bfa": {
+    "title": "BFA timestamp",
+    "description": "Proves existence and integrity of the PDF. It does not prove the parties’ signatures.",
+    "disabled": "BFA timestamping is temporarily disabled.",
+    "error": "The operation could not be completed. Refresh the status before requesting a stamp again.",
+    "loading": "Loading…",
+    "refresh": "Refresh status",
+    "empty": "No stored PDF files are available to stamp.",
+    "changed": "The current file differs from the requested document. This record belongs to an earlier version.",
+    "proof": "View evidence",
+    "block": "Block {number}",
+    "request": "Request stamp",
+    "requestDocument": "Request stamp for {name}",
+    "status": {
+      "none": "No request",
+      "queued": "Queued",
+      "submitted": "Awaiting BFA confirmation",
+      "stamped": "Stamp confirmed",
+      "failed": "Processing failed. Review required.",
+      "needs_review": "Outcome requires review"
+    }
   }
 }
