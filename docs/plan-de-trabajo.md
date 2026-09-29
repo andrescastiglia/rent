@@ -101,6 +101,7 @@ Pendiente: despliegue de backend/clientes compatibles.
   Alta manual, emisión y anulación de facturas también guardan el resultado en
   su transacción (migración 128), con recuperación tras baja lógica y rollback
   de todos los efectos si falla la persistencia de la constancia.
+  Ciclo de facturas incorporado a main con los 23 gates del PR #242 aprobados.
   Alta, edición, confirmación y anulación de cobros usan la misma constancia
   transaccional; conceptos y pago se guardan juntos y la edición bloquea
   confirmaciones concurrentes. Ver [contrato y pruebas](technical/approved-payment-recovery.md).
@@ -111,6 +112,12 @@ Pendiente: despliegue de backend/clientes compatibles.
 
 - [ ] Personas/CRM: multirrol, deduplicación, importación, perfil de interés, matching, reservas, embudo configurable, timeline, consentimiento y métricas.
 - [ ] Cobros: conceptos variables editables antes de emitir, mora opcional auditada, período/vencimiento automáticos, recibo y nota de crédito persistentes.
+  Avance: importes/conceptos se validan en centavos exactos; edición de importes
+  exige conceptos consistentes, no permite cambiar la cuenta y valida moneda.
+  Confirmación rechaza registros incompatibles y las imputaciones fraccionarias
+  ya no dejan facturas pagadas en estado parcial. Ver
+  [alcance y límites](technical/payment-amounts.md). Pendiente: gates, despliegue
+  y los demás requisitos de cobros.
 - [ ] Propiedades: filtros útiles, interesados, visitas y aviso consentido al propietario con fecha, oferta y valor.
 - [ ] Ventas: cuotas transaccionales, atrasos, saldo a favor/crédito y original/duplicado verificables.
 - [ ] Mantenimiento: solicitud, asignación, seguimiento, cierre, adjuntos, auditoría y notificaciones idempotentes.

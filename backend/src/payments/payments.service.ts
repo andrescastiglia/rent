@@ -1,3 +1,8 @@
+import {
+  calculatePaymentAmount,
+  paymentCents,
+  paymentNumber,
+} from './payment-amount';
 import { withDomainOperationReceipt } from '../common/helpers/domain-operation-receipt';
 import {
   Injectable,
@@ -107,6 +112,11 @@ export class PaymentsService {
       );
     }
 
+    if ((dto.currencyCode || 'ARS') !== account.currencyCode)
+      throw new BadRequestException(
+        'Payment currency must match the tenant account',
+      );
+
     const paymentsRepository = manager.getRepository(Payment);
     const paymentItemsRepository = manager.getRepository(PaymentItem);
     const payment = paymentsRepository.create({
@@ -173,6 +183,36 @@ export class PaymentsService {
             );
           }
 
+          if (
+            dto.tenantAccountId !== undefined &&
+            dto.tenantAccountId.toLowerCase() !==
+              payment.tenantAccountId?.toLowerCase()
+          )
+            throw new BadRequestException(
+              'Payment tenant account cannot be changed',
+            );
+          await this.assertPaymentCurrency(
+            manager,
+            await this.resolveTenantAccountId(
+              payment,
+              manager.getRepository(Invoice),
+            ),
+            companyId,
+            dto.currencyCode ?? payment.currencyCode,
+          );
+          const currentItems =
+            dto.items ??
+            (await paymentItemsRepository.find({
+              where: { paymentId: payment.id },
+            }));
+          if (dto.amount !== undefined || dto.items !== undefined) {
+            payment.amount = this.computePaymentAmount({
+              amount:
+                dto.amount ?? (dto.items?.length ? undefined : payment.amount),
+              items: currentItems,
+            });
+          }
+
           if (dto.paymentDate)
             payment.paymentDate = new Date(dto.paymentDate) as any;
           if (dto.method) payment.method = dto.method;
@@ -194,12 +234,7 @@ export class PaymentsService {
                 }),
               );
               await paymentItemsRepository.save(items);
-              payment.amount = this.computePaymentAmount(dto);
-            } else if (dto.amount !== undefined) {
-              payment.amount = dto.amount;
             }
-          } else if (dto.amount !== undefined) {
-            payment.amount = dto.amount;
           }
 
           await paymentsRepository.save(payment);
@@ -257,6 +292,17 @@ export class PaymentsService {
       invoicesRepository,
     );
 
+    await this.assertPaymentCurrency(
+      manager,
+      tenantAccountId,
+      companyId,
+      payment.currencyCode,
+    );
+    const items = await manager
+      .getRepository(PaymentItem)
+      .find({ where: { paymentId: id } });
+    this.computePaymentAmount({ amount: payment.amount, items });
+
     await this.tenantAccountsService.addMovementWithManager(manager, {
       accountId: tenantAccountId,
       type: MovementType.PAYMENT,
@@ -309,6 +355,7 @@ export class PaymentsService {
     const pendingInvoices = await repository.find({
       where: {
         tenantAccountId,
+        companyId: payment.companyId,
         status: In([
           InvoiceStatus.PENDING,
           InvoiceStatus.SENT,
@@ -320,21 +367,28 @@ export class PaymentsService {
     });
 
     const settledWithLateFee: Invoice[] = [];
-    let remainingAmount = Number(payment.amount);
-
+    let remainingAmount = paymentCents(payment.amount);
+    if (
+      pendingInvoices.some(
+        (invoice) => invoice.currencyCode !== payment.currencyCode,
+      )
+    )
+      throw new BadRequestException('Invoice currency must match the payment');
     for (const invoice of pendingInvoices) {
-      if (remainingAmount <= 0) break;
+      if (remainingAmount <= 0n) break;
 
-      const pending = Number(invoice.total) - Number(invoice.amountPaid);
+      const total = paymentCents(invoice.total),
+        paid = paymentCents(invoice.amountPaid);
+      const pending = total - paid;
 
-      if (pending <= 0) continue;
+      if (pending <= 0n) continue;
 
-      const toApply = Math.min(remainingAmount, pending);
+      const toApply = remainingAmount < pending ? remainingAmount : pending;
       const previousInvoiceStatus = invoice.status;
 
-      invoice.amountPaid = Number(invoice.amountPaid) + toApply;
+      invoice.amountPaid = paymentNumber(paid + toApply);
 
-      if (invoice.amountPaid >= invoice.total) {
+      if (paid + toApply >= total) {
         invoice.status = InvoiceStatus.PAID;
         if (Number(invoice.lateFee || 0) > 0) {
           settledWithLateFee.push(invoice);
@@ -350,7 +404,7 @@ export class PaymentsService {
             companyId: payment.companyId,
             paymentId: payment.id,
             invoiceId: invoice.id,
-            amount: toApply,
+            amount: paymentNumber(toApply),
             previousInvoiceStatus,
             reversedAt: null,
           }),
@@ -843,7 +897,7 @@ export class PaymentsService {
 
     if (payment.invoiceId) {
       const invoice = await repository.findOne({
-        where: { id: payment.invoiceId },
+        where: { id: payment.invoiceId, companyId: payment.companyId },
       });
       if (invoice?.tenantAccountId) {
         return invoice.tenantAccountId;
@@ -941,30 +995,31 @@ export class PaymentsService {
     }
   }
 
+  private async assertPaymentCurrency(
+    manager: EntityManager,
+    accountId: string,
+    companyId: string,
+    currencyCode: string,
+  ): Promise<void> {
+    if (!accountId)
+      throw new BadRequestException('Payment requires a tenant account');
+    const account = await manager.getRepository(TenantAccount).findOne({
+      where: { id: accountId, companyId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!account)
+      throw new NotFoundException(
+        `Tenant account with ID ${accountId} not found`,
+      );
+    if (account.currencyCode !== currencyCode)
+      throw new BadRequestException(
+        'Payment currency must match the tenant account',
+      );
+  }
+
   private computePaymentAmount(
     dto: Pick<CreatePaymentDto, 'items' | 'amount'>,
   ): number {
-    if (!dto.items || dto.items.length === 0) {
-      if (dto.amount === undefined || dto.amount === null) {
-        throw new BadRequestException('Amount is required without items');
-      }
-      return dto.amount;
-    }
-
-    const sum = dto.items.reduce((acc, item) => {
-      const quantity = item.quantity ?? 1;
-      const sign = item.type === PaymentItemType.DISCOUNT ? -1 : 1;
-      return acc + sign * Number(item.amount) * quantity;
-    }, 0);
-
-    if (sum <= 0) {
-      throw new BadRequestException('Total amount must be greater than zero');
-    }
-
-    if (dto.amount !== undefined && Math.abs(dto.amount - sum) > 0.01) {
-      throw new BadRequestException('Amount does not match items total');
-    }
-
-    return Number(sum.toFixed(2));
+    return calculatePaymentAmount(dto);
   }
 }

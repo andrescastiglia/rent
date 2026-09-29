@@ -110,6 +110,12 @@ describe('PaymentsService', () => {
       getRepositoryToken(PaymentAllocation),
     );
     tenantAccountsRepository = createMockRepository();
+    tenantAccountsRepository.findOne!.mockResolvedValue({
+      id: 'acc-1',
+      companyId: 'company-1',
+      currencyCode: 'ARS',
+    });
+    paymentItemsRepository.find!.mockResolvedValue([]);
     paymentAllocationsRepository.find!.mockResolvedValue([]);
     _creditNotesRepository.find!.mockResolvedValue([]);
     receiptsRepository.findOne!.mockResolvedValue(null);
@@ -139,6 +145,7 @@ describe('PaymentsService', () => {
     };
 
     tenantAccountsRepository.findOne!.mockResolvedValue({
+      currencyCode: 'ARS',
       id: 'acc-1',
       companyId: 'company-1',
       tenantId: 'tenant-1',
@@ -165,6 +172,7 @@ describe('PaymentsService', () => {
 
   it('creates a pending payment with repositories from the supplied manager', async () => {
     tenantAccountsRepository.findOne!.mockResolvedValue({
+      currencyCode: 'ARS',
       id: 'acc-1',
       companyId: 'company-1',
       tenantId: 'tenant-1',
@@ -205,6 +213,8 @@ describe('PaymentsService', () => {
   it('should allow editing pending payments with new items', async () => {
     const payment = {
       id: 'pay-1',
+      tenantAccountId: 'acc-1',
+      currencyCode: 'ARS',
       status: PaymentStatus.PENDING,
       amount: 100,
     } as Payment;
@@ -421,6 +431,7 @@ describe('PaymentsService', () => {
   it('aborts confirmation before receipt and status when ledger write fails', async () => {
     paymentsRepository.findOne!.mockResolvedValue({
       id: 'pay-rollback',
+      currencyCode: 'ARS',
       status: PaymentStatus.PENDING,
       amount: 100,
       method: 'cash',
@@ -440,6 +451,7 @@ describe('PaymentsService', () => {
 
   it('should throw when creating without amount and without items', async () => {
     tenantAccountsRepository.findOne!.mockResolvedValue({
+      currencyCode: 'ARS',
       id: 'acc-1',
       companyId: 'company-1',
       tenantId: 'tenant-1',
@@ -462,6 +474,7 @@ describe('PaymentsService', () => {
 
   it('should throw when amount does not match item total', async () => {
     tenantAccountsRepository.findOne!.mockResolvedValue({
+      currencyCode: 'ARS',
       id: 'acc-1',
       companyId: 'company-1',
       tenantId: 'tenant-1',
@@ -771,6 +784,7 @@ describe('PaymentsService', () => {
 
   it('should throw when item total is not greater than zero', async () => {
     tenantAccountsRepository.findOne!.mockResolvedValue({
+      currencyCode: 'ARS',
       id: 'acc-1',
       companyId: 'company-1',
       tenantId: 'tenant-1',
@@ -800,6 +814,8 @@ describe('PaymentsService', () => {
   it('should update amount directly when dto has amount and no items', async () => {
     const payment = {
       id: 'pay-4',
+      tenantAccountId: 'acc-1',
+      currencyCode: 'ARS',
       status: PaymentStatus.PENDING,
       amount: 100,
     } as Payment;
