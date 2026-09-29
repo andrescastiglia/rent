@@ -76,7 +76,6 @@ export default async function LocaleLayout({
             `,
           }}
         />
-        <meta name="referrer" content="strict-origin-when-cross-origin" />
       </head>
       <body>
         <NextIntlClientProvider messages={messages}>

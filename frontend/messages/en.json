@@ -1530,5 +1530,32 @@
       "failed": "Processing failed. Review required.",
       "needs_review": "Outcome requires review"
     }
+  },
+  "mercadoLibre": {
+    "title": "Mercado Libre",
+    "description": "Company account for real estate listings.",
+    "disabled": "Integration temporarily disabled. No listings will be published.",
+    "seller": "Seller: {id}",
+    "error": "The result could not be confirmed. Refresh the status before continuing; if the connection was not completed, start a new authorization.",
+    "invalidCallback": "Authorization was cancelled, expired or is invalid. Start a new connection.",
+    "completed": "Account connected. This does not publish listings.",
+    "loading": "Loading…",
+    "refresh": "Refresh status",
+    "complete": "Complete connection",
+    "connect": "Start new authorization",
+    "disconnect": "Disconnect account",
+    "disconnectHint": "This removes access stored in Rent. Existing listings are not deleted. To also revoke access in Mercado Libre, use its application settings.",
+    "cancel": "Cancel",
+    "confirmDisconnect": "Confirm disconnection",
+    "sessionRequired": "Sign in as the administrator who started authorization, then start a new connection.",
+    "back": "Return to Rent",
+    "status": {
+      "unconfigured": "Not configured",
+      "active": "Account connected",
+      "connecting": "Connection in progress",
+      "refreshing": "Refresh in progress",
+      "reconnect_required": "Reconnection required",
+      "disconnected": "Account disconnected"
+    }
   }
 }

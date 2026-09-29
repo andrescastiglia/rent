@@ -70,6 +70,7 @@ function resolvePropagationTargets(): Array<string | RegExp> {
 export function initOtel(): void {
   if (
     globalThis.window === undefined ||
+    /\/mercadolibre\/callback\/?$/.test(globalThis.location.pathname) ||
     globalThis.window.__rentOtelInitialized
   ) {
     return;

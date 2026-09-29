@@ -58,6 +58,7 @@ export default function SettingsPage() {
   const t = useTranslations("userSettings");
   const tCommon = useTranslations("common");
   const tAuth = useTranslations("auth");
+  const tMercadoLibre = useTranslations("mercadoLibre");
 
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -244,6 +245,17 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {user && canUserAccessModule(user, ["admin"]) && (
+          <Link
+            href={`/${locale}/settings/mercadolibre`}
+            className="xl:col-span-2 rounded-lg border p-5 hover:underline"
+          >
+            <span className="block text-lg font-semibold">
+              {tMercadoLibre("title")}
+            </span>
+            <span>{tMercadoLibre("description")}</span>
+          </Link>
+        )}
         {user &&
         canUserAccessModule(user, ["admin", "staff"], "communications") ? (
           <Link

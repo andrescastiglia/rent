@@ -84,7 +84,7 @@ solo en secretos del servidor). No se carga `MERCADOLIBRE_ACCOUNTS_JSON`: los
 clientes obtienen credenciales del almacén cifrado, sin alternativa de otra cuenta.
 
 El administrador inicia `POST /integrations/mercadolibre/authorization`; recibe
-una URL con estado aleatorio y PKCE S256. La aplicación futura debe devolver
+una URL con estado aleatorio y PKCE S256. El retorno de autorización devuelve
 `code` y `state` por `POST /integrations/mercadolibre/authorization/complete`
 con la misma sesión de usuario y compañía. El estado vence en diez minutos,
 se almacena como SHA-256 y solo se consume una vez; el verificador queda cifrado.
@@ -108,7 +108,25 @@ incluso con la función deshabilitada. Esta desvinculación es local: la revocac
 del permiso concedido en Mercado Libre se realiza desde su administración de
 aplicaciones. Los eventos de conexión/renovación/desconexión conservan compañía,
 actor cuando corresponde y fecha; no contienen credenciales. Todos los endpoints
-exigen administrador. La interfaz de autorización y callback sigue pendiente.
+exigen administrador.
+
+La pantalla `/{locale}/settings/mercadolibre` permite consultar el estado,
+iniciar autorización y confirmar la desvinculación local. El retorno fijo que
+se registre en el futuro debe apuntar a `/{locale}/mercadolibre/callback` (por
+ejemplo, `/es/mercadolibre/callback` bajo el dominio HTTPS de Rent). No se
+configuró ninguna URL ni aplicación. El retorno exige la misma sesión de
+administrador, borra código/estado de la URL y los conserva solo en memoria.
+El usuario confirma el intercambio una sola vez; ante un error puede consultar
+el estado o iniciar una autorización nueva, sin reenviar el código. Si la
+sesión venció, debe ingresar y comenzar nuevamente. La pantalla permite reiniciar
+intenciones antiguas; el servidor determina si su plazo de exclusión ya venció.
+La función deshabilitada bloquea iniciar/completar autorizaciones, manteniendo
+la consulta y la desvinculación local. No hay un interruptor de activación en la UI.
+
+El callback usa `no-referrer`, `no-store` y `noindex`; se excluye de la
+instrumentación de carga del navegador y de las transacciones de New Relic.
+Antes de activar OAuth, la infraestructura que termine HTTPS también deberá
+excluir o redactar `code`/`state` en los logs de la URL de retorno.
 
 Conservar la clave de cifrado fuera de la base y de sus backups. Su sustitución
 invalida los sobres anteriores y requiere reconectar las cuentas; no existe una
@@ -140,7 +158,7 @@ Actualizaciones y consultas fallidas esperan un minuto y, tras cinco intentos,
 requieren revisión. El cron informa trabajos fallidos o pendientes de revisión.
 No reencolar creaciones inciertas: comprobar primero el aviso en el vendedor
 correspondiente. La resolución asistida de estas incidencias y la interfaz de
-administración siguen pendientes. La persistencia y renovación OAuth ya usan
+administración de avisos siguen pendientes. La persistencia y renovación OAuth ya usan
 el almacén cifrado, con pruebas de concurrencia y aislamiento.
 Las cuentas y flags continúan sin configurar; no se habilita publicación real.
 

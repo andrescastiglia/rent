@@ -18,6 +18,8 @@ exports.config = {
     ignore: [
       // Preserve the agent's default Socket.IO long-polling exclusion.
       "^/socket.io/.*/xhr-polling/",
+      // OAuth callbacks must not export codes/state in URLs to telemetry.
+      "^/(?:es|en|pt)/mercadolibre/callback/?(?:\\?.*)?$",
       // Also applies to transactions synthesized by the Next.js OTel bridge.
       "^/health(?:/live)?/?(?:\\?.*)?$",
     ],
