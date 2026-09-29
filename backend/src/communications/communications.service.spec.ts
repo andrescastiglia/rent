@@ -401,6 +401,7 @@ describe('CommunicationsService', () => {
     const failedDelivery = {
       ...deliveriesRepository.create(dispatchInput),
       id: 'failed-1',
+      event: CommunicationEvent.WHATSAPP_AD_HOC,
       companyId: 'company-1',
       channel: CommunicationChannel.WHATSAPP,
       body: 'Hola',
@@ -456,6 +457,7 @@ describe('CommunicationsService', () => {
     const delivery = {
       ...deliveriesRepository.create(dispatchInput),
       id: 'due-template',
+      event: CommunicationEvent.WHATSAPP_AD_HOC,
       companyId: 'company-1',
       channel: CommunicationChannel.WHATSAPP,
       recipient: '+5491111111111',
@@ -518,4 +520,52 @@ describe('CommunicationsService', () => {
     ).rejects.toThrow(BadRequestException);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+  it.each([true, false])(
+    'revalidates a payment receipt through the delivery worker (eligible=%s)',
+    async (eligible) => {
+      const delivery = {
+        ...dispatchInput,
+        id: 'receipt-delivery',
+        body: 'Recibo disponible',
+        status: CommunicationDeliveryStatus.PROCESSING,
+        attempts: 1,
+        maxAttempts: 3,
+        metadata: {
+          receiptId: 'receipt-id',
+          attachmentUrl: 'db://document/receipt',
+        },
+      };
+      dataSource.query
+        .mockResolvedValueOnce([{ id: delivery.id }])
+        .mockResolvedValueOnce(eligible ? [{ id: 'receipt-id' }] : []);
+      deliveriesRepository.findOne.mockResolvedValueOnce(delivery);
+      expect(await service.retryDue()).toEqual({
+        processed: 1,
+        sent: eligible ? 1 : 0,
+        failed: eligible ? 0 : 1,
+      });
+      expect(dataSource.query).toHaveBeenLastCalledWith(
+        expect.stringContaining('FROM receipts r'),
+        [
+          'receipt-id',
+          dispatchInput.companyId,
+          dispatchInput.recipientId,
+          dispatchInput.recipient,
+          dispatchInput.relatedEntityId,
+          'db://document/receipt',
+        ],
+      );
+      if (eligible)
+        expect(whatsappService.sendTextMessage).toHaveBeenCalledTimes(1);
+      else {
+        expect(whatsappService.sendTextMessage).not.toHaveBeenCalled();
+        expect(deliveriesRepository.save).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            status: CommunicationDeliveryStatus.FAILED,
+            errorMessage: expect.stringContaining('no longer eligible'),
+          }),
+        );
+      }
+    },
+  );
 });

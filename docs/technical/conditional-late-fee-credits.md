@@ -47,6 +47,8 @@ del aviso con proveedor simulado. No envían mensajes reales.
 
 Quedan pendientes la política opcional y auditable de mora, la revisión de
 liquidaciones ya transferidas, la anulación directa de facturas con notas vigentes
-y la revalidación de avisos de recibos. La migración 131 reemplaza la numeración
+y la revisión de avisos históricos. Los nuevos intentos de envío de recibos
+[revalidan cobro, destinatario y consentimiento](payment-receipt-notices.md).
+La migración 131 reemplaza la numeración
 de recibos/notas por [contadores persistentes](payment-document-numbers.md),
 incluyendo importaciones y registros históricos fuera de orden.
