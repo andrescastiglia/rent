@@ -536,6 +536,8 @@ export type {
   PaymentDocumentTemplatesUpdateData,
   PaymentDocumentTemplatesUpdateResponse,
   PaymentDocumentTemplatesUpdateResponses,
+  PaymentEffectsProcessData,
+  PaymentEffectsProcessResponses,
   PaymentGatewayCreatePreferenceData,
   PaymentGatewayCreatePreferenceResponses,
   PaymentGatewayFindAllData,

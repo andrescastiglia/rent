@@ -3513,6 +3513,29 @@
         ]
       }
     },
+    "/payments/internal/process-effects": {
+      "post": {
+        "operationId": "PaymentEffects_process",
+        "parameters": [
+          {
+            "name": "x-batch-communications-token",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PaymentEffects"
+        ]
+      }
+    },
     "/tenant-accounts/lease/{leaseId}": {
       "get": {
         "operationId": "TenantAccounts_findByLease",

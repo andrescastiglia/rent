@@ -5,22 +5,32 @@ if (!token) {
   throw new Error('BATCH_COMMUNICATIONS_INTERNAL_TOKEN is required');
 }
 
-fetch(`${baseUrl}/communications/internal/retry-due`, {
-  method: 'POST',
-  headers: { 'x-batch-communications-token': token },
-})
-  .then(async (response) => {
+async function processQueues() {
+  let paymentEffectsFailed = false;
+  for (const path of [
+    '/payments/internal/process-effects',
+    '/communications/internal/retry-due',
+  ]) {
+    const response = await fetch(`${baseUrl}${path}`, {
+      method: 'POST',
+      headers: { 'x-batch-communications-token': token! },
+    });
     const body = await response.text();
-    if (!response.ok) {
-      throw new Error(
-        `Communications retry failed (${response.status}): ${body}`,
-      );
+    if (!response.ok)
+      throw new Error(`Queue processing failed (${response.status}): ${body}`);
+    process.stdout.write(`${path}: ${body}\n`);
+    if (path === '/payments/internal/process-effects') {
+      const counts = JSON.parse(body) as { failed: number; deadLetter: number };
+      paymentEffectsFailed = counts.failed > 0 || counts.deadLetter > 0;
     }
-    process.stdout.write(`${body}\n`);
-  })
-  .catch((error: unknown) => {
-    process.stderr.write(
-      `${error instanceof Error ? error.message : String(error)}\n`,
-    );
-    process.exitCode = 1;
-  });
+  }
+  if (paymentEffectsFailed)
+    throw new Error('Payment effects require retry or dead-letter recovery');
+}
+
+processQueues().catch((error: unknown) => {
+  process.stderr.write(
+    `${error instanceof Error ? error.message : String(error)}\n`,
+  );
+  process.exitCode = 1;
+});

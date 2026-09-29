@@ -110,7 +110,6 @@ describe('BankReconciliationService', () => {
     payments = {
       createWithManager: jest.fn(),
       confirmWithManager: jest.fn(),
-      finalizeConfirmationEffects: jest.fn(),
     };
     paymentRecords = { findOne: jest.fn() };
     transactionManager = {
@@ -247,7 +246,6 @@ describe('BankReconciliationService', () => {
       tenantAccountId: invoice().tenantAccountId,
       settledInvoices: [],
     });
-    payments.finalizeConfirmationEffects.mockResolvedValue(undefined);
 
     await expect(
       service.ingestSandboxMovement(companyId, {
@@ -395,7 +393,6 @@ describe('BankReconciliationService', () => {
     );
     expect(queryRunner.rollbackTransaction).toHaveBeenCalledTimes(1);
     expect(queryRunner.commitTransaction).not.toHaveBeenCalled();
-    expect(payments.finalizeConfirmationEffects).not.toHaveBeenCalled();
   });
 
   it('rolls back a confirmed payment when the final movement write fails', async () => {
@@ -425,7 +422,6 @@ describe('BankReconciliationService', () => {
     expect(payments.confirmWithManager).toHaveBeenCalledTimes(1);
     expect(queryRunner.rollbackTransaction).toHaveBeenCalledTimes(1);
     expect(queryRunner.commitTransaction).not.toHaveBeenCalled();
-    expect(payments.finalizeConfirmationEffects).not.toHaveBeenCalled();
   });
 
   it('ignores debit movements and records why they are unmatched', async () => {
@@ -514,7 +510,6 @@ describe('BankReconciliationService', () => {
       tenantAccountId: invoice().tenantAccountId,
       settledInvoices: [],
     });
-    payments.finalizeConfirmationEffects.mockResolvedValue(undefined);
 
     await expect(service.reconcile(movementId, companyId)).resolves.toBe(final);
     expect(payments.createWithManager).not.toHaveBeenCalled();

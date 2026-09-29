@@ -845,7 +845,7 @@ kind: CronJob
 metadata:
   name: retry-communications
 spec:
-  schedule: '*/5 * * * *'
+  schedule: '* * * * *'
   timeZone: Etc/UTC
   suspend: true
   concurrencyPolicy: Forbid

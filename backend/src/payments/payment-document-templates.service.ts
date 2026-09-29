@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
 import { CreatePaymentDocumentTemplateDto } from './dto/create-payment-document-template.dto';
 import { UpdatePaymentDocumentTemplateDto } from './dto/update-payment-document-template.dto';
 import {
@@ -140,8 +140,12 @@ export class PaymentDocumentTemplatesService {
   async findActiveTemplate(
     companyId: string,
     type: PaymentDocumentTemplateType,
+    manager?: EntityManager,
   ): Promise<PaymentDocumentTemplate | null> {
-    return this.templatesRepository
+    return (
+      manager?.getRepository(PaymentDocumentTemplate) ??
+      this.templatesRepository
+    )
       .createQueryBuilder('template')
       .where('template.company_id = :companyId', { companyId })
       .andWhere('template.type = :type', { type })

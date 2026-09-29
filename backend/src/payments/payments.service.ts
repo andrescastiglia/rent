@@ -27,20 +27,11 @@ import { TenantAccount } from './entities/tenant-account.entity';
 import { TenantAccountsService } from './tenant-accounts.service';
 import { MovementType } from './entities/tenant-account-movement.entity';
 import { CreatePaymentDto, PaymentFiltersDto, UpdatePaymentDto } from './dto';
-import { ReceiptPdfService } from './receipt-pdf.service';
-import { CreditNotePdfService } from './credit-note-pdf.service';
 import { UserRole } from '../users/entities/user.entity';
-import { CommunicationsService } from '../communications/communications.service';
 import {
   getUserRoles,
   isAdminOrStaff,
 } from '../common/helpers/role-scope.helper';
-import {
-  CommunicationChannel,
-  CommunicationEvent,
-  CommunicationRecipientRole,
-} from '../communications/entities/communication-template.entity';
-
 type RequestUser = {
   id: string;
   companyId: string;
@@ -72,9 +63,6 @@ export class PaymentsService {
     @InjectRepository(CreditNote)
     private readonly creditNotesRepository: Repository<CreditNote>,
     private readonly tenantAccountsService: TenantAccountsService,
-    private readonly receiptPdfService: ReceiptPdfService,
-    private readonly creditNotePdfService: CreditNotePdfService,
-    private readonly communicationsService: CommunicationsService,
     @InjectDataSource()
     private readonly dataSource: DataSource,
   ) {}
@@ -231,11 +219,11 @@ export class PaymentsService {
    * @returns El pago confirmado con recibo
    */
   async confirm(id: string, companyId: string): Promise<Payment> {
-    const transactionResult = await this.dataSource.transaction((manager) =>
+    await this.dataSource.transaction((manager) =>
       this.confirmWithManager(manager, id, companyId),
     );
 
-    return this.finalizeConfirmationEffects(id, companyId, transactionResult);
+    return this.findOne(id, companyId);
   }
 
   async confirmWithManager(
@@ -291,22 +279,12 @@ export class PaymentsService {
       status: PaymentStatus.COMPLETED,
       allocationsRecorded: true,
     });
-    return { tenantAccountId, settledInvoices };
-  }
-
-  async finalizeConfirmationEffects(
-    id: string,
-    companyId: string,
-    transactionResult: PaymentConfirmationTransactionResult,
-  ): Promise<Payment> {
-    const confirmed = await this.findOne(id, companyId);
-    await this.generateReceipt(confirmed);
-    await this.createCreditNotesForSettledLateFees(
-      confirmed,
-      transactionResult.tenantAccountId,
-      transactionResult.settledInvoices,
+    await manager.query(
+      `INSERT INTO payment_effects_outbox (company_id, payment_id)
+       VALUES ($1::uuid, $2::uuid) ON CONFLICT (payment_id) DO NOTHING`,
+      [companyId, id],
     );
-    return this.findOne(id, companyId);
+    return { tenantAccountId, settledInvoices };
   }
 
   /**
@@ -391,91 +369,21 @@ export class PaymentsService {
     const existingReceipt = await repository.findOne({
       where: { paymentId: payment.id },
     });
-    if (existingReceipt && (existingReceipt.pdfUrl || manager)) {
+    if (existingReceipt) {
       return existingReceipt;
     }
 
-    let savedReceipt = existingReceipt;
-    if (!savedReceipt) {
-      const receiptNumber = await this.generateReceiptNumber(
-        repository,
-        manager,
-      );
-      const receipt = repository.create({
+    const receiptNumber = await this.generateReceiptNumber(repository, manager);
+    return repository.save(
+      repository.create({
         companyId: payment.companyId,
         paymentId: payment.id,
         receiptNumber,
         amount: payment.amount,
         currencyCode: payment.currencyCode,
         issuedAt: new Date(),
-      });
-      savedReceipt = await repository.save(receipt);
-    }
-
-    if (manager) {
-      return savedReceipt;
-    }
-
-    // Generar PDF
-    try {
-      const pdfUrl = await this.receiptPdfService.generate(
-        savedReceipt,
-        payment,
-      );
-      savedReceipt.pdfUrl = pdfUrl;
-      await repository.save(savedReceipt);
-      await this.dispatchPaymentReceived(payment, savedReceipt);
-    } catch (error) {
-      console.error('Failed to generate receipt PDF:', error);
-    }
-
-    return savedReceipt;
-  }
-
-  private async dispatchPaymentReceived(
-    payment: Payment,
-    receipt: Receipt,
-  ): Promise<void> {
-    const tenant =
-      payment.tenant ?? payment.tenantAccount?.lease?.tenant ?? null;
-    const user = tenant?.user;
-    const channel =
-      tenant?.preferredContactChannel ?? CommunicationChannel.WHATSAPP;
-    const recipient =
-      channel === CommunicationChannel.EMAIL ? user?.email : user?.phone;
-    if (!tenant || !user || !recipient) return;
-    const name = [user.firstName, user.lastName]
-      .filter(Boolean)
-      .join(' ')
-      .trim();
-
-    await this.communicationsService.dispatchEvent({
-      companyId: payment.companyId,
-      event: CommunicationEvent.PAYMENT_RECEIVED,
-      recipientRole: CommunicationRecipientRole.TENANT,
-      recipientId: tenant.id,
-      channel,
-      recipient,
-      locale: user.language ?? 'es',
-      variables: {
-        nombre: name,
-        monto: Number(payment.amount).toFixed(2),
-        moneda: payment.currencyCode,
-        recibo: receipt.receiptNumber,
-        saldo: payment.tenantAccount?.balance ?? null,
-        link_recibo: receipt.pdfUrl,
-      },
-      fallbackSubject: `Pago recibido - ${receipt.receiptNumber}`,
-      fallbackBody:
-        'Hola {{nombre}}, confirmamos tu pago de {{moneda}} {{monto}}. Recibo {{recibo}}: {{link_recibo}}',
-      consented: tenant.contactConsent,
-      relatedEntityType: 'payment',
-      relatedEntityId: payment.id,
-      metadata: {
-        receiptId: receipt.id,
-        attachmentUrl: receipt.pdfUrl,
-      },
-    });
+      }),
+    );
   }
 
   /**
@@ -784,9 +692,6 @@ export class PaymentsService {
     const creditNotesRepository = manager
       ? manager.getRepository(CreditNote)
       : this.creditNotesRepository;
-    const invoicesRepository = manager
-      ? manager.getRepository(Invoice)
-      : this.invoicesRepository;
     for (const invoice of invoices) {
       const lateFeeAmount = Number(invoice.lateFee || 0);
       if (lateFeeAmount <= 0) {
@@ -796,58 +701,15 @@ export class PaymentsService {
       const existing = await creditNotesRepository.findOne({
         where: { invoiceId: invoice.id, paymentId: payment.id },
       });
-      const savedNote =
-        existing ??
-        (await this.issueLateFeeCreditNote({
+      if (!existing)
+        await this.issueLateFeeCreditNote({
           payment,
           tenantAccountId,
           invoice,
           lateFeeAmount,
           creditNotesRepository,
           manager,
-        }));
-
-      if (manager || savedNote.pdfUrl) {
-        continue;
-      }
-
-      try {
-        const fullInvoice = await invoicesRepository.findOne({
-          where: { id: invoice.id },
-          relations: ['lease', 'lease.tenant', 'lease.tenant.user'],
         });
-        if (fullInvoice) {
-          savedNote.pdfUrl = await this.creditNotePdfService.generate(
-            savedNote,
-            fullInvoice,
-          );
-          await creditNotesRepository.save(savedNote);
-          await this.sendTenantPdfWhatsapp(
-            fullInvoice.lease?.tenant?.user?.phone ?? null,
-            `Se emitió la nota de crédito ${savedNote.noteNumber} por ${savedNote.currencyCode} ${Number(savedNote.amount).toLocaleString('es-AR', { minimumFractionDigits: 2 })}.`,
-            savedNote.pdfUrl,
-            {
-              templateName: 'credit_note_issued',
-              templateLanguage:
-                fullInvoice.lease?.tenant?.user?.language ?? 'es',
-              templateParameters: [
-                savedNote.noteNumber,
-                `${savedNote.currencyCode} ${Number(savedNote.amount).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
-              ],
-              companyId: payment.companyId,
-              relatedEntityType: 'payment',
-              relatedEntityId: payment.id,
-              recipientId: fullInvoice.lease?.tenant?.id,
-              consented: Boolean(
-                fullInvoice.lease?.tenant?.contactConsent &&
-                fullInvoice.lease?.tenant?.user?.whatsappEnabled,
-              ),
-            },
-          );
-        }
-      } catch (error) {
-        console.error('Failed to generate credit note PDF:', error);
-      }
     }
   }
 
@@ -1049,54 +911,6 @@ export class PaymentsService {
     if (receipt) {
       receipt.cancelledAt = new Date();
       await receiptsRepository.save(receipt);
-    }
-  }
-
-  private async sendTenantPdfWhatsapp(
-    phone: string | null | undefined,
-    text: string,
-    pdfUrl?: string | null,
-    template?: {
-      templateName: string;
-      templateLanguage?: string;
-      templateParameters: string[];
-      companyId?: string;
-      relatedEntityType?: 'payment' | 'invoice';
-      relatedEntityId?: string;
-      recipientId?: string;
-      consented?: boolean;
-    },
-  ): Promise<void> {
-    if (!phone || !pdfUrl) {
-      return;
-    }
-
-    try {
-      if (!template?.companyId) return;
-      await this.communicationsService.dispatchEvent({
-        companyId: template.companyId,
-        event: CommunicationEvent.CREDIT_NOTE_ISSUED,
-        recipientRole: CommunicationRecipientRole.TENANT,
-        recipientId: template.recipientId,
-        channel: CommunicationChannel.WHATSAPP,
-        recipient: phone,
-        locale: template.templateLanguage ?? 'es',
-        variables: {},
-        fallbackBody: text,
-        consented: template.consented === true,
-        forceSend: true,
-        skipTemplateLookup: true,
-        relatedEntityType: template.relatedEntityType,
-        relatedEntityId: template.relatedEntityId,
-        metadata: {
-          attachmentUrl: pdfUrl,
-          templateName: template.templateName,
-          templateLanguage: template.templateLanguage ?? 'es',
-          templateParameters: template.templateParameters,
-        },
-      });
-    } catch (error) {
-      console.error('Failed to send WhatsApp PDF notification:', error);
     }
   }
 

@@ -196,13 +196,17 @@ export function PaymentCard({ payment }: PaymentCardProps) {
             <button
               type="button"
               onClick={() => void handleDownloadReceipt()}
-              disabled={downloadingDocument === "receipt"}
+              disabled={
+                downloadingDocument === "receipt" || !payment.receipt.pdfUrl
+              }
               className="btn btn-success btn-sm"
             >
               <ReceiptText size={14} />
-              {downloadingDocument === "receipt"
-                ? tCommon("loading")
-                : t("actions.downloadReceipt")}
+              {!payment.receipt.pdfUrl
+                ? t("receiptPreparingDescription")
+                : downloadingDocument === "receipt"
+                  ? tCommon("loading")
+                  : t("actions.downloadReceipt")}
             </button>
           ) : null}
           {payment.invoiceId ? (

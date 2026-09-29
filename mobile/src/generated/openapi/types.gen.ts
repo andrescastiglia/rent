@@ -4099,6 +4099,20 @@ export type LeasesContractDownloadContractLegacyResponses = {
   200: unknown;
 };
 
+export type PaymentEffectsProcessData = {
+  body?: never;
+  headers: {
+    'x-batch-communications-token': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/payments/internal/process-effects';
+};
+
+export type PaymentEffectsProcessResponses = {
+  201: unknown;
+};
+
 export type TenantAccountsFindByLeaseData = {
   body?: never;
   path: {

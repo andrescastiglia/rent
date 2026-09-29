@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { Receipt } from './entities/receipt.entity';
 import { Payment } from './entities/payment.entity';
 import {
@@ -33,12 +33,19 @@ export class ReceiptPdfService {
    * @param payment Pago asociado
    * @returns URL del PDF almacenado en DB (db://document/{id})
    */
-  async generate(receipt: Receipt, payment: Payment): Promise<string> {
+  async generate(
+    receipt: Receipt,
+    payment: Payment,
+    manager?: EntityManager,
+  ): Promise<string> {
+    const documentsRepository =
+      manager?.getRepository(Document) ?? this.documentsRepository;
     // Obtener idioma preferido del usuario o default
     const lang = payment.tenantAccount?.lease?.tenant?.user?.language || 'es';
     const activeTemplate = await this.templatesService.findActiveTemplate(
       payment.companyId,
       PaymentDocumentTemplateType.RECEIPT,
+      manager,
     );
     const pdfBuffer = activeTemplate
       ? await this.generateFromTemplate(
@@ -49,8 +56,8 @@ export class ReceiptPdfService {
         )
       : await generateReceiptPdf(receipt, payment, this.i18n, lang);
 
-    const document = await this.documentsRepository.save(
-      this.documentsRepository.create({
+    const document = await documentsRepository.save(
+      documentsRepository.create({
         companyId: payment.companyId,
         entityType: 'receipt',
         entityId: receipt.id,
@@ -65,7 +72,7 @@ export class ReceiptPdfService {
     );
 
     document.fileUrl = `db://document/${document.id}`;
-    await this.documentsRepository.save(document);
+    await documentsRepository.save(document);
     return document.fileUrl;
   }
 

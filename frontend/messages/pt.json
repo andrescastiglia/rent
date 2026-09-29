@@ -1013,6 +1013,7 @@
     "receiptNumber": "Número do Recibo",
     "issuedAt": "Emitido em",
     "downloadReceipt": "Baixar Recibo",
+    "receiptPreparingDescription": "O recibo está sendo preparado. Estará disponível em instantes.",
     "receiptPendingDescription": "O recibo será gerado após a confirmação do pagamento.",
     "noReceipt": "Sem recibo",
     "items": {

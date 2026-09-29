@@ -1,6 +1,6 @@
 # Plan de trabajo pendiente
 
-**Actualizado:** 2026-09-03
+**Actualizado:** 2026-09-28
 
 **Fuente:** [Auditoría integral](auditoria-integral-2026-08-27.md)
 
@@ -19,6 +19,10 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 ### Consistencia financiera
 
 - [ ] Asegurar que PDF, WhatsApp y proveedores se ejecuten desde outbox después del commit.
+  Avance: confirmación de pagos y conciliación bancaria usan `payment_effects_outbox`
+  (migración 111), con documentos y entregas atómicos, reintentos y dead letters.
+  Ver [operación y pruebas](technical/payments.md#efectos-recuperables-de-confirmación).
+  Pendiente: verificar los demás productores de documentos/proveedores y desplegar.
 
 ### WhatsApp seguro
 

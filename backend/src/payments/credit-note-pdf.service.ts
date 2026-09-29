@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { CreditNote } from './entities/credit-note.entity';
 import { Invoice } from './entities/invoice.entity';
 import {
@@ -24,11 +24,18 @@ export class CreditNotePdfService {
     private readonly templatesService: PaymentDocumentTemplatesService,
   ) {}
 
-  async generate(creditNote: CreditNote, invoice: Invoice): Promise<string> {
+  async generate(
+    creditNote: CreditNote,
+    invoice: Invoice,
+    manager?: EntityManager,
+  ): Promise<string> {
+    const documentsRepository =
+      manager?.getRepository(Document) ?? this.documentsRepository;
     const lang = invoice.lease?.tenant?.user?.language || 'es';
     const activeTemplate = await this.templatesService.findActiveTemplate(
       creditNote.companyId,
       PaymentDocumentTemplateType.CREDIT_NOTE,
+      manager,
     );
     const pdfBuffer = activeTemplate
       ? await this.generateFromTemplate(
@@ -39,8 +46,8 @@ export class CreditNotePdfService {
         )
       : await generateCreditNotePdf(creditNote, invoice, this.i18n, lang);
 
-    const document = await this.documentsRepository.save(
-      this.documentsRepository.create({
+    const document = await documentsRepository.save(
+      documentsRepository.create({
         companyId: creditNote.companyId,
         entityType: 'credit_note',
         entityId: creditNote.id,
@@ -54,7 +61,7 @@ export class CreditNotePdfService {
       }),
     );
     document.fileUrl = `db://document/${document.id}`;
-    await this.documentsRepository.save(document);
+    await documentsRepository.save(document);
 
     return document.fileUrl;
   }
