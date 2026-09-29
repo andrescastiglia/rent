@@ -1,3 +1,6 @@
+import { LeasesService } from '../src/leases/leases.service';
+import { AiToolExecutorService } from '../src/ai/ai-tool-executor.service';
+import { ContractType } from '../src/leases/entities/lease.entity';
 import { createHash, randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -29,6 +32,7 @@ describe('Durable confirmed contracts (e2e)', () => {
   let companyId: string,
     foreignId: string,
     userId: string,
+    requesterId: string,
     propertyId: string,
     ownerId: string,
     tenantId: string,
@@ -38,8 +42,10 @@ describe('Durable confirmed contracts (e2e)', () => {
   const suffix = randomUUID().slice(0, 12),
     password = 'ContractsTest123!';
   const oldBatchToken = process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN;
+  const oldToolsMode = process.env.AI_TOOLS_MODE;
   beforeAll(async () => {
     process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN = 'contracts-test-token';
+    process.env.AI_TOOLS_MODE = 'FULL';
     const module = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -75,6 +81,16 @@ describe('Durable confirmed contracts (e2e)', () => {
     const admin = await create(companyId, UserRole.ADMIN);
     userId = admin.user.id;
     token = admin.token;
+    requesterId = (
+      await createActiveTestUser(app.get(UsersService), {
+        companyId,
+        role: UserRole.ADMIN,
+        email: `requester-${suffix}@contracts.test`,
+        password,
+        firstName: 'Request',
+        lastName: 'Fixture',
+      })
+    ).id;
     foreignToken = (await create(foreignId, UserRole.ADMIN)).token;
     const tenantUser = await create(companyId, UserRole.TENANT);
     tenantToken = tenantUser.token;
@@ -119,10 +135,13 @@ describe('Durable confirmed contracts (e2e)', () => {
   });
   const clear = async () => {
     for (const table of [
+      'pending_actions',
+      'domain_operation_receipts',
       'lease_contract_effects_outbox',
       'documents',
       'tenant_accounts',
       'leases',
+      'lease_contract_templates',
     ])
       await db.query(`DELETE FROM ${table} WHERE company_id=$1`, [companyId]);
     await db.query(
@@ -152,6 +171,8 @@ describe('Durable confirmed contracts (e2e)', () => {
         );
     }
     await app?.close();
+    if (oldToolsMode === undefined) delete process.env.AI_TOOLS_MODE;
+    else process.env.AI_TOOLS_MODE = oldToolsMode;
     if (oldBatchToken === undefined)
       delete process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN;
     else process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN = oldBatchToken;
@@ -732,5 +753,278 @@ describe('Durable confirmed contracts (e2e)', () => {
       .post('/leases/internal/process-contracts')
       .set('x-batch-communications-token', 'contracts-test-token')
       .expect(201);
+  });
+  const recoveryTools = [
+    'post_lease_draft_render',
+    'patch_lease_draft_text',
+    'post_lease_confirm',
+    'patch_lease_activate',
+    'patch_lease_terminate',
+    'patch_lease_finalize',
+  ];
+  const actor = () => ({ id: userId, companyId, role: UserRole.ADMIN });
+  async function recoveryInput(toolName: string) {
+    const id = await seed();
+    if (toolName === 'post_lease_draft_render') {
+      const template = await app.get(LeasesService).createTemplate(
+        {
+          name: 'Recovery template',
+          contractType: ContractType.RENTAL,
+          templateBody: 'Texto de plantilla aprobado',
+        },
+        companyId,
+      );
+      return { id, templateId: template.id };
+    }
+    if (toolName === 'patch_lease_draft_text')
+      return { id, draftText: 'Texto aprobado', draftFormat: 'plain_text' };
+    if (toolName === 'post_lease_confirm')
+      return {
+        id,
+        finalText: 'Texto final aprobado',
+        finalFormat: 'plain_text',
+      };
+    if (
+      toolName === 'patch_lease_terminate' ||
+      toolName === 'patch_lease_finalize'
+    ) {
+      await app.get(LeasesService).confirmDraft(id, userId, actor());
+      return { id, reason: 'Cierre aprobado' };
+    }
+    return { id };
+  }
+  const snapshot = async () => ({
+    leases: await db.query(
+      'SELECT * FROM leases WHERE company_id=$1 ORDER BY id',
+      [companyId],
+    ),
+    accounts: await db.query(
+      'SELECT * FROM tenant_accounts WHERE company_id=$1 ORDER BY id',
+      [companyId],
+    ),
+    jobs: await jobs(),
+    properties: await db.query(
+      'SELECT * FROM properties WHERE company_id=$1 ORDER BY id',
+      [companyId],
+    ),
+  });
+
+  it.each(recoveryTools)(
+    'recovers approved %s after its committed response is lost',
+    async (toolName) => {
+      const payload = await recoveryInput(toolName);
+      const sort = (value: any): any =>
+        Array.isArray(value)
+          ? value.map(sort)
+          : value && typeof value === 'object'
+            ? Object.fromEntries(
+                Object.entries(value)
+                  .sort(([a], [b]) => a.localeCompare(b))
+                  .map(([key, item]) => [key, sort(item)]),
+              )
+            : value;
+      const [action] = await db.query(
+        `INSERT INTO pending_actions(company_id,requested_by,tool_name,action_type,entity_type,summary,payload,payload_hash,expires_at)
+      VALUES($1,$2,$3,'update','lease','Lease recovery',$4::jsonb,$5,now()+interval '15 minutes') RETURNING id,execution_key`,
+        [
+          companyId,
+          requesterId,
+          toolName,
+          JSON.stringify(payload),
+          createHash('sha256')
+            .update(JSON.stringify(sort(payload)))
+            .digest('hex'),
+        ],
+      );
+      const reauthToken = (
+        await request(app.getHttpServer())
+          .post('/auth/reauthenticate')
+          .auth(token, { type: 'bearer' })
+          .send({ password })
+          .expect(200)
+      ).body.reauthToken;
+      const executor = app.get(AiToolExecutorService),
+        original = executor.executeApproved.bind(executor);
+      const lost = jest
+        .spyOn(executor, 'executeApproved')
+        .mockImplementationOnce(async (...args) => {
+          await original(...args);
+          throw new Error('committed lease response lost');
+        });
+      const approve = () =>
+        request(app.getHttpServer())
+          .post(`/pending-actions/${action.id}/approve`)
+          .auth(token, { type: 'bearer' })
+          .send({ reauthToken });
+      try {
+        expect((await approve().expect(201)).body.status).toBe('failed');
+        lost.mockRestore();
+        const [receipt] = await db.query(
+          'SELECT result FROM domain_operation_receipts WHERE company_id=$1 AND execution_key=$2',
+          [companyId, action.execution_key],
+        );
+        const expectedStatus = [
+          'post_lease_draft_render',
+          'patch_lease_draft_text',
+        ].includes(toolName)
+          ? 'draft'
+          : ['patch_lease_terminate', 'patch_lease_finalize'].includes(toolName)
+            ? 'finalized'
+            : 'active';
+        expect(receipt.result.status).toBe(expectedStatus);
+        if (expectedStatus === 'draft')
+          await app
+            .get(LeasesService)
+            .confirmDraft(payload.id, userId, actor());
+        if ((await row(payload.id)).status === 'active')
+          await app
+            .get(LeasesService)
+            .terminate(payload.id, actor(), 'Later closure');
+        await db.query('UPDATE leases SET deleted_at=now() WHERE id=$1', [
+          payload.id,
+        ]);
+        const before = await snapshot();
+        const recovered = (await approve().expect(201)).body;
+        expect(recovered.status).toBe('executed');
+        expect(recovered.result).toMatchObject({
+          id: payload.id,
+          status: expectedStatus,
+        });
+        expect(JSON.stringify(recovered.result)).not.toMatch(
+          /passwordHash|passwordResetToken/,
+        );
+        const context = {
+          companyId,
+          userId,
+          role: UserRole.ADMIN,
+          idempotencyKey: action.execution_key,
+        };
+        expect(
+          await Promise.all(
+            Array.from({ length: 3 }, () =>
+              executor.executeApproved(toolName, payload, context),
+            ),
+          ),
+        ).toEqual([recovered.result, recovered.result, recovered.result]);
+        await expect(
+          executor.executeApproved(toolName, payload, {
+            ...context,
+            companyId: foreignId,
+          }),
+        ).rejects.toThrow();
+        await expect(
+          executor.executeApproved(toolName, payload, {
+            ...context,
+            role: UserRole.TENANT,
+          }),
+        ).rejects.toThrow();
+        expect(await snapshot()).toEqual(before);
+        expect(await jobs()).toHaveLength(1);
+        expect(
+          await db.query('SELECT id FROM tenant_accounts WHERE lease_id=$1', [
+            payload.id,
+          ]),
+        ).toHaveLength(1);
+      } finally {
+        lost.mockRestore();
+      }
+    },
+  );
+
+  it.each(recoveryTools)(
+    'rolls back %s when its operation receipt cannot be persisted',
+    async (toolName) => {
+      const payload = await recoveryInput(toolName),
+        before = await snapshot();
+      await db.query(`CREATE OR REPLACE FUNCTION lease_recovery_test_fail() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN IF NEW.company_id='${companyId}'::uuid THEN RAISE EXCEPTION 'lease receipt unavailable'; END IF; RETURN NEW; END; $$;
+      CREATE TRIGGER lease_recovery_test_fail BEFORE INSERT ON domain_operation_receipts FOR EACH ROW EXECUTE FUNCTION lease_recovery_test_fail();`);
+      try {
+        await expect(
+          app.get(AiToolExecutorService).executeApproved(toolName, payload, {
+            companyId,
+            userId,
+            role: UserRole.ADMIN,
+            idempotencyKey: randomUUID(),
+          }),
+        ).rejects.toThrow('lease receipt unavailable');
+      } finally {
+        await db.query(
+          'DROP TRIGGER lease_recovery_test_fail ON domain_operation_receipts; DROP FUNCTION lease_recovery_test_fail()',
+        );
+      }
+      expect(await snapshot()).toEqual(before);
+      expect(
+        await db.query(
+          'SELECT execution_key FROM domain_operation_receipts WHERE company_id=$1',
+          [companyId],
+        ),
+      ).toHaveLength(0);
+    },
+  );
+
+  it.each(['edit', 'render'])(
+    'serializes concurrent draft %s and confirmation without reopening the lease',
+    async (action) => {
+      const payload = await recoveryInput(
+        action === 'edit'
+          ? 'patch_lease_draft_text'
+          : 'post_lease_draft_render',
+      );
+      const service = app.get(LeasesService);
+      const [confirmed, edited] = await Promise.allSettled([
+        service.confirmDraft(
+          payload.id,
+          userId,
+          actor(),
+          undefined,
+          undefined,
+          randomUUID(),
+        ),
+        action === 'edit'
+          ? service.updateDraftText(
+              payload.id,
+              'Concurrent text',
+              actor(),
+              'plain_text',
+              randomUUID(),
+            )
+          : service.renderDraft(
+              payload.id,
+              actor(),
+              payload.templateId,
+              randomUUID(),
+            ),
+      ]);
+      expect(confirmed.status).toBe('fulfilled');
+      if (edited.status === 'rejected')
+        expect(edited.reason.message).toContain('Only draft');
+      const lease = await row(payload.id);
+      expect(lease.status).toBe('active');
+      expect(lease.draft_contract_text).toBe(lease.confirmed_contract_text);
+      expect(await jobs()).toHaveLength(1);
+      expect((await jobs())[0].snapshot.text).toBe(
+        lease.confirmed_contract_text,
+      );
+    },
+  );
+
+  it('rejects a changed confirmation request under the same execution key', async () => {
+    const id = await seed(),
+      key = randomUUID(),
+      service = app.get(LeasesService);
+    await service.confirmDraft(
+      id,
+      userId,
+      actor(),
+      'Original',
+      'plain_text',
+      key,
+    );
+    await expect(
+      service.confirmDraft(id, userId, actor(), 'Alterado', 'plain_text', key),
+    ).rejects.toThrow('different operation or request');
+    expect((await row(id)).confirmed_contract_text).toBe('Original');
+    expect(await jobs()).toHaveLength(1);
   });
 });

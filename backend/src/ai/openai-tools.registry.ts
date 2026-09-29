@@ -1213,6 +1213,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The rendered contract text string ready for review.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(RenderLeaseDraftDto.zodSchema, { id: uuidSchema }),
       execute: async (args, context) => {
@@ -1223,6 +1224,7 @@ export function buildAiToolDefinitions(
           parsed.id,
           toRequestUser(context) as any,
           parsed.templateId,
+          context.idempotencyKey,
         );
       },
     },
@@ -1232,6 +1234,7 @@ export function buildAiToolDefinitions(
         'Manually sets or overrides the draft contract text for a lease. Use after rendering to make manual edits.',
       responseDescription: 'The updated lease record with new contract text.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(UpdateLeaseDraftTextDto.zodSchema, {
         id: uuidSchema,
@@ -1245,6 +1248,7 @@ export function buildAiToolDefinitions(
           parsed.draftText,
           toRequestUser(context) as any,
           parsed.draftFormat,
+          context.idempotencyKey,
         );
       },
     },
@@ -1255,6 +1259,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The activated lease record with updated status and tenant account info.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(ConfirmLeaseDraftDto.zodSchema, {
         id: uuidSchema,
@@ -1269,6 +1274,7 @@ export function buildAiToolDefinitions(
           toRequestUser(context) as any,
           parsed.finalText,
           parsed.finalFormat,
+          context.idempotencyKey,
         );
       },
     },
@@ -1278,6 +1284,7 @@ export function buildAiToolDefinitions(
         'Activates a lease via alternative confirmation path. Transitions lease from draft to active status.',
       responseDescription: 'The activated lease record.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
@@ -1286,16 +1293,18 @@ export function buildAiToolDefinitions(
           id,
           context.userId,
           toRequestUser(context) as any,
+          context.idempotencyKey,
         );
       },
     },
     {
       name: 'patch_lease_terminate',
       description:
-        'Terminates an active lease early. Requires a termination reason. Transitions status to terminated.',
+        'Terminates an active lease early. Requires a termination reason. Finalizes the contract and records the reason.',
       responseDescription:
         'The terminated lease record with reason and termination date.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(LeaseStatusReasonDto.zodSchema, {
         id: uuidSchema,
@@ -1308,6 +1317,7 @@ export function buildAiToolDefinitions(
           parsed.id,
           toRequestUser(context) as any,
           parsed.reason,
+          context.idempotencyKey,
         );
       },
     },
@@ -1318,6 +1328,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The finalized lease record with reason and end date.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(LeaseStatusReasonDto.zodSchema, {
         id: uuidSchema,
@@ -1330,6 +1341,7 @@ export function buildAiToolDefinitions(
           parsed.id,
           toRequestUser(context) as any,
           parsed.reason,
+          context.idempotencyKey,
         );
       },
     },

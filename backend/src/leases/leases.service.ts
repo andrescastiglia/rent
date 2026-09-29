@@ -1,3 +1,4 @@
+import { withDomainOperationReceipt } from '../common/helpers/domain-operation-receipt';
 import {
   BadRequestException,
   ConflictException,
@@ -420,34 +421,48 @@ export class LeasesService {
     leaseId: string,
     user: RequestUser,
     templateId?: string,
+    executionKey?: string,
   ): Promise<Lease> {
-    const lease = await this.findOne(leaseId, user.companyId);
-    if (lease.status !== LeaseStatus.DRAFT) {
-      throw new BadRequestException(
-        'Only draft contracts can render templates',
-      );
-    }
+    this.requireCompanyScope(user);
+    return this.leasesRepository.manager.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        user.companyId,
+        executionKey,
+        'lease.renderDraft',
+        { id: leaseId, templateId },
+        async () => {
+          const lease = await this.lockLease(manager, leaseId, user.companyId);
+          if (lease.status !== LeaseStatus.DRAFT) {
+            throw new BadRequestException(
+              'Only draft contracts can render templates',
+            );
+          }
 
-    const template = await this.findTemplate(
-      templateId ?? lease.templateId ?? undefined,
-      lease.companyId,
-      lease.contractType,
-    );
-    if (!template) {
-      throw new NotFoundException('Template not found');
-    }
+          const template = await this.findTemplate(
+            templateId ?? lease.templateId ?? undefined,
+            lease.companyId,
+            lease.contractType,
+            manager,
+          );
+          if (!template) {
+            throw new NotFoundException('Template not found');
+          }
 
-    const { content, format } = this.renderTemplateBody(
-      template.templateBody,
-      lease,
-      template.templateFormat,
+          const { content, format } = this.renderTemplateBody(
+            template.templateBody,
+            lease,
+            template.templateFormat,
+          );
+          lease.templateId = template.id;
+          lease.templateName = template.name;
+          lease.draftContractText = content;
+          lease.draftContractFormat = format;
+          await manager.getRepository(Lease).save(lease);
+          return this.findOne(lease.id, user.companyId, manager);
+        },
+      ),
     );
-    lease.templateId = template.id;
-    lease.templateName = template.name;
-    lease.draftContractText = content;
-    lease.draftContractFormat = format;
-    await this.leasesRepository.save(lease);
-    return this.findOne(lease.id, user.companyId);
   }
 
   async updateDraftText(
@@ -455,17 +470,34 @@ export class LeasesService {
     draftText: string,
     user: RequestUser,
     draftFormat?: LeaseContentFormat,
+    executionKey?: string,
   ): Promise<Lease> {
-    const lease = await this.findOne(id, user.companyId);
-    if (lease.status !== LeaseStatus.DRAFT) {
-      throw new BadRequestException('Only draft contracts can be edited');
-    }
+    this.requireCompanyScope(user);
+    return this.leasesRepository.manager.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        user.companyId,
+        executionKey,
+        'lease.updateDraftText',
+        { id, draftText, draftFormat },
+        async () => {
+          const lease = await this.lockLease(manager, id, user.companyId);
+          if (lease.status !== LeaseStatus.DRAFT) {
+            throw new BadRequestException('Only draft contracts can be edited');
+          }
 
-    const nextFormat = draftFormat ?? lease.draftContractFormat ?? 'plain_text';
-    lease.draftContractText = this.normalizeContractBody(draftText, nextFormat);
-    lease.draftContractFormat = nextFormat;
-    await this.leasesRepository.save(lease);
-    return this.findOne(id, user.companyId);
+          const nextFormat =
+            draftFormat ?? lease.draftContractFormat ?? 'plain_text';
+          lease.draftContractText = this.normalizeContractBody(
+            draftText,
+            nextFormat,
+          );
+          lease.draftContractFormat = nextFormat;
+          await manager.getRepository(Lease).save(lease);
+          return this.findOne(id, user.companyId, manager);
+        },
+      ),
+    );
   }
 
   async confirmDraft(
@@ -474,102 +506,114 @@ export class LeasesService {
     user: RequestUser,
     finalText?: string,
     finalFormat?: LeaseContentFormat,
+    executionKey?: string,
   ): Promise<Lease> {
     this.requireCompanyScope(user);
-    await this.leasesRepository.manager.transaction(async (manager) => {
-      const lease = await this.lockLease(manager, id, user.companyId);
-      if (lease.status !== LeaseStatus.DRAFT) {
-        throw new BadRequestException('Only draft contracts can be confirmed');
-      }
+    return this.leasesRepository.manager.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        user.companyId,
+        executionKey,
+        'lease.confirm',
+        { id, finalText, finalFormat },
+        async () => {
+          const lease = await this.lockLease(manager, id, user.companyId);
+          if (lease.status !== LeaseStatus.DRAFT) {
+            throw new BadRequestException(
+              'Only draft contracts can be confirmed',
+            );
+          }
 
-      const formatToConfirm =
-        finalFormat ?? lease.draftContractFormat ?? 'plain_text';
-      const contentToConfirm = this.normalizeContractBody(
-        finalText ?? lease.draftContractText ?? '',
-        formatToConfirm,
-      );
-      if (!contentToConfirm) {
-        throw new BadRequestException('Contract draft text is required');
-      }
-
-      const resolvedContent = this.resolveContractContent(
-        contentToConfirm,
-        this.buildTemplateContext(lease),
-        formatToConfirm,
-      );
-      if (!resolvedContent) {
-        throw new BadRequestException('Contract draft text is required');
-      }
-
-      if (lease.contractType === ContractType.RENTAL && lease.propertyId) {
-        const activeLease = await manager.getRepository(Lease).findOne({
-          where: {
-            companyId: user.companyId,
-            propertyId: lease.propertyId,
-            contractType: ContractType.RENTAL,
-            status: LeaseStatus.ACTIVE,
-            deletedAt: IsNull(),
-          },
-        });
-        if (activeLease && activeLease.id !== lease.id) {
-          activeLease.status = LeaseStatus.FINALIZED;
-          await manager.getRepository(Lease).save(activeLease);
-        }
-      }
-
-      lease.status = LeaseStatus.ACTIVE;
-      lease.confirmedAt = new Date();
-      lease.confirmedContractText = resolvedContent;
-      lease.confirmedContractFormat = formatToConfirm;
-      lease.draftContractText = resolvedContent;
-      lease.draftContractFormat = formatToConfirm;
-
-      if (lease.contractType === ContractType.RENTAL && lease.propertyId) {
-        await manager
-          .getRepository(Property)
-          .update(
-            { id: lease.propertyId, companyId: user.companyId },
-            { operationState: PropertyOperationState.RENTED },
+          const formatToConfirm =
+            finalFormat ?? lease.draftContractFormat ?? 'plain_text';
+          const contentToConfirm = this.normalizeContractBody(
+            finalText ?? lease.draftContractText ?? '',
+            formatToConfirm,
           );
-      }
+          if (!contentToConfirm) {
+            throw new BadRequestException('Contract draft text is required');
+          }
 
-      if (lease.contractType === ContractType.SALE && lease.propertyId) {
-        await manager
-          .getRepository(Property)
-          .update(
-            { id: lease.propertyId, companyId: user.companyId },
-            { operationState: PropertyOperationState.SOLD },
+          const resolvedContent = this.resolveContractContent(
+            contentToConfirm,
+            this.buildTemplateContext(lease),
+            formatToConfirm,
           );
-      }
+          if (!resolvedContent) {
+            throw new BadRequestException('Contract draft text is required');
+          }
 
-      const savedLease = await manager.getRepository(Lease).save(lease);
-      if (savedLease.contractType === ContractType.RENTAL) {
-        await this.tenantAccountsService.createForLease(
-          savedLease.id,
-          savedLease.companyId,
-          manager,
-        );
-      }
-      await manager.query(
-        `INSERT INTO lease_contract_effects_outbox(company_id,lease_id,requested_by,snapshot) VALUES($1,$2,$3,$4::jsonb)`,
-        [
-          savedLease.companyId,
-          savedLease.id,
-          userId,
-          JSON.stringify({
-            text: resolvedContent,
-            format: formatToConfirm,
-            locale:
-              lease.tenant?.user?.language ??
-              lease.buyer?.user?.language ??
-              'es',
-            confirmedAt: lease.confirmedAt,
-            version: lease.versionNumber ?? 1,
-          }),
-        ],
-      );
-    });
-    return this.findOne(id, user.companyId);
+          if (lease.contractType === ContractType.RENTAL && lease.propertyId) {
+            const activeLease = await manager.getRepository(Lease).findOne({
+              where: {
+                companyId: user.companyId,
+                propertyId: lease.propertyId,
+                contractType: ContractType.RENTAL,
+                status: LeaseStatus.ACTIVE,
+                deletedAt: IsNull(),
+              },
+            });
+            if (activeLease && activeLease.id !== lease.id) {
+              activeLease.status = LeaseStatus.FINALIZED;
+              await manager.getRepository(Lease).save(activeLease);
+            }
+          }
+
+          lease.status = LeaseStatus.ACTIVE;
+          lease.confirmedAt = new Date();
+          lease.confirmedContractText = resolvedContent;
+          lease.confirmedContractFormat = formatToConfirm;
+          lease.draftContractText = resolvedContent;
+          lease.draftContractFormat = formatToConfirm;
+
+          if (lease.contractType === ContractType.RENTAL && lease.propertyId) {
+            await manager
+              .getRepository(Property)
+              .update(
+                { id: lease.propertyId, companyId: user.companyId },
+                { operationState: PropertyOperationState.RENTED },
+              );
+          }
+
+          if (lease.contractType === ContractType.SALE && lease.propertyId) {
+            await manager
+              .getRepository(Property)
+              .update(
+                { id: lease.propertyId, companyId: user.companyId },
+                { operationState: PropertyOperationState.SOLD },
+              );
+          }
+
+          const savedLease = await manager.getRepository(Lease).save(lease);
+          if (savedLease.contractType === ContractType.RENTAL) {
+            await this.tenantAccountsService.createForLease(
+              savedLease.id,
+              savedLease.companyId,
+              manager,
+            );
+          }
+          await manager.query(
+            `INSERT INTO lease_contract_effects_outbox(company_id,lease_id,requested_by,snapshot) VALUES($1,$2,$3,$4::jsonb)`,
+            [
+              savedLease.companyId,
+              savedLease.id,
+              userId,
+              JSON.stringify({
+                text: resolvedContent,
+                format: formatToConfirm,
+                locale:
+                  lease.tenant?.user?.language ??
+                  lease.buyer?.user?.language ??
+                  'es',
+                confirmedAt: lease.confirmedAt,
+                version: lease.versionNumber ?? 1,
+              }),
+            ],
+          );
+          return this.findOne(id, user.companyId, manager);
+        },
+      ),
+    );
   }
 
   /** Property before lease: serialize replacement contracts without locking nullable joins. */
@@ -606,38 +650,60 @@ export class LeasesService {
     id: string,
     userId: string,
     user: RequestUser,
+    executionKey?: string,
   ): Promise<Lease> {
-    return this.confirmDraft(id, userId, user);
+    return this.confirmDraft(
+      id,
+      userId,
+      user,
+      undefined,
+      undefined,
+      executionKey,
+    );
   }
 
   async terminate(
     id: string,
     user: RequestUser,
     reason?: string,
+    executionKey?: string,
   ): Promise<Lease> {
-    return this.leasesRepository.manager.transaction(async (manager) => {
-      const lease = await this.lockLease(manager, id, user.companyId);
+    this.requireCompanyScope(user);
+    return this.leasesRepository.manager.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        user.companyId,
+        executionKey,
+        'lease.finalize',
+        { id, reason },
+        async () => {
+          const lease = await this.lockLease(manager, id, user.companyId);
 
-      if (lease.status !== LeaseStatus.ACTIVE) {
-        throw new BadRequestException('Only active contracts can be finalized');
-      }
+          if (lease.status !== LeaseStatus.ACTIVE) {
+            throw new BadRequestException(
+              'Only active contracts can be finalized',
+            );
+          }
 
-      lease.status = LeaseStatus.FINALIZED;
-      if (reason) {
-        lease.notes = (lease.notes || '') + `\nFinalization reason: ${reason}`;
-      }
+          lease.status = LeaseStatus.FINALIZED;
+          if (reason) {
+            lease.notes =
+              (lease.notes || '') + `\nFinalization reason: ${reason}`;
+          }
 
-      if (lease.contractType === ContractType.RENTAL && lease.propertyId) {
-        await manager
-          .getRepository(Property)
-          .update(
-            { id: lease.propertyId, companyId: user.companyId },
-            { operationState: PropertyOperationState.AVAILABLE },
-          );
-      }
+          if (lease.contractType === ContractType.RENTAL && lease.propertyId) {
+            await manager
+              .getRepository(Property)
+              .update(
+                { id: lease.propertyId, companyId: user.companyId },
+                { operationState: PropertyOperationState.AVAILABLE },
+              );
+          }
 
-      return manager.getRepository(Lease).save(lease);
-    });
+          return manager.getRepository(Lease).save(lease);
+        },
+      ),
+    );
   }
 
   async renew(
@@ -1297,12 +1363,15 @@ export class LeasesService {
     templateId: string | undefined,
     companyId: string,
     contractType?: ContractType,
+    manager?: EntityManager,
   ): Promise<LeaseContractTemplate | null> {
     if (!templateId) {
       return null;
     }
 
-    const template = await this.templatesRepository.findOne({
+    const template = await (
+      manager?.getRepository(LeaseContractTemplate) ?? this.templatesRepository
+    ).findOne({
       where: { id: templateId, companyId, deletedAt: IsNull() },
     });
     if (!template) {
