@@ -755,6 +755,8 @@ describe('Durable confirmed contracts (e2e)', () => {
       .expect(201);
   });
   const recoveryTools = [
+    'post_leases',
+    'patch_lease_by_id',
     'post_lease_draft_render',
     'patch_lease_draft_text',
     'post_lease_confirm',
@@ -763,8 +765,29 @@ describe('Durable confirmed contracts (e2e)', () => {
     'patch_lease_finalize',
   ];
   const actor = () => ({ id: userId, companyId, role: UserRole.ADMIN });
-  async function recoveryInput(toolName: string) {
+  async function recoveryInput(toolName: string): Promise<any> {
+    if (toolName === 'post_leases') {
+      const template = await app.get(LeasesService).createTemplate(
+        {
+          name: 'New contract template',
+          contractType: ContractType.RENTAL,
+          templateBody: 'Contrato nuevo aprobado',
+        },
+        companyId,
+      );
+      return {
+        companyId,
+        propertyId,
+        tenantId,
+        startDate: '2026-09-01',
+        endDate: '2027-09-01',
+        monthlyRent: 1000,
+        templateId: template.id,
+      };
+    }
     const id = await seed();
+    if (toolName === 'patch_lease_by_id')
+      return { id, notes: 'Approved partial edit' };
     if (toolName === 'post_lease_draft_render') {
       const template = await app.get(LeasesService).createTemplate(
         {
@@ -863,7 +886,10 @@ describe('Durable confirmed contracts (e2e)', () => {
           'SELECT result FROM domain_operation_receipts WHERE company_id=$1 AND execution_key=$2',
           [companyId, action.execution_key],
         );
+        const leaseId = receipt.result.id as string;
         const expectedStatus = [
+          'post_leases',
+          'patch_lease_by_id',
           'post_lease_draft_render',
           'patch_lease_draft_text',
         ].includes(toolName)
@@ -873,21 +899,19 @@ describe('Durable confirmed contracts (e2e)', () => {
             : 'active';
         expect(receipt.result.status).toBe(expectedStatus);
         if (expectedStatus === 'draft')
+          await app.get(LeasesService).confirmDraft(leaseId, userId, actor());
+        if ((await row(leaseId)).status === 'active')
           await app
             .get(LeasesService)
-            .confirmDraft(payload.id, userId, actor());
-        if ((await row(payload.id)).status === 'active')
-          await app
-            .get(LeasesService)
-            .terminate(payload.id, actor(), 'Later closure');
+            .terminate(leaseId, actor(), 'Later closure');
         await db.query('UPDATE leases SET deleted_at=now() WHERE id=$1', [
-          payload.id,
+          leaseId,
         ]);
         const before = await snapshot();
         const recovered = (await approve().expect(201)).body;
         expect(recovered.status).toBe('executed');
         expect(recovered.result).toMatchObject({
-          id: payload.id,
+          id: leaseId,
           status: expectedStatus,
         });
         expect(JSON.stringify(recovered.result)).not.toMatch(
@@ -922,7 +946,7 @@ describe('Durable confirmed contracts (e2e)', () => {
         expect(await jobs()).toHaveLength(1);
         expect(
           await db.query('SELECT id FROM tenant_accounts WHERE lease_id=$1', [
-            payload.id,
+            leaseId,
           ]),
         ).toHaveLength(1);
       } finally {
@@ -1026,5 +1050,223 @@ describe('Durable confirmed contracts (e2e)', () => {
     ).rejects.toThrow('different operation or request');
     expect((await row(id)).confirmed_contract_text).toBe('Original');
     expect(await jobs()).toHaveLength(1);
+  });
+  it('persists the selected template when replacing a loaded template relation', async () => {
+    const service = app.get(LeasesService);
+    const templates = [];
+    for (const name of ['Original', 'Replacement']) {
+      templates.push(
+        await service.createTemplate(
+          {
+            name,
+            contractType: ContractType.RENTAL,
+            templateBody: name,
+          },
+          companyId,
+        ),
+      );
+    }
+    const id = await seed();
+    await service.renderDraft(id, actor(), templates[0].id);
+    await service.renderDraft(id, actor(), templates[1].id);
+    expect(await row(id)).toMatchObject({
+      template_id: templates[1].id,
+      template_name: 'Replacement',
+      draft_contract_text: 'Replacement',
+    });
+    await service.update(id, { templateId: templates[0].id }, actor());
+    expect(await row(id)).toMatchObject({
+      template_id: templates[0].id,
+      template_name: 'Original',
+      draft_contract_text: 'Original',
+    });
+  });
+
+  it('preserves omitted HTTP and AI fields when editing a rental contract', async () => {
+    const id = await seed();
+    await db.query(
+      "UPDATE leases SET currency='USD',payment_frequency='annual',payment_due_day=25,renewal_alert_enabled=false,renewal_alert_periodicity='four_months' WHERE id=$1",
+      [id],
+    );
+    await request(app.getHttpServer())
+      .patch(`/contracts/${id}`)
+      .auth(token, { type: 'bearer' })
+      .send({ notes: 'HTTP note' })
+      .expect(200);
+    await app.get(AiToolExecutorService).executeApproved(
+      'patch_lease_by_id',
+      { id, notes: 'AI note' },
+      {
+        companyId,
+        userId,
+        role: UserRole.ADMIN,
+        idempotencyKey: randomUUID(),
+      },
+    );
+    expect(await row(id)).toMatchObject({
+      notes: 'AI note',
+      currency: 'USD',
+      payment_frequency: 'annual',
+      payment_due_day: 25,
+      renewal_alert_enabled: false,
+      renewal_alert_periodicity: 'four_months',
+      contract_type: 'rental',
+    });
+  });
+
+  it('preserves a sale contract type when only its notes are patched', async () => {
+    const id = await seed(true);
+    await request(app.getHttpServer())
+      .patch(`/contracts/${id}`)
+      .auth(token, { type: 'bearer' })
+      .send({ notes: 'Sale HTTP note' })
+      .expect(200);
+    await app.get(AiToolExecutorService).executeApproved(
+      'patch_lease_by_id',
+      { id, notes: 'Sale AI note' },
+      {
+        companyId,
+        userId,
+        role: UserRole.ADMIN,
+        idempotencyKey: randomUUID(),
+      },
+    );
+    expect(await row(id)).toMatchObject({
+      contract_type: 'sale',
+      buyer_id: buyerId,
+      tenant_id: null,
+      notes: 'Sale AI note',
+    });
+  });
+
+  it('serializes concurrent draft creation for the same property and party', async () => {
+    const payload = await recoveryInput('post_leases'),
+      service = app.get(LeasesService);
+    const results = await Promise.allSettled([
+      service.create(payload, actor(), randomUUID()),
+      service.create(payload, actor(), randomUUID()),
+    ]);
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    const failed = results.find(
+      (r) => r.status === 'rejected',
+    ) as PromiseRejectedResult;
+    expect(failed.reason.message).toContain('open contract');
+    expect(
+      await db.query('SELECT id FROM leases WHERE company_id=$1', [companyId]),
+    ).toHaveLength(1);
+  });
+
+  it('recovers one revision of an active contract and rejects another open revision', async () => {
+    const id = await seed(),
+      service = app.get(LeasesService);
+    await service.confirmDraft(id, userId, actor());
+    const key = randomUUID(),
+      input = { notes: 'Revision approved' };
+    const revision = await service.update(id, input, actor(), key);
+    expect(revision.id).not.toBe(id);
+    expect(revision).toMatchObject({
+      previousLeaseId: id,
+      versionNumber: 2,
+      status: 'draft',
+      notes: 'Revision approved',
+    });
+    const before = await snapshot();
+    expect(await service.update(id, input, actor(), key)).toEqual(
+      JSON.parse(JSON.stringify(revision)),
+    );
+    await expect(
+      service.update(id, { notes: 'Another revision' }, actor(), randomUUID()),
+    ).rejects.toThrow('draft revision already exists');
+    expect(await snapshot()).toEqual(before);
+    expect((await row(id)).status).toBe('active');
+  });
+
+  it('does not leave a draft or partial edit when template rendering fails', async () => {
+    const service = app.get(LeasesService),
+      payload = await recoveryInput('post_leases');
+    const render = jest
+      .spyOn(service as any, 'renderDraftWithManager')
+      .mockRejectedValue(new Error('render failed'));
+    try {
+      await expect(
+        service.create(payload, actor(), randomUUID()),
+      ).rejects.toThrow('render failed');
+      expect(
+        await db.query('SELECT id FROM leases WHERE company_id=$1', [
+          companyId,
+        ]),
+      ).toHaveLength(0);
+      const id = await seed();
+      await db.query('UPDATE leases SET template_id=$2 WHERE id=$1', [
+        id,
+        payload.templateId,
+      ]);
+      const before = await snapshot();
+      await expect(
+        service.update(id, { notes: 'Must roll back' }, actor(), randomUUID()),
+      ).rejects.toThrow('render failed');
+      expect(await snapshot()).toEqual(before);
+      await service.confirmDraft(id, userId, actor());
+      const active = await snapshot();
+      await expect(
+        service.update(
+          id,
+          { notes: 'Revision must roll back' },
+          actor(),
+          randomUUID(),
+        ),
+      ).rejects.toThrow('render failed');
+      expect(await snapshot()).toEqual(active);
+    } finally {
+      render.mockRestore();
+    }
+  });
+
+  it('serializes a general draft edit with confirmation without overwriting the active original', async () => {
+    const id = await seed(),
+      service = app.get(LeasesService);
+    await Promise.all([
+      service.confirmDraft(id, userId, actor()),
+      service.update(id, { monthlyRent: 1200 }, actor(), randomUUID()),
+    ]);
+    expect((await row(id)).status).toBe('active');
+    expect(await jobs()).toHaveLength(1);
+    expect(
+      await db.query('SELECT id FROM tenant_accounts WHERE lease_id=$1', [id]),
+    ).toHaveLength(1);
+  });
+  it('locks both properties in stable order for opposing draft moves with uppercase UUID input', async () => {
+    const secondProperty = await db.getRepository(Property).save({
+      companyId,
+      ownerId,
+      name: 'Swap property',
+      propertyType: PropertyType.APARTMENT,
+      addressStreet: 'Swap 100',
+      addressCity: 'Buenos Aires',
+      addressState: 'Buenos Aires',
+    });
+    const rental = await seed(),
+      sale = await seed(true);
+    await db.query('UPDATE leases SET property_id=$2 WHERE id=$1', [
+      sale,
+      secondProperty.id,
+    ]);
+    const service = app.get(LeasesService);
+    await Promise.all([
+      service.update(
+        rental,
+        { propertyId: secondProperty.id.toUpperCase() },
+        actor(),
+        randomUUID(),
+      ),
+      service.update(
+        sale,
+        { propertyId: propertyId.toUpperCase() },
+        actor(),
+        randomUUID(),
+      ),
+    ]);
+    expect((await row(rental)).property_id).toBe(secondProperty.id);
+    expect((await row(sale)).property_id).toBe(propertyId);
   });
 });

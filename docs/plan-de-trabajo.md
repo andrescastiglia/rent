@@ -109,8 +109,12 @@ Pendiente: despliegue de backend/clientes compatibles.
   Renderizado/edición de texto, confirmación/activación y cierre de contratos
   también guardan el resultado aprobado en su transacción. Los editores de texto
   bloquean la confirmación concurrente; ver [contrato y pruebas](technical/approved-lease-recovery.md).
-  Pendiente: gates y despliegue de este avance; altas, edición general/revisiones,
-  renovaciones, importaciones, bajas y plantillas de contratos siguen pendientes.
+  Transiciones incorporadas a main con los 23 gates del PR #249 aprobados.
+  Altas y edición general/revisiones también usan constancia transaccional, con
+  renderizado atómico, protección de confirmaciones concurrentes y PATCH sin
+  reiniciar valores omitidos. Ver [reglas y pruebas](technical/approved-lease-drafts.md).
+  Pendiente: gates y despliegue de estos avances; renovaciones, importaciones,
+  bajas y plantillas de contratos siguen pendientes.
   Pendiente: idempotencia transaccional de las demás herramientas mutables y despliegue.
 
 ## 2. Completar recorridos de producto
@@ -138,7 +142,8 @@ Pendiente: despliegue de backend/clientes compatibles.
   Pendiente: despliegue.
   Los avisos de recibos ahora revalidan cobro, documento, destinatario, adjunto
   y consentimiento antes de cada intento; ver [reglas y pruebas](technical/payment-receipt-notices.md).
-  Pendiente: gates/despliegue de este control y revisión de avisos históricos.
+  Control de avisos incorporado a main con los 23 gates del PR #248 aprobados.
+  Pendiente: despliegue y revisión de avisos históricos.
   Pendientes además: política opcional de mora, notas históricas, anulación directa
   de facturas con notas, verificación de los demás numeradores y recuperación de
   deuda tras liquidaciones ya transferidas.

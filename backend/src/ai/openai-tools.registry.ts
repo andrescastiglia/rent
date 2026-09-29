@@ -1097,12 +1097,14 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The newly created lease record in draft status with assigned UUID.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: CreateLeaseDto.zodSchema,
       execute: async (args, context) =>
         deps.leasesService.create(
           CreateLeaseDto.zodSchema.parse(args),
           toRequestUser(context) as any,
+          context.idempotencyKey,
         ),
     },
     {
@@ -1190,9 +1192,10 @@ export function buildAiToolDefinitions(
     {
       name: 'patch_lease_by_id',
       description:
-        "Updates a draft lease's fields (dates, rent amount, terms, etc.) by UUID. Only works on draft leases.",
+        'Updates a draft lease or creates one draft revision of a non-draft lease. Reuse the approved execution key to recover its original result.',
       responseDescription: 'The updated lease record.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(UpdateLeaseDto.zodSchema, { id: uuidSchema }),
       execute: async (args, context) => {
@@ -1203,6 +1206,7 @@ export function buildAiToolDefinitions(
           parsed.id,
           parsed,
           toRequestUser(context) as any,
+          context.idempotencyKey,
         );
       },
     },

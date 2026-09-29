@@ -190,6 +190,7 @@ describe('LeasesService', () => {
 
     expect(result.status).toBe(LeaseStatus.DRAFT);
     expect(propertyRepository.findOne).toHaveBeenCalledWith({
+      lock: { mode: 'for_no_key_update' },
       where: {
         id: 'prop-1',
         companyId: 'company-1',
@@ -224,6 +225,7 @@ describe('LeasesService', () => {
     ).rejects.toThrow(NotFoundException);
 
     expect(propertyRepository.findOne).toHaveBeenCalledWith({
+      lock: { mode: 'for_no_key_update' },
       where: {
         id: 'foreign-property',
         companyId: 'company-1',
@@ -1492,7 +1494,7 @@ describe('LeasesService', () => {
         draftContractText: 'old text',
       } as Lease;
 
-      jest.spyOn(service, 'findOne').mockResolvedValueOnce(draft);
+      jest.spyOn(service, 'findOne').mockResolvedValue(draft);
 
       leaseRepository.save!.mockResolvedValue({
         ...draft,
@@ -1501,7 +1503,7 @@ describe('LeasesService', () => {
       } as Lease);
 
       jest
-        .spyOn(service, 'renderDraft')
+        .spyOn(service as any, 'renderDraftWithManager')
         .mockResolvedValue({ ...draft, monthlyRent: 200 } as Lease);
 
       const result = await service.update(
