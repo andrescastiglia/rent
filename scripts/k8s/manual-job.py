@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import argparse,json,subprocess,time
 from pathlib import Path
-ALLOWED=['billing','overdue','reminders','lease-renewal-alerts','sync-indices','sync-rates','reports','process-settlements']
+ALLOWED=['billing','overdue','reminders','lease-renewal-alerts','sync-indices','sync-rates','reports']
 p=argparse.ArgumentParser();p.add_argument('operation',choices=ALLOWED);p.add_argument('dry_run',choices=['true','false']);args=p.parse_args()
 if not Path('/etc/rent-kubernetes/active').exists() or Path('/etc/rent-kubernetes/maintenance-active').exists():raise SystemExit('Rent is not available for manual operations')
 k=['k3s','kubectl','--as=system:serviceaccount:rent:deployer','-n','rent']

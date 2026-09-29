@@ -1,5 +1,6 @@
 "use client";
 
+import { EXTERNAL_SETTLEMENTS_ENABLED } from "@/config/deferred-features";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -11,6 +12,18 @@ import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { formatMoneyByCode } from "@/lib/format-money";
 
 export default function OwnerSettlementPaymentPage() {
+  const t = useTranslations("properties");
+  return EXTERNAL_SETTLEMENTS_ENABLED ? (
+    <OwnerSettlementPaymentForm />
+  ) : (
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-xl font-semibold">{t("registerOwnerPayment")}</h1>
+      <output className="block mt-4">{t("externalSettlementsDisabled")}</output>
+    </div>
+  );
+}
+
+function OwnerSettlementPaymentForm() {
   const t = useTranslations("properties");
   const tCommon = useTranslations("common");
   const locale = useLocale();

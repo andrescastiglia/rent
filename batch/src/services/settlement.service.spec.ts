@@ -18,6 +18,25 @@ describe("SettlementService", () => {
     mockQuery.mockReset();
   });
 
+  it.each(["production", "development", ""])(
+    "rejects transfers in %s before accessing the ledger",
+    async (environment) => {
+      const original = process.env.NODE_ENV;
+      process.env.NODE_ENV = environment;
+      try {
+        await expect(
+          service.processSettlement("owner-123", "2026-09"),
+        ).resolves.toEqual({
+          success: false,
+          error: "Settlement transfers are temporarily disabled",
+        });
+        expect(mockQuery).not.toHaveBeenCalled();
+      } finally {
+        process.env.NODE_ENV = original;
+      }
+    },
+  );
+
   describe("calculateSettlement", () => {
     const mockOwnerId = "owner-123";
     const mockPeriod = "2024-12";

@@ -15,7 +15,6 @@ on:
           - sync-indices
           - sync-rates
           - reports
-          - process-settlements
       dry_run:
         description: Run without persistent side effects
         required: true
@@ -65,7 +64,7 @@ jobs:
         run: |
           set -euo pipefail
           case "$JOB" in
-            billing|overdue|reminders|lease-renewal-alerts|sync-indices|sync-rates|reports|process-settlements) ;;
+            billing|overdue|reminders|lease-renewal-alerts|sync-indices|sync-rates|reports) ;;
             *) exit 2 ;;
           esac
           case "$DRY_RUN" in true|false) ;; *) exit 2 ;; esac

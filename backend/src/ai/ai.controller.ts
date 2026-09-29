@@ -63,6 +63,7 @@ export class AiController {
       companyId: req.user.companyId,
       role: req.user.role,
       roles: req.user.roles,
+      permissions: req.user.permissions,
     });
   }
 
@@ -76,6 +77,7 @@ export class AiController {
       companyId: req.user.companyId,
       role: req.user.role,
       roles: req.user.roles,
+      permissions: req.user.permissions,
       conversationId: dto.conversationId,
       confirmationId: dto.confirmationId,
       confirmMutation: dto.confirm === true,

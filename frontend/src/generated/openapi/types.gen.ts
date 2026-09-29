@@ -4099,6 +4099,25 @@ export type LeasesContractDownloadContractLegacyResponses = {
   200: unknown;
 };
 
+export type PaymentEffectsProcessData = {
+  body?: never;
+  headers: {
+    "x-batch-communications-token": string;
+  };
+  path?: never;
+  query?: never;
+  url: "/payments/internal/process-effects";
+};
+
+export type PaymentEffectsProcessResponses = {
+  201: {
+    [key: string]: unknown;
+  };
+};
+
+export type PaymentEffectsProcessResponse =
+  PaymentEffectsProcessResponses[keyof PaymentEffectsProcessResponses];
+
 export type TenantAccountsFindByLeaseData = {
   body?: never;
   path: {
@@ -5646,6 +5665,25 @@ export type SalesDownloadReceiptData = {
 export type SalesDownloadReceiptResponses = {
   200: unknown;
 };
+
+export type SaleReceiptEffectsProcessData = {
+  body?: never;
+  headers: {
+    "x-batch-communications-token": string;
+  };
+  path?: never;
+  query?: never;
+  url: "/sales/internal/process-receipts";
+};
+
+export type SaleReceiptEffectsProcessResponses = {
+  201: {
+    [key: string]: unknown;
+  };
+};
+
+export type SaleReceiptEffectsProcessResponse =
+  SaleReceiptEffectsProcessResponses[keyof SaleReceiptEffectsProcessResponses];
 
 export type AiListToolsData = {
   body?: never;

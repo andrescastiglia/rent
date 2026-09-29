@@ -24,6 +24,11 @@ export default function PaymentDetailScreen() {
     queryKey: ['payments', id],
     queryFn: () => paymentsApi.getById(id),
     enabled: Boolean(id),
+    refetchInterval: (current) =>
+      current.state.data?.status === 'completed' &&
+      !current.state.data?.receipt?.pdfUrl
+        ? 5000
+        : false,
   });
 
   const confirmMutation = useMutation({
@@ -75,7 +80,7 @@ export default function PaymentDetailScreen() {
             />
           ) : null}
 
-          {payment.receipt ? (
+          {payment.receipt?.pdfUrl ? (
             <AppButton
               title={t('payments.downloadReceipt')}
               variant="secondary"
@@ -85,7 +90,11 @@ export default function PaymentDetailScreen() {
             />
           ) : (
             <Text style={styles.warn}>
-              {t('payments.receiptPendingDescription')}
+              {t(
+                payment.status === 'completed'
+                  ? 'payments.receiptPreparingDescription'
+                  : 'payments.receiptPendingDescription',
+              )}
             </Text>
           )}
         </View>

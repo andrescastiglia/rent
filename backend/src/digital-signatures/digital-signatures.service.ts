@@ -74,15 +74,19 @@ export class DigitalSignaturesService {
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
-  async create(
-    companyId: string,
-    dto: CreateSignatureRequestDto,
-  ): Promise<DigitalSignatureRequest> {
+  private assertProviderAvailable(): void {
     if (this.configService.get<string>('NODE_ENV') !== 'test') {
       throw new ServiceUnavailableException(
         'Digital signatures are disabled until a real provider is configured',
       );
     }
+  }
+
+  async create(
+    companyId: string,
+    dto: CreateSignatureRequestDto,
+  ): Promise<DigitalSignatureRequest> {
+    this.assertProviderAvailable();
 
     const lease = await this.leaseRepo.findOne({
       where: { id: dto.leaseId, companyId },
@@ -473,6 +477,7 @@ export class DigitalSignaturesService {
   }
 
   async void(id: string, companyId: string): Promise<DigitalSignatureRequest> {
+    this.assertProviderAvailable();
     const request = await this.findOne(id, companyId);
 
     if (

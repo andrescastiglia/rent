@@ -1,3 +1,7 @@
+import { CreditNotePdfService } from '../src/payments/credit-note-pdf.service';
+import { PaymentEffectsService } from '../src/payments/payment-effects.service';
+import { ReceiptPdfService } from '../src/payments/receipt-pdf.service';
+import { CommunicationsService } from '../src/communications/communications.service';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -199,6 +203,18 @@ describe('Payment accounting flow (e2e)', () => {
   afterAll(async () => {
     if (companyId) {
       await dataSource.query(
+        'DELETE FROM payment_effects_outbox WHERE company_id = $1::uuid',
+        [companyId],
+      );
+      await dataSource.query(
+        'DELETE FROM communication_deliveries WHERE company_id = $1::uuid',
+        [companyId],
+      );
+      await dataSource.query(
+        'DELETE FROM payment_allocations WHERE company_id = $1::uuid',
+        [companyId],
+      );
+      await dataSource.query(
         `DELETE FROM bank_reconciliation_alerts WHERE company_id = $1::uuid`,
         [companyId],
       );
@@ -212,6 +228,10 @@ describe('Payment accounting flow (e2e)', () => {
       );
       await dataSource.query(
         `DELETE FROM documents WHERE company_id = $1::uuid`,
+        [companyId],
+      );
+      await dataSource.query(
+        'DELETE FROM credit_notes WHERE company_id = $1::uuid',
         [companyId],
       );
       await dataSource.query(
@@ -310,7 +330,16 @@ describe('Payment accounting flow (e2e)', () => {
         currencyCode: 'ARS',
       },
     });
-    expect(confirmed.body.receipt.pdfUrl).toMatch(/^db:\/\/document\//);
+    expect(confirmed.body.receipt.pdfUrl).toBeNull();
+    expect(await app.get(PaymentEffectsService).processDue()).toMatchObject({
+      completed: 1,
+      failed: 0,
+    });
+    const ready = await request(app.getHttpServer())
+      .get(`/payments/${created.body.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(ready.body.receipt.pdfUrl).toMatch(/^db:\/\/document\//);
 
     const [account] = await dataSource.query(
       `SELECT current_balance FROM tenant_accounts WHERE id = $1::uuid`,
@@ -351,7 +380,7 @@ describe('Payment accounting flow (e2e)', () => {
       entity_id: confirmed.body.receipt.id,
       file_mime_type: 'application/pdf',
     });
-    expect(document.file_url).toBe(confirmed.body.receipt.pdfUrl);
+    expect(document.file_url).toBe(ready.body.receipt.pdfUrl);
     expect(Number(document.file_size)).toBeGreaterThan(100);
     expect(Number(document.stored_size)).toBe(Number(document.file_size));
 
@@ -441,7 +470,11 @@ describe('Payment accounting flow (e2e)', () => {
         method: PaymentMethod.BANK_TRANSFER,
       },
     });
-    expect(first.body.payment.receipt.pdfUrl).toMatch(/^db:\/\/document\//);
+    expect(first.body.payment.receipt.pdfUrl).toBeNull();
+    expect(await app.get(PaymentEffectsService).processDue()).toMatchObject({
+      completed: 1,
+      failed: 0,
+    });
 
     const retried = await request(app.getHttpServer())
       .post('/bank-reconciliation/sandbox/movements')
@@ -467,6 +500,263 @@ describe('Payment accounting flow (e2e)', () => {
     });
     expect(refreshedInvoice.status).toBe(InvoiceStatus.PAID);
     expect(Number(refreshedInvoice.amountPaid)).toBe(750);
+  });
+
+  async function confirmAnotherPayment() {
+    const created = await request(app.getHttpServer())
+      .post('/payments')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        tenantAccountId,
+        amount: 10,
+        currencyCode: 'ARS',
+        paymentDate: '2026-09-28',
+        method: PaymentMethod.CASH,
+      })
+      .expect(201);
+    await request(app.getHttpServer())
+      .patch(`/payments/${created.body.id}/confirm`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    return created.body.id as string;
+  }
+
+  it('rolls back the ledger and receipt if the outbox cannot be persisted', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/payments')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        tenantAccountId,
+        amount: 10,
+        currencyCode: 'ARS',
+        paymentDate: '2026-09-28',
+        method: PaymentMethod.CASH,
+      })
+      .expect(201);
+    const runner = dataSource.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
+    try {
+      const { PaymentsService } =
+        await import('../src/payments/payments.service');
+      const query = runner.manager.query.bind(runner.manager);
+      jest
+        .spyOn(runner.manager, 'query')
+        .mockImplementation(async (sql, parameters) => {
+          if (String(sql).includes('INSERT INTO payment_effects_outbox'))
+            throw new Error('outbox unavailable');
+          return query(sql, parameters);
+        });
+      await expect(
+        app
+          .get(PaymentsService)
+          .confirmWithManager(runner.manager, created.body.id, companyId),
+      ).rejects.toThrow('outbox unavailable');
+      await runner.rollbackTransaction();
+    } finally {
+      await runner.release();
+    }
+    const [state] = await dataSource.query(
+      `SELECT p.status,
+      (SELECT count(*) FROM receipts WHERE payment_id = p.id) AS receipts,
+      (SELECT count(*) FROM tenant_account_movements WHERE reference_id = p.id) AS movements
+      FROM payments p WHERE p.id = $1`,
+      [created.body.id],
+    );
+    expect(state).toEqual({ status: 'pending', receipts: '0', movements: '0' });
+  });
+
+  it('rolls back persisted PDF bytes on failure and recovers with one document and delivery', async () => {
+    await dataSource.query(
+      `UPDATE users SET phone = '5491112345678', whatsapp_enabled = true
+      WHERE id IN (SELECT user_id FROM tenants WHERE company_id = $1)`,
+      [companyId],
+    );
+    await dataSource.query(
+      'UPDATE tenants SET contact_consent = true WHERE company_id = $1',
+      [companyId],
+    );
+    const paymentId = await confirmAnotherPayment();
+    const communications = app.get(CommunicationsService);
+    const dispatch = communications.dispatchEvent.bind(communications);
+    const failedDispatch = jest
+      .spyOn(communications, 'dispatchEvent')
+      .mockImplementationOnce(async (...args) => {
+        await dispatch(...args);
+        throw new Error('crash after document and delivery persistence');
+      });
+    try {
+      expect(await app.get(PaymentEffectsService).processDue()).toMatchObject({
+        failed: 1,
+      });
+    } finally {
+      failedDispatch.mockRestore();
+    }
+    const [failed] = await dataSource.query(
+      `SELECT e.status, e.attempts, r.pdf_url,
+      (SELECT count(*) FROM documents WHERE entity_id = r.id) AS documents,
+      (SELECT count(*) FROM communication_deliveries WHERE related_entity_id = e.payment_id) AS deliveries
+      FROM payment_effects_outbox e JOIN receipts r ON r.payment_id = e.payment_id WHERE e.payment_id = $1`,
+      [paymentId],
+    );
+    expect(failed).toEqual({
+      status: 'queued',
+      attempts: 1,
+      pdf_url: null,
+      documents: '0',
+      deliveries: '0',
+    });
+    await dataSource.query(
+      'UPDATE payment_effects_outbox SET next_attempt_at = NOW() WHERE payment_id = $1',
+      [paymentId],
+    );
+    const outcomes = await Promise.all([
+      app.get(PaymentEffectsService).processDue(),
+      app.get(PaymentEffectsService).processDue(),
+    ]);
+    expect(outcomes.reduce((sum, result) => sum + result.completed, 0)).toBe(1);
+    const [complete] = await dataSource.query(
+      `SELECT e.status, e.attempts,
+      (SELECT count(*) FROM documents WHERE entity_id = r.id) AS documents,
+      (SELECT count(*) FROM communication_deliveries WHERE related_entity_id = e.payment_id) AS deliveries
+      FROM payment_effects_outbox e JOIN receipts r ON r.payment_id = e.payment_id WHERE e.payment_id = $1`,
+      [paymentId],
+    );
+    expect(complete).toEqual({
+      status: 'completed',
+      attempts: 2,
+      documents: '1',
+      deliveries: '1',
+    });
+    expect(await app.get(PaymentEffectsService).processDue()).toMatchObject({
+      processed: 0,
+    });
+  });
+
+  it('recovers receipt and late-fee credit note together when the second PDF fails', async () => {
+    const source = await invoiceRepository.findOneByOrFail({ id: invoiceId });
+    const lateInvoice = await invoiceRepository.save(
+      invoiceRepository.create({
+        companyId,
+        leaseId: source.leaseId,
+        ownerId,
+        tenantAccountId,
+        invoiceNumber: `INV-LATE-${uniqueId}`,
+        periodStart: new Date('2026-09-01'),
+        periodEnd: new Date('2026-09-30'),
+        issuedAt: new Date('2026-09-01'),
+        dueDate: new Date('2026-09-10'),
+        subtotal: 5,
+        lateFee: 5,
+        total: 10,
+        balanceDue: 10,
+        currencyCode: 'ARS',
+        amountPaid: 0,
+        status: InvoiceStatus.OVERDUE,
+      }),
+    );
+    const paymentId = await confirmAnotherPayment();
+    const renderer = app.get(CreditNotePdfService);
+    const render = renderer.generate.bind(renderer);
+    const failure = jest
+      .spyOn(renderer, 'generate')
+      .mockImplementationOnce(async (...args) => {
+        await render(...args);
+        throw new Error('crash after credit note PDF');
+      });
+    try {
+      expect(await app.get(PaymentEffectsService).processDue()).toMatchObject({
+        failed: 1,
+      });
+    } finally {
+      failure.mockRestore();
+    }
+    const [failed] = await dataSource.query(
+      `SELECT r.pdf_url AS receipt, cn.pdf_url AS credit_note
+      FROM receipts r JOIN credit_notes cn ON cn.payment_id = r.payment_id
+      WHERE r.payment_id = $1 AND cn.invoice_id = $2`,
+      [paymentId, lateInvoice.id],
+    );
+    expect(failed).toEqual({ receipt: null, credit_note: null });
+    await dataSource.query(
+      'UPDATE payment_effects_outbox SET next_attempt_at = NOW() WHERE payment_id = $1',
+      [paymentId],
+    );
+    expect(await app.get(PaymentEffectsService).processDue()).toMatchObject({
+      completed: 1,
+      failed: 0,
+    });
+    const [result] = await dataSource.query(
+      `SELECT r.pdf_url AS receipt, cn.pdf_url AS credit_note,
+      (SELECT count(*) FROM communication_deliveries WHERE related_entity_id = r.payment_id) AS deliveries
+      FROM receipts r JOIN credit_notes cn ON cn.payment_id = r.payment_id
+      WHERE r.payment_id = $1 AND cn.invoice_id = $2`,
+      [paymentId, lateInvoice.id],
+    );
+    expect(result.receipt).toMatch(/^db:\/\/document\//);
+    expect(result.credit_note).toMatch(/^db:\/\/document\//);
+    expect(result.deliveries).toBe('2');
+  });
+
+  it('does not generate or queue a receipt when payment is cancelled before processing', async () => {
+    const paymentId = await confirmAnotherPayment();
+    await request(app.getHttpServer())
+      .patch(`/payments/${paymentId}/cancel`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const generate = jest.spyOn(app.get(ReceiptPdfService), 'generate');
+    try {
+      expect(await app.get(PaymentEffectsService).processDue()).toMatchObject({
+        completed: 1,
+      });
+      expect(generate).not.toHaveBeenCalled();
+    } finally {
+      generate.mockRestore();
+    }
+  });
+
+  it('dead-letters persistent failures and protects the worker endpoint', async () => {
+    const paymentId = await confirmAnotherPayment();
+    const generate = jest
+      .spyOn(app.get(ReceiptPdfService), 'generate')
+      .mockRejectedValue(new Error('render failure'));
+    try {
+      for (let attempt = 1; attempt <= 5; attempt++) {
+        await dataSource.query(
+          'UPDATE payment_effects_outbox SET next_attempt_at = NOW() WHERE payment_id = $1',
+          [paymentId],
+        );
+        expect(await app.get(PaymentEffectsService).processDue()).toMatchObject(
+          { failed: 1 },
+        );
+      }
+    } finally {
+      generate.mockRestore();
+    }
+    const [dead] = await dataSource.query(
+      'SELECT status, attempts FROM payment_effects_outbox WHERE payment_id = $1',
+      [paymentId],
+    );
+    expect(dead).toEqual({ status: 'dead_letter', attempts: 5 });
+    const previousToken = process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN;
+    process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN = 'isolated-effects-token';
+    try {
+      await request(app.getHttpServer())
+        .post('/payments/internal/process-effects')
+        .expect(401);
+      await request(app.getHttpServer())
+        .post('/payments/internal/process-effects')
+        .set('x-batch-communications-token', 'wrong')
+        .expect(401);
+      await request(app.getHttpServer())
+        .post('/payments/internal/process-effects')
+        .set('x-batch-communications-token', 'isolated-effects-token')
+        .expect(201);
+    } finally {
+      if (previousToken === undefined)
+        delete process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN;
+      else process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN = previousToken;
+    }
   });
 
   it('protects batch retries and lets administrators review and resolve unmatched alerts', async () => {

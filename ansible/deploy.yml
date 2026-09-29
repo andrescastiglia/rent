@@ -375,7 +375,7 @@
     - name: Schedule communication retries from current release
       ansible.builtin.cron:
         name: Rent communication delivery retries
-        minute: "*/5"
+        minute: "*"
         job: >-
           cd {{ current_path }}/backend &&
           node -r dotenv/config dist/communications/retry-communications.cli.js

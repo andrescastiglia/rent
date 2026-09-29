@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { randomUUID } from 'node:crypto';
 import {
   Document,
@@ -21,13 +21,16 @@ export class SaleReceiptPdfService {
   async generate(
     receipt: SaleReceipt,
     agreement: SaleAgreement,
+    manager?: EntityManager,
   ): Promise<string> {
+    const documentsRepository =
+      manager?.getRepository(Document) ?? this.documentsRepository;
     const pdfBuffer = await generateSaleReceiptPdf(receipt, agreement);
 
     const id = randomUUID();
     const fileUrl = `db://document/${id}`;
 
-    const document = this.documentsRepository.create({
+    const document = documentsRepository.create({
       id,
       companyId: agreement.companyId,
       entityType: 'sale_receipt',
@@ -41,7 +44,7 @@ export class SaleReceiptPdfService {
       status: DocumentStatus.APPROVED,
     });
 
-    await this.documentsRepository.save(document);
+    await documentsRepository.save(document);
 
     return fileUrl;
   }

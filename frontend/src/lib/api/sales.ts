@@ -69,6 +69,31 @@ const MOCK_RECEIPTS: Record<string, SaleReceipt[]> = {
 };
 
 export const salesApi = {
+  downloadReceiptPdf: async (
+    receiptId: string,
+    receiptNumber: string,
+  ): Promise<void> => {
+    const token = getToken();
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+    const response = await fetch(
+      `${baseUrl}/sales/receipts/${encodeURIComponent(receiptId)}/pdf`,
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      },
+    );
+    if (!response.ok) throw new Error("Failed to download sale receipt");
+    const objectUrl = URL.createObjectURL(await response.blob());
+    const anchor = document.createElement("a");
+    try {
+      anchor.href = objectUrl;
+      anchor.download = `recibo-venta-${receiptNumber}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+    } finally {
+      anchor.remove();
+      URL.revokeObjectURL(objectUrl);
+    }
+  },
   getFolders: async (): Promise<SaleFolder[]> => {
     if (IS_MOCK_MODE) {
       await delay(DELAY);

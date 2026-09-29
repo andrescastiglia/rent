@@ -258,6 +258,7 @@
     "ownerNoRecentPayments": "No owner payments registered.",
     "downloadOwnerReceipt": "Download receipt",
     "ownerReceiptPending": "Receipt pending",
+    "externalSettlementsDisabled": "Settlement transfers are temporarily disabled.",
     "registerOwnerPayment": "Register owner payment",
     "ownerNoPendingSettlements": "No pending settlements to pay.",
     "ownerSettlement": "Settlement",
@@ -1002,6 +1003,7 @@
     "receiptNumber": "Receipt Number",
     "issuedAt": "Issued At",
     "downloadReceipt": "Download Receipt",
+    "receiptPreparingDescription": "Your receipt is being prepared. It will be available shortly.",
     "receiptPendingDescription": "Receipt will be generated upon payment confirmation.",
     "noReceipt": "No receipt",
     "items": {

@@ -109,6 +109,7 @@ describe('CreditNotePdfService', () => {
     expect(templatesService.findActiveTemplate).toHaveBeenCalledWith(
       'company-1',
       PaymentDocumentTemplateType.CREDIT_NOTE,
+      undefined,
     );
     expect(i18n.t).toHaveBeenCalledWith('creditNote.header', { lang: 'es' });
     expect(renderDocumentTemplate).toHaveBeenCalled();

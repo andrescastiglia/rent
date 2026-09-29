@@ -462,7 +462,7 @@ describe('openai-tools.registry', () => {
           page: 1,
           limit: 10,
         }),
-        findOneById: jest.fn(),
+        findOneByIdScoped: jest.fn(),
         updateProfile: jest.fn().mockResolvedValue({
           id: 'u1',
           passwordHash: 'secret',
@@ -548,7 +548,10 @@ describe('openai-tools.registry', () => {
         ctx,
       ),
     ).rejects.toThrow('Invalid credentials');
-    deps.authService.validateUser.mockResolvedValueOnce({ id: 'u1' });
+    deps.authService.validateUser.mockResolvedValueOnce({
+      id: 'u1',
+      companyId: ctx.companyId,
+    });
     await expect(
       find('post_auth_login').execute(
         { email: 'admin@test.dev', password: 'Password123!' },
@@ -566,9 +569,9 @@ describe('openai-tools.registry', () => {
       ctx,
     );
 
-    deps.usersService.findOneById.mockResolvedValueOnce(null);
+    deps.usersService.findOneByIdScoped.mockResolvedValueOnce(null);
     await expect(find('get_auth_profile').execute({}, ctx)).resolves.toBeNull();
-    deps.usersService.findOneById.mockResolvedValueOnce({
+    deps.usersService.findOneByIdScoped.mockResolvedValueOnce({
       id: 'u1',
       passwordHash: 'secret',
       email: 'admin@test.dev',
@@ -590,11 +593,11 @@ describe('openai-tools.registry', () => {
     );
     await find('get_users').execute({ page: 1, limit: 10 }, ctx);
 
-    deps.usersService.findOneById.mockResolvedValueOnce(null);
+    deps.usersService.findOneByIdScoped.mockResolvedValueOnce(null);
     await expect(
       find('get_users_profile_me').execute({}, ctx),
     ).resolves.toBeNull();
-    deps.usersService.findOneById.mockResolvedValueOnce({
+    deps.usersService.findOneByIdScoped.mockResolvedValueOnce({
       id: 'u1',
       passwordHash: 'secret',
       email: 'admin@test.dev',
@@ -606,11 +609,11 @@ describe('openai-tools.registry', () => {
       ctx,
     );
 
-    deps.usersService.findOneById.mockResolvedValueOnce(null);
+    deps.usersService.findOneByIdScoped.mockResolvedValueOnce(null);
     await expect(
       find('get_users_by_id').execute({ id }, ctx),
     ).resolves.toBeNull();
-    deps.usersService.findOneById.mockResolvedValueOnce({
+    deps.usersService.findOneByIdScoped.mockResolvedValueOnce({
       id,
       passwordHash: 'secret',
       email: 'u@test.dev',

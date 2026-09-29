@@ -196,18 +196,6 @@ export class BankReconciliationService {
       await queryRunner.release();
     }
 
-    if (result.paymentConfirmation && result.reconciliation.paymentId) {
-      await this.paymentsService.finalizeConfirmationEffects(
-        result.reconciliation.paymentId,
-        companyId,
-        result.paymentConfirmation,
-      );
-      return this.findReconciliation(
-        this.reconciliationsRepository,
-        result.reconciliation.id,
-        companyId,
-      );
-    }
     return result.reconciliation;
   }
 

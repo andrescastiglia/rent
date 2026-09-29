@@ -9,7 +9,6 @@ import { DataSource, IsNull, Repository } from 'typeorm';
 import { SaleFolder } from './entities/sale-folder.entity';
 import { SaleAgreement } from './entities/sale-agreement.entity';
 import { SaleReceipt } from './entities/sale-receipt.entity';
-import { SaleReceiptPdfService } from './sale-receipt-pdf.service';
 import { CreateSaleFolderDto } from './dto/create-sale-folder.dto';
 import { CreateSaleAgreementDto } from './dto/create-sale-agreement.dto';
 import { CreateSaleReceiptDto } from './dto/create-sale-receipt.dto';
@@ -41,7 +40,6 @@ export class SalesService {
     private readonly propertiesRepository: Repository<Property>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
-    private readonly receiptPdfService: SaleReceiptPdfService,
   ) {}
 
   async createFolder(dto: CreateSaleFolderDto, user: UserContext) {
@@ -248,25 +246,21 @@ export class SalesService {
         overdueAmount,
         copyCount: 2,
       });
-      return receiptRepository.save(receipt);
-    });
-
-    try {
-      const agreement = await this.getAgreement(agreementId, user);
-      const pdfUrl = await this.receiptPdfService.generate(
-        savedReceipt,
-        agreement,
+      const saved = await receiptRepository.save(receipt);
+      await manager.query(
+        `INSERT INTO sale_receipt_effects_outbox (company_id, receipt_id)
+         VALUES ($1::uuid, $2::uuid) ON CONFLICT (receipt_id) DO NOTHING`,
+        [user.companyId, saved.id],
       );
-      savedReceipt.pdfUrl = pdfUrl;
-      await this.receiptsRepository.save(savedReceipt);
-    } catch (error) {
-      console.error('Failed to generate sale receipt PDF:', error);
-    }
+      return saved;
+    });
 
     return savedReceipt;
   }
 
   async getReceipt(receiptId: string, user: UserContext) {
+    if (!user.companyId)
+      throw new BadRequestException('Company scope required');
     const receipt = await this.receiptsRepository.findOne({
       where: { id: receiptId },
       relations: ['agreement', 'agreement.folder'],
@@ -276,7 +270,7 @@ export class SalesService {
       throw new NotFoundException('Receipt not found');
     }
 
-    if (user.companyId && receipt.agreement?.companyId !== user.companyId) {
+    if (receipt.agreement?.companyId !== user.companyId) {
       throw new ForbiddenException('You can only access your own company');
     }
 

@@ -1,3 +1,4 @@
+import { EXTERNAL_SETTLEMENTS_ENABLED } from '@/config/deferred-features';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -20,6 +21,20 @@ const formatAmount = (amount: number, currencyCode = 'ARS') =>
   }).format(amount);
 
 export default function OwnerPayScreen() {
+  const { t } = useTranslation();
+  return EXTERNAL_SETTLEMENTS_ENABLED ? (
+    <OwnerPayForm />
+  ) : (
+    <Screen>
+      <H1>{t('properties.registerOwnerPayment')}</H1>
+      <Text accessibilityLiveRegion="polite">
+        {t('properties.externalSettlementsDisabled')}
+      </Text>
+    </Screen>
+  );
+}
+
+function OwnerPayForm() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();

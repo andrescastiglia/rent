@@ -6,7 +6,6 @@ import { SaleFolder } from './entities/sale-folder.entity';
 import { SaleAgreement } from './entities/sale-agreement.entity';
 import { SaleReceipt } from './entities/sale-receipt.entity';
 import { Buyer } from '../buyers/entities/buyer.entity';
-import { SaleReceiptPdfService } from './sale-receipt-pdf.service';
 import { Property } from '../properties/entities/property.entity';
 import { Lease } from '../leases/entities/lease.entity';
 import {
@@ -24,7 +23,7 @@ describe('SalesService', () => {
   let propertiesRepository: MockRepository<Property>;
   let contractsRepository: MockRepository<Lease>;
   let dataSource: { transaction: jest.Mock };
-  let receiptPdfService: Partial<SaleReceiptPdfService>;
+  let query: jest.Mock;
 
   type MockRepository<T extends Record<string, any> = any> = Partial<
     Record<keyof Repository<T>, jest.Mock>
@@ -40,13 +39,12 @@ describe('SalesService', () => {
   });
 
   beforeEach(async () => {
-    receiptPdfService = {
-      generate: jest.fn().mockResolvedValue('db://document/receipt.pdf'),
-    };
+    query = jest.fn().mockResolvedValue([]);
     contractsRepository = createMockRepository();
     dataSource = {
       transaction: jest.fn(async (callback) =>
         callback({
+          query,
           getRepository: (entity: unknown) => {
             if (entity === Lease) return contractsRepository;
             if (entity === SaleAgreement) return agreementsRepository;
@@ -81,7 +79,6 @@ describe('SalesService', () => {
           useValue: createMockRepository(),
         },
         { provide: getDataSourceToken(), useValue: dataSource },
-        { provide: SaleReceiptPdfService, useValue: receiptPdfService },
       ],
     }).compile();
 
@@ -254,7 +251,7 @@ describe('SalesService', () => {
     ).resolves.toEqual([{ id: 'r1' }]);
   });
 
-  it('should create sale receipt with duplicate copy and pdf', async () => {
+  it('creates receipt with duplicate copy and a durable PDF task', async () => {
     const agreement = {
       id: 'agr-1',
       companyId: 'company-1',
@@ -290,7 +287,11 @@ describe('SalesService', () => {
     );
 
     expect(receipt.copyCount).toBe(2);
-    expect(receipt.pdfUrl).toBe('db://document/receipt.pdf');
+    expect(receipt.pdfUrl).toBeUndefined();
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO sale_receipt_effects_outbox'),
+      ['company-1', 'rec-1'],
+    );
     expect(receipt.overdueAmount).toBe(200);
     expect(receipt.balanceAfter).toBe(700);
   });
@@ -316,7 +317,7 @@ describe('SalesService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('createReceipt keeps flow when pdf generation fails', async () => {
+  it('createReceipt fails when its durable PDF task cannot be saved', async () => {
     const agreement = {
       id: 'agr-2',
       buyerId: 'buyer-2',
@@ -340,21 +341,21 @@ describe('SalesService', () => {
       ...data,
     }));
     receiptsRepository.save!.mockImplementation(async (data) => data);
-    (receiptPdfService.generate as jest.Mock).mockRejectedValue(
-      new Error('pdf failed'),
-    );
-    const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+    query.mockRejectedValue(new Error('outbox unavailable'));
+    await expect(
+      service.createReceipt(
+        'agr-2',
+        { amount: 100, paymentDate: '2024-03-11' },
+        { companyId: 'company-1' },
+      ),
+    ).rejects.toThrow('outbox unavailable');
+  });
 
-    const result = await service.createReceipt(
-      'agr-2',
-      { amount: 100, paymentDate: '2024-03-11' } as any,
-      { companyId: 'company-1' },
+  it('rejects receipt reads without company scope before querying', async () => {
+    await expect(service.getReceipt('r1', {})).rejects.toBeInstanceOf(
+      BadRequestException,
     );
-
-    expect(result.id).toBe('rec-2');
-    expect(result.pdfUrl).toBeUndefined();
-    expect(errorSpy).toHaveBeenCalled();
-    errorSpy.mockRestore();
+    expect(receiptsRepository.findOne).not.toHaveBeenCalled();
   });
 
   it('getReceipt validates existence and company access', async () => {

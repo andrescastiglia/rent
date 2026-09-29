@@ -1,5 +1,9 @@
 import type { ZodType } from 'zod';
-import { UserRole } from '../../users/entities/user.entity';
+import {
+  UserModulePermissions,
+  UserRole,
+} from '../../users/entities/user.entity';
+import { AuthenticatedPolicy } from '../../common/decorators/authenticated.decorator';
 
 export type AiToolsMode = 'NONE' | 'READONLY' | 'FULL';
 export type AiToolMutability = 'readonly' | 'mutable';
@@ -10,6 +14,7 @@ export interface AiExecutionContext {
   conversationId?: string;
   role: UserRole;
   roles?: UserRole[];
+  permissions?: UserModulePermissions;
   confirmMutation?: boolean;
   confirmationId?: string;
   mutationApprovalMode?: 'conversation' | 'staff_queue';
@@ -24,6 +29,7 @@ export interface AiToolDefinition<TSchema extends ZodType = ZodType> {
   responseDescription?: string;
   mutability: AiToolMutability;
   allowedRoles: UserRole[];
+  requiredPermission?: AuthenticatedPolicy;
   parameters: TSchema;
   execute: (args: unknown, context: AiExecutionContext) => Promise<unknown>;
 }

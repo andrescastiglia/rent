@@ -18,7 +18,7 @@ with tempfile.TemporaryDirectory() as temporary:
                 assert budget['requests']=={'cpu':postgres_cpu,'memory':'512Mi'}
                 assert budget['limits']=={'cpu':'1','memory':'1536Mi'}
             if kind=='CronJob':
-                assert spec['suspend']==(replicas==0)
+                assert spec['suspend']==(replicas==0 or resource['metadata']['name']=='process-settlements')
                 init=spec['jobTemplate']['spec']['template']['spec']['initContainers']
                 assert len(init)==1 and init[0]['name']=='wait-for-database'
                 assert init[0]['image'].endswith('@sha256:'+'0'*64)

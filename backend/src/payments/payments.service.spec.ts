@@ -10,10 +10,7 @@ import { Receipt } from './entities/receipt.entity';
 import { Invoice, InvoiceStatus } from './entities/invoice.entity';
 import { CreditNote, CreditNoteStatus } from './entities/credit-note.entity';
 import { TenantAccountsService } from './tenant-accounts.service';
-import { ReceiptPdfService } from './receipt-pdf.service';
-import { CreditNotePdfService } from './credit-note-pdf.service';
 import { UserRole } from '../users/entities/user.entity';
-import { CommunicationsService } from '../communications/communications.service';
 import { MovementType } from './entities/tenant-account-movement.entity';
 import { TenantAccount } from './entities/tenant-account.entity';
 
@@ -99,12 +96,6 @@ describe('PaymentsService', () => {
           useValue: createMockRepository(),
         },
         { provide: TenantAccountsService, useValue: tenantAccountsService },
-        { provide: ReceiptPdfService, useValue: { generate: jest.fn() } },
-        { provide: CreditNotePdfService, useValue: { generate: jest.fn() } },
-        {
-          provide: CommunicationsService,
-          useValue: { dispatchEvent: jest.fn() },
-        },
         { provide: getDataSourceToken(), useValue: dataSource },
       ],
     }).compile();
@@ -397,9 +388,6 @@ describe('PaymentsService', () => {
       ...payment,
       status: PaymentStatus.COMPLETED,
     } as Payment);
-    (service as any).receiptPdfService.generate.mockResolvedValue(
-      'db://document/receipt-1',
-    );
 
     await service.confirm(payment.id, payment.companyId);
 
@@ -415,7 +403,10 @@ describe('PaymentsService', () => {
       status: PaymentStatus.COMPLETED,
       allocationsRecorded: true,
     });
-    expect((service as any).receiptPdfService.generate).toHaveBeenCalled();
+    expect(transactionManager.query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO payment_effects_outbox'),
+      [payment.companyId, payment.id],
+    );
     expect(transactionManager.query).toHaveBeenCalledWith(
       'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
       ['receipt-number'],
@@ -910,69 +901,6 @@ describe('PaymentsService', () => {
     expect(receiptsRepository.create).not.toHaveBeenCalled();
   });
 
-  it('should generate receipt and dispatch a consent-aware communication', async () => {
-    receiptsRepository.findOne!.mockResolvedValue(null);
-    receiptsRepository.find!.mockResolvedValue([
-      { receiptNumber: 'REC-202502-0007' },
-    ]);
-    receiptsRepository.create!.mockImplementation((data) => data);
-    receiptsRepository
-      .save!.mockResolvedValueOnce({
-        id: 'r-new',
-        receiptNumber: 'REC-202502-0008',
-      })
-      .mockResolvedValueOnce({
-        id: 'r-new',
-        receiptNumber: 'REC-202502-0008',
-        pdfUrl: 'https://pdf.local/r-new.pdf',
-      });
-
-    const receiptPdfService = (service as any).receiptPdfService;
-    receiptPdfService.generate.mockResolvedValue('https://pdf.local/r-new.pdf');
-    const communicationsService = (service as any).communicationsService;
-    communicationsService.dispatchEvent.mockResolvedValue({ status: 'sent' });
-
-    const payment = {
-      id: 'pay-1',
-      companyId: 'company-1',
-      amount: 100,
-      currencyCode: 'ARS',
-      tenant: {
-        id: 'tenant-1',
-        contactConsent: true,
-        preferredContactChannel: 'whatsapp',
-        user: {
-          firstName: 'Ana',
-          lastName: 'Pérez',
-          phone: '5491112345678',
-          language: 'es',
-        },
-      },
-    } as any as Payment;
-
-    const result = await (service as any).generateReceipt(payment);
-
-    expect(receiptPdfService.generate).toHaveBeenCalled();
-    expect(communicationsService.dispatchEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        event: 'payment_received',
-        recipientRole: 'tenant',
-        recipient: '5491112345678',
-        consented: true,
-        relatedEntityId: 'pay-1',
-        metadata: expect.objectContaining({
-          attachmentUrl: 'https://pdf.local/r-new.pdf',
-        }),
-      }),
-    );
-    expect(result).toEqual(
-      expect.objectContaining({
-        id: 'r-new',
-        pdfUrl: 'https://pdf.local/r-new.pdf',
-      }),
-    );
-  });
-
   it('should create credit note for settled late fee and register movement', async () => {
     _creditNotesRepository.findOne!.mockResolvedValueOnce(null);
     _creditNotesRepository.find!.mockResolvedValue([
@@ -1008,16 +936,6 @@ describe('PaymentsService', () => {
       },
     } as any);
 
-    const creditNotePdfService = (service as any).creditNotePdfService;
-    creditNotePdfService.generate.mockResolvedValue(
-      'https://pdf.local/cn-1.pdf',
-    );
-    const communicationsService = (service as any).communicationsService;
-    communicationsService.dispatchEvent.mockResolvedValue({
-      id: 'delivery-credit-note',
-      status: 'queued',
-    });
-
     await (service as any).createCreditNotesForSettledLateFees(
       {
         id: 'pay-1',
@@ -1051,20 +969,6 @@ describe('PaymentsService', () => {
       'cn-1',
       expect.stringContaining('Nota de crédito'),
       'company-1',
-    );
-    expect(communicationsService.dispatchEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        companyId: 'company-1',
-        recipientId: 'tenant-1',
-        recipient: '5491112345678',
-        consented: true,
-        relatedEntityType: 'payment',
-        relatedEntityId: 'pay-1',
-        metadata: expect.objectContaining({
-          attachmentUrl: 'https://pdf.local/cn-1.pdf',
-          templateName: 'credit_note_issued',
-        }),
-      }),
     );
   });
 

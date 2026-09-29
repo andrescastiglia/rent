@@ -69,6 +69,8 @@ describe('PendingActionsService', () => {
         userId: 'staff-1',
         companyId: 'company-1',
         role: UserRole.ADMIN,
+        roles: undefined,
+        permissions: undefined,
         idempotencyKey: pending.execution_key,
       },
     );

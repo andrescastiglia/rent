@@ -556,7 +556,8 @@ export default function TenantDetailPage() {
                                   )
                                 }
                                 disabled={
-                                  downloadingReceiptPaymentId === payment.id
+                                  downloadingReceiptPaymentId === payment.id ||
+                                  !payment.receipt.pdfUrl
                                 }
                                 className="btn btn-success btn-sm"
                               >

@@ -6,7 +6,7 @@ import {
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { createHash } from 'node:crypto';
-import { UserRole } from '../users/entities/user.entity';
+import { UserModulePermissions, UserRole } from '../users/entities/user.entity';
 import { AuthService } from '../auth/auth.service';
 import { AiToolExecutorService } from './ai-tool-executor.service';
 
@@ -48,7 +48,13 @@ export class PendingActionsService {
 
   async approve(
     id: string,
-    reviewer: { id: string; companyId: string; role: UserRole },
+    reviewer: {
+      id: string;
+      companyId: string;
+      role: UserRole;
+      roles?: UserRole[];
+      permissions?: UserModulePermissions;
+    },
     reauthToken: string,
   ) {
     this.authService.verifyReauthentication(reauthToken, reviewer);
@@ -85,6 +91,8 @@ export class PendingActionsService {
           userId: reviewer.id,
           companyId: reviewer.companyId,
           role: reviewer.role,
+          roles: reviewer.roles,
+          permissions: reviewer.permissions,
           idempotencyKey: action.execution_key,
         },
       );

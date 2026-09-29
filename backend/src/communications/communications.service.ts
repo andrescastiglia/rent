@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import {
   WhatsappRelatedEntityType,
   WhatsappService,
@@ -338,11 +338,17 @@ export class CommunicationsService {
 
   async dispatchEvent(
     input: DispatchCommunicationInput,
+    manager?: EntityManager,
   ): Promise<CommunicationDelivery> {
+    const templatesRepository =
+      manager?.getRepository(CommunicationTemplate) ?? this.templatesRepository;
+    const deliveriesRepository =
+      manager?.getRepository(CommunicationDelivery) ??
+      this.deliveriesRepository;
     this.assertWhatsappOnly(input.channel);
     const template = input.skipTemplateLookup
       ? null
-      : await this.templatesRepository.findOne({
+      : await templatesRepository.findOne({
           where: {
             companyId: input.companyId,
             event: input.event,
@@ -357,8 +363,8 @@ export class CommunicationsService {
     const bodyTemplate = template?.body ?? input.fallbackBody;
     const status = this.resolveInitialStatus(input, template);
 
-    const delivery = await this.deliveriesRepository.save(
-      this.deliveriesRepository.create({
+    const delivery = await deliveriesRepository.save(
+      deliveriesRepository.create({
         companyId: input.companyId,
         templateId: template?.id ?? null,
         event: input.event,

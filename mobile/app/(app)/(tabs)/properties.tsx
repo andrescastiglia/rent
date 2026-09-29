@@ -1,3 +1,4 @@
+import { EXTERNAL_SETTLEMENTS_ENABLED } from '@/config/deferred-features';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import {
@@ -308,7 +309,7 @@ export default function PropertiesScreen() {
                   }
                   testID={`owner.edit.${owner.id}`}
                 />
-                {canManageOwnerBackoffice ? (
+                {canManageOwnerBackoffice && EXTERNAL_SETTLEMENTS_ENABLED ? (
                   <ActionChip
                     title={t('properties.ownerPay')}
                     onPress={() =>

@@ -89,6 +89,10 @@ function ReceiptSection({
     return <p className="text-gray-500 dark:text-gray-400">{t("noReceipt")}</p>;
   }
 
+  let receiptLabel = t("actions.downloadReceipt");
+  if (!payment.receipt.pdfUrl) receiptLabel = t("receiptPreparingDescription");
+  else if (downloadingReceipt) receiptLabel = tCommon("loading");
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
@@ -119,7 +123,7 @@ function ReceiptSection({
             key={note.id}
             type="button"
             onClick={() => onDownloadCreditNote(note)}
-            disabled={downloadingCreditNoteId === note.id}
+            disabled={downloadingCreditNoteId === note.id || !note.pdfUrl}
             className="btn btn-secondary btn-sm"
           >
             <ReceiptText size={14} />
@@ -150,11 +154,11 @@ function ReceiptSection({
       <button
         type="button"
         onClick={onDownloadReceipt}
-        disabled={downloadingReceipt}
+        disabled={downloadingReceipt || !payment.receipt.pdfUrl}
         className="btn btn-success w-full"
       >
         <Download size={18} className="mr-2" />
-        {downloadingReceipt ? tCommon("loading") : t("actions.downloadReceipt")}
+        {receiptLabel}
       </button>
     </div>
   );
@@ -223,6 +227,30 @@ export default function PaymentDetailPage() {
       console.error("Failed to load payment", error);
     });
   }, [loadPayment, authLoading]);
+
+  useEffect(() => {
+    if (
+      payment?.status !== "completed" ||
+      payment.receipt?.pdfUrl ||
+      !paymentId
+    )
+      return;
+    let cancelled = false;
+    const timer = setInterval(() => {
+      paymentsApi
+        .getById(paymentId)
+        .then((updated) => {
+          if (!cancelled) setPayment(updated);
+        })
+        .catch(() => {
+          /* Keep the current payment visible; retry on the next interval. */
+        });
+    }, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [payment?.status, payment?.receipt?.pdfUrl, paymentId]);
 
   const handleConfirm = async () => {
     if (!payment) return;

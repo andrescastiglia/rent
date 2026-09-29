@@ -9,13 +9,19 @@ import {
 } from '@nestjs/common';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Authenticated } from '../common/decorators/authenticated.decorator';
-import { UserRole } from '../users/entities/user.entity';
+import { UserModulePermissions, UserRole } from '../users/entities/user.entity';
 import { RejectPendingActionDto } from './dto/reject-pending-action.dto';
 import { PendingActionsService } from './pending-actions.service';
 import { ApprovePendingActionDto } from './dto/approve-pending-action.dto';
 
 type StaffRequest = {
-  user: { id: string; companyId: string; role: UserRole };
+  user: {
+    id: string;
+    companyId: string;
+    role: UserRole;
+    roles?: UserRole[];
+    permissions?: UserModulePermissions;
+  };
 };
 
 @Controller('pending-actions')
