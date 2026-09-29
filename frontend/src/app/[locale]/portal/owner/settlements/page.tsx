@@ -33,6 +33,10 @@ const STATUS_BADGE: Record<
     label: "failed",
     className: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
   },
+  cancelled: {
+    label: "cancelled",
+    className: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+  },
 };
 
 export default function OwnerSettlementsPage() {

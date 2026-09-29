@@ -22,6 +22,7 @@ function setup(enabled = false) {
     db as never,
     client as never,
     config as never,
+    { assertSources: jest.fn() } as never,
   );
   return { service, db, manager, client };
 }

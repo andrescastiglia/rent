@@ -5,7 +5,7 @@ import { logger } from "../shared/logger";
  * Settlement status.
  */
 export type SettlementStatus =
-  "pending" | "processing" | "completed" | "failed";
+  "pending" | "processing" | "completed" | "failed" | "cancelled";
 
 /**
  * Settlement record.
@@ -71,8 +71,7 @@ export interface SettlementResult {
 }
 
 /**
- * Service for managing owner settlements and liquidations.
- * Implements T881, T882, T883 requirements.
+ * Legacy batch settlement reader. Durable generation and payouts live in the backend.
  */
 export class SettlementService {
   private readonly defaultCommissionPercentage: number;
@@ -273,227 +272,38 @@ export class SettlementService {
   }
 
   /**
-   * Processes a settlement - calculates, records, and initiates transfer.
+   * Retained for legacy callers: rejects writes and only permits read-only previews.
    *
    * @param ownerId - Owner ID.
    * @param period - Period string.
-   * @param dryRun - If true, calculates but doesn't persist or transfer.
+   * @param dryRun - Required for the legacy read-only calculation.
    */
   async processSettlement(
     ownerId: string,
     period: string,
     dryRun = false,
   ): Promise<SettlementResult> {
-    if (!dryRun && process.env.NODE_ENV !== "test") {
+    if (!dryRun) {
       return {
         success: false,
         error: "Settlement transfers are temporarily disabled",
       };
     }
-    logger.info("Processing settlement", { ownerId, period, dryRun });
-
     try {
       const calculation = await this.calculateSettlement(ownerId, period);
-
-      if (calculation.invoices.length === 0) {
-        logger.info("No invoices to settle", { ownerId, period });
-        return { success: true };
-      }
-
-      if (calculation.netAmount <= 0) {
-        logger.warn("Net amount is zero or negative", {
-          ownerId,
-          period,
-          netAmount: calculation.netAmount,
-        });
-        return { success: true };
-      }
-
-      if (dryRun) {
-        logger.info("Dry run - settlement calculated", {
-          ownerId,
-          period,
-          grossAmount: calculation.grossAmount,
-          commission: calculation.commission.amount,
-          netAmount: calculation.netAmount,
-          scheduledDate: calculation.scheduledDate,
-          invoiceCount: calculation.invoices.length,
-        });
-        return { success: true };
-      }
-
-      // Check if settlement already exists
-      const existing = await AppDataSource.query(
-        `SELECT id, status FROM settlements WHERE owner_id = $1 AND period = $2`,
-        [ownerId, period],
-      );
-
-      if (existing.length > 0) {
-        if (existing[0].status === "completed") {
-          logger.info("Settlement already completed", { ownerId, period });
-          return { success: true, settlementId: existing[0].id };
-        }
-      }
-
-      // Create or update settlement record
-      const settlementId = await this.upsertSettlementRecord(calculation);
-
-      // Initiate transfer (placeholder - would integrate with bank/payment provider)
-      const transferResult = await this.initiateTransfer(
-        settlementId,
-        calculation,
-      );
-
-      if (transferResult.success) {
-        await this.markSettlementCompleted(
-          settlementId,
-          transferResult.reference!,
-        );
-
-        // Notify owner
-        await this.notifyOwner(calculation);
-
-        logger.info("Settlement processed successfully", {
-          settlementId,
-          ownerId,
-          period,
-          netAmount: calculation.netAmount,
-        });
-      } else {
-        await this.markSettlementFailed(
-          settlementId,
-          transferResult.error || "Unknown error",
-        );
-        return { success: false, error: transferResult.error };
-      }
-
-      return {
-        success: true,
-        settlementId,
-        transferReference: transferResult.reference,
-      };
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error("Settlement processing failed", {
+      logger.info("Legacy read-only settlement preview", {
         ownerId,
         period,
-        error: errorMsg,
+        grossAmount: calculation.grossAmount,
+        netAmount: calculation.netAmount,
       });
-      return { success: false, error: errorMsg };
-    }
-  }
-
-  /**
-   * Creates or updates a settlement record in the database.
-   */
-  private async upsertSettlementRecord(
-    calculation: SettlementCalculation,
-  ): Promise<string> {
-    const result = await AppDataSource.query(
-      `INSERT INTO settlements (
-                id, owner_id, period, gross_amount, commission_amount, 
-                withholdings_amount, net_amount, status, scheduled_date, created_at, updated_at
-             ) VALUES (
-                uuid_generate_v4(), $1, $2, $3, $4, $5, $6, 'processing', $7, NOW(), NOW()
-             )
-             ON CONFLICT (owner_id, period) 
-             DO UPDATE SET 
-                gross_amount = EXCLUDED.gross_amount,
-                commission_amount = EXCLUDED.commission_amount,
-                withholdings_amount = EXCLUDED.withholdings_amount,
-                net_amount = EXCLUDED.net_amount,
-                status = 'processing',
-                scheduled_date = EXCLUDED.scheduled_date,
-                updated_at = NOW()
-             RETURNING id`,
-      [
-        calculation.ownerId,
-        calculation.period,
-        calculation.grossAmount,
-        calculation.commission.amount,
-        calculation.withholdings.reduce((sum, w) => sum + w.amount, 0),
-        calculation.netAmount,
-        calculation.scheduledDate.toISOString().split("T")[0],
-      ],
-    );
-
-    return result[0].id;
-  }
-
-  /**
-   * Initiates fund transfer to owner's bank account.
-   * This is a placeholder - would integrate with actual payment provider.
-   */
-  private async initiateTransfer(
-    settlementId: string,
-    calculation: SettlementCalculation,
-  ): Promise<{ success: boolean; reference?: string; error?: string }> {
-    if (process.env.NODE_ENV !== "test") {
+      return { success: true };
+    } catch (error) {
       return {
         success: false,
-        error: "Settlement transfers are temporarily disabled",
+        error: error instanceof Error ? error.message : String(error),
       };
     }
-    // Simulated transfers are confined to automated tests.
-
-    logger.info("Initiating transfer", {
-      settlementId,
-      ownerId: calculation.ownerId,
-      amount: calculation.netAmount,
-    });
-
-    // Simulate transfer reference
-    const reference = `TRF-${Date.now()}-${calculation.ownerId.slice(0, 8)}`;
-
-    return { success: true, reference };
-  }
-
-  /**
-   * Marks a settlement as completed.
-   */
-  private async markSettlementCompleted(
-    settlementId: string,
-    transferReference: string,
-  ): Promise<void> {
-    await AppDataSource.query(
-      `UPDATE settlements 
-             SET status = 'completed', 
-                 transfer_reference = $2,
-                 processed_at = NOW(),
-                 updated_at = NOW()
-             WHERE id = $1`,
-      [settlementId, transferReference],
-    );
-  }
-
-  /**
-   * Marks a settlement as failed.
-   */
-  private async markSettlementFailed(
-    settlementId: string,
-    error: string,
-  ): Promise<void> {
-    await AppDataSource.query(
-      `UPDATE settlements 
-             SET status = 'failed', 
-                 notes = $2,
-                 updated_at = NOW()
-             WHERE id = $1`,
-      [settlementId, error],
-    );
-  }
-
-  /**
-   * Notifies owner about the settlement.
-   */
-  private async notifyOwner(calculation: SettlementCalculation): Promise<void> {
-    // Owner notifications are logged here until the notification gateway is connected.
-    logger.info("Owner notification sent", {
-      ownerId: calculation.ownerId,
-      ownerName: calculation.ownerName,
-      netAmount: calculation.netAmount,
-      period: calculation.period,
-    });
   }
 
   /**
