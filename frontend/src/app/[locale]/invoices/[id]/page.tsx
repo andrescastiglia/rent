@@ -1,4 +1,6 @@
 "use client";
+import { formatInvoiceDate } from "@/lib/invoice-date";
+import { InvoiceDocument } from "@/components/invoices/InvoiceDocument";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
@@ -13,14 +15,28 @@ import {
   AlertCircle,
   ArrowLeft,
   Calendar,
-  Download,
   Loader2,
   WalletCards,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
 export default function InvoiceDetailPage() {
-  const { loading: authLoading } = useAuth();
+  const { user, loading } = useAuth();
+  const params = useParams();
+  if (loading)
+    return (
+      <div className="flex justify-center p-8">
+        <Loader2 className="animate-spin" />
+      </div>
+    );
+  if (!user) return null;
+  return (
+    <InvoiceDetailContent key={`${user.companyId}:${user.id}:${params.id}`} />
+  );
+}
+
+function InvoiceDetailContent() {
+  const { loading: authLoading, user } = useAuth();
   const params = useParams();
   const searchParams = useSearchParams();
   const invoiceId = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -30,7 +46,6 @@ export default function InvoiceDetailPage() {
 
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
-  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [creatingPayment, setCreatingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const autoPaymentStarted = useRef(false);
@@ -123,17 +138,6 @@ export default function InvoiceDetailPage() {
     invoice.currencyCode,
   );
 
-  const handleDownloadPdf = async () => {
-    try {
-      setDownloadingPdf(true);
-      await invoicesApi.downloadPdf(invoice.id, invoice.invoiceNumber);
-    } catch (error) {
-      console.error("Failed to download invoice PDF from detail", error);
-    } finally {
-      setDownloadingPdf(false);
-    }
-  };
-
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
@@ -157,24 +161,6 @@ export default function InvoiceDetailPage() {
           </div>
           <div className="flex items-center space-x-4">
             <InvoiceStatusBadge status={invoice.status} />
-            {invoice.pdfUrl && (
-              <button
-                type="button"
-                onClick={() => {
-                  handleDownloadPdf().catch((error) => {
-                    console.error(
-                      "Failed to download invoice PDF from detail",
-                      error,
-                    );
-                  });
-                }}
-                disabled={downloadingPdf}
-                className="btn btn-success"
-              >
-                <Download size={18} className="mr-2" />
-                {downloadingPdf ? tCommon("loading") : t("downloadPdf")}
-              </button>
-            )}
           </div>
         </div>
       </div>
@@ -193,7 +179,7 @@ export default function InvoiceDetailPage() {
                   {t("periodStart")}
                 </p>
                 <p className="text-gray-900 dark:text-white font-medium">
-                  {new Date(invoice.periodStart).toLocaleDateString(locale)}
+                  {formatInvoiceDate(invoice.periodStart, locale)}
                 </p>
               </div>
               <div>
@@ -201,7 +187,7 @@ export default function InvoiceDetailPage() {
                   {t("periodEnd")}
                 </p>
                 <p className="text-gray-900 dark:text-white font-medium">
-                  {new Date(invoice.periodEnd).toLocaleDateString(locale)}
+                  {formatInvoiceDate(invoice.periodEnd, locale)}
                 </p>
               </div>
             </div>
@@ -285,6 +271,12 @@ export default function InvoiceDetailPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {user && (
+            <InvoiceDocument
+              invoiceId={invoice.id}
+              scopeKey={`${user.companyId}:${user.id}`}
+            />
+          )}
           {/* Due Date */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
             <div className="flex items-center mb-2">
@@ -294,7 +286,7 @@ export default function InvoiceDetailPage() {
               </h3>
             </div>
             <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              {new Date(invoice.dueDate).toLocaleDateString(locale)}
+              {formatInvoiceDate(invoice.dueDate, locale)}
             </p>
           </div>
 

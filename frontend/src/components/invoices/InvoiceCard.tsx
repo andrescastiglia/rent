@@ -1,4 +1,5 @@
 "use client";
+import { formatInvoiceDate } from "@/lib/invoice-date";
 
 import React, { useState } from "react";
 import Link from "next/link";
@@ -24,9 +25,9 @@ export function InvoiceCard({ invoice }: InvoiceCardProps) {
     invoice.amountPaid,
     invoice.currencyCode,
   );
-  const formattedDue = new Date(invoice.dueDate).toLocaleDateString(locale);
-  const periodStart = new Date(invoice.periodStart).toLocaleDateString(locale);
-  const periodEnd = new Date(invoice.periodEnd).toLocaleDateString(locale);
+  const formattedDue = formatInvoiceDate(invoice.dueDate, locale);
+  const periodStart = formatInvoiceDate(invoice.periodStart, locale);
+  const periodEnd = formatInvoiceDate(invoice.periodEnd, locale);
 
   const isPending =
     invoice.status === "pending" ||

@@ -54,7 +54,6 @@ import { ListOwnerSettlementsDto } from '../owners/dto/list-owner-settlements.dt
 import { RegisterOwnerSettlementPaymentDto } from '../owners/dto/register-owner-settlement-payment.dto';
 import { UpdateOwnerActivityDto } from '../owners/dto/update-owner-activity.dto';
 import { UpdateOwnerDto } from '../owners/dto/update-owner.dto';
-import { InvoicePdfService } from '../payments/invoice-pdf.service';
 import { InvoicesService } from '../payments/invoices.service';
 import {
   CreateInvoiceDto,
@@ -136,7 +135,6 @@ export type AiToolRegistryDeps = {
   ownersService: OwnersService;
   paymentsService: PaymentsService;
   invoicesService: InvoicesService;
-  invoicePdfService: InvoicePdfService;
   tenantAccountsService: TenantAccountsService;
   paymentDocumentTemplatesService: PaymentDocumentTemplatesService;
   propertiesService: PropertiesService;
@@ -1676,13 +1674,7 @@ export function buildAiToolDefinitions(
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
         const companyId = context.companyId ?? '';
-        const invoice = await deps.invoicesService.issue(id, companyId);
-        try {
-          const pdfUrl = await deps.invoicePdfService.generate(invoice as any);
-          return deps.invoicesService.attachPdf(invoice.id, pdfUrl, companyId);
-        } catch {
-          return invoice;
-        }
+        return deps.invoicesService.issue(id, companyId);
       },
     },
     {

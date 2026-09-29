@@ -1826,5 +1826,17 @@
     "refresh": "Refresh document",
     "download": "Download contract",
     "loading": "Loading…"
+  },
+  "invoiceDocument": {
+    "title": "Invoice PDF",
+    "queued": "The invoice was issued. PDF generation is pending.",
+    "deadLetter": "The PDF requires review.",
+    "available": "PDF available.",
+    "unavailable": "PDF unavailable.",
+    "readError": "Could not read the document status. Refresh to try again.",
+    "downloadError": "Could not download the PDF. Refresh the status before trying again.",
+    "refresh": "Refresh document",
+    "download": "Download invoice",
+    "loading": "Loading…"
   }
 }

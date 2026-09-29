@@ -34,7 +34,7 @@ Mercado Libre, Mercado Pago ni se envían mensajes. Los proveedores siguen apaga
 Los documentos históricos sin estos metadatos conservan lectura autorizada y
 aprobación obligatoria; no se les atribuye una verificación de hash inexistente.
 El backfill, la revisión comercial y la regeneración histórica controlada siguen
-pendientes. La generación de facturas aún requiere completar su outbox.
+pendientes. La emisión nueva usa la [cola de facturas](invoice-documents.md).
 
 ## Pruebas y operación
 

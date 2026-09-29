@@ -13,7 +13,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { Response } from 'express';
 import { InvoicesService } from './invoices.service';
-import { InvoicePdfService } from './invoice-pdf.service';
+import { InvoiceDocumentStatusDto } from './dto/invoice-document-status.dto';
 import { CreateInvoiceDto, GenerateInvoiceDto } from './dto';
 import { InvoiceFiltersDto } from './dto/invoice-filters.dto';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -31,7 +31,6 @@ import { PaymentsService } from './payments.service';
 export class InvoicesController {
   constructor(
     private readonly invoicesService: InvoicesService,
-    private readonly invoicePdfService: InvoicePdfService,
     private readonly documentsService: DocumentsService,
     private readonly paymentsService: PaymentsService,
   ) {}
@@ -63,25 +62,20 @@ export class InvoicesController {
   }
 
   /**
-   * Emite una factura (genera PDF y registra en cuenta).
+   * Emite una factura y encola su PDF junto con el asiento contable.
    */
   @Patch(':id/issue')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   async issue(@Param('id') id: string, @Request() req: any) {
-    const invoice = await this.invoicesService.issue(id, req.user.companyId);
+    return this.invoicesService.issue(id, req.user.companyId);
+  }
 
-    try {
-      const pdfUrl = await this.invoicePdfService.generate(invoice);
-      return this.invoicesService.attachPdf(
-        invoice.id,
-        pdfUrl,
-        req.user.companyId,
-      );
-    } catch (error) {
-      console.error('Failed to generate invoice PDF:', error);
-    }
-
-    return invoice;
+  @Get(':id/document-status')
+  documentStatus(
+    @Param('id') id: string,
+    @Request() req: any,
+  ): Promise<InvoiceDocumentStatusDto> {
+    return this.invoicesService.documentStatus(id, req.user);
   }
 
   /**

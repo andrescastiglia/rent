@@ -1,3 +1,4 @@
+import { InvoicePdfService } from './invoice-pdf.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
@@ -38,6 +39,7 @@ describe('InvoicesService', () => {
     create: jest.fn(),
     save: jest.fn(),
     findOne: jest.fn(),
+    findOneOrFail: jest.fn(),
     find: jest.fn(),
     createQueryBuilder: jest.fn(),
   });
@@ -52,6 +54,7 @@ describe('InvoicesService', () => {
     dataSource = {
       transaction: jest.fn(async (callback: (manager: any) => unknown) =>
         callback({
+          query: jest.fn(),
           getRepository: (entity: unknown) => {
             if (entity === Invoice) return invoicesRepository;
             if (entity === CommissionInvoice) return _commissionRepository;
@@ -65,6 +68,12 @@ describe('InvoicesService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         InvoicesService,
+        {
+          provide: InvoicePdfService,
+          useValue: {
+            captureSnapshot: jest.fn().mockResolvedValue({ version: 1 }),
+          },
+        },
         {
           provide: getRepositoryToken(Invoice),
           useValue: createMockRepository(),
@@ -305,6 +314,15 @@ describe('InvoicesService', () => {
       companyId: 'company-1',
     } as any;
     invoicesRepository.findOne!.mockResolvedValue(draft);
+    invoicesRepository.findOneOrFail!.mockResolvedValue({
+      ...draft,
+      owner: { companyId: 'company-1', user: { companyId: 'company-1' } },
+      lease: {
+        companyId: 'company-1',
+        tenant: { companyId: 'company-1', user: { companyId: 'company-1' } },
+        property: { companyId: 'company-1' },
+      },
+    });
     invoicesRepository.save!.mockImplementation(async (d) => d);
     jest
       .spyOn(service as any, 'createCommissionInvoice')
@@ -351,21 +369,6 @@ describe('InvoicesService', () => {
       'movement write failed',
     );
     expect(commissionSpy).not.toHaveBeenCalled();
-  });
-
-  it('attachPdf updates invoice url', async () => {
-    jest.spyOn(service, 'findOne').mockResolvedValue({
-      id: 'inv-1',
-      pdfUrl: null,
-    } as any);
-    invoicesRepository.save!.mockImplementation(async (d) => d);
-
-    const result = await service.attachPdf(
-      'inv-1',
-      'db://document/1',
-      'company-1',
-    );
-    expect(result.pdfUrl).toBe('db://document/1');
   });
 
   it('findOne throws when invoice does not exist', async () => {
