@@ -1,3 +1,4 @@
+import { MercadoLibreCatalogService } from './mercadolibre-catalog.service';
 import {
   BadRequestException,
   Injectable,
@@ -75,6 +76,7 @@ export class MercadoLibreClient {
   constructor(
     private readonly accounts: MercadoLibreConnectionsService,
     private readonly http: ProviderHttpService,
+    private readonly catalog: MercadoLibreCatalogService,
   ) {}
 
   validateListing(input: unknown): MercadoLibreItem {
@@ -118,6 +120,10 @@ export class MercadoLibreClient {
       throw new BadRequestException(
         'Mercado Libre listing data is incomplete or invalid',
       );
+    await this.catalog.assertPublishableCategory(
+      companyId,
+      parsed.data.category_id,
+    );
     const me = (await this.call(account, '/users/me', 'GET')) as {
       id?: number;
     } | null;

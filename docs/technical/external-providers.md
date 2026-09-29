@@ -161,13 +161,72 @@ correspondiente. La persistencia y renovación OAuth ya usan
 el almacén cifrado, con pruebas de concurrencia y aislamiento.
 Las cuentas y flags continúan sin configurar; no se habilita publicación real.
 
+### Catálogo y borradores
+
+Las rutas administrativas `GET /portals/mercadolibre/catalog/categories/:id`,
+`/states`, `/states/:id/cities` y `/cities/:id/neighborhoods` usan la conexión
+cifrada de la compañía autenticada. No admiten una cuenta o token proporcionados
+por el navegador, ni hacen llamadas si Mercado Libre está deshabilitado.
+Las consultas son GET; la renovación OAuth conserva sus reglas de un solo uso.
+
+El árbol comienza en `MLA1459` (Inmuebles de Argentina) y valida la raíz y el
+último elemento del camino recibido. Las categorías intermedias devuelven
+navegación; solo una categoría final habilitada devuelve atributos, unidades,
+valores permitidos y tipos de publicación disponibles para ese vendedor.
+Se excluyen tipos de otro país o con cupo cero. Las ubicaciones verifican país
+Argentina e identidad de la provincia/ciudad solicitada. No se guarda un catálogo
+estático ni se sustituyen datos inválidos del proveedor por opciones inventadas.
+
+Fuentes: [categorías inmobiliarias](https://developers.mercadolibre.com.ar/productos-recibe-notificaciones/categorias-inmuebles),
+[atributos](https://developers.mercadolibre.com.ar/atributos-inmuebles),
+[tipos disponibles por vendedor](https://developers.mercadolibre.com.ar/en_us/listing-types-item-upgrades-tutorial)
+y [ubicación](https://developers.mercadolibre.com.ar/es_ar/como-empezar/localizar-inmuebles).
+La interfaz de alta/editor que consume este catálogo sigue pendiente.
+
+Crear un borrador exige integración habilitada, compañía, propiedad de esa
+compañía y datos completos validados localmente. Solo admite Mercado Libre.
+Las altas concurrentes para la misma propiedad devuelven un borrador y conflictos
+409 para las demás solicitudes, sin trabajos ni publicaciones automáticas.
+Guardar un borrador existente sigue sin encolar. El cliente verifica nuevamente
+que la categoría sea inmobiliaria, final y publicable antes de iniciar la
+creación externa; un fallo en esta consulta no se confunde con una creación incierta.
+La validación definitiva de atributos y reglas de publicación sigue en
+`POST /items/validate` antes de `POST /items`.
+
+### Editor de avisos
+
+La ruta administrativa `/{locale}/properties/{propertyId}/portals/editor` permite
+preparar un borrador con categorías, atributos/unidades, tipos de publicación y
+ubicaciones obtenidos del catálogo de la compañía. Requiere integración habilitada
+y conexión activa para consultar el catálogo o escribir. Sin ambas condiciones
+muestra el bloqueo; no solicita datos al proveedor ni crea credenciales.
+
+Guardar un borrador solo persiste sus datos. Publicar exige una acción separada,
+resumen del aviso, aviso de posibles cargos y confirmación expresa. Actualizar un
+aviso existente solo modifica título, precio, fotos, atributos y descripción;
+conserva categoría, moneda, tipo, contacto y ubicación. Pausar, reactivar y cerrar
+requieren confirmación. Cerrar no permite reactivar ese registro.
+
+El editor vuelve a consultar los datos locales después de cada escritura y
+muestra el estado de la cola, sin interpretar la aceptación como publicación
+completada. Bloquea cambios mientras hay trabajos pendientes o una incidencia
+`needs_review`. Una respuesta perdida bloquea nuevas escrituras hasta recargar
+los datos guardados; no repite envíos automáticamente. Cambios sin guardar bloquean
+las otras acciones. La recarga descarta esos cambios y consulta el estado persistido.
+
+Validación: pruebas del modelo de formulario, endpoints internos, respuestas 204
+y UI (deshabilitado/sin conexión, borradores, confirmación, estado incierto,
+atributos/unidades, ubicación y operaciones pendientes). Verificación Chromium con
+API interna simulada: alta de borrador y publicación confirmada/en cola, cero
+solicitudes externas. No acredita disponibilidad ni habilitación de cuentas reales.
+
 ### Revisión de publicaciones
 
 La ficha de la propiedad enlaza la vista administrativa
 `/{locale}/properties/{propertyId}/portals`. Muestra la última operación y las
 últimas 50 resoluciones, incluso deshabilitada. «Actualizar estado local» solo
 lee Rent; «Consultar estado en Mercado Libre» encola un `refresh` por ID, sin
-crear ni reactivar avisos. El editor y alta de avisos siguen pendientes.
+crear ni reactivar avisos. Desde esta vista se accede al editor de avisos.
 
 `GET /portals/listings/:listingId/operations/:jobId/candidate/:externalId`
 consulta el aviso mediante [GET /items/:id](https://developers.mercadolibre.com.ar/publica-productos)

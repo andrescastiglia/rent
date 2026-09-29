@@ -1,3 +1,5 @@
+import { MercadoLibreConnectionsService } from '../src/integrations/mercadolibre-connections.service';
+import { ProviderHttpService } from '../src/integrations/provider-http.service';
 import { UserRole } from '../src/users/entities/user.entity';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -674,5 +676,133 @@ describe('Mercado Libre durable publications (e2e)', () => {
     expect(status).not.toHaveBeenCalled();
     enabled = false;
     await post('/refresh').expect(503);
+  });
+  it('validates and serializes new drafts, without publishing or enqueuing', async () => {
+    const propertyId = (await listing()).property_id;
+    const body = {
+      propertyId,
+      portal: 'mercadolibre',
+      listingData: { item, description: 'Draft description' },
+    };
+    const createDraft = (auth = token, data = body) =>
+      request(app.getHttpServer())
+        .post('/portals/listings')
+        .set('Authorization', `Bearer ${auth}`)
+        .send(data);
+    enabled = false;
+    await createDraft().expect(503);
+    enabled = true;
+    await createDraft(ownerToken).expect(403);
+    await createDraft(foreignToken).expect(404);
+    await createDraft(token, { ...body, portal: 'zonaprop' }).expect(503);
+    await createDraft(token, {
+      ...body,
+      listingData: { item: {} as never, description: 'Invalid' },
+    }).expect(400);
+    await db.query('DELETE FROM portal_listings WHERE id=$1', [listingId]);
+    const responses = await Promise.all([
+      createDraft(),
+      createDraft(),
+      createDraft(),
+    ]);
+    expect(responses.map((r) => r.status).sort()).toEqual([201, 409, 409]);
+    listingId = responses.find((r) => r.status === 201)!.body.id;
+    expect((await listing()).status).toBe('draft');
+    expect(await jobs()).toHaveLength(0);
+    expect(create).not.toHaveBeenCalled();
+    await request(app.getHttpServer())
+      .patch(url())
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        listingData: {
+          item: { ...item, title: 'Updated draft' },
+          description: 'New text',
+        },
+      })
+      .expect(200);
+    expect((await listing()).listing_data.item.title).toBe('Updated draft');
+    expect(await jobs()).toHaveLength(0);
+  });
+  it('protects catalog reads by role, disabled state and company credentials', async () => {
+    const transport = jest.spyOn(app.get(ProviderHttpService), 'request');
+    const accounts = jest
+      .spyOn(app.get(MercadoLibreConnectionsService), 'access')
+      .mockImplementation(async (id) => ({
+        sellerId: id === companyId ? 42 : 99,
+        accessToken: `test-${id}`,
+      }));
+    try {
+      const routes = [
+        '/categories/MLA1459',
+        '/states',
+        '/states/STATE/cities',
+        '/cities/CITY/neighborhoods',
+      ];
+      const catalogUrl = (path: string) =>
+        `/portals/mercadolibre/catalog${path}`;
+      enabled = false;
+      for (const path of routes) {
+        await request(app.getHttpServer())
+          .get(catalogUrl(path))
+          .set('Authorization', `Bearer ${token}`)
+          .expect(503);
+        await request(app.getHttpServer())
+          .get(catalogUrl(path))
+          .set('Authorization', `Bearer ${ownerToken}`)
+          .expect(403);
+      }
+      expect(accounts).not.toHaveBeenCalled();
+      expect(transport).not.toHaveBeenCalled();
+      enabled = true;
+      transport.mockResolvedValue({
+        id: 'AR',
+        name: 'Argentina',
+        states: [{ id: 'STATE', name: 'Provincia' }],
+      });
+      await request(app.getHttpServer()).get(catalogUrl('/states')).expect(401);
+      await request(app.getHttpServer())
+        .get(catalogUrl('/states'))
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200, [{ id: 'STATE', name: 'Provincia' }]);
+      expect(accounts).toHaveBeenLastCalledWith(companyId);
+      await request(app.getHttpServer())
+        .get(catalogUrl('/states'))
+        .set('Authorization', `Bearer ${foreignToken}`)
+        .expect(200);
+      expect(accounts).toHaveBeenLastCalledWith(foreignId);
+      expect(transport).toHaveBeenLastCalledWith(
+        'MERCADOLIBRE',
+        'https://api.mercadolibre.com/classified_locations/countries/AR',
+        {
+          method: 'GET',
+          headers: { Authorization: `Bearer test-${foreignId}` },
+        },
+      );
+      transport.mockClear();
+      await request(app.getHttpServer())
+        .get(catalogUrl('/categories/INVALID'))
+        .set('Authorization', `Bearer ${token}`)
+        .expect(400);
+      expect(transport).not.toHaveBeenCalled();
+      transport.mockResolvedValue({
+        id: item.category_id,
+        name: 'Not real estate',
+        path_from_root: [
+          { id: 'MLA1055', name: 'Other' },
+          { id: item.category_id, name: 'Leaf' },
+        ],
+        children_categories: [],
+        settings: { listing_allowed: true, currencies: ['ARS'] },
+      });
+      await expect(
+        MercadoLibreClient.prototype.create.call(client, companyId, item),
+      ).rejects.toThrow('Only Argentine real estate');
+      expect(
+        transport.mock.calls.every((call) => call[2].method === 'GET'),
+      ).toBe(true);
+    } finally {
+      accounts.mockRestore();
+      transport.mockRestore();
+    }
   });
 });
