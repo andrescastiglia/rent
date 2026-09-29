@@ -34,6 +34,7 @@ export default function Breadcrumbs() {
   const tNav = useTranslations("nav");
   const tCommon = useTranslations("common");
   const tBreadcrumbs = useTranslations("breadcrumbs");
+  const tPayouts = useTranslations("settlementPayouts");
 
   // Remove locale from path if present
   const segments = pathname.split("/").filter(Boolean);
@@ -86,10 +87,29 @@ export default function Breadcrumbs() {
     );
   };
 
+  const isOwnerPayout =
+    pathSegments.length === 5 &&
+    pathSegments[0] === "properties" &&
+    pathSegments[1] === "owners" &&
+    pathSegments[3] === "payments" &&
+    pathSegments[4] === "new";
+  const crumbs = isOwnerPayout
+    ? [
+        {
+          path: `${hasLocale ? `/${segments[0]}` : ""}/properties`,
+          name: tNav("properties"),
+        },
+        { path: pathname, name: tPayouts("title") },
+      ]
+    : pathSegments.map((segment, index) => ({
+        path: `/${hasLocale ? segments.slice(0, index + 2).join("/") : segments.slice(0, index + 1).join("/")}`,
+        name: getSegmentName(segment),
+      }));
+
   return (
     <nav
       aria-label={tBreadcrumbs("ariaLabel")}
-      className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400 mb-4"
+      className="flex flex-wrap items-center gap-y-2 space-x-2 text-sm text-gray-500 dark:text-gray-400 mb-4"
     >
       <Link
         href="/"
@@ -100,17 +120,12 @@ export default function Breadcrumbs() {
         <span className="sr-only">{tBreadcrumbs("home")}</span>
       </Link>
 
-      {pathSegments.map((segment, index) => {
-        // Reconstruct path up to this segment
-        // We need to include the locale if it was present in the original path
-        const segmentPath = `/${hasLocale ? segments.slice(0, index + 2).join("/") : segments.slice(0, index + 1).join("/")}`;
-
-        const segmentName = getSegmentName(segment);
-        const isLast = index === pathSegments.length - 1;
+      {crumbs.map(({ path: segmentPath, name: segmentName }, index) => {
+        const isLast = index === crumbs.length - 1;
 
         return (
-          <div key={segmentPath} className="flex items-center">
-            <ChevronRight className="h-4 w-4 mx-1 text-gray-400 dark:text-gray-500" />
+          <div key={segmentPath} className="flex min-w-0 items-center">
+            <ChevronRight className="h-4 w-4 shrink-0 mx-1 text-gray-400 dark:text-gray-500" />
             {isLast ? (
               <span
                 className="font-medium text-gray-900 dark:text-gray-100"

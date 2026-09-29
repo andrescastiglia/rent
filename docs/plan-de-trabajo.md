@@ -17,7 +17,8 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
   empresas) y `ai-tool-access-policy.spec.ts`. Liquidaciones valida listado, detalle,
   resumen y comprobantes con PostgreSQL real, dos compañías y roles propietario/
   administrador/inquilino (`settlement-reads.e2e-spec.ts`, 8 casos).
-  Pendiente: gates/despliegue de esta corrección y los demás dominios.
+  Corrección de lecturas incorporada a main con los 23 gates del PR #222 aprobados.
+  Pendiente: despliegue de esta corrección y los demás dominios.
 
 ### Consistencia financiera
 
@@ -95,9 +96,11 @@ El cron `process-settlements` permanece suspendido.
   Avance: solicitud inmutable y cola por liquidación, deduplicación, intención antes
   del envío, conservación de IDs, conciliación y movimientos de acreditación/reversión
   atómicos. API administrativa con revisión auditada y bloqueo total mientras está
-  deshabilitada. Pendiente: validar gates; generación durable, recibos/notificaciones,
-  UI administrativa, resolución de devoluciones parciales/nuevas órdenes verificadas
-  y despliegue deshabilitado.
+  deshabilitada. Núcleo incorporado a main con los 23 gates del PR #223 aprobados.
+  UI administrativa con confirmación de importe/destino, historial,
+  bloqueo tras respuesta perdida y revisión auditada, sin reenvío de creaciones inciertas.
+  Pendiente: validar gates; generación durable, recibos/notificaciones, resolución de
+  devoluciones parciales/nuevas órdenes verificadas y despliegue deshabilitado.
 - [ ] Verificar que ninguna integración real se invoque mientras está deshabilitada.
 
 ## Criterio de cierre

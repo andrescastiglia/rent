@@ -416,7 +416,8 @@
       "invalidDate": "Fecha inválida"
     },
     "previousImage": "Imagen anterior",
-    "nextImage": "Imagen siguiente"
+    "nextImage": "Imagen siguiente",
+    "ownerPayouts": "Liquidaciones y transferencias"
   },
   "interested": {
     "title": "Interesados",
@@ -1681,5 +1682,73 @@
       "needs_review": "Requiere revisión",
       "resolved": "Incidencia resuelta"
     }
+  },
+  "settlementPayouts": {
+    "title": "Transferencias de liquidaciones",
+    "intro": "Consultá las liquidaciones del propietario y el estado de sus transferencias de Mercado Pago.",
+    "back": "Volver a propiedades",
+    "detail": "Detalle de transferencia",
+    "loading": "Cargando…",
+    "reload": "Actualizar estado local",
+    "reloadList": "Actualizar liquidaciones",
+    "listError": "No se pudieron cargar las liquidaciones. Volvé a consultar.",
+    "empty": "No hay liquidaciones para este propietario.",
+    "settlement": "Liquidación",
+    "error": "No se pudo confirmar el resultado. Actualizá el estado local antes de realizar otra acción.",
+    "disabled": "Las transferencias de Mercado Pago están temporalmente deshabilitadas. Podés consultar el historial.",
+    "ineligible": "Esta liquidación no admite una nueva transferencia. Se requiere un importe pendiente en ARS entre 1 y 10.000.000.000, sin transferencia previa.",
+    "destination": "Destinatario",
+    "destinationType": "Tipo de destino",
+    "emailOption": "Cuenta de Mercado Pago por correo",
+    "bankOption": "Cuenta bancaria",
+    "email": "Correo de la cuenta de Mercado Pago",
+    "checkingOnly": "Solo se admiten cuentas corrientes. Verificá los datos con el titular.",
+    "requestNotice": "La solicitud se encola para procesamiento. Solo una acreditación verificada marcará la liquidación como pagada.",
+    "confirmRequest": "Confirmo transferir {amount} {currency} a {destination}.",
+    "request": "Solicitar transferencia",
+    "bank": {
+      "holder": "Titular de la cuenta",
+      "number": "Número de cuenta",
+      "bankId": "Código del banco (3 dígitos)",
+      "branch": "Sucursal (opcional)",
+      "ownerValue": "Número de documento del titular",
+      "ownerType": "Tipo de documento (mayúsculas)"
+    },
+    "status": {
+      "none": "Sin solicitud de transferencia",
+      "queued": "Solicitud en cola",
+      "dispatching": "Enviando solicitud",
+      "awaiting": "Esperando confirmación del proveedor",
+      "completed": "Transferencia acreditada",
+      "failed": "Transferencia no acreditada",
+      "needs_review": "Requiere revisión",
+      "reversed": "Transferencia devuelta",
+      "unknown": "Estado no reconocido; requiere revisión"
+    },
+    "review": "Revisar transferencia",
+    "actionLabel": "Acción de revisión",
+    "chooseAction": "Seleccionar una acción",
+    "reason": "Motivo de la revisión (10 a 1.000 caracteres)",
+    "confirmReview": "Confirmo la acción y los datos de esta revisión.",
+    "applyReview": "Aplicar revisión",
+    "payoutId": "ID de envío (POP)",
+    "transactionId": "ID de transacción (TOP)",
+    "providerStatus": "Estado del proveedor",
+    "partialRefund": "Se informó una devolución parcial. Requiere resolución contable; no se generará otra transferencia automáticamente.",
+    "action": {
+      "retry": "Reintentar solicitud rechazada",
+      "link": "Vincular transferencia existente",
+      "refresh": "Consultar nuevamente al proveedor"
+    },
+    "actionHelp": {
+      "retry": "Reutiliza el mismo importe, destinatario y clave de la solicitud rechazada. No crea una orden diferente.",
+      "link": "Ingresá los IDs verificados en la cuenta de Mercado Pago de esta empresa. El servidor comprobará importe, moneda y referencia antes de vincularlos.",
+      "refresh": "Encola una consulta por los IDs existentes. No vuelve a transferir dinero."
+    },
+    "movements": "Movimientos registrados",
+    "transfer": "Acreditación",
+    "reversal": "Reversión completa",
+    "history": "Historial de revisiones",
+    "actor": "Usuario"
   }
 }

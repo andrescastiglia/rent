@@ -416,7 +416,8 @@
       "invalidDate": "Invalid date"
     },
     "previousImage": "Previous image",
-    "nextImage": "Next image"
+    "nextImage": "Next image",
+    "ownerPayouts": "Settlements and transfers"
   },
   "interested": {
     "title": "Interested",
@@ -1681,5 +1682,73 @@
       "needs_review": "Review required",
       "resolved": "Incident resolved"
     }
+  },
+  "settlementPayouts": {
+    "title": "Settlement transfers",
+    "intro": "Review the owner’s settlements and their Mercado Pago transfer status.",
+    "back": "Back to properties",
+    "detail": "Transfer details",
+    "loading": "Loading…",
+    "reload": "Refresh local status",
+    "reloadList": "Refresh settlements",
+    "listError": "Could not load settlements. Please refresh.",
+    "empty": "This owner has no settlements.",
+    "settlement": "Settlement",
+    "error": "The result could not be confirmed. Refresh local status before taking another action.",
+    "disabled": "Mercado Pago transfers are temporarily disabled. History remains available.",
+    "ineligible": "This settlement cannot receive a new transfer. It requires a pending ARS amount between 1 and 10,000,000,000 and no previous transfer.",
+    "destination": "Recipient",
+    "destinationType": "Destination type",
+    "emailOption": "Mercado Pago account by email",
+    "bankOption": "Bank account",
+    "email": "Mercado Pago account email",
+    "checkingOnly": "Only checking accounts are supported. Verify the details with the account holder.",
+    "requestNotice": "The request will be queued for processing. Only verified accreditation will mark the settlement as paid.",
+    "confirmRequest": "I confirm a transfer of {amount} {currency} to {destination}.",
+    "request": "Request transfer",
+    "bank": {
+      "holder": "Account holder",
+      "number": "Account number",
+      "bankId": "Bank code (3 digits)",
+      "branch": "Branch (optional)",
+      "ownerValue": "Account holder document number",
+      "ownerType": "Document type (uppercase)"
+    },
+    "status": {
+      "none": "No transfer requested",
+      "queued": "Request queued",
+      "dispatching": "Sending request",
+      "awaiting": "Waiting for provider confirmation",
+      "completed": "Transfer accredited",
+      "failed": "Transfer not accredited",
+      "needs_review": "Review required",
+      "reversed": "Transfer refunded",
+      "unknown": "Unknown status; review required"
+    },
+    "review": "Review transfer",
+    "actionLabel": "Review action",
+    "chooseAction": "Select an action",
+    "reason": "Review reason (10 to 1,000 characters)",
+    "confirmReview": "I confirm this review action and its details.",
+    "applyReview": "Apply review",
+    "payoutId": "Payout ID (POP)",
+    "transactionId": "Transaction ID (TOP)",
+    "providerStatus": "Provider status",
+    "partialRefund": "A partial refund was reported. Accounting review is required; another transfer will not be created automatically.",
+    "action": {
+      "retry": "Retry rejected request",
+      "link": "Link existing transfer",
+      "refresh": "Query provider again"
+    },
+    "actionHelp": {
+      "retry": "Reuses the amount, recipient and key of the rejected request. It does not create a different order.",
+      "link": "Enter IDs verified in this company’s Mercado Pago account. The server checks the amount, currency and reference before linking.",
+      "refresh": "Queues a query using the existing IDs. It does not transfer money again."
+    },
+    "movements": "Recorded movements",
+    "transfer": "Accreditation",
+    "reversal": "Full reversal",
+    "history": "Review history",
+    "actor": "User"
   }
 }
