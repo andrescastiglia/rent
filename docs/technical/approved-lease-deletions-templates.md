@@ -44,6 +44,6 @@ simultáneas, baja contra confirmación/renovación, conservación contable y PD
 posterior a la baja. La misma clave en otra compañía no recupera una plantilla
 ajena: un alta autorizada allí crea su propio registro.
 
-Siguen pendientes la recuperación de importaciones de contratos vigentes,
-enmiendas y otras herramientas mutables, datos históricos y despliegue. Este
+La importación continúa en [su recorrido recuperable](recoverable-contract-imports.md).
+Siguen pendientes enmiendas y otras herramientas mutables, datos históricos y despliegue. Este
 avance no habilita proveedores ni crons.

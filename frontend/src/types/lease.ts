@@ -143,6 +143,7 @@ export interface CreateLeaseInput {
 export type UpdateLeaseInput = Partial<CreateLeaseInput>;
 
 export interface ImportCurrentLeaseInput {
+  idempotencyKey?: string;
   propertyId: string;
   ownerId?: string;
   contractType: ContractType;

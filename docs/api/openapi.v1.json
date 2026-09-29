@@ -14680,6 +14680,10 @@
       "ImportCurrentLeaseDto": {
         "type": "object",
         "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          },
           "propertyId": {
             "type": "string",
             "format": "uuid"

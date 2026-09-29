@@ -9,6 +9,10 @@ import { ContractType } from '../entities/lease.entity';
 
 export class ImportCurrentLeaseDto {
   @IsUUID()
+  @IsOptional()
+  idempotencyKey?: string;
+
+  @IsUUID()
   propertyId: string;
 
   @IsUUID()

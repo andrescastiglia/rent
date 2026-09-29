@@ -1791,4 +1791,136 @@ describe('Durable confirmed contracts (e2e)', () => {
     await worker.processDue();
     expect((await jobs())[0].document_id).not.toBeNull();
   });
+  it.each([false, true])(
+    'recovers an import after its response is lost and the contract is deleted (sale=%s)',
+    async (sale) => {
+      const key = randomUUID(),
+        service = app.get(LeasesService);
+      const original = service.importCurrentContract.bind(service);
+      const lost = jest
+        .spyOn(service, 'importCurrentContract')
+        .mockImplementationOnce(async (...args) => {
+          await original(...args);
+          throw new Error('import response lost after commit');
+        });
+      await importContract(sale, token, { idempotencyKey: key }).expect(500);
+      lost.mockRestore();
+      const [receipt] = await db.query(
+        'SELECT result FROM domain_operation_receipts WHERE company_id=$1 AND execution_key=$2',
+        [companyId, key],
+      );
+      await service.terminate(receipt.result.id, actor());
+      await service.remove(receipt.result.id, actor());
+      const before = await snapshot();
+      const parse = jest
+        .spyOn(service as any, 'extractTextFromUploadedContract')
+        .mockRejectedValue(new Error('must not reconvert'));
+      try {
+        const response = await importContract(sale, token, {
+          idempotencyKey: key,
+        }).expect(201);
+        expect(response.body).toEqual(receipt.result);
+      } finally {
+        parse.mockRestore();
+      }
+      expect(await snapshot()).toEqual(before);
+      const documents = await db.query(
+        'SELECT file_data,metadata FROM documents WHERE company_id=$1',
+        [companyId],
+      );
+      expect(documents).toHaveLength(1);
+      expect(documents[0].file_data).toEqual(importedBytes);
+      expect(documents[0].metadata.importedBy).toBe(userId);
+    },
+  );
+
+  it.each([false, true])(
+    'recovers simultaneous identical HTTP imports without duplicate artifacts (sale=%s)',
+    async (sale) => {
+      const key = randomUUID();
+      const results = await Promise.all([
+        importContract(sale, token, { idempotencyKey: key }).expect(201),
+        importContract(sale, token, { idempotencyKey: key }).expect(201),
+      ]);
+      expect(results[0].body).toEqual(results[1].body);
+      for (const table of ['leases', 'documents', 'domain_operation_receipts'])
+        expect(
+          await db.query(`SELECT * FROM ${table} WHERE company_id=$1`, [
+            companyId,
+          ]),
+        ).toHaveLength(1);
+      expect(
+        await db.query('SELECT id FROM tenant_accounts WHERE company_id=$1', [
+          companyId,
+        ]),
+      ).toHaveLength(sale ? 0 : 1);
+      expect(await jobs()).toHaveLength(0);
+    },
+  );
+
+  it('binds the import key to file bytes and terms, with HTTP company and role isolation', async () => {
+    const key = randomUUID();
+    await importContract(false, token, { idempotencyKey: key }).expect(201);
+    const before = await snapshot();
+    await importContract(false, token, {
+      idempotencyKey: key,
+      monthlyRent: '2000',
+    }).expect(409);
+    await importContract(
+      false,
+      token,
+      { idempotencyKey: key },
+      Buffer.from('Different file'),
+    ).expect(409);
+    await importContract(false, foreignToken, { idempotencyKey: key }).expect(
+      404,
+    );
+    await importContract(false, tenantToken, { idempotencyKey: key }).expect(
+      403,
+    );
+    await importContract(false, token, { idempotencyKey: 'not-a-uuid' }).expect(
+      400,
+    );
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it('rolls back an imported contract, file, account and property when its receipt cannot be saved', async () => {
+    const key = randomUUID(),
+      before = await snapshot();
+    await db.query(`CREATE OR REPLACE FUNCTION import_receipt_test_fail() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN IF NEW.company_id='${companyId}'::uuid THEN RAISE EXCEPTION 'import receipt unavailable'; END IF; RETURN NEW; END; $$;
+      CREATE TRIGGER import_receipt_test_fail BEFORE INSERT ON domain_operation_receipts FOR EACH ROW EXECUTE FUNCTION import_receipt_test_fail();`);
+    try {
+      await importContract(false, token, { idempotencyKey: key }).expect(500);
+    } finally {
+      await db.query(
+        'DROP TRIGGER import_receipt_test_fail ON domain_operation_receipts; DROP FUNCTION import_receipt_test_fail()',
+      );
+    }
+    await assertEmptyImport();
+    expect(await snapshot()).toEqual(before);
+    expect(
+      await db.query(
+        'SELECT * FROM domain_operation_receipts WHERE company_id=$1',
+        [companyId],
+      ),
+    ).toHaveLength(0);
+    await importContract(false, token, { idempotencyKey: key }).expect(201);
+  });
+
+  it('rolls back the entire import if loading its response fails', async () => {
+    const before = await snapshot();
+    const read = jest
+      .spyOn(app.get(LeasesService), 'findOne')
+      .mockRejectedValueOnce(new Error('import result failed'));
+    try {
+      await importContract(false, token, {
+        idempotencyKey: randomUUID(),
+      }).expect(500);
+    } finally {
+      read.mockRestore();
+    }
+    await assertEmptyImport();
+    expect(await snapshot()).toEqual(before);
+  });
 });

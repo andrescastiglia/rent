@@ -1267,6 +1267,7 @@ export type RenewLeaseDto = {
 };
 
 export type ImportCurrentLeaseDto = {
+  idempotencyKey?: string;
   propertyId: string;
   ownerId?: string;
   contractType: 'rental' | 'sale';
