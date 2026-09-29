@@ -84,6 +84,32 @@ describe('AiController', () => {
     });
   });
 
+  it('forwards staff permissions to both catalog and execution', async () => {
+    const staffRequest = {
+      user: {
+        id: 'staff-1',
+        companyId: 'c1',
+        role: UserRole.STAFF,
+        permissions: { ai: true, properties: false },
+      },
+    };
+    controller.listOpenAiTools(staffRequest);
+    await controller.executeTool(
+      { toolName: 'get_properties', arguments: {} },
+      staffRequest,
+    );
+    const context = expect.objectContaining({
+      role: UserRole.STAFF,
+      permissions: staffRequest.user.permissions,
+    });
+    expect(registry.getOpenAiTools).toHaveBeenCalledWith(context);
+    expect(executor.execute).toHaveBeenCalledWith(
+      'get_properties',
+      {},
+      context,
+    );
+  });
+
   it('getConversation maps conversation response', async () => {
     conversationsService.getConversationById.mockResolvedValue({
       id: 'conv-1',

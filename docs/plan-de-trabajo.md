@@ -15,6 +15,10 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 ### Autorización y aislamiento
 
 - [ ] Completar fixtures de dos compañías y pruebas negativas por ID ajeno para cada controlador y herramienta IA restante.
+  Avance: las herramientas de usuarios filtran por compañía y las altas toman la
+  compañía autenticada; IA y WhatsApp respetan permisos de módulo del personal y
+  roles declarados. Evidencia: `ai-authorization.e2e-spec.ts` (8 casos con dos
+  empresas) y `ai-tool-access-policy.spec.ts`. Pendiente: los demás dominios.
 
 ### Consistencia financiera
 

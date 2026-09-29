@@ -1,3 +1,5 @@
+import { resolveAiToolPermission } from './ai-tool-access-policy';
+import { UpdateProfileDto } from '../users/dto/update-profile.dto';
 import { UnauthorizedException } from '@nestjs/common';
 import { z } from 'zod';
 import { AuthService } from '../auth/auth.service';
@@ -215,7 +217,7 @@ const toFilePayload = (
 export function buildAiToolDefinitions(
   deps: AiToolRegistryDeps,
 ): AiToolDefinition[] {
-  return [
+  const definitions: AiToolDefinition[] = [
     {
       name: 'get_root',
       description:
@@ -296,15 +298,15 @@ export function buildAiToolDefinitions(
         'Authenticates a user with email and password credentials. Returns a JWT access token for subsequent API calls.',
       responseDescription: 'JWT access token and user profile information.',
       mutability: 'mutable',
-      allowedRoles: ALL_ROLES,
+      allowedRoles: ADMIN,
       parameters: LoginDto.zodSchema,
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = LoginDto.zodSchema.parse(args) as any;
         const user = await deps.authService.validateUser(
           parsed.email,
           parsed.password,
         );
-        if (!user) {
+        if (!user || user.companyId !== context.companyId) {
           throw new UnauthorizedException('Invalid credentials');
         }
         return deps.authService.login(user);
@@ -316,10 +318,13 @@ export function buildAiToolDefinitions(
         'Registers a new user account with email, password, and profile details. Use for self-service sign-up.',
       responseDescription: 'The newly created user profile with assigned UUID.',
       mutability: 'mutable',
-      allowedRoles: ALL_ROLES,
+      allowedRoles: ADMIN,
       parameters: RegisterDto.zodSchema,
-      execute: async (args) =>
-        deps.authService.register(RegisterDto.zodSchema.parse(args)),
+      execute: async (args, context) =>
+        deps.authService.register({
+          ...RegisterDto.zodSchema.parse(args),
+          companyId: context.companyId,
+        }),
     },
     {
       name: 'get_auth_profile',
@@ -331,7 +336,10 @@ export function buildAiToolDefinitions(
       allowedRoles: PROFILE_READ_ROLES,
       parameters: emptyObjectSchema,
       execute: async (_args, context) => {
-        const user = await deps.usersService.findOneById(context.userId);
+        const user = await deps.usersService.findOneByIdScoped(
+          context.userId,
+          context.companyId ?? '',
+        );
         if (!user) {
           return null;
         }
@@ -349,10 +357,11 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN,
       parameters: CreateUserDto.zodSchema,
-      execute: async (args) => {
-        const user = await deps.usersService.create(
-          CreateUserDto.zodSchema.parse(args),
-        );
+      execute: async (args, context) => {
+        const user = await deps.usersService.create({
+          ...CreateUserDto.zodSchema.parse(args),
+          companyId: context.companyId,
+        });
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { passwordHash, ...safeUser } = user;
         return safeUser;
@@ -366,11 +375,12 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ADMIN,
       parameters: UserListQueryDto.zodSchema,
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = UserListQueryDto.zodSchema.parse(args) as any;
         const result = await deps.usersService.findAll(
           parsed.page,
           parsed.limit,
+          context.companyId,
         );
         return {
           ...result,
@@ -391,7 +401,10 @@ export function buildAiToolDefinitions(
       allowedRoles: PROFILE_READ_ROLES,
       parameters: emptyObjectSchema,
       execute: async (_args, context) => {
-        const user = await deps.usersService.findOneById(context.userId);
+        const user = await deps.usersService.findOneByIdScoped(
+          context.userId,
+          context.companyId ?? '',
+        );
         if (!user) {
           return null;
         }
@@ -407,11 +420,11 @@ export function buildAiToolDefinitions(
       responseDescription: 'The updated user profile.',
       mutability: 'mutable',
       allowedRoles: ALL_ROLES,
-      parameters: UpdateUserDto.zodSchema,
+      parameters: UpdateProfileDto.zodSchema,
       execute: async (args, context) => {
         const user = await deps.usersService.updateProfile(
           context.userId,
-          UpdateUserDto.zodSchema.parse(args),
+          UpdateProfileDto.zodSchema.parse(args),
         );
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { passwordHash, ...safeUser } = user;
@@ -444,9 +457,12 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ADMIN,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        const user = await deps.usersService.findOneById(id);
+        const user = await deps.usersService.findOneByIdScoped(
+          id,
+          context.companyId ?? '',
+        );
         if (!user) {
           return null;
         }
@@ -463,11 +479,15 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN,
       parameters: withParams(UpdateUserDto.zodSchema, { id: uuidSchema }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(UpdateUserDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        const user = await deps.usersService.update(parsed.id, parsed);
+        const user = await deps.usersService.update(
+          parsed.id,
+          parsed,
+          context.companyId,
+        );
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { passwordHash, ...safeUser } = user;
         return safeUser;
@@ -484,13 +504,14 @@ export function buildAiToolDefinitions(
       parameters: withParams(SetUserActivationDto.zodSchema, {
         id: uuidSchema,
       }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(SetUserActivationDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
         const user = await deps.usersService.setActivation(
           parsed.id,
           parsed.isActive,
+          context.companyId,
         );
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { passwordHash, ...safeUser } = user;
@@ -508,13 +529,14 @@ export function buildAiToolDefinitions(
       parameters: withParams(ResetUserPasswordDto.zodSchema, {
         id: uuidSchema,
       }),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const parsed = withParams(ResetUserPasswordDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
         const result = await deps.usersService.resetPassword(
           parsed.id,
           parsed.newPassword,
+          context.companyId,
         );
         return {
           message: 'Password reset successfully',
@@ -529,9 +551,9 @@ export function buildAiToolDefinitions(
       mutability: 'mutable',
       allowedRoles: ADMIN,
       parameters: z.object({ id: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        await deps.usersService.remove(id);
+        await deps.usersService.remove(id, context.companyId);
         return { message: 'User deleted successfully' };
       },
     },
@@ -759,7 +781,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The newly created property record with assigned UUID.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_OWNER_STAFF,
       parameters: CreatePropertyDto.zodSchema,
       execute: async (args, context) =>
         deps.propertiesService.create(
@@ -805,7 +827,7 @@ export function buildAiToolDefinitions(
         "Updates a property's fields (address, description, status, etc.) by UUID.",
       responseDescription: 'The updated property record.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(UpdatePropertyDto.zodSchema, { id: uuidSchema }),
       execute: async (args, context) => {
         const parsed = withParams(UpdatePropertyDto.zodSchema, {
@@ -824,7 +846,7 @@ export function buildAiToolDefinitions(
         'Deletes a property by UUID. Fails if the property has active leases.',
       responseDescription: 'Confirmation that the property was deleted.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
@@ -995,7 +1017,7 @@ export function buildAiToolDefinitions(
         'Creates a unit within a property (e.g., apartment, office). Specify propertyId, label, and unit details.',
       responseDescription: 'The newly created unit record with assigned UUID.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_OWNER_STAFF,
       parameters: CreateUnitDto.zodSchema,
       execute: async (args, context) =>
         deps.unitsService.create(
@@ -1039,7 +1061,7 @@ export function buildAiToolDefinitions(
         "Updates a unit's fields (label, area, description, etc.) by UUID.",
       responseDescription: 'The updated unit record.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(UpdateUnitDto.zodSchema, { id: uuidSchema }),
       execute: async (args, context) => {
         const parsed = withParams(UpdateUnitDto.zodSchema, {
@@ -1058,7 +1080,7 @@ export function buildAiToolDefinitions(
         'Deletes a unit by UUID. Fails if the unit has active leases.',
       responseDescription: 'Confirmation that the unit was deleted.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
@@ -1379,7 +1401,7 @@ export function buildAiToolDefinitions(
         'Creates an amendment for an active lease. Specify change type: rent_increase, rent_decrease, extension, or other modification types.',
       responseDescription: 'The created amendment record in pending status.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_OWNER_STAFF,
       parameters: CreateAmendmentDto.zodSchema,
       execute: async (args, context) =>
         deps.amendmentsService.create(
@@ -1428,7 +1450,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The approved amendment record with applied changes.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
@@ -1444,7 +1466,7 @@ export function buildAiToolDefinitions(
         'Rejects a pending amendment. The amendment is archived without applying changes.',
       responseDescription: 'The rejected amendment record.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
@@ -3081,7 +3103,7 @@ export function buildAiToolDefinitions(
         'Lists bank accounts for the company. Owners see only their own accounts. Optional ownerId filter for admins.',
       responseDescription: 'Array of bank account records.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ ownerId: z.uuid().optional() }).strict(),
       execute: async (args, context) => {
         const { ownerId } = z
@@ -3099,7 +3121,7 @@ export function buildAiToolDefinitions(
       description: 'Retrieves a bank account by UUID.',
       responseDescription: 'Full bank account record.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
@@ -3116,7 +3138,7 @@ export function buildAiToolDefinitions(
         'Creates a new bank account. Requires bankName, accountType, accountNumber, userId. Optional: cbu, currency, isDefault, ownerId.',
       responseDescription: 'The newly created bank account record with UUID.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_OWNER_STAFF,
       parameters: createBankAccountSchema,
       execute: async (args, context) => {
         const dto = createBankAccountSchema.parse(args) as any;
@@ -3132,7 +3154,7 @@ export function buildAiToolDefinitions(
       description: 'Updates an existing bank account by UUID.',
       responseDescription: 'The updated bank account record.',
       mutability: 'mutable',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(updateBankAccountSchema, { id: uuidSchema }),
       execute: async (args, context) => {
         const parsed = withParams(updateBankAccountSchema, {
@@ -3173,7 +3195,7 @@ export function buildAiToolDefinitions(
         'Lists settlements with optional filters: ownerId, status, periodStart, periodEnd. Owners see only their own settlements.',
       responseDescription: 'Array of settlement records.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_OWNER_STAFF,
       parameters: settlementFiltersSchema,
       execute: async (args, context) => {
         const filters = settlementFiltersSchema.parse(args) as any;
@@ -3189,7 +3211,7 @@ export function buildAiToolDefinitions(
       description: 'Retrieves a settlement by UUID.',
       responseDescription: 'Full settlement record.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
@@ -3207,7 +3229,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Settlement summary with totalPending, totalCompleted, pendingCount, completedCount, lastSettlementDate.',
       mutability: 'readonly',
-      allowedRoles: ADMIN_OWNER,
+      allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ ownerId: z.uuid().optional() }).strict(),
       execute: async (args, context) => {
         const { ownerId } = z
@@ -3255,6 +3277,10 @@ export function buildAiToolDefinitions(
       },
     },
   ];
+  return definitions.map((definition) => ({
+    ...definition,
+    requiredPermission: resolveAiToolPermission(definition.name),
+  }));
 }
 
 // ---- inline Zod schemas for new modules ----

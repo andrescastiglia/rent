@@ -115,7 +115,7 @@ describe('AI tools integration', () => {
       },
     );
 
-    expect(usersService.findAll).toHaveBeenCalledWith(1, 10);
+    expect(usersService.findAll).toHaveBeenCalledWith(1, 10, 'company-1');
     expect(result).toEqual({
       data: [{ id: 'u1', email: 'admin@test.dev' }],
       total: 1,

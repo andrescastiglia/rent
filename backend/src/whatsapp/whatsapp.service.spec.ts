@@ -904,7 +904,7 @@ describe('WhatsappService', () => {
     });
   });
 
-  it('processes an opted-in owner message through AI and replies', async () => {
+  it('processes an opted-in owner message through AI with current permissions and replies', async () => {
     const query = jest.fn(async (sql: string) => {
       if (sql.includes('FROM users')) {
         return [
@@ -912,6 +912,7 @@ describe('WhatsappService', () => {
             id: 'user-1',
             company_id: 'company-1',
             role: 'owner',
+            permissions: { properties: false, ai: true },
             language: 'es',
           },
         ];
@@ -957,6 +958,7 @@ describe('WhatsappService', () => {
         userId: 'user-1',
         companyId: 'company-1',
         role: 'owner',
+        permissions: { properties: false, ai: true },
         mutationApprovalMode: 'staff_queue',
       },
     });

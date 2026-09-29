@@ -21,7 +21,7 @@ import { ModuleRef } from '@nestjs/core';
 import OpenAI, { toFile } from 'openai';
 import { DataSource } from 'typeorm';
 import { AI_RAG_ROLLOUT } from '../ai/ai.tokens';
-import { UserRole } from '../users/entities/user.entity';
+import { UserModulePermissions, UserRole } from '../users/entities/user.entity';
 import { CreateWhatsappActivityDto } from './dto/create-whatsapp-activity.dto';
 import { isAdminOrStaff } from '../common/helpers/role-scope.helper';
 
@@ -33,6 +33,7 @@ type AiRagRollout = {
       companyId: string;
       role: UserRole;
       roles?: UserRole[];
+      permissions?: UserModulePermissions;
       mutationApprovalMode: 'staff_queue';
     };
   }): Promise<{
@@ -1128,7 +1129,7 @@ export class WhatsappService implements OnApplicationBootstrap {
     const { whatsappMessageId, from } = parsedMessage;
 
     const users = await this.dataSource.query(
-      `SELECT id, company_id, role, roles, language, phone
+      `SELECT id, company_id, role, roles, permissions, language, phone
          FROM users
         WHERE is_active = true AND deleted_at IS NULL
           AND whatsapp_enabled = true
@@ -1145,6 +1146,7 @@ export class WhatsappService implements OnApplicationBootstrap {
     const user = users[0] as {
       id: string;
       company_id: string;
+      permissions?: UserModulePermissions;
       role: UserRole;
       roles?: UserRole[];
       language: string;
@@ -1244,6 +1246,7 @@ export class WhatsappService implements OnApplicationBootstrap {
           companyId: user.company_id,
           role: user.role,
           roles: user.roles,
+          permissions: user.permissions,
           mutationApprovalMode: 'staff_queue',
         },
       });

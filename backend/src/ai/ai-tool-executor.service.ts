@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { DataSource } from 'typeorm';
-import { UserRole } from '../users/entities/user.entity';
+import { UserModulePermissions, UserRole } from '../users/entities/user.entity';
 import { AiToolCatalogService } from './ai-tool-catalog.service';
 import {
   AiExecutionContext,
@@ -42,7 +42,9 @@ export class AiToolExecutorService {
     return 'NONE';
   }
 
-  listTools(subject: UserRole | RoleAware) {
+  listTools(
+    subject: UserRole | (RoleAware & { permissions?: UserModulePermissions }),
+  ) {
     const roleSubject =
       typeof subject === 'string' ? { role: subject } : subject;
     const mode = this.getMode();
