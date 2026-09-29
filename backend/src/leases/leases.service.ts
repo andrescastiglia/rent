@@ -680,7 +680,7 @@ export class LeasesService {
           ) as string[]
         ).map((id) => id.toLowerCase()),
       ),
-    ].sort();
+    ].sort((left, right) => left.localeCompare(right, 'en'));
     for (const propertyId of propertyIds) {
       const [property] = await manager.query(
         'SELECT id FROM properties WHERE id=$1 AND company_id=$2 AND deleted_at IS NULL FOR NO KEY UPDATE',
