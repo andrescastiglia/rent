@@ -18,6 +18,9 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
   resumen y comprobantes con PostgreSQL real, dos compañías y roles propietario/
   administrador/inquilino (`settlement-reads.e2e-spec.ts`, 8 casos).
   Corrección de lecturas incorporada a main con los 23 gates del PR #222 aprobados.
+  Facturas, recibos y notas de crédito ahora validan compañía, tipo e ID del
+  documento tanto por HTTP como IA; los enlaces temporales exigen aprobación e
+  integridad. Ver [alcance y pruebas](technical/financial-document-access.md).
   Pendiente: despliegue de esta corrección y los demás dominios.
 
 ### Consistencia financiera
@@ -40,7 +43,8 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 
 El resumen del propietario usa el esquema contable actual y devuelve cobros
 imputados por moneda, con mes de Argentina y errores explícitos en web. Ver
-[contrato y límites](technical/owner-summary.md). Pendiente: gates y despliegue
+[contrato y límites](technical/owner-summary.md). Incorporado a main con los 23
+gates del PR #232 aprobados. Pendiente: despliegue
 coordinado de este contrato de API y su frontend.
 
 El resumen de liquidaciones ahora conserva moneda, estado e importes exactos;
@@ -71,6 +75,9 @@ Pendiente: gates y despliegue de backend/clientes compatibles.
 - [ ] Habilitar propuestas WhatsApp por dominio solo después de cerrar inbox/outbox y la bandeja de revisión.
 - [ ] Llevar MercadoPago al flujo contable común con firma, replay, idempotencia y conciliación productiva.
 - [ ] Persistir PDFs con checksum, versión, autorización y regeneración controlada.
+  Avance: nuevos comprobantes financieros guardan SHA-256 y versión del formato
+  de integridad; las descargas rechazan alteraciones y documentos no aprobados.
+  Pendiente: gates, despliegue y recuperación/versionado de documentos históricos.
 
 ## 4. Operación, calidad y documentación
 

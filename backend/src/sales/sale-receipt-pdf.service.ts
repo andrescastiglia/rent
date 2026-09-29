@@ -1,3 +1,4 @@
+import { financialDocumentMetadata } from '../documents/document-integrity';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
@@ -42,6 +43,7 @@ export class SaleReceiptPdfService {
       fileMimeType: 'application/pdf',
       fileSize: pdfBuffer.length,
       status: DocumentStatus.APPROVED,
+      metadata: financialDocumentMetadata(pdfBuffer),
     });
 
     await documentsRepository.save(document);

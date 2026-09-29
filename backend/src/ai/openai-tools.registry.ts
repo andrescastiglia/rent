@@ -1614,6 +1614,11 @@ export function buildAiToolDefinitions(
         }
         const file = await deps.documentsService.downloadByFileUrl(
           payment.receipt.pdfUrl,
+          {
+            companyId: context.companyId!,
+            entityType: 'receipt',
+            entityId: payment.receipt.id,
+          },
         );
         return toFilePayload(
           file.buffer,
@@ -1773,6 +1778,11 @@ export function buildAiToolDefinitions(
         }
         const file = await deps.documentsService.downloadByFileUrl(
           invoice.pdfUrl,
+          {
+            companyId: context.companyId!,
+            entityType: 'invoice',
+            entityId: invoice.id,
+          },
         );
         return toFilePayload(
           file.buffer,
@@ -1803,7 +1813,14 @@ export function buildAiToolDefinitions(
         if (!note.pdfUrl) {
           return { message: 'Credit note PDF not found' };
         }
-        const file = await deps.documentsService.downloadByFileUrl(note.pdfUrl);
+        const file = await deps.documentsService.downloadByFileUrl(
+          note.pdfUrl,
+          {
+            companyId: context.companyId!,
+            entityType: 'credit_note',
+            entityId: note.id,
+          },
+        );
         return toFilePayload(
           file.buffer,
           file.contentType,
@@ -2914,6 +2931,11 @@ export function buildAiToolDefinitions(
         }
         const file = await deps.documentsService.downloadByFileUrl(
           receipt.pdfUrl,
+          {
+            companyId: context.companyId!,
+            entityType: 'sale_receipt',
+            entityId: receipt.id,
+          },
         );
         return toFilePayload(
           file.buffer,

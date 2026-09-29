@@ -103,7 +103,11 @@ export class SalesController {
     }
 
     const { buffer, contentType } =
-      await this.documentsService.downloadByFileUrl(receipt.pdfUrl);
+      await this.documentsService.downloadByFileUrl(receipt.pdfUrl, {
+        companyId: req.user.companyId ?? '',
+        entityType: 'sale_receipt',
+        entityId: receipt.id,
+      });
 
     res.set({
       'Content-Type': contentType,

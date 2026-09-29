@@ -1,19 +1,14 @@
+import { assertStoredDocumentIntegrity } from './document-integrity';
 import {
   Injectable,
   Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
-  ConflictException,
 } from '@nestjs/common';
-import {
-  createHash,
-  createHmac,
-  randomUUID,
-  timingSafeEqual,
-} from 'node:crypto';
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, FindOptionsWhere, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import {
   Document,
@@ -332,14 +327,7 @@ export class DocumentsService {
       document.entityId,
       actor,
     );
-    if (
-      ['mercadopago_payout', 'lease_contract'].includes(
-        document.metadata?.source,
-      ) &&
-      createHash('sha256').update(document.fileData).digest('hex') !==
-        document.metadata.sha256
-    )
-      throw new ConflictException('Document integrity check failed');
+    assertStoredDocumentIntegrity(document.fileData, document.metadata);
     return {
       buffer: Buffer.from(document.fileData),
       contentType: document.fileMimeType,
@@ -534,30 +522,39 @@ export class DocumentsService {
   /** Internal download; callers authorize access to the owning business entity. */
   async downloadByFileUrl(
     fileUrl: string,
-    scope?: { companyId: string; entityType: string; entityId: string },
+    scope: { companyId: string; entityType: string; entityId: string },
   ): Promise<{ buffer: Buffer; contentType: string }> {
     if (!fileUrl.startsWith('db://document/')) {
       throw new NotFoundException(
         'Document content is not stored in the database',
       );
     }
+    if (!scope?.companyId || !scope.entityType || !scope.entityId) {
+      throw new NotFoundException('Document scope required');
+    }
     const documentId = fileUrl.slice('db://document/'.length).trim();
+    if (!documentId) throw new NotFoundException('Document content not found');
+    return this.readApprovedDocument({ id: documentId, ...scope });
+  }
+
+  /** Only after a caller verifies an expiring capability bound to this exact document ID. */
+  async downloadByDocumentCapability(
+    documentId: string,
+  ): Promise<{ buffer: Buffer; contentType: string }> {
+    if (!documentId) throw new NotFoundException('Document content not found');
+    return this.readApprovedDocument({ id: documentId });
+  }
+
+  private async readApprovedDocument(
+    where: FindOptionsWhere<Document>,
+  ): Promise<{ buffer: Buffer; contentType: string }> {
     const document = await this.documentsRepository.findOne({
-      where: { id: documentId, ...scope },
+      where: { ...where, status: DocumentStatus.APPROVED },
       select: ['id', 'fileData', 'fileMimeType', 'metadata'],
     });
     if (!document?.fileData)
-      throw new NotFoundException(
-        `File not found in DB document: ${documentId}`,
-      );
-    if (
-      ['mercadopago_payout', 'lease_contract'].includes(
-        document.metadata?.source,
-      ) &&
-      createHash('sha256').update(document.fileData).digest('hex') !==
-        document.metadata.sha256
-    )
-      throw new ConflictException('Document integrity check failed');
+      throw new NotFoundException('Document content not found');
+    assertStoredDocumentIntegrity(document.fileData, document.metadata);
     return {
       buffer: Buffer.from(document.fileData),
       contentType: document.fileMimeType || 'application/pdf',

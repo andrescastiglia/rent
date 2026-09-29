@@ -8,6 +8,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
   Request as NestRequest,
@@ -150,7 +151,7 @@ export class WhatsappController {
   @Public()
   @Get('documents/:documentId')
   async downloadDocument(
-    @Param('documentId') documentId: string,
+    @Param('documentId', ParseUUIDPipe) documentId: string,
     @Query() query: WhatsappDocumentQueryDto,
     @Res() res: Response,
   ) {
@@ -160,9 +161,7 @@ export class WhatsappController {
     }
 
     const { buffer, contentType } =
-      await this.documentsService.downloadByFileUrl(
-        `db://document/${documentId}`,
-      );
+      await this.documentsService.downloadByDocumentCapability(documentId);
 
     res.set({
       'Content-Type': contentType,

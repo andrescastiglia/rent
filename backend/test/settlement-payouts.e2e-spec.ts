@@ -871,6 +871,32 @@ describe('Durable settlement payouts (e2e)', () => {
       .expect(200);
     expect(latest.headers['content-disposition']).toContain('reversal');
   });
+  it('withdraws unavailable or unapproved receipts from overview and both download paths', async () => {
+    await post().expect(201);
+    await worker();
+    await effectWorker();
+    const movement = (await movements())[0];
+    for (const status of ['pending', 'rejected', 'expired']) {
+      await db.query('UPDATE documents SET status=$2 WHERE company_id=$1', [
+        companyId,
+        status,
+      ]);
+      const overview = await service.overview(settlementId, companyId);
+      expect(overview.movements[0].receiptAvailable).toBe(false);
+      expect(overview.movements[0].receiptStatus).toBe('unavailable');
+      await getReceipt(movement.id).expect(404);
+      await request(app.getHttpServer())
+        .get(`/owners/settlements/${settlementId}/receipt`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(404);
+    }
+    await db.query(
+      "UPDATE documents SET status='approved' WHERE company_id=$1",
+      [companyId],
+    );
+    await getReceipt(movement.id).expect(200);
+  });
+
   it('rejects modified receipt bytes on both movement and legacy receipt download paths', async () => {
     await post().expect(201);
     await worker();

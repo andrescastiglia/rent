@@ -1,3 +1,6 @@
+import { verifyFinancialDocumentAccess } from './financial-document-helpers';
+import { InvoicePdfService } from '../src/payments/invoice-pdf.service';
+import { InvoicesService } from '../src/payments/invoices.service';
 import { CreditNotePdfService } from '../src/payments/credit-note-pdf.service';
 import { PaymentEffectsService } from '../src/payments/payment-effects.service';
 import { ReceiptPdfService } from '../src/payments/receipt-pdf.service';
@@ -392,6 +395,35 @@ describe('Payment accounting flow (e2e)', () => {
       .expect(200);
     expect(Buffer.isBuffer(pdf.body)).toBe(true);
     expect(pdf.body.subarray(0, 4).toString()).toBe('%PDF');
+    await verifyFinancialDocumentAccess(
+      app,
+      dataSource,
+      adminToken,
+      `/payments/${created.body.id}/receipt`,
+      ready.body.receipt.pdfUrl,
+    );
+  });
+
+  it('scopes invoice PDF bytes to the authorized invoice and verifies approval/hash', async () => {
+    const invoice = await app
+      .get(InvoicesService)
+      .findOne(invoiceId, companyId);
+    const url = await app.get(InvoicePdfService).generate(invoice);
+    try {
+      await invoiceRepository.update(invoiceId, { pdfUrl: url });
+      await verifyFinancialDocumentAccess(
+        app,
+        dataSource,
+        adminToken,
+        `/invoices/${invoiceId}/pdf`,
+        url,
+      );
+    } finally {
+      await invoiceRepository.update(invoiceId, { pdfUrl: invoice.pdfUrl });
+      await dataSource.query('DELETE FROM documents WHERE id=$1', [
+        url.slice('db://document/'.length),
+      ]);
+    }
   });
 
   it('ingests an idempotent sandbox credit and reconciles it by virtual alias', async () => {
@@ -687,7 +719,7 @@ describe('Payment accounting flow (e2e)', () => {
       failed: 0,
     });
     const [result] = await dataSource.query(
-      `SELECT r.pdf_url AS receipt, cn.pdf_url AS credit_note,
+      `SELECT r.pdf_url AS receipt, cn.id AS credit_note_id, cn.pdf_url AS credit_note,
       (SELECT count(*) FROM communication_deliveries WHERE related_entity_id = r.payment_id) AS deliveries
       FROM receipts r JOIN credit_notes cn ON cn.payment_id = r.payment_id
       WHERE r.payment_id = $1 AND cn.invoice_id = $2`,
@@ -696,6 +728,13 @@ describe('Payment accounting flow (e2e)', () => {
     expect(result.receipt).toMatch(/^db:\/\/document\//);
     expect(result.credit_note).toMatch(/^db:\/\/document\//);
     expect(result.deliveries).toBe('2');
+    await verifyFinancialDocumentAccess(
+      app,
+      dataSource,
+      adminToken,
+      `/invoices/credit-notes/${result.credit_note_id}/pdf`,
+      result.credit_note,
+    );
   });
 
   it('does not generate or queue a receipt when payment is cancelled before processing', async () => {

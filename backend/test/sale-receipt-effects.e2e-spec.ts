@@ -1,3 +1,4 @@
+import { verifyFinancialDocumentAccess } from './financial-document-helpers';
 import { UserRole } from '../src/users/entities/user.entity';
 import { Owner } from '../src/owners/entities/owner.entity';
 import { Buyer } from '../src/buyers/entities/buyer.entity';
@@ -291,6 +292,13 @@ describe('Durable sale receipts (e2e)', () => {
     expect(
       response.body.toString('latin1').match(/\/Type \/Page\b/g),
     ).toHaveLength(2);
+    await verifyFinancialDocumentAccess(
+      app,
+      ds,
+      token,
+      `/sales/receipts/${receiptId}/pdf`,
+      (await state(receiptId)).pdf_url,
+    );
     await request(app.getHttpServer())
       .post(`/sales/agreements/${agreementId}/receipts`)
       .set('Authorization', `Bearer ${foreignToken}`)

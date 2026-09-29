@@ -1759,7 +1759,8 @@
     "downloadReceipt": "Download receipt",
     "receiptError": "Could not download the receipt. Please try again.",
     "receiptNeedsReview": "The receipt requires review.",
-    "receiptPending": "Receipt pending generation."
+    "receiptPending": "Receipt pending generation.",
+    "receiptUnavailable": "Receipt unavailable."
   },
   "settlementGeneration": {
     "title": "Generate settlement",

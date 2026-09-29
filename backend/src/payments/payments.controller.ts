@@ -116,7 +116,11 @@ export class PaymentsController {
     }
 
     const { buffer, contentType } =
-      await this.documentsService.downloadByFileUrl(payment.receipt.pdfUrl);
+      await this.documentsService.downloadByFileUrl(payment.receipt.pdfUrl, {
+        companyId: req.user.companyId,
+        entityType: 'receipt',
+        entityId: payment.receipt.id,
+      });
 
     res.set({
       'Content-Type': contentType,
