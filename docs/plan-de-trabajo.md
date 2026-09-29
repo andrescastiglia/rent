@@ -89,7 +89,8 @@ El cron `process-settlements` permanece suspendido.
   Editor administrativo implementado: borradores, atributos/unidades y ubicación,
   publicación separada con confirmación, actualización, pausa, reactivación y cierre.
   Bloquea envíos pendientes/inciertos y conserva campos inmutables de avisos existentes.
-  Pendiente: gates del editor y despliegue deshabilitado.
+  Editor incorporado a main con los 23 gates del PR #221 aprobados.
+  Pendiente: despliegue deshabilitado.
 - [ ] Implementar transferencias Mercado Pago con idempotencia y conciliación.
 - [ ] Verificar que ninguna integración real se invoque mientras está deshabilitada.
 
