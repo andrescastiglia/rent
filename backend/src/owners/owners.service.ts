@@ -54,7 +54,8 @@ interface UserContext {
   phone?: string | null;
 }
 
-type OwnerSettlementStatus = 'pending' | 'processing' | 'completed' | 'failed';
+type OwnerSettlementStatus =
+  'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
 
 type OwnerSettlementRow = {
   id: string;
@@ -980,7 +981,7 @@ export class OwnersService {
           FROM settlements s
           WHERE s.owner_id = $1
             AND s.company_id = $2
-            AND s.status NOT IN ('completed', 'failed')
+            AND s.status IN ('pending', 'processing')
         )::text AS pending_settlements,
         (
           SELECT COALESCE(SUM(p.amount), 0)

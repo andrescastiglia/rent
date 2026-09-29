@@ -106,9 +106,15 @@ El cron `process-settlements` permanece suspendido.
   Comprobantes incorporados a main con los 23 gates del PR #225 aprobados.
   Vista previa contable administrativa implementada sobre imputaciones reales,
   con moneda explícita, notas de crédito, centavos exactos y snapshot consistente.
-  Informa liquidaciones previas sin presumir saldos disponibles y no realiza escrituras.
-  Pendiente: validar gates de la vista previa; generación durable, resolución de devoluciones parciales/
-  nuevas órdenes verificadas y despliegue deshabilitado.
+  Vista previa incorporada a main con los 23 gates del PR #226 aprobados.
+  Generación durable implementada con confirmación/fingerprint, deduplicación,
+  reserva por factura, retenciones explícitas y snapshot inmutable. Admite cobros
+  suplementarios, anulación auditada previa al envío y validación de fuentes antes
+  de transferir; respeta la fecha programada en Argentina. El batch ya no simula
+  transferencias, tampoco en pruebas.
+  Pendiente: gates y UI de generación/anulación, recuperación de deuda por cobros
+  anulados después de transferir, resolución de devoluciones parciales/nuevas
+  órdenes verificadas y despliegue deshabilitado.
 - [ ] Verificar que ninguna integración real se invoque mientras está deshabilitada.
 
 ## Criterio de cierre

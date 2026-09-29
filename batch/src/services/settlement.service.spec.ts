@@ -18,7 +18,7 @@ describe("SettlementService", () => {
     mockQuery.mockReset();
   });
 
-  it.each(["production", "development", ""])(
+  it.each(["production", "development", "test", ""])(
     "rejects transfers in %s before accessing the ledger",
     async (environment) => {
       const original = process.env.NODE_ENV;
@@ -146,49 +146,6 @@ describe("SettlementService", () => {
     const mockOwnerId = "owner-123";
     const mockPeriod = "2024-12";
 
-    it("should process settlement and return success", async () => {
-      // Mock owner data
-      mockQuery.mockResolvedValueOnce([
-        {
-          first_name: "John",
-          last_name: "Owner",
-          commission_rate: "10.00",
-        },
-      ]);
-
-      // Mock invoices
-      mockQuery.mockResolvedValueOnce([
-        {
-          id: "inv-1",
-          invoice_number: "INV-001",
-          tenant: "Tenant A",
-          property: "Prop 1",
-          amount: "100000",
-          paid_at: "2024-12-10",
-          due_date: "2024-12-15",
-        },
-      ]);
-
-      // Mock check for existing settlement
-      mockQuery.mockResolvedValueOnce([]);
-
-      // Mock insert settlement
-      mockQuery.mockResolvedValueOnce([{ id: "settlement-1" }]);
-
-      // Mock update to completed
-      mockQuery.mockResolvedValueOnce([]);
-
-      const result = await service.processSettlement(
-        mockOwnerId,
-        mockPeriod,
-        false,
-      );
-
-      expect(result.success).toBe(true);
-      expect(result.settlementId).toBe("settlement-1");
-      expect(result.transferReference).toBeDefined();
-    });
-
     it("should return success without creating record in dry run mode", async () => {
       // Mock owner data
       mockQuery.mockResolvedValueOnce([
@@ -221,66 +178,6 @@ describe("SettlementService", () => {
       expect(result.success).toBe(true);
       // Should not call insert query (only 2 queries: owner + invoices)
       expect(mockQuery).toHaveBeenCalledTimes(2);
-    });
-
-    it("should return success when no invoices to settle", async () => {
-      // Mock owner data
-      mockQuery.mockResolvedValueOnce([
-        {
-          first_name: "John",
-          last_name: "Owner",
-          commission_rate: "10.00",
-        },
-      ]);
-
-      // Mock empty invoices
-      mockQuery.mockResolvedValueOnce([]);
-
-      const result = await service.processSettlement(
-        mockOwnerId,
-        mockPeriod,
-        false,
-      );
-
-      expect(result.success).toBe(true);
-    });
-
-    it("should skip if settlement already completed", async () => {
-      // Mock owner data
-      mockQuery.mockResolvedValueOnce([
-        {
-          first_name: "John",
-          last_name: "Owner",
-          commission_rate: "10.00",
-        },
-      ]);
-
-      // Mock invoices
-      mockQuery.mockResolvedValueOnce([
-        {
-          id: "inv-1",
-          invoice_number: "INV-001",
-          tenant: "Tenant A",
-          property: "Prop 1",
-          amount: "100000",
-          paid_at: "2024-12-10",
-          due_date: "2024-12-15",
-        },
-      ]);
-
-      // Mock existing completed settlement
-      mockQuery.mockResolvedValueOnce([
-        { id: "settlement-1", status: "completed" },
-      ]);
-
-      const result = await service.processSettlement(
-        mockOwnerId,
-        mockPeriod,
-        false,
-      );
-
-      expect(result.success).toBe(true);
-      expect(result.settlementId).toBe("settlement-1");
     });
   });
 

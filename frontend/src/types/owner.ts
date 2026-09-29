@@ -31,7 +31,7 @@ export interface Owner {
 }
 
 export type OwnerSettlementStatus =
-  "pending" | "processing" | "completed" | "failed";
+  "pending" | "processing" | "completed" | "failed" | "cancelled";
 
 export interface OwnerSettlementSummary {
   id: string;

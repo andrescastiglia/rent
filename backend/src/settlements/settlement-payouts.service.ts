@@ -1,5 +1,9 @@
 import { enqueuePayoutReceipt } from './settlement-payout-effects.service';
 import {
+  SettlementGenerationService,
+  SettlementSourceChangedError,
+} from './settlement-generation.service';
+import {
   BadRequestException,
   ConflictException,
   Injectable,
@@ -30,6 +34,7 @@ type SettlementRow = {
   currency: string;
   status: string;
   transfer_reference: string | null;
+  scheduled_date: string | null;
 };
 type Job = {
   id: string;
@@ -55,6 +60,7 @@ export class SettlementPayoutsService {
     private readonly db: DataSource,
     private readonly client: MercadoPagoPayoutsClient,
     private readonly config: ProviderConfigService,
+    private readonly generations: SettlementGenerationService,
   ) {}
   private scope(companyId: string) {
     if (!companyId) throw new BadRequestException('Company scope required');
@@ -123,8 +129,11 @@ export class SettlementPayoutsService {
         settlement.net_amount !== data.amount
       )
         throw new ConflictException('Settlement amount or currency changed');
+      await this.generations.assertSources(manager, settlementId, companyId);
       await manager.query(
-        `INSERT INTO settlement_payout_outbox(id,company_id,settlement_id,owner_id,requested_by,request) VALUES($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::uuid,$6::jsonb)`,
+        `INSERT INTO settlement_payout_outbox(id,company_id,settlement_id,owner_id,requested_by,request,next_attempt_at)
+         VALUES($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::uuid,$6::jsonb,
+           GREATEST(now(),$7::date::timestamp AT TIME ZONE 'America/Argentina/Buenos_Aires'))`,
         [
           id,
           companyId,
@@ -132,6 +141,7 @@ export class SettlementPayoutsService {
           settlement.owner_id,
           actorId,
           JSON.stringify(data),
+          settlement.scheduled_date,
         ],
       );
       await manager.query(
@@ -241,6 +251,7 @@ export class SettlementPayoutsService {
           true,
         );
         this.assertSnapshot(job, settlement);
+        await this.generations.assertSources(manager, settlementId, companyId);
         if (settlement.status !== 'failed')
           throw new ConflictException(
             'Settlement is no longer eligible for retry',
@@ -348,6 +359,11 @@ export class SettlementPayoutsService {
         if (settlement.status !== 'processing')
           throw new ConflictException('Settlement is no longer eligible');
         this.client.validate(claimed.request);
+        await this.generations.assertSources(
+          manager,
+          claimed.settlement_id,
+          claimed.company_id,
+        );
         await manager.query(
           `UPDATE settlement_payout_outbox SET status='dispatching',updated_at=now() WHERE id=$1::uuid`,
           [claimed.id],
@@ -593,6 +609,9 @@ export class SettlementPayoutsService {
           status = 'awaiting';
           code = 'provider_read_failed';
         }
+      } else if (error instanceof SettlementSourceChangedError) {
+        status = 'failed';
+        code = 'source_changed';
       } else if (
         current.status === 'queued' ||
         error instanceof BadRequestException ||

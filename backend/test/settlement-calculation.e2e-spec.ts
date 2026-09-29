@@ -1,3 +1,8 @@
+import { randomUUID } from 'node:crypto';
+import { ProviderConfigService } from '../src/integrations/provider-config.service';
+import { MercadoPagoPayoutsClient } from '../src/integrations/mercadopago-payouts.client';
+import { SettlementPayoutsService } from '../src/settlements/settlement-payouts.service';
+import { SettlementCalculationService } from '../src/settlements/settlement-calculation.service';
 import { INestApplication } from '@nestjs/common';
 import { ProviderHttpService } from '../src/integrations/provider-http.service';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -60,6 +65,7 @@ describe('Settlement calculation from recorded collections (e2e)', () => {
   let staffToken: string;
   let paymentIds: string[];
   let providerRequest: jest.SpyInstance;
+  let payoutEnabled = false;
 
   const uniqueId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -85,6 +91,9 @@ describe('Settlement calculation from recorded collections (e2e)', () => {
     usersService = moduleFixture.get(UsersService);
 
     await app.init();
+    jest
+      .spyOn(app.get(ProviderConfigService), 'enabled')
+      .mockImplementation(() => payoutEnabled);
     providerRequest = jest
       .spyOn(app.get(ProviderHttpService), 'request')
       .mockRejectedValue(
@@ -278,7 +287,30 @@ describe('Settlement calculation from recorded collections (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .query({ ownerId, period: '2026-07', currency: 'ARS', ...extra });
 
+  const clearGenerations = async () => {
+    for (const table of [
+      'settlement_payout_effects_outbox',
+      'settlement_payout_movements',
+      'settlement_payout_reviews',
+      'settlement_payout_outbox',
+      'settlement_generation_sources',
+      'settlement_generations',
+    ])
+      await dataSource.query(`DELETE FROM ${table} WHERE company_id=$1`, [
+        companyId,
+      ]);
+  };
   beforeEach(async () => {
+    payoutEnabled = false;
+    await clearGenerations();
+    await dataSource.query(
+      'DELETE FROM tenant_account_movements WHERE tenant_account_id=$1',
+      [tenantAccountId],
+    );
+    await dataSource.query(
+      'UPDATE tenant_accounts SET current_balance=1000 WHERE id=$1',
+      [tenantAccountId],
+    );
     await dataSource.query('DELETE FROM credit_notes WHERE company_id=$1', [
       companyId,
     ]);
@@ -298,7 +330,7 @@ describe('Settlement calculation from recorded collections (e2e)', () => {
       [ownerId],
     );
     await dataSource.query(
-      `UPDATE invoices SET status='paid',total_amount=1000,paid_amount=1000,deleted_at=NULL,withholdings_total=75 WHERE id=$1`,
+      `UPDATE invoices SET status='paid',total_amount=1000,paid_amount=1000,deleted_at=NULL,withholdings_total=75,due_date='2026-07-10' WHERE id=$1`,
       [invoiceId],
     );
     await dataSource.query(
@@ -324,6 +356,12 @@ describe('Settlement calculation from recorded collections (e2e)', () => {
 
   afterAll(async () => {
     if (dataSource) {
+      if (companyId) await clearGenerations();
+      if (tenantAccountId)
+        await dataSource.query(
+          'DELETE FROM tenant_account_movements WHERE tenant_account_id=$1',
+          [tenantAccountId],
+        );
       if (ownerId)
         await dataSource.query('DELETE FROM settlements WHERE owner_id=$1', [
           ownerId,
@@ -605,5 +643,453 @@ describe('Settlement calculation from recorded collections (e2e)', () => {
     { companyId: 'foreign' },
   ])('validates preview input %j', async (extra) => {
     await preview(adminToken, extra).expect(400);
+  });
+
+  const generationInput = async () => ({
+    ownerId,
+    period: '2026-07',
+    currency: 'ARS',
+    confirmed: true,
+    idempotencyKey: randomUUID(),
+    expectedFingerprint: (await preview().expect(200)).body.fingerprint,
+    additionalWithholdings: '0.00',
+    withholdingReason: 'Sin retenciones adicionales',
+  });
+  const generate = (input: object, token = adminToken) =>
+    request(app.getHttpServer())
+      .post('/settlements/generate')
+      .set('Authorization', `Bearer ${token}`)
+      .send(input);
+  const voidGeneration = (id: string, token = adminToken) =>
+    request(app.getHttpServer())
+      .post(`/settlements/${id}/generation/void`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        confirmed: true,
+        reason: 'Anulación administrativa para corregir fuentes',
+      });
+  const requestPayout = (id: string, amount = '938.02') =>
+    request(app.getHttpServer())
+      .post(`/settlements/${id}/payout`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        confirmed: true,
+        expectedAmount: amount,
+        currency: 'ARS',
+        recipientEmail: 'owner@calculation.test',
+      });
+
+  const holdFirstCalculation = () => {
+    const calculator = app.get(SettlementCalculationService);
+    const original = calculator.calculate.bind(calculator);
+    let observed!: () => void;
+    let resume!: () => void;
+    const initial = new Promise<void>((resolve) => {
+      observed = resolve;
+    });
+    const release = new Promise<void>((resolve) => {
+      resume = resolve;
+    });
+    let calls = 0;
+    const calculate = jest
+      .spyOn(calculator, 'calculate')
+      .mockImplementation(async (...args: Parameters<typeof original>) => {
+        const value = await original(...args);
+        if (++calls === 1) {
+          observed();
+          await release;
+        }
+        return value;
+      });
+    return { initial, resume, restore: () => calculate.mockRestore() };
+  };
+
+  it('keeps generation and void disabled, including before opening a transaction', async () => {
+    const input = await generationInput();
+    const tx = jest.spyOn(dataSource, 'transaction');
+    try {
+      await generate(input).expect(503);
+      await voidGeneration(randomUUID()).expect(503);
+      expect(tx).not.toHaveBeenCalled();
+    } finally {
+      tx.mockRestore();
+    }
+  });
+
+  it('atomically generates once under concurrent retries, snapshots deductions and reserves invoices', async () => {
+    payoutEnabled = true;
+    const input = {
+      ...(await generationInput()),
+      additionalWithholdings: '38.02',
+      withholdingReason: 'Retención manual confirmada por administración',
+    };
+    const responses = await Promise.all([
+      generate(input).expect(201),
+      generate(input).expect(201),
+    ]);
+    expect(responses[0].body).toEqual(responses[1].body);
+    const generated = responses[0].body;
+    expect(generated).toMatchObject({
+      state: 'active',
+      snapshot: { netAmount: '900.00', additionalWithholdings: '38.02' },
+    });
+    const [settlement] = await dataSource.query(
+      'SELECT status,net_amount::text,withholdings_amount::text FROM settlements WHERE id=$1',
+      [generated.settlementId],
+    );
+    expect(settlement).toEqual({
+      status: 'pending',
+      net_amount: '900.00',
+      withholdings_amount: '38.02',
+    });
+    expect((await preview().expect(200)).body).toMatchObject({
+      invoices: [],
+      existingSettlementIds: [generated.settlementId],
+    });
+    await generate({
+      ...input,
+      withholdingReason: 'Otra explicación de retención',
+    }).expect(409);
+    await generate({ ...input, idempotencyKey: randomUUID() }).expect(409);
+    const [counts] = await dataSource.query(
+      `SELECT (SELECT count(*) FROM settlement_generation_sources WHERE company_id=$1)::int AS sources,
+      (SELECT count(*) FROM settlement_payout_outbox WHERE company_id=$1)::int AS payouts`,
+      [companyId],
+    );
+    expect(counts).toEqual({ sources: 1, payouts: 0 });
+  });
+
+  it('rejects stale confirmation, excessive deductions, malformed input and untracked history', async () => {
+    payoutEnabled = true;
+    const input = await generationInput();
+    await generate({ ...input, expectedFingerprint: '0'.repeat(64) }).expect(
+      409,
+    );
+    await generate({ ...input, additionalWithholdings: '938.02' }).expect(409);
+    await generate({ ...input, additionalWithholdings: '-1.00' }).expect(400);
+    await generate({ ...input, confirmed: false }).expect(400);
+    await generate({ ...input, withholdingReason: 'short' }).expect(400);
+    await dataSource.query(
+      `INSERT INTO settlements(owner_id,period,gross_amount,commission_amount,net_amount,currency) VALUES($1,'2026-07',100,0,100,'ARS')`,
+      [ownerId],
+    );
+    await generate(await generationInput()).expect(409);
+  });
+
+  it('rejects a collection cancelled between initial validation and source locking', async () => {
+    payoutEnabled = true;
+    const input = await generationInput();
+    const hold = holdFirstCalculation();
+    try {
+      const result = generate(input).then((response) => response);
+      await hold.initial;
+      await dataSource.query(
+        `UPDATE payments SET status='cancelled' WHERE id=$1`,
+        [paymentIds[0]],
+      );
+      hold.resume();
+      expect((await result).status).toBe(409);
+      const [count] = await dataSource.query(
+        'SELECT count(*)::int AS count FROM settlements WHERE owner_id=$1',
+        [ownerId],
+      );
+      expect(count.count).toBe(0);
+    } finally {
+      hold.resume();
+      hold.restore();
+    }
+  });
+
+  it('reserves each invoice once under distinct concurrent generation keys', async () => {
+    payoutEnabled = true;
+    const input = await generationInput();
+    const results = await Promise.all([
+      generate(input),
+      generate({ ...input, idempotencyKey: randomUUID() }),
+    ]);
+    expect(results.map((result) => result.status).sort()).toEqual([201, 409]);
+  });
+
+  it('allows supplementary paid invoices in the same period without reserving an earlier source again', async () => {
+    payoutEnabled = true;
+    const first = (await generate(await generationInput()).expect(201)).body;
+    const [secondInvoice] = await dataSource.query(
+      `INSERT INTO invoices(company_id,lease_id,owner_id,tenant_account_id,invoice_number,period_start,period_end,due_date,subtotal,total_amount,paid_amount,status,currency)
+      SELECT company_id,lease_id,owner_id,tenant_account_id,'SUPPLEMENTARY',period_start,period_end,due_date,100,100,100,'paid','ARS' FROM invoices WHERE id=$1 RETURNING id`,
+      [invoiceId],
+    );
+    await dataSource.query(
+      'UPDATE payments SET amount=amount+100 WHERE id=$1',
+      [paymentIds[1]],
+    );
+    await dataSource.query(
+      `INSERT INTO payment_allocations(company_id,payment_id,invoice_id,amount,previous_invoice_status) VALUES($1,$2,$3,100,'pending')`,
+      [companyId, paymentIds[1], secondInvoice.id],
+    );
+    const input = await generationInput();
+    const hold = holdFirstCalculation();
+    const generating = generate(input).then((response) => response);
+    try {
+      await hold.initial;
+      // Owner serialization must allow payout FK checks while source payments are shared.
+      await requestPayout(first.settlementId)
+        .timeout({ deadline: 5000 })
+        .expect(201);
+    } finally {
+      hold.resume();
+      await generating;
+      hold.restore();
+    }
+    const generated = await generating;
+    expect(generated.status).toBe(201);
+    const second = generated.body;
+    expect(second.settlementId).not.toBe(first.settlementId);
+    expect(
+      second.snapshot.calculation.invoices.map((i: { id: string }) => i.id),
+    ).toEqual([secondInvoice.id]);
+    expect(second.snapshot.netAmount).toBe('94.75');
+    expect((await preview().expect(200)).body.invoices).toEqual([]);
+  });
+
+  it('schedules a confirmed payout no earlier than its settlement date in Argentina', async () => {
+    payoutEnabled = true;
+    await dataSource.query(
+      `UPDATE invoices SET due_date='2999-07-10' WHERE id=$1`,
+      [invoiceId],
+    );
+    const generated = (await generate(await generationInput()).expect(201))
+      .body;
+    await requestPayout(generated.settlementId).expect(201);
+    const [job] = await dataSource.query(
+      'SELECT next_attempt_at FROM settlement_payout_outbox WHERE settlement_id=$1',
+      [generated.settlementId],
+    );
+    expect(job.next_attempt_at.toISOString()).toBe('2999-07-10T03:00:00.000Z');
+    expect(
+      (await app.get(SettlementPayoutsService).processDue()).processed,
+    ).toBe(0);
+  });
+
+  it('rolls back the settlement if source persistence fails', async () => {
+    payoutEnabled = true;
+    const input = await generationInput();
+    await dataSource.query(
+      `CREATE OR REPLACE FUNCTION generation_test_reject_source() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'intentional source failure'; END $$`,
+    );
+    await dataSource.query(
+      `CREATE TRIGGER generation_test_reject_source BEFORE INSERT ON settlement_generation_sources FOR EACH ROW WHEN(NEW.company_id='${companyId}'::uuid) EXECUTE FUNCTION generation_test_reject_source()`,
+    );
+    try {
+      await generate(input).expect(500);
+      const [row] = await dataSource.query(
+        'SELECT count(*)::int AS count FROM settlements WHERE owner_id=$1',
+        [ownerId],
+      );
+      expect(row.count).toBe(0);
+    } finally {
+      await dataSource.query(
+        'DROP TRIGGER generation_test_reject_source ON settlement_generation_sources',
+      );
+      await dataSource.query('DROP FUNCTION generation_test_reject_source()');
+    }
+    await generate(input).expect(201);
+  });
+
+  it('preserves immutable sources, releases them on audited void and permits corrected generation', async () => {
+    payoutEnabled = true;
+    const input = await generationInput();
+    const { body: first } = await generate(input).expect(201);
+    await expect(
+      dataSource.query(
+        `UPDATE settlement_generations SET snapshot='{}' WHERE id=$1`,
+        [first.id],
+      ),
+    ).rejects.toThrow('immutable');
+    await expect(
+      dataSource.query(
+        `UPDATE settlement_generation_sources SET snapshot='{}' WHERE generation_id=$1`,
+        [first.id],
+      ),
+    ).rejects.toThrow('immutable');
+    await expect(
+      dataSource.query(
+        'UPDATE settlement_generation_sources SET released_at=now() WHERE generation_id=$1',
+        [first.id],
+      ),
+    ).rejects.toThrow('Void the generation');
+    const { body: voided } = await voidGeneration(first.settlementId).expect(
+      201,
+    );
+    expect(voided).toMatchObject({ state: 'voided', snapshot: first.snapshot });
+    expect(voided.voidedBy).toBe(first.requestedBy);
+    expect(voided.voidedAt).toBeTruthy();
+    expect((await voidGeneration(first.settlementId).expect(201)).body).toEqual(
+      voided,
+    );
+    expect((await generate(input).expect(201)).body).toEqual(voided);
+    await expect(
+      dataSource.query(
+        `UPDATE settlement_generation_sources SET released_at=NULL WHERE generation_id=$1`,
+        [first.id],
+      ),
+    ).rejects.toThrow('immutable');
+    await expect(
+      dataSource.query(
+        `UPDATE settlement_generations SET void_reason='Altered explanation' WHERE id=$1`,
+        [first.id],
+      ),
+    ).rejects.toThrow('immutable');
+    const second = (await generate(await generationInput()).expect(201)).body;
+    expect(second.settlementId).not.toBe(first.settlementId);
+    await requestPayout(first.settlementId).expect(409);
+    const [row] = await dataSource.query(
+      'SELECT status FROM settlements WHERE id=$1',
+      [first.settlementId],
+    );
+    expect(row.status).toBe('cancelled');
+  });
+
+  it('does not confuse cancelled source collections with money available to transfer', async () => {
+    payoutEnabled = true;
+    const { body: g } = await generate(await generationInput()).expect(201);
+    await request(app.getHttpServer())
+      .patch(`/payments/${paymentIds[0]}/cancel`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    await requestPayout(g.settlementId).expect(409);
+    await voidGeneration(g.settlementId).expect(201);
+  });
+
+  it('rejects tampered settlement totals and preserves the agreed commission when owner settings change', async () => {
+    payoutEnabled = true;
+    const { body: g } = await generate(await generationInput()).expect(201);
+    await dataSource.query(
+      'UPDATE settlements SET gross_amount=2000 WHERE id=$1',
+      [g.settlementId],
+    );
+    await requestPayout(g.settlementId).expect(409);
+    await dataSource.query(
+      'UPDATE settlements SET gross_amount=990 WHERE id=$1',
+      [g.settlementId],
+    );
+    await dataSource.query('UPDATE owners SET commission_rate=20 WHERE id=$1', [
+      ownerId,
+    ]);
+    await requestPayout(g.settlementId).expect(201);
+  });
+
+  it('revalidates before provider intent and permits audited void of a safely failed job', async () => {
+    payoutEnabled = true;
+    const { body: g } = await generate(await generationInput()).expect(201);
+    await requestPayout(g.settlementId).expect(201);
+    await dataSource.query(
+      `UPDATE credit_notes SET amount=20 WHERE company_id=$1`,
+      [companyId],
+    );
+    await app.get(SettlementPayoutsService).processDue();
+    const [job] = await dataSource.query(
+      'SELECT status,error_code,payout_id FROM settlement_payout_outbox WHERE settlement_id=$1',
+      [g.settlementId],
+    );
+    expect(job).toEqual({
+      status: 'failed',
+      error_code: 'source_changed',
+      payout_id: null,
+    });
+    await voidGeneration(g.settlementId).expect(201);
+  });
+
+  it('cancels a queued payout but never releases an uncertain transfer', async () => {
+    payoutEnabled = true;
+    const { body: g } = await generate(await generationInput()).expect(201);
+    await requestPayout(g.settlementId).expect(201);
+    await dataSource.query(
+      `UPDATE settlement_payout_outbox SET status='dispatching' WHERE settlement_id=$1`,
+      [g.settlementId],
+    );
+    await voidGeneration(g.settlementId).expect(409);
+    // Restore an unsubmitted fixture; no provider is called by this test.
+    await dataSource.query(
+      `UPDATE settlement_payout_outbox SET status='queued' WHERE settlement_id=$1`,
+      [g.settlementId],
+    );
+    await voidGeneration(g.settlementId).expect(201);
+    const [job] = await dataSource.query(
+      'SELECT status,error_code FROM settlement_payout_outbox WHERE settlement_id=$1',
+      [g.settlementId],
+    );
+    expect(job).toEqual({ status: 'failed', error_code: 'generation_voided' });
+    await request(app.getHttpServer())
+      .post(`/settlements/${g.settlementId}/payout/review`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        action: 'retry',
+        confirmed: true,
+        reason: 'No debe reenviarse una liquidación anulada',
+      })
+      .expect(409);
+  });
+
+  it('still reconciles an already submitted payout after its source changes', async () => {
+    payoutEnabled = true;
+    const { body: g } = await generate(await generationInput()).expect(201);
+    await requestPayout(g.settlementId).expect(201);
+    const suffix = randomUUID().replaceAll('-', '');
+    await dataSource.query(
+      `UPDATE settlement_payout_outbox SET status='awaiting',payout_id=$2,transaction_id=$3 WHERE settlement_id=$1`,
+      [g.settlementId, `POP${suffix}`, `TOP${suffix}`],
+    );
+    await dataSource.query(
+      `UPDATE payments SET status='cancelled' WHERE id=$1`,
+      [paymentIds[0]],
+    );
+    const remote = jest
+      .spyOn(app.get(MercadoPagoPayoutsClient), 'transaction')
+      .mockResolvedValue({
+        id: `TOP${suffix}`,
+        external_reference: `rent_settlement_${g.settlementId}`,
+        status: 'success',
+        status_detail: 'accredited',
+        last_update_date: '2026-09-01T12:00:00Z',
+        amount: { currency: 'ARS', value: 938.02 },
+      });
+    try {
+      await app.get(SettlementPayoutsService).processDue();
+      expect(remote).toHaveBeenCalledTimes(1);
+      const [settlement] = await dataSource.query(
+        'SELECT status FROM settlements WHERE id=$1',
+        [g.settlementId],
+      );
+      expect(settlement.status).toBe('completed');
+      await voidGeneration(g.settlementId).expect(409);
+    } finally {
+      remote.mockRestore();
+    }
+  });
+
+  it('keeps snapshots readable while disabled and enforces company and admin scope on all generation routes', async () => {
+    payoutEnabled = true;
+    const input = await generationInput();
+    await generate(input, foreignToken).expect(404);
+    for (const token of [ownerToken, tenantToken, staffToken])
+      await generate(input, token).expect(403);
+    const { body: g } = await generate(input).expect(201);
+    await voidGeneration(g.settlementId, foreignToken).expect(404);
+    for (const token of [ownerToken, tenantToken, staffToken])
+      await voidGeneration(g.settlementId, token).expect(403);
+    payoutEnabled = false;
+    await request(app.getHttpServer())
+      .get(`/settlements/${g.settlementId}/generation`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    await request(app.getHttpServer())
+      .get(`/settlements/${g.settlementId}/generation`)
+      .set('Authorization', `Bearer ${foreignToken}`)
+      .expect(404);
+    for (const token of [ownerToken, tenantToken, staffToken])
+      await request(app.getHttpServer())
+        .get(`/settlements/${g.settlementId}/generation`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(403);
   });
 });

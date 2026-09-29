@@ -1425,7 +1425,8 @@
       "pending": "Pendente",
       "processing": "Em processamento",
       "completed": "Concluído",
-      "failed": "Falhou"
+      "failed": "Falhou",
+      "cancelled": "Cancelada"
     }
   },
   "tenantPortal": {

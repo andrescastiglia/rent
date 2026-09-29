@@ -31,17 +31,67 @@ propuesta es la mayor entre vencimientos y fechas de cobro; no ejecuta tareas al
 alcanzarse esa fecha.
 
 La respuesta informa las liquidaciones existentes del propietario/período, aun
-cuando tengan otra moneda. No se descuentan automáticamente ni se presume que
-sus fuentes están libres. El `fingerprint` identifica el cálculo y sus fuentes;
-no es una firma ni una reserva. La generación durable debe volver a validar y
-reservar esas fuentes en su propia transacción, resolver el historial previo y
-controlar anulaciones concurrentes. Ese flujo sigue pendiente y el cron antiguo
-permanece suspendido.
+cuando tengan otra moneda, y excluye facturas reservadas por generaciones activas.
+Las liquidaciones históricas sin fuentes requieren reconciliación explícita antes
+de generar otra en ese período. El `fingerprint` identifica el cálculo y sus
+fuentes; no es una firma ni una reserva. La generación vuelve a validar y reservar
+las fuentes en su propia transacción.
 
 Evidencia: `backend/test/settlement-calculation.e2e-spec.ts` verifica cálculos con
 PostgreSQL real, exactitud de centavos, comprobantes divididos, créditos, aislamiento,
-permisos y ausencia de llamadas externas. No se agregan migraciones ni ajustes de
-configuración para esta lectura.
+permisos y ausencia de llamadas externas. La lectura usa las reservas de la
+migración 119. No configura proveedores.
+
+## Generación durable y anulación de liquidaciones
+
+La migración 119 agrega `settlement_generations` y `settlement_generation_sources`.
+Cada generación conserva solicitante, solicitud idempotente y snapshot inmutable
+(cálculo confirmado, retenciones adicionales explícitas, motivo e importe neto).
+Cada factura puede estar reservada por una sola generación activa. Esto reemplaza
+la unicidad propietario/período y permite liquidaciones suplementarias por cobros
+posteriores, sin volver a incluir fuentes ya reservadas. No hay backfill histórico.
+
+- `POST /settlements/generate`: administrador, compañía autenticada, UUID de
+  idempotencia, fingerprint esperado y confirmación explícita. Las retenciones
+  adicionales requieren importe y motivo, incluso para confirmar `0.00`; no se
+  calculan impuestos automáticamente. Genera una liquidación `pending` con su
+  snapshot y fuentes en un solo commit, sin solicitar transferencias.
+- `GET /settlements/:id/generation`: snapshot y auditoría administrativos, también
+  disponible con el proveedor deshabilitado.
+- `POST /settlements/:id/generation/void`: confirmación y motivo. Anula y libera
+  fuentes solamente sin envío, con trabajo todavía en cola o con rechazo definitivo
+  sin IDs remotos. Cancela la cola local y marca la liquidación `cancelled`. Envíos
+  en curso, inciertos o con movimientos requieren conciliación y no se liberan.
+  Repetir una anulación devuelve la misma auditoría; la clave original de generación
+  sigue devolviendo su resultado anulado, no crea otra liquidación.
+
+Las dos mutaciones están bloqueadas antes de acceder a la base mientras
+`MERCADOPAGO_PAYOUTS_ENABLED` no sea `true`. No se activa ni configura esa variable.
+El generador serializa por propietario y bloquea pagos antes de facturas para
+mantener el orden de anulación de cobros. Recalcula después de bloquear las fuentes;
+una confirmación desactualizada devuelve `409`. Las reservas, claves únicas e
+inmutabilidad también están protegidas en PostgreSQL.
+
+Antes de encolar una transferencia de una liquidación generada y antes de persistir
+la intención de enviarla, se comparan los importes de la liquidación y las fuentes
+con el snapshot. Cambiar después la comisión del propietario no modifica el acuerdo
+ya generado. Anular un cobro o alterar una nota de crédito bloquea un nuevo envío;
+el trabajo queda fallido con `source_changed` y requiere anulación/regeneración.
+La cola respeta como fecha mínima la fecha programada a medianoche de
+`America/Argentina/Buenos_Aires`. Los IDs remotos existentes siguen conciliándose
+aunque cambie una fuente: una acreditación real siempre se registra. La recuperación de deuda del propietario
+por anulaciones posteriores a una transferencia y las devoluciones parciales
+siguen pendientes; sus fuentes permanecen reservadas y no se transfieren otra vez.
+
+Se eliminó la simulación de transferencias del batch, incluso con `NODE_ENV=test`.
+El comando antiguo solo conserva su modo de consulta legado; para cálculos con
+fuentes exactas se usa el endpoint nuevo. El cron continúa suspendido.
+
+Rollback: mantener proveedores deshabilitados y cron suspendido. Conservar las
+nuevas tablas, snapshots y auditorías. No reconstruir la restricción antigua
+propietario/período ni borrar generaciones si existen liquidaciones suplementarias;
+preferir una corrección hacia adelante y una versión de UI compatible con
+`cancelled`. No se enviaron fondos ni se crearon cuentas durante estas pruebas.
 
 ## BFA: sellado e integridad
 

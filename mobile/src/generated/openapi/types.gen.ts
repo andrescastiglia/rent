@@ -2236,6 +2236,17 @@ export type UpdateBankAccountDto = {
   [key: string]: unknown;
 };
 
+export type GenerateSettlementDto = {
+  confirmed: true;
+  idempotencyKey: string;
+  expectedFingerprint: string;
+  additionalWithholdings: string;
+  withholdingReason: string;
+  ownerId: string;
+  period: string;
+  currency: string;
+};
+
 export type SettlementSourceAllocationDto = {
   id: string;
   paymentId: string;
@@ -2284,6 +2295,30 @@ export type SettlementCalculationDto = {
   fingerprint: string;
 };
 
+export type SettlementGenerationSnapshotDto = {
+  calculation: SettlementCalculationDto;
+  additionalWithholdings: string;
+  withholdingReason: string;
+  netAmount: string;
+};
+
+export type SettlementGenerationDto = {
+  id: string;
+  settlementId: string;
+  state: 'active' | 'voided';
+  requestedBy: string;
+  createdAt: string;
+  voidedBy: string | null;
+  voidedAt: string | null;
+  voidReason: string | null;
+  snapshot: SettlementGenerationSnapshotDto;
+};
+
+export type VoidSettlementGenerationDto = {
+  confirmed: true;
+  reason: string;
+};
+
 export type Settlement = {
   id: string;
   ownerId: string;
@@ -2293,7 +2328,7 @@ export type Settlement = {
   commissionAmount: number;
   withholdingsAmount: number;
   netAmount: number;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
   scheduledDate: string | null;
   processedAt: string | null;
   transferReference: string | null;
@@ -6277,6 +6312,52 @@ export type BankAccountsUpdateResponses = {
 export type BankAccountsUpdateResponse =
   BankAccountsUpdateResponses[keyof BankAccountsUpdateResponses];
 
+export type SettlementGenerationGenerateData = {
+  body: GenerateSettlementDto;
+  path?: never;
+  query?: never;
+  url: '/settlements/generate';
+};
+
+export type SettlementGenerationGenerateResponses = {
+  201: SettlementGenerationDto;
+};
+
+export type SettlementGenerationGenerateResponse =
+  SettlementGenerationGenerateResponses[keyof SettlementGenerationGenerateResponses];
+
+export type SettlementGenerationGetData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/settlements/{id}/generation';
+};
+
+export type SettlementGenerationGetResponses = {
+  200: SettlementGenerationDto;
+};
+
+export type SettlementGenerationGetResponse =
+  SettlementGenerationGetResponses[keyof SettlementGenerationGetResponses];
+
+export type SettlementGenerationVoidData = {
+  body: VoidSettlementGenerationDto;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/settlements/{id}/generation/void';
+};
+
+export type SettlementGenerationVoidResponses = {
+  201: SettlementGenerationDto;
+};
+
+export type SettlementGenerationVoidResponse =
+  SettlementGenerationVoidResponses[keyof SettlementGenerationVoidResponses];
+
 export type SettlementCalculationPreviewData = {
   body?: never;
   path?: never;
@@ -6300,7 +6381,7 @@ export type SettlementsFindAllData = {
   path?: never;
   query?: {
     ownerId?: string;
-    status?: 'pending' | 'processing' | 'completed' | 'failed';
+    status?: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
     periodStart?: string;
     periodEnd?: string;
   };
