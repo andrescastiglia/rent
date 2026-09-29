@@ -757,6 +757,7 @@ describe('Durable confirmed contracts (e2e)', () => {
   const recoveryTools = [
     'post_leases',
     'patch_lease_by_id',
+    'patch_lease_renew',
     'post_lease_draft_render',
     'patch_lease_draft_text',
     'post_lease_confirm',
@@ -786,6 +787,20 @@ describe('Durable confirmed contracts (e2e)', () => {
       };
     }
     const id = await seed();
+    if (toolName === 'patch_lease_renew') {
+      const service = app.get(LeasesService);
+      const template = await service.createTemplate(
+        {
+          name: 'Recoverable renewal',
+          contractType: ContractType.RENTAL,
+          templateBody: 'Renewal contract text',
+        },
+        companyId,
+      );
+      await service.renderDraft(id, actor(), template.id);
+      await service.confirmDraft(id, userId, actor());
+      return { id, notes: 'Approved renewal' };
+    }
     if (toolName === 'patch_lease_by_id')
       return { id, notes: 'Approved partial edit' };
     if (toolName === 'post_lease_draft_render') {
@@ -890,6 +905,7 @@ describe('Durable confirmed contracts (e2e)', () => {
         const expectedStatus = [
           'post_leases',
           'patch_lease_by_id',
+          'patch_lease_renew',
           'post_lease_draft_render',
           'patch_lease_draft_text',
         ].includes(toolName)
@@ -943,7 +959,9 @@ describe('Durable confirmed contracts (e2e)', () => {
           }),
         ).rejects.toThrow();
         expect(await snapshot()).toEqual(before);
-        expect(await jobs()).toHaveLength(1);
+        expect(await jobs()).toHaveLength(
+          toolName === 'patch_lease_renew' ? 2 : 1,
+        );
         expect(
           await db.query('SELECT id FROM tenant_accounts WHERE lease_id=$1', [
             leaseId,
@@ -1268,5 +1286,248 @@ describe('Durable confirmed contracts (e2e)', () => {
     ]);
     expect((await row(rental)).property_id).toBe(secondProperty.id);
     expect((await row(sale)).property_id).toBe(propertyId);
+  });
+  it('renews over HTTP with inherited terms, civil dates, lineage and a fresh draft', async () => {
+    const id = await seed();
+    const service = app.get(LeasesService);
+    const template = await service.createTemplate(
+      {
+        name: 'Inherited renewal template',
+        contractType: ContractType.RENTAL,
+        templateBody: 'Renewed contract',
+      },
+      companyId,
+    );
+    await db.query(
+      `UPDATE leases SET currency='USD',payment_frequency='annual',payment_due_day=25,
+      renewal_alert_enabled=false,renewal_alert_periodicity='four_months',security_deposit=750,
+      adjustment_frequency_months=6,next_adjustment_date='2027-03-01',template_id=$2 WHERE id=$1`,
+      [id, template.id],
+    );
+    await service.confirmDraft(id, userId, actor());
+    const accounts = await db.query(
+      'SELECT * FROM tenant_accounts WHERE lease_id=$1',
+      [id],
+    );
+    const response = await request(app.getHttpServer())
+      .patch(`/contracts/${id}/renew`)
+      .auth(token, { type: 'bearer' })
+      .send({ notes: 'Renewal only' })
+      .expect(200);
+    const renewed = await row(response.body.id);
+    expect(renewed).toMatchObject({
+      status: 'draft',
+      contract_type: 'rental',
+      currency: 'USD',
+      payment_frequency: 'annual',
+      payment_due_day: 25,
+      renewal_alert_enabled: false,
+      renewal_alert_periodicity: 'four_months',
+      previous_lease_id: id,
+      version_number: 2,
+      notes: 'Renewal only',
+      template_id: template.id,
+      draft_contract_text: 'Renewed contract',
+      confirmed_contract_text: null,
+      confirmed_at: null,
+      contract_pdf_url: null,
+      next_adjustment_date: null,
+    });
+    expect(Number(renewed.security_deposit)).toBe(750);
+    expect(Number(renewed.adjustment_frequency_months)).toBe(6);
+    const [dates] = await db.query(
+      'SELECT start_date::text, end_date::text FROM leases WHERE id=$1',
+      [renewed.id],
+    );
+    expect(dates).toEqual({ start_date: '2027-09-01', end_date: '2028-08-31' });
+    expect((await row(id)).status).toBe('finalized');
+    expect(
+      (
+        await db.query('SELECT operation_state FROM properties WHERE id=$1', [
+          propertyId,
+        ])
+      )[0].operation_state,
+    ).toBe('available');
+    expect(
+      await db.query('SELECT * FROM tenant_accounts WHERE lease_id=$1', [id]),
+    ).toEqual(accounts);
+    expect(await jobs()).toHaveLength(1);
+    expect(
+      await db.query('SELECT id FROM tenant_accounts WHERE lease_id=$1', [
+        renewed.id,
+      ]),
+    ).toHaveLength(0);
+  });
+
+  it('inherits sale type, buyer and currency through an approved renewal', async () => {
+    const id = await seed(true),
+      service = app.get(LeasesService);
+    await db.query("UPDATE leases SET currency='USD' WHERE id=$1", [id]);
+    await service.confirmDraft(id, userId, actor());
+    const renewed = (await app.get(AiToolExecutorService).executeApproved(
+      'patch_lease_renew',
+      { id, notes: 'Sale renewal' },
+      {
+        companyId,
+        userId,
+        role: UserRole.ADMIN,
+        idempotencyKey: randomUUID(),
+      },
+    )) as any;
+    expect(await row(renewed.id)).toMatchObject({
+      contract_type: 'sale',
+      buyer_id: buyerId,
+      tenant_id: null,
+      currency: 'USD',
+      previous_lease_id: id,
+      version_number: 2,
+      status: 'draft',
+    });
+    expect((await row(id)).status).toBe('finalized');
+    expect(
+      (
+        await db.query('SELECT operation_state FROM properties WHERE id=$1', [
+          propertyId,
+        ])
+      )[0].operation_state,
+    ).toBe('sold');
+  });
+
+  it('rolls back the old contract and property when renewal dates are invalid', async () => {
+    const id = await seed(),
+      service = app.get(LeasesService);
+    await service.confirmDraft(id, userId, actor());
+    const before = await snapshot();
+    await request(app.getHttpServer())
+      .patch(`/contracts/${id}/renew`)
+      .auth(token, { type: 'bearer' })
+      .send({ startDate: '2028-09-01', endDate: '2028-08-01' })
+      .expect(400);
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it('rolls back a renewal when inherited template rendering fails', async () => {
+    const id = await seed(),
+      service = app.get(LeasesService);
+    const template = await service.createTemplate(
+      {
+        name: 'Renewal rollback',
+        contractType: ContractType.RENTAL,
+        templateBody: 'Renewal text',
+      },
+      companyId,
+    );
+    await db.query('UPDATE leases SET template_id=$2 WHERE id=$1', [
+      id,
+      template.id,
+    ]);
+    await service.confirmDraft(id, userId, actor());
+    const before = await snapshot();
+    const render = jest
+      .spyOn(service as any, 'renderDraftWithManager')
+      .mockRejectedValue(new Error('renewal render failed'));
+    try {
+      await expect(
+        service.renew(id, {}, actor(), randomUUID()),
+      ).rejects.toThrow('renewal render failed');
+    } finally {
+      render.mockRestore();
+    }
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it('serializes different approved renewals and rejects changed terms under the original key', async () => {
+    const id = await seed(),
+      service = app.get(LeasesService);
+    await service.confirmDraft(id, userId, actor());
+    const attempts = [
+      { key: randomUUID(), notes: 'First renewal' },
+      { key: randomUUID(), notes: 'Second renewal' },
+    ];
+    const results = await Promise.allSettled(
+      attempts.map((a) =>
+        service.renew(id, { notes: a.notes }, actor(), a.key),
+      ),
+    );
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((r) => r.status === 'rejected')).toHaveLength(1);
+    const winner = results.findIndex((r) => r.status === 'fulfilled');
+    const before = await snapshot();
+    await expect(
+      service.renew(
+        id,
+        { notes: 'Different terms' },
+        actor(),
+        attempts[winner].key,
+      ),
+    ).rejects.toThrow('different operation or request');
+    expect(await snapshot()).toEqual(before);
+    expect(
+      await db.query('SELECT id FROM leases WHERE previous_lease_id=$1', [id]),
+    ).toHaveLength(1);
+  });
+
+  it('rejects renewal of an old finalized contract when its property has another active rental', async () => {
+    const id = await seed(),
+      service = app.get(LeasesService);
+    await service.confirmDraft(id, userId, actor());
+    await service.terminate(id, actor());
+    const other = await seed();
+    await service.confirmDraft(other, userId, actor());
+    const before = await snapshot();
+    await expect(
+      service.renew(id, {}, actor(), randomUUID()),
+    ).rejects.toThrow();
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it('serializes a renewal against creation of a revision of the same contract', async () => {
+    const id = await seed(),
+      service = app.get(LeasesService);
+    await service.confirmDraft(id, userId, actor());
+    const results = await Promise.allSettled([
+      service.renew(id, { notes: 'Renewal' }, actor(), randomUUID()),
+      service.update(id, { notes: 'Revision' }, actor(), randomUUID()),
+    ]);
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((r) => r.status === 'rejected')).toHaveLength(1);
+    expect(
+      await db.query('SELECT id FROM leases WHERE previous_lease_id=$1', [id]),
+    ).toHaveLength(1);
+  });
+
+  it('rejects foreign-company and tenant HTTP renewals and changes of contract identity', async () => {
+    const id = await seed(),
+      service = app.get(LeasesService);
+    await service.confirmDraft(id, userId, actor());
+    const before = await snapshot();
+    await request(app.getHttpServer())
+      .patch(`/contracts/${id}/renew`)
+      .auth(foreignToken, { type: 'bearer' })
+      .send({})
+      .expect(404);
+    await request(app.getHttpServer())
+      .patch(`/contracts/${id}/renew`)
+      .auth(tenantToken, { type: 'bearer' })
+      .send({})
+      .expect(403);
+    await request(app.getHttpServer())
+      .patch(`/contracts/${id}/renew`)
+      .auth(token, { type: 'bearer' })
+      .send({ propertyId })
+      .expect(400);
+    await expect(
+      app.get(AiToolExecutorService).executeApproved(
+        'patch_lease_renew',
+        { id, tenantId },
+        {
+          companyId,
+          userId,
+          role: UserRole.ADMIN,
+          idempotencyKey: randomUUID(),
+        },
+      ),
+    ).rejects.toThrow();
+    expect(await snapshot()).toEqual(before);
   });
 });

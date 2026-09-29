@@ -34,9 +34,9 @@ de la confirmación.
 
 No requiere una migración adicional sobre 128. Las aprobaciones históricas sin
 contrato de recuperación siguen necesitando revisión manual. Aún quedan por
-portar renovación, importación, baja y cambios de plantillas, además de herramientas
+portar importación, baja y cambios de plantillas, además de herramientas
 mutables de otros dominios. Altas y edición general/revisiones se incorporan en el
 [contrato de borradores recuperables](approved-lease-drafts.md). La renovación
-requiere su propia revisión de atomicidad y concurrencia; este avance no garantiza
+se incorpora en [su recorrido atómico](approved-lease-renewals.md); este avance no garantiza
 todo el ciclo contractual. Crons e integraciones
 permanecen deshabilitados.

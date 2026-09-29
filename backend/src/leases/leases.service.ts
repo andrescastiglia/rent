@@ -28,6 +28,7 @@ import { InterestedProfile } from '../interested/entities/interested-profile.ent
 import { CreateLeaseDto } from './dto/create-lease.dto';
 import { LeaseFiltersDto } from './dto/lease-filters.dto';
 import { UpdateLeaseDto } from './dto/update-lease.dto';
+import { RenewLeaseDto } from './dto/renew-lease.dto';
 import {
   LEASE_TEMPLATE_SOURCE_FILE_NAME_MAX_LENGTH,
   LEASE_TEMPLATE_SOURCE_MIME_TYPE_MAX_LENGTH,
@@ -104,31 +105,34 @@ export class LeasesService {
         executionKey,
         'lease.create',
         scopedDto,
-        async () => {
-          const { contractType, template, property } =
-            await this.prepareCreateLeaseContext(
-              scopedDto,
-              user.companyId,
-              manager,
-            );
-          const leases = manager.getRepository(Lease);
-          const saved = await leases.save(
-            leases.create(
-              this.buildCreateLeaseData(
-                scopedDto,
-                contractType,
-                property,
-                template,
-              ),
-            ),
-          );
-          const result = await this.findOne(saved.id, user.companyId, manager);
-          return template
-            ? this.renderDraftWithManager(manager, result, template.id)
-            : result;
-        },
+        () => this.createWithManager(manager, scopedDto),
       ),
     );
+  }
+
+  private async createWithManager(
+    manager: EntityManager,
+    dto: CreateLeaseDto,
+    previousLease?: Lease,
+  ): Promise<Lease> {
+    const { contractType, template, property } =
+      await this.prepareCreateLeaseContext(dto, dto.companyId, manager);
+    const leases = manager.getRepository(Lease);
+    const data = this.buildCreateLeaseData(
+      dto,
+      contractType,
+      property,
+      template,
+    );
+    if (previousLease) {
+      data.previousLeaseId = previousLease.id;
+      data.versionNumber = (previousLease.versionNumber ?? 1) + 1;
+    }
+    const saved = await leases.save(leases.create(data));
+    const result = await this.findOne(saved.id, dto.companyId, manager);
+    return template
+      ? this.renderDraftWithManager(manager, result, template.id)
+      : result;
   }
 
   private async prepareCreateLeaseContext(
@@ -762,25 +766,62 @@ export class LeasesService {
 
   async renew(
     id: string,
-    newTerms: Partial<CreateLeaseDto>,
+    newTerms: RenewLeaseDto,
     user: RequestUser,
+    executionKey?: string,
   ): Promise<Lease> {
-    const oldLease = await this.findOne(id, user.companyId);
+    this.requireCompanyScope(user);
+    return this.leasesRepository.manager.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        user.companyId,
+        executionKey,
+        'lease.renew',
+        { id, ...newTerms },
+        async () => {
+          const oldLease = await this.lockLease(manager, id, user.companyId);
+          if (
+            ![LeaseStatus.ACTIVE, LeaseStatus.FINALIZED].includes(
+              oldLease.status,
+            )
+          )
+            throw new BadRequestException(
+              'Only active or finalized contracts can be renewed',
+            );
+          const leases = manager.getRepository(Lease);
+          const successor = await leases.findOne({
+            where: {
+              companyId: user.companyId,
+              previousLeaseId: id,
+              deletedAt: IsNull(),
+            },
+          });
+          if (successor)
+            throw new ConflictException(
+              'This contract already has a successor; use that contract',
+            );
+          const payload = this.buildRenewalPayload(oldLease, newTerms);
+          if (oldLease.status === LeaseStatus.ACTIVE) {
+            oldLease.status = LeaseStatus.FINALIZED;
+            await leases.save(oldLease);
+            if (oldLease.contractType === ContractType.RENTAL)
+              await manager
+                .getRepository(Property)
+                .update(
+                  { id: oldLease.propertyId!, companyId: user.companyId },
+                  { operationState: PropertyOperationState.AVAILABLE },
+                );
+          }
+          return this.createWithManager(manager, payload, oldLease);
+        },
+      ),
+    );
+  }
 
-    if (
-      oldLease.status !== LeaseStatus.ACTIVE &&
-      oldLease.status !== LeaseStatus.FINALIZED
-    ) {
-      throw new BadRequestException(
-        'Only active or finalized contracts can be renewed',
-      );
-    }
-
-    if (oldLease.status === LeaseStatus.ACTIVE) {
-      oldLease.status = LeaseStatus.FINALIZED;
-      await this.leasesRepository.save(oldLease);
-    }
-
+  private buildRenewalPayload(
+    oldLease: Lease,
+    newTerms: RenewLeaseDto,
+  ): CreateLeaseDto {
     const oldStartDate = oldLease.startDate ?? null;
     const oldEndDate = oldLease.endDate ?? null;
     const fallbackStartDate = oldEndDate
@@ -791,13 +832,18 @@ export class LeasesService {
       newTerms.endDate ||
       this.computeRenewedEndDate(resolvedStartDate, oldStartDate, oldEndDate);
 
-    const payload: CreateLeaseDto = {
+    return {
       companyId: oldLease.companyId,
       propertyId: oldLease.propertyId as string,
       tenantId: oldLease.tenantId ?? undefined,
       buyerId: oldLease.buyerId ?? undefined,
       ownerId: oldLease.ownerId,
       contractType: oldLease.contractType,
+      leaseNumber: newTerms.leaseNumber,
+      templateId: newTerms.templateId ?? oldLease.templateId ?? undefined,
+      securityDeposit:
+        newTerms.securityDeposit ?? oldLease.securityDeposit ?? undefined,
+      nextAdjustmentDate: newTerms.nextAdjustmentDate,
       startDate: resolvedStartDate,
       endDate: resolvedEndDate,
       monthlyRent: newTerms.monthlyRent ?? Number(oldLease.monthlyRent ?? 0),
@@ -841,14 +887,12 @@ export class LeasesService {
       specialClauses: newTerms.specialClauses || oldLease.specialClauses,
       notes: newTerms.notes || oldLease.notes,
     };
-
-    return this.create(payload, user);
   }
 
   private computeRenewedEndDate(
     nextStartDate: string,
-    oldStartDate: Date | null,
-    oldEndDate: Date | null,
+    oldStartDate: Date | string | null,
+    oldEndDate: Date | string | null,
   ): string {
     const start = new Date(nextStartDate);
     if (Number.isNaN(start.getTime())) {
@@ -856,14 +900,16 @@ export class LeasesService {
     }
 
     if (oldStartDate && oldEndDate) {
-      const originalDurationMs = oldEndDate.getTime() - oldStartDate.getTime();
+      const originalDurationMs =
+        new Date(this.toIsoDate(oldEndDate)).getTime() -
+        new Date(this.toIsoDate(oldStartDate)).getTime();
       if (originalDurationMs > 0) {
         return this.toIsoDate(new Date(start.getTime() + originalDurationMs));
       }
     }
 
     const fallback = new Date(start);
-    fallback.setFullYear(fallback.getFullYear() + 1);
+    fallback.setUTCFullYear(fallback.getUTCFullYear() + 1);
     return this.toIsoDate(fallback);
   }
 

@@ -113,8 +113,11 @@ Pendiente: despliegue de backend/clientes compatibles.
   Altas y edición general/revisiones también usan constancia transaccional, con
   renderizado atómico, protección de confirmaciones concurrentes y PATCH sin
   reiniciar valores omitidos. Ver [reglas y pruebas](technical/approved-lease-drafts.md).
-  Pendiente: gates y despliegue de estos avances; renovaciones, importaciones,
-  bajas y plantillas de contratos siguen pendientes.
+  La renovación ahora guarda cierre del original, inmueble, nuevo borrador y
+  constancia aprobada juntos; preserva términos omitidos y vincula la versión
+  nueva, con bloqueo contra sucesores simultáneos. Ver [reglas y pruebas](technical/approved-lease-renewals.md).
+  Pendiente: gates y despliegue de estos avances; importaciones, bajas y plantillas
+  de contratos aún requieren recuperación.
   Pendiente: idempotencia transaccional de las demás herramientas mutables y despliegue.
 
 ## 2. Completar recorridos de producto

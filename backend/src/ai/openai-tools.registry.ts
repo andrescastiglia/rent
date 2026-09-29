@@ -1356,6 +1356,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The new draft lease record with incremented version number.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(RenewLeaseDto.zodSchema, { id: uuidSchema }),
       execute: async (args, context) => {
@@ -1366,6 +1367,7 @@ export function buildAiToolDefinitions(
           parsed.id,
           parsed,
           toRequestUser(context) as any,
+          context.idempotencyKey,
         );
       },
     },

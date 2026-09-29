@@ -14502,7 +14502,155 @@
       },
       "RenewLeaseDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "templateId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "leaseNumber": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string"
+          },
+          "endDate": {
+            "type": "string"
+          },
+          "monthlyRent": {
+            "type": "number",
+            "minimum": 0
+          },
+          "fiscalValue": {
+            "type": "number",
+            "minimum": 0
+          },
+          "securityDeposit": {
+            "type": "number",
+            "minimum": 0
+          },
+          "renewalAlertCustomDays": {
+            "type": "number",
+            "minimum": 1
+          },
+          "billingFrequency": {
+            "enum": [
+              "first_of_month",
+              "last_of_month",
+              "contract_date",
+              "custom"
+            ],
+            "type": "string"
+          },
+          "billingDay": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 31
+          },
+          "lateFeeType": {
+            "enum": [
+              "none",
+              "fixed",
+              "percentage",
+              "daily_fixed",
+              "daily_percentage"
+            ],
+            "type": "string"
+          },
+          "lateFeeValue": {
+            "type": "number"
+          },
+          "lateFeeGraceDays": {
+            "type": "number"
+          },
+          "lateFeeMax": {
+            "type": "number"
+          },
+          "autoGenerateInvoices": {
+            "type": "boolean"
+          },
+          "adjustmentType": {
+            "enum": [
+              "fixed",
+              "percentage",
+              "inflation_index"
+            ],
+            "type": "string"
+          },
+          "adjustmentValue": {
+            "type": "number"
+          },
+          "adjustmentFrequencyMonths": {
+            "type": "number"
+          },
+          "nextAdjustmentDate": {
+            "type": "string"
+          },
+          "inflationIndexLagMonths": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 12
+          },
+          "inflationIndexType": {
+            "enum": [
+              "icl",
+              "ipc",
+              "igp_m"
+            ],
+            "type": "string"
+          },
+          "increaseClauseType": {
+            "enum": [
+              "none",
+              "annual_fixed",
+              "annual_percentage",
+              "inflation_linked",
+              "custom_schedule"
+            ],
+            "type": "string"
+          },
+          "increaseClauseValue": {
+            "type": "number"
+          },
+          "termsAndConditions": {
+            "type": "string"
+          },
+          "specialClauses": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "paymentFrequency": {
+            "enum": [
+              "monthly",
+              "bimonthly",
+              "quarterly",
+              "semiannual",
+              "annual"
+            ],
+            "type": "string"
+          },
+          "paymentDueDay": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 31
+          },
+          "renewalAlertEnabled": {
+            "type": "boolean"
+          },
+          "renewalAlertPeriodicity": {
+            "enum": [
+              "monthly",
+              "four_months",
+              "custom"
+            ],
+            "type": "string"
+          }
+        }
       },
       "ImportCurrentLeaseDto": {
         "type": "object",
