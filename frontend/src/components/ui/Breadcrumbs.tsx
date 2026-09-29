@@ -24,6 +24,7 @@ const segmentTranslationMap: Record<
   new: { namespace: "breadcrumbs", key: "new" },
   edit: { namespace: "breadcrumbs", key: "edit" },
   settings: { namespace: "common", key: "settings" },
+  editor: { namespace: "breadcrumbs", key: "editor" },
   portals: { namespace: "breadcrumbs", key: "portals" },
   profile: { namespace: "common", key: "myProfile" },
 };

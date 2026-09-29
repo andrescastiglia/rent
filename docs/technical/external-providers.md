@@ -193,13 +193,40 @@ creación externa; un fallo en esta consulta no se confunde con una creación in
 La validación definitiva de atributos y reglas de publicación sigue en
 `POST /items/validate` antes de `POST /items`.
 
+### Editor de avisos
+
+La ruta administrativa `/{locale}/properties/{propertyId}/portals/editor` permite
+preparar un borrador con categorías, atributos/unidades, tipos de publicación y
+ubicaciones obtenidos del catálogo de la compañía. Requiere integración habilitada
+y conexión activa para consultar el catálogo o escribir. Sin ambas condiciones
+muestra el bloqueo; no solicita datos al proveedor ni crea credenciales.
+
+Guardar un borrador solo persiste sus datos. Publicar exige una acción separada,
+resumen del aviso, aviso de posibles cargos y confirmación expresa. Actualizar un
+aviso existente solo modifica título, precio, fotos, atributos y descripción;
+conserva categoría, moneda, tipo, contacto y ubicación. Pausar, reactivar y cerrar
+requieren confirmación. Cerrar no permite reactivar ese registro.
+
+El editor vuelve a consultar los datos locales después de cada escritura y
+muestra el estado de la cola, sin interpretar la aceptación como publicación
+completada. Bloquea cambios mientras hay trabajos pendientes o una incidencia
+`needs_review`. Una respuesta perdida bloquea nuevas escrituras hasta recargar
+los datos guardados; no repite envíos automáticamente. Cambios sin guardar bloquean
+las otras acciones. La recarga descarta esos cambios y consulta el estado persistido.
+
+Validación: pruebas del modelo de formulario, endpoints internos, respuestas 204
+y UI (deshabilitado/sin conexión, borradores, confirmación, estado incierto,
+atributos/unidades, ubicación y operaciones pendientes). Verificación Chromium con
+API interna simulada: alta de borrador y publicación confirmada/en cola, cero
+solicitudes externas. No acredita disponibilidad ni habilitación de cuentas reales.
+
 ### Revisión de publicaciones
 
 La ficha de la propiedad enlaza la vista administrativa
 `/{locale}/properties/{propertyId}/portals`. Muestra la última operación y las
 últimas 50 resoluciones, incluso deshabilitada. «Actualizar estado local» solo
 lee Rent; «Consultar estado en Mercado Libre» encola un `refresh` por ID, sin
-crear ni reactivar avisos. El editor y alta de avisos siguen pendientes.
+crear ni reactivar avisos. Desde esta vista se accede al editor de avisos.
 
 `GET /portals/listings/:listingId/operations/:jobId/candidate/:externalId`
 consulta el aviso mediante [GET /items/:id](https://developers.mercadolibre.com.ar/publica-productos)

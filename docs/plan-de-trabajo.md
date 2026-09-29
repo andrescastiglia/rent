@@ -79,10 +79,14 @@ El cron `process-settlements` permanece suspendido.
   Interfaz de conexión incorporada a main con gates del PR #218 aprobados.
   Revisión de incidencias implementada con auditoría y UI por propiedad: vinculación
   verificada, ausencia declarada, reintento por ID y aceptación del estado remoto.
+  Revisión incorporada a main con gates del PR #219 aprobados.
   Catálogo por compañía y alta validada de borradores implementados: categorías
   inmobiliarias, atributos, unidades, tipos disponibles y ubicaciones de Argentina.
-  Pendiente: interfaz de alta/editor y administración completa de avisos, gates
-  de revisión/catálogo y despliegue deshabilitado.
+  Catálogo incorporado a main con los 23 gates del PR #220 aprobados.
+  Editor administrativo implementado: borradores, atributos/unidades y ubicación,
+  publicación separada con confirmación, actualización, pausa, reactivación y cierre.
+  Bloquea envíos pendientes/inciertos y conserva campos inmutables de avisos existentes.
+  Pendiente: gates del editor y despliegue deshabilitado.
 - [ ] Implementar transferencias Mercado Pago con idempotencia y conciliación.
 - [ ] Verificar que ninguna integración real se invoque mientras está deshabilitada.
 
