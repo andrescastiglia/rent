@@ -1,8 +1,10 @@
 import axios, { AxiosInstance } from "axios";
 import { logger } from "../../shared/logger";
+import { parseIndexPoint } from "./index-point";
 
 interface DatosArApiResponse {
-  data?: Array<[string, number | string]>;
+  count?: number;
+  data: Array<[string, number | string]>;
 }
 
 export interface IpcIndexData {
@@ -44,8 +46,11 @@ export class IpcArService {
    * Fetches IPC data points from datos.gob.ar.
    */
   async getIpc(fromDate?: Date, toDate?: Date): Promise<IpcIndexData[]> {
+    if (this.seriesId !== IpcArService.DEFAULT_IPC_SERIES_ID)
+      throw new Error("Only the national IPC level series is supported");
     const params: Record<string, string> = {
       ids: this.seriesId,
+      limit: "1000",
     };
 
     if (fromDate) {
@@ -66,18 +71,21 @@ export class IpcArService {
         params,
       });
 
-      const rows = response.data.data || [];
+      const rows = response.data.data;
+      if (
+        !Array.isArray(rows) ||
+        rows.length >= 1000 ||
+        (response.data.count ?? rows.length) > rows.length
+      )
+        throw new Error("Invalid or incomplete IPC response");
       if (rows.length === 0) {
         logger.warn("No IPC data returned from datos.gob.ar", { params });
         return [];
       }
 
-      const parsed: IpcIndexData[] = rows
-        .map(([period, value]) => ({
-          date: this.parsePeriod(period),
-          value: Number(value),
-        }))
-        .filter((item) => Number.isFinite(item.value));
+      const parsed = rows.map(([period, value]) =>
+        parseIndexPoint(period, value, "level"),
+      );
 
       logger.info("Successfully fetched IPC data", {
         count: parsed.length,
@@ -93,10 +101,18 @@ export class IpcArService {
     }
   }
 
+  provenance() {
+    return {
+      source: "INDEC via datos.gob.ar",
+      series: this.seriesId,
+      url: `${this.apiUrl}?ids=${this.seriesId}`,
+    };
+  }
+
   private formatDate(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   }
 

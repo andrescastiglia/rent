@@ -20,6 +20,11 @@ import "reflect-metadata";
 import { config } from "dotenv";
 import { Command, InvalidArgumentError } from "commander";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
+import type {
+  IndicesSyncService,
+  SyncRange,
+  SyncResult,
+} from "./services/indices-sync.service";
 import type { BillingJobService } from "./services/billing-job.service";
 import { batchMetrics } from "./shared/metrics";
 import { startProfiling, stopProfiling } from "./shared/profiling";
@@ -268,7 +273,7 @@ function accumulateSyncIndexSuccess(
     recordsProcessed?: number;
     recordsInserted?: number;
     recordsSkipped?: number;
-    latestPeriod?: string;
+    latestPeriod?: Date;
     indexType: string;
   },
   summary: {
@@ -286,68 +291,34 @@ function accumulateSyncIndexSuccess(
   summary.totalInserted += result.recordsInserted || 0;
 }
 
-async function runAllIndicesSync(
-  syncService: any,
+async function runSyncIndices(
+  syncService: IndicesSyncService,
+  index: string,
+  range: SyncRange,
 ): Promise<SyncIndicesSummary> {
-  const results = await syncService.syncAll();
+  let results: SyncResult[];
+  if (index === "all") results = await syncService.syncAll(range);
+  else if (index === "icl") results = [await syncService.syncIcl(range)];
+  else if (index === "ipc") results = [await syncService.syncIpc(range)];
+  else if (index === "igp_m") results = [await syncService.syncIgpm(range)];
+  else throw new Error(`Invalid index type: ${index}`);
   const summary = {
     totalProcessed: 0,
     totalInserted: 0,
     totalErrors: 0,
     errorLog: [] as object[],
   };
-
   for (const result of results) {
-    if (result.error) {
+    if (result.error)
       logSyncIndexError(result.indexType, result.error, summary);
-      continue;
-    }
-    accumulateSyncIndexSuccess(result, summary);
+    else accumulateSyncIndexSuccess(result, summary);
   }
-
   return {
     recordsTotal: summary.totalProcessed,
     recordsProcessed: summary.totalInserted,
     recordsFailed: summary.totalErrors,
     errorLog: summary.errorLog,
   };
-}
-
-async function runSingleIndexSync(
-  syncService: any,
-  index: "icl" | "ipc",
-): Promise<SyncIndicesSummary> {
-  const result =
-    index === "icl" ? await syncService.syncIcl() : await syncService.syncIpc();
-
-  logger.info(`${index.toUpperCase()} sync completed`, {
-    processed: result.recordsProcessed,
-    inserted: result.recordsInserted,
-    skipped: result.recordsSkipped,
-    latestPeriod: result.latestPeriod,
-  });
-
-  return {
-    recordsTotal: result.recordsProcessed || 0,
-    recordsProcessed: result.recordsInserted || 0,
-    recordsFailed: 0,
-    errorLog: [],
-  };
-}
-
-async function runSyncIndices(
-  syncService: any,
-  index: string,
-): Promise<SyncIndicesSummary> {
-  if (index === "all") {
-    return runAllIndicesSync(syncService);
-  }
-
-  if (index === "icl" || index === "ipc") {
-    return runSingleIndexSync(syncService, index);
-  }
-
-  throw new Error(`Invalid index type: ${index}`);
 }
 
 async function processPendingSettlements(settlementService: any) {
@@ -912,9 +883,16 @@ program
  */
 program
   .command("sync-indices")
-  .description("Fetch and store latest inflation indices (ICL, IPC)")
+  .description(
+    "Fetch and store versioned inflation observations (ICL, IPC, IGP-M)",
+  )
   .option("--log <file>", "Write logs to the given file (no rotation)")
-  .option("--index <type>", "Specific index to sync (icl, ipc)", "all")
+  .option("--index <type>", "Specific index to sync (icl, ipc, igp_m)", "all")
+  .option(
+    "--from-date <date>",
+    "First observation date to refetch (YYYY-MM-DD)",
+  )
+  .option("--to-date <date>", "Last observation date to fetch (YYYY-MM-DD)")
   .action(
     withTracedAction("sync-indices", async (options) => {
       const { IndicesSyncService } =
@@ -937,12 +915,19 @@ program
         // Start job logging
         jobId = await billingJobService.startJob(
           "sync_indices",
-          { index: options.index },
+          {
+            index: options.index,
+            fromDate: options.fromDate,
+            toDate: options.toDate,
+          },
           false,
         );
 
         const syncService = new IndicesSyncService();
-        const syncSummary = await runSyncIndices(syncService, options.index);
+        const syncSummary = await runSyncIndices(syncService, options.index, {
+          fromDate: options.fromDate,
+          toDate: options.toDate,
+        });
 
         // Complete job logging
         await billingJobService.completeJob(jobId, {
@@ -957,10 +942,11 @@ program
           recordsFailed: syncSummary.recordsFailed,
         };
 
+        if (syncSummary.recordsFailed > 0) process.exitCode = 1;
         logger.info("Sync-indices process completed");
         await batchMetrics.recordJobRun({
           job: "sync_indices",
-          status: "success",
+          status: syncSummary.recordsFailed > 0 ? "failed" : "success",
           startedAtNs,
           summary: metricsSummary,
         });

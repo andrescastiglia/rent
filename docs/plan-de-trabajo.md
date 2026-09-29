@@ -57,7 +57,13 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
   Migración 124 permite días 29–31 y ajuste a fin de mes. Se retiraron conversión
   automática a ARS y retenciones sobre la deuda del inquilino; ver
   [cambios de cálculo, pruebas y límites](technical/scheduled-billing.md).
-  Pendiente: gates, configuración operativa y despliegue; cron suspendido.
+  Incorporado a main con los 23 gates del PR #238 aprobados.
+  Pendiente: configuración operativa y despliegue; cron suspendido.
+  Historial de índices implementado (migración 125): ICL diario, IPC nivel mensual,
+  IGP-M porcentaje mensual, revisiones inmutables y reintentos sin sobrescritura.
+  Ver [ingestión, pruebas y límites](technical/inflation-observations.md).
+  Pendiente: gates, cálculo acumulado común con base temporal y auditoría por ajuste,
+  migración de consumidores y despliegue; los crons siguen suspendidos.
   Pendiente: recuperación histórica,
   verificar los demás productores de documentos/proveedores y desplegar.
 

@@ -563,6 +563,13 @@ jobs:
           BATCH_BILLING_INTERNAL_TOKEN: ci-billing-token
           NODE_ENV: test
 
+      - name: Verify index ingestion history and retries
+        working-directory: batch
+        run: node scripts/verify-index-ingestion.cjs
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
+          NODE_ENV: test
+
       - name: Verify retired batch refuses settlement writes
         working-directory: batch
         run: |

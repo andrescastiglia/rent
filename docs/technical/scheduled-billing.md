@@ -58,7 +58,9 @@ Los ajustes por índice también pasan al cálculo actual del backend, que usa l
 última variación disponible y respeta la fecha de ajuste. El batch anterior usaba
 una razón entre niveles de índice; no se afirma equivalencia entre ambas fórmulas.
 La revisión de índices acumulados y su base temporal sigue pendiente y debe
-resolverse antes de habilitar la facturación programada en producción.
+resolverse antes de habilitar la facturación programada en producción. La
+[ingestión de observaciones versionadas](inflation-observations.md) prepara las
+fuentes diarias/mensuales; todavía no reemplaza ese cálculo.
 
 Tampoco se restan automáticamente las retenciones fiscales del propietario a la
 deuda del inquilino. Se mantiene el flujo de retenciones explícitas de liquidaciones,
@@ -99,8 +101,9 @@ CI ejecuta esta prueba.
 
 Validación local: 1.404 unitarias backend, 271 E2E (29 de facturación), 172 pruebas
 batch y 438 web. Se comprobaron lint, tipos backend/batch/web/mobile, compilación
-backend, generación OpenAPI, YAML de CI y aplicación repetida de 124. CI y
-despliegue del nuevo batch todavía requieren verificación independiente.
+backend, generación OpenAPI, YAML de CI y aplicación repetida de 124. Los 23
+controles de CI del PR #238 aprobaron sobre `5bfdb10`; incorporado a main.
+El despliegue del nuevo batch todavía requiere verificación independiente.
 
 Aplicar 122–124 antes del backend y batch compatibles. Mantener el cron suspendido
 hasta verificar el despliegue y la configuración operativa. No se configuran BFA,

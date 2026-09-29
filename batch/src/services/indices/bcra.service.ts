@@ -1,5 +1,6 @@
 import axios, { AxiosError, AxiosInstance } from "axios";
 import { logger } from "../../shared/logger";
+import { parseIndexPoint } from "./index-point";
 
 /**
  * Response structure from BCRA API for variable data.
@@ -87,6 +88,8 @@ export class BcraService {
    * @throws Error if API request fails.
    */
   async getIcl(fromDate: Date, toDate: Date): Promise<IclIndexData[]> {
+    if (this.iclVariableId !== 40)
+      throw new Error("Only BCRA series 40 is supported as ICL");
     const from = this.formatDate(fromDate);
     const to = this.formatDate(toDate);
     const candidates: Array<{
@@ -118,6 +121,12 @@ export class BcraService {
         );
 
         const results = this.normalizeResults(response.data.results);
+        if (
+          results.length >= 3000 ||
+          (response.data.metadata?.resultset?.count ?? results.length) >
+            results.length
+        )
+          throw new Error("Incomplete ICL response; use a smaller date range");
         if (results.length === 0) {
           logger.warn("No ICL data returned from BCRA", {
             from,
@@ -127,10 +136,9 @@ export class BcraService {
           return [];
         }
 
-        const data = results.map((item) => ({
-          date: this.parseDate(item.fecha),
-          value: item.valor,
-        }));
+        const data = results.map((item) =>
+          parseIndexPoint(item.fecha, item.valor, "level"),
+        );
 
         logger.info("Successfully fetched ICL data", {
           count: data.length,
@@ -170,6 +178,14 @@ export class BcraService {
     throw lastError instanceof Error
       ? lastError
       : new Error("Unable to fetch ICL data from BCRA");
+  }
+
+  provenance() {
+    return {
+      source: "BCRA",
+      series: `BCRA:${this.iclVariableId}`,
+      url: `${this.apiUrl}/monetarias/${this.iclVariableId}`,
+    };
   }
 
   /**
@@ -229,11 +245,14 @@ export class BcraService {
     results: Array<BcraVariableData | BcraV4VariableData> | undefined,
   ): BcraVariableData[] {
     if (!Array.isArray(results)) {
-      return [];
+      throw new Error("Invalid ICL response");
     }
 
     return results.flatMap((item) => {
+      if (item.idVariable !== undefined && item.idVariable !== 40)
+        throw new Error("Unexpected ICL series");
       if ("detalle" in item) {
+        if (!Array.isArray(item.detalle)) throw new Error("Invalid ICL detail");
         return item.detalle;
       }
       return item;

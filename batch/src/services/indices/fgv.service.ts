@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from "axios";
 import { logger } from "../../shared/logger";
+import { parseIndexPoint } from "./index-point";
 
 /**
  * Response structure from BCB API for series data.
@@ -77,7 +78,9 @@ export class FgvService {
         },
       });
 
-      if (!response.data || response.data.length === 0) {
+      if (!Array.isArray(response.data))
+        throw new Error("Invalid IGP-M response");
+      if (response.data.length === 0) {
         logger.warn("No IGP-M data returned from BCB", {
           dataInicial,
           dataFinal,
@@ -85,10 +88,9 @@ export class FgvService {
         return [];
       }
 
-      const data = response.data.map((item) => ({
-        date: this.parseDate(item.data),
-        value: Number.parseFloat(item.valor),
-      }));
+      const data = response.data.map((item) =>
+        parseIndexPoint(item.data, item.valor, "monthly_percent"),
+      );
 
       logger.info("Successfully fetched IGP-M data", {
         count: data.length,
@@ -104,6 +106,14 @@ export class FgvService {
       });
       throw error;
     }
+  }
+
+  provenance() {
+    return {
+      source: "FGV via BCB",
+      series: "SGS:189",
+      url: `${this.apiUrl}/bcdata.sgs.189/dados`,
+    };
   }
 
   /**
@@ -134,9 +144,9 @@ export class FgvService {
    * Formats a date as DD/MM/YYYY for BCB API.
    */
   private formatDate(date: Date): string {
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = date.getFullYear();
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const year = date.getUTCFullYear();
     return `${day}/${month}/${year}`;
   }
 
