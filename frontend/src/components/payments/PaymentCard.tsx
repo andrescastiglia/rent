@@ -137,6 +137,10 @@ export function PaymentCard({ payment }: PaymentCardProps) {
     }
   };
 
+  let receiptLabel = t("actions.downloadReceipt");
+  if (!payment.receipt?.pdfUrl) receiptLabel = t("receiptPreparingDescription");
+  else if (downloadingDocument === "receipt") receiptLabel = tCommon("loading");
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden border border-gray-200 dark:border-gray-700">
       <div className="p-5">
@@ -202,11 +206,7 @@ export function PaymentCard({ payment }: PaymentCardProps) {
               className="btn btn-success btn-sm"
             >
               <ReceiptText size={14} />
-              {!payment.receipt.pdfUrl
-                ? t("receiptPreparingDescription")
-                : downloadingDocument === "receipt"
-                  ? tCommon("loading")
-                  : t("actions.downloadReceipt")}
+              {receiptLabel}
             </button>
           ) : null}
           {payment.invoiceId ? (

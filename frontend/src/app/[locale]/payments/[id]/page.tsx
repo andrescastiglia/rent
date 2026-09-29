@@ -89,6 +89,10 @@ function ReceiptSection({
     return <p className="text-gray-500 dark:text-gray-400">{t("noReceipt")}</p>;
   }
 
+  let receiptLabel = t("actions.downloadReceipt");
+  if (!payment.receipt.pdfUrl) receiptLabel = t("receiptPreparingDescription");
+  else if (downloadingReceipt) receiptLabel = tCommon("loading");
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
@@ -154,11 +158,7 @@ function ReceiptSection({
         className="btn btn-success w-full"
       >
         <Download size={18} className="mr-2" />
-        {!payment.receipt.pdfUrl
-          ? t("receiptPreparingDescription")
-          : downloadingReceipt
-            ? tCommon("loading")
-            : t("actions.downloadReceipt")}
+        {receiptLabel}
       </button>
     </div>
   );

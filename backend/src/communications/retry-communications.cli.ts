@@ -1,11 +1,9 @@
-const baseUrl = process.env.APP_URL?.trim() || 'http://127.0.0.1:3001';
-const token = process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN?.trim();
-
-if (!token) {
-  throw new Error('BATCH_COMMUNICATIONS_INTERNAL_TOKEN is required');
-}
-
-async function processQueues() {
+export async function processQueues() {
+  const baseUrl = process.env.APP_URL?.trim() || 'http://127.0.0.1:3001';
+  const token = process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN?.trim();
+  if (!token) {
+    throw new Error('BATCH_COMMUNICATIONS_INTERNAL_TOKEN is required');
+  }
   let paymentEffectsFailed = false;
   for (const path of [
     '/payments/internal/process-effects',
@@ -13,7 +11,7 @@ async function processQueues() {
   ]) {
     const response = await fetch(`${baseUrl}${path}`, {
       method: 'POST',
-      headers: { 'x-batch-communications-token': token! },
+      headers: { 'x-batch-communications-token': token },
     });
     const body = await response.text();
     if (!response.ok)
@@ -28,9 +26,11 @@ async function processQueues() {
     throw new Error('Payment effects require retry or dead-letter recovery');
 }
 
-processQueues().catch((error: unknown) => {
-  process.stderr.write(
-    `${error instanceof Error ? error.message : String(error)}\n`,
-  );
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  processQueues().catch((error: unknown) => {
+    process.stderr.write(
+      `${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    process.exitCode = 1;
+  });
+}
