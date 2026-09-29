@@ -1399,4 +1399,196 @@ describe('Payment accounting flow (e2e)', () => {
       else process.env.AI_TOOLS_MODE = mode;
     }
   });
+  it('rejects inconsistent totals, fractional cents and account currencies before writing a payment', async () => {
+    const { dto, accountId } = await recoveryFixture();
+    for (const changes of [
+      {
+        amount: 110.02,
+        items: [{ description: 'One cent mismatch', amount: 110.01 }],
+      },
+      { amount: 110.001, items: [] },
+      {
+        amount: 110.01,
+        items: [{ description: 'Fractional cents', amount: 110.005 }],
+      },
+      { currencyCode: 'USD' },
+    ]) {
+      await request(app.getHttpServer())
+        .post('/payments')
+        .auth(adminToken, { type: 'bearer' })
+        .send({ ...dto, ...changes })
+        .expect(400);
+    }
+    expect(
+      await dataSource.query(
+        'SELECT id FROM payments WHERE tenant_account_id=$1',
+        [accountId],
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('requires matching concepts for amount-only edits and forbids moving a payment to another account or currency', async () => {
+    const { dto } = await recoveryFixture(),
+      service = app.get(PaymentsService);
+    const payment = await service.create(dto, adminId, companyId);
+    const before = await service.findOne(payment.id, companyId);
+    const edit = (body: object) =>
+      request(app.getHttpServer())
+        .patch(`/payments/${payment.id}`)
+        .auth(adminToken, { type: 'bearer' })
+        .send(body);
+    for (const body of [
+      { amount: 111 },
+      { currencyCode: 'USD' },
+      { tenantAccountId: randomUUID() },
+      { amount: 0.001, items: [] },
+    ])
+      await edit(body).expect(400);
+    expect(await service.findOne(payment.id, companyId)).toEqual(before);
+    await edit({ tenantAccountId: dto.tenantAccountId.toUpperCase() }).expect(
+      200,
+    );
+    const replaced = await edit({
+      items: [{ description: 'Corrected total', amount: 90 }],
+    }).expect(200);
+    expect(replaced.body.amount).toBe('90.00');
+    expect((await edit({ amount: 90 }).expect(200)).body.items).toHaveLength(1);
+    const cleared = await edit({ items: [], amount: 80 }).expect(200);
+    expect(cleared.body).toMatchObject({ amount: '80.00', items: [] });
+  });
+
+  it.each(['currency', 'concepts', 'invoice currency'])(
+    'rejects incompatible legacy %s on confirmation without any accounting effect',
+    async (fault) => {
+      const {
+          dto,
+          accountId,
+          invoiceId: freshInvoiceId,
+        } = await recoveryFixture(),
+        service = app.get(PaymentsService);
+      const payment = await service.create(dto, adminId, companyId),
+        key = randomUUID();
+      if (fault === 'currency')
+        await dataSource.query(
+          "UPDATE payments SET currency='USD' WHERE id=$1",
+          [payment.id],
+        );
+      if (fault === 'concepts')
+        await dataSource.query('UPDATE payments SET amount=111 WHERE id=$1', [
+          payment.id,
+        ]);
+      if (fault === 'invoice currency')
+        await dataSource.query(
+          "UPDATE invoices SET currency='USD' WHERE id=$1",
+          [freshInvoiceId],
+        );
+      await expect(service.confirm(payment.id, companyId, key)).rejects.toThrow(
+        fault === 'concepts' ? 'does not match' : 'currency must match',
+      );
+      expect((await service.findOne(payment.id, companyId)).status).toBe(
+        'pending',
+      );
+      expect(
+        (
+          await dataSource.query(
+            'SELECT current_balance::text FROM tenant_accounts WHERE id=$1',
+            [accountId],
+          )
+        )[0].current_balance,
+      ).toBe('110.00');
+      expect(
+        await dataSource.query(
+          'SELECT id FROM tenant_account_movements WHERE tenant_account_id=$1',
+          [accountId],
+        ),
+      ).toHaveLength(0);
+      for (const table of [
+        'receipts',
+        'payment_allocations',
+        'credit_notes',
+        'payment_effects_outbox',
+      ])
+        expect(
+          await dataSource.query(
+            `SELECT id FROM ${table} WHERE payment_id=$1`,
+            [payment.id],
+          ),
+        ).toHaveLength(0);
+      expect(
+        await dataSource.query(
+          'SELECT execution_key FROM domain_operation_receipts WHERE company_id=$1 AND execution_key=$2',
+          [companyId, key],
+        ),
+      ).toHaveLength(0);
+      await dataSource.query(
+        "UPDATE payments SET currency='ARS',amount=110 WHERE id=$1",
+        [payment.id],
+      );
+      await dataSource.query("UPDATE invoices SET currency='ARS' WHERE id=$1", [
+        freshInvoiceId,
+      ]);
+      expect((await service.confirm(payment.id, companyId, key)).status).toBe(
+        'completed',
+      );
+    },
+  );
+
+  it('settles fractional payments in exact cents instead of leaving a fully paid invoice partial', async () => {
+    const {
+        dto,
+        accountId,
+        invoiceId: freshInvoiceId,
+      } = await recoveryFixture(),
+      service = app.get(PaymentsService);
+    await dataSource.query(
+      'UPDATE invoices SET subtotal=0.80,late_fee_amount=0,total_amount=0.80 WHERE id=$1',
+      [freshInvoiceId],
+    );
+    await dataSource.query(
+      'UPDATE tenant_accounts SET current_balance=0.80 WHERE id=$1',
+      [accountId],
+    );
+    for (const amount of [0.1, 0.7]) {
+      const payment = await service.create(
+        {
+          ...dto,
+          amount,
+          items: [
+            {
+              description: 'Partial payment',
+              amount,
+              type: PaymentItemType.CHARGE,
+            },
+          ],
+        },
+        adminId,
+        companyId,
+      );
+      await service.confirm(payment.id, companyId);
+    }
+    expect(
+      (
+        await dataSource.query(
+          'SELECT paid_amount::text AS amount_paid,status FROM invoices WHERE id=$1',
+          [freshInvoiceId],
+        )
+      )[0],
+    ).toEqual({ amount_paid: '0.80', status: 'paid' });
+    expect(
+      (
+        await dataSource.query(
+          'SELECT current_balance::text FROM tenant_accounts WHERE id=$1',
+          [accountId],
+        )
+      )[0].current_balance,
+    ).toBe('0.00');
+    expect(
+      (
+        await dataSource.query(
+          'SELECT sum(amount)::text AS amount FROM payment_allocations WHERE invoice_id=$1',
+          [freshInvoiceId],
+        )
+      )[0].amount,
+    ).toBe('0.80');
+  });
 });
