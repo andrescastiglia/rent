@@ -1266,12 +1266,12 @@ program
 
 program
   .command("process-settlements")
-  .description("Calculate and process settlements for property owners")
+  .description("Legacy settlement preview (writes are disabled)")
   .option("--log <file>", "Write logs to the given file (no rotation)")
   .option("--period <period>", "Settlement period (YYYY-MM)", "")
   .option("--owner-id <id>", "Process for specific owner only")
   .option("-d, --dry-run", "Calculate without creating settlements", false)
-  .option("--process", "Process pending settlements (mark as paid)", false)
+  .option("--process", "Attempt retired processing (always rejected)", false)
   .action(
     withTracedAction("process-settlements", async (options) => {
       const { SettlementService } =
@@ -1321,10 +1321,12 @@ program
 
         await billingJobService.completeJob(jobId, summary);
 
-        logger.info("Process-settlements completed");
+        const failed = summary.recordsFailed > 0;
+        if (failed) process.exitCode = 1;
+        logger.info("Process-settlements completed", { failed });
         await batchMetrics.recordJobRun({
           job: "process_settlements",
-          status: "success",
+          status: failed ? "failed" : "success",
           startedAtNs,
           summary: metricsSummary,
         });
