@@ -122,10 +122,15 @@ Pendiente: despliegue de backend/clientes compatibles.
   la baja se serializa con confirmación/renovación y preserva sucesores y contabilidad.
   Las ediciones parciales de plantillas conservan HTML y no pierden cambios concurrentes.
   Ver [reglas y pruebas](technical/approved-lease-deletions-templates.md).
+  Bajas y plantillas incorporadas a main con los 23 gates del PR #252 aprobados.
   La importación de contratos vigentes admite clave UUID y vincula términos/archivo
   a su respuesta original. Web conserva la clave de un intento fallido para reintentar;
   ver [contrato y pruebas](technical/recoverable-contract-imports.md).
-  Pendiente: gates y despliegue de estos avances; enmiendas aún requieren recuperación.
+  Enmiendas incorporan envío, recuperación transaccional y aplicación automática
+  en la fecha de vigencia de Argentina, con auditoría, reintentos y protección de
+  facturación. Ver [reglas y pruebas](technical/automatic-lease-amendments.md).
+  Pendiente: gates y despliegue de importación/enmiendas; interfaz de enmiendas,
+  resolución administrativa de aprobaciones históricas o inválidas y worker en producción.
   Pendiente: idempotencia transaccional de las demás herramientas mutables y despliegue.
 
 ## 2. Completar recorridos de producto

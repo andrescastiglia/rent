@@ -741,6 +741,9 @@ describe('openai-tools.registry', () => {
         remove: jest.fn().mockResolvedValue(undefined),
       },
       amendmentsService: {
+        submit: jest
+          .fn()
+          .mockResolvedValue({ id: 'amd-1', status: 'pending_approval' }),
         create: jest.fn().mockResolvedValue({ id: 'amd-1' }),
         findByLease: jest.fn().mockResolvedValue([]),
         findOne: jest.fn().mockResolvedValue({ id: 'amd-1' }),
@@ -934,6 +937,7 @@ describe('openai-tools.registry', () => {
     );
     await find('get_amendments_by_lease').execute({ leaseId: id }, ctx);
     await find('get_amendment_by_id').execute({ id }, ctx);
+    await find('patch_amendment_submit').execute({ id }, ctx);
     await find('patch_amendment_approve').execute({ id }, ctx);
     await find('patch_amendment_reject').execute({ id }, ctx);
   });

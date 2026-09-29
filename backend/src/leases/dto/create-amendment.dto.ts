@@ -29,7 +29,9 @@ const createAmendmentZodSchema = z
     newValues: z
       .record(z.string(), z.unknown())
       .optional()
-      .describe('JSON object with new field values'),
+      .describe(
+        'Strict change payload: rent increase/decrease {monthlyRent}; extension {endDate}; early termination {}; clause modification {termsAndConditions and/or specialClauses}; guarantor_change/other {specialClauses} containing the complete replacement clause text. No arbitrary contract fields.',
+      ),
   })
   .strict();
 

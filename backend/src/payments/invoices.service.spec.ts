@@ -375,6 +375,10 @@ describe('InvoicesService', () => {
   });
 
   it('issue rejects non-draft invoices', async () => {
+    leasesRepository.findOne!.mockResolvedValue({
+      id: 'lease-1',
+      companyId: 'company-1',
+    });
     invoicesRepository.findOne!.mockResolvedValue({
       id: 'inv-1',
       status: InvoiceStatus.PAID,
@@ -386,6 +390,10 @@ describe('InvoicesService', () => {
   });
 
   it('issue marks invoice pending and creates account movement', async () => {
+    leasesRepository.findOne!.mockResolvedValue({
+      id: 'lease-1',
+      companyId: 'company-1',
+    });
     const draft = {
       id: 'inv-1',
       status: InvoiceStatus.DRAFT,
@@ -438,8 +446,13 @@ describe('InvoicesService', () => {
   });
 
   it('aborts invoice issue when the account movement fails', async () => {
+    leasesRepository.findOne!.mockResolvedValue({
+      id: 'lease-1',
+      companyId: 'company-1',
+    });
     invoicesRepository.findOne!.mockResolvedValue({
       id: 'inv-rollback',
+      leaseId: 'lease-1',
       companyId: 'company-1',
       status: InvoiceStatus.DRAFT,
       tenantAccountId: 'acc-1',
@@ -649,6 +662,7 @@ describe('InvoicesService', () => {
   it('does not persist cancellation when its reversal fails', async () => {
     invoicesRepository.findOne!.mockResolvedValue({
       id: 'inv-rollback',
+      leaseId: 'lease-1',
       companyId: 'company-1',
       status: InvoiceStatus.PENDING,
       tenantAccountId: 'acc-1',

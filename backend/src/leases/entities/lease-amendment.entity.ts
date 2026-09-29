@@ -97,6 +97,30 @@ export class LeaseAmendment {
   @Column({ name: 'approved_at', type: 'timestamptz', nullable: true })
   approvedAt: Date;
 
+  @Column({
+    name: 'application_status',
+    type: 'varchar',
+    length: 20,
+    default: 'none',
+  })
+  applicationStatus: 'none' | 'pending' | 'applied' | 'error' | 'legacy_review';
+
+  @Column({ name: 'applied_at', type: 'timestamptz', nullable: true })
+  appliedAt: Date | null;
+
+  @Column({ name: 'application_error', type: 'text', nullable: true })
+  applicationError: string | null;
+
+  @Column({
+    name: 'last_application_attempt_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  lastApplicationAttemptAt: Date | null;
+
+  @Column({ name: 'application_snapshot', type: 'jsonb', nullable: true })
+  applicationSnapshot: Record<string, unknown> | null;
+
   @Column({ name: 'rejection_reason', type: 'text', nullable: true })
   rejectionReason: string;
 

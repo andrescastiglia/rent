@@ -3313,6 +3313,29 @@
         ]
       }
     },
+    "/leases/internal/process-amendments": {
+      "post": {
+        "operationId": "LeaseContractEffects_processAmendments",
+        "parameters": [
+          {
+            "name": "x-batch-communications-token",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "LeaseContractEffects"
+        ]
+      }
+    },
     "/leases/internal/process-contracts": {
       "post": {
         "operationId": "LeaseContractEffects_process",
@@ -3410,6 +3433,36 @@
     "/amendments/{id}": {
       "get": {
         "operationId": "Amendments_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseAmendment"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Amendments"
+        ]
+      }
+    },
+    "/amendments/{id}/submit": {
+      "patch": {
+        "operationId": "Amendments_submit",
         "parameters": [
           {
             "name": "id",
@@ -11748,6 +11801,35 @@
             "format": "date-time",
             "type": "string"
           },
+          "applicationStatus": {
+            "enum": [
+              "none",
+              "error",
+              "pending",
+              "applied",
+              "legacy_review"
+            ],
+            "type": "string"
+          },
+          "appliedAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "applicationError": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastApplicationAttemptAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "applicationSnapshot": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          },
           "rejectionReason": {
             "type": "string"
           },
@@ -11798,6 +11880,11 @@
           "approvedBy",
           "approver",
           "approvedAt",
+          "applicationStatus",
+          "appliedAt",
+          "applicationError",
+          "lastApplicationAttemptAt",
+          "applicationSnapshot",
           "rejectionReason",
           "documentUrl",
           "signedByTenant",

@@ -487,6 +487,13 @@ export type LeaseAmendment = {
   approvedBy: string;
   approver: User;
   approvedAt: string;
+  applicationStatus: 'none' | 'error' | 'pending' | 'applied' | 'legacy_review';
+  appliedAt: string | null;
+  applicationError: string | null;
+  lastApplicationAttemptAt: string | null;
+  applicationSnapshot: {
+    [key: string]: unknown;
+  } | null;
   rejectionReason: string;
   documentUrl: string;
   signedByTenant: boolean;
@@ -4475,6 +4482,20 @@ export type LeasesImportCurrentContractLegacyResponses = {
 export type LeasesImportCurrentContractLegacyResponse =
   LeasesImportCurrentContractLegacyResponses[keyof LeasesImportCurrentContractLegacyResponses];
 
+export type LeaseContractEffectsProcessAmendmentsData = {
+  body?: never;
+  headers: {
+    'x-batch-communications-token': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/leases/internal/process-amendments';
+};
+
+export type LeaseContractEffectsProcessAmendmentsResponses = {
+  201: unknown;
+};
+
 export type LeaseContractEffectsProcessData = {
   body?: never;
   headers: {
@@ -4539,6 +4560,22 @@ export type AmendmentsFindOneResponses = {
 
 export type AmendmentsFindOneResponse =
   AmendmentsFindOneResponses[keyof AmendmentsFindOneResponses];
+
+export type AmendmentsSubmitData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/amendments/{id}/submit';
+};
+
+export type AmendmentsSubmitResponses = {
+  200: LeaseAmendment;
+};
+
+export type AmendmentsSubmitResponse =
+  AmendmentsSubmitResponses[keyof AmendmentsSubmitResponses];
 
 export type AmendmentsApproveData = {
   body?: never;
