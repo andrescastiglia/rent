@@ -1639,6 +1639,23 @@ export type CreateOwnerDto = {
   preferredContactChannel?: 'whatsapp' | 'email' | 'sms';
 };
 
+export type OwnerCollectionTotalDto = {
+  currencyCode: string;
+  /**
+   * Exact decimal amount of gross allocated collections.
+   */
+  amount: string;
+};
+
+export type OwnerSummaryDto = {
+  propertiesCount: number;
+  activeLeases: number;
+  pendingSettlements: number;
+  period: string;
+  timeZone: 'America/Argentina/Buenos_Aires';
+  collectionsByCurrency: Array<OwnerCollectionTotalDto>;
+};
+
 export type UpdateOwnerDto = {
   [key: string]: unknown;
 };
@@ -5133,9 +5150,7 @@ export type OwnersGetMyProfileSummaryData = {
 };
 
 export type OwnersGetMyProfileSummaryResponses = {
-  200: {
-    [key: string]: unknown;
-  };
+  200: OwnerSummaryDto;
 };
 
 export type OwnersGetMyProfileSummaryResponse =

@@ -1403,7 +1403,7 @@
     "settlements": "Settlements",
     "activeLeases": "Active Leases",
     "pendingSettlements": "Pending Settlements",
-    "totalIncomeMonth": "Monthly Income",
+    "totalIncomeMonth": "Allocated collections this month",
     "noSettlements": "No settlements",
     "downloadReceipt": "Download Receipt",
     "noProperties": "No properties",
@@ -1420,14 +1420,19 @@
     "rent": "Rent",
     "available": "Available",
     "rented": "Rented",
-    "loading": "Loading...",
+    "loading": "Loading summary",
     "settlementStatus": {
       "pending": "Pending",
       "processing": "Processing",
       "completed": "Completed",
       "failed": "Failed",
       "cancelled": "Cancelled"
-    }
+    },
+    "summaryError": "The summary could not be loaded.",
+    "retry": "Retry",
+    "noCollections": "No allocated collections",
+    "collectionsPeriod": "Period: {period} (Argentina).",
+    "collectionsHelp": "Gross collections by payment date. Settlements show the amount to transfer."
   },
   "tenantPortal": {
     "welcome": "Welcome",

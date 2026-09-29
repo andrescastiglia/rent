@@ -774,34 +774,32 @@ describe('OwnersService', () => {
   });
 
   describe('getOwnerSummary', () => {
-    it('returns summary with properties and aggregated counts', async () => {
-      const mockOwner = { id: 'o1', userId: 'u1', companyId: 'co1', user: {} };
-      ownersRepository.findOne.mockResolvedValue(mockOwner);
-      propertiesRepository.find.mockResolvedValue([{ id: 'p1' }, { id: 'p2' }]);
-      dataSource.query.mockResolvedValue([
-        {
-          active_leases: '3',
-          pending_settlements: '1',
-          total_income: '15000.00',
-        },
-      ]);
-
-      const result = await service.getOwnerSummary('u1', 'co1');
-
-      expect(result.owner).toEqual(mockOwner);
-      expect(result.properties).toHaveLength(2);
-      expect(result.activeLeaseCount).toBe(3);
-      expect(result.pendingSettlementsCount).toBe(1);
-      expect(result.totalIncomeCurrentMonth).toBe(15000);
-      expect(result.currencyCode).toBe('ARS');
+    it('returns exact per-currency totals without combining currencies', async () => {
+      const summary = {
+        propertiesCount: 2,
+        activeLeases: 3,
+        pendingSettlements: 1,
+        period: '2026-09',
+        timeZone: 'America/Argentina/Buenos_Aires',
+        collectionsByCurrency: [
+          { currencyCode: 'ARS', amount: '15000.01' },
+          { currencyCode: 'USD', amount: '25.99' },
+        ],
+      };
+      dataSource.query.mockResolvedValue([summary]);
+      expect(await service.getOwnerSummary('u1', 'co1')).toEqual(summary);
     });
-
-    it('throws NotFoundException when owner not found', async () => {
-      ownersRepository.findOne.mockResolvedValue(null);
-
-      await expect(service.getOwnerSummary('u-missing', 'co1')).rejects.toThrow(
+    it('rejects an owner without a profile in the authenticated company', async () => {
+      dataSource.query.mockResolvedValue([]);
+      await expect(service.getOwnerSummary('missing', 'co1')).rejects.toThrow(
         NotFoundException,
       );
+    });
+    it('requires company scope before querying', async () => {
+      await expect(service.getOwnerSummary('u1', '')).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(dataSource.query).not.toHaveBeenCalled();
     });
   });
 });
