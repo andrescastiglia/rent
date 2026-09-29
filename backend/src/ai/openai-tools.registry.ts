@@ -1430,14 +1430,17 @@ export function buildAiToolDefinitions(
       name: 'post_amendments',
       description:
         'Creates an amendment for an active lease. Specify change type: rent_increase, rent_decrease, extension, or other modification types.',
-      responseDescription: 'The created amendment record in pending status.',
+      responseDescription:
+        'The created amendment draft; submit it before requesting a decision.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: CreateAmendmentDto.zodSchema,
       execute: async (args, context) =>
         deps.amendmentsService.create(
           CreateAmendmentDto.zodSchema.parse(args),
           toRequestUser(context) as any,
+          context.idempotencyKey,
         ),
     },
     {
@@ -1475,12 +1478,31 @@ export function buildAiToolDefinitions(
       },
     },
     {
+      name: 'patch_amendment_submit',
+      description:
+        'Submits an amendment draft for administrative review on an active lease.',
+      responseDescription: 'The amendment in pending_approval status.',
+      mutability: 'mutable',
+      supportsIdempotentRecovery: true,
+      allowedRoles: ADMIN_OWNER_STAFF,
+      parameters: z.object({ id: uuidSchema }).strict(),
+      execute: async (args, context) => {
+        const { id } = z.object({ id: uuidSchema }).parse(args);
+        return deps.amendmentsService.submit(
+          id,
+          toRequestUser(context) as any,
+          context.idempotencyKey,
+        );
+      },
+    },
+    {
       name: 'patch_amendment_approve',
       description:
-        'Approves a pending amendment, applying its changes to the active lease.',
+        'Approves an amendment for automatic application on its effective date in Argentina. Check applicationStatus and applicationError to confirm application.',
       responseDescription:
-        'The approved amendment record with applied changes.',
+        'The approved amendment with its application status. Recovery returns the original result; query the amendment for its current state.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
@@ -1488,6 +1510,7 @@ export function buildAiToolDefinitions(
         return deps.amendmentsService.approve(
           id,
           toRequestUser(context) as any,
+          context.idempotencyKey,
         );
       },
     },
@@ -1497,11 +1520,16 @@ export function buildAiToolDefinitions(
         'Rejects a pending amendment. The amendment is archived without applying changes.',
       responseDescription: 'The rejected amendment record.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        return deps.amendmentsService.reject(id, toRequestUser(context) as any);
+        return deps.amendmentsService.reject(
+          id,
+          toRequestUser(context) as any,
+          context.idempotencyKey,
+        );
       },
     },
 

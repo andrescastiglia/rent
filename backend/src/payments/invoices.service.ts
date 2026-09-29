@@ -1,3 +1,4 @@
+import { assertNoPendingBillingAmendment } from '../leases/amendment-application';
 import { withDomainOperationReceipt } from '../common/helpers/domain-operation-receipt';
 import { calculateRentAdjustment } from './rent-adjustment';
 import {
@@ -86,6 +87,13 @@ export class InvoicesService {
             manager,
             dto.leaseId,
             companyId,
+          );
+
+          await assertNoPendingBillingAmendment(
+            manager,
+            lease.id,
+            companyId,
+            dto.periodEnd,
           );
 
           // Obtener o crear cuenta del inquilino
@@ -264,6 +272,13 @@ export class InvoicesService {
         dto,
       );
 
+      await assertNoPendingBillingAmendment(
+        manager,
+        lease.id,
+        companyId,
+        periodEnd,
+      );
+
       const [existing] = await manager.query(
         `SELECT id FROM invoices WHERE company_id=$1 AND lease_id=$2 AND period_start=$3 AND period_end=$4
        AND deleted_at IS NULL AND status NOT IN ('cancelled','refunded') LIMIT 1`,
@@ -374,6 +389,12 @@ export class InvoicesService {
     companyId: string,
   ): Promise<Invoice> {
     const invoicesRepository = manager.getRepository(Invoice);
+    const sourceInvoice = await invoicesRepository.findOne({
+      where: { id, companyId },
+    });
+    if (!sourceInvoice)
+      throw new NotFoundException(`Invoice with ID ${id} not found`);
+    await this.lockBillingLease(manager, sourceInvoice.leaseId, companyId);
     const invoice = await this.findOneForUpdate(
       invoicesRepository,
       id,
@@ -383,6 +404,13 @@ export class InvoicesService {
     if (invoice.status !== InvoiceStatus.DRAFT) {
       throw new BadRequestException('Only draft invoices can be issued');
     }
+
+    await assertNoPendingBillingAmendment(
+      manager,
+      invoice.leaseId,
+      companyId,
+      invoice.periodEnd,
+    );
 
     invoice.status = InvoiceStatus.PENDING;
     invoice.issuedAt = new Date();

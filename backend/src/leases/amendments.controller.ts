@@ -22,7 +22,7 @@ export class AmendmentsController {
   constructor(private readonly amendmentsService: AmendmentsService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
   create(@Body() createAmendmentDto: CreateAmendmentDto, @Request() req: any) {
     return this.amendmentsService.create(createAmendmentDto, req.user);
   }
@@ -37,14 +37,20 @@ export class AmendmentsController {
     return this.amendmentsService.findOne(id, req.user);
   }
 
+  @Patch(':id/submit')
+  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
+  submit(@Param('id') id: string, @Request() req: any) {
+    return this.amendmentsService.submit(id, req.user);
+  }
+
   @Patch(':id/approve')
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
   approve(@Param('id') id: string, @Request() req: any) {
     return this.amendmentsService.approve(id, req.user);
   }
 
   @Patch(':id/reject')
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
   reject(@Param('id') id: string, @Request() req: any) {
     return this.amendmentsService.reject(id, req.user);
   }

@@ -1,10 +1,19 @@
 import {
+  amendmentDay,
+  amendmentValues,
+  applyDueAmendments,
+} from './amendment-application';
+import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
+import { lockLeaseRows } from './lease-lock';
+import { withDomainOperationReceipt } from '../common/helpers/domain-operation-receipt';
 import {
   LeaseAmendment,
   AmendmentStatus,
@@ -34,27 +43,53 @@ export class AmendmentsService {
   ) {}
 
   async create(
-    createAmendmentDto: CreateAmendmentDto,
+    dto: CreateAmendmentDto,
     user: AmendmentActor,
+    executionKey?: string,
   ): Promise<LeaseAmendment> {
-    const lease = await this.findLeaseScoped(createAmendmentDto.leaseId, user);
-
-    if (lease.status !== LeaseStatus.ACTIVE) {
-      throw new BadRequestException(
-        'Amendments can only be created for active leases',
+    this.requireCompany(user);
+    const request = { ...dto, companyId: user.companyId };
+    return this.amendmentsRepository.manager.transaction(async (manager) => {
+      await this.authorizeRecovery(manager, user, dto.leaseId);
+      return withDomainOperationReceipt(
+        manager,
+        user.companyId,
+        executionKey,
+        'amendment.create',
+        request,
+        async () => {
+          await lockLeaseRows(manager, dto.leaseId, user.companyId);
+          const lease = await this.findLeaseScoped(dto.leaseId, user, manager);
+          this.requireActive(lease);
+          const [{ number }] = await manager.query(
+            'SELECT COALESCE(MAX(amendment_number),0)::bigint+1 AS number FROM lease_amendments WHERE lease_id=$1 AND company_id=$2',
+            [lease.id, user.companyId],
+          );
+          const amendmentNumber = Number(number);
+          if (
+            !Number.isSafeInteger(amendmentNumber) ||
+            amendmentNumber < 1 ||
+            amendmentNumber > 2147483647
+          )
+            throw new ConflictException(
+              'Amendment numbering capacity exceeded',
+            );
+          amendmentDay(dto.effectiveDate);
+          const values = amendmentValues(dto.changeType, dto.newValues);
+          const repository = manager.getRepository(LeaseAmendment);
+          return repository.save(
+            repository.create({
+              ...dto,
+              newValues: values,
+              companyId: user.companyId,
+              requestedBy: user.id,
+              status: AmendmentStatus.DRAFT,
+              amendmentNumber,
+            }),
+          );
+        },
       );
-    }
-
-    const { companyId: _companyId, ...amendmentDto } = createAmendmentDto;
-    const amendment = this.amendmentsRepository.create({
-      ...amendmentDto,
-      companyId: user.companyId,
-      requestedBy: user.id,
-      status: AmendmentStatus.DRAFT,
-      amendmentNumber: 1, // This should be calculated based on existing amendments
     });
-
-    return this.amendmentsRepository.save(amendment);
   }
 
   async findByLease(
@@ -83,47 +118,186 @@ export class AmendmentsService {
     return amendment;
   }
 
-  async approve(id: string, user: AmendmentActor): Promise<LeaseAmendment> {
-    const amendment = await this.findOne(id, user);
-
-    if (amendment.status !== AmendmentStatus.PENDING_APPROVAL) {
-      throw new BadRequestException('Only pending amendments can be approved');
-    }
-
-    amendment.status = AmendmentStatus.APPROVED;
-    amendment.approvedBy = user.id;
-    amendment.approvedAt = new Date();
-
-    return this.amendmentsRepository.save(amendment);
+  submit(
+    id: string,
+    user: AmendmentActor,
+    executionKey?: string,
+  ): Promise<LeaseAmendment> {
+    return this.transition(
+      id,
+      user,
+      AmendmentStatus.PENDING_APPROVAL,
+      executionKey,
+    );
   }
 
-  async reject(id: string, user: AmendmentActor): Promise<LeaseAmendment> {
-    const amendment = await this.findOne(id, user);
+  approve(
+    id: string,
+    user: AmendmentActor,
+    executionKey?: string,
+  ): Promise<LeaseAmendment> {
+    return this.transition(id, user, AmendmentStatus.APPROVED, executionKey);
+  }
 
-    if (amendment.status !== AmendmentStatus.PENDING_APPROVAL) {
-      throw new BadRequestException('Only pending amendments can be rejected');
+  reject(
+    id: string,
+    user: AmendmentActor,
+    executionKey?: string,
+  ): Promise<LeaseAmendment> {
+    return this.transition(id, user, AmendmentStatus.REJECTED, executionKey);
+  }
+
+  private transition(
+    id: string,
+    user: AmendmentActor,
+    target: AmendmentStatus,
+    executionKey?: string,
+  ): Promise<LeaseAmendment> {
+    this.requireCompany(user);
+    return this.amendmentsRepository.manager.transaction(async (manager) => {
+      if (!isAdminOrStaff(user)) {
+        const historical = await manager.getRepository(LeaseAmendment).findOne({
+          where: { id, companyId: user.companyId },
+          withDeleted: true,
+        });
+        if (!historical) throw new NotFoundException('Amendment not found');
+        await this.authorizeRecovery(manager, user, historical.leaseId);
+      }
+      return withDomainOperationReceipt(
+        manager,
+        user.companyId,
+        executionKey,
+        `amendment.${target}`,
+        { id },
+        async () => {
+          const repository = manager.getRepository(LeaseAmendment);
+          const existing = await repository.findOne({
+            where: { id, companyId: user.companyId, deletedAt: IsNull() },
+          });
+          if (!existing) throw new NotFoundException('Amendment not found');
+          await lockLeaseRows(manager, existing.leaseId, user.companyId);
+          const lease = await this.findLeaseScoped(
+            existing.leaseId,
+            user,
+            manager,
+          );
+          const amendment = await repository.findOne({
+            where: { id, companyId: user.companyId, deletedAt: IsNull() },
+            lock: { mode: 'for_no_key_update' },
+          });
+          if (!amendment) throw new NotFoundException('Amendment not found');
+          if (amendment.leaseId !== lease.id)
+            throw new ConflictException(
+              'Amendment lease changed; reload before continuing',
+            );
+          const submitting = target === AmendmentStatus.PENDING_APPROVAL;
+          const required = submitting
+            ? AmendmentStatus.DRAFT
+            : AmendmentStatus.PENDING_APPROVAL;
+          if (amendment.status !== required)
+            throw new BadRequestException(
+              submitting
+                ? 'Only draft amendments can be submitted'
+                : 'Only pending amendments can be approved or rejected',
+            );
+          if (target !== AmendmentStatus.REJECTED) this.requireActive(lease);
+          if (target !== AmendmentStatus.REJECTED) {
+            amendmentDay(amendment.effectiveDate);
+            amendmentValues(amendment.changeType, amendment.newValues);
+          }
+          amendment.status = target;
+          if (target === AmendmentStatus.APPROVED)
+            amendment.applicationStatus = 'pending';
+          if (!submitting) {
+            amendment.approvedBy = user.id;
+            amendment.approvedAt = new Date();
+          }
+          const saved = await repository.save(amendment);
+          if (target === AmendmentStatus.APPROVED) {
+            await applyDueAmendments(manager, lease.id, user.companyId);
+            return repository.findOneByOrFail({
+              id,
+              companyId: user.companyId,
+            });
+          }
+          return saved;
+        },
+      );
+    });
+  }
+
+  async processDue(): Promise<{ applied: number; failed: number }> {
+    const candidates: Array<{ lease_id: string; company_id: string }> =
+      await this.amendmentsRepository.manager.query(
+        `SELECT lease_id,company_id FROM lease_amendments WHERE deleted_at IS NULL AND status='approved' AND application_status IN ('pending','error') AND effective_date <= (CURRENT_TIMESTAMP AT TIME ZONE 'America/Argentina/Buenos_Aires')::date GROUP BY lease_id,company_id ORDER BY MIN(last_application_attempt_at) NULLS FIRST,MIN(effective_date),lease_id LIMIT 50`,
+      );
+    const result = { applied: 0, failed: 0 };
+    for (const candidate of candidates) {
+      try {
+        const counts = await this.amendmentsRepository.manager.transaction(
+          async (manager) => {
+            await lockLeaseRows(
+              manager,
+              candidate.lease_id,
+              candidate.company_id,
+            );
+            return applyDueAmendments(
+              manager,
+              candidate.lease_id,
+              candidate.company_id,
+            );
+          },
+        );
+        result.applied += counts.applied;
+        result.failed += counts.failed;
+      } catch {
+        result.failed++;
+        await this.amendmentsRepository.manager.query(
+          `UPDATE lease_amendments SET application_status='error',application_error='Contract unavailable or application failed; review required',last_application_attempt_at=CURRENT_TIMESTAMP WHERE lease_id=$1 AND company_id=$2 AND status='approved' AND application_status IN ('pending','error') AND effective_date <= (CURRENT_TIMESTAMP AT TIME ZONE 'America/Argentina/Buenos_Aires')::date`,
+          [candidate.lease_id, candidate.company_id],
+        );
+      }
     }
+    return result;
+  }
 
-    amendment.status = AmendmentStatus.REJECTED;
-    amendment.approvedBy = user.id;
-    amendment.approvedAt = new Date();
+  private requireCompany(user: AmendmentActor): void {
+    if (!user.companyId)
+      throw new ForbiddenException('Company scope is required');
+  }
 
-    return this.amendmentsRepository.save(amendment);
+  private requireActive(lease: Lease): void {
+    if (lease.status !== LeaseStatus.ACTIVE)
+      throw new BadRequestException('Amendments require an active lease');
+  }
+
+  private async authorizeRecovery(
+    manager: EntityManager,
+    user: AmendmentActor,
+    leaseId: string,
+  ): Promise<void> {
+    // Replayed results must not bypass a former owner's current scope.
+    if (!isAdminOrStaff(user))
+      await this.findLeaseScoped(leaseId, user, manager, true);
   }
 
   private async findLeaseScoped(
     leaseId: string,
     user: AmendmentActor,
+    manager?: EntityManager,
+    withDeleted = false,
   ): Promise<Lease> {
-    const query = this.leasesRepository
+    this.requireCompany(user);
+    const query = (manager?.getRepository(Lease) ?? this.leasesRepository)
       .createQueryBuilder('lease')
       .leftJoin('lease.property', 'property')
       .leftJoin('property.owner', 'owner')
       .leftJoin('lease.tenant', 'tenant')
       .leftJoin('lease.buyer', 'buyer')
       .where('lease.id = :leaseId', { leaseId })
-      .andWhere('lease.company_id = :companyId', { companyId: user.companyId })
-      .andWhere('lease.deleted_at IS NULL');
+      .andWhere('lease.company_id = :companyId', { companyId: user.companyId });
+    if (withDeleted) query.withDeleted();
+    else query.andWhere('lease.deleted_at IS NULL');
 
     if (!isAdminOrStaff(user)) {
       const roles = getUserRoles(user);

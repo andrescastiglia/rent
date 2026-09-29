@@ -5,6 +5,7 @@ describe('AmendmentsController', () => {
     create: jest.fn(),
     findByLease: jest.fn(),
     findOne: jest.fn(),
+    submit: jest.fn(),
     approve: jest.fn(),
     reject: jest.fn(),
   };
@@ -20,6 +21,14 @@ describe('AmendmentsController', () => {
     amendmentsService.create.mockResolvedValue({ id: 'a1' });
     amendmentsService.findByLease.mockResolvedValue([]);
     amendmentsService.findOne.mockResolvedValue({ id: 'a1' });
+    amendmentsService.submit.mockResolvedValue({
+      id: 'a1',
+      status: 'pending_approval',
+    });
+    await expect(controller.submit('a1', req)).resolves.toEqual({
+      id: 'a1',
+      status: 'pending_approval',
+    });
     amendmentsService.approve.mockResolvedValue({
       id: 'a1',
       status: 'approved',

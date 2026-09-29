@@ -31,6 +31,7 @@ describe('AmendmentsService', () => {
   const mockLease: Partial<Lease> = {
     id: 'lease-1',
     status: LeaseStatus.ACTIVE,
+    companyId: 'company-1',
   };
 
   const mockAmendment: Partial<LeaseAmendment> = {
@@ -38,6 +39,9 @@ describe('AmendmentsService', () => {
     leaseId: 'lease-1',
     description: 'Rent increase',
     status: AmendmentStatus.DRAFT,
+    effectiveDate: '2099-02-01' as any,
+    changeType: AmendmentChangeType.RENT_INCREASE,
+    newValues: { monthlyRent: 1600 },
   };
 
   beforeEach(async () => {
@@ -62,9 +66,31 @@ describe('AmendmentsService', () => {
       leftJoin: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
+      withDeleted: jest.fn().mockReturnThis(),
       getOne: jest.fn().mockResolvedValue(mockLease),
     };
     leaseRepository.createQueryBuilder!.mockReturnValue(leaseQueryBuilder);
+    const manager: any = {
+      getRepository: (entity: unknown) =>
+        entity === Lease ? leaseRepository : amendmentRepository,
+      query: jest.fn(async (sql: string) =>
+        sql.includes('COALESCE(MAX')
+          ? [{ number: '1' }]
+          : sql.includes('SELECT id FROM lease_amendments')
+            ? []
+            : [{ property_id: null }],
+      ),
+      transaction: (callback: any) => callback(manager),
+    };
+    Object.assign(amendmentRepository, {
+      manager,
+      findOneByOrFail: jest.fn(
+        async () =>
+          amendmentRepository.save!.mock.results[
+            amendmentRepository.save!.mock.results.length - 1
+          ]?.value,
+      ),
+    });
   });
 
   const adminActor = {

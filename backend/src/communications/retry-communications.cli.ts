@@ -9,6 +9,7 @@ export async function processQueues() {
     '/payments/internal/process-effects',
     '/invoices/internal/process-documents',
     '/sales/internal/process-receipts',
+    '/leases/internal/process-amendments',
     '/leases/internal/process-contracts',
     '/digital-signatures/internal/process-stamps',
     '/portals/internal/process-publications',
