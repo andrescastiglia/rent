@@ -542,6 +542,7 @@ program
   .option("--log <file>", "Write logs to the given file (no rotation)")
   .option("-d, --dry-run", "Run without making changes", false)
   .option("--lease-id <id>", "Process specific lease only")
+  .option("--company-id <id>", "Process a specific company only")
   .option("--date <date>", "Process for specific date (YYYY-MM-DD)")
   .action(
     withTracedAction("billing", async (options) => {
@@ -561,12 +562,23 @@ program
         await initializeDatabase();
         billingJobService = newBillingJobService();
 
-        const billingDate = options.date ? new Date(options.date) : new Date();
+        const billingDate =
+          options.date ??
+          new Intl.DateTimeFormat("en-CA", {
+            timeZone: "America/Argentina/Buenos_Aires",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          }).format(new Date());
 
         // Start job logging
         jobId = await billingJobService.startJob(
           "billing",
-          { leaseId: options.leaseId, date: options.date },
+          {
+            leaseId: options.leaseId,
+            companyId: options.companyId,
+            date: billingDate,
+          },
           options.dryRun,
         );
 
@@ -574,25 +586,28 @@ program
         const result = await billingService.runBilling(
           billingDate,
           options.dryRun,
+          options.leaseId,
+          options.companyId,
         );
 
         logger.info("Billing process completed", {
           processedLeases: result.processedLeases,
-          invoicesCreated: result.invoicesCreated,
+          invoicesProcessed: result.invoicesProcessed,
           invoicesFailed: result.invoicesFailed,
-          totalAmount: result.totalAmount,
+          totals: result.totals,
         });
 
         // Complete job logging
         await billingJobService.completeJob(jobId, {
           recordsTotal: result.processedLeases,
-          recordsProcessed: result.invoicesCreated,
+          recordsProcessed: result.invoicesProcessed,
           recordsFailed: result.invoicesFailed,
+          recordsSkipped: result.invoicesSkipped,
           errorLog: result.errors,
         });
         metricsSummary = {
           recordsTotal: result.processedLeases,
-          recordsProcessed: result.invoicesCreated,
+          recordsProcessed: result.invoicesProcessed,
           recordsFailed: result.invoicesFailed,
         };
 
@@ -604,10 +619,11 @@ program
 
         await batchMetrics.recordJobRun({
           job: "billing",
-          status: "success",
+          status: result.invoicesFailed ? "failed" : "success",
           startedAtNs,
           summary: metricsSummary,
         });
+        if (result.invoicesFailed) process.exitCode = 1;
       } catch (error) {
         logger.error("Billing process failed", { error });
         if (jobId) {

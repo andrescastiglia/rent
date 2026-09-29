@@ -42,15 +42,22 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
   Emisión de facturas implementada con cargo, comisión y cola de PDF en una
   transacción; snapshot de plantilla/partes, reintentos, hash y estado consultable
   desde web. HTTP, IA y emisión mensual comparten el recorrido.
-  Ver [operación y límites](technical/invoice-documents.md). Pendiente: gates y despliegue.
+  Ver [operación y límites](technical/invoice-documents.md). Incorporada a main
+  con los 23 gates del PR #235 aprobados. Pendiente: despliegue.
   Generación HTTP/IA implementada con ajuste, borrador, calendario y emisión opcional
   atómicos; numeración por compañía y rechazo de períodos duplicados concurrentes.
-  Ver [evidencia y límites](technical/invoice-generation.md). Pendiente: gates,
-  despliegue y unificación del escritor independiente
-  del batch, que aún genera PDF y notificación fuera de este recorrido.
+  Ver [evidencia y límites](technical/invoice-generation.md). Incorporada a main
+  con los 23 gates del PR #236 aprobados. Pendiente: despliegue y adopción del flujo común.
   Generación con clave UUID implementada para HTTP/IA (migración 123): recupera
   la factura original, rechaza cambios de parámetros y conserva claves tras bajas.
-  Pendiente: gates, adopción por clientes/batch y despliegue.
+  Incorporada a main con los 23 gates del PR #237 aprobados.
+  Pendiente: adopción por los demás clientes y despliegue.
+  Batch de facturación migrado al backend con selección por fecha, claves estables,
+  moneda del contrato, PDF/aviso consentido en colas y validación del CLI real.
+  Migración 124 permite días 29–31 y ajuste a fin de mes. Se retiraron conversión
+  automática a ARS y retenciones sobre la deuda del inquilino; ver
+  [cambios de cálculo, pruebas y límites](technical/scheduled-billing.md).
+  Pendiente: gates, configuración operativa y despliegue; cron suspendido.
   Pendiente: recuperación histórica,
   verificar los demás productores de documentos/proveedores y desplegar.
 

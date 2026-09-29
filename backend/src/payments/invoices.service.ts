@@ -3,6 +3,7 @@ import {
   advanceBillingCalendar,
   addCalendarMonths,
 } from './billing-calendar';
+import { SCHEDULED_BILLING_ELIGIBILITY } from './scheduled-billing';
 import {
   Injectable,
   NotFoundException,
@@ -141,6 +142,7 @@ export class InvoicesService {
     leaseId: string,
     dto: GenerateInvoiceDto,
     companyId: string,
+    scheduled?: { billingDate: string },
   ): Promise<Invoice> {
     const parsed = GenerateInvoiceDto.zodSchema.safeParse(dto);
     if (!parsed.success)
@@ -155,6 +157,7 @@ export class InvoicesService {
       periodStart: dto.periodStart ?? null,
       periodEnd: dto.periodEnd ?? null,
       dueDate: dto.dueDate ?? null,
+      ...(scheduled ? { scheduledFor: scheduled.billingDate } : {}),
     });
     return this.dataSource.transaction(async (manager) => {
       const invoicesRepository = manager.getRepository(Invoice);
@@ -193,11 +196,40 @@ export class InvoicesService {
         }
       }
 
+      if (scheduled) {
+        if (lease.billingFrequency === 'custom' && !lease.billingDay)
+          throw new BadRequestException(
+            'Custom billing requires a billing day',
+          );
+        const [eligible] = await manager.query(
+          `SELECT l.id FROM leases l WHERE ${SCHEDULED_BILLING_ELIGIBILITY} AND l.id=$2 AND l.company_id=$3`,
+          [scheduled.billingDate, leaseId, companyId],
+        );
+        const expected = computeBillingPeriod(lease, {}, scheduled.billingDate);
+        if (
+          !eligible ||
+          dto.periodStart !== expected.periodStart.toISOString().slice(0, 10) ||
+          dto.periodEnd !== expected.periodEnd.toISOString().slice(0, 10) ||
+          dto.dueDate !== expected.dueDate.toISOString().slice(0, 10)
+        )
+          throw new ConflictException(
+            'Scheduled billing source changed; retry selection',
+          );
+      }
+
       const account = await this.tenantAccountsService.findByLease(
         leaseId,
         lease.companyId,
         manager,
       );
+      if (account.currencyCode !== lease.currency)
+        throw new BadRequestException(
+          'Tenant account and lease currencies must match',
+        );
+      if (scheduled && !account.isActive)
+        throw new BadRequestException(
+          'Scheduled billing requires an active tenant account',
+        );
 
       const { periodStart, periodEnd, dueDate } = computeBillingPeriod(
         lease,
@@ -232,6 +264,10 @@ export class InvoicesService {
           : 0;
 
       const total = subtotal + Number(lateFee || 0);
+      if (!Number.isFinite(total) || total < 0)
+        throw new BadRequestException(
+          'Generated invoice total must be finite and nonnegative',
+        );
 
       const invoiceNumber = await this.generateInvoiceNumber(
         companyId,

@@ -1,514 +1,116 @@
-import { AppDataSource } from "../shared/database";
-import { logger } from "../shared/logger";
-import {
-  InvoiceService,
-  CreateInvoiceData,
-  InvoiceRecord,
-  LeaseForBilling,
-} from "./invoice.service";
-import { AdjustmentService, LeaseAdjustmentData } from "./adjustment.service";
-import { ExchangeRateService } from "./exchange-rate.service";
-import { WithholdingsService } from "./withholdings.service";
-import { WhatsappService } from "./whatsapp.service";
-import { buildInvoicePaymentNotification } from "./invoice-payment-notification";
+import { InvoiceService } from "./invoice.service";
+import { z } from "zod";
 
-/**
- * Result of a billing run.
- */
-export interface BillingRunResult {
-  processedLeases: number;
-  invoicesCreated: number;
-  invoicesFailed: number;
-  errors: Array<{ leaseId: string; error: string }>;
-  totalAmount: number;
-}
+const pageSchema = z
+  .object({
+    processedLeases: z.number().int().nonnegative(),
+    invoicesProcessed: z.number().int().nonnegative(),
+    invoicesFailed: z.number().int().nonnegative(),
+    invoicesSkipped: z.number().int().nonnegative(),
+    errors: z.array(z.object({ leaseId: z.uuid(), error: z.string() })),
+    totals: z.array(
+      z.object({
+        currencyCode: z.string().regex(/^[A-Z]{3}$/),
+        amount: z.string().regex(/^\d+\.\d{2}$/),
+      }),
+    ),
+    nextCursor: z.uuid().nullable(),
+  })
+  .refine(
+    (p) =>
+      p.processedLeases ===
+        p.invoicesProcessed + p.invoicesFailed + p.invoicesSkipped &&
+      p.errors.length === p.invoicesFailed,
+  );
 
-/**
- * Result of overdue processing.
- */
+export type BillingRunResult = Omit<z.infer<typeof pageSchema>, "nextCursor">;
 export interface OverdueRunResult {
   processed: number;
   markedOverdue: number;
 }
 
-/**
- * Result of late fees processing.
- */
-export interface LateFeesRunResult {
-  processed: number;
-  feesApplied: number;
-  totalFees: number;
-}
-
-/**
- * Company withholding rates.
- */
-interface CompanyWithholdings {
-  isRetentionAgent: boolean;
-  retentionIibbRate: number;
-  retentionIvaRate: number;
-  retentionGananciasRate: number;
-}
-
-/**
- * Service for orchestrating the billing process.
- * Generates invoices, handles overdue marking, and applies late fees.
- */
+/** Billing writes belong to the backend transaction; this client only schedules pages. */
 export class BillingService {
-  private readonly invoiceService: InvoiceService;
-  private readonly adjustmentService: AdjustmentService;
-  private readonly exchangeRateService: ExchangeRateService;
-  private readonly withholdingsService: WithholdingsService;
-  private readonly whatsappService: WhatsappService;
+  constructor(private readonly invoiceService = new InvoiceService()) {}
 
-  /**
-   * Default late fee rate (percentage).
-   */
-  private static readonly DEFAULT_LATE_FEE_RATE = 0.02; // 2%
-
-  /**
-   * Creates an instance of BillingService.
-   */
-  constructor(
-    invoiceService?: InvoiceService,
-    adjustmentService?: AdjustmentService,
-    exchangeRateService?: ExchangeRateService,
-    withholdingsService?: WithholdingsService,
-    whatsappService?: WhatsappService,
-  ) {
-    this.invoiceService = invoiceService || new InvoiceService();
-    this.adjustmentService = adjustmentService || new AdjustmentService();
-    this.exchangeRateService = exchangeRateService || new ExchangeRateService();
-    this.withholdingsService = withholdingsService || new WithholdingsService();
-    this.whatsappService = whatsappService || new WhatsappService();
-  }
-
-  /**
-   * Runs the billing process for a specific date.
-   * Identifies leases that need invoices and generates them.
-   *
-   * @param billingDate - Date to run billing for.
-   * @param dryRun - If true, don't create actual invoices.
-   * @returns Billing run result.
-   */
   async runBilling(
-    billingDate: Date,
+    billingDate: string,
     dryRun = false,
+    leaseId?: string,
+    companyId?: string,
   ): Promise<BillingRunResult> {
+    z.iso.date().parse(billingDate);
+    if (leaseId) z.uuid().parse(leaseId);
+    if (companyId) z.uuid().parse(companyId);
+    const token = process.env.BATCH_BILLING_INTERNAL_TOKEN?.trim();
+    if (!token) throw new Error("BATCH_BILLING_INTERNAL_TOKEN not configured");
+    const url = (
+      process.env.BACKEND_INTERNAL_URL ??
+      `http://localhost:${process.env.BACKEND_PORT ?? "3001"}`
+    ).replace(/\/$/, "");
     const result: BillingRunResult = {
       processedLeases: 0,
-      invoicesCreated: 0,
+      invoicesProcessed: 0,
       invoicesFailed: 0,
+      invoicesSkipped: 0,
       errors: [],
-      totalAmount: 0,
+      totals: [],
     };
-
-    logger.info("Starting billing run", { billingDate, dryRun });
-
-    // Get leases that need billing
-    const leases = await this.invoiceService.getLeasesForBilling(billingDate);
-    result.processedLeases = leases.length;
-
-    logger.info("Found leases for billing", { count: leases.length });
-
-    for (const lease of leases) {
-      try {
-        const invoice = await this.generateInvoiceForLease(
-          lease,
+    const totals = new Map<string, bigint>();
+    let afterLeaseId: string | undefined;
+    do {
+      const response = await fetch(`${url}/invoices/internal/generate-due`, {
+        method: "POST",
+        redirect: "error",
+        signal: AbortSignal.timeout(60000),
+        headers: {
+          "Content-Type": "application/json",
+          "x-batch-billing-token": token,
+        },
+        body: JSON.stringify({
           billingDate,
           dryRun,
+          leaseId,
+          companyId,
+          afterLeaseId,
+          limit: 100,
+        }),
+      });
+      if (!response.ok)
+        throw new Error(`Scheduled billing failed: HTTP ${response.status}`);
+      const page = pageSchema.parse(await response.json());
+      if (page.nextCursor && afterLeaseId && page.nextCursor <= afterLeaseId)
+        throw new Error("Billing pagination did not advance");
+      for (const key of [
+        "processedLeases",
+        "invoicesProcessed",
+        "invoicesFailed",
+        "invoicesSkipped",
+      ] as const)
+        result[key] += page[key];
+      result.errors.push(...page.errors);
+      for (const total of page.totals) {
+        const [whole, fraction] = total.amount.split(".");
+        totals.set(
+          total.currencyCode,
+          (totals.get(total.currencyCode) ?? 0n) +
+            BigInt(whole) * 100n +
+            BigInt(fraction),
         );
-
-        if (invoice) {
-          result.invoicesCreated++;
-          result.totalAmount += invoice.total;
-          await this.notifyInvoiceGenerated(invoice);
-        }
-      } catch (error) {
-        result.invoicesFailed++;
-        result.errors.push({
-          leaseId: lease.id,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        logger.error("Failed to generate invoice for lease", {
-          leaseId: lease.id,
-          error: error instanceof Error ? error.message : error,
-        });
       }
-    }
-
-    logger.info("Billing run completed", result);
+      afterLeaseId = page.nextCursor ?? undefined;
+    } while (afterLeaseId);
+    result.totals = [...totals]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([currencyCode, amount]) => ({
+        currencyCode,
+        amount: `${amount / 100n}.${String(amount % 100n).padStart(2, "0")}`,
+      }));
     return result;
   }
 
-  private async notifyInvoiceGenerated(invoice: InvoiceRecord): Promise<void> {
-    try {
-      if (!invoice.pdfUrl) {
-        logger.warn("Skipping invoice WhatsApp without PDF URL", {
-          invoiceId: invoice.id,
-          invoiceNumber: invoice.invoiceNumber,
-        });
-        return;
-      }
-
-      const contact = await this.invoiceService.getReminderContact(invoice.id);
-      if (
-        !contact.tenantPhone ||
-        !contact.tenantId ||
-        !contact.whatsappEnabled ||
-        !invoice.companyId
-      ) {
-        logger.warn("Skipping invoice WhatsApp without consent or recipient", {
-          invoiceId: invoice.id,
-          invoiceNumber: invoice.invoiceNumber,
-        });
-        return;
-      }
-
-      const tenantName = contact.tenantName || "inquilino/a";
-      const dueDate = invoice.dueDate.toISOString().slice(0, 10);
-      const amount = invoice.total.toLocaleString("es-AR", {
-        minimumFractionDigits: 2,
-      });
-      const totalAmount = `${invoice.currencyCode} ${amount}`;
-      const paymentLink = this.invoiceService.getPaymentLink(
-        invoice.id,
-        contact.tenantLanguage ?? "es",
-      );
-      const text = buildInvoicePaymentNotification({
-        tenantName,
-        invoiceNumber: invoice.invoiceNumber,
-        dueDate,
-        totalAmount,
-        paymentLink,
-      });
-
-      const sendResult = await this.whatsappService.sendTemplateMessage(
-        contact.tenantPhone,
-        {
-          templateName: "invoice_available",
-          templateLanguage: contact.tenantLanguage ?? "es",
-          templateParameters: [
-            tenantName,
-            invoice.invoiceNumber,
-            dueDate,
-            totalAmount,
-          ],
-        },
-        text,
-        invoice.pdfUrl,
-        {
-          companyId: invoice.companyId,
-          recipientRole: "tenant",
-          recipientId: contact.tenantId,
-          idempotencyKey: `invoice-issued:${invoice.id}`,
-          relatedEntityType: "invoice",
-          relatedEntityId: invoice.id,
-        },
-      );
-
-      if (!sendResult.success) {
-        logger.warn("Invoice WhatsApp failed", {
-          invoiceId: invoice.id,
-          invoiceNumber: invoice.invoiceNumber,
-          error: sendResult.error,
-        });
-      }
-    } catch (error) {
-      logger.warn("Invoice WhatsApp notification failed", {
-        invoiceId: invoice.id,
-        invoiceNumber: invoice.invoiceNumber,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-
-  /**
-   * Generates an invoice for a single lease.
-   */
-  private async generateInvoiceForLease(
-    lease: LeaseForBilling,
-    billingDate: Date,
-    dryRun: boolean,
-  ): Promise<InvoiceRecord | null> {
-    // Calculate billing period
-    const { periodStart, periodEnd, dueDate } = this.calculateBillingPeriod(
-      lease,
-      billingDate,
-    );
-
-    // Get adjustment data
-    const adjustmentData: LeaseAdjustmentData = {
-      id: lease.id,
-      rentAmount: lease.rentAmount,
-      adjustmentType: this.mapAdjustmentType(
-        lease.adjustmentType,
-        lease.inflationIndexType,
-      ),
-      adjustmentRate: lease.adjustmentRate,
-      nextAdjustmentDate: lease.nextAdjustmentDate,
-      lastAdjustmentDate: lease.lastAdjustmentDate,
-    };
-
-    // Calculate adjusted rent
-    const adjustment = await this.adjustmentService.calculateAdjustedRent(
-      adjustmentData,
-      billingDate,
-    );
-
-    let subtotal = adjustment.adjustedAmount;
-    let exchangeRateUsed: number | undefined;
-    let originalAmount: number | undefined;
-    let originalCurrency: string | undefined;
-
-    // Handle currency conversion if needed
-    if (lease.currency && lease.currency !== "ARS") {
-      const conversion = await this.exchangeRateService.convertAmount(
-        adjustment.adjustedAmount,
-        lease.currency,
-        "ARS",
-        billingDate,
-      );
-      originalAmount = adjustment.adjustedAmount;
-      originalCurrency = lease.currency;
-      exchangeRateUsed = conversion.rate;
-      subtotal = conversion.amount;
-    }
-
-    // Calculate withholdings using dedicated service
-    let withholdingIibb = 0;
-    let withholdingIva = 0;
-    let withholdingGanancias = 0;
-
-    if (lease.companyId) {
-      const withholdings = await this.withholdingsService.calculateWithholdings(
-        lease.companyId,
-        lease.ownerId,
-        subtotal,
-      );
-      withholdingIibb = withholdings.iibb;
-      withholdingIva = withholdings.iva;
-      withholdingGanancias = withholdings.ganancias;
-    }
-
-    const total =
-      subtotal - withholdingIibb - withholdingIva - withholdingGanancias;
-
-    if (dryRun) {
-      logger.info("Dry run: would create invoice", {
-        leaseId: lease.id,
-        subtotal,
-        total,
-      });
-      return null;
-    }
-
-    // Create the invoice
-    const invoiceData: CreateInvoiceData = {
-      companyId: lease.companyId,
-      leaseId: lease.id,
-      ownerId: lease.ownerId,
-      tenantAccountId: lease.tenantAccountId,
-      periodStart,
-      periodEnd,
-      subtotal,
-      total,
-      currencyCode: "ARS",
-      dueDate,
-      originalAmount,
-      originalCurrency,
-      exchangeRateUsed,
-      exchangeRateDate: exchangeRateUsed ? billingDate : undefined,
-      withholdingIibb,
-      withholdingIva,
-      withholdingGanancias,
-      adjustmentApplied: adjustment.adjustedAmount - adjustment.originalAmount,
-      adjustmentIndexType:
-        adjustment.adjustmentType === "none"
-          ? undefined
-          : adjustment.adjustmentType,
-      adjustmentIndexValue: adjustment.currentIndexValue,
-    };
-
-    const invoice = await this.invoiceService.create(invoiceData);
-
-    // Update lease next billing date
-    const nextBillingDate = this.calculateNextBillingDate(lease, billingDate);
-    await this.invoiceService.updateLeaseNextBillingDate(
-      lease.id,
-      nextBillingDate,
-      billingDate,
-    );
-
-    return invoice;
-  }
-
-  private mapAdjustmentType(
-    adjustmentType?: string,
-    inflationIndexType?: string,
-  ): LeaseAdjustmentData["adjustmentType"] {
-    if (!adjustmentType) {
-      return "none";
-    }
-
-    if (adjustmentType === "inflation_index") {
-      if (!inflationIndexType) {
-        return "none";
-      }
-      if (inflationIndexType === "igp_m") return "igp_m";
-      if (inflationIndexType === "igpm") return "igp_m";
-      if (inflationIndexType === "ipc") return "ipc";
-      if (inflationIndexType === "icl") return "icl";
-      return "none";
-    }
-
-    if (adjustmentType === "percentage") {
-      return "fixed";
-    }
-
-    if (adjustmentType === "fixed") {
-      return "fixed";
-    }
-
-    return "none";
-  }
-
-  /**
-   * Calculates the billing period for a lease.
-   */
-  private calculateBillingPeriod(
-    lease: LeaseForBilling,
-    billingDate: Date,
-  ): { periodStart: Date; periodEnd: Date; dueDate: Date } {
-    const periodStart = new Date(billingDate);
-    periodStart.setDate(1);
-
-    const periodEnd = new Date(periodStart);
-    periodEnd.setMonth(periodEnd.getMonth() + 1);
-    periodEnd.setDate(0);
-
-    const dueDate = new Date(billingDate);
-    dueDate.setDate(dueDate.getDate() + 10); // Default 10 days to pay
-
-    return { periodStart, periodEnd, dueDate };
-  }
-
-  /**
-   * Calculates the next billing date based on frequency.
-   */
-  private calculateNextBillingDate(
-    lease: LeaseForBilling,
-    currentBillingDate: Date,
-  ): Date {
-    const next = new Date(currentBillingDate);
-
-    switch (lease.paymentFrequency) {
-      case "weekly":
-        next.setDate(next.getDate() + 7);
-        break;
-      case "biweekly":
-        next.setDate(next.getDate() + 14);
-        break;
-      case "monthly":
-      default:
-        next.setMonth(next.getMonth() + 1);
-        break;
-    }
-
-    return next;
-  }
-
-  /**
-   * Gets company withholding rates.
-   */
-  private async getCompanyWithholdings(
-    companyId?: string,
-  ): Promise<CompanyWithholdings> {
-    if (!companyId) {
-      return {
-        isRetentionAgent: false,
-        retentionIibbRate: 0,
-        retentionIvaRate: 0,
-        retentionGananciasRate: 0,
-      };
-    }
-
-    const result = await AppDataSource.query(
-      `SELECT 
-                is_retention_agent as "isRetentionAgent",
-                retention_iibb_rate as "retentionIibbRate",
-                retention_iva_rate as "retentionIvaRate",
-                retention_ganancias_rate as "retentionGananciasRate"
-             FROM companies 
-             WHERE id = $1`,
-      [companyId],
-    );
-
-    if (result.length === 0) {
-      return {
-        isRetentionAgent: false,
-        retentionIibbRate: 0,
-        retentionIvaRate: 0,
-        retentionGananciasRate: 0,
-      };
-    }
-
-    return {
-      isRetentionAgent: result[0].isRetentionAgent || false,
-      retentionIibbRate: Number.parseFloat(result[0].retentionIibbRate) || 0,
-      retentionIvaRate: Number.parseFloat(result[0].retentionIvaRate) || 0,
-      retentionGananciasRate:
-        Number.parseFloat(result[0].retentionGananciasRate) || 0,
-    };
-  }
-
-  /**
-   * Processes overdue invoices - marks them as overdue.
-   */
   async processOverdue(): Promise<OverdueRunResult> {
-    logger.info("Starting overdue processing");
-
     const markedOverdue = await this.invoiceService.markOverdue();
-
-    const result: OverdueRunResult = {
-      processed: markedOverdue,
-      markedOverdue,
-    };
-
-    logger.info("Overdue processing completed", result);
-    return result;
-  }
-
-  /**
-   * Applies late fees to overdue invoices.
-   *
-   * @param lateFeeRate - Late fee percentage (default 2%).
-   */
-  async processLateFees(
-    lateFeeRate = BillingService.DEFAULT_LATE_FEE_RATE,
-  ): Promise<LateFeesRunResult> {
-    logger.info("Starting late fees processing", { lateFeeRate });
-
-    const result: LateFeesRunResult = {
-      processed: 0,
-      feesApplied: 0,
-      totalFees: 0,
-    };
-
-    const overdueInvoices = await this.invoiceService.findOverdue();
-    result.processed = overdueInvoices.length;
-
-    for (const invoice of overdueInvoices) {
-      // Only apply late fee if not already applied
-      if (invoice.lateFee === 0) {
-        const lateFee = invoice.subtotal * lateFeeRate;
-        await this.invoiceService.applyLateFee(invoice.id, lateFee);
-        result.feesApplied++;
-        result.totalFees += lateFee;
-      }
-    }
-
-    logger.info("Late fees processing completed", result);
-    return result;
+    return { processed: markedOverdue, markedOverdue };
   }
 }

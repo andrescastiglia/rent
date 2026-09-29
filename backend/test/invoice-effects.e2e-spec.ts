@@ -14,6 +14,9 @@ import { UsersService } from '../src/users/users.service';
 import { InvoiceEffectsService } from '../src/payments/invoice-effects.service';
 import { InvoicePdfService } from '../src/payments/invoice-pdf.service';
 import { InvoicesService } from '../src/payments/invoices.service';
+import { ScheduledBillingService } from '../src/payments/scheduled-billing.service';
+import { CommunicationsService } from '../src/communications/communications.service';
+import { WhatsappService } from '../src/whatsapp/whatsapp.service';
 import { buildAiToolDefinitions } from '../src/ai/openai-tools.registry';
 import { ProviderHttpService } from '../src/integrations/provider-http.service';
 import {
@@ -37,9 +40,11 @@ describe('Durable issued invoice documents (e2e)', () => {
   const suffix = randomUUID().slice(0, 12),
     password = 'ContractsTest123!';
   const oldBatchToken = process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN;
+  const oldBillingToken = process.env.BATCH_BILLING_INTERNAL_TOKEN;
   const oldFrontendUrl = process.env.FRONTEND_URL;
   beforeAll(async () => {
     process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN = 'contracts-test-token';
+    process.env.BATCH_BILLING_INTERNAL_TOKEN = 'billing-test-token';
     process.env.FRONTEND_URL = 'https://rent.test';
     const module = await Test.createTestingModule({
       imports: [AppModule],
@@ -128,6 +133,7 @@ describe('Durable issued invoice documents (e2e)', () => {
       [companyId],
     );
     for (const table of [
+      'communication_deliveries',
       'invoice_generations',
       'invoice_effects_outbox',
       'commission_invoices',
@@ -144,6 +150,9 @@ describe('Durable issued invoice documents (e2e)', () => {
   };
   beforeEach(async () => {
     await clear();
+    await db.query('UPDATE tenants SET contact_consent=false WHERE id=$1', [
+      tenantId,
+    ]);
     network.mockClear();
   });
   afterEach(() => {
@@ -167,6 +176,9 @@ describe('Durable issued invoice documents (e2e)', () => {
     if (oldBatchToken === undefined)
       delete process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN;
     else process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN = oldBatchToken;
+    if (oldBillingToken === undefined)
+      delete process.env.BATCH_BILLING_INTERNAL_TOKEN;
+    else process.env.BATCH_BILLING_INTERNAL_TOKEN = oldBillingToken;
     if (oldFrontendUrl === undefined) delete process.env.FRONTEND_URL;
     else process.env.FRONTEND_URL = oldFrontendUrl;
   });
@@ -694,6 +706,306 @@ describe('Durable issued invoice documents (e2e)', () => {
       idempotencyKey: 'not-a-uuid',
     }).expect(400);
     expect(await jobs()).toHaveLength(1);
+  });
+
+  const scheduled = (
+    body: Record<string, unknown>,
+    secret = 'billing-test-token',
+  ) =>
+    request(app.getHttpServer())
+      .post('/invoices/internal/generate-due')
+      .set('x-batch-billing-token', secret)
+      .send(body);
+
+  it('previews without writes, scopes candidates and generates scheduled invoices safely under concurrency', async () => {
+    const { leaseId } = await seed();
+    await db.query(
+      "UPDATE leases SET next_billing_date='2026-10-01',billing_frequency='custom',billing_day=5 WHERE id=$1",
+      [leaseId],
+    );
+    const body = { billingDate: '2026-10-10', companyId, leaseId };
+    await scheduled(body, 'wrong').expect(401);
+    await scheduled({ ...body, billingDate: '2026-02-30' }).expect(400);
+    await scheduled({ ...body, dryRun: 'false' }).expect(400);
+    expect(
+      (await scheduled({ ...body, companyId: foreignId }).expect(201)).body
+        .processedLeases,
+    ).toBe(0);
+    expect(
+      (await scheduled({ ...body, dryRun: true }).expect(201)).body,
+    ).toMatchObject({
+      processedLeases: 1,
+      invoicesSkipped: 1,
+      invoicesProcessed: 0,
+      totals: [],
+    });
+    expect(await jobs()).toHaveLength(0);
+    expect(
+      await db.query('SELECT id FROM invoice_generations WHERE company_id=$1', [
+        companyId,
+      ]),
+    ).toHaveLength(0);
+    const results = await Promise.all([scheduled(body), scheduled(body)]);
+    expect(results.map((r) => r.status)).toEqual([201, 201]);
+    expect(results.every((r) => r.body.invoicesFailed === 0)).toBe(true);
+    expect(await jobs()).toHaveLength(1);
+    const [invoice] = await db.query(
+      "SELECT total_amount::text,currency FROM invoices WHERE lease_id=$1 AND status='pending'",
+      [leaseId],
+    );
+    expect(invoice).toEqual({ total_amount: '1000.00', currency: 'ARS' });
+    expect((await scheduled(body).expect(201)).body.processedLeases).toBe(0);
+    expect(
+      await db.query('SELECT id FROM invoice_generations WHERE company_id=$1', [
+        companyId,
+      ]),
+    ).toHaveLength(1);
+  });
+
+  it('recovers the same scheduled day even when another overdue period remains eligible', async () => {
+    const { leaseId, accountId } = await seed();
+    await db.query(
+      "UPDATE leases SET start_date='2026-08-01',next_billing_date='2026-08-01' WHERE id=$1",
+      [leaseId],
+    );
+    const body = { billingDate: '2026-10-10', companyId, leaseId };
+    expect((await scheduled(body).expect(201)).body.invoicesProcessed).toBe(1);
+    expect((await scheduled(body).expect(201)).body).toMatchObject({
+      invoicesProcessed: 1,
+      invoicesFailed: 0,
+    });
+    expect(await jobs()).toHaveLength(1);
+    expect(
+      (
+        await db.query(
+          'SELECT next_billing_date::text FROM leases WHERE id=$1',
+          [leaseId],
+        )
+      )[0].next_billing_date,
+    ).toBe('2026-09-01');
+    expect(
+      (
+        await db.query(
+          'SELECT current_balance::text FROM tenant_accounts WHERE id=$1',
+          [accountId],
+        )
+      )[0].current_balance,
+    ).toBe('1000.00');
+  });
+
+  it.each([
+    ['last_of_month', '2026-10-31'],
+    ['contract_date', '2026-10-15'],
+  ])('respects the %s scheduling policy', async (frequency, billingDate) => {
+    const { leaseId } = await seed();
+    await db.query(
+      "UPDATE leases SET start_date='2026-09-15',next_billing_date='2026-10-01',billing_frequency=$2 WHERE id=$1",
+      [leaseId, frequency],
+    );
+    expect(
+      (
+        await scheduled({
+          billingDate: '2026-10-10',
+          companyId,
+          leaseId,
+        }).expect(201)
+      ).body.processedLeases,
+    ).toBe(0);
+    expect(
+      (await scheduled({ billingDate, companyId, leaseId }).expect(201)).body
+        .invoicesProcessed,
+    ).toBe(1);
+  });
+
+  it('clamps due day 31 to February and preserves lease currency in the common ledger', async () => {
+    const { leaseId, accountId } = await seed();
+    await db.query(
+      "UPDATE leases SET next_billing_date='2027-02-01',billing_frequency='custom',billing_day=31,payment_due_day=31,currency='USD' WHERE id=$1",
+      [leaseId],
+    );
+    await db.query("UPDATE tenant_accounts SET currency='USD' WHERE id=$1", [
+      accountId,
+    ]);
+    const body = { billingDate: '2027-02-28', companyId, leaseId };
+    const result = (await scheduled(body).expect(201)).body;
+    expect(result).toMatchObject({
+      invoicesProcessed: 1,
+      invoicesFailed: 0,
+      totals: [{ currencyCode: 'USD', amount: '1000.00' }],
+    });
+    const [invoice] = await db.query(
+      "SELECT currency,due_date::text,total_amount::text,withholding_iibb::text FROM invoices WHERE lease_id=$1 AND status='pending'",
+      [leaseId],
+    );
+    expect(invoice).toEqual({
+      currency: 'USD',
+      due_date: '2027-02-28',
+      total_amount: '1000.00',
+      withholding_iibb: '0.00',
+    });
+    expect(
+      (
+        await db.query(
+          'SELECT current_balance::text,currency FROM tenant_accounts WHERE id=$1',
+          [accountId],
+        )
+      )[0],
+    ).toEqual({ current_balance: '1000.00', currency: 'USD' });
+  });
+
+  it('reports currency mismatch and a stale scheduled source without advancing billing', async () => {
+    const { leaseId, accountId } = await seed();
+    await db.query(
+      "UPDATE leases SET next_billing_date='2026-10-01',currency='USD' WHERE id=$1",
+      [leaseId],
+    );
+    const body = { billingDate: '2026-10-10', companyId, leaseId };
+    expect((await scheduled(body).expect(201)).body).toMatchObject({
+      invoicesProcessed: 0,
+      invoicesFailed: 1,
+    });
+    await db.query("UPDATE leases SET currency='ARS' WHERE id=$1", [leaseId]);
+    await db.query('UPDATE tenant_accounts SET is_active=false WHERE id=$1', [
+      accountId,
+    ]);
+    expect((await scheduled(body).expect(201)).body).toMatchObject({
+      invoicesProcessed: 0,
+      invoicesFailed: 1,
+    });
+    await db.query('UPDATE tenant_accounts SET is_active=true WHERE id=$1', [
+      accountId,
+    ]);
+    const service = app.get(InvoicesService),
+      original = service.generateForLease.bind(service);
+    const spy = jest
+      .spyOn(service, 'generateForLease')
+      .mockImplementationOnce(async (...args) => {
+        await db.query(
+          "UPDATE leases SET next_billing_date='2026-11-01' WHERE id=$1",
+          [leaseId],
+        );
+        return original(...args);
+      });
+    const result = await app.get(ScheduledBillingService).process(body);
+    spy.mockRestore();
+    expect(result).toMatchObject({ invoicesProcessed: 0, invoicesFailed: 1 });
+    expect(await jobs()).toHaveLength(0);
+    expect(
+      await db.query('SELECT id FROM invoice_generations WHERE company_id=$1', [
+        companyId,
+      ]),
+    ).toHaveLength(0);
+  });
+
+  it('paginates candidates and isolates a generation failure so later pages remain processable', async () => {
+    const { leaseId } = await seed();
+    await db.query(
+      "UPDATE leases SET next_billing_date='2026-10-01' WHERE id=$1",
+      [leaseId],
+    );
+    const body = { billingDate: '2026-10-10', companyId, limit: 1 };
+    const capture = jest
+      .spyOn(app.get(InvoicePdfService), 'captureSnapshot')
+      .mockRejectedValueOnce(new Error('forced failure'));
+    const failed = (await scheduled(body).expect(201)).body;
+    capture.mockRestore();
+    expect(failed).toMatchObject({
+      invoicesProcessed: 0,
+      invoicesFailed: 1,
+      nextCursor: leaseId,
+    });
+    expect(
+      (await scheduled({ ...body, afterLeaseId: leaseId }).expect(201)).body
+        .processedLeases,
+    ).toBe(0);
+    expect((await scheduled(body).expect(201)).body.invoicesProcessed).toBe(1);
+    expect(await jobs()).toHaveLength(1);
+  });
+
+  it('commits the invoice document and consented delivery together and retries a delivery failure once', async () => {
+    const { id } = await seed();
+    await db.query('UPDATE tenants SET contact_consent=true WHERE id=$1', [
+      tenantId,
+    ]);
+    await db.query(
+      "UPDATE users SET whatsapp_enabled=true,phone='+5491100000000' WHERE id=(SELECT user_id FROM tenants WHERE id=$1)",
+      [tenantId],
+    );
+    await issue(id).expect(200);
+    const communications = app.get(CommunicationsService);
+    const spy = jest
+      .spyOn(communications, 'dispatchEvent')
+      .mockRejectedValueOnce(new Error('delivery persistence failed'));
+    await worker.processDue();
+    expect((await status(id).expect(200)).body.status).toBe('queued');
+    expect(
+      await db.query(
+        "SELECT id FROM documents WHERE company_id=$1 AND entity_type='invoice'",
+        [companyId],
+      ),
+    ).toHaveLength(0);
+    await due();
+    await worker.processDue();
+    spy.mockRestore();
+    await worker.processDue();
+    const deliveries = await db.query(
+      "SELECT id,status,related_entity_id,metadata FROM communication_deliveries WHERE company_id=$1 AND event='invoice_issued'",
+      [companyId],
+    );
+    expect(deliveries).toHaveLength(1);
+    expect(deliveries[0]).toMatchObject({
+      status: 'queued',
+      related_entity_id: id,
+      metadata: { templateName: 'invoice_available' },
+    });
+    expect(deliveries[0].metadata.attachmentUrl).toMatch(/^db:\/\/document\//);
+    const transport = jest
+      .spyOn(app.get(WhatsappService), 'sendTemplateMessage')
+      .mockResolvedValue({ messageId: 'invoice-test-message' } as any);
+    await db.query('UPDATE tenants SET contact_consent=false WHERE id=$1', [
+      tenantId,
+    ]);
+    expect(await communications.retryDue()).toMatchObject({
+      processed: 1,
+      sent: 0,
+      failed: 1,
+    });
+    expect(transport).not.toHaveBeenCalled();
+    await db.query('UPDATE tenants SET contact_consent=true WHERE id=$1', [
+      tenantId,
+    ]);
+    await communications.retry(deliveries[0].id, companyId);
+    expect(await communications.retryDue()).toMatchObject({
+      processed: 1,
+      sent: 1,
+      failed: 0,
+    });
+    expect(await communications.retryDue()).toMatchObject({
+      processed: 0,
+      sent: 0,
+      failed: 0,
+    });
+    expect(transport).toHaveBeenCalledTimes(1);
+    transport.mockRestore();
+  });
+
+  it('does not enqueue an invoice notice when consent was revoked before rendering', async () => {
+    const { id } = await seed();
+    await db.query('UPDATE tenants SET contact_consent=true WHERE id=$1', [
+      tenantId,
+    ]);
+    await issue(id).expect(200);
+    await db.query('UPDATE tenants SET contact_consent=false WHERE id=$1', [
+      tenantId,
+    ]);
+    await worker.processDue();
+    expect((await status(id).expect(200)).body.status).toBe('completed');
+    expect(
+      await db.query(
+        'SELECT id FROM communication_deliveries WHERE company_id=$1',
+        [companyId],
+      ),
+    ).toHaveLength(0);
   });
 
   it('serializes repeated custom periods, applies rent adjustment once and advances the calendar atomically', async () => {

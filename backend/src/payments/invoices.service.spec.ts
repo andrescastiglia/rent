@@ -123,6 +123,7 @@ describe('InvoicesService', () => {
 
     leasesRepository.findOne!.mockResolvedValue(lease);
     (tenantAccountsService.findByLease as jest.Mock).mockResolvedValue({
+      currencyCode: 'ARS',
       id: 'acc-1',
     });
     (tenantAccountsService.calculateLateFee as jest.Mock).mockResolvedValue(
@@ -170,6 +171,7 @@ describe('InvoicesService', () => {
 
     leasesRepository.findOne!.mockResolvedValue(lease);
     (tenantAccountsService.findByLease as jest.Mock).mockResolvedValue({
+      currencyCode: 'ARS',
       id: 'acc-1',
     });
     invoicesRepository.create!.mockImplementation((data) => data);
@@ -265,6 +267,7 @@ describe('InvoicesService', () => {
       ownerId: null,
     } as any);
     (tenantAccountsService.findByLease as jest.Mock).mockResolvedValue({
+      currencyCode: 'ARS',
       id: 'acc-1',
     });
 
@@ -291,6 +294,7 @@ describe('InvoicesService', () => {
       property: { ownerId: 'owner-1' },
     } as any);
     (tenantAccountsService.findByLease as jest.Mock).mockResolvedValue({
+      currencyCode: 'ARS',
       id: 'acc-1',
     });
     jest

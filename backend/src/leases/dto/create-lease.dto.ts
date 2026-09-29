@@ -4,10 +4,12 @@ import {
   IsEnum,
   IsNotEmpty,
   IsNumber,
+  IsInt,
   IsOptional,
   IsString,
   IsUUID,
   Min,
+  Max,
 } from 'class-validator';
 import {
   ContractType,
@@ -76,9 +78,12 @@ export const createLeaseZodSchema = z
       .default(PaymentFrequency.MONTHLY),
     paymentDueDay: z.coerce
       .number()
+      .int()
+      .min(1)
+      .max(31)
       .optional()
       .default(10)
-      .describe('Day of month rent is due (1-28)'),
+      .describe('Day of month rent is due (1-31, clamped to month end)'),
     renewalAlertEnabled: z.coerce.boolean().optional().default(true),
     renewalAlertPeriodicity: z
       .enum(LeaseRenewalAlertPeriodicity)
@@ -97,6 +102,9 @@ export const createLeaseZodSchema = z
       .describe('first_of_month|last_of_month|contract_date|custom'),
     billingDay: z.coerce
       .number()
+      .int()
+      .min(1)
+      .max(31)
       .optional()
       .describe('Day of month for billing'),
     lateFeeType: z
@@ -219,7 +227,9 @@ export class CreateLeaseDto {
   @IsOptional()
   paymentFrequency?: PaymentFrequency = PaymentFrequency.MONTHLY;
 
-  @IsNumber()
+  @IsInt()
+  @Min(1)
+  @Max(31)
   @IsOptional()
   paymentDueDay?: number = 10;
 
@@ -241,7 +251,9 @@ export class CreateLeaseDto {
   @IsOptional()
   billingFrequency?: BillingFrequency;
 
-  @IsNumber()
+  @IsInt()
+  @Min(1)
+  @Max(31)
   @IsOptional()
   billingDay?: number;
 
