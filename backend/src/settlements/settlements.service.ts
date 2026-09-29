@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Settlement, SettlementStatus } from './entities/settlement.entity';
@@ -41,6 +45,11 @@ export class SettlementsService {
     private readonly dataSource: DataSource,
   ) {}
 
+  private assertCompany(companyId: string, user: UserContext): void {
+    if (!companyId || companyId !== user.companyId)
+      throw new BadRequestException('Company scope required');
+  }
+
   private async resolveOwnerIdForUser(
     user: UserContext,
   ): Promise<string | null> {
@@ -56,6 +65,7 @@ export class SettlementsService {
     filters: SettlementFiltersDto,
     user: UserContext,
   ): Promise<Settlement[]> {
+    this.assertCompany(companyId, user);
     let ownerIdFilter = filters.ownerId;
 
     if (hasRole(user, UserRole.OWNER) && !isAdminOrStaff(user)) {
@@ -93,26 +103,34 @@ export class SettlementsService {
     const rows = await this.dataSource.query<Settlement[]>(
       `SELECT
            s.id,
-           s.company_id AS "companyId",
+           owner_entity.company_id AS "companyId",
            s.owner_id AS "ownerId",
            s.period,
            s.gross_amount AS "grossAmount",
-           s.commission_rate AS "commissionRate",
+           CASE WHEN s.gross_amount = 0 THEN NULL
+             ELSE ROUND(s.commission_amount * 100 / s.gross_amount, 2) END AS "commissionRate",
            s.commission_amount AS "commissionAmount",
+           s.withholdings_amount AS "withholdingsAmount",
            s.net_amount AS "netAmount",
            s.status,
            s.scheduled_date AS "scheduledDate",
            s.processed_at AS "processedAt",
            s.transfer_reference AS "transferReference",
            s.notes,
-           s.receipt_pdf_url AS "receiptPdfUrl",
-           s.receipt_name AS "receiptName",
-           s.currency_code AS "currencyCode",
+           receipt.file_url AS "receiptPdfUrl",
+           receipt.name AS "receiptName",
+           s.currency AS "currencyCode",
            s.created_at AS "createdAt",
            s.updated_at AS "updatedAt"
          FROM settlements s
          INNER JOIN owners owner_entity
            ON owner_entity.id = s.owner_id
+         LEFT JOIN LATERAL (
+           SELECT d.file_url, d.name FROM documents d
+           WHERE d.company_id = $1 AND d.entity_type = 'owner_settlement'
+             AND d.entity_id = s.id AND d.deleted_at IS NULL
+           ORDER BY d.created_at DESC, d.id DESC LIMIT 1
+         ) receipt ON TRUE
          WHERE ${conditions.join(' AND ')}
          ORDER BY COALESCE(s.processed_at, s.scheduled_date, s.created_at) DESC`,
       params,
@@ -126,6 +144,7 @@ export class SettlementsService {
     companyId: string,
     user: UserContext,
   ): Promise<Settlement> {
+    this.assertCompany(companyId, user);
     const ownerId = await this.resolveOwnerIdForUser(user);
     if (hasRole(user, UserRole.OWNER) && !isAdminOrStaff(user) && !ownerId) {
       throw new NotFoundException(`Settlement ${id} not found`);
@@ -136,21 +155,23 @@ export class SettlementsService {
     const rows = await this.dataSource.query<Settlement[]>(
       `SELECT
            s.id,
-           s.company_id AS "companyId",
+           owner_entity.company_id AS "companyId",
            s.owner_id AS "ownerId",
            s.period,
            s.gross_amount AS "grossAmount",
-           s.commission_rate AS "commissionRate",
+           CASE WHEN s.gross_amount = 0 THEN NULL
+             ELSE ROUND(s.commission_amount * 100 / s.gross_amount, 2) END AS "commissionRate",
            s.commission_amount AS "commissionAmount",
+           s.withholdings_amount AS "withholdingsAmount",
            s.net_amount AS "netAmount",
            s.status,
            s.scheduled_date AS "scheduledDate",
            s.processed_at AS "processedAt",
            s.transfer_reference AS "transferReference",
            s.notes,
-           s.receipt_pdf_url AS "receiptPdfUrl",
-           s.receipt_name AS "receiptName",
-           s.currency_code AS "currencyCode",
+           receipt.file_url AS "receiptPdfUrl",
+           receipt.name AS "receiptName",
+           s.currency AS "currencyCode",
            s.created_at AS "createdAt",
            s.updated_at AS "updatedAt"
          FROM settlements s
@@ -158,6 +179,12 @@ export class SettlementsService {
            ON owner_entity.id = s.owner_id
           AND owner_entity.company_id = $1
           AND owner_entity.deleted_at IS NULL
+         LEFT JOIN LATERAL (
+           SELECT d.file_url, d.name FROM documents d
+           WHERE d.company_id = $1 AND d.entity_type = 'owner_settlement'
+             AND d.entity_id = s.id AND d.deleted_at IS NULL
+           ORDER BY d.created_at DESC, d.id DESC LIMIT 1
+         ) receipt ON TRUE
          WHERE s.id = $2
            ${ownerCondition}`,
       params,
@@ -175,6 +202,7 @@ export class SettlementsService {
     user: UserContext,
     ownerId?: string,
   ): Promise<SettlementSummary> {
+    this.assertCompany(companyId, user);
     let ownerIdFilter = ownerId;
 
     if (hasRole(user, UserRole.OWNER) && !isAdminOrStaff(user)) {

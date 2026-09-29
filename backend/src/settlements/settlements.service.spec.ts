@@ -37,6 +37,34 @@ describe('SettlementsService', () => {
     );
   });
 
+  it.each(['', 'other-company'])(
+    'rejects a missing or conflicting company scope (%s)',
+    async (companyId) => {
+      await expect(service.findAll(companyId, {}, adminUser)).rejects.toThrow(
+        'Company scope required',
+      );
+      await expect(service.findOne('s1', companyId, adminUser)).rejects.toThrow(
+        'Company scope required',
+      );
+      await expect(service.getSummary(companyId, adminUser)).rejects.toThrow(
+        'Company scope required',
+      );
+      expect(dataSource.query).not.toHaveBeenCalled();
+      expect(ownersRepository.findOne).not.toHaveBeenCalled();
+    },
+  );
+
+  it('allows staff with an owner role to read the company scope', async () => {
+    dataSource.query.mockResolvedValue([]);
+    await service.findAll(
+      'c1',
+      {},
+      { ...ownerUser, roles: [UserRole.OWNER, UserRole.STAFF] },
+    );
+    expect(ownersRepository.findOne).not.toHaveBeenCalled();
+    expect(dataSource.query.mock.calls[0][1]).toEqual(['c1']);
+  });
+
   describe('findAll', () => {
     it('returns settlements for admin with no filters', async () => {
       dataSource.query.mockResolvedValue([{ id: 's1' }]);

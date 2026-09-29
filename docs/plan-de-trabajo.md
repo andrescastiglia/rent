@@ -14,7 +14,10 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
   Avance: las herramientas de usuarios filtran por compañía y las altas toman la
   compañía autenticada; IA y WhatsApp respetan permisos de módulo del personal y
   roles declarados. Evidencia: `ai-authorization.e2e-spec.ts` (8 casos con dos
-  empresas) y `ai-tool-access-policy.spec.ts`. Pendiente: los demás dominios.
+  empresas) y `ai-tool-access-policy.spec.ts`. Liquidaciones valida listado, detalle,
+  resumen y comprobantes con PostgreSQL real, dos compañías y roles propietario/
+  administrador/inquilino (`settlement-reads.e2e-spec.ts`, 8 casos).
+  Pendiente: gates/despliegue de esta corrección y los demás dominios.
 
 ### Consistencia financiera
 
