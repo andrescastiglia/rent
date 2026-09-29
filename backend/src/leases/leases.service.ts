@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, IsNull, Repository, SelectQueryBuilder } from 'typeorm';
 import * as mammoth from 'mammoth';
@@ -85,8 +86,6 @@ export class LeasesService {
     private readonly buyersRepository: Repository<Buyer>,
     @InjectRepository(Tenant)
     private readonly tenantsRepository: Repository<Tenant>,
-    @InjectRepository(Document)
-    private readonly documentsRepository: Repository<Document>,
     private readonly tenantAccountsService: TenantAccountsService,
   ) {}
 
@@ -869,39 +868,66 @@ export class LeasesService {
       throw new BadRequestException('Contract file is required');
     }
 
-    const contractType = dto.contractType ?? ContractType.RENTAL;
-    const property = await this.findPropertyOrThrow(
-      dto.propertyId,
-      user.companyId,
-    );
-    await this.ensureImportContractParty(
-      dto,
-      property.id,
-      contractType,
-      user.companyId,
-    );
-
+    // Parse before acquiring database locks; a conversion error must not leave records.
     const extractedContract = await this.extractTextFromUploadedContract(file);
-    const lease = this.buildImportedLeaseEntity(
-      dto,
-      user.companyId,
-      property,
-      contractType,
-      extractedContract,
+    const contractType = dto.contractType ?? ContractType.RENTAL;
+    const importedId = await this.leasesRepository.manager.transaction(
+      async (manager) => {
+        const properties = manager.getRepository(Property);
+        const property = await properties.findOne({
+          where: {
+            id: dto.propertyId,
+            companyId: user.companyId,
+            deletedAt: IsNull(),
+          },
+          lock: { mode: 'for_no_key_update' },
+        });
+        if (!property) throw new NotFoundException('Property not found');
+        await this.ensureImportContractParty(
+          dto,
+          property.id,
+          contractType,
+          user.companyId,
+          manager,
+        );
+        const leases = manager.getRepository(Lease);
+        const lease = this.buildImportedLeaseEntity(
+          dto,
+          user.companyId,
+          property,
+          contractType,
+          extractedContract,
+        );
+        const savedLease = await leases.save(lease);
+        const document = await this.createUploadedContractDocument(
+          savedLease,
+          file,
+          user.companyId,
+          manager,
+          user.id,
+        );
+        savedLease.contractPdfUrl = document.fileUrl;
+        await leases.save(savedLease);
+        await properties.update(
+          { id: property.id, companyId: user.companyId },
+          {
+            operationState:
+              contractType === ContractType.RENTAL
+                ? PropertyOperationState.RENTED
+                : PropertyOperationState.SOLD,
+          },
+        );
+        if (contractType === ContractType.RENTAL) {
+          await this.tenantAccountsService.createForLease(
+            savedLease.id,
+            user.companyId,
+            manager,
+          );
+        }
+        return savedLease.id;
+      },
     );
-
-    const savedLease = await this.leasesRepository.save(lease);
-    const document = await this.createUploadedContractDocument(
-      savedLease,
-      file,
-      user.companyId,
-    );
-
-    savedLease.contractPdfUrl = document.fileUrl;
-    await this.leasesRepository.save(savedLease);
-    await this.syncImportedLeasePropertyState(savedLease);
-
-    return this.findOne(savedLease.id, user.companyId);
+    return this.findOne(importedId, user.companyId);
   }
 
   async remove(id: string, user: RequestUser): Promise<void> {
@@ -1051,8 +1077,13 @@ export class LeasesService {
     );
   }
 
-  private async ensureNoActiveRentalLease(propertyId: string): Promise<void> {
-    const existingActiveLease = await this.leasesRepository.findOne({
+  private async ensureNoActiveRentalLease(
+    propertyId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const existingActiveLease = await (
+      manager?.getRepository(Lease) ?? this.leasesRepository
+    ).findOne({
       where: {
         propertyId,
         contractType: ContractType.RENTAL,
@@ -1071,6 +1102,7 @@ export class LeasesService {
     contractType: ContractType,
     tenantId?: string,
     buyerId?: string,
+    manager?: EntityManager,
   ): Promise<void> {
     if (contractType === ContractType.RENTAL && !tenantId) {
       return;
@@ -1080,7 +1112,9 @@ export class LeasesService {
       return;
     }
 
-    const existingLeaseQuery = this.leasesRepository
+    const existingLeaseQuery = (
+      manager?.getRepository(Lease) ?? this.leasesRepository
+    )
       .createQueryBuilder('lease')
       .where('lease.property_id = :propertyId', { propertyId })
       .andWhere('lease.contract_type = :contractType', { contractType })
@@ -1466,28 +1500,31 @@ export class LeasesService {
     propertyId: string,
     contractType: ContractType,
     companyId: string,
+    manager: EntityManager,
   ): Promise<void> {
     if (contractType === ContractType.RENTAL) {
       if (!dto.tenantId) {
         throw new BadRequestException('Rental imports require tenantId');
       }
 
-      await this.validateTenantForCompany(dto.tenantId, companyId);
-      await this.ensureNoActiveRentalLease(propertyId);
+      await this.validateTenantForCompany(dto.tenantId, companyId, manager);
+      await this.ensureNoActiveRentalLease(propertyId, manager);
       await this.ensureNoOpenLeaseForParty(
         propertyId,
         contractType,
         dto.tenantId,
+        undefined,
+        manager,
       );
       return;
     }
 
-    await this.normalizeBuyerInputs(dto, companyId);
+    await this.normalizeBuyerInputs(dto, companyId, manager);
     if (!dto.buyerId) {
       throw new BadRequestException('Sale imports require buyerId');
     }
 
-    const buyer = await this.buyersRepository.findOne({
+    const buyer = await manager.getRepository(Buyer).findOne({
       where: { id: dto.buyerId, companyId, deletedAt: IsNull() },
       relations: ['user'],
     });
@@ -1500,6 +1537,7 @@ export class LeasesService {
       contractType,
       undefined,
       dto.buyerId,
+      manager,
     );
   }
 
@@ -1561,29 +1599,6 @@ export class LeasesService {
       contractPdfUrl: null,
       notes: dto.notes?.trim() || null,
     } as Partial<Lease>);
-  }
-
-  private async syncImportedLeasePropertyState(lease: Lease): Promise<void> {
-    if (!lease.propertyId) {
-      return;
-    }
-
-    if (lease.contractType === ContractType.RENTAL) {
-      await this.propertiesRepository.update(lease.propertyId, {
-        operationState: PropertyOperationState.RENTED,
-      });
-      await this.tenantAccountsService.createForLease(
-        lease.id,
-        lease.companyId,
-      );
-      return;
-    }
-
-    if (lease.contractType === ContractType.SALE) {
-      await this.propertiesRepository.update(lease.propertyId, {
-        operationState: PropertyOperationState.SOLD,
-      });
-    }
   }
 
   private parseOptionalNumber(value?: string): number | null {
@@ -1711,9 +1726,12 @@ export class LeasesService {
     lease: Lease,
     file: UploadedLeaseFile,
     companyId: string,
+    manager: EntityManager,
+    actorId: string,
   ): Promise<Document> {
-    const document = await this.documentsRepository.save(
-      this.documentsRepository.create({
+    const documents = manager.getRepository(Document);
+    const document = await documents.save(
+      documents.create({
         companyId,
         entityType: 'lease',
         entityId: lease.id,
@@ -1727,6 +1745,11 @@ export class LeasesService {
         status: DocumentStatus.APPROVED,
         metadata: {
           imported: true,
+          importedBy: actorId,
+          source: 'lease_contract',
+          sha256: createHash('sha256').update(file.buffer).digest('hex'),
+          version: lease.versionNumber ?? 1,
+          confirmedAt: lease.confirmedAt,
           contractType: lease.contractType,
           draftContractFormat: lease.draftContractFormat,
         },
@@ -1734,7 +1757,7 @@ export class LeasesService {
     );
 
     document.fileUrl = `db://document/${document.id}`;
-    return this.documentsRepository.save(document);
+    return documents.save(document);
   }
 
   private normalizeContractBody(
@@ -1887,6 +1910,7 @@ export class LeasesService {
   private async normalizeBuyerInputs(
     dto: Pick<CreateLeaseDto, 'buyerId' | 'buyerProfileId'>,
     companyId: string,
+    manager?: EntityManager,
   ): Promise<void> {
     if (dto.buyerId) {
       return;
@@ -1896,7 +1920,10 @@ export class LeasesService {
       return;
     }
 
-    const interestedProfile = await this.interestedProfilesRepository.findOne({
+    const interestedProfile = await (
+      manager?.getRepository(InterestedProfile) ??
+      this.interestedProfilesRepository
+    ).findOne({
       where: { id: dto.buyerProfileId, companyId, deletedAt: IsNull() },
     });
 
@@ -1934,8 +1961,11 @@ export class LeasesService {
   private async validateTenantForCompany(
     tenantId: string,
     companyId: string,
+    manager?: EntityManager,
   ): Promise<void> {
-    const tenant = await this.tenantsRepository.findOne({
+    const tenant = await (
+      manager?.getRepository(Tenant) ?? this.tenantsRepository
+    ).findOne({
       where: { id: tenantId, companyId, deletedAt: IsNull() },
     });
     if (!tenant) {
