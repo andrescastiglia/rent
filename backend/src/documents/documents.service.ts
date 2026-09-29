@@ -332,11 +332,13 @@ export class DocumentsService {
       actor,
     );
     if (
-      document.metadata?.source === 'mercadopago_payout' &&
+      ['mercadopago_payout', 'lease_contract'].includes(
+        document.metadata?.source,
+      ) &&
       createHash('sha256').update(document.fileData).digest('hex') !==
         document.metadata.sha256
     )
-      throw new ConflictException('Payout receipt integrity check failed');
+      throw new ConflictException('Document integrity check failed');
     return {
       buffer: Buffer.from(document.fileData),
       contentType: document.fileMimeType,
@@ -548,11 +550,13 @@ export class DocumentsService {
         `File not found in DB document: ${documentId}`,
       );
     if (
-      document.metadata?.source === 'mercadopago_payout' &&
+      ['mercadopago_payout', 'lease_contract'].includes(
+        document.metadata?.source,
+      ) &&
       createHash('sha256').update(document.fileData).digest('hex') !==
         document.metadata.sha256
     )
-      throw new ConflictException('Payout receipt integrity check failed');
+      throw new ConflictException('Document integrity check failed');
     return {
       buffer: Buffer.from(document.fileData),
       contentType: document.fileMimeType || 'application/pdf',

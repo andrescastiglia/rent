@@ -1369,7 +1369,7 @@ export function buildAiToolDefinitions(
     {
       name: 'get_lease_contract_by_id',
       description:
-        'Downloads the signed lease contract as a PDF document by lease UUID.',
+        'Downloads the confirmed lease contract as a PDF document by lease UUID.',
       responseDescription: 'PDF binary content of the lease contract.',
       mutability: 'readonly',
       allowedRoles: LEASE_READ_ROLES,
@@ -1380,12 +1380,16 @@ export function buildAiToolDefinitions(
           id,
           toRequestUser(context) as any,
         );
-        const document = await deps.pdfService.getContractDocument(id);
+        const document = await deps.pdfService.getContractDocument(
+          id,
+          context.companyId!,
+        );
         if (!document) {
           return { message: 'Contract not found' };
         }
         const file = await deps.documentsService.downloadByFileUrl(
           document.fileUrl,
+          { companyId: context.companyId!, entityType: 'lease', entityId: id },
         );
         return toFilePayload(
           file.buffer,

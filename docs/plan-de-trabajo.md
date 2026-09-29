@@ -28,14 +28,19 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
   Ver [operación y pruebas](technical/payments.md#efectos-recuperables-de-confirmación).
   Ventas guarda cobro y `sale_receipt_effects_outbox` juntos (migración 112),
   con PDF recuperable, descarga autenticada y pruebas de concurrencia/rollback.
-  Pendiente: verificar los demás productores de documentos/proveedores y desplegar.
+  Confirmación de contratos y cuenta/inmueble se guardan con una cola de PDF
+  (migración 121); snapshot inmutable, reintentos, hash, descarga autorizada y estados
+  en web/portal. Ver [operación y pruebas](technical/confirmed-contracts.md).
+  Pendiente: gates de contratos, importación transaccional, recuperación histórica,
+  verificar los demás productores de documentos/proveedores y desplegar.
 
 ### WhatsApp seguro
 
 - [ ] Garantizar ejecución exactamente una vez para cada herramienta mutable aprobada, incluso si el proceso cae después del efecto de dominio y antes de persistir el resultado.
   Avance: corregida la lectura de filas adquiridas/rechazadas en PostgreSQL;
   pruebas HTTP con dos compañías, concurrencia, reautenticación e integridad.
-  Pendiente: gates, idempotencia transaccional del efecto y despliegue.
+  Corrección incorporada a main con los 23 gates del PR #229 aprobados.
+  Pendiente: idempotencia transaccional del efecto y despliegue.
 
 ## 2. Completar recorridos de producto
 
@@ -119,7 +124,8 @@ El cron `process-settlements` permanece suspendido.
   Interfaz de generación/anulación implementada con revisión de fuentes y neto,
   confirmación, recuperación por clave y descarte durable de solicitudes no registradas.
   Conserva solicitudes inciertas al recargar o fallar una lectura; sin reenvíos automáticos.
-  Pendiente: gates de interfaz, recuperación de deuda por cobros
+  Interfaz incorporada a main con los 23 gates del PR #228 aprobados.
+  Pendiente: recuperación de deuda por cobros
   anulados después de transferir, resolución de devoluciones parciales/nuevas
   órdenes verificadas y despliegue deshabilitado.
 - [ ] Verificar que ninguna integración real se invoque mientras está deshabilitada.

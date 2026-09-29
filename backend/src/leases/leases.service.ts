@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository, SelectQueryBuilder } from 'typeorm';
+import { EntityManager, IsNull, Repository, SelectQueryBuilder } from 'typeorm';
 import * as mammoth from 'mammoth';
 import { parse as parseHtml } from 'node-html-parser';
 import {
@@ -26,7 +26,6 @@ import { InterestedProfile } from '../interested/entities/interested-profile.ent
 import { CreateLeaseDto } from './dto/create-lease.dto';
 import { LeaseFiltersDto } from './dto/lease-filters.dto';
 import { UpdateLeaseDto } from './dto/update-lease.dto';
-import { PdfService } from './pdf.service';
 import {
   LEASE_TEMPLATE_SOURCE_FILE_NAME_MAX_LENGTH,
   LEASE_TEMPLATE_SOURCE_MIME_TYPE_MAX_LENGTH,
@@ -88,7 +87,6 @@ export class LeasesService {
     private readonly tenantsRepository: Repository<Tenant>,
     @InjectRepository(Document)
     private readonly documentsRepository: Repository<Document>,
-    private readonly pdfService: PdfService,
     private readonly tenantAccountsService: TenantAccountsService,
   ) {}
 
@@ -329,11 +327,17 @@ export class LeasesService {
     };
   }
 
-  async findOne(id: string, companyId: string): Promise<Lease> {
+  async findOne(
+    id: string,
+    companyId: string,
+    manager?: EntityManager,
+  ): Promise<Lease> {
     if (!companyId) {
       throw new ForbiddenException('Company scope required');
     }
-    const lease = await this.leasesRepository.findOne({
+    const lease = await (
+      manager?.getRepository(Lease) ?? this.leasesRepository
+    ).findOne({
       where: { id, companyId, deletedAt: IsNull() },
       relations: [
         'property',
@@ -472,90 +476,131 @@ export class LeasesService {
     finalText?: string,
     finalFormat?: LeaseContentFormat,
   ): Promise<Lease> {
-    const lease = await this.findOne(id, user.companyId);
-    if (lease.status !== LeaseStatus.DRAFT) {
-      throw new BadRequestException('Only draft contracts can be confirmed');
-    }
-
-    const formatToConfirm =
-      finalFormat ?? lease.draftContractFormat ?? 'plain_text';
-    const contentToConfirm = this.normalizeContractBody(
-      finalText ?? lease.draftContractText ?? '',
-      formatToConfirm,
-    );
-    if (!contentToConfirm) {
-      throw new BadRequestException('Contract draft text is required');
-    }
-
-    const resolvedContent = this.resolveContractContent(
-      contentToConfirm,
-      this.buildTemplateContext(lease),
-      formatToConfirm,
-    );
-    if (!resolvedContent) {
-      throw new BadRequestException('Contract draft text is required');
-    }
-
-    if (lease.contractType === ContractType.RENTAL && lease.propertyId) {
-      const activeLease = await this.leasesRepository.findOne({
-        where: {
-          companyId: user.companyId,
-          propertyId: lease.propertyId,
-          contractType: ContractType.RENTAL,
-          status: LeaseStatus.ACTIVE,
-          deletedAt: IsNull(),
-        },
-      });
-      if (activeLease && activeLease.id !== lease.id) {
-        activeLease.status = LeaseStatus.FINALIZED;
-        await this.leasesRepository.save(activeLease);
+    this.requireCompanyScope(user);
+    await this.leasesRepository.manager.transaction(async (manager) => {
+      const lease = await this.lockLease(manager, id, user.companyId);
+      if (lease.status !== LeaseStatus.DRAFT) {
+        throw new BadRequestException('Only draft contracts can be confirmed');
       }
-    }
 
-    lease.status = LeaseStatus.ACTIVE;
-    lease.confirmedAt = new Date();
-    lease.confirmedContractText = resolvedContent;
-    lease.confirmedContractFormat = formatToConfirm;
-    lease.draftContractText = resolvedContent;
-    lease.draftContractFormat = formatToConfirm;
-
-    if (lease.contractType === ContractType.RENTAL && lease.propertyId) {
-      await this.propertiesRepository.update(
-        { id: lease.propertyId, companyId: user.companyId },
-        { operationState: PropertyOperationState.RENTED },
-      );
-    }
-
-    if (lease.contractType === ContractType.SALE && lease.propertyId) {
-      await this.propertiesRepository.update(
-        { id: lease.propertyId, companyId: user.companyId },
-        { operationState: PropertyOperationState.SOLD },
-      );
-    }
-
-    const savedLease = await this.leasesRepository.save(lease);
-
-    if (savedLease.contractType === ContractType.RENTAL) {
-      await this.tenantAccountsService.createForLease(
-        savedLease.id,
-        savedLease.companyId,
-      );
-    }
-
-    try {
-      const document = await this.pdfService.generateContract(
-        savedLease,
-        userId,
-        resolvedContent,
+      const formatToConfirm =
+        finalFormat ?? lease.draftContractFormat ?? 'plain_text';
+      const contentToConfirm = this.normalizeContractBody(
+        finalText ?? lease.draftContractText ?? '',
         formatToConfirm,
       );
-      savedLease.contractPdfUrl = document.fileUrl;
-      await this.leasesRepository.save(savedLease);
-    } catch (error) {
-      console.error('Failed to generate contract PDF:', error);
-    }
+      if (!contentToConfirm) {
+        throw new BadRequestException('Contract draft text is required');
+      }
 
-    return this.findOne(savedLease.id, user.companyId);
+      const resolvedContent = this.resolveContractContent(
+        contentToConfirm,
+        this.buildTemplateContext(lease),
+        formatToConfirm,
+      );
+      if (!resolvedContent) {
+        throw new BadRequestException('Contract draft text is required');
+      }
+
+      if (lease.contractType === ContractType.RENTAL && lease.propertyId) {
+        const activeLease = await manager.getRepository(Lease).findOne({
+          where: {
+            companyId: user.companyId,
+            propertyId: lease.propertyId,
+            contractType: ContractType.RENTAL,
+            status: LeaseStatus.ACTIVE,
+            deletedAt: IsNull(),
+          },
+        });
+        if (activeLease && activeLease.id !== lease.id) {
+          activeLease.status = LeaseStatus.FINALIZED;
+          await manager.getRepository(Lease).save(activeLease);
+        }
+      }
+
+      lease.status = LeaseStatus.ACTIVE;
+      lease.confirmedAt = new Date();
+      lease.confirmedContractText = resolvedContent;
+      lease.confirmedContractFormat = formatToConfirm;
+      lease.draftContractText = resolvedContent;
+      lease.draftContractFormat = formatToConfirm;
+
+      if (lease.contractType === ContractType.RENTAL && lease.propertyId) {
+        await manager
+          .getRepository(Property)
+          .update(
+            { id: lease.propertyId, companyId: user.companyId },
+            { operationState: PropertyOperationState.RENTED },
+          );
+      }
+
+      if (lease.contractType === ContractType.SALE && lease.propertyId) {
+        await manager
+          .getRepository(Property)
+          .update(
+            { id: lease.propertyId, companyId: user.companyId },
+            { operationState: PropertyOperationState.SOLD },
+          );
+      }
+
+      const savedLease = await manager.getRepository(Lease).save(lease);
+      if (savedLease.contractType === ContractType.RENTAL) {
+        await this.tenantAccountsService.createForLease(
+          savedLease.id,
+          savedLease.companyId,
+          manager,
+        );
+      }
+      await manager.query(
+        `INSERT INTO lease_contract_effects_outbox(company_id,lease_id,requested_by,snapshot) VALUES($1,$2,$3,$4::jsonb)`,
+        [
+          savedLease.companyId,
+          savedLease.id,
+          userId,
+          JSON.stringify({
+            text: resolvedContent,
+            format: formatToConfirm,
+            locale:
+              lease.tenant?.user?.language ??
+              lease.buyer?.user?.language ??
+              'es',
+            confirmedAt: lease.confirmedAt,
+            version: lease.versionNumber ?? 1,
+          }),
+        ],
+      );
+    });
+    return this.findOne(id, user.companyId);
+  }
+
+  /** Property before lease: serialize replacement contracts without locking nullable joins. */
+  private async lockLease(
+    manager: EntityManager,
+    id: string,
+    companyId: string,
+  ): Promise<Lease> {
+    const [target] = await manager.query(
+      'SELECT property_id FROM leases WHERE id=$1 AND company_id=$2 AND deleted_at IS NULL',
+      [id, companyId],
+    );
+    if (!target) throw new NotFoundException('Lease not found');
+    if (target.property_id) {
+      const [property] = await manager.query(
+        'SELECT id FROM properties WHERE id=$1 AND company_id=$2 AND deleted_at IS NULL FOR NO KEY UPDATE',
+        [target.property_id, companyId],
+      );
+      if (!property) throw new NotFoundException('Property not found');
+    }
+    const [locked] = await manager.query(
+      'SELECT property_id FROM leases WHERE id=$1 AND company_id=$2 AND deleted_at IS NULL FOR UPDATE',
+      [id, companyId],
+    );
+    if (!locked) throw new NotFoundException('Lease not found');
+    if (locked.property_id !== target.property_id)
+      throw new ConflictException(
+        'Lease property changed; reload before confirming',
+      );
+    return this.findOne(id, companyId, manager);
   }
 
   async activate(
@@ -571,25 +616,29 @@ export class LeasesService {
     user: RequestUser,
     reason?: string,
   ): Promise<Lease> {
-    const lease = await this.findOne(id, user.companyId);
+    return this.leasesRepository.manager.transaction(async (manager) => {
+      const lease = await this.lockLease(manager, id, user.companyId);
 
-    if (lease.status !== LeaseStatus.ACTIVE) {
-      throw new BadRequestException('Only active contracts can be finalized');
-    }
+      if (lease.status !== LeaseStatus.ACTIVE) {
+        throw new BadRequestException('Only active contracts can be finalized');
+      }
 
-    lease.status = LeaseStatus.FINALIZED;
-    if (reason) {
-      lease.notes = (lease.notes || '') + `\nFinalization reason: ${reason}`;
-    }
+      lease.status = LeaseStatus.FINALIZED;
+      if (reason) {
+        lease.notes = (lease.notes || '') + `\nFinalization reason: ${reason}`;
+      }
 
-    if (lease.contractType === ContractType.RENTAL && lease.propertyId) {
-      await this.propertiesRepository.update(
-        { id: lease.propertyId, companyId: user.companyId },
-        { operationState: PropertyOperationState.AVAILABLE },
-      );
-    }
+      if (lease.contractType === ContractType.RENTAL && lease.propertyId) {
+        await manager
+          .getRepository(Property)
+          .update(
+            { id: lease.propertyId, companyId: user.companyId },
+            { operationState: PropertyOperationState.AVAILABLE },
+          );
+      }
 
-    return this.leasesRepository.save(lease);
+      return manager.getRepository(Lease).save(lease);
+    });
   }
 
   async renew(

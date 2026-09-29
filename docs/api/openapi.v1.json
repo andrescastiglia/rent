@@ -3313,6 +3313,36 @@
         ]
       }
     },
+    "/leases/internal/process-contracts": {
+      "post": {
+        "operationId": "LeaseContractEffects_process",
+        "parameters": [
+          {
+            "name": "x-batch-communications-token",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "LeaseContractEffects"
+        ]
+      }
+    },
     "/amendments": {
       "post": {
         "operationId": "Amendments_create",
@@ -3464,6 +3494,66 @@
         },
         "tags": [
           "Amendments"
+        ]
+      }
+    },
+    "/contracts/{id}/contract-status": {
+      "get": {
+        "operationId": "LeasesContract_status",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseContractStatusDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "LeasesContract"
+        ]
+      }
+    },
+    "/leases/{id}/contract-status": {
+      "get": {
+        "operationId": "LeasesContract_statusLegacy",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseContractStatusDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "LeasesContract"
         ]
       }
     },
@@ -14152,6 +14242,27 @@
           "effectiveDate",
           "changeType",
           "description"
+        ]
+      },
+      "LeaseContractStatusDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "enum": [
+              "queued",
+              "completed",
+              "dead_letter",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "available": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "status",
+          "available"
         ]
       },
       "Invoice": {

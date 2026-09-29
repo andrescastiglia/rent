@@ -150,6 +150,10 @@ describe('Lease Creation Flow (e2e)', () => {
 
   afterAll(async () => {
     // Clean up test data in correct order (respecting foreign keys)
+    // Remove durable document jobs before their lease/document references.
+    await leaseRepository.query(
+      "DELETE FROM lease_contract_effects_outbox WHERE company_id IN (SELECT id FROM companies WHERE tax_id LIKE '%-lease')",
+    );
     // 1. Delete leases first (depends on units and tenants)
     await leaseRepository.query(
       "DELETE FROM tenant_accounts WHERE lease_id IN (SELECT id FROM leases WHERE property_id IN (SELECT id FROM properties WHERE company_id IN (SELECT id FROM companies WHERE tax_id LIKE '%-lease')))",

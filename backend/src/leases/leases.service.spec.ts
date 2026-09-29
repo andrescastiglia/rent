@@ -56,6 +56,11 @@ const adminActor = {
 
 describe('LeasesService', () => {
   let service: LeasesService;
+  let manager: {
+    query: jest.Mock;
+    getRepository: jest.Mock;
+    transaction: jest.Mock;
+  };
   let leaseRepository: MockRepository<Lease>;
   let _templateRepository: MockRepository<LeaseContractTemplate>;
   let propertyRepository: MockRepository<Property>;
@@ -122,6 +127,15 @@ describe('LeasesService', () => {
       companyId: 'company-1',
     } as Tenant);
     documentRepository = module.get(getRepositoryToken(Document));
+    manager = {
+      query: jest.fn().mockResolvedValue([{ property_id: null }]),
+      getRepository: jest.fn((entity) =>
+        entity === Lease ? leaseRepository : propertyRepository,
+      ),
+      transaction: jest.fn(),
+    };
+    manager.transaction.mockImplementation(async (work) => work(manager));
+    Object.assign(leaseRepository, { manager });
   });
 
   it('creates a rental lease in draft', async () => {
@@ -1449,8 +1463,8 @@ describe('LeasesService', () => {
     });
   });
 
-  describe('confirmDraft PDF generation failure', () => {
-    it('should still succeed when PDF generation throws', async () => {
+  describe('confirmDraft durable document scheduling', () => {
+    it('queues the immutable source without rendering during confirmation', async () => {
       const draft = {
         id: 'lease-pdf-fail',
         companyId: 'c1',
@@ -1484,10 +1498,12 @@ describe('LeasesService', () => {
       );
 
       expect(result.status).toBe(LeaseStatus.ACTIVE);
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'Failed to generate contract PDF:',
-        expect.any(Error),
+      expect(pdfService.generateContract).not.toHaveBeenCalled();
+      expect(manager.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO lease_contract_effects_outbox'),
+        expect.arrayContaining(['lease-pdf-fail']),
       );
+      expect(consoleSpy).not.toHaveBeenCalled();
       consoleSpy.mockRestore();
     });
   });

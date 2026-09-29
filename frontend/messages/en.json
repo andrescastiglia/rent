@@ -1808,5 +1808,17 @@
     "voidReason": "Reason for voiding",
     "confirmVoid": "I confirm voiding this settlement and releasing its invoices. This action does not reverse a transfer.",
     "void": "Void settlement"
+  },
+  "contractDocument": {
+    "title": "Contract document",
+    "queued": "The PDF is being prepared. Refresh the status in a moment.",
+    "deadLetter": "The contract is confirmed, but its PDF requires administrative review.",
+    "available": "PDF available.",
+    "unavailable": "No PDF is available for this contract yet.",
+    "readError": "Could not read the document status. Refresh to try again.",
+    "downloadError": "Could not download the PDF. Refresh the status before trying again.",
+    "refresh": "Refresh document",
+    "download": "Download contract",
+    "loading": "Loading…"
   }
 }

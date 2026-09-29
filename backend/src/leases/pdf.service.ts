@@ -1,7 +1,9 @@
+import { LeaseContractStatusDto } from './dto/lease-contract-status.dto';
 import { Injectable } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
+import { createHash } from 'node:crypto';
 import { Lease } from './entities/lease.entity';
 import {
   Document,
@@ -23,7 +25,10 @@ export class PdfService {
     _userId: string,
     contractText?: string,
     contractFormat: 'plain_text' | 'html' = 'plain_text',
+    manager?: EntityManager,
   ): Promise<Document> {
+    const documents =
+      manager?.getRepository(Document) ?? this.documentsRepository;
     // Obtener idioma preferido del usuario o default
     const lang = lease.tenant?.user?.language || 'es';
     // Generate PDF buffer
@@ -33,11 +38,12 @@ export class PdfService {
       lang,
       contractText,
       contractFormat,
+      lease.confirmedAt ?? undefined,
     );
 
     // Create document record
-    const document = await this.documentsRepository.save(
-      this.documentsRepository.create({
+    const document = await documents.save(
+      documents.create({
         companyId: lease.companyId,
         entityType: 'lease',
         entityId: lease.id,
@@ -48,21 +54,52 @@ export class PdfService {
         fileMimeType: 'application/pdf',
         fileSize: pdfBuffer.length,
         status: DocumentStatus.APPROVED,
+        metadata: {
+          source: 'lease_contract',
+          sha256: createHash('sha256').update(pdfBuffer).digest('hex'),
+          version: lease.versionNumber ?? 1,
+          confirmedAt: lease.confirmedAt ?? null,
+        },
       }),
     );
 
     document.fileUrl = `db://document/${document.id}`;
-    return this.documentsRepository.save(document);
+    return documents.save(document);
   }
 
-  async getContractDocument(leaseId: string): Promise<Document | null> {
+  async getContractDocument(
+    leaseId: string,
+    companyId: string,
+  ): Promise<Document | null> {
+    const [event] = await this.documentsRepository.manager.query(
+      'SELECT document_id FROM lease_contract_effects_outbox WHERE lease_id=$1 AND company_id=$2',
+      [leaseId, companyId],
+    );
+    if (event && !event.document_id) return null;
     return this.documentsRepository.findOne({
       where: {
+        ...(event ? { id: event.document_id as string } : {}),
+        status: DocumentStatus.APPROVED,
+        companyId,
         entityType: 'lease',
         entityId: leaseId,
         documentType: DocumentType.LEASE_CONTRACT,
       },
       order: { createdAt: 'DESC' },
     });
+  }
+  async getContractStatus(
+    leaseId: string,
+    companyId: string,
+  ): Promise<LeaseContractStatusDto> {
+    const [event] = await this.documentsRepository.manager.query(
+      'SELECT status FROM lease_contract_effects_outbox WHERE lease_id=$1 AND company_id=$2',
+      [leaseId, companyId],
+    );
+    const document = await this.getContractDocument(leaseId, companyId);
+    return {
+      status: event?.status ?? (document ? 'completed' : 'unavailable'),
+      available: !!document,
+    };
   }
 }

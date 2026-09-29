@@ -8,6 +8,7 @@ export async function processQueues() {
   for (const path of [
     '/payments/internal/process-effects',
     '/sales/internal/process-receipts',
+    '/leases/internal/process-contracts',
     '/digital-signatures/internal/process-stamps',
     '/portals/internal/process-publications',
     '/settlements/internal/process-payouts',
