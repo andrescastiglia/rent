@@ -5,7 +5,7 @@ import {
   prepareLeaseImport,
   submitLeaseImport,
 } from "./lease-import-recovery";
-import { leasesApi } from "./api/leases";
+import { importCurrentLease } from "./api/lease-import";
 import { apiClient } from "./api";
 jest.mock("./api", () => ({ apiClient: { post: jest.fn() } }));
 jest.mock("./auth", () => ({
@@ -121,7 +121,7 @@ it("sends the same multipart key and file on retry after a lost response, then c
       "company",
       "user",
       input(),
-      leasesApi.importCurrentContract,
+      importCurrentLease<{ id: string }>,
     ),
   ).rejects.toThrow("response lost");
   expect(localStorage.length).toBe(1);
@@ -129,7 +129,7 @@ it("sends the same multipart key and file on retry after a lost response, then c
     "company",
     "user",
     input(),
-    leasesApi.importCurrentContract,
+    importCurrentLease<{ id: string }>,
   );
   const first = jest.mocked(apiClient.post).mock.calls[0];
   const retry = jest.mocked(apiClient.post).mock.calls[1];
@@ -153,7 +153,7 @@ it("does not submit an import when the browser cannot persist recovery informati
       "company",
       "user",
       input(),
-      leasesApi.importCurrentContract,
+      importCurrentLease<{ id: string }>,
     ),
   ).rejects.toThrow("storage unavailable");
   expect(apiClient.post).not.toHaveBeenCalled();
