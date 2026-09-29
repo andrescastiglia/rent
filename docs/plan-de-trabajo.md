@@ -76,9 +76,10 @@ El cron `process-settlements` permanece suspendido.
   OAuth incorporado a main con todos los gates del PR #217 aprobados.
   Interfaz administrativa de conexión y callback implementada, con bloqueo mientras
   esté deshabilitada, retorno sin persistir códigos y desvinculación local confirmada.
+  Interfaz de conexión incorporada a main con gates del PR #218 aprobados.
   Revisión de incidencias implementada con auditoría y UI por propiedad: vinculación
   verificada, ausencia declarada, reintento por ID y aceptación del estado remoto.
-  Pendiente: alta/editor y administración completa de avisos, gates UI/revisión
+  Pendiente: alta/editor y administración completa de avisos, gates de revisión
   y despliegue deshabilitado.
 - [ ] Implementar transferencias Mercado Pago con idempotencia y conciliación.
 - [ ] Verificar que ninguna integración real se invoque mientras está deshabilitada.
