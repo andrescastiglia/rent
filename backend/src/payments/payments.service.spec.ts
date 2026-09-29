@@ -25,7 +25,11 @@ describe('PaymentsService', () => {
   let tenantAccountsRepository: MockRepository<TenantAccount>;
   let tenantAccountsService: Partial<TenantAccountsService>;
   let dataSource: { transaction: jest.Mock };
-  let transactionManager: { query: jest.Mock; getRepository: jest.Mock };
+  let transactionManager: {
+    queryRunner: { isTransactionActive: boolean };
+    query: jest.Mock;
+    getRepository: jest.Mock;
+  };
 
   type MockRepository<T extends Record<string, any> = any> = Partial<
     Record<keyof Repository<T>, jest.Mock>
@@ -50,7 +54,12 @@ describe('PaymentsService', () => {
       calculateLateFee: jest.fn(),
     };
     transactionManager = {
-      query: jest.fn().mockResolvedValue([]),
+      queryRunner: { isTransactionActive: true },
+      query: jest.fn(async (sql: string) =>
+        sql.includes('next_payment_document_number')
+          ? [{ number: 'TEST-0001' }]
+          : [],
+      ),
       getRepository: jest.fn((entity: unknown) => {
         if (entity === Payment) return paymentsRepository;
         if (entity === PaymentItem) return paymentItemsRepository;
@@ -423,8 +432,8 @@ describe('PaymentsService', () => {
       [payment.companyId, payment.id],
     );
     expect(transactionManager.query).toHaveBeenCalledWith(
-      'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
-      ['receipt-number'],
+      'SELECT next_payment_document_number($1) AS number',
+      ['receipt'],
     );
   });
 
@@ -919,9 +928,12 @@ describe('PaymentsService', () => {
   it('should return existing receipt when already generated', async () => {
     receiptsRepository.findOne!.mockResolvedValue({ id: 'r-existing' });
 
-    const result = await (service as any).generateReceipt({
-      id: 'pay-1',
-    } as Payment);
+    const result = await (service as any).generateReceipt(
+      {
+        id: 'pay-1',
+      } as Payment,
+      transactionManager,
+    );
 
     expect(result).toEqual({ id: 'r-existing' });
     expect(receiptsRepository.create).not.toHaveBeenCalled();
@@ -977,6 +989,7 @@ describe('PaymentsService', () => {
           invoiceNumber: 'FAC-1',
         } as any,
       ],
+      transactionManager,
     );
 
     expect(_creditNotesRepository.create).toHaveBeenCalledWith(
@@ -987,14 +1000,15 @@ describe('PaymentsService', () => {
         status: CreditNoteStatus.ISSUED,
       }),
     );
-    expect(tenantAccountsService.addMovement).toHaveBeenCalledWith(
-      'acc-1',
-      expect.anything(),
-      -50,
-      'credit_note',
-      'cn-1',
-      expect.stringContaining('Nota de crédito'),
-      'company-1',
+    expect(tenantAccountsService.addMovementWithManager).toHaveBeenCalledWith(
+      transactionManager,
+      expect.objectContaining({
+        accountId: 'acc-1',
+        amount: -50,
+        referenceType: 'credit_note',
+        referenceId: 'cn-1',
+        companyId: 'company-1',
+      }),
     );
   });
 
@@ -1011,6 +1025,7 @@ describe('PaymentsService', () => {
       } as Payment,
       'acc-1',
       [{ id: 'inv-1', lateFee: 20 } as any],
+      transactionManager,
     );
 
     expect(_creditNotesRepository.create).not.toHaveBeenCalled();
@@ -1021,20 +1036,6 @@ describe('PaymentsService', () => {
       'credit_note',
       expect.anything(),
       expect.anything(),
-    );
-  });
-
-  it('serializes credit note numbering inside the transaction', async () => {
-    _creditNotesRepository.find!.mockResolvedValue([]);
-
-    await (service as any).generateCreditNoteNumber(
-      _creditNotesRepository,
-      transactionManager,
-    );
-
-    expect(transactionManager.query).toHaveBeenCalledWith(
-      'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
-      ['credit-note-number'],
     );
   });
 });

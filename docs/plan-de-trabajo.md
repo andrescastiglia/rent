@@ -105,8 +105,8 @@ Pendiente: despliegue de backend/clientes compatibles.
   Alta, edición, confirmación y anulación de cobros usan la misma constancia
   transaccional; conceptos y pago se guardan juntos y la edición bloquea
   confirmaciones concurrentes. Ver [contrato y pruebas](technical/approved-payment-recovery.md).
-  Pendiente: gates de este avance, idempotencia transaccional de las demás
-  herramientas mutables y despliegue.
+  Ciclo de cobros incorporado a main con los 23 gates del PR #243 aprobados.
+  Pendiente: idempotencia transaccional de las demás herramientas mutables y despliegue.
 
 ## 2. Completar recorridos de producto
 
@@ -116,17 +116,21 @@ Pendiente: despliegue de backend/clientes compatibles.
   exige conceptos consistentes, no permite cambiar la cuenta y valida moneda.
   Confirmación rechaza registros incompatibles y las imputaciones fraccionarias
   ya no dejan facturas pagadas en estado parcial. Ver
-  [alcance y límites](technical/payment-amounts.md). Pendiente: gates, despliegue
-  y los demás requisitos de cobros.
+  [alcance y límites](technical/payment-amounts.md). Incorporado a main con los
+  23 gates del PR #244 aprobados. Pendiente: despliegue y los demás requisitos de cobros.
   Anulación de cobros implementada con saldo imputado en centavos, estado según
   pagos remanentes/vencimiento, preservación de facturas anuladas y rechazo de
   imputaciones incompatibles. Ver [reglas y pruebas](technical/payment-reversals.md).
+  Incorporado a main con los 23 gates del PR #245 aprobados.
   Las nuevas bonificaciones de mora registran origen y se revierten al anular
   otro cobro de la factura, con auditoría, bloqueo del PDF y revalidación del
   aviso pendiente. Ver [alcance y límites](technical/conditional-late-fee-credits.md).
+  Numeración de recibos/notas implementada con contadores persistentes,
+  historial/importaciones, inmutabilidad y asignación dentro de la transacción
+  contable (migración 131). Ver [reglas y pruebas](technical/payment-document-numbers.md).
   Pendiente: gates y despliegue; política opcional de mora, notas históricas,
-  anulación directa de facturas con notas, avisos de recibos, numeración persistente
-  y recuperación de deuda tras liquidaciones ya transferidas.
+  anulación directa de facturas con notas, avisos de recibos, verificación de los
+  demás numeradores y recuperación de deuda tras liquidaciones ya transferidas.
 - [ ] Propiedades: filtros útiles, interesados, visitas y aviso consentido al propietario con fecha, oferta y valor.
 - [ ] Ventas: cuotas transaccionales, atrasos, saldo a favor/crédito y original/duplicado verificables.
 - [ ] Mantenimiento: solicitud, asignación, seguimiento, cierre, adjuntos, auditoría y notificaciones idempotentes.
