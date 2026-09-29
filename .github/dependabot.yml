@@ -21,6 +21,9 @@ updates:
           - minor
           - patch
     ignore:
+      # 29.4.13 emits file: source URLs that break Istanbul coverage artifacts.
+      - dependency-name: ts-jest
+        versions: ["29.4.13"]
       - dependency-name: typeorm
         update-types:
           - version-update:semver-major
@@ -144,6 +147,9 @@ updates:
           - minor
           - patch
     ignore:
+      # 29.4.13 emits file: source URLs that break Istanbul coverage artifacts.
+      - dependency-name: ts-jest
+        versions: ["29.4.13"]
       - dependency-name: typeorm
         update-types:
           - version-update:semver-major
