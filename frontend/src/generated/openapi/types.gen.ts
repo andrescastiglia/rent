@@ -2236,6 +2236,54 @@ export type UpdateBankAccountDto = {
   [key: string]: unknown;
 };
 
+export type SettlementSourceAllocationDto = {
+  id: string;
+  paymentId: string;
+  amount: string;
+  paymentDate: string;
+};
+
+export type SettlementSourceCreditDto = {
+  id: string;
+  amount: string;
+};
+
+export type SettlementSourceInvoiceDto = {
+  id: string;
+  invoiceNumber: string;
+  totalAmount: string;
+  dueDate: string;
+  collectedAmount: string;
+  creditedAmount: string;
+  grossAmount: string;
+  scheduledDate: string;
+  allocations: Array<SettlementSourceAllocationDto>;
+  creditNotes: Array<SettlementSourceCreditDto>;
+};
+
+export type SettlementCalculationDto = {
+  ownerId: string;
+  period: string;
+  currency: string;
+  commissionRate: string;
+  grossAmount: string;
+  commissionAmount: string;
+  /**
+   * Before any additional settlement withholding; not a transfer authorization.
+   */
+  netBeforeWithholdings: string;
+  scheduledDate: string | null;
+  /**
+   * Existing settlements require reconciliation before generation; amounts are not unreserved balances.
+   */
+  existingSettlementIds: Array<string>;
+  invoices: Array<SettlementSourceInvoiceDto>;
+  /**
+   * Hash of the source calculation, excluding calculation time.
+   */
+  fingerprint: string;
+};
+
 export type Settlement = {
   id: string;
   ownerId: string;
@@ -6228,6 +6276,24 @@ export type BankAccountsUpdateResponses = {
 
 export type BankAccountsUpdateResponse =
   BankAccountsUpdateResponses[keyof BankAccountsUpdateResponses];
+
+export type SettlementCalculationPreviewData = {
+  body?: never;
+  path?: never;
+  query: {
+    ownerId: string;
+    period: string;
+    currency: string;
+  };
+  url: "/settlements/calculation/preview";
+};
+
+export type SettlementCalculationPreviewResponses = {
+  200: SettlementCalculationDto;
+};
+
+export type SettlementCalculationPreviewResponse =
+  SettlementCalculationPreviewResponses[keyof SettlementCalculationPreviewResponses];
 
 export type SettlementsFindAllData = {
   body?: never;

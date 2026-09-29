@@ -5,6 +5,44 @@ pero no crear cuentas, configurar credenciales ni habilitar las funciones.
 La configuración ausente equivale a deshabilitado, también durante las pruebas;
 las pruebas de protocolo inyectan transporte simulado explícitamente.
 
+## Vista previa contable de liquidaciones
+
+`GET /settlements/calculation/preview?ownerId=<uuid>&period=YYYY-MM&currency=ARS`
+es una lectura administrativa por compañía. No requiere cuentas de proveedores,
+no persiste liquidaciones ni reserva saldos y no autoriza una transferencia.
+Funciona con las integraciones deshabilitadas.
+
+El cálculo usa un snapshot PostgreSQL `REPEATABLE READ`, en una transacción de
+solo lectura, de las facturas pagadas del propietario, período de facturación y
+moneda solicitados. Obtiene los cobros desde `payment_allocations`, sin depender
+de `payments.invoice_id`: admite varios pagos por factura y varias facturas por
+pago. Exige imputaciones activas, pagos completados con imputaciones registradas,
+moneda/cuenta compatibles y coincidencia exacta con el total y el importe pagado
+de la factura. Los datos inconsistentes o históricos sin imputaciones requieren
+revisión (`409`); no se infieren cobros faltantes.
+
+Descuenta una sola vez las notas de crédito emitidas de cada factura, excluye las
+anuladas y conserva los IDs e importes de cada fuente. No vuelve a descontar las
+retenciones ya incluidas en la facturación. La comisión usa la tasa del propietario
+(incluido el 0 %), centavos enteros y redondeo de medio centavo hacia arriba una
+sola vez sobre el total. `netBeforeWithholdings` excluye cualquier retención
+adicional de la liquidación; no es un saldo disponible para transferir. La fecha
+propuesta es la mayor entre vencimientos y fechas de cobro; no ejecuta tareas al
+alcanzarse esa fecha.
+
+La respuesta informa las liquidaciones existentes del propietario/período, aun
+cuando tengan otra moneda. No se descuentan automáticamente ni se presume que
+sus fuentes están libres. El `fingerprint` identifica el cálculo y sus fuentes;
+no es una firma ni una reserva. La generación durable debe volver a validar y
+reservar esas fuentes en su propia transacción, resolver el historial previo y
+controlar anulaciones concurrentes. Ese flujo sigue pendiente y el cron antiguo
+permanece suspendido.
+
+Evidencia: `backend/test/settlement-calculation.e2e-spec.ts` verifica cálculos con
+PostgreSQL real, exactitud de centavos, comprobantes divididos, créditos, aislamiento,
+permisos y ausencia de llamadas externas. No se agregan migraciones ni ajustes de
+configuración para esta lectura.
+
 ## BFA: sellado e integridad
 
 El [servicio BFA](https://bfa.ar/sello2) acredita existencia e integridad del

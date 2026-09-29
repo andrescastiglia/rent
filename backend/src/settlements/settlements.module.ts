@@ -1,4 +1,6 @@
 import { SettlementPayoutEffectsService } from './settlement-payout-effects.service';
+import { SettlementCalculationController } from './settlement-calculation.controller';
+import { SettlementCalculationService } from './settlement-calculation.service';
 import { SettlementPayoutReceiptPdfService } from './settlement-payout-receipt-pdf.service';
 import { SettlementPayoutReceiptsController } from './settlement-payout-receipts.controller';
 import { SettlementPayoutsService } from './settlement-payouts.service';
@@ -19,11 +21,13 @@ import { SettlementsController } from './settlements.controller';
     TypeOrmModule.forFeature([Settlement, Owner]),
   ],
   controllers: [
+    SettlementCalculationController,
     SettlementsController,
     SettlementPayoutsController,
     SettlementPayoutReceiptsController,
   ],
   providers: [
+    SettlementCalculationService,
     SettlementsService,
     SettlementPayoutsService,
     SettlementPayoutEffectsService,
