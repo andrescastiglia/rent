@@ -217,7 +217,9 @@ export class MercadoLibreCatalogService {
     try {
       const raw = await this.http.request(
         'MERCADOLIBRE',
-        `https://api.mercadolibre.com${path}`,
+        // Keep the authority and its trailing slash constant. Only the path
+        // can vary, even if a future caller passes an unexpected value.
+        `https://api.mercadolibre.com/${path.replace(/^\/+/, '')}`,
         {
           method: 'GET',
           headers: { Authorization: `Bearer ${account.accessToken}` },
