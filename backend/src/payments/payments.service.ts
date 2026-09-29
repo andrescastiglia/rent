@@ -1,3 +1,4 @@
+import { allocatePaymentDocumentNumber } from './payment-document-number';
 import {
   calculatePaymentAmount,
   paymentCents,
@@ -429,11 +430,9 @@ export class PaymentsService {
    */
   private async generateReceipt(
     payment: Payment,
-    manager?: EntityManager,
+    manager: EntityManager,
   ): Promise<Receipt> {
-    const repository = manager
-      ? manager.getRepository(Receipt)
-      : this.receiptsRepository;
+    const repository = manager.getRepository(Receipt);
     const existingReceipt = await repository.findOne({
       where: { paymentId: payment.id },
     });
@@ -441,7 +440,10 @@ export class PaymentsService {
       return existingReceipt;
     }
 
-    const receiptNumber = await this.generateReceiptNumber(repository, manager);
+    const receiptNumber = await allocatePaymentDocumentNumber(
+      manager,
+      'receipt',
+    );
     return repository.save(
       repository.create({
         companyId: payment.companyId,
@@ -452,33 +454,6 @@ export class PaymentsService {
         issuedAt: new Date(),
       }),
     );
-  }
-
-  /**
-   * Genera número de recibo secuencial.
-   * @returns Número de recibo
-   */
-  private async generateReceiptNumber(
-    repository: Repository<Receipt> = this.receiptsRepository,
-    manager?: EntityManager,
-  ): Promise<string> {
-    await this.lockDocumentNumber(manager, 'receipt-number');
-    const [lastReceipt] = await repository.find({
-      order: { createdAt: 'DESC' },
-      take: 1,
-    });
-
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-
-    let sequence = 1;
-    const numberMatch = /-(\d+)$/.exec(lastReceipt?.receiptNumber ?? '');
-    if (numberMatch?.[1]) {
-      sequence = Number.parseInt(numberMatch[1], 10) + 1;
-    }
-
-    return `REC-${year}${month}-${String(sequence).padStart(4, '0')}`;
   }
 
   /**
@@ -774,11 +749,9 @@ export class PaymentsService {
     payment: Payment,
     tenantAccountId: string,
     invoices: Invoice[],
-    manager?: EntityManager,
+    manager: EntityManager,
   ): Promise<void> {
-    const creditNotesRepository = manager
-      ? manager.getRepository(CreditNote)
-      : this.creditNotesRepository;
+    const creditNotesRepository = manager.getRepository(CreditNote);
     for (const invoice of invoices) {
       const lateFeeAmount = Number(invoice.lateFee || 0);
       if (lateFeeAmount <= 0) {
@@ -824,7 +797,7 @@ export class PaymentsService {
     invoice: Invoice;
     lateFeeAmount: number;
     creditNotesRepository: Repository<CreditNote>;
-    manager?: EntityManager;
+    manager: EntityManager;
   }): Promise<CreditNote> {
     const {
       payment,
@@ -834,9 +807,9 @@ export class PaymentsService {
       creditNotesRepository,
       manager,
     } = input;
-    const noteNumber = await this.generateCreditNoteNumber(
-      creditNotesRepository,
+    const noteNumber = await allocatePaymentDocumentNumber(
       manager,
+      'credit_note',
     );
     const note = creditNotesRepository.create({
       companyId: payment.companyId,
@@ -853,63 +826,17 @@ export class PaymentsService {
     const savedNote = await creditNotesRepository.save(note);
     const description = `Nota de crédito ${savedNote.noteNumber} por mora`;
 
-    if (manager) {
-      await this.tenantAccountsService.addMovementWithManager(manager, {
-        accountId: tenantAccountId,
-        type: MovementType.DISCOUNT,
-        amount: -lateFeeAmount,
-        referenceType: 'credit_note',
-        referenceId: savedNote.id,
-        description,
-        companyId: payment.companyId,
-      });
-    } else {
-      await this.tenantAccountsService.addMovement(
-        tenantAccountId,
-        MovementType.DISCOUNT,
-        -lateFeeAmount,
-        'credit_note',
-        savedNote.id,
-        description,
-        payment.companyId,
-      );
-    }
-
-    return savedNote;
-  }
-
-  private async generateCreditNoteNumber(
-    repository: Repository<CreditNote> = this.creditNotesRepository,
-    manager?: EntityManager,
-  ): Promise<string> {
-    await this.lockDocumentNumber(manager, 'credit-note-number');
-    const [lastNote] = await repository.find({
-      order: { createdAt: 'DESC' },
-      take: 1,
+    await this.tenantAccountsService.addMovementWithManager(manager, {
+      accountId: tenantAccountId,
+      type: MovementType.DISCOUNT,
+      amount: -lateFeeAmount,
+      referenceType: 'credit_note',
+      referenceId: savedNote.id,
+      description,
+      companyId: payment.companyId,
     });
 
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-
-    let sequence = 1;
-    const numberMatch = /-(\d+)$/.exec(lastNote?.noteNumber ?? '');
-    if (numberMatch?.[1]) {
-      sequence = Number.parseInt(numberMatch[1], 10) + 1;
-    }
-
-    return `NC-${year}${month}-${String(sequence).padStart(4, '0')}`;
-  }
-
-  private async lockDocumentNumber(
-    manager: EntityManager | undefined,
-    namespace: string,
-  ): Promise<void> {
-    if (!manager) return;
-    await manager.query(
-      'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
-      [namespace],
-    );
+    return savedNote;
   }
 
   private async resolveTenantAccountId(

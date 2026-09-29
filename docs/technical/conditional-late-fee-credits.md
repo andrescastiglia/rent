@@ -47,6 +47,6 @@ del aviso con proveedor simulado. No envían mensajes reales.
 
 Quedan pendientes la política opcional y auditable de mora, la revisión de
 liquidaciones ya transferidas, la anulación directa de facturas con notas vigentes
-y la revalidación de avisos de recibos. La numeración documental también requiere
-un contador persistente: el algoritmo actual depende del último registro y puede
-colisionar ante números manuales/importados o fechas de creación fuera de orden.
+y la revalidación de avisos de recibos. La migración 131 reemplaza la numeración
+de recibos/notas por [contadores persistentes](payment-document-numbers.md),
+incluyendo importaciones y registros históricos fuera de orden.
