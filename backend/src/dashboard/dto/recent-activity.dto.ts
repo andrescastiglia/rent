@@ -21,6 +21,7 @@ export class PersonActivityItemDto {
   updatedAt: Date;
   actionKind?: 'communication' | 'pending_action' | 'registration';
   actionId?: string;
+  canRetry?: boolean;
 }
 
 export class RecentActivityDto {

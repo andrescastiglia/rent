@@ -90,7 +90,14 @@ Pendiente: despliegue de backend/clientes compatibles.
   Avance: corregida la lectura de filas adquiridas/rechazadas en PostgreSQL;
   pruebas HTTP con dos compañías, concurrencia, reautenticación e integridad.
   Corrección incorporada a main con los 23 gates del PR #229 aprobados.
-  Pendiente: idempotencia transaccional del efecto y despliegue.
+  Avance adicional: generación de facturas con resultado original inmutable en
+  la misma transacción del cargo/calendario, clave estable por aprobación y
+  recuperación con reautenticación tras fallos o vencimiento del intento.
+  Las ejecuciones históricas sin garantía no se vuelven a ejecutar y las propuestas
+  de la bandeja no admiten confirmación directa. Ver
+  [alcance y pruebas](technical/approved-invoice-recovery.md).
+  Pendiente: gates de este avance, idempotencia transaccional de las demás
+  herramientas mutables y despliegue.
 
 ## 2. Completar recorridos de producto
 

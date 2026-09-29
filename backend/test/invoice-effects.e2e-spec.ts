@@ -17,6 +17,7 @@ import { InvoicesService } from '../src/payments/invoices.service';
 import { ScheduledBillingService } from '../src/payments/scheduled-billing.service';
 import { CommunicationsService } from '../src/communications/communications.service';
 import { WhatsappService } from '../src/whatsapp/whatsapp.service';
+import { AiToolExecutorService } from '../src/ai/ai-tool-executor.service';
 import { buildAiToolDefinitions } from '../src/ai/openai-tools.registry';
 import { ProviderHttpService } from '../src/integrations/provider-http.service';
 import {
@@ -139,6 +140,9 @@ describe('Durable issued invoice documents (e2e)', () => {
       [companyId],
     );
     for (const table of [
+      'pending_actions',
+      'ai_tool_mutation_confirmations',
+      'ai_conversations',
       'communication_deliveries',
       'invoice_generations',
       'invoice_effects_outbox',
@@ -651,6 +655,167 @@ describe('Durable issued invoice documents (e2e)', () => {
         )
       )[0],
     ).toEqual({ monthly_rent: '1000.00', inflation_index_lag_months: null });
+  });
+
+  it('recovers an approved invoice after the domain committed but its approval result was lost', async () => {
+    const { leaseId, accountId } = await seed();
+    const [{ user_id: requester }] = await db.query(
+      'SELECT user_id FROM tenants WHERE id=$1',
+      [tenantId],
+    );
+    const payload = { leaseId, ...october, issue: true };
+    const ordered = Object.fromEntries(
+      Object.entries(payload).sort(([left], [right]) =>
+        left.localeCompare(right),
+      ),
+    );
+    const [action] = await db.query(
+      `INSERT INTO pending_actions(company_id,requested_by,tool_name,action_type,entity_type,summary,payload,payload_hash,expires_at)
+      VALUES($1,$2,'post_invoices_generate_for_lease','create','invoice','Generate invoice',$3::jsonb,$4,now()+interval '15 minutes') RETURNING id,execution_key`,
+      [
+        companyId,
+        requester,
+        JSON.stringify(payload),
+        createHash('sha256').update(JSON.stringify(ordered)).digest('hex'),
+      ],
+    );
+    const reauth = (
+      await request(app.getHttpServer())
+        .post('/auth/reauthenticate')
+        .auth(token, { type: 'bearer' })
+        .send({ password })
+        .expect(200)
+    ).body.reauthToken;
+    const executor = app.get(AiToolExecutorService),
+      original = executor.executeApproved.bind(executor),
+      mode = process.env.AI_TOOLS_MODE;
+    process.env.AI_TOOLS_MODE = 'FULL';
+    const lost = jest
+      .spyOn(executor, 'executeApproved')
+      .mockImplementationOnce(async (...args) => {
+        await original(...args);
+        throw new Error('lost response after domain commit');
+      });
+    const approve = () =>
+      request(app.getHttpServer())
+        .post(`/pending-actions/${action.id}/approve`)
+        .auth(token, { type: 'bearer' })
+        .send({ reauthToken: reauth });
+    try {
+      expect((await approve().expect(201)).body.status).toBe('failed');
+      lost.mockRestore();
+      const [receipt] = await db.query(
+        'SELECT invoice_id,result_snapshot FROM invoice_generations WHERE company_id=$1 AND idempotency_key=$2',
+        [companyId, action.execution_key],
+      );
+      expect(receipt.result_snapshot.status).toBe('pending');
+      expect(typeof receipt.result_snapshot.issuedAt).toBe('string');
+      await app.get(InvoicesService).cancel(receipt.invoice_id, companyId);
+      const recovered = (await approve().expect(201)).body;
+      expect(recovered.status).toBe('executed');
+      expect(recovered.result).toEqual(receipt.result_snapshot);
+      expect(
+        (
+          await db.query(
+            "SELECT count(*)::int AS count FROM tenant_account_movements WHERE tenant_account_id=$1 AND movement_type='charge'",
+            [accountId],
+          )
+        )[0].count,
+      ).toBe(1);
+      expect(
+        (
+          await db.query(
+            'SELECT count(*)::int AS count FROM invoice_generations WHERE company_id=$1',
+            [companyId],
+          )
+        )[0].count,
+      ).toBe(1);
+      await expect(
+        db.query(
+          "UPDATE invoice_generations SET result_snapshot='{}' WHERE invoice_id=$1",
+          [receipt.invoice_id],
+        ),
+      ).rejects.toThrow('immutable');
+    } finally {
+      lost.mockRestore();
+      if (mode === undefined) delete process.env.AI_TOOLS_MODE;
+      else process.env.AI_TOOLS_MODE = mode;
+    }
+  });
+
+  it('recovers explicit conversation confirmations and prevents bypassing queued administrative approval', async () => {
+    const { leaseId } = await seed(),
+      conversationId = randomUUID();
+    await db.query(
+      'INSERT INTO ai_conversations(id,user_id,company_id) VALUES($1,$2,$3)',
+      [conversationId, userId, companyId],
+    );
+    const executor = app.get(AiToolExecutorService),
+      mode = process.env.AI_TOOLS_MODE;
+    process.env.AI_TOOLS_MODE = 'FULL';
+    const context = { userId, companyId, role: UserRole.ADMIN, conversationId };
+    const payload = { leaseId, ...october, issue: true };
+    try {
+      const preview: any = await executor.execute(
+        'post_invoices_generate_for_lease',
+        payload,
+        context,
+      );
+      const confirmed = {
+        ...context,
+        confirmMutation: true,
+        confirmationId: preview.confirmationId,
+      };
+      const first: any = await executor.execute(
+        'post_invoices_generate_for_lease',
+        payload,
+        confirmed,
+      );
+      const second: any = await executor.execute(
+        'post_invoices_generate_for_lease',
+        payload,
+        confirmed,
+      );
+      expect(second).toEqual(JSON.parse(JSON.stringify(first)));
+      expect(typeof second.issuedAt).toBe('string');
+      const legacy: any = await executor.execute(
+        'post_invoices_generate_for_lease',
+        payload,
+        context,
+      );
+      await db.query(
+        "UPDATE ai_tool_mutation_confirmations SET status='confirmed',confirmed_at=now() WHERE id=$1",
+        [legacy.confirmationId],
+      );
+      await expect(
+        executor.execute('post_invoices_generate_for_lease', payload, {
+          ...confirmed,
+          confirmationId: legacy.confirmationId,
+        }),
+      ).rejects.toThrow('No matching');
+      const queued: any = await executor.execute(
+        'post_invoices_generate_for_lease',
+        payload,
+        { ...context, mutationApprovalMode: 'staff_queue' },
+      );
+      await expect(
+        executor.execute('post_invoices_generate_for_lease', payload, {
+          ...confirmed,
+          confirmationId: queued.confirmationId,
+        }),
+      ).rejects.toThrow('No matching');
+      expect(
+        (
+          await db.query(
+            'SELECT count(*)::int AS count FROM invoice_generations WHERE company_id=$1',
+            [companyId],
+          )
+        )[0].count,
+      ).toBe(1);
+    } finally {
+      if (mode === undefined) delete process.env.AI_TOOLS_MODE;
+      else process.env.AI_TOOLS_MODE = mode;
+    }
   });
 
   it('rolls back rent adjustment, calendar, invoice, account, commission and job together if auto-issuance fails', async () => {

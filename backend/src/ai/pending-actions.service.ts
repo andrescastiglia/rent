@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { UserModulePermissions, UserRole } from '../users/entities/user.entity';
 import { AuthService } from '../auth/auth.service';
 import { AiToolExecutorService } from './ai-tool-executor.service';
@@ -19,6 +19,7 @@ type PendingActionRow = {
   status: string;
   payload_hash: string;
   execution_key: string;
+  claim_token: string;
 };
 
 @Injectable()
@@ -34,6 +35,8 @@ export class PendingActionsService {
       `SELECT pa.id, pa.tool_name AS "toolName", pa.action_type AS "actionType",
               pa.entity_type AS "entityType", pa.summary, pa.payload, pa.status,
               pa.result, pa.error_message AS "errorMessage",
+              (pa.retry_safe AND pa.tool_name=ANY($2::text[]) AND
+                (pa.status='failed' OR (pa.status='executing' AND pa.lease_expires_at<=NOW()))) AS "canRetry",
               pa.created_at AS "createdAt", pa.reviewed_at AS "reviewedAt",
               concat_ws(' ', u.first_name, u.last_name) AS "requestedByName"
          FROM pending_actions pa
@@ -42,7 +45,7 @@ export class PendingActionsService {
         ORDER BY CASE WHEN pa.status = 'pending' THEN 0 ELSE 1 END,
                  pa.created_at DESC
         LIMIT 200`,
-      [companyId],
+      [companyId, this.executor.recoverableToolNames()],
     );
   }
 
@@ -64,15 +67,26 @@ export class PendingActionsService {
           AND expires_at <= NOW()`,
       [id, reviewer.companyId],
     );
+    const claimToken = randomUUID();
     // SELECT returns rows consistently; TypeORM wraps raw UPDATE results as [rows, count].
     const claimed = (await this.dataSource.query(
       `WITH claimed AS (UPDATE pending_actions
-          SET status = 'executing', reviewed_by = $3::uuid,
-              reviewed_at = NOW(), claimed_at = NOW(), updated_at = NOW()
-        WHERE id = $1::uuid AND company_id = $2::uuid AND status = 'pending'
-          AND expires_at > NOW() AND requested_by <> $3::uuid
+          SET status = 'executing', reviewed_by = COALESCE(reviewed_by,$3::uuid),
+              reviewed_at = COALESCE(reviewed_at,NOW()), claimed_at = NOW(), updated_at = NOW(),
+              claim_token=$4::uuid,lease_expires_at=NOW()+INTERVAL '2 minutes',error_message=NULL,
+              retry_safe=(tool_name=ANY($5::text[]))
+        WHERE id = $1::uuid AND company_id = $2::uuid AND requested_by <> $3::uuid
+          AND ((status='pending' AND expires_at>NOW()) OR
+            (retry_safe AND tool_name=ANY($5::text[]) AND reviewed_by IS NOT NULL AND
+              (status='failed' OR (status='executing' AND lease_expires_at<=NOW()))))
         RETURNING *) SELECT * FROM claimed`,
-      [id, reviewer.companyId, reviewer.id],
+      [
+        id,
+        reviewer.companyId,
+        reviewer.id,
+        claimToken,
+        this.executor.recoverableToolNames(),
+      ],
     )) as PendingActionRow[];
     const action = claimed[0];
     if (!action) {
@@ -81,7 +95,11 @@ export class PendingActionsService {
       );
     }
     if (this.hash(action.payload) !== action.payload_hash) {
-      await this.markFailed(id, 'Pending action payload hash mismatch');
+      await this.markFailed(
+        id,
+        claimToken,
+        'Pending action payload hash mismatch',
+      );
       throw new BadRequestException('Pending action integrity check failed');
     }
     try {
@@ -99,12 +117,13 @@ export class PendingActionsService {
       );
       await this.dataSource.query(
         `UPDATE pending_actions SET status = 'executed', result = $2::jsonb,
-                updated_at = now() WHERE id = $1::uuid AND status = 'executing'`,
-        [id, JSON.stringify(result ?? null)],
+                updated_at = now(),lease_expires_at=NULL WHERE id = $1::uuid AND status = 'executing' AND claim_token=$3::uuid`,
+        [id, JSON.stringify(result ?? null), claimToken],
       );
     } catch (error) {
       await this.markFailed(
         id,
+        claimToken,
         error instanceof Error ? error.message : String(error),
       );
     }
@@ -140,12 +159,16 @@ export class PendingActionsService {
     return rows[0];
   }
 
-  private markFailed(id: string, message: string): Promise<unknown> {
+  private markFailed(
+    id: string,
+    claimToken: string,
+    message: string,
+  ): Promise<unknown> {
     return this.dataSource.query(
       `UPDATE pending_actions SET status = 'failed', error_message = $2,
-              updated_at = NOW()
-        WHERE id = $1::uuid AND status = 'executing'`,
-      [id, message],
+              updated_at = NOW(),lease_expires_at=NULL
+        WHERE id = $1::uuid AND status = 'executing' AND claim_token=$3::uuid`,
+      [id, message, claimToken],
     );
   }
 

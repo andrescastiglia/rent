@@ -16889,6 +16889,9 @@
           },
           "actionId": {
             "type": "string"
+          },
+          "canRetry": {
+            "type": "boolean"
           }
         },
         "required": [

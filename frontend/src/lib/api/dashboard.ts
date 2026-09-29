@@ -108,6 +108,7 @@ export interface PersonActivityItem {
   updatedAt: string;
   actionKind?: "communication" | "pending_action" | "registration";
   actionId?: string;
+  canRetry?: boolean;
 }
 
 export interface PeopleActivityResponse {

@@ -89,6 +89,9 @@ function PendingActionDialog({
             </p>
           </div>
           <div className="p-4">
+            {item.canRetry && (
+              <p className="mb-3 text-sm">{t("peopleActivity.retryPrompt")}</p>
+            )}
             <label
               htmlFor="dashboard-reauth-password"
               className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200"
@@ -130,7 +133,11 @@ function PendingActionDialog({
               disabled={!password || busy}
               className="rounded-md bg-green-600 px-3 py-2 text-sm text-white disabled:opacity-50"
             >
-              {t("peopleActivity.actions.approve")}
+              {t(
+                item.canRetry
+                  ? "peopleActivity.actions.retry"
+                  : "peopleActivity.actions.approve",
+              )}
             </button>
           </div>
         </form>
@@ -351,7 +358,7 @@ export default function DashboardPage() {
                 <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
                   {item.personName}
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {item.sourceType}
+                    {t(`peopleActivity.sources.${item.sourceType}`)}
                     {item.propertyName ? ` · ${item.propertyName}` : ""}
                   </p>
                 </td>
@@ -401,16 +408,24 @@ export default function DashboardPage() {
                         disabled={updatingActivityId === item.id}
                         className="px-2 py-1 rounded-sm bg-green-600 text-white disabled:opacity-50"
                       >
-                        {t("peopleActivity.actions.approve")}
+                        {t(
+                          item.canRetry
+                            ? "peopleActivity.actions.retry"
+                            : "peopleActivity.actions.approve",
+                        )}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleQueuedAction(item, "reject")}
-                        disabled={updatingActivityId === item.id}
-                        className="px-2 py-1 rounded-sm bg-red-600 text-white disabled:opacity-50"
-                      >
-                        {t("peopleActivity.actions.reject")}
-                      </button>
+                      {!item.canRetry && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void handleQueuedAction(item, "reject")
+                          }
+                          disabled={updatingActivityId === item.id}
+                          className="px-2 py-1 rounded-sm bg-red-600 text-white disabled:opacity-50"
+                        >
+                          {t("peopleActivity.actions.reject")}
+                        </button>
+                      )}
                     </div>
                   ) : item.actionKind === "registration" ? (
                     <Link
