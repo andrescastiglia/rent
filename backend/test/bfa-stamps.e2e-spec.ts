@@ -1,3 +1,7 @@
+import {
+  Property,
+  PropertyType,
+} from '../src/properties/entities/property.entity';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
@@ -27,6 +31,7 @@ describe('BFA durable stamps (e2e)', () => {
   let companyId: string;
   let foreignId: string;
   let documentId: string;
+  let leaseId: string;
   let token: string;
   let foreignToken: string;
   let enabled = false;
@@ -78,12 +83,39 @@ describe('BFA durable stamps (e2e)', () => {
     };
     token = await makeToken(companyId);
     foreignToken = await makeToken(foreignId);
+    const [user] = await db.query(
+      'SELECT id FROM users WHERE company_id = $1 LIMIT 1',
+      [companyId],
+    );
+    const [owner] = await db.query(
+      'INSERT INTO owners(company_id,user_id) VALUES($1,$2) RETURNING id',
+      [companyId, user.id],
+    );
+    const [buyer] = await db.query(
+      'INSERT INTO buyers(company_id,user_id) VALUES($1,$2) RETURNING id',
+      [companyId, user.id],
+    );
+    const property = await db.getRepository(Property).save({
+      companyId,
+      ownerId: owner.id,
+      name: 'BFA document property',
+      propertyType: PropertyType.APARTMENT,
+      addressStreet: 'Test 100',
+      addressCity: 'Buenos Aires',
+      addressState: 'Buenos Aires',
+    });
+    const [lease] = await db.query(
+      `INSERT INTO leases(company_id,property_id,owner_id,buyer_id,contract_type,fiscal_value)
+      VALUES($1,$2,$3,$4,'sale',1000) RETURNING id`,
+      [companyId, property.id, owner.id, buyer.id],
+    );
+    leaseId = lease.id;
     documentId = randomUUID();
     await db.getRepository(Document).save({
       id: documentId,
       companyId,
-      entityType: 'test',
-      entityId: randomUUID(),
+      entityType: 'lease',
+      entityId: leaseId,
       documentType: DocumentType.OTHER,
       name: 'BFA test.pdf',
       fileUrl: `db://document/${documentId}`,
@@ -112,6 +144,9 @@ describe('BFA durable stamps (e2e)', () => {
       ]);
     }
     for (const id of [companyId, foreignId].filter(Boolean)) {
+      for (const table of ['leases', 'properties', 'buyers', 'owners']) {
+        await db.query(`DELETE FROM ${table} WHERE company_id = $1`, [id]);
+      }
       await db.query('DELETE FROM admins WHERE company_id = $1', [id]);
       await db.query('DELETE FROM users WHERE company_id = $1', [id]);
       await db.query('DELETE FROM companies WHERE id = $1', [id]);
@@ -141,6 +176,28 @@ describe('BFA durable stamps (e2e)', () => {
       { disabled: true, processed: 0 },
     );
     expect(await state()).toBeUndefined();
+    expect(verify).not.toHaveBeenCalled();
+    expect(submit).not.toHaveBeenCalled();
+  });
+  it('lists persisted PDFs without provider traffic and isolates the lease overview', async () => {
+    const path = `/digital-signatures/bfa/leases/${leaseId}`;
+    await request(app.getHttpServer()).get(path).expect(401);
+    await request(app.getHttpServer())
+      .get(path)
+      .set('Authorization', `Bearer ${foreignToken}`)
+      .expect(404);
+    const response = await request(app.getHttpServer())
+      .get(path)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(response.body.enabled).toBe(false);
+    expect(response.body.documents).toHaveLength(1);
+    expect(response.body.documents[0]).toMatchObject({
+      id: documentId,
+      status: null,
+      currentVersion: true,
+    });
+    expect(response.body.documents[0]).not.toHaveProperty('file_data');
     expect(verify).not.toHaveBeenCalled();
     expect(submit).not.toHaveBeenCalled();
   });
@@ -215,6 +272,14 @@ describe('BFA durable stamps (e2e)', () => {
       error_code: 'document_changed',
     });
     expect(verify).toHaveBeenCalledTimes(calls);
+    const overview = await request(app.getHttpServer())
+      .get(`/digital-signatures/bfa/leases/${leaseId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(overview.body.documents[0]).toMatchObject({
+      currentVersion: false,
+      status: 'needs_review',
+    });
   });
   it('protects the worker with the batch credential even while disabled', async () => {
     const previous = process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN;

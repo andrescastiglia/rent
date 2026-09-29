@@ -1,4 +1,8 @@
 import {
+  BfaDocumentDto,
+  BfaLeaseOverviewDto,
+} from './dto/bfa-lease-overview.dto';
+import {
   BadRequestException,
   Injectable,
   Logger,
@@ -55,6 +59,43 @@ export class BfaStampsService {
     );
     if (!rows[0]) throw new NotFoundException('Document stamp not found');
     return rows[0];
+  }
+
+  async forLease(
+    leaseId: string,
+    companyId: string,
+  ): Promise<BfaLeaseOverviewDto> {
+    if (!companyId) throw new BadRequestException('Company scope required');
+    const [lease] = await this.db.query(
+      'SELECT id FROM leases WHERE id = $1::uuid AND company_id = $2::uuid AND deleted_at IS NULL',
+      [leaseId, companyId],
+    );
+    if (!lease) throw new NotFoundException('Lease not found');
+    const documents: Array<
+      Omit<BfaDocumentDto, 'currentVersion'> & { file_data: Buffer }
+    > = await this.db.query(
+      `SELECT d.id, d.name, d.file_data, s.sha256, s.status, s.proof,
+         s.verified_at AS "verifiedAt"
+       FROM documents d LEFT JOIN LATERAL (
+         SELECT sha256, status, proof, verified_at FROM document_bfa_stamps
+         WHERE document_id = d.id AND company_id = d.company_id
+         ORDER BY created_at DESC, id DESC LIMIT 1
+       ) s ON true
+       WHERE d.company_id = $2::uuid AND d.entity_id = $1::uuid
+         AND d.entity_type = 'lease' AND d.deleted_at IS NULL
+         AND d.file_mime_type = 'application/pdf' AND d.file_data IS NOT NULL
+       ORDER BY d.created_at DESC, d.id DESC`,
+      [leaseId, companyId],
+    );
+    return {
+      enabled: this.config.enabled('BFA'),
+      documents: documents.map(({ file_data: bytes, ...document }) => ({
+        ...document,
+        currentVersion: document.sha256
+          ? this.bfa.digest(bytes) === document.sha256
+          : true,
+      })),
+    };
   }
 
   async processDue() {

@@ -19,6 +19,7 @@ describe('BFA stamp queue', () => {
       file_mime_type: 'application/pdf',
     };
     const query = jest.fn(async (sql: string) => {
+      if (sql.includes('SELECT id FROM leases')) return [{ id: 'lease' }];
       if (sql.includes('WITH next AS')) return jobs.splice(0, 1);
       if (sql.includes('SELECT file_data')) return [document];
       if (sql.includes('WITH submitted AS'))
@@ -102,6 +103,31 @@ describe('BFA stamp queue', () => {
     f.query.mockResolvedValueOnce([]);
     await expect(f.service.find('document', 'foreign')).rejects.toThrow(
       'not found',
+    );
+  });
+  it('returns local evidence with the disabled flag and identifies older versions', async () => {
+    const f = setup();
+    f.config.enabled.mockReturnValue(false);
+    f.query.mockResolvedValueOnce([{ id: 'lease' }]).mockResolvedValueOnce([
+      { id: 'one', file_data: Buffer.from('pdf'), sha256: 'digest' },
+      { id: 'two', file_data: Buffer.from('pdf'), sha256: 'old' },
+      { id: 'three', file_data: Buffer.from('pdf'), sha256: null },
+    ] as never);
+    await expect(f.service.forLease('lease', 'company')).resolves.toEqual({
+      enabled: false,
+      documents: [
+        { id: 'one', sha256: 'digest', currentVersion: true },
+        { id: 'two', sha256: 'old', currentVersion: false },
+        { id: 'three', sha256: null, currentVersion: true },
+      ],
+    });
+    expect(f.bfa.verify).not.toHaveBeenCalled();
+    await expect(f.service.forLease('lease', '')).rejects.toThrow(
+      'Company scope',
+    );
+    f.query.mockResolvedValueOnce([]);
+    await expect(f.service.forLease('lease', 'foreign')).rejects.toThrow(
+      'Lease not found',
     );
   });
   it('persists submission intent before transmitting only the digest', async () => {
@@ -209,6 +235,7 @@ describe('BFA stamp queue', () => {
     );
     await controller.request('document', { user: { companyId: 'company' } });
     await controller.find('document', { user: { companyId: 'company' } });
+    await controller.forLease('lease', { user: { companyId: 'company' } });
     f.config.enabled.mockReturnValue(false);
     await controller.process('batch-token');
     expect(communications.assertBatchToken).toHaveBeenCalledWith('batch-token');

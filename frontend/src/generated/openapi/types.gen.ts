@@ -2499,6 +2499,32 @@ export type WebhookEventDto = {
   generatedAt: string;
 };
 
+export type BfaBlockProofDto = {
+  whostamped: string;
+  blocknumber: string;
+  blocktimestamp: number;
+};
+
+export type BfaProofDto = {
+  stamped: boolean;
+  stamps: Array<BfaBlockProofDto>;
+};
+
+export type BfaDocumentDto = {
+  id: string;
+  name: string;
+  sha256: string | null;
+  status: "queued" | "submitted" | "stamped" | "failed" | "needs_review" | null;
+  currentVersion: boolean;
+  verifiedAt: string | null;
+  proof: BfaProofDto | null;
+};
+
+export type BfaLeaseOverviewDto = {
+  enabled: boolean;
+  documents: Array<BfaDocumentDto>;
+};
+
 export type AppGetHelloData = {
   body?: never;
   path?: never;
@@ -6527,6 +6553,22 @@ export type DigitalSignaturesProcessWebhookData = {
 export type DigitalSignaturesProcessWebhookResponses = {
   200: unknown;
 };
+
+export type BfaStampsForLeaseData = {
+  body?: never;
+  path: {
+    leaseId: string;
+  };
+  query?: never;
+  url: "/digital-signatures/bfa/leases/{leaseId}";
+};
+
+export type BfaStampsForLeaseResponses = {
+  200: BfaLeaseOverviewDto;
+};
+
+export type BfaStampsForLeaseResponse =
+  BfaStampsForLeaseResponses[keyof BfaStampsForLeaseResponses];
 
 export type BfaStampsFindData = {
   body?: never;

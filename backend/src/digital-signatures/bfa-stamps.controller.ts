@@ -1,3 +1,5 @@
+import { ApiOkResponse } from '@nestjs/swagger';
+import { BfaLeaseOverviewDto } from './dto/bfa-lease-overview.dto';
 import {
   Controller,
   Get,
@@ -19,6 +21,16 @@ export class BfaStampsController {
     private readonly stamps: BfaStampsService,
     private readonly communications: CommunicationsService,
   ) {}
+
+  @ApiOkResponse({ type: BfaLeaseOverviewDto })
+  @Get('bfa/leases/:leaseId')
+  @Roles(UserRole.ADMIN)
+  forLease(
+    @Param('leaseId', ParseUUIDPipe) id: string,
+    @Request() req: { user: { companyId: string } },
+  ) {
+    return this.stamps.forLease(id, req.user.companyId);
+  }
 
   @Post('documents/:documentId/stamp')
   @Roles(UserRole.ADMIN)

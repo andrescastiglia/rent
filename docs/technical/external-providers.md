@@ -43,6 +43,16 @@ un `needs_review`, comparar el digest almacenado con el documento y consultar
 BFA. No reencolar envíos inciertos automáticamente. Un archivo cambiado no
 hereda la prueba de su versión anterior.
 
+La vista administrativa de cada contrato incluye «Sellado BFA». Consulta
+`GET /digital-signatures/bfa/leases/:leaseId`, que devuelve únicamente metadatos
+y constancias locales de los PDF persistidos del contrato, con alcance de compañía.
+No consulta BFA ni devuelve los bytes del archivo. El servidor informa si está
+habilitado; cuando está deshabilitado se pueden consultar constancias pero no
+solicitar sellos. La interfaz permite actualizar el estado sin repetir envíos,
+muestra hash/bloque/fecha y advierte cuando el archivo ya no coincide con la
+versión de la constancia. Un resultado incierto exige consultar el estado antes
+de permitir una nueva solicitud; los trabajos fallidos requieren revisión.
+
 Configuración futura, no aplicada: `BFA_ENABLED` (ausente/false por defecto) y
 `BFA_TSA_URL` (HTTPS, sin usuario, contraseña, query ni fragmento). El sitio de BFA
 apunta actualmente a un servicio TSA2 de Buenos Aires; el endpoint deberá

@@ -1508,5 +1508,27 @@
       "cancelled": "Cancelado",
       "refunded": "Reembolsado"
     }
+  },
+  "bfa": {
+    "title": "Selo BFA",
+    "description": "Comprova existência e integridade do PDF. Não comprova a assinatura das partes.",
+    "disabled": "O selo BFA está temporariamente desabilitado.",
+    "error": "Não foi possível concluir a operação. Atualize o status antes de solicitar o selo novamente.",
+    "loading": "Carregando…",
+    "refresh": "Atualizar status",
+    "empty": "Não há arquivos PDF armazenados para selar.",
+    "changed": "O arquivo atual difere do documento solicitado. Este registro pertence a uma versão anterior.",
+    "proof": "Ver comprovante",
+    "block": "Bloco {number}",
+    "request": "Solicitar selo",
+    "requestDocument": "Solicitar selo para {name}",
+    "status": {
+      "none": "Sem solicitação",
+      "queued": "Na fila",
+      "submitted": "Aguardando confirmação do BFA",
+      "stamped": "Selo confirmado",
+      "failed": "Falha no processamento. Requer revisão.",
+      "needs_review": "Resultado pendente de revisão"
+    }
   }
 }
