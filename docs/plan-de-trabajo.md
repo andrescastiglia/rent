@@ -113,15 +113,19 @@ Pendiente: despliegue de backend/clientes compatibles.
   Altas y edición general/revisiones también usan constancia transaccional, con
   renderizado atómico, protección de confirmaciones concurrentes y PATCH sin
   reiniciar valores omitidos. Ver [reglas y pruebas](technical/approved-lease-drafts.md).
+  Altas y revisiones incorporadas a main con los 23 gates del PR #250 aprobados.
   La renovación ahora guarda cierre del original, inmueble, nuevo borrador y
   constancia aprobada juntos; preserva términos omitidos y vincula la versión
   nueva, con bloqueo contra sucesores simultáneos. Ver [reglas y pruebas](technical/approved-lease-renewals.md).
+  Renovaciones incorporadas a main con los 23 gates del PR #251 aprobados.
   Bajas y altas/ediciones de plantillas también guardan constancia atómica;
   la baja se serializa con confirmación/renovación y preserva sucesores y contabilidad.
   Las ediciones parciales de plantillas conservan HTML y no pierden cambios concurrentes.
   Ver [reglas y pruebas](technical/approved-lease-deletions-templates.md).
-  Pendiente: gates y despliegue de estos avances; importaciones de contratos y
-  enmiendas aún requieren recuperación.
+  La importación de contratos vigentes admite clave UUID y vincula términos/archivo
+  a su respuesta original. Web conserva la clave de un intento fallido para reintentar;
+  ver [contrato y pruebas](technical/recoverable-contract-imports.md).
+  Pendiente: gates y despliegue de estos avances; enmiendas aún requieren recuperación.
   Pendiente: idempotencia transaccional de las demás herramientas mutables y despliegue.
 
 ## 2. Completar recorridos de producto

@@ -49,7 +49,8 @@ históricas duplicadas ni se normalizan automáticamente ramas de versiones anti
 
 La renovación continúa en [su recorrido atómico](approved-lease-renewals.md).
 Las bajas y modificaciones de plantillas continúan en [su recorrido recuperable](approved-lease-deletions-templates.md).
-Siguen pendientes importación y enmiendas,
+La importación continúa en [su recorrido recuperable](recoverable-contract-imports.md).
+Siguen pendientes enmiendas,
 además de otras herramientas mutables. La política completa de cambios de partes
 o inmueble y las versiones históricas requieren su revisión de producto; este
 avance asegura la transacción y la recuperación de estos dos recorridos. No

@@ -937,6 +937,8 @@ export const leasesApi = {
   ): Promise<Lease> => {
     const token = getToken();
     const formData = new FormData();
+    if (data.idempotencyKey)
+      formData.append("idempotencyKey", data.idempotencyKey);
     formData.append("file", data.file);
     formData.append("propertyId", data.propertyId);
     formData.append("contractType", data.contractType);

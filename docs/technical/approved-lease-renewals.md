@@ -45,5 +45,6 @@ Se verifica que una renovación rechazada no cierre el original ni altere el
 inmueble, y que no sustituya otro alquiler activo.
 
 No agrega migraciones ni habilita proveedores o crons. Bajas y plantillas continúan
-en [su recorrido recuperable](approved-lease-deletions-templates.md). Importaciones,
-enmiendas, la release y los demás requisitos del plan siguen pendientes.
+en [su recorrido recuperable](approved-lease-deletions-templates.md). La importación
+continúa en [su recorrido recuperable](recoverable-contract-imports.md). Enmiendas,
+la release y los demás requisitos del plan siguen pendientes.

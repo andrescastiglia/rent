@@ -1067,66 +1067,87 @@ export class LeasesService {
       throw new BadRequestException('Contract file is required');
     }
 
-    // Parse before acquiring database locks; a conversion error must not leave records.
-    const extractedContract = await this.extractTextFromUploadedContract(file);
-    const contractType = dto.contractType ?? ContractType.RENTAL;
-    const importedId = await this.leasesRepository.manager.transaction(
-      async (manager) => {
-        const properties = manager.getRepository(Property);
-        const property = await properties.findOne({
-          where: {
-            id: dto.propertyId,
-            companyId: user.companyId,
-            deletedAt: IsNull(),
-          },
-          lock: { mode: 'for_no_key_update' },
-        });
-        if (!property) throw new NotFoundException('Property not found');
-        await this.ensureImportContractParty(
-          dto,
-          property.id,
-          contractType,
-          user.companyId,
-          manager,
-        );
-        const leases = manager.getRepository(Lease);
-        const lease = this.buildImportedLeaseEntity(
-          dto,
-          user.companyId,
-          property,
-          contractType,
-          extractedContract,
-        );
-        const savedLease = await leases.save(lease);
-        const document = await this.createUploadedContractDocument(
-          savedLease,
-          file,
-          user.companyId,
-          manager,
-          user.id,
-        );
-        savedLease.contractPdfUrl = document.fileUrl;
-        await leases.save(savedLease);
-        await properties.update(
-          { id: property.id, companyId: user.companyId },
-          {
-            operationState:
-              contractType === ContractType.RENTAL
-                ? PropertyOperationState.RENTED
-                : PropertyOperationState.SOLD,
-          },
-        );
-        if (contractType === ContractType.RENTAL) {
-          await this.tenantAccountsService.createForLease(
-            savedLease.id,
+    this.ensureSupportedContractFile(
+      file,
+      this.getUploadedFileExtension(file.originalname),
+    );
+    const { idempotencyKey, ...terms } = dto;
+    const request = {
+      terms,
+      file: {
+        sha256: createHash('sha256').update(file.buffer).digest('hex'),
+        size: file.buffer.length,
+        name: file.originalname,
+        mimeType: file.mimetype,
+      },
+    };
+    return this.leasesRepository.manager.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        user.companyId,
+        idempotencyKey,
+        'lease.import',
+        request,
+        async () => {
+          // Recover existing results before conversion; acquire domain row locks only after parsing.
+          const extractedContract =
+            await this.extractTextFromUploadedContract(file);
+          const contractType = terms.contractType ?? ContractType.RENTAL;
+          const properties = manager.getRepository(Property);
+          const property = await properties.findOne({
+            where: {
+              id: terms.propertyId,
+              companyId: user.companyId,
+              deletedAt: IsNull(),
+            },
+            lock: { mode: 'for_no_key_update' },
+          });
+          if (!property) throw new NotFoundException('Property not found');
+          await this.ensureImportContractParty(
+            terms,
+            property.id,
+            contractType,
             user.companyId,
             manager,
           );
-        }
-        return savedLease.id;
-      },
+          const leases = manager.getRepository(Lease);
+          const lease = this.buildImportedLeaseEntity(
+            terms,
+            user.companyId,
+            property,
+            contractType,
+            extractedContract,
+          );
+          const savedLease = await leases.save(lease);
+          const document = await this.createUploadedContractDocument(
+            savedLease,
+            file,
+            user.companyId,
+            manager,
+            user.id,
+          );
+          savedLease.contractPdfUrl = document.fileUrl;
+          await leases.save(savedLease);
+          await properties.update(
+            { id: property.id, companyId: user.companyId },
+            {
+              operationState:
+                contractType === ContractType.RENTAL
+                  ? PropertyOperationState.RENTED
+                  : PropertyOperationState.SOLD,
+            },
+          );
+          if (contractType === ContractType.RENTAL) {
+            await this.tenantAccountsService.createForLease(
+              savedLease.id,
+              user.companyId,
+              manager,
+            );
+          }
+          return this.findOne(savedLease.id, user.companyId, manager);
+        },
+      ),
     );
-    return this.findOne(importedId, user.companyId);
   }
 
   async remove(

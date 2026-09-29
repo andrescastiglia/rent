@@ -6,6 +6,7 @@ import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { buyersApi } from "@/lib/api/buyers";
 import { interestedApi } from "@/lib/api/interested";
 import { leasesApi } from "@/lib/api/leases";
+import { submitLeaseImport } from "@/lib/lease-import-recovery";
 import { ownersApi } from "@/lib/api/owners";
 import { propertiesApi } from "@/lib/api/properties";
 import { ContractType, ImportCurrentLeaseInput, Lease } from "@/types/lease";
@@ -16,7 +17,13 @@ import { InterestedProfile } from "@/types/interested";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Upload } from "lucide-react";
 import { useLocale } from "next-intl";
-import { type SyntheticEvent, useEffect, useMemo, useState } from "react";
+import {
+  type SyntheticEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 type QuickPartyOption = {
   id: string;
@@ -114,7 +121,8 @@ function buildSalePartyOptions(
 export default function ImportCurrentLeasePage() {
   const locale = useLocale();
   const router = useLocalizedRouter();
-  const { loading: authLoading } = useAuth();
+  const { loading: authLoading, user } = useAuth();
+  const submitting = useRef(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
@@ -332,10 +340,18 @@ export default function ImportCurrentLeasePage() {
 
   const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!form.file || !form.propertyId || !form.ownerId || !form.partyId) {
+    if (
+      submitting.current ||
+      !user?.companyId ||
+      !user?.id ||
+      !form.file ||
+      !form.propertyId ||
+      !form.ownerId ||
+      !form.partyId
+    ) {
       return;
     }
-
+    submitting.current = true;
     try {
       setSaving(true);
 
@@ -360,6 +376,22 @@ export default function ImportCurrentLeasePage() {
             {},
           );
           tenantId = conversion.tenant.id;
+          setProfiles((prev) =>
+            prev.map((profile) =>
+              profile.id === selectedParty.profileId
+                ? {
+                    ...profile,
+                    status: "tenant",
+                    convertedToTenantId: conversion.tenant.id,
+                  }
+                : profile,
+            ),
+          );
+          setForm((prev) =>
+            prev.partyId === form.partyId
+              ? { ...prev, partyId: conversion.tenant.id }
+              : prev,
+          );
         }
       } else if (selectedParty?.buyerId) {
         buyerId = selectedParty.buyerId;
@@ -369,6 +401,11 @@ export default function ImportCurrentLeasePage() {
           {},
         );
         buyerId = conversion.buyer.id;
+        setForm((prev) =>
+          prev.partyId === form.partyId
+            ? { ...prev, partyId: conversion.buyer.id }
+            : prev,
+        );
         setBuyers((prev) => [
           conversion.buyer as Buyer,
           ...prev.filter((buyer) => buyer.id !== conversion.buyer.id),
@@ -404,13 +441,19 @@ export default function ImportCurrentLeasePage() {
         file: form.file,
       };
 
-      const lease = await leasesApi.importCurrentContract(payload);
+      const lease = await submitLeaseImport(
+        user.companyId,
+        user.id,
+        payload,
+        leasesApi.importCurrentContract,
+      );
       router.push(`/leases/${lease.id}`);
       router.refresh();
     } catch (error) {
       console.error("Failed to import current contract", error);
       alert("No se pudo cargar el contrato actual.");
     } finally {
+      submitting.current = false;
       setSaving(false);
     }
   };
