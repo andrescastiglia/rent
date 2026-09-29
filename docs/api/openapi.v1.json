@@ -7606,6 +7606,86 @@
         ]
       }
     },
+    "/settlements/generation/overview": {
+      "get": {
+        "operationId": "SettlementGeneration_overview",
+        "parameters": [
+          {
+            "name": "ownerId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "settlementId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "requestKey",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementGenerationOverviewDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "SettlementGeneration"
+        ]
+      }
+    },
+    "/settlements/generation/cancel-request": {
+      "post": {
+        "operationId": "SettlementGeneration_cancelRequest",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelSettlementGenerationRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementGenerationOverviewDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "SettlementGeneration"
+        ]
+      }
+    },
     "/settlements/generate": {
       "post": {
         "operationId": "SettlementGeneration_generate",
@@ -17723,56 +17803,6 @@
         "type": "object",
         "properties": {}
       },
-      "GenerateSettlementDto": {
-        "type": "object",
-        "properties": {
-          "confirmed": {
-            "type": "boolean",
-            "enum": [
-              true
-            ]
-          },
-          "idempotencyKey": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "expectedFingerprint": {
-            "type": "string",
-            "pattern": "^[a-f0-9]{64}$"
-          },
-          "additionalWithholdings": {
-            "type": "string",
-            "pattern": "^(0|[1-9]\\d{0,12})\\.\\d{2}$"
-          },
-          "withholdingReason": {
-            "type": "string",
-            "minLength": 10,
-            "maxLength": 1000
-          },
-          "ownerId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "period": {
-            "type": "string",
-            "pattern": "^[1-9]\\d{3}-(0[1-9]|1[0-2])$"
-          },
-          "currency": {
-            "type": "string",
-            "pattern": "^[A-Z]{3}$"
-          }
-        },
-        "required": [
-          "confirmed",
-          "idempotencyKey",
-          "expectedFingerprint",
-          "additionalWithholdings",
-          "withholdingReason",
-          "ownerId",
-          "period",
-          "currency"
-        ]
-      },
       "SettlementSourceAllocationDto": {
         "type": "object",
         "properties": {
@@ -17996,6 +18026,109 @@
           "voidedAt",
           "voidReason",
           "snapshot"
+        ]
+      },
+      "SettlementGenerationOverviewDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "canVoid": {
+            "type": "boolean"
+          },
+          "requestCancelled": {
+            "type": "boolean"
+          },
+          "generation": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SettlementGenerationDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "canVoid",
+          "requestCancelled",
+          "generation"
+        ]
+      },
+      "CancelSettlementGenerationRequestDto": {
+        "type": "object",
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "ownerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "requestKey": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "confirmed",
+          "ownerId",
+          "requestKey"
+        ]
+      },
+      "GenerateSettlementDto": {
+        "type": "object",
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expectedFingerprint": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "additionalWithholdings": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,12})\\.\\d{2}$"
+          },
+          "withholdingReason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          },
+          "ownerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "period": {
+            "type": "string",
+            "pattern": "^[1-9]\\d{3}-(0[1-9]|1[0-2])$"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          }
+        },
+        "required": [
+          "confirmed",
+          "idempotencyKey",
+          "expectedFingerprint",
+          "additionalWithholdings",
+          "withholdingReason",
+          "ownerId",
+          "period",
+          "currency"
         ]
       },
       "VoidSettlementGenerationDto": {

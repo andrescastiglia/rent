@@ -7,7 +7,22 @@ import {
   type PayoutSettlement,
 } from "@/lib/api/settlement-payouts";
 import { SettlementPayoutPanel } from "./SettlementPayoutPanel";
-export function OwnerPayouts({ ownerId }: Readonly<{ ownerId: string }>) {
+import { SettlementGenerationForm } from "./SettlementGenerationForm";
+import { SettlementGenerationPanel } from "./SettlementGenerationPanel";
+export function OwnerPayouts(
+  props: Readonly<{ ownerId: string; scopeKey: string }>,
+) {
+  return (
+    <OwnerPayoutsContent
+      key={`${props.scopeKey}:${props.ownerId}`}
+      {...props}
+    />
+  );
+}
+function OwnerPayoutsContent({
+  ownerId,
+  scopeKey,
+}: Readonly<{ ownerId: string; scopeKey: string }>) {
   const t = useTranslations("settlementPayouts");
   const locale = useLocale();
   const [settlements, setSettlements] = useState<PayoutSettlement[]>([]);
@@ -15,12 +30,15 @@ export function OwnerPayouts({ ownerId }: Readonly<{ ownerId: string }>) {
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState(false);
   const mounted = useRef(true);
+  const loadSequence = useRef(0);
+  const [revision, setRevision] = useState(0);
   useEffect(() => {
     mounted.current = true;
     let active = true;
+    const sequence = ++loadSequence.current;
     settlementPayoutsApi.list(ownerId).then(
       (data) => {
-        if (!active) return;
+        if (!active || sequence !== loadSequence.current) return;
         if (data.some((item) => item.ownerId !== ownerId)) {
           setError(true);
           setBusy(false);
@@ -31,7 +49,7 @@ export function OwnerPayouts({ ownerId }: Readonly<{ ownerId: string }>) {
         setBusy(false);
       },
       () => {
-        if (active) {
+        if (active && sequence === loadSequence.current) {
           setError(true);
           setBusy(false);
         }
@@ -42,23 +60,29 @@ export function OwnerPayouts({ ownerId }: Readonly<{ ownerId: string }>) {
       mounted.current = false;
     };
   }, [ownerId]);
-  const reload = async () => {
-    if (busy) return;
+  const reload = async (preferredId?: string) => {
+    if (busy && !preferredId) return;
+    const sequence = ++loadSequence.current;
     setBusy(true);
     try {
       const data = await settlementPayoutsApi.list(ownerId);
-      if (!mounted.current) return;
+      if (!mounted.current || sequence !== loadSequence.current) return;
       if (data.some((item) => item.ownerId !== ownerId))
         throw new Error("Owner mismatch");
       setSettlements(data);
       setSelected((id) =>
-        data.some((item) => item.id === id) ? id : (data[0]?.id ?? ""),
+        preferredId && data.some((item) => item.id === preferredId)
+          ? preferredId
+          : data.some((item) => item.id === id)
+            ? id
+            : (data[0]?.id ?? ""),
       );
+      if (preferredId) setRevision((value) => value + 1);
       setError(false);
     } catch {
-      if (mounted.current) setError(true);
+      if (mounted.current && sequence === loadSequence.current) setError(true);
     } finally {
-      if (mounted.current) setBusy(false);
+      if (mounted.current && sequence === loadSequence.current) setBusy(false);
     }
   };
   return (
@@ -68,6 +92,11 @@ export function OwnerPayouts({ ownerId }: Readonly<{ ownerId: string }>) {
       </Link>
       <h1 className="text-2xl font-bold">{t("title")}</h1>
       <p>{t("intro")}</p>
+      <SettlementGenerationForm
+        ownerId={ownerId}
+        scopeKey={scopeKey}
+        onChanged={reload}
+      />
       {error && <p role="alert">{t("listError")}</p>}
       <button
         type="button"
@@ -99,8 +128,16 @@ export function OwnerPayouts({ ownerId }: Readonly<{ ownerId: string }>) {
         </label>
       )}
       {!error && selected && (
+        <SettlementGenerationPanel
+          key={`generation:${ownerId}:${selected}:${revision}`}
+          settlementId={selected}
+          ownerId={ownerId}
+          onChanged={reload}
+        />
+      )}
+      {!error && selected && (
         <SettlementPayoutPanel
-          key={`${ownerId}:${selected}`}
+          key={`${ownerId}:${selected}:${revision}`}
           settlementId={selected}
           ownerId={ownerId}
         />

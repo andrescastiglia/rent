@@ -14,6 +14,9 @@ import {
   SettlementGenerationDto,
   SettlementGenerationSnapshotDto,
   VoidSettlementGenerationDto,
+  SettlementGenerationOverviewDto,
+  SettlementGenerationOverviewQueryDto,
+  CancelSettlementGenerationRequestDto,
 } from './dto/settlement-generation.dto';
 
 export class SettlementSourceChangedError extends ConflictException {
@@ -55,6 +58,68 @@ export class SettlementGenerationService {
     return this.view(this.db.manager, settlementId, companyId);
   }
 
+  async overview(
+    companyId: string,
+    query: SettlementGenerationOverviewQueryDto,
+  ): Promise<SettlementGenerationOverviewDto> {
+    if (query.settlementId && query.requestKey)
+      throw new BadRequestException('Choose a settlement or a request key');
+    const [owner] = await this.db.query(
+      'SELECT id FROM owners WHERE id=$1 AND company_id=$2 AND deleted_at IS NULL',
+      [query.ownerId, companyId],
+    );
+    if (!owner) throw new NotFoundException('Owner not found');
+    const result: SettlementGenerationOverviewDto = {
+      enabled: this.config.enabled('MERCADOPAGO_PAYOUTS'),
+      canVoid: false,
+      requestCancelled: false,
+      generation: null,
+    };
+    if (!query.settlementId && !query.requestKey) return result;
+    if (query.settlementId) {
+      const [settlement] = await this.db.query(
+        'SELECT id FROM settlements WHERE id=$1 AND owner_id=$2',
+        [query.settlementId, query.ownerId],
+      );
+      if (!settlement) throw new NotFoundException('Settlement not found');
+    }
+    const [generation] = await this.db.query<{ settlement_id: string }[]>(
+      `SELECT settlement_id FROM settlement_generations WHERE company_id=$1 AND owner_id=$2
+       AND (($3::uuid IS NOT NULL AND settlement_id=$3) OR ($4::uuid IS NOT NULL AND idempotency_key=$4))`,
+      [
+        companyId,
+        query.ownerId,
+        query.settlementId ?? null,
+        query.requestKey ?? null,
+      ],
+    );
+    if (!generation) {
+      if (query.requestKey) {
+        const [cancelled] = await this.db.query(
+          'SELECT 1 FROM settlement_generation_cancellations WHERE company_id=$1 AND owner_id=$2 AND idempotency_key=$3',
+          [companyId, query.ownerId, query.requestKey],
+        );
+        result.requestCancelled = !!cancelled;
+      }
+      return result;
+    }
+    result.generation = await this.view(
+      this.db.manager,
+      generation.settlement_id,
+      companyId,
+    );
+    const [eligibility] = await this.db.query<{ canVoid: boolean }[]>(
+      `SELECT (g.state='active' AND s.transfer_reference IS NULL
+        AND NOT EXISTS(SELECT 1 FROM settlement_payout_movements m WHERE m.settlement_id=s.id)
+        AND NOT EXISTS(SELECT 1 FROM settlement_payout_outbox j WHERE j.settlement_id=s.id AND
+          NOT(j.payout_id IS NULL AND (j.status='queued' OR (j.status='failed' AND COALESCE(j.error_code,'') IN ('configuration_error','provider_rejected','source_changed')))))) AS "canVoid"
+       FROM settlements s JOIN settlement_generations g ON g.settlement_id=s.id AND g.company_id=$2 WHERE s.id=$1`,
+      [generation.settlement_id, companyId],
+    );
+    result.canVoid = result.enabled && eligibility?.canVoid === true;
+    return result;
+  }
+
   async generate(
     companyId: string,
     actorId: string,
@@ -90,6 +155,12 @@ export class SettlementGenerationService {
             );
           return this.view(manager, existing.settlement_id, companyId);
         }
+        const [cancelled] = await manager.query(
+          'SELECT 1 FROM settlement_generation_cancellations WHERE company_id=$1 AND idempotency_key=$2',
+          [companyId, dto.idempotencyKey],
+        );
+        if (cancelled)
+          throw new ConflictException('Generation request was cancelled');
         const initial = await this.calculation.calculate(
           manager,
           companyId,
@@ -185,6 +256,42 @@ export class SettlementGenerationService {
           );
         throw error;
       });
+  }
+
+  /** Tombstone an uncommitted request under the same owner lock as generation. Never voids a settlement. */
+  async cancelRequest(
+    companyId: string,
+    actorId: string,
+    dto: CancelSettlementGenerationRequestDto,
+  ): Promise<SettlementGenerationOverviewDto> {
+    if (!dto.confirmed)
+      throw new BadRequestException(
+        'Explicit cancellation confirmation required',
+      );
+    await this.db.transaction(async (manager) => {
+      const [owner] = await manager.query(
+        'SELECT id FROM owners WHERE id=$1 AND company_id=$2 AND deleted_at IS NULL FOR NO KEY UPDATE',
+        [dto.ownerId, companyId],
+      );
+      if (!owner) throw new NotFoundException('Owner not found');
+      const [existing] = await manager.query<{ owner_id: string }[]>(
+        'SELECT owner_id FROM settlement_generations WHERE company_id=$1 AND idempotency_key=$2',
+        [companyId, dto.requestKey],
+      );
+      if (existing) {
+        if (existing.owner_id !== dto.ownerId)
+          throw new ConflictException('Request belongs to another owner');
+        return;
+      }
+      await manager.query(
+        'INSERT INTO settlement_generation_cancellations(company_id,idempotency_key,owner_id,cancelled_by) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',
+        [companyId, dto.requestKey, dto.ownerId, actorId],
+      );
+    });
+    return this.overview(companyId, {
+      ownerId: dto.ownerId,
+      requestKey: dto.requestKey,
+    });
   }
 
   private async lockSources(

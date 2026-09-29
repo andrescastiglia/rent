@@ -112,7 +112,11 @@ El cron `process-settlements` permanece suspendido.
   suplementarios, anulación auditada previa al envío y validación de fuentes antes
   de transferir; respeta la fecha programada en Argentina. El batch ya no simula
   transferencias, tampoco en pruebas.
-  Pendiente: gates y UI de generación/anulación, recuperación de deuda por cobros
+  Generación incorporada a main con los 23 gates del PR #227 aprobados.
+  Interfaz de generación/anulación implementada con revisión de fuentes y neto,
+  confirmación, recuperación por clave y descarte durable de solicitudes no registradas.
+  Conserva solicitudes inciertas al recargar o fallar una lectura; sin reenvíos automáticos.
+  Pendiente: gates de interfaz, recuperación de deuda por cobros
   anulados después de transferir, resolución de devoluciones parciales/nuevas
   órdenes verificadas y despliegue deshabilitado.
 - [ ] Verificar que ninguna integración real se invoque mientras está deshabilitada.

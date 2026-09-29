@@ -3,6 +3,7 @@ import {
   Equals,
   IsString,
   IsUUID,
+  IsOptional,
   Matches,
   MaxLength,
   MinLength,
@@ -45,4 +46,24 @@ export class SettlementGenerationDto {
   @ApiProperty({ type: String, nullable: true }) voidReason: string | null;
   @ApiProperty({ type: SettlementGenerationSnapshotDto })
   snapshot: SettlementGenerationSnapshotDto;
+}
+
+export class SettlementGenerationOverviewQueryDto {
+  @IsUUID() ownerId: string;
+  @IsOptional() @IsUUID() settlementId?: string;
+  @IsOptional() @IsUUID() requestKey?: string;
+}
+export class SettlementGenerationOverviewDto {
+  @ApiProperty() enabled: boolean;
+  @ApiProperty() canVoid: boolean;
+  @ApiProperty() requestCancelled: boolean;
+  @ApiProperty({ type: SettlementGenerationDto, nullable: true })
+  generation: SettlementGenerationDto | null;
+}
+export class CancelSettlementGenerationRequestDto {
+  @IsUUID() ownerId: string;
+  @IsUUID() requestKey: string;
+  @ApiProperty({ type: Boolean, enum: [true] })
+  @Equals(true)
+  confirmed: boolean;
 }
