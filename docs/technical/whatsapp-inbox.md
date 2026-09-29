@@ -151,3 +151,26 @@ Para rollback de aplicación, el endpoint anterior `POST /whatsapp/messages`
 permanece disponible. No se requiere revertir esquema: las actividades y
 entregas creadas por el comando atómico usan las tablas e índices vigentes. No
 se deben borrar entregas `queued` durante un rollback.
+
+## Revisión de propuestas pendientes
+
+La aprobación y el rechazo adquieren la propuesta mediante un único `UPDATE`
+condicionado por compañía y estado. El resultado se obtiene con `WITH ... SELECT`:
+TypeORM devuelve un par `[filas, cantidad]` para un `UPDATE ... RETURNING` directo,
+y tratar ese par como una fila impedía ejecutar aprobaciones válidas y detectar
+rechazos repetidos. Una competencia entre dos revisores o entre aprobación y
+rechazo conserva un único ganador. La aprobación mantiene reautenticación,
+vencimiento, separación entre solicitante/revisor e integridad del payload.
+
+`pending-actions.e2e-spec.ts` usa PostgreSQL real y endpoints autenticados con dos
+compañías. Verifica despacho único bajo concurrencia, rechazo repetido, permisos,
+reautenticación, expiración, hash inválido y errores del ejecutor. El ejecutor está
+sustituido explícitamente para medir los despachos sin producir efectos de dominio
+ni contactar proveedores. Ejecutar con el entorno aislado de los E2E:
+`npm --prefix backend run test:e2e -- --runInBand pending-actions.e2e-spec.ts`.
+
+Esta corrección no resuelve aún una caída después de confirmar el efecto de dominio
+y antes de guardar el resultado de la propuesta. Las acciones `executing` o `failed`
+no se reabren automáticamente; investigar el efecto antes de cualquier intervención.
+La idempotencia transaccional de cada herramienta mutable permanece pendiente.
+No requiere migración ni cambios de configuración.

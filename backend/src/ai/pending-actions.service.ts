@@ -64,13 +64,14 @@ export class PendingActionsService {
           AND expires_at <= NOW()`,
       [id, reviewer.companyId],
     );
+    // SELECT returns rows consistently; TypeORM wraps raw UPDATE results as [rows, count].
     const claimed = (await this.dataSource.query(
-      `UPDATE pending_actions
+      `WITH claimed AS (UPDATE pending_actions
           SET status = 'executing', reviewed_by = $3::uuid,
               reviewed_at = NOW(), claimed_at = NOW(), updated_at = NOW()
         WHERE id = $1::uuid AND company_id = $2::uuid AND status = 'pending'
           AND expires_at > NOW() AND requested_by <> $3::uuid
-        RETURNING *`,
+        RETURNING *) SELECT * FROM claimed`,
       [id, reviewer.companyId, reviewer.id],
     )) as PendingActionRow[];
     const action = claimed[0];
@@ -116,10 +117,10 @@ export class PendingActionsService {
     reason?: string,
   ) {
     const result = await this.dataSource.query(
-      `UPDATE pending_actions SET status = 'rejected', reviewed_by = $3::uuid,
+      `WITH rejected AS (UPDATE pending_actions SET status = 'rejected', reviewed_by = $3::uuid,
               reviewed_at = now(), error_message = $4, updated_at = now()
         WHERE id = $1::uuid AND company_id = $2::uuid AND status = 'pending'
-        RETURNING id`,
+        RETURNING id) SELECT id FROM rejected`,
       [id, reviewer.companyId, reviewer.id, reason?.trim() || null],
     );
     if (!result[0])
