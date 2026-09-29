@@ -1646,8 +1646,9 @@ export function buildAiToolDefinitions(
       description:
         'Generates one invoice for a lease based on its billing settings. Reuse idempotencyKey and the same options when retrying the same request.',
       responseDescription:
-        'The generated invoice, or its current record when recovering the same request.',
+        'The generated invoice. Recovering a confirmed execution returns its original result; use invoice lookup for its current state.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(GenerateInvoiceDto.zodSchema, {
         leaseId: uuidSchema,
@@ -1658,6 +1659,14 @@ export function buildAiToolDefinitions(
             leaseId: uuidSchema,
           })
           .parse(args);
+        if (context.idempotencyKey)
+          return deps.invoicesService.generateForLease(
+            leaseId,
+            { ...dto, idempotencyKey: context.idempotencyKey },
+            context.companyId ?? '',
+            undefined,
+            true,
+          );
         return deps.invoicesService.generateForLease(
           leaseId,
           dto,

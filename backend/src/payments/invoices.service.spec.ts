@@ -105,6 +105,48 @@ describe('InvoicesService', () => {
     inflationIndexRepository = module.get(getRepositoryToken(InflationIndex));
   });
 
+  it('recovers the immutable generation result without reloading a changed or removed lease', async () => {
+    const archived = {
+      id: 'invoice-original',
+      status: 'pending',
+      issuedAt: '2026-01-01T12:00:00Z',
+    };
+    manager.query.mockImplementation(async (sql: string) =>
+      sql.includes('FROM invoice_generations')
+        ? [{ matches: true, result_snapshot: archived }]
+        : [],
+    );
+    const result = await service.generateForLease(
+      'lease-1',
+      { idempotencyKey: '22222222-2222-4222-8222-222222222222' },
+      'company-1',
+      undefined,
+      true,
+    );
+    expect(result).toEqual(archived);
+    expect(leasesRepository.findOne).not.toHaveBeenCalled();
+    expect(invoicesRepository.save).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { matches: false, result_snapshot: {} },
+    { matches: true, result_snapshot: null },
+  ])('refuses mismatched or legacy execution receipts', async (previous) => {
+    manager.query.mockImplementation(async (sql: string) =>
+      sql.includes('FROM invoice_generations') ? [previous] : [],
+    );
+    await expect(
+      service.generateForLease(
+        'lease-1',
+        { idempotencyKey: '22222222-2222-4222-8222-222222222222' },
+        'company-1',
+        undefined,
+        true,
+      ),
+    ).rejects.toThrow();
+    expect(invoicesRepository.save).not.toHaveBeenCalled();
+  });
+
   it('should apply late fee when requested', async () => {
     const lease = {
       id: 'lease-1',

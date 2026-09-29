@@ -5,7 +5,10 @@ import { PendingActionsService } from './pending-actions.service';
 
 describe('PendingActionsService', () => {
   const dataSource = { query: jest.fn() };
-  const executor = { executeApproved: jest.fn() };
+  const executor = {
+    executeApproved: jest.fn(),
+    recoverableToolNames: jest.fn(() => []),
+  };
   const authService = { verifyReauthentication: jest.fn() };
   let service: PendingActionsService;
 
@@ -42,7 +45,7 @@ describe('PendingActionsService', () => {
     await expect(service.list('company-1')).resolves.toEqual([pending]);
     expect(dataSource.query).toHaveBeenCalledWith(
       expect.stringContaining("pa.status = 'pending'"),
-      ['company-1'],
+      ['company-1', []],
     );
   });
 
@@ -94,6 +97,7 @@ describe('PendingActionsService', () => {
     expect(dataSource.query.mock.calls[2][1]).toEqual([
       'action-1',
       'invalid data',
+      expect.any(String),
     ]);
   });
 

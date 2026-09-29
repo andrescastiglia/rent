@@ -132,6 +132,7 @@ export class InvoicesService {
     dto: GenerateInvoiceDto,
     companyId: string,
     scheduled?: { billingDate: string },
+    recoverOriginalResult = false,
   ): Promise<Invoice> {
     const parsed = GenerateInvoiceDto.zodSchema.safeParse(dto);
     if (!parsed.success)
@@ -155,11 +156,28 @@ export class InvoicesService {
           'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
           [`invoice-generation:${companyId}:${key}`],
         );
+      if (key && recoverOriginalResult) {
+        const [receipt] = await manager.query(
+          `SELECT result_snapshot, request=$3::jsonb AS matches FROM invoice_generations WHERE company_id=$1 AND idempotency_key=$2`,
+          [companyId, key, generationRequest],
+        );
+        if (receipt) {
+          if (!receipt.matches)
+            throw new ConflictException(
+              'Generation key was already used with a different request',
+            );
+          if (!receipt.result_snapshot)
+            throw new ConflictException(
+              'Original execution result unavailable; manual review is required',
+            );
+          return receipt.result_snapshot as Invoice;
+        }
+      }
       const lease = await this.lockBillingLease(manager, leaseId, companyId);
 
       if (key) {
         const [previous] = await manager.query(
-          `SELECT invoice_id, request=$3::jsonb AS matches FROM invoice_generations
+          `SELECT invoice_id, result_snapshot, request=$3::jsonb AS matches FROM invoice_generations
            WHERE company_id=$1 AND idempotency_key=$2`,
           [companyId, key, generationRequest],
         );
@@ -168,6 +186,13 @@ export class InvoicesService {
             throw new ConflictException(
               'Generation key was already used with a different request',
             );
+          if (recoverOriginalResult) {
+            if (!previous.result_snapshot)
+              throw new ConflictException(
+                'Original execution result unavailable; manual review is required',
+              );
+            return previous.result_snapshot as Invoice;
+          }
           const recovered = await invoicesRepository.findOne({
             where: { id: previous.invoice_id, companyId, leaseId },
             lock: { mode: 'pessimistic_write' },
@@ -284,21 +309,26 @@ export class InvoicesService {
 
       const saved = await invoicesRepository.save(invoice);
 
-      if (key)
-        await manager.query(
-          `INSERT INTO invoice_generations(company_id,lease_id,idempotency_key,request,invoice_id)
-         VALUES($1,$2,$3,$4::jsonb,$5)`,
-          [companyId, leaseId, key, generationRequest, saved.id],
-        );
-
       advanceBillingCalendar(lease, periodStart, periodEnd);
       await manager.getRepository(Lease).save(lease);
 
-      if (dto.issue) {
-        return this.issueWithManager(manager, saved.id, companyId);
-      }
-
-      return saved;
+      const result = dto.issue
+        ? await this.issueWithManager(manager, saved.id, companyId)
+        : saved;
+      if (key)
+        await manager.query(
+          `INSERT INTO invoice_generations(company_id,lease_id,idempotency_key,request,invoice_id,result_snapshot)
+         VALUES($1,$2,$3,$4::jsonb,$5,$6::jsonb)`,
+          [
+            companyId,
+            leaseId,
+            key,
+            generationRequest,
+            saved.id,
+            JSON.stringify(result),
+          ],
+        );
+      return result;
     });
   }
 

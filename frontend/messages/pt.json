@@ -225,7 +225,15 @@
         "markRead": "Marcar como lida",
         "approve": "Aprovar",
         "reject": "Rejeitar",
-        "review": "Revisar"
+        "review": "Revisar",
+        "retry": "Recuperar execução"
+      },
+      "retryPrompt": "Recuperar o resultado desta operação aprovada? A mesma solicitação será reutilizada sem gerar outra fatura.",
+      "sources": {
+        "interested": "Interessado",
+        "owner": "Proprietário",
+        "communication": "Mensagem",
+        "pending_action": "Operação para revisar"
       }
     }
   },

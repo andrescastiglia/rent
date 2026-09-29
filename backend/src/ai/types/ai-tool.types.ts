@@ -28,6 +28,8 @@ export interface AiToolDefinition<TSchema extends ZodType = ZodType> {
   description: string;
   responseDescription?: string;
   mutability: AiToolMutability;
+  /** Result is stored atomically with the domain mutation under context.idempotencyKey. */
+  supportsIdempotentRecovery?: boolean;
   allowedRoles: UserRole[];
   requiredPermission?: AuthenticatedPolicy;
   parameters: TSchema;

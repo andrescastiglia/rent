@@ -763,11 +763,13 @@ export class DashboardService {
         ),
         this.dataSource.query(
           `SELECT pa.id, pa.action_type, pa.entity_type, pa.summary, pa.payload,
+                  (pa.status<>'pending') AS can_retry,
                   pa.created_at, pa.updated_at,
                   concat_ws(' ', u.first_name, u.last_name) AS person_name
              FROM pending_actions pa
              JOIN users u ON u.id = pa.requested_by
-            WHERE pa.company_id = $1::uuid AND pa.status = 'pending'
+            WHERE pa.company_id = $1::uuid AND (pa.status = 'pending' OR
+              (pa.retry_safe AND (pa.status='failed' OR (pa.status='executing' AND pa.lease_expires_at<=NOW()))))
             ORDER BY pa.created_at DESC LIMIT $2`,
           [companyId, effectiveLimit],
         ),
@@ -811,6 +813,7 @@ export class DashboardService {
           updatedAt: new Date(item.updated_at),
           actionKind: 'pending_action' as const,
           actionId: item.id,
+          canRetry: item.can_retry === true,
         })),
       );
       const pendingApprovals = await this.usersRepository.find({

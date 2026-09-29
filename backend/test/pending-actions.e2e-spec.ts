@@ -106,17 +106,24 @@ describe('Pending action claims with PostgreSQL (e2e)', () => {
     await app?.close();
   });
   const seed = async (
-    options: { expired?: boolean; corrupt?: boolean } = {},
+    options: {
+      expired?: boolean;
+      corrupt?: boolean;
+      recoverable?: boolean;
+    } = {},
   ) => {
     const [row] = await db.query(
       `INSERT INTO pending_actions(company_id,requested_by,tool_name,action_type,entity_type,summary,payload,payload_hash,expires_at)
-      VALUES($1,$2,'create_fixture','create','fixture','Create fixture',$3::jsonb,$4,now()+$5::interval) RETURNING *`,
+      VALUES($1,$2,$6,'create','fixture','Create fixture',$3::jsonb,$4,now()+$5::interval) RETURNING *`,
       [
         company.id,
         requester.id,
         JSON.stringify(payload),
         options.corrupt ? 'a'.repeat(64) : hash,
         options.expired ? '-1 minute' : '15 minutes',
+        options.recoverable
+          ? 'post_invoices_generate_for_lease'
+          : 'create_fixture',
       ],
     );
     return row;
@@ -163,6 +170,66 @@ describe('Pending action claims with PostgreSQL (e2e)', () => {
     expect(execute).toHaveBeenCalledTimes(1);
     expect((await read(row.id)).status).toBe('executed');
   });
+  it('reclaims only executions marked safe by the deployed tool contract', async () => {
+    const safe = await seed({ recoverable: true });
+    execute.mockRejectedValueOnce(new Error('lost result'));
+    await approve(safe.id).expect(201);
+    expect((await read(safe.id)).retry_safe).toBe(true);
+    const activity = await request(app.getHttpServer())
+      .get('/dashboard/recent-activity')
+      .auth(reviewerToken, { type: 'bearer' })
+      .expect(200);
+    expect(activity.body.new).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ actionId: safe.id, canRetry: true }),
+      ]),
+    );
+
+    await approve(safe.id).expect(201);
+    expect((await read(safe.id)).status).toBe('executed');
+    const legacy = await seed({ recoverable: true });
+    await db.query(
+      "UPDATE pending_actions SET status='failed',reviewed_by=$2 WHERE id=$1",
+      [legacy.id, reviewer.id],
+    );
+    await approve(legacy.id).expect(400);
+    expect((await read(legacy.id)).retry_safe).toBe(false);
+  });
+
+  it('fences a stale worker after a replacement claim finishes', async () => {
+    const row = await seed({ recoverable: true });
+    let release!: () => void, started!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const began = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    execute.mockImplementationOnce(async () => {
+      started();
+      await gate;
+      throw new Error('old worker failed');
+    });
+    const oldRequest = approve(row.id).then((response) => response);
+    await began;
+    await approve(row.id).expect(400);
+    await db.query(
+      "UPDATE pending_actions SET lease_expires_at=now()-interval '1 second' WHERE id=$1",
+      [row.id],
+    );
+    try {
+      await approve(row.id).expect(201);
+    } finally {
+      release();
+    }
+    expect((await oldRequest).status).toBe(201);
+    expect(await read(row.id)).toMatchObject({
+      status: 'executed',
+      result: { id: 'fixture-result' },
+      error_message: null,
+    });
+  });
+
   it('rejects once and detects zero returned rows for repeats or missing IDs', async () => {
     const row = await seed();
     const response = await reject(row.id).expect(201);

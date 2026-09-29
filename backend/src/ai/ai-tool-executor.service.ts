@@ -34,6 +34,17 @@ export class AiToolExecutorService {
     private readonly dataSource: DataSource,
   ) {}
 
+  recoverableToolNames(): string[] {
+    return this.catalog
+      .getDefinitions()
+      .filter(
+        (tool) =>
+          tool.mutability === 'mutable' &&
+          tool.supportsIdempotentRecovery === true,
+      )
+      .map((tool) => tool.name);
+  }
+
   getMode(): AiToolsMode {
     const raw = (process.env.AI_TOOLS_MODE || 'NONE').toUpperCase();
     if (raw === 'READONLY' || raw === 'FULL') {
@@ -90,6 +101,7 @@ export class AiToolExecutorService {
       );
       if (!confirmation.confirmed) return confirmation.preview;
       confirmationId = confirmation.id;
+      context = { ...context, idempotencyKey: confirmation.id };
     }
     this.auditLog('start', toolName, context, this.redactSensitive(parsed));
 
@@ -209,7 +221,8 @@ export class AiToolExecutorService {
 
     const result = await this.dataSource.query(
       `UPDATE ai_tool_mutation_confirmations
-          SET status = 'confirmed', confirmed_at = NOW()
+          SET status = 'confirmed', confirmed_at = COALESCE(confirmed_at,NOW()),
+              retry_safe=CASE WHEN status='pending' THEN $7::boolean ELSE retry_safe END
         WHERE id = COALESCE(
           $1::uuid,
           (
@@ -223,7 +236,9 @@ export class AiToolExecutorService {
           AND conversation_id = $2::uuid AND user_id = $3::uuid
           AND (company_id IS NULL OR company_id = $6::uuid)
           AND tool_name = $4 AND payload_hash = $5
-          AND status = 'pending' AND expires_at > NOW()
+          AND ((status = 'pending' AND expires_at > NOW()) OR
+            ($7::boolean AND retry_safe AND $1::uuid IS NOT NULL AND status IN ('confirmed','executed','failed')))
+          AND NOT EXISTS (SELECT 1 FROM pending_actions pa WHERE pa.source_confirmation_id=ai_tool_mutation_confirmations.id)
         RETURNING id`,
       [
         context.confirmationId ?? null,
@@ -232,6 +247,7 @@ export class AiToolExecutorService {
         definition.name,
         payloadHash,
         context.companyId,
+        definition.supportsIdempotentRecovery === true,
       ],
     );
     const rows = this.mutationRows<{ id: string }>(result);
@@ -436,6 +452,7 @@ export class AiToolExecutorService {
   }
 
   private sanitizeOutput(value: unknown): unknown {
+    if (value instanceof Date) return value.toISOString();
     const blockedKey =
       /password|secret|token|authorization|api[-_]?key|private[-_]?key/i;
 

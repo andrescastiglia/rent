@@ -225,7 +225,15 @@
         "markRead": "Mark read",
         "approve": "Approve",
         "reject": "Reject",
-        "review": "Review"
+        "review": "Review",
+        "retry": "Recover execution"
+      },
+      "retryPrompt": "Recover the result of this approved operation? The same request will be reused without generating another invoice.",
+      "sources": {
+        "interested": "Prospect",
+        "owner": "Owner",
+        "communication": "Message",
+        "pending_action": "Operation for review"
       }
     }
   },

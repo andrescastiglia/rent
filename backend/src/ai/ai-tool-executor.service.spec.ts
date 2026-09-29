@@ -344,6 +344,24 @@ describe('AiToolExecutorService', () => {
     expect(testTool.execute).toHaveBeenCalledWith({ page: 1 }, context);
   });
 
+  it('advertises recovery only for mutable tools with a transactional receipt contract', () => {
+    testTool.supportsIdempotentRecovery = true;
+    expect(service.recoverableToolNames()).toEqual([]);
+    testTool.mutability = 'mutable';
+    expect(service.recoverableToolNames()).toEqual([testTool.name]);
+  });
+
+  it('preserves dates while sanitizing an execution result', async () => {
+    process.env.AI_TOOLS_MODE = 'FULL';
+    (testTool.execute as jest.Mock).mockResolvedValue({
+      createdAt: new Date('2026-01-02T12:00:00Z'),
+      secret: 'hidden',
+    });
+    expect(await service.execute('users_list', { page: 1 }, context)).toEqual({
+      createdAt: '2026-01-02T12:00:00.000Z',
+    });
+  });
+
   it('previews a mutable tool without executing it and redacts secrets', async () => {
     process.env.AI_TOOLS_MODE = 'FULL';
     testTool.mutability = 'mutable';
@@ -397,6 +415,15 @@ describe('AiToolExecutorService', () => {
     expect(result).toEqual({ ok: true });
     expect(testTool.execute).toHaveBeenCalledTimes(1);
     expect(databaseQuery.mock.calls[0][0]).toContain("status = 'confirmed'");
+    expect(databaseQuery.mock.calls[0][0]).toContain(
+      'source_confirmation_id=ai_tool_mutation_confirmations.id',
+    );
+    expect(testTool.execute).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        idempotencyKey: '44444444-4444-4444-8444-444444444444',
+      }),
+    );
     expect(databaseQuery.mock.calls[1][0]).toContain('result_hash');
   });
 
