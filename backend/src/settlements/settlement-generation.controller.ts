@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   Post,
   Request,
+  Query,
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -14,6 +15,9 @@ import {
   GenerateSettlementDto,
   SettlementGenerationDto,
   VoidSettlementGenerationDto,
+  SettlementGenerationOverviewDto,
+  SettlementGenerationOverviewQueryDto,
+  CancelSettlementGenerationRequestDto,
 } from './dto/settlement-generation.dto';
 import { SettlementGenerationService } from './settlement-generation.service';
 type Actor = { user: { id: string; companyId: string } };
@@ -21,6 +25,22 @@ type Actor = { user: { id: string; companyId: string } };
 @Roles(UserRole.ADMIN)
 export class SettlementGenerationController {
   constructor(private readonly generations: SettlementGenerationService) {}
+  @Get('generation/overview')
+  @ApiOkResponse({ type: SettlementGenerationOverviewDto })
+  overview(
+    @Request() req: Actor,
+    @Query() query: SettlementGenerationOverviewQueryDto,
+  ) {
+    return this.generations.overview(req.user.companyId, query);
+  }
+  @Post('generation/cancel-request')
+  @ApiCreatedResponse({ type: SettlementGenerationOverviewDto })
+  cancelRequest(
+    @Request() req: Actor,
+    @Body() dto: CancelSettlementGenerationRequestDto,
+  ) {
+    return this.generations.cancelRequest(req.user.companyId, req.user.id, dto);
+  }
   @Post('generate')
   @ApiCreatedResponse({ type: SettlementGenerationDto })
   generate(@Request() req: Actor, @Body() dto: GenerateSettlementDto) {

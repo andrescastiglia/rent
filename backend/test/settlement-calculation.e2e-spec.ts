@@ -289,6 +289,7 @@ describe('Settlement calculation from recorded collections (e2e)', () => {
 
   const clearGenerations = async () => {
     for (const table of [
+      'settlement_generation_cancellations',
       'settlement_payout_effects_outbox',
       'settlement_payout_movements',
       'settlement_payout_reviews',
@@ -1091,5 +1092,166 @@ describe('Settlement calculation from recorded collections (e2e)', () => {
         .get(`/settlements/${g.settlementId}/generation`)
         .set('Authorization', `Bearer ${token}`)
         .expect(403);
+  });
+
+  const generationOverview = (
+    extra: Record<string, string> = {},
+    token = adminToken,
+  ) =>
+    request(app.getHttpServer())
+      .get('/settlements/generation/overview')
+      .set('Authorization', `Bearer ${token}`)
+      .query({ ownerId, ...extra });
+  const cancelRequest = (requestKey: string, token = adminToken) =>
+    request(app.getHttpServer())
+      .post('/settlements/generation/cancel-request')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ ownerId, requestKey, confirmed: true });
+
+  it('exposes disabled availability and scoped request recovery without provider calls', async () => {
+    expect((await generationOverview().expect(200)).body).toEqual({
+      enabled: false,
+      canVoid: false,
+      requestCancelled: false,
+      generation: null,
+    });
+    await generationOverview({}, foreignToken).expect(404);
+    for (const token of [ownerToken, tenantToken, staffToken])
+      await generationOverview({}, token).expect(403);
+    await generationOverview({ settlementId: randomUUID() }).expect(404);
+    await generationOverview({ requestKey: 'invalid' }).expect(400);
+    await generationOverview({
+      requestKey: randomUUID(),
+      settlementId: randomUUID(),
+    }).expect(400);
+    const key = randomUUID();
+    expect(
+      (await generationOverview({ requestKey: key }).expect(200)).body
+        .generation,
+    ).toBeNull();
+    payoutEnabled = true;
+    const input = { ...(await generationInput()), idempotencyKey: key };
+    const generated = (await generate(input).expect(201)).body;
+    expect(
+      (await generationOverview({ requestKey: key }).expect(200)).body,
+    ).toMatchObject({ enabled: true, canVoid: true, generation: generated });
+    payoutEnabled = false;
+    expect(
+      (
+        await generationOverview({
+          settlementId: generated.settlementId,
+        }).expect(200)
+      ).body,
+    ).toMatchObject({ enabled: false, canVoid: false, generation: generated });
+  });
+
+  it('fences a discarded unregistered request even while generation is disabled', async () => {
+    const input = await generationInput();
+    const cancelled = (await cancelRequest(input.idempotencyKey).expect(201))
+      .body;
+    expect(cancelled).toEqual({
+      enabled: false,
+      canVoid: false,
+      requestCancelled: true,
+      generation: null,
+    });
+    expect(
+      (await cancelRequest(input.idempotencyKey).expect(201)).body,
+    ).toEqual(cancelled);
+    expect(
+      (
+        await generationOverview({ requestKey: input.idempotencyKey }).expect(
+          200,
+        )
+      ).body.requestCancelled,
+    ).toBe(true);
+    await expect(
+      dataSource.query(
+        'UPDATE settlement_generation_cancellations SET created_at=now() WHERE company_id=$1',
+        [companyId],
+      ),
+    ).rejects.toThrow('immutable');
+    payoutEnabled = true;
+    await generate(input).expect(409);
+    await generate({ ...input, idempotencyKey: randomUUID() }).expect(201);
+  });
+
+  it('returns an existing generation when discard races an in-flight successful request', async () => {
+    payoutEnabled = true;
+    const input = await generationInput();
+    const hold = holdFirstCalculation();
+    const generating = generate(input).then((response) => response);
+    let discarded!: ReturnType<typeof cancelRequest>;
+    try {
+      await hold.initial;
+      discarded = cancelRequest(input.idempotencyKey);
+      const result = discarded.then((response) => response);
+      hold.resume();
+      const [generationResponse, discardResponse] = await Promise.all([
+        generating,
+        result,
+      ]);
+      expect(generationResponse.status).toBe(201);
+      expect(discardResponse.status).toBe(201);
+      expect(discardResponse.body).toMatchObject({
+        generation: generationResponse.body,
+        requestCancelled: false,
+        canVoid: true,
+      });
+      expect(discardResponse.body.generation.state).toBe('active');
+    } finally {
+      hold.resume();
+      await generating;
+      hold.restore();
+    }
+  });
+
+  it('requires scope, administrator role and confirmation to discard requests', async () => {
+    const key = randomUUID();
+    await cancelRequest(key, foreignToken).expect(404);
+    for (const token of [ownerToken, tenantToken, staffToken])
+      await cancelRequest(key, token).expect(403);
+    await request(app.getHttpServer())
+      .post('/settlements/generation/cancel-request')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ ownerId, requestKey: key, confirmed: false })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/settlements/generation/cancel-request')
+      .send({ ownerId, requestKey: key, confirmed: true })
+      .expect(401);
+  });
+
+  it('reports a historical calculation as absent and blocks voids of submitted transfers', async () => {
+    const [legacy] = await dataSource.query(
+      `INSERT INTO settlements(owner_id,period,gross_amount,commission_amount,net_amount) VALUES($1,'2026-06',100,0,100) RETURNING id`,
+      [ownerId],
+    );
+    expect(
+      (await generationOverview({ settlementId: legacy.id }).expect(200)).body
+        .generation,
+    ).toBeNull();
+    payoutEnabled = true;
+    const generated = (await generate(await generationInput()).expect(201))
+      .body;
+    await requestPayout(generated.settlementId).expect(201);
+    expect(
+      (
+        await generationOverview({
+          settlementId: generated.settlementId,
+        }).expect(200)
+      ).body.canVoid,
+    ).toBe(true);
+    await dataSource.query(
+      `UPDATE settlement_payout_outbox SET status='dispatching' WHERE settlement_id=$1`,
+      [generated.settlementId],
+    );
+    expect(
+      (
+        await generationOverview({
+          settlementId: generated.settlementId,
+        }).expect(200)
+      ).body.canVoid,
+    ).toBe(false);
   });
 });
