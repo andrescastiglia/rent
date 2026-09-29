@@ -46,7 +46,7 @@ const mockListing = (overrides: Partial<PortalListing> = {}): PortalListing =>
     id: 'listing-uuid-1',
     companyId: 'company-uuid-1',
     propertyId: 'property-uuid-1',
-    portal: PortalName.ZONAPROP,
+    portal: PortalName.MERCADOLIBRE,
     status: PortalListingStatus.DRAFT,
     externalId: null,
     externalUrl: null,
@@ -65,10 +65,15 @@ describe('PortalsService', () => {
   let listingsRepository: MockRepository<PortalListing>;
   let propertiesRepository: MockRepository<Property>;
 
-  const publications = { enqueue: jest.fn(), assertEnabled: jest.fn() };
+  const publications = {
+    enqueue: jest.fn(),
+    assertEnabled: jest.fn(),
+    validateListingData: jest.fn(),
+  };
 
   beforeEach(async () => {
     jest.resetAllMocks();
+    publications.validateListingData.mockImplementation((data) => data);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PortalsService,
@@ -144,7 +149,7 @@ describe('PortalsService', () => {
     it('creates a listing in draft status', async () => {
       const dto = {
         propertyId: 'property-uuid-1',
-        portal: PortalName.ZONAPROP,
+        portal: PortalName.MERCADOLIBRE,
       };
 
       propertiesRepository.findOne!.mockResolvedValue(mockProperty());
@@ -159,7 +164,7 @@ describe('PortalsService', () => {
       expect(listingsRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
           status: PortalListingStatus.DRAFT,
-          portal: PortalName.ZONAPROP,
+          portal: PortalName.MERCADOLIBRE,
         }),
       );
       expect(result).toEqual(created);
@@ -171,7 +176,7 @@ describe('PortalsService', () => {
       await expect(
         service.create('company-uuid-1', {
           propertyId: 'missing-id',
-          portal: PortalName.ZONAPROP,
+          portal: PortalName.MERCADOLIBRE,
         }),
       ).rejects.toThrow(NotFoundException);
     });
@@ -183,12 +188,65 @@ describe('PortalsService', () => {
       await expect(
         service.create('company-uuid-1', {
           propertyId: 'property-uuid-1',
-          portal: PortalName.ZONAPROP,
+          portal: PortalName.MERCADOLIBRE,
         }),
       ).rejects.toThrow(ConflictException);
     });
   });
 
+  it('rejects unsupported or disabled draft creation before persistence', async () => {
+    await expect(
+      service.create('company', {
+        propertyId: 'property',
+        portal: PortalName.ZONAPROP,
+      }),
+    ).rejects.toThrow('not configured');
+    publications.assertEnabled.mockImplementation(() => {
+      throw new Error('disabled');
+    });
+    await expect(
+      service.create('company', {
+        propertyId: 'property',
+        portal: PortalName.MERCADOLIBRE,
+      }),
+    ).rejects.toThrow('disabled');
+    expect(propertiesRepository.findOne).not.toHaveBeenCalled();
+    expect(listingsRepository.save).not.toHaveBeenCalled();
+  });
+  it.each(['23505', 'XX000'])(
+    'handles concurrent draft insertion errors (%s)',
+    async (code) => {
+      propertiesRepository.findOne!.mockResolvedValue(mockProperty());
+      listingsRepository.findOne!.mockResolvedValue(null);
+      listingsRepository.save!.mockRejectedValue(
+        Object.assign(new Error('database failure'), { code }),
+      );
+      await expect(
+        service.create('company', {
+          propertyId: 'property',
+          portal: PortalName.MERCADOLIBRE,
+        }),
+      ).rejects.toThrow(
+        code === '23505' ? 'already exists' : 'database failure',
+      );
+    },
+  );
+
+  it('requires company scope before repository reads', async () => {
+    await expect(service.findAll('')).rejects.toThrow('Company scope');
+    await expect(service.findOne('listing', '')).rejects.toThrow(
+      'Company scope',
+    );
+    await expect(
+      service.create('', {
+        propertyId: 'property',
+        portal: PortalName.MERCADOLIBRE,
+      }),
+    ).rejects.toThrow('Company scope');
+    await expect(service.syncAll('')).rejects.toThrow('Company scope');
+    expect(listingsRepository.find).not.toHaveBeenCalled();
+    expect(propertiesRepository.findOne).not.toHaveBeenCalled();
+  });
   it.each(['publish', 'pause'] as const)(
     'enqueues %s without changing provider state before confirmation',
     async (operation) => {

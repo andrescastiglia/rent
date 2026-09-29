@@ -55,6 +55,10 @@ export class PortalPublicationOutboxService {
     this.config.assertEnabled('MERCADOLIBRE');
   }
 
+  validateListingData(data: Record<string, unknown>) {
+    return this.payload('publish', data);
+  }
+
   async enqueue(
     listingId: string,
     companyId: string,

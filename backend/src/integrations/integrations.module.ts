@@ -1,3 +1,5 @@
+import { MercadoLibreCatalogService } from './mercadolibre-catalog.service';
+import { MercadoLibreCatalogController } from './mercadolibre-catalog.controller';
 import { MercadoLibreOAuthClient } from './mercadolibre-oauth.client';
 import { MercadoLibreConnectionsService } from './mercadolibre-connections.service';
 import { ProviderTokenCipherService } from './provider-token-cipher.service';
@@ -12,13 +14,17 @@ import { MercadoPagoPayoutsClient } from './mercadopago-payouts.client';
 
 @Module({
   imports: [ConfigModule],
-  controllers: [MercadoLibreConnectionsController],
+  controllers: [
+    MercadoLibreConnectionsController,
+    MercadoLibreCatalogController,
+  ],
   providers: [
     ProviderConfigService,
     ProviderHttpService,
     BfaClient,
     MercadoPagoPayoutsClient,
     MercadoLibreClient,
+    MercadoLibreCatalogService,
     MercadoLibreOAuthClient,
     MercadoLibreConnectionsService,
     ProviderTokenCipherService,
@@ -28,6 +34,7 @@ import { MercadoPagoPayoutsClient } from './mercadopago-payouts.client';
     BfaClient,
     MercadoPagoPayoutsClient,
     MercadoLibreClient,
+    MercadoLibreCatalogService,
     MercadoLibreOAuthClient,
     MercadoLibreConnectionsService,
     ProviderTokenCipherService,

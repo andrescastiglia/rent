@@ -8853,6 +8853,126 @@
         ]
       }
     },
+    "/portals/mercadolibre/catalog/categories/{id}": {
+      "get": {
+        "operationId": "MercadoLibreCatalog_category",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercadoLibreCategoryDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MercadoLibreCatalog"
+        ]
+      }
+    },
+    "/portals/mercadolibre/catalog/states": {
+      "get": {
+        "operationId": "MercadoLibreCatalog_states",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MercadoLibreOptionDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MercadoLibreCatalog"
+        ]
+      }
+    },
+    "/portals/mercadolibre/catalog/states/{id}/cities": {
+      "get": {
+        "operationId": "MercadoLibreCatalog_cities",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MercadoLibreOptionDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MercadoLibreCatalog"
+        ]
+      }
+    },
+    "/portals/mercadolibre/catalog/cities/{id}/neighborhoods": {
+      "get": {
+        "operationId": "MercadoLibreCatalog_neighborhoods",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MercadoLibreOptionDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MercadoLibreCatalog"
+        ]
+      }
+    },
     "/digital-signatures": {
       "get": {
         "operationId": "DigitalSignatures_findAll",
@@ -18365,6 +18485,145 @@
         "required": [
           "code",
           "state"
+        ]
+      },
+      "MercadoLibreOptionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "MercadoLibreAttributeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "valueType": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "readOnly": {
+            "type": "boolean"
+          },
+          "maxLength": {
+            "type": "number"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MercadoLibreOptionDto"
+            }
+          },
+          "units": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MercadoLibreOptionDto"
+            }
+          },
+          "defaultUnit": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "valueType",
+          "required",
+          "readOnly",
+          "maxLength",
+          "values",
+          "units",
+          "defaultUnit"
+        ]
+      },
+      "MercadoLibreListingTypeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "remainingListings": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "remainingListings"
+        ]
+      },
+      "MercadoLibreCategoryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MercadoLibreOptionDto"
+            }
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MercadoLibreOptionDto"
+            }
+          },
+          "listingAllowed": {
+            "type": "boolean"
+          },
+          "currencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "attributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MercadoLibreAttributeDto"
+            }
+          },
+          "listingTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MercadoLibreListingTypeDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "path",
+          "children",
+          "listingAllowed",
+          "currencies",
+          "attributes",
+          "listingTypes"
         ]
       },
       "DigitalSignatureRequest": {

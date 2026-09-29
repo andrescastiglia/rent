@@ -2529,6 +2529,40 @@ export type CompleteMercadoLibreAuthorizationDto = {
   state: string;
 };
 
+export type MercadoLibreOptionDto = {
+  id: string;
+  name: string;
+};
+
+export type MercadoLibreAttributeDto = {
+  id: string;
+  name: string;
+  valueType: string;
+  required: boolean;
+  readOnly: boolean;
+  maxLength: number;
+  values: Array<MercadoLibreOptionDto>;
+  units: Array<MercadoLibreOptionDto>;
+  defaultUnit: string | null;
+};
+
+export type MercadoLibreListingTypeDto = {
+  id: string;
+  name: string;
+  remainingListings: number | null;
+};
+
+export type MercadoLibreCategoryDto = {
+  id: string;
+  name: string;
+  path: Array<MercadoLibreOptionDto>;
+  children: Array<MercadoLibreOptionDto>;
+  listingAllowed: boolean;
+  currencies: Array<string>;
+  attributes: Array<MercadoLibreAttributeDto>;
+  listingTypes: Array<MercadoLibreListingTypeDto>;
+};
+
 export type DigitalSignatureRequest = {
   id: string;
   companyId: string;
@@ -6720,6 +6754,68 @@ export type MercadoLibreConnectionsDisconnectResponses = {
 
 export type MercadoLibreConnectionsDisconnectResponse =
   MercadoLibreConnectionsDisconnectResponses[keyof MercadoLibreConnectionsDisconnectResponses];
+
+export type MercadoLibreCatalogCategoryData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/portals/mercadolibre/catalog/categories/{id}';
+};
+
+export type MercadoLibreCatalogCategoryResponses = {
+  200: MercadoLibreCategoryDto;
+};
+
+export type MercadoLibreCatalogCategoryResponse =
+  MercadoLibreCatalogCategoryResponses[keyof MercadoLibreCatalogCategoryResponses];
+
+export type MercadoLibreCatalogStatesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/portals/mercadolibre/catalog/states';
+};
+
+export type MercadoLibreCatalogStatesResponses = {
+  200: Array<MercadoLibreOptionDto>;
+};
+
+export type MercadoLibreCatalogStatesResponse =
+  MercadoLibreCatalogStatesResponses[keyof MercadoLibreCatalogStatesResponses];
+
+export type MercadoLibreCatalogCitiesData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/portals/mercadolibre/catalog/states/{id}/cities';
+};
+
+export type MercadoLibreCatalogCitiesResponses = {
+  200: Array<MercadoLibreOptionDto>;
+};
+
+export type MercadoLibreCatalogCitiesResponse =
+  MercadoLibreCatalogCitiesResponses[keyof MercadoLibreCatalogCitiesResponses];
+
+export type MercadoLibreCatalogNeighborhoodsData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/portals/mercadolibre/catalog/cities/{id}/neighborhoods';
+};
+
+export type MercadoLibreCatalogNeighborhoodsResponses = {
+  200: Array<MercadoLibreOptionDto>;
+};
+
+export type MercadoLibreCatalogNeighborhoodsResponse =
+  MercadoLibreCatalogNeighborhoodsResponses[keyof MercadoLibreCatalogNeighborhoodsResponses];
 
 export type DigitalSignaturesFindAllData = {
   body?: never;

@@ -1,6 +1,8 @@
 import { PortalPublicationOutboxService } from './portal-publication-outbox.service';
 import {
   ConflictException,
+  BadRequestException,
+  ServiceUnavailableException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -28,6 +30,7 @@ export class PortalsService {
     companyId: string,
     propertyId?: string,
   ): Promise<PortalListing[]> {
+    this.assertCompany(companyId);
     const where: Record<string, unknown> = { companyId };
     if (propertyId) {
       where['propertyId'] = propertyId;
@@ -40,6 +43,7 @@ export class PortalsService {
   }
 
   async findOne(id: string, companyId: string): Promise<PortalListing> {
+    this.assertCompany(companyId);
     const listing = await this.listingsRepository.findOne({
       where: { id, companyId },
       relations: ['property'],
@@ -56,6 +60,13 @@ export class PortalsService {
     companyId: string,
     dto: CreatePortalListingDto,
   ): Promise<PortalListing> {
+    this.publications.assertEnabled();
+    this.assertCompany(companyId);
+    if (dto.portal !== PortalName.MERCADOLIBRE)
+      throw new ServiceUnavailableException('This portal is not configured');
+    const listingData = this.publications.validateListingData(
+      dto.listingData ?? {},
+    );
     const property = await this.propertiesRepository.findOne({
       where: { id: dto.propertyId, companyId },
     });
@@ -81,10 +92,18 @@ export class PortalsService {
       propertyId: dto.propertyId,
       portal: dto.portal,
       status: PortalListingStatus.DRAFT,
-      listingData: dto.listingData ?? {},
+      listingData,
     });
 
-    return this.listingsRepository.save(listing);
+    try {
+      return await this.listingsRepository.save(listing);
+    } catch (error) {
+      if ((error as { code?: string }).code === '23505')
+        throw new ConflictException(
+          'A listing for this property already exists',
+        );
+      throw error;
+    }
   }
 
   async publish(id: string, companyId: string): Promise<PortalListing> {
@@ -112,6 +131,7 @@ export class PortalsService {
 
   async syncAll(companyId: string): Promise<PortalListing[]> {
     this.publications.assertEnabled();
+    this.assertCompany(companyId);
     const listings = await this.listingsRepository.find({
       where: [
         {
@@ -131,5 +151,8 @@ export class PortalsService {
     for (const listing of listings)
       await this.publications.enqueue(listing.id, companyId, 'refresh');
     return listings;
+  }
+  private assertCompany(companyId: string): void {
+    if (!companyId) throw new BadRequestException('Company scope required');
   }
 }
