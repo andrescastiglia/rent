@@ -2302,7 +2302,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
                   id="billingDay"
                   type="number"
                   min="1"
-                  max="28"
+                  max="31"
                   {...register("billingDay")}
                   className={inputClass}
                 />
@@ -2316,7 +2316,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
                   id="paymentDueDay"
                   type="number"
                   min="1"
-                  max="28"
+                  max="31"
                   {...register("paymentDueDay")}
                   className={inputClass}
                 />

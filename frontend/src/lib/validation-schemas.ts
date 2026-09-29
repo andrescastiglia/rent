@@ -193,7 +193,7 @@ export const createLeaseSchema = (t: TranslationFunction) =>
           "annual",
         ] as const)
         .optional(),
-      paymentDueDay: z.coerce.number().min(1).max(28).optional(),
+      paymentDueDay: z.coerce.number().int().min(1).max(31).optional(),
       renewalAlertEnabled: z.boolean().optional(),
       renewalAlertPeriodicity: z
         .enum(["monthly", "four_months", "custom"] as const)
@@ -207,7 +207,7 @@ export const createLeaseSchema = (t: TranslationFunction) =>
           "custom",
         ] as const)
         .optional(),
-      billingDay: z.coerce.number().min(1).max(28).optional(),
+      billingDay: z.coerce.number().int().min(1).max(31).optional(),
       autoGenerateInvoices: z.boolean().optional(),
 
       // Late fee configuration

@@ -449,7 +449,10 @@ export class CommunicationsService {
     );
     let sent = 0;
     let failed = 0;
-    for (const claimedDelivery of claimed ?? []) {
+    const claimedRows = Array.isArray(claimed?.[0])
+      ? claimed[0]
+      : (claimed ?? []);
+    for (const claimedDelivery of claimedRows) {
       const delivery = await this.deliveriesRepository.findOne({
         where: { id: claimedDelivery.id },
       });
@@ -458,7 +461,7 @@ export class CommunicationsService {
       if (result.status === CommunicationDeliveryStatus.SENT) sent += 1;
       else failed += 1;
     }
-    return { processed: claimed?.length ?? 0, sent, failed };
+    return { processed: claimedRows.length, sent, failed };
   }
 
   private resolveInitialStatus(
@@ -502,6 +505,28 @@ export class CommunicationsService {
 
   private async send(delivery: CommunicationDelivery): Promise<string | null> {
     this.assertWhatsappOnly(delivery.channel);
+    if (delivery.event === CommunicationEvent.INVOICE_ISSUED) {
+      const [eligible] = await this.dataSource.query(
+        `SELECT i.id FROM invoices i
+         JOIN leases l ON l.id=i.lease_id AND l.company_id=$2 AND l.deleted_at IS NULL
+         JOIN tenants t ON t.id=l.tenant_id AND t.company_id=$2 AND t.deleted_at IS NULL
+         JOIN users u ON u.id=t.user_id AND u.company_id=$2 AND u.deleted_at IS NULL
+         WHERE i.id=$1 AND i.company_id=$2 AND i.deleted_at IS NULL
+         AND i.status IN ('pending','sent','partial','overdue') AND t.id=$3 AND u.phone=$4
+         AND t.contact_consent=true AND u.whatsapp_enabled=true
+         AND (t.preferred_contact_channel IS NULL OR t.preferred_contact_channel='whatsapp')`,
+        [
+          delivery.relatedEntityId,
+          delivery.companyId,
+          delivery.recipientId,
+          delivery.recipient,
+        ],
+      );
+      if (!eligible)
+        throw new BadRequestException(
+          'Invoice notice recipient or consent is no longer eligible',
+        );
+    }
     const context = {
       companyId: delivery.companyId,
       idempotencyKey: delivery.id,

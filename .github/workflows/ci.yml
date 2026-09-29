@@ -518,6 +518,29 @@ jobs:
           POSTGRES_PASSWORD: test
           POSTGRES_DB: rent_test
 
+      - name: Start backend for batch integration
+        working-directory: backend
+        run: |
+          npm run start > "$RUNNER_TEMP/rent-backend.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/rent-backend.pid"
+          for _ in $(seq 1 45); do
+            if curl --fail --silent http://localhost:3001/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/rent-backend.log"
+          exit 1
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
+          JWT_SECRET: test-secret
+          JWT_REFRESH_SECRET: test-refresh-secret
+          BATCH_BANK_RECONCILIATION_INTERNAL_TOKEN: ci-bank-token
+          BATCH_BILLING_INTERNAL_TOKEN: ci-billing-token
+          WHATSAPP_ENABLED: "false"
+          WHATSAPP_INBOUND_ENABLED: "false"
+          NODE_ENV: test
+
       - name: Run batch E2E commands (dry-run)
         working-directory: batch
         run: |
@@ -527,6 +550,17 @@ jobs:
           npm run dev -- reconcile-bank --dry-run --min-age-minutes 0
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
+          NODE_ENV: test
+          BACKEND_INTERNAL_URL: http://localhost:3001
+          BATCH_BILLING_INTERNAL_TOKEN: ci-billing-token
+
+      - name: Verify billing CLI uses the common transaction and recovers retries
+        working-directory: batch
+        run: node scripts/verify-billing-integration.cjs
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
+          BACKEND_INTERNAL_URL: http://localhost:3001
+          BATCH_BILLING_INTERNAL_TOKEN: ci-billing-token
           NODE_ENV: test
 
       - name: Verify retired batch refuses settlement writes
@@ -614,26 +648,6 @@ jobs:
           SQL
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
-
-      - name: Start backend for bank reconciliation
-        working-directory: backend
-        run: |
-          npm run start > "$RUNNER_TEMP/rent-backend.log" 2>&1 &
-          echo "$!" > "$RUNNER_TEMP/rent-backend.pid"
-          for _ in $(seq 1 45); do
-            if curl --fail --silent http://localhost:3001/health >/dev/null; then
-              exit 0
-            fi
-            sleep 2
-          done
-          cat "$RUNNER_TEMP/rent-backend.log"
-          exit 1
-        env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/rent_test
-          JWT_SECRET: test-secret
-          JWT_REFRESH_SECRET: test-refresh-secret
-          BATCH_BANK_RECONCILIATION_INTERNAL_TOKEN: ci-bank-token
-          NODE_ENV: test
 
       - name: Run bank reconciliation integration flow
         working-directory: batch

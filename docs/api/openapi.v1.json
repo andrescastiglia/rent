@@ -3603,6 +3603,39 @@
         ]
       }
     },
+    "/invoices/internal/generate-due": {
+      "post": {
+        "operationId": "ScheduledBilling_generate",
+        "parameters": [
+          {
+            "name": "x-batch-billing-token",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduledBillingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ScheduledBilling"
+        ]
+      }
+    },
     "/invoices/internal/process-documents": {
       "post": {
         "operationId": "InvoiceEffects_process",
@@ -14050,7 +14083,9 @@
           },
           "paymentDueDay": {
             "type": "number",
-            "default": 10
+            "default": 10,
+            "minimum": 1,
+            "maximum": 31
           },
           "renewalAlertEnabled": {
             "type": "boolean",
@@ -14079,7 +14114,9 @@
             ]
           },
           "billingDay": {
-            "type": "number"
+            "type": "number",
+            "minimum": 1,
+            "maximum": 31
           },
           "lateFeeType": {
             "type": "string",
@@ -14393,6 +14430,38 @@
         "required": [
           "status",
           "available"
+        ]
+      },
+      "ScheduledBillingDto": {
+        "type": "object",
+        "properties": {
+          "billingDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "dryRun": {
+            "type": "boolean"
+          },
+          "companyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "leaseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "afterLeaseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "billingDate"
         ]
       },
       "Invoice": {

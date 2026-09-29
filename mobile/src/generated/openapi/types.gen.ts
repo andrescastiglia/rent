@@ -1218,6 +1218,15 @@ export type LeaseContractStatusDto = {
   available: boolean;
 };
 
+export type ScheduledBillingDto = {
+  billingDate: string;
+  dryRun?: boolean;
+  companyId?: string;
+  leaseId?: string;
+  afterLeaseId?: string;
+  limit?: number;
+};
+
 export type Invoice = {
   id: string;
   companyId: string;
@@ -4504,6 +4513,20 @@ export type LeasesContractDownloadContractLegacyData = {
 
 export type LeasesContractDownloadContractLegacyResponses = {
   200: unknown;
+};
+
+export type ScheduledBillingGenerateData = {
+  body: ScheduledBillingDto;
+  headers: {
+    'x-batch-billing-token': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/invoices/internal/generate-due';
+};
+
+export type ScheduledBillingGenerateResponses = {
+  201: unknown;
 };
 
 export type InvoiceEffectsProcessData = {

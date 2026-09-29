@@ -94,9 +94,8 @@ Requiere las migraciones 122 y 123 antes del backend compatible; no agrega
 credenciales ni activa procesos. Mantener los triggers, claves y documentos al revertir;
 volver al escritor anterior reintroduce generación parcial y colisiones de números.
 
-El batch conserva por ahora un escritor independiente en `billing.service.ts` e
-`invoice.service.ts`, con cálculos de conversión/retenciones, PDF y notificación
-separados. Su unificación con el servicio común sigue pendiente y el cron no se
-habilita. La transacción descrita aquí prueba HTTP/IA, no ese batch. También quedan
+El batch delega ahora en el servicio común; ver [facturación programada](scheduled-billing.md)
+para selección, claves por fecha, moneda, retenciones y pruebas del CLI real.
+El cron sigue suspendido. También quedan
 pendientes adopción de claves en todos los clientes, mora auditada, conceptos, recuperación
 histórica y validación productiva.

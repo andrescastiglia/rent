@@ -49,7 +49,11 @@ export function advanceBillingCalendar(
     lease.nextBillingDate = nextBillingDate;
 }
 
-export function computeBillingPeriod(lease: Lease, dto: GenerateInvoiceDto) {
+export function computeBillingPeriod(
+  lease: Lease,
+  dto: GenerateInvoiceDto,
+  referenceDate?: string,
+) {
   const custom = [dto.periodStart, dto.periodEnd, dto.dueDate];
   if (custom.some((value) => value !== undefined)) {
     if (!custom.every((value) => value !== undefined))
@@ -65,12 +69,14 @@ export function computeBillingPeriod(lease: Lease, dto: GenerateInvoiceDto) {
       );
     return { periodStart, periodEnd, dueDate };
   }
-  const today = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Argentina/Buenos_Aires',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
+  const today =
+    referenceDate ??
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
   const periodStart = calendarDate(
     lease.nextBillingDate || `${today.slice(0, 7)}-01`,
   );

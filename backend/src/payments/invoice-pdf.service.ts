@@ -87,7 +87,11 @@ export class InvoicePdfService {
       notes: invoice.notes,
       owner: { user: person(invoice.owner?.user) },
       lease: {
-        tenant: { user: person(invoice.lease?.tenant?.user) },
+        id: invoice.leaseId,
+        tenant: {
+          id: invoice.lease?.tenant?.id,
+          user: person(invoice.lease?.tenant?.user),
+        },
         property: property
           ? {
               name: property.name,

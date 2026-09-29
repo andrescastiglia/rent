@@ -1,6 +1,8 @@
 import { PaymentEffectsService } from './payment-effects.service';
 import { InvoiceEffectsService } from './invoice-effects.service';
 import { InvoiceEffectsController } from './invoice-effects.controller';
+import { ScheduledBillingController } from './scheduled-billing.controller';
+import { ScheduledBillingService } from './scheduled-billing.service';
 import { PaymentEffectsController } from './payment-effects.controller';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -64,6 +66,7 @@ import { CommunicationsModule } from '../communications/communications.module';
     CommunicationsModule,
   ],
   controllers: [
+    ScheduledBillingController,
     InvoiceEffectsController,
     PaymentEffectsController,
     TenantAccountsController,
@@ -72,6 +75,7 @@ import { CommunicationsModule } from '../communications/communications.module';
     PaymentDocumentTemplatesController,
   ],
   providers: [
+    ScheduledBillingService,
     InvoiceEffectsService,
     PaymentEffectsService,
     TenantAccountsService,

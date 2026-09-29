@@ -33,8 +33,10 @@ independientemente de la zona horaria del navegador.
 
 El PDF original se conserva también si la factura se paga o cancela antes de que
 el procesador lo genere: documenta la emisión, no afirma el estado de cobro actual.
-La pantalla sigue mostrando por separado el estado actual de la factura. Esta
-cola no envía mensajes ni invoca proveedores.
+La pantalla sigue mostrando por separado el estado actual de la factura. Para
+facturas cobrables, el worker prepara además una entrega consentida en la cola de
+comunicaciones, dentro de la transacción documental; el envío externo sucede en
+ese procesador. Ver [reglas de destinatario y consentimiento](scheduled-billing.md#documento-y-aviso).
 
 ## Lectura y recuperación
 
@@ -75,6 +77,6 @@ y suspender emisión/procesamiento mientras sea necesario.
 
 El servicio HTTP/IA ahora incluye creación del borrador, calendario y numeración
 en la [transacción de generación](invoice-generation.md). Pendientes del plan
-general: unificación del batch independiente, idempotencia de solicitud, conceptos
+general: adopción de claves en los demás clientes, conceptos
 y mora auditados, recuperación histórica y emisión fiscal. Esta entrega no
 acredita esos recorridos ni una firma digital o sello BFA.
