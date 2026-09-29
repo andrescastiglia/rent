@@ -1154,7 +1154,52 @@ export type UpdateLeaseContractTemplateDto = {
 };
 
 export type UpdateLeaseDto = {
-  [key: string]: unknown;
+  companyId?: string;
+  propertyId?: string;
+  tenantId?: string;
+  buyerId?: string;
+  buyerProfileId?: string;
+  ownerId?: string;
+  templateId?: string;
+  leaseNumber?: string;
+  startDate?: string;
+  endDate?: string;
+  monthlyRent?: number;
+  fiscalValue?: number;
+  securityDeposit?: number;
+  renewalAlertCustomDays?: number;
+  billingFrequency?:
+    "first_of_month" | "last_of_month" | "contract_date" | "custom";
+  billingDay?: number;
+  lateFeeType?:
+    "none" | "fixed" | "percentage" | "daily_fixed" | "daily_percentage";
+  lateFeeValue?: number;
+  lateFeeGraceDays?: number;
+  lateFeeMax?: number;
+  autoGenerateInvoices?: boolean;
+  adjustmentType?: "fixed" | "percentage" | "inflation_index";
+  adjustmentValue?: number;
+  adjustmentFrequencyMonths?: number;
+  nextAdjustmentDate?: string;
+  inflationIndexLagMonths?: number | null;
+  inflationIndexType?: "icl" | "ipc" | "igp_m";
+  increaseClauseType?:
+    | "none"
+    | "annual_fixed"
+    | "annual_percentage"
+    | "inflation_linked"
+    | "custom_schedule";
+  increaseClauseValue?: number;
+  termsAndConditions?: string;
+  specialClauses?: string;
+  notes?: string;
+  contractType?: "rental" | "sale";
+  currency?: string;
+  paymentFrequency?:
+    "monthly" | "bimonthly" | "quarterly" | "semiannual" | "annual";
+  paymentDueDay?: number;
+  renewalAlertEnabled?: boolean;
+  renewalAlertPeriodicity?: "monthly" | "four_months" | "custom";
 };
 
 export type RenderLeaseDraftDto = {
