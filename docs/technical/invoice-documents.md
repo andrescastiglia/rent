@@ -73,7 +73,8 @@ proveedores. En rollback conservar tabla, snapshots, vínculos y triggers. No
 desplegar un emisor antiguo que ignore la cola; preferir corrección hacia adelante
 y suspender emisión/procesamiento mientras sea necesario.
 
-Pendientes del plan general: creación del borrador y avance del calendario mensual
-en una sola transacción, numeración concurrente, conceptos y mora auditados,
-recuperación histórica y emisión fiscal. Esta entrega no acredita esos recorridos
-ni una firma digital o sello BFA.
+El servicio HTTP/IA ahora incluye creación del borrador, calendario y numeración
+en la [transacción de generación](invoice-generation.md). Pendientes del plan
+general: unificación del batch independiente, idempotencia de solicitud, conceptos
+y mora auditados, recuperación histórica y emisión fiscal. Esta entrega no
+acredita esos recorridos ni una firma digital o sello BFA.

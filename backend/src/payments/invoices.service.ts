@@ -1,8 +1,14 @@
 import {
+  computeBillingPeriod,
+  advanceBillingCalendar,
+  addCalendarMonths,
+} from './billing-calendar';
+import {
   Injectable,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import {
@@ -10,6 +16,7 @@ import {
   EntityManager,
   Repository,
   SelectQueryBuilder,
+  LessThanOrEqual,
 } from 'typeorm';
 import { Invoice, InvoiceStatus } from './entities/invoice.entity';
 import {
@@ -71,56 +78,60 @@ export class InvoicesService {
    * @returns La factura creada
    */
   async create(dto: CreateInvoiceDto, companyId: string): Promise<Invoice> {
-    const lease = await this.leasesRepository.findOne({
-      where: { id: dto.leaseId, companyId },
-      relations: ['property', 'property.owner'],
+    return this.dataSource.transaction(async (manager) => {
+      const invoicesRepository = manager.getRepository(Invoice);
+      const lease = await this.lockBillingLease(
+        manager,
+        dto.leaseId,
+        companyId,
+      );
+
+      // Obtener o crear cuenta del inquilino
+      const account = await this.tenantAccountsService.findByLease(
+        dto.leaseId,
+        lease.companyId,
+        manager,
+      );
+
+      // Obtener propietario
+      const ownerId = lease.property?.ownerId || lease.ownerId;
+      if (!ownerId) {
+        throw new BadRequestException(
+          'Property owner not found for this lease',
+        );
+      }
+
+      // Calcular total
+      const total =
+        Number(dto.subtotal) +
+        Number(dto.lateFee || 0) +
+        Number(dto.adjustments || 0);
+
+      // Generar número de factura si no se proporciona
+      const invoiceNumber =
+        dto.invoiceNumber ||
+        (await this.generateInvoiceNumber(companyId, manager));
+
+      const invoice = invoicesRepository.create({
+        companyId: lease.companyId,
+        leaseId: dto.leaseId,
+        ownerId,
+        tenantAccountId: account.id,
+        invoiceNumber,
+        periodStart: dto.periodStart,
+        periodEnd: dto.periodEnd,
+        subtotal: dto.subtotal,
+        lateFee: dto.lateFee || 0,
+        adjustments: dto.adjustments || 0,
+        total,
+        currencyCode: lease.currency,
+        dueDate: dto.dueDate,
+        status: InvoiceStatus.DRAFT,
+        notes: dto.notes,
+      });
+
+      return invoicesRepository.save(invoice);
     });
-
-    if (!lease) {
-      throw new NotFoundException(`Lease with ID ${dto.leaseId} not found`);
-    }
-
-    // Obtener o crear cuenta del inquilino
-    const account = await this.tenantAccountsService.findByLease(
-      dto.leaseId,
-      lease.companyId,
-    );
-
-    // Obtener propietario
-    const ownerId = lease.property?.ownerId || lease.ownerId;
-    if (!ownerId) {
-      throw new BadRequestException('Property owner not found for this lease');
-    }
-
-    // Calcular total
-    const total =
-      Number(dto.subtotal) +
-      Number(dto.lateFee || 0) +
-      Number(dto.adjustments || 0);
-
-    // Generar número de factura si no se proporciona
-    const invoiceNumber =
-      dto.invoiceNumber || (await this.generateInvoiceNumber(ownerId));
-
-    const invoice = this.invoicesRepository.create({
-      companyId: lease.companyId,
-      leaseId: dto.leaseId,
-      ownerId,
-      tenantAccountId: account.id,
-      invoiceNumber,
-      periodStart: dto.periodStart,
-      periodEnd: dto.periodEnd,
-      subtotal: dto.subtotal,
-      lateFee: dto.lateFee || 0,
-      adjustments: dto.adjustments || 0,
-      total,
-      currencyCode: lease.currency,
-      dueDate: dto.dueDate,
-      status: InvoiceStatus.DRAFT,
-      notes: dto.notes,
-    });
-
-    return this.invoicesRepository.save(invoice);
   }
 
   /**
@@ -131,73 +142,84 @@ export class InvoicesService {
     dto: GenerateInvoiceDto,
     companyId: string,
   ): Promise<Invoice> {
-    const lease = await this.leasesRepository.findOne({
-      where: { id: leaseId, companyId },
-      relations: ['property', 'property.owner'],
+    return this.dataSource.transaction(async (manager) => {
+      const invoicesRepository = manager.getRepository(Invoice);
+      const lease = await this.lockBillingLease(manager, leaseId, companyId);
+
+      const account = await this.tenantAccountsService.findByLease(
+        leaseId,
+        lease.companyId,
+        manager,
+      );
+
+      const { periodStart, periodEnd, dueDate } = computeBillingPeriod(
+        lease,
+        dto,
+      );
+
+      const [existing] = await manager.query(
+        `SELECT id FROM invoices WHERE company_id=$1 AND lease_id=$2 AND period_start=$3 AND period_end=$4
+       AND deleted_at IS NULL AND status NOT IN ('cancelled','refunded') LIMIT 1`,
+        [companyId, leaseId, periodStart, periodEnd],
+      );
+      if (existing)
+        throw new ConflictException(
+          'An invoice already exists for this billing period',
+        );
+
+      const baseRent = await this.applyAdjustmentIfNeeded(
+        lease,
+        periodStart,
+        dto.applyAdjustment !== false,
+        manager,
+      );
+
+      const subtotal = Number(baseRent) + Number(lease.additionalExpenses || 0);
+      const lateFee =
+        dto.applyLateFee === true
+          ? await this.tenantAccountsService.calculateLateFee(
+              account.id,
+              lease.companyId,
+              manager,
+            )
+          : 0;
+
+      const total = subtotal + Number(lateFee || 0);
+
+      const invoiceNumber = await this.generateInvoiceNumber(
+        companyId,
+        manager,
+      );
+
+      const invoice = invoicesRepository.create({
+        companyId: lease.companyId,
+        leaseId,
+        ownerId: lease.ownerId,
+        tenantAccountId: account.id,
+        invoiceNumber,
+        periodStart,
+        periodEnd,
+        subtotal,
+        lateFee,
+        adjustments: 0,
+        total,
+        currencyCode: lease.currency,
+        dueDate,
+        status: InvoiceStatus.DRAFT,
+        notes: '',
+      });
+
+      const saved = await invoicesRepository.save(invoice);
+
+      advanceBillingCalendar(lease, periodStart, periodEnd);
+      await manager.getRepository(Lease).save(lease);
+
+      if (dto.issue) {
+        return this.issueWithManager(manager, saved.id, companyId);
+      }
+
+      return saved;
     });
-
-    if (!lease) {
-      throw new NotFoundException(`Lease with ID ${leaseId} not found`);
-    }
-
-    const account = await this.tenantAccountsService.findByLease(
-      leaseId,
-      lease.companyId,
-    );
-
-    const { periodStart, periodEnd, dueDate } = this.computeBillingPeriod(
-      lease,
-      dto,
-    );
-
-    const baseRent = await this.applyAdjustmentIfNeeded(
-      lease,
-      periodStart,
-      dto.applyAdjustment !== false,
-    );
-
-    const subtotal = Number(baseRent) + Number(lease.additionalExpenses || 0);
-    const lateFee =
-      dto.applyLateFee === true
-        ? await this.tenantAccountsService.calculateLateFee(
-            account.id,
-            lease.companyId,
-          )
-        : 0;
-
-    const total = subtotal + Number(lateFee || 0);
-
-    const invoiceNumber = await this.generateInvoiceNumber(lease.ownerId);
-
-    const invoice = this.invoicesRepository.create({
-      companyId: lease.companyId,
-      leaseId,
-      ownerId: lease.ownerId,
-      tenantAccountId: account.id,
-      invoiceNumber,
-      periodStart,
-      periodEnd,
-      subtotal,
-      lateFee,
-      adjustments: 0,
-      total,
-      currencyCode: lease.currency,
-      dueDate,
-      status: InvoiceStatus.DRAFT,
-      notes: '',
-    });
-
-    const saved = await this.invoicesRepository.save(invoice);
-
-    lease.lastBillingDate = periodStart;
-    lease.nextBillingDate = this.addDays(periodEnd, 1);
-    await this.leasesRepository.save(lease);
-
-    if (dto.issue) {
-      return this.issue(saved.id, companyId);
-    }
-
-    return saved;
   }
 
   /**
@@ -206,63 +228,71 @@ export class InvoicesService {
    * @returns La factura emitida
    */
   async issue(id: string, companyId: string): Promise<Invoice> {
-    return this.dataSource.transaction(async (manager) => {
-      const invoicesRepository = manager.getRepository(Invoice);
-      const invoice = await this.findOneForUpdate(
-        invoicesRepository,
-        id,
-        companyId,
-      );
+    return this.dataSource.transaction((manager) =>
+      this.issueWithManager(manager, id, companyId),
+    );
+  }
 
-      if (invoice.status !== InvoiceStatus.DRAFT) {
-        throw new BadRequestException('Only draft invoices can be issued');
-      }
+  private async issueWithManager(
+    manager: EntityManager,
+    id: string,
+    companyId: string,
+  ): Promise<Invoice> {
+    const invoicesRepository = manager.getRepository(Invoice);
+    const invoice = await this.findOneForUpdate(
+      invoicesRepository,
+      id,
+      companyId,
+    );
 
-      invoice.status = InvoiceStatus.PENDING;
-      invoice.issuedAt = new Date();
+    if (invoice.status !== InvoiceStatus.DRAFT) {
+      throw new BadRequestException('Only draft invoices can be issued');
+    }
 
-      const savedInvoice = await invoicesRepository.save(invoice);
+    invoice.status = InvoiceStatus.PENDING;
+    invoice.issuedAt = new Date();
 
-      await this.tenantAccountsService.addMovementWithManager(manager, {
-        accountId: invoice.tenantAccountId,
-        type: MovementType.CHARGE,
-        amount: Number(invoice.total),
-        referenceType: 'invoice',
-        referenceId: invoice.id,
-        description: `Factura ${invoice.invoiceNumber}`,
-        companyId: invoice.companyId,
-      });
+    const savedInvoice = await invoicesRepository.save(invoice);
 
-      await this.createCommissionInvoice(savedInvoice, manager);
-
-      const source = await invoicesRepository.findOneOrFail({
-        where: { id, companyId },
-        relations: [
-          'owner',
-          'owner.user',
-          'lease',
-          'lease.tenant',
-          'lease.tenant.user',
-          'lease.property',
-        ],
-      });
-      if (
-        source.owner?.companyId !== companyId ||
-        source.lease?.companyId !== companyId ||
-        source.lease?.tenant?.companyId !== companyId ||
-        source.lease?.property?.companyId !== companyId ||
-        source.owner?.user?.companyId !== companyId ||
-        source.lease?.tenant?.user?.companyId !== companyId
-      )
-        throw new BadRequestException('Invoice source company mismatch');
-      const snapshot = await this.invoicePdf.captureSnapshot(source, manager);
-      await manager.query(
-        'INSERT INTO invoice_effects_outbox(company_id,invoice_id,snapshot) VALUES($1,$2,$3::jsonb)',
-        [companyId, id, JSON.stringify(snapshot)],
-      );
-
-      return savedInvoice;
+    await this.tenantAccountsService.addMovementWithManager(manager, {
+      accountId: invoice.tenantAccountId,
+      type: MovementType.CHARGE,
+      amount: Number(invoice.total),
+      referenceType: 'invoice',
+      referenceId: invoice.id,
+      description: `Factura ${invoice.invoiceNumber}`,
+      companyId: invoice.companyId,
     });
+
+    await this.createCommissionInvoice(savedInvoice, manager);
+
+    const source = await invoicesRepository.findOneOrFail({
+      where: { id, companyId },
+      relations: [
+        'owner',
+        'owner.user',
+        'lease',
+        'lease.tenant',
+        'lease.tenant.user',
+        'lease.property',
+      ],
+    });
+    if (
+      source.owner?.companyId !== companyId ||
+      source.lease?.companyId !== companyId ||
+      source.lease?.tenant?.companyId !== companyId ||
+      source.lease?.property?.companyId !== companyId ||
+      source.owner?.user?.companyId !== companyId ||
+      source.lease?.tenant?.user?.companyId !== companyId
+    )
+      throw new BadRequestException('Invoice source company mismatch');
+    const snapshot = await this.invoicePdf.captureSnapshot(source, manager);
+    await manager.query(
+      'INSERT INTO invoice_effects_outbox(company_id,invoice_id,snapshot) VALUES($1,$2,$3::jsonb)',
+      [companyId, id, JSON.stringify(snapshot)],
+    );
+
+    return savedInvoice;
   }
 
   async documentStatus(
@@ -422,38 +452,11 @@ export class InvoicesService {
     }
   }
 
-  private computeBillingPeriod(
-    lease: Lease,
-    dto: GenerateInvoiceDto,
-  ): { periodStart: Date; periodEnd: Date; dueDate: Date } {
-    if (dto.periodStart && dto.periodEnd && dto.dueDate) {
-      return {
-        periodStart: new Date(dto.periodStart),
-        periodEnd: new Date(dto.periodEnd),
-        dueDate: new Date(dto.dueDate),
-      };
-    }
-
-    const start = lease.nextBillingDate
-      ? new Date(lease.nextBillingDate)
-      : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-
-    const months = this.getFrequencyMonths(lease.paymentFrequency);
-    const end = this.addDays(this.addMonths(start, months), -1);
-
-    const due = new Date(start);
-    due.setDate(lease.paymentDueDay || 10);
-    if (due < start) {
-      due.setMonth(due.getMonth() + 1);
-    }
-
-    return { periodStart: start, periodEnd: end, dueDate: due };
-  }
-
   private async applyAdjustmentIfNeeded(
     lease: Lease,
     periodStart: Date,
     apply: boolean,
+    manager?: EntityManager,
   ): Promise<number> {
     if (!apply || !lease.nextAdjustmentDate) {
       return Number(lease.monthlyRent);
@@ -474,24 +477,40 @@ export class InvoicesService {
       lease.adjustmentType === AdjustmentType.INFLATION_INDEX &&
       lease.inflationIndexType
     ) {
-      const index = await this.findLatestIndex(lease.inflationIndexType);
-      if (index?.variationMonthly) {
+      const index = await this.findLatestIndex(
+        lease.inflationIndexType,
+        manager,
+        periodStart,
+      );
+      if (
+        !index ||
+        index.variationMonthly == null ||
+        !Number.isFinite(Number(index.variationMonthly))
+      )
+        throw new BadRequestException(
+          'Inflation index unavailable for billing period',
+        );
+      if (index.variationMonthly) {
         newRent += newRent * (Number(index.variationMonthly) / 100);
       }
     }
 
     lease.monthlyRent = Number(newRent.toFixed(2));
     lease.lastAdjustmentDate = periodStart;
-    lease.nextAdjustmentDate = this.addMonths(
+    lease.nextAdjustmentDate = addCalendarMonths(
       periodStart,
       lease.adjustmentFrequencyMonths || 12,
     );
-    await this.leasesRepository.save(lease);
+    await (manager?.getRepository(Lease) ?? this.leasesRepository).save(lease);
 
     return Number(lease.monthlyRent);
   }
 
-  private async findLatestIndex(type: InflationIndexType) {
+  private async findLatestIndex(
+    type: InflationIndexType,
+    manager?: EntityManager,
+    periodStart?: Date,
+  ) {
     let mapped: IndexTypeEntity;
     if (type === InflationIndexType.IGP_M) {
       mapped = IndexTypeEntity.IGPM;
@@ -503,65 +522,70 @@ export class InvoicesService {
       return null;
     }
 
-    return this.inflationIndexRepository.findOne({
-      where: { indexType: mapped },
+    return (
+      manager?.getRepository(InflationIndex) ?? this.inflationIndexRepository
+    ).findOne({
+      where: {
+        indexType: mapped,
+        ...(periodStart ? { periodDate: LessThanOrEqual(periodStart) } : {}),
+      },
       order: { periodDate: 'DESC' },
     });
   }
 
-  private getFrequencyMonths(frequency: any): number {
-    switch (frequency) {
-      case 'bimonthly':
-        return 2;
-      case 'quarterly':
-        return 3;
-      case 'semiannual':
-        return 6;
-      case 'annual':
-        return 12;
-      case 'monthly':
-      default:
-        return 1;
-    }
-  }
-
-  private addMonths(date: Date, months: number): Date {
-    const next = new Date(date);
-    next.setMonth(next.getMonth() + months);
-    return next;
-  }
-
-  private addDays(date: Date, days: number): Date {
-    const next = new Date(date);
-    next.setDate(next.getDate() + days);
-    return next;
-  }
-
   /**
-   * Genera un número de factura para un propietario.
-   * @param ownerId ID del propietario
+   * Asigna un número único por compañía dentro de la transacción del escritor.
+   * @param companyId Compañía autenticada
    * @returns Número de factura
    */
-  async generateInvoiceNumber(ownerId: string): Promise<string> {
-    // Obtener el último número de factura del propietario
-    const lastInvoice = await this.invoicesRepository.findOne({
-      where: { ownerId },
-      order: { createdAt: 'DESC' },
+  async generateInvoiceNumber(
+    companyId: string,
+    manager: EntityManager,
+  ): Promise<string> {
+    return this.generateNumber(manager, companyId, 'invoice');
+  }
+
+  private async generateNumber(
+    manager: EntityManager,
+    companyId: string,
+    kind: 'invoice' | 'commission',
+  ): Promise<string> {
+    if (!companyId) throw new BadRequestException('Company scope required');
+    const table = kind === 'invoice' ? 'invoices' : 'commission_invoices';
+    const prefix = kind === 'invoice' ? 'INV' : 'COM';
+    await manager.query(
+      'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
+      [`${kind}-number:${companyId}`],
+    );
+    const [row] = await manager.query(
+      `SELECT (COALESCE(MAX(substring(invoice_number from $2)::numeric),0)+1)::text AS sequence FROM ${table} WHERE company_id=$1`,
+      [companyId, `^${prefix}-[0-9]{6}-([0-9]+)$`],
+    );
+    const month = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      year: 'numeric',
+      month: '2-digit',
+    })
+      .format(new Date())
+      .replace('-', '');
+    return `${prefix}-${month}-${row.sequence.padStart(4, '0')}`;
+  }
+
+  private async lockBillingLease(
+    manager: EntityManager,
+    id: string,
+    companyId: string,
+  ): Promise<Lease> {
+    const repository = manager.getRepository(Lease);
+    const lease = await repository.findOne({
+      where: { id, companyId },
+      lock: { mode: 'pessimistic_write' },
     });
-
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-
-    let sequence = 1;
-    if (lastInvoice) {
-      const parts = lastInvoice.invoiceNumber.split('-');
-      if (parts.length >= 3) {
-        sequence = Number.parseInt(parts[parts.length - 1], 10) + 1;
-      }
-    }
-
-    return `INV-${year}${month}-${String(sequence).padStart(4, '0')}`;
+    if (!lease) throw new NotFoundException(`Lease with ID ${id} not found`);
+    return repository.findOneOrFail({
+      where: { id, companyId },
+      relations: ['property', 'property.owner'],
+    });
   }
 
   /**
@@ -570,7 +594,7 @@ export class InvoicesService {
    */
   private async createCommissionInvoice(
     invoice: Invoice,
-    manager?: EntityManager,
+    manager: EntityManager,
   ): Promise<void> {
     const leasesRepository = manager
       ? manager.getRepository(Lease)
@@ -595,9 +619,10 @@ export class InvoicesService {
     const taxAmount = (commissionAmount * taxRate) / 100;
     const totalAmount = commissionAmount + taxAmount;
 
-    const invoiceNumber = await this.generateCommissionInvoiceNumber(
+    const invoiceNumber = await this.generateNumber(
+      manager,
       companyId,
-      commissionInvoicesRepository,
+      'commission',
     );
 
     // Calcular fechas del período y vencimiento
@@ -628,36 +653,6 @@ export class InvoicesService {
     });
 
     await commissionInvoicesRepository.save(commissionInvoice);
-  }
-
-  /**
-   * Genera número de factura de comisión.
-   * @param companyId ID de la compañía
-   * @returns Número de factura
-   */
-  private async generateCommissionInvoiceNumber(
-    companyId: string,
-    repository: Repository<CommissionInvoice> = this
-      .commissionInvoicesRepository,
-  ): Promise<string> {
-    const lastInvoice = await repository.findOne({
-      where: { companyId },
-      order: { createdAt: 'DESC' },
-    });
-
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-
-    let sequence = 1;
-    if (lastInvoice) {
-      const parts = lastInvoice.invoiceNumber.split('-');
-      if (parts.length >= 3) {
-        sequence = Number.parseInt(parts[parts.length - 1], 10) + 1;
-      }
-    }
-
-    return `COM-${year}${month}-${String(sequence).padStart(4, '0')}`;
   }
 
   /**

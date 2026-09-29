@@ -21,6 +21,7 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
   Facturas, recibos y notas de crédito ahora validan compañía, tipo e ID del
   documento tanto por HTTP como IA; los enlaces temporales exigen aprobación e
   integridad. Ver [alcance y pruebas](technical/financial-document-access.md).
+  Controles documentales incorporados a main con los 23 gates del PR #234 aprobados.
   Pendiente: despliegue de esta corrección y los demás dominios.
 
 ### Consistencia financiera
@@ -42,6 +43,11 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
   transacción; snapshot de plantilla/partes, reintentos, hash y estado consultable
   desde web. HTTP, IA y emisión mensual comparten el recorrido.
   Ver [operación y límites](technical/invoice-documents.md). Pendiente: gates y despliegue.
+  Generación HTTP/IA implementada con ajuste, borrador, calendario y emisión opcional
+  atómicos; numeración por compañía y rechazo de períodos duplicados concurrentes.
+  Ver [evidencia y límites](technical/invoice-generation.md). Pendiente: gates,
+  despliegue, idempotencia por solicitud y unificación del escritor independiente
+  del batch, que aún genera PDF y notificación fuera de este recorrido.
   Pendiente: recuperación histórica,
   verificar los demás productores de documentos/proveedores y desplegar.
 
