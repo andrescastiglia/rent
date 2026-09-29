@@ -284,6 +284,12 @@ export class SettlementService {
     period: string,
     dryRun = false,
   ): Promise<SettlementResult> {
+    if (!dryRun && process.env.NODE_ENV !== "test") {
+      return {
+        success: false,
+        error: "Settlement transfers are temporarily disabled",
+      };
+    }
     logger.info("Processing settlement", { ownerId, period, dryRun });
 
     try {
@@ -422,8 +428,13 @@ export class SettlementService {
     settlementId: string,
     calculation: SettlementCalculation,
   ): Promise<{ success: boolean; reference?: string; error?: string }> {
-    // Bank transfer integration is still pending, so this simulates a
-    // successful transfer until the external provider is connected.
+    if (process.env.NODE_ENV !== "test") {
+      return {
+        success: false,
+        error: "Settlement transfers are temporarily disabled",
+      };
+    }
+    // Simulated transfers are confined to automated tests.
 
     logger.info("Initiating transfer", {
       settlementId,

@@ -42,13 +42,20 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 - [ ] Validar lectura WhatsApp por capacidad y rol con evidencia, fecha, paginación, desambiguación y deep links seguros.
 - [ ] Habilitar propuestas WhatsApp por dominio solo después de cerrar inbox/outbox y la bandeja de revisión.
 - [ ] Llevar MercadoPago al flujo contable común con firma, replay, idempotencia y conciliación productiva.
-- [ ] Integrar proveedores reales de firma, portales y liquidaciones; definir timeout, retry, circuit breaker y reconciliación.
 - [ ] Persistir PDFs con checksum, versión, autorización y regeneración controlada.
 
 ## 5. Operación, calidad y documentación
 
 - [ ] Completar E2E con backend real en Android e iOS y conservar evidencia por plataforma.
 - [ ] Cerrar gates RAG: integridad, recall ≥ 0,95, errores < 1 %, respuesta p95 < 8 s y frescura p95 < 60 s; conservar evidencia por tag/compañía.
+
+## Integraciones postergadas por decisión de producto
+
+Firma digital, publicación en portales y transferencias externas de liquidaciones
+permanecen temporalmente deshabilitadas por instrucción del usuario (2026-09-28).
+La integración de proveedores reales queda fuera de esta entrega. Se conserva la
+consulta histórica; no deben ejecutarse simulaciones ni marcar transferencias como
+pagadas en producción. El cron `process-settlements` permanece suspendido.
 
 ## Criterio de cierre
 

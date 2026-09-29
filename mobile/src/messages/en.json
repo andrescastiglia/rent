@@ -258,6 +258,7 @@
     "ownerNoRecentPayments": "No owner payments registered.",
     "downloadOwnerReceipt": "Download receipt",
     "ownerReceiptPending": "Receipt pending",
+    "externalSettlementsDisabled": "Settlement transfers are temporarily disabled.",
     "registerOwnerPayment": "Register owner payment",
     "ownerNoPendingSettlements": "No pending settlements to pay.",
     "ownerSettlement": "Settlement",

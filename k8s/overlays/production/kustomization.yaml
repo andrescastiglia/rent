@@ -13,3 +13,7 @@ patches:
 - target:
     kind: CronJob
   patch: "- op: replace\n  path: /spec/suspend\n  value: false\n"
+- target:
+    kind: CronJob
+    name: process-settlements
+  patch: "- op: replace\n  path: /spec/suspend\n  value: true\n"

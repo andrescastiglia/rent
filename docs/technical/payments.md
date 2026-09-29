@@ -218,3 +218,18 @@ durante un rollback. Los documentos terminados siguen siendo legibles.
 Verificación aislada: `npm run test:e2e -- --runInBand test/payment-flow.e2e-spec.ts`.
 Incluye rollback contable por fallo del outbox, fallo posterior a guardar PDF y
 entrega, reintento concurrente, cancelación y dead letters.
+
+## Integraciones externas temporalmente deshabilitadas
+
+Por decisión de producto del 28/09/2026, firma digital, publicación en portales y
+transferencias de liquidaciones quedan postergadas. Las APIs de firma, portales
+y pago de liquidaciones rechazan operaciones simuladas fuera de pruebas. Batch
+también rechaza transferencias antes de modificar datos; `--dry-run` conserva
+el cálculo sin efectos. Web y mobile ocultan la acción de pago y muestran su
+indisponibilidad al abrir un enlace directo.
+
+El cron `process-settlements` está suspendido explícitamente en el overlay
+productivo y se retiró de los comandos manuales publicados. Se verificó
+`suspend=true` en `oracle`, sin ejecuciones activas al aplicar el cambio. No
+reactivar este cron durante un rollback. La consulta de liquidaciones existentes
+continúa disponible.

@@ -4110,8 +4110,13 @@ export type PaymentEffectsProcessData = {
 };
 
 export type PaymentEffectsProcessResponses = {
-  201: unknown;
+  201: {
+    [key: string]: unknown;
+  };
 };
+
+export type PaymentEffectsProcessResponse =
+  PaymentEffectsProcessResponses[keyof PaymentEffectsProcessResponses];
 
 export type TenantAccountsFindByLeaseData = {
   body?: never;

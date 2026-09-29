@@ -174,6 +174,7 @@ export class PortalsService {
   }
 
   async pause(id: string, companyId: string): Promise<PortalListing> {
+    this.assertMockProviderAllowed();
     await this.findOne(id, companyId);
 
     await this.listingsRepository.update(id, {
@@ -184,6 +185,7 @@ export class PortalsService {
   }
 
   async remove(id: string, companyId: string): Promise<void> {
+    this.assertMockProviderAllowed();
     await this.findOne(id, companyId);
 
     await this.listingsRepository.update(id, {

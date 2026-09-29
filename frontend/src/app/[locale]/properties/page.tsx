@@ -1,5 +1,6 @@
 "use client";
 
+import { EXTERNAL_SETTLEMENTS_ENABLED } from "@/config/deferred-features";
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Property, PropertyMaintenanceTask } from "@/types/property";
@@ -657,7 +658,7 @@ function OwnerListItem({
             <Edit size={14} />
             {tc("edit")}
           </Link>
-          {canManageOwnerBackoffice ? (
+          {canManageOwnerBackoffice && EXTERNAL_SETTLEMENTS_ENABLED ? (
             <Link
               href={`/${locale}/properties/owners/${owner.id}/payments/new`}
               className={ownerActionClass}

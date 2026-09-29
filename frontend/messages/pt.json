@@ -261,6 +261,7 @@
     "ownerNoRecentPayments": "Sem pagamentos ao proprietário registrados.",
     "downloadOwnerReceipt": "Baixar recibo",
     "ownerReceiptPending": "Recibo pendente",
+    "externalSettlementsDisabled": "As transferências de liquidações estão temporariamente desativadas.",
     "registerOwnerPayment": "Registrar pagamento ao proprietário",
     "ownerNoPendingSettlements": "Não há liquidações pendentes para pagar.",
     "ownerSettlement": "Liquidação",
