@@ -1,3 +1,4 @@
+import { z } from "zod";
 import {
   Settlement,
   SettlementFilters,
@@ -97,32 +98,74 @@ const mapSettlement = (raw: BackendSettlement): Settlement => ({
   updatedAt: raw.updatedAt ?? new Date().toISOString(),
 });
 
+const summarySchema = z.object({
+  totals: z
+    .array(
+      z.object({
+        currencyCode: z.string().regex(/^[A-Z]{3}$/),
+        status: z.enum([
+          "pending",
+          "processing",
+          "completed",
+          "failed",
+          "cancelled",
+        ]),
+        netAmount: z.string().regex(/^-?\d+\.\d{2}$/),
+        count: z.number().int().nonnegative(),
+        lastProcessedAt: z.iso.datetime({ offset: true }).nullable(),
+      }),
+    )
+    .refine(
+      (totals) =>
+        new Set(totals.map((item) => `${item.currencyCode}:${item.status}`))
+          .size === totals.length,
+    ),
+});
+
+function filterQuery(
+  filters: SettlementFilters = {},
+  includeLimit = true,
+): string {
+  if (filters.period && (filters.periodStart || filters.periodEnd))
+    throw new Error("Use period or a period range");
+  const params = new URLSearchParams();
+  if (filters.status && filters.status !== "all")
+    params.set("status", filters.status);
+  if (filters.ownerId) params.set("ownerId", filters.ownerId);
+  if (filters.currency) params.set("currency", filters.currency);
+  const start = filters.period ?? filters.periodStart,
+    end = filters.period ?? filters.periodEnd;
+  if (start) params.set("periodStart", start);
+  if (end) params.set("periodEnd", end);
+  if (includeLimit && filters.limit !== undefined)
+    params.set("limit", String(filters.limit));
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+function filteredMock(filters: SettlementFilters = {}): Settlement[] {
+  const start = filters.period ?? filters.periodStart,
+    end = filters.period ?? filters.periodEnd;
+  return MOCK_SETTLEMENTS.filter(
+    (row) =>
+      (!filters.ownerId || row.ownerId === filters.ownerId) &&
+      (!filters.status ||
+        filters.status === "all" ||
+        row.status === filters.status) &&
+      (!filters.currency || row.currencyCode === filters.currency) &&
+      (!start || row.period >= start) &&
+      (!end || row.period <= end),
+  );
+}
+
 export const settlementsApi = {
   getAll: async (filters?: SettlementFilters): Promise<Settlement[]> => {
+    const query = filterQuery(filters);
     if (IS_MOCK_MODE) {
       await delay(DELAY);
-      if (filters?.status && filters.status !== "all") {
-        return MOCK_SETTLEMENTS.filter((s) => s.status === filters.status);
-      }
-      return MOCK_SETTLEMENTS;
+      return filteredMock(filters).slice(0, filters?.limit);
     }
-
     const token = getToken();
-    const params = new URLSearchParams();
-    if (filters?.status && filters.status !== "all") {
-      params.set("status", filters.status);
-    }
-    if (filters?.ownerId) {
-      params.set("ownerId", filters.ownerId);
-    }
-    if (filters?.period) {
-      params.set("period", filters.period);
-    }
-    if (filters?.limit) {
-      params.set("limit", String(filters.limit));
-    }
-    const query = params.toString();
-    const endpoint = query ? `/settlements?${query}` : "/settlements";
+    const endpoint = `/settlements${query}`;
     const data = await apiClient.get<BackendSettlement[]>(
       endpoint,
       token ?? undefined,
@@ -146,22 +189,34 @@ export const settlementsApi = {
     return mapSettlement(data);
   },
 
-  getSummary: async (): Promise<SettlementSummary> => {
+  getSummary: async (
+    filters?: Omit<SettlementFilters, "limit">,
+  ): Promise<SettlementSummary> => {
+    const query = filterQuery(filters, false);
     if (IS_MOCK_MODE) {
       await delay(DELAY);
-      return {
-        totalPending: 1,
-        totalCompleted: 1,
-        totalProcessing: 0,
-        pendingAmount: 162000,
-        completedAmount: 162000,
-      };
+      const groups = new Map<string, SettlementSummary["totals"][number]>();
+      for (const row of filteredMock(filters)) {
+        const key = `${row.currencyCode}:${row.status}`,
+          current = groups.get(key);
+        groups.set(key, {
+          currencyCode: row.currencyCode,
+          status: row.status,
+          netAmount: (
+            (Number(current?.netAmount) || 0) + row.netAmount
+          ).toFixed(2),
+          count: (current?.count ?? 0) + 1,
+          lastProcessedAt: row.processedAt,
+        });
+      }
+      return { totals: [...groups.values()] };
     }
-
     const token = getToken();
-    return apiClient.get<SettlementSummary>(
-      "/settlements/summary",
-      token ?? undefined,
+    return summarySchema.parse(
+      await apiClient.get<unknown>(
+        `/settlements/summary${query}`,
+        token ?? undefined,
+      ),
     );
   },
 

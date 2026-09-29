@@ -7955,10 +7955,22 @@
             }
           },
           {
+            "name": "currency",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "pattern": "^[A-Z]{3}$",
+              "example": "ARS",
+              "type": "string"
+            }
+          },
+          {
             "name": "periodStart",
             "required": false,
             "in": "query",
             "schema": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "example": "2026-09",
               "type": "string"
             }
           },
@@ -7967,7 +7979,19 @@
             "required": false,
             "in": "query",
             "schema": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "example": "2026-09",
               "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 500,
+              "type": "number"
             }
           }
         ],
@@ -8000,6 +8024,52 @@
             "required": false,
             "in": "query",
             "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "processing",
+                "completed",
+                "failed",
+                "cancelled"
+              ]
+            }
+          },
+          {
+            "name": "currency",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "pattern": "^[A-Z]{3}$",
+              "example": "ARS",
+              "type": "string"
+            }
+          },
+          {
+            "name": "periodStart",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "example": "2026-09",
+              "type": "string"
+            }
+          },
+          {
+            "name": "periodEnd",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "example": "2026-09",
               "type": "string"
             }
           }
@@ -8010,7 +8080,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/SettlementSummaryDto"
                 }
               }
             }
@@ -18398,6 +18468,60 @@
           "notes",
           "createdAt",
           "updatedAt"
+        ]
+      },
+      "SettlementStatusTotalDto": {
+        "type": "object",
+        "properties": {
+          "currencyCode": {
+            "type": "string",
+            "example": "ARS"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "processing",
+              "completed",
+              "failed",
+              "cancelled"
+            ],
+            "type": "string"
+          },
+          "netAmount": {
+            "type": "string",
+            "example": "150000.25",
+            "description": "Exact sum of settlement net amounts in this currency and recorded status."
+          },
+          "count": {
+            "type": "number"
+          },
+          "lastProcessedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time",
+            "description": "Latest recorded processed_at; never inferred from a scheduled or creation date."
+          }
+        },
+        "required": [
+          "currencyCode",
+          "status",
+          "netAmount",
+          "count",
+          "lastProcessedAt"
+        ]
+      },
+      "SettlementSummaryDto": {
+        "type": "object",
+        "properties": {
+          "totals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SettlementStatusTotalDto"
+            }
+          }
+        },
+        "required": [
+          "totals"
         ]
       },
       "SettlementPayoutJobDto": {

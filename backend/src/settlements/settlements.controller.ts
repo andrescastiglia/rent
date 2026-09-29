@@ -12,7 +12,12 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { SettlementsService } from './settlements.service';
-import { SettlementFiltersDto } from './dto/settlement-filters.dto';
+import {
+  SettlementFiltersDto,
+  SettlementSummaryFiltersDto,
+} from './dto/settlement-filters.dto';
+import { SettlementSummaryDto } from './dto/settlement-summary.dto';
+import { ApiOkResponse } from '@nestjs/swagger';
 
 interface AuthenticatedRequest {
   user: {
@@ -44,15 +49,16 @@ export class SettlementsController {
   }
 
   @Get('summary')
+  @ApiOkResponse({ type: SettlementSummaryDto })
   @Roles(UserRole.ADMIN, UserRole.OWNER)
   async getSummary(
     @Request() req: AuthenticatedRequest,
-    @Query('ownerId') ownerId?: string,
+    @Query() filters: SettlementSummaryFiltersDto,
   ) {
     return this.settlementsService.getSummary(
       req.user.companyId,
       req.user,
-      ownerId,
+      filters,
     );
   }
 

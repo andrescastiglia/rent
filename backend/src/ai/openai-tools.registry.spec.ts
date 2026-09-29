@@ -33,6 +33,46 @@ describe('openai-tools.registry', () => {
     }
   });
 
+  it('exposes exact settlement totals with the HTTP roles and validated month filters', async () => {
+    const getSummary = jest.fn().mockResolvedValue({ totals: [] });
+    const definitions = buildAiToolDefinitions({
+      settlementsService: { getSummary },
+    } as any);
+    const tool = definitions.find(
+      (item) => item.name === 'get_settlements_summary',
+    )!;
+    expect(tool.allowedRoles).toEqual([UserRole.ADMIN, UserRole.OWNER]);
+    const args = {
+      currency: 'USD',
+      periodStart: '2026-09',
+      periodEnd: '2026-10',
+      status: 'cancelled',
+    };
+    await tool.execute(args, {
+      companyId: 'company',
+      userId: 'user',
+      role: UserRole.ADMIN,
+    } as any);
+    expect(getSummary).toHaveBeenCalledWith(
+      'company',
+      expect.objectContaining({ id: 'user' }),
+      args,
+    );
+    for (const invalid of [
+      { periodStart: '2026-13' },
+      { periodEnd: '2026-09-01' },
+      { ownerId: 'not-a-uuid' },
+      { currency: 'usd' },
+    ])
+      expect(() => tool.parameters.parse(invalid)).toThrow();
+    const list = definitions.find((item) => item.name === 'get_settlements')!;
+    expect(() => list.parameters.parse({ limit: 0 })).toThrow();
+    expect(list.parameters.parse({ limit: 5, status: 'cancelled' })).toEqual({
+      limit: 5,
+      status: 'cancelled',
+    });
+  });
+
   it('should reuse DTO zod schemas as single source of truth', () => {
     const deps = {
       authService: {

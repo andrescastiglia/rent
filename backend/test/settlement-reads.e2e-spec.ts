@@ -188,33 +188,146 @@ describe('Settlement read schema and company boundaries (e2e)', () => {
     await get(`/settlements/${settlementIds[1]}`, ownerToken).expect(404);
     await get(`/settlements/${settlementIds[2]}`, ownerToken).expect(404);
   });
-  it('aggregates only the requested company and authorized owner', async () => {
+  it('aggregates only the requested company and authorized owner by currency/status', async () => {
     const summary = await get('/settlements/summary').expect(200);
-    expect(summary.body).toMatchObject({
-      totalPending: 100,
-      totalCompleted: 200,
-      pendingCount: 1,
-      completedCount: 1,
-    });
+    expect(summary.body.totals).toEqual(
+      expect.arrayContaining([
+        {
+          currencyCode: 'ARS',
+          status: 'pending',
+          netAmount: '100.00',
+          count: 1,
+          lastProcessedAt: null,
+        },
+        {
+          currencyCode: 'ARS',
+          status: 'completed',
+          netAmount: '200.00',
+          count: 1,
+          lastProcessedAt: '2026-09-01T12:00:00.000Z',
+        },
+      ]),
+    );
+    expect(summary.body.totals).toHaveLength(2);
     const own = await get(
       `/settlements/summary?ownerId=${ownerIds[2]}`,
       ownerToken,
     ).expect(200);
-    expect(own.body).toMatchObject({
-      totalPending: 100,
-      totalCompleted: 0,
-      pendingCount: 1,
-      completedCount: 0,
+    expect(own.body).toEqual({
+      totals: [
+        {
+          currencyCode: 'ARS',
+          status: 'pending',
+          netAmount: '100.00',
+          count: 1,
+          lastProcessedAt: null,
+        },
+      ],
     });
     const foreign = await get(
       `/settlements/summary?ownerId=${ownerIds[2]}`,
     ).expect(200);
-    expect(foreign.body).toMatchObject({
-      totalPending: 0,
-      totalCompleted: 0,
-      pendingCount: 0,
-      completedCount: 0,
-    });
+    expect(foreign.body).toEqual({ totals: [] });
+  });
+  it('separates currencies and all five statuses without losing decimal precision', async () => {
+    const inserted: string[] = [];
+    try {
+      for (const [currency, status, amount] of [
+        ['USD', 'pending', '0.10'],
+        ['USD', 'pending', '0.20'],
+        ['USD', 'processing', '25.99'],
+        ['USD', 'failed', '30.01'],
+        ['USD', 'cancelled', '40.02'],
+        ['USD', 'completed', '50.03'],
+      ]) {
+        const [row] = await db.query(
+          "INSERT INTO settlements(owner_id,period,gross_amount,commission_amount,net_amount,currency,status,scheduled_date) VALUES($1,'2026-10',$2,0,$2,$3,$4,'2099-10-01') RETURNING id",
+          [ownerIds[0], amount, currency, status],
+        );
+        inserted.push(row.id);
+      }
+      const result = await get('/settlements/summary').expect(200);
+      expect(result.body.totals).toHaveLength(7);
+      expect(result.body.totals).toEqual(
+        expect.arrayContaining([
+          {
+            currencyCode: 'USD',
+            status: 'pending',
+            netAmount: '0.30',
+            count: 2,
+            lastProcessedAt: null,
+          },
+          {
+            currencyCode: 'USD',
+            status: 'completed',
+            netAmount: '50.03',
+            count: 1,
+            lastProcessedAt: null,
+          },
+          {
+            currencyCode: 'USD',
+            status: 'processing',
+            netAmount: '25.99',
+            count: 1,
+            lastProcessedAt: null,
+          },
+          {
+            currencyCode: 'USD',
+            status: 'failed',
+            netAmount: '30.01',
+            count: 1,
+            lastProcessedAt: null,
+          },
+          {
+            currencyCode: 'USD',
+            status: 'cancelled',
+            netAmount: '40.02',
+            count: 1,
+            lastProcessedAt: null,
+          },
+        ]),
+      );
+      const filters =
+        'currency=USD&periodStart=2026-10&periodEnd=2026-10&status=pending';
+      const list = await get(`/settlements?${filters}`).expect(200);
+      expect(list.body).toHaveLength(2);
+      const scoped = await get(`/settlements/summary?${filters}`).expect(200);
+      expect(scoped.body.totals).toEqual([
+        {
+          currencyCode: 'USD',
+          status: 'pending',
+          netAmount: '0.30',
+          count: 2,
+          lastProcessedAt: null,
+        },
+      ]);
+      const limited = await get(`/settlements?${filters}&limit=1`).expect(200);
+      expect(limited.body).toHaveLength(1);
+      expect(limited.body[0].id).toBe(list.body[0].id);
+      const excluded = await get(
+        '/settlements/summary?currency=USD&periodEnd=2026-09',
+      ).expect(200);
+      expect(excluded.body.totals).toEqual([]);
+    } finally {
+      await db.query('DELETE FROM settlements WHERE id=ANY($1::uuid[])', [
+        inserted,
+      ]);
+    }
+  });
+  it('rejects malformed identifiers, currency, month bounds and list limits', async () => {
+    for (const query of [
+      'ownerId=invalid',
+      'currency=usd',
+      'periodStart=2026-13',
+      'periodEnd=2026-09-01',
+      'periodStart=2026-10&periodEnd=2026-09',
+      'status=unknown',
+    ]) {
+      await get(`/settlements?${query}`).expect(400);
+      await get(`/settlements/summary?${query}`).expect(400);
+    }
+    for (const limit of ['0', '501', '1.5', 'invalid'])
+      await get(`/settlements?limit=${limit}`).expect(400);
   });
   it('returns empty scoped data for an owner without a profile', async () => {
     const list = await get('/settlements', unlinkedToken).expect(200);
@@ -223,7 +336,7 @@ describe('Settlement read schema and company boundaries (e2e)', () => {
     const summary = await get('/settlements/summary', unlinkedToken).expect(
       200,
     );
-    expect(summary.body.pendingCount).toBe(0);
+    expect(summary.body).toEqual({ totals: [] });
   });
   it('rejects unauthenticated and tenant requests', async () => {
     await request(app.getHttpServer()).get('/settlements').expect(401);

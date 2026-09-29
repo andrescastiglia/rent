@@ -32,20 +32,14 @@ describe('SettlementsController', () => {
   });
 
   it('delegates getSummary to service', async () => {
-    const summary = {
-      totalPending: 1000,
-      totalCompleted: 5000,
-      lastSettlementDate: '2024-03-15',
-      pendingCount: 1,
-      completedCount: 3,
-    };
+    const summary = { totals: [] };
     settlementsService.getSummary.mockResolvedValue(summary);
-    const result = await controller.getSummary(req, undefined);
+    const result = await controller.getSummary(req, {});
     expect(result).toEqual(summary);
     expect(settlementsService.getSummary).toHaveBeenCalledWith(
       'c1',
       req.user,
-      undefined,
+      {},
     );
   });
 

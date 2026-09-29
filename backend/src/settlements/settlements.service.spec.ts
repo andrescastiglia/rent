@@ -139,47 +139,45 @@ describe('SettlementsService', () => {
   });
 
   describe('getSummary', () => {
-    it('returns aggregated summary', async () => {
-      dataSource.query.mockResolvedValue([
+    it('preserves exact amounts, currencies and recorded statuses', async () => {
+      const totals = [
         {
-          status: SettlementStatus.PENDING,
-          total_net: '5000',
-          count: '3',
-          last_date: null,
+          currencyCode: 'ARS',
+          status: 'pending',
+          netAmount: '9007199254740993.01',
+          count: 3,
+          lastProcessedAt: null,
         },
         {
-          status: SettlementStatus.COMPLETED,
-          total_net: '12000',
-          count: '8',
-          last_date: '2024-03-15',
+          currencyCode: 'USD',
+          status: 'completed',
+          netAmount: '12.01',
+          count: 1,
+          lastProcessedAt: '2026-09-01T12:00:00Z',
         },
-      ]);
-      const result = await service.getSummary('c1', adminUser);
-      expect(result.totalPending).toBe(5000);
-      expect(result.totalCompleted).toBe(12000);
-      expect(result.pendingCount).toBe(3);
-      expect(result.completedCount).toBe(8);
-      expect(result.lastSettlementDate).toBe('2024-03-15');
+      ];
+      dataSource.query.mockResolvedValue(totals);
+      expect(await service.getSummary('c1', adminUser)).toEqual({ totals });
     });
-
-    it('scopes by owner when role=OWNER', async () => {
+    it('scopes owners despite a requested owner filter', async () => {
       ownersRepository.findOne.mockResolvedValue({ id: 'o1' });
       dataSource.query.mockResolvedValue([]);
-      await service.getSummary('c1', ownerUser);
-      const [, params] = dataSource.query.mock.calls[0] as [string, string[]];
-      expect(params).toContain('o1');
+      await service.getSummary('c1', ownerUser, { ownerId: 'foreign' });
+      expect(dataSource.query.mock.calls[0][1]).toEqual(['c1', 'o1']);
     });
-
-    it('returns an empty summary when an owner has no linked profile', async () => {
+    it('returns no totals for an unlinked owner', async () => {
       ownersRepository.findOne.mockResolvedValue(null);
-
-      await expect(service.getSummary('c1', ownerUser)).resolves.toEqual({
-        totalPending: 0,
-        totalCompleted: 0,
-        lastSettlementDate: null,
-        pendingCount: 0,
-        completedCount: 0,
-      });
+      expect(await service.getSummary('c1', ownerUser)).toEqual({ totals: [] });
+      expect(dataSource.query).not.toHaveBeenCalled();
+    });
+    it('rejects inverted month bounds for list and summary', async () => {
+      const filters = { periodStart: '2026-10', periodEnd: '2026-09' };
+      await expect(
+        service.getSummary('c1', adminUser, filters),
+      ).rejects.toThrow('periodStart');
+      await expect(service.findAll('c1', filters, adminUser)).rejects.toThrow(
+        'periodStart',
+      );
       expect(dataSource.query).not.toHaveBeenCalled();
     });
   });
