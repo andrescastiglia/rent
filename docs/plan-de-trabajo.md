@@ -106,6 +106,11 @@ Pendiente: despliegue de backend/clientes compatibles.
   transaccional; conceptos y pago se guardan juntos y la edición bloquea
   confirmaciones concurrentes. Ver [contrato y pruebas](technical/approved-payment-recovery.md).
   Ciclo de cobros incorporado a main con los 23 gates del PR #243 aprobados.
+  Renderizado/edición de texto, confirmación/activación y cierre de contratos
+  también guardan el resultado aprobado en su transacción. Los editores de texto
+  bloquean la confirmación concurrente; ver [contrato y pruebas](technical/approved-lease-recovery.md).
+  Pendiente: gates y despliegue de este avance; altas, edición general/revisiones,
+  renovaciones, importaciones, bajas y plantillas de contratos siguen pendientes.
   Pendiente: idempotencia transaccional de las demás herramientas mutables y despliegue.
 
 ## 2. Completar recorridos de producto
@@ -129,7 +134,8 @@ Pendiente: despliegue de backend/clientes compatibles.
   Numeración de recibos/notas implementada con contadores persistentes,
   historial/importaciones, inmutabilidad y asignación dentro de la transacción
   contable (migración 131). Ver [reglas y pruebas](technical/payment-document-numbers.md).
-  Pendiente: gates y despliegue de la numeración.
+  Numeración incorporada a main con los 23 gates del PR #247 aprobados.
+  Pendiente: despliegue.
   Los avisos de recibos ahora revalidan cobro, documento, destinatario, adjunto
   y consentimiento antes de cada intento; ver [reglas y pruebas](technical/payment-receipt-notices.md).
   Pendiente: gates/despliegue de este control y revisión de avisos históricos.
