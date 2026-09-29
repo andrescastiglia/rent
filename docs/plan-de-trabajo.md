@@ -39,7 +39,8 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
 - [ ] Garantizar ejecución exactamente una vez para cada herramienta mutable aprobada, incluso si el proceso cae después del efecto de dominio y antes de persistir el resultado.
   Avance: corregida la lectura de filas adquiridas/rechazadas en PostgreSQL;
   pruebas HTTP con dos compañías, concurrencia, reautenticación e integridad.
-  Pendiente: gates, idempotencia transaccional del efecto y despliegue.
+  Corrección incorporada a main con los 23 gates del PR #229 aprobados.
+  Pendiente: idempotencia transaccional del efecto y despliegue.
 
 ## 2. Completar recorridos de producto
 
