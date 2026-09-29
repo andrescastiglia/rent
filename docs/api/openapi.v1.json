@@ -3603,6 +3603,36 @@
         ]
       }
     },
+    "/invoices/internal/process-documents": {
+      "post": {
+        "operationId": "InvoiceEffects_process",
+        "parameters": [
+          {
+            "name": "x-batch-communications-token",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "InvoiceEffects"
+        ]
+      }
+    },
     "/payments/internal/process-effects": {
       "post": {
         "operationId": "PaymentEffects_process",
@@ -3920,7 +3950,37 @@
             }
           }
         },
-        "summary": "Emite una factura (genera PDF y registra en cuenta).",
+        "summary": "Emite una factura y encola su PDF junto con el asiento contable.",
+        "tags": [
+          "Invoices"
+        ]
+      }
+    },
+    "/invoices/{id}/document-status": {
+      "get": {
+        "operationId": "Invoices_documentStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceDocumentStatusDto"
+                }
+              }
+            }
+          }
+        },
         "tags": [
           "Invoices"
         ]
@@ -15191,6 +15251,27 @@
             "type": "string"
           }
         }
+      },
+      "InvoiceDocumentStatusDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "enum": [
+              "queued",
+              "completed",
+              "dead_letter",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "available": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "status",
+          "available"
+        ]
       },
       "CreditNote": {
         "type": "object",

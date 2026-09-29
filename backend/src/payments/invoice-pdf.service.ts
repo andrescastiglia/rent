@@ -1,8 +1,9 @@
+import { formatInvoiceDate } from './invoice-date';
 import { financialDocumentMetadata } from '../documents/document-integrity';
 import { Injectable } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { Invoice } from './entities/invoice.entity';
 import {
   Document,
@@ -16,6 +17,14 @@ import { PaymentDocumentTemplatesService } from './payment-document-templates.se
 import { PaymentDocumentTemplateType } from './entities/payment-document-template.entity';
 import { ConfigService } from '@nestjs/config';
 import { buildInvoicePaymentUrl } from './invoice-payment-link';
+
+export type InvoicePdfSnapshot = {
+  version: 1;
+  invoice: Invoice;
+  locale: string;
+  templateBody: string | null;
+  paymentUrl: string | null;
+};
 
 /**
  * Servicio para generar PDFs de facturas.
@@ -35,8 +44,10 @@ export class InvoicePdfService {
    * @param invoice Factura
    * @returns URL del PDF almacenado en DB (db://document/{id})
    */
-  async generate(invoice: Invoice): Promise<string> {
-    // Obtener idioma preferido del usuario o default
+  async captureSnapshot(
+    invoice: Invoice,
+    manager?: EntityManager,
+  ): Promise<InvoicePdfSnapshot> {
     const lang = invoice.lease?.tenant?.user?.language || 'es';
     const paymentUrl = buildInvoicePaymentUrl(
       this.configService.get<string>('FRONTEND_URL'),
@@ -46,18 +57,80 @@ export class InvoicePdfService {
     const activeTemplate = await this.templatesService.findActiveTemplate(
       invoice.companyId,
       PaymentDocumentTemplateType.INVOICE,
+      manager,
     );
-    const pdfBuffer = activeTemplate
-      ? await this.generateFromTemplate(
-          activeTemplate.templateBody,
-          invoice,
-          lang,
-          paymentUrl,
-        )
-      : await generateInvoicePdf(invoice, this.i18n, lang, paymentUrl);
+    const person = (user?: {
+      firstName?: string;
+      lastName?: string;
+      email?: string | null;
+    }) => ({
+      firstName: user?.firstName ?? '',
+      lastName: user?.lastName ?? '',
+      email: user?.email ?? '',
+    });
+    const property = invoice.lease?.property;
+    // Whitelist rendering fields: never copy users' credentials or unrelated account data.
+    const source = {
+      id: invoice.id,
+      companyId: invoice.companyId,
+      invoiceNumber: invoice.invoiceNumber,
+      issuedAt: invoice.issuedAt,
+      dueDate: invoice.dueDate,
+      periodStart: invoice.periodStart,
+      periodEnd: invoice.periodEnd,
+      status: invoice.status,
+      subtotal: invoice.subtotal,
+      lateFee: invoice.lateFee,
+      adjustments: invoice.adjustments,
+      total: invoice.total,
+      currencyCode: invoice.currencyCode,
+      notes: invoice.notes,
+      owner: { user: person(invoice.owner?.user) },
+      lease: {
+        tenant: { user: person(invoice.lease?.tenant?.user) },
+        property: property
+          ? {
+              name: property.name,
+              addressStreet: property.addressStreet,
+              addressNumber: property.addressNumber,
+              addressCity: property.addressCity,
+              addressState: property.addressState,
+            }
+          : undefined,
+      },
+    } as Invoice;
+    return {
+      version: 1,
+      invoice: source,
+      locale: lang,
+      templateBody: activeTemplate?.templateBody ?? null,
+      paymentUrl,
+    };
+  }
 
-    const document = await this.documentsRepository.save(
-      this.documentsRepository.create({
+  async generate(invoice: Invoice): Promise<string> {
+    return this.generateSnapshot(await this.captureSnapshot(invoice));
+  }
+
+  async generateSnapshot(
+    snapshot: InvoicePdfSnapshot,
+    manager?: EntityManager,
+  ): Promise<string> {
+    const { invoice, locale: lang, templateBody, paymentUrl } = snapshot;
+    const pdfBuffer =
+      templateBody !== null
+        ? await this.generateFromTemplate(
+            templateBody,
+            invoice,
+            lang,
+            paymentUrl,
+          )
+        : await generateInvoicePdf(invoice, this.i18n, lang, paymentUrl);
+
+    const repository =
+      manager?.getRepository(Document) ?? this.documentsRepository;
+    const document = await repository.save(
+      repository.create({
         companyId: invoice.companyId,
         entityType: 'invoice',
         entityId: invoice.id,
@@ -73,7 +146,7 @@ export class InvoicePdfService {
     );
 
     document.fileUrl = `db://document/${document.id}`;
-    await this.documentsRepository.save(document);
+    await repository.save(document);
     return document.fileUrl;
   }
 
@@ -102,14 +175,16 @@ export class InvoicePdfService {
     const issueDate = invoice.issuedAt ? new Date(invoice.issuedAt) : null;
 
     return {
-      today: new Date().toLocaleDateString('es-AR'),
+      today: issueDate ? formatInvoiceDate(invoice.issuedAt, 'es-AR') : '',
       invoice: {
         id: invoice.id,
         number: invoice.invoiceNumber,
-        issueDate: issueDate ? issueDate.toLocaleDateString('es-AR') : '',
-        dueDate: new Date(invoice.dueDate).toLocaleDateString('es-AR'),
-        periodStart: new Date(invoice.periodStart).toLocaleDateString('es-AR'),
-        periodEnd: new Date(invoice.periodEnd).toLocaleDateString('es-AR'),
+        issueDate: issueDate
+          ? formatInvoiceDate(invoice.issuedAt, 'es-AR')
+          : '',
+        dueDate: formatInvoiceDate(invoice.dueDate, 'es-AR'),
+        periodStart: formatInvoiceDate(invoice.periodStart, 'es-AR'),
+        periodEnd: formatInvoiceDate(invoice.periodEnd, 'es-AR'),
         status: invoice.status,
         subtotal: Number(invoice.subtotal).toFixed(2),
         lateFee: Number(invoice.lateFee || 0).toFixed(2),

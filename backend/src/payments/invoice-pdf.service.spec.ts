@@ -127,6 +127,7 @@ describe('InvoicePdfService', () => {
     expect(templatesService.findActiveTemplate).toHaveBeenCalledWith(
       'company-1',
       PaymentDocumentTemplateType.INVOICE,
+      undefined,
     );
     expect(i18n.t).toHaveBeenCalledWith('invoice.title', { lang: 'en' });
     expect(renderDocumentTemplate).toHaveBeenCalled();

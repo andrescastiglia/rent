@@ -1468,6 +1468,11 @@ export type GenerateInvoiceDto = {
   dueDate?: string;
 };
 
+export type InvoiceDocumentStatusDto = {
+  status: 'queued' | 'completed' | 'dead_letter' | 'unavailable';
+  available: boolean;
+};
+
 export type CreditNote = {
   id: string;
   companyId: string;
@@ -4500,6 +4505,25 @@ export type LeasesContractDownloadContractLegacyResponses = {
   200: unknown;
 };
 
+export type InvoiceEffectsProcessData = {
+  body?: never;
+  headers: {
+    'x-batch-communications-token': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/invoices/internal/process-documents';
+};
+
+export type InvoiceEffectsProcessResponses = {
+  201: {
+    [key: string]: unknown;
+  };
+};
+
+export type InvoiceEffectsProcessResponse =
+  InvoiceEffectsProcessResponses[keyof InvoiceEffectsProcessResponses];
+
 export type PaymentEffectsProcessData = {
   body?: never;
   headers: {
@@ -4650,6 +4674,22 @@ export type InvoicesIssueResponses = {
 
 export type InvoicesIssueResponse =
   InvoicesIssueResponses[keyof InvoicesIssueResponses];
+
+export type InvoicesDocumentStatusData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/invoices/{id}/document-status';
+};
+
+export type InvoicesDocumentStatusResponses = {
+  200: InvoiceDocumentStatusDto;
+};
+
+export type InvoicesDocumentStatusResponse =
+  InvoicesDocumentStatusResponses[keyof InvoicesDocumentStatusResponses];
 
 export type InvoicesFindOneData = {
   body?: never;

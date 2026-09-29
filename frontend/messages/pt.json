@@ -1826,5 +1826,17 @@
     "refresh": "Atualizar documento",
     "download": "Baixar contrato",
     "loading": "Carregando…"
+  },
+  "invoiceDocument": {
+    "title": "PDF da fatura",
+    "queued": "A fatura foi emitida. A geração do PDF está pendente.",
+    "deadLetter": "O PDF requer revisão.",
+    "available": "PDF disponível.",
+    "unavailable": "PDF indisponível.",
+    "readError": "Não foi possível consultar o documento. Atualize novamente.",
+    "downloadError": "Não foi possível baixar o PDF. Atualize o status antes de tentar novamente.",
+    "refresh": "Atualizar documento",
+    "download": "Baixar fatura",
+    "loading": "Carregando…"
   }
 }

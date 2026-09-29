@@ -38,6 +38,10 @@ Este documento contiene solo trabajo pendiente. El historial Git conserva lo ter
   y cuenta en una transacción; hash/actor/versión y rechazo de importaciones concurrentes.
   Confirmación incorporada a main con los 23 gates del PR #230 aprobados.
   Importación incorporada a main con los 23 gates del PR #231 aprobados.
+  Emisión de facturas implementada con cargo, comisión y cola de PDF en una
+  transacción; snapshot de plantilla/partes, reintentos, hash y estado consultable
+  desde web. HTTP, IA y emisión mensual comparten el recorrido.
+  Ver [operación y límites](technical/invoice-documents.md). Pendiente: gates y despliegue.
   Pendiente: recuperación histórica,
   verificar los demás productores de documentos/proveedores y desplegar.
 
@@ -50,7 +54,8 @@ coordinado de este contrato de API y su frontend.
 El resumen de liquidaciones ahora conserva moneda, estado e importes exactos;
 listado y resumen comparten filtros de mes/moneda y alcance. La herramienta IA
 respeta los mismos roles que HTTP. Ver [contrato y pruebas](technical/settlement-summary.md).
-Pendiente: gates y despliegue de backend/clientes compatibles.
+Incorporado a main con los 23 gates del PR #233 aprobados.
+Pendiente: despliegue de backend/clientes compatibles.
 
 ### WhatsApp seguro
 

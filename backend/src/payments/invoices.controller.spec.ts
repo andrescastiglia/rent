@@ -5,13 +5,9 @@ describe('InvoicesController', () => {
     create: jest.fn(),
     generateForLease: jest.fn(),
     issue: jest.fn(),
-    attachPdf: jest.fn(),
     findAll: jest.fn(),
     findOneScoped: jest.fn(),
     cancel: jest.fn(),
-  };
-  const invoicePdfService = {
-    generate: jest.fn(),
   };
   const documentsService = {
     downloadByFileUrl: jest.fn(),
@@ -28,7 +24,6 @@ describe('InvoicesController', () => {
     jest.clearAllMocks();
     controller = new InvoicesController(
       invoicesService as any,
-      invoicePdfService as any,
       documentsService as any,
       paymentsService as any,
     );
@@ -69,31 +64,13 @@ describe('InvoicesController', () => {
     expect(invoicesService.cancel).toHaveBeenCalledWith('i1', 'c1');
   });
 
-  it('issue returns attachPdf on success and original invoice on pdf failure', async () => {
-    invoicesService.issue.mockResolvedValue({ id: 'i1' });
-    invoicePdfService.generate.mockResolvedValueOnce(
-      'db://document/invoice.pdf',
-    );
-    invoicesService.attachPdf.mockResolvedValue({
-      id: 'i1',
-      pdfUrl: 'db://document/invoice.pdf',
-    });
+  it('issues through the transactional service without inline PDF generation', async () => {
+    invoicesService.issue.mockResolvedValue({ id: 'i1', pdfUrl: null });
     await expect(controller.issue('i1', req)).resolves.toEqual({
       id: 'i1',
-      pdfUrl: 'db://document/invoice.pdf',
+      pdfUrl: null,
     });
-
-    const errorSpy = jest.spyOn(console, 'error').mockImplementation();
-    invoicePdfService.generate.mockRejectedValueOnce(new Error('pdf fail'));
-    await expect(controller.issue('i1', req)).resolves.toEqual({ id: 'i1' });
     expect(invoicesService.issue).toHaveBeenCalledWith('i1', 'c1');
-    expect(invoicesService.attachPdf).toHaveBeenCalledWith(
-      'i1',
-      'db://document/invoice.pdf',
-      'c1',
-    );
-    expect(errorSpy).toHaveBeenCalled();
-    errorSpy.mockRestore();
   });
 
   it('getPdf and getCreditNotePdf handle not-found and download branches', async () => {

@@ -1,3 +1,4 @@
+import { formatInvoiceDate } from '../invoice-date';
 import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
 import { Invoice } from '../entities/invoice.entity';
@@ -16,7 +17,10 @@ export function generateInvoicePdf(
   paymentUrl?: string | null,
 ): Promise<Buffer> {
   return new Promise<Buffer>((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    const doc = new PDFDocument({
+      size: 'A4',
+      margins: { top: 50, bottom: 80, left: 50, right: 50 },
+    });
     const buffers: Buffer[] = [];
 
     doc.on('data', buffers.push.bind(buffers));
@@ -46,7 +50,7 @@ export function generateInvoicePdf(
       doc
         .fontSize(10)
         .text(
-          `${i18n.t('invoice.issueDate', { lang })}: ${invoice.issuedAt ? new Date(invoice.issuedAt).toLocaleDateString(lang) : i18n.t('invoice.draft', { lang })}`,
+          `${i18n.t('invoice.issueDate', { lang })}: ${invoice.issuedAt ? formatInvoiceDate(invoice.issuedAt, lang) : i18n.t('invoice.draft', { lang })}`,
           { align: 'right' },
         )
         .moveDown(2);
@@ -92,33 +96,45 @@ export function generateInvoicePdf(
       // Propiedad
       const property = invoice.lease?.property;
       if (property) {
-        doc.fontSize(14).font('Helvetica-Bold').text('INMUEBLE').moveDown(0.5);
+        doc
+          .fontSize(14)
+          .font('Helvetica-Bold')
+          .text(i18n.t('invoice.property', { lang }))
+          .moveDown(0.5);
 
         doc
           .fontSize(11)
           .font('Helvetica')
           .text(
-            `Dirección: ${property.addressStreet || ''} ${property.addressNumber || ''}, ${property.addressCity || ''}`,
+            `${i18n.t('invoice.address', { lang })}: ${property.addressStreet || ''} ${property.addressNumber || ''}, ${property.addressCity || ''}`,
           )
           .moveDown(1.5);
       }
 
       // Período
-      doc.fontSize(14).font('Helvetica-Bold').text('PERÍODO').moveDown(0.5);
+      doc
+        .fontSize(14)
+        .font('Helvetica-Bold')
+        .text(i18n.t('invoice.period', { lang }))
+        .moveDown(0.5);
 
       doc
         .fontSize(11)
         .font('Helvetica')
         .text(
-          `Desde: ${new Date(invoice.periodStart).toLocaleDateString('es-AR')}`,
+          `${i18n.t('invoice.fromDate', { lang })}: ${formatInvoiceDate(invoice.periodStart, 'es-AR')}`,
         )
         .text(
-          `Hasta: ${new Date(invoice.periodEnd).toLocaleDateString('es-AR')}`,
+          `${i18n.t('invoice.toDate', { lang })}: ${formatInvoiceDate(invoice.periodEnd, 'es-AR')}`,
         )
         .moveDown(1.5);
 
       // Detalle
-      doc.fontSize(14).font('Helvetica-Bold').text('DETALLE').moveDown(0.5);
+      doc
+        .fontSize(14)
+        .font('Helvetica-Bold')
+        .text(i18n.t('invoice.detail', { lang }))
+        .moveDown(0.5);
 
       const currencySymbol = getCurrencySymbol(invoice.currencyCode);
 
@@ -129,8 +145,11 @@ export function generateInvoicePdf(
 
       doc.fontSize(10).font('Helvetica');
 
-      doc.text('Concepto', col1, tableTop);
-      doc.text('Monto', col2, tableTop, { width: 100, align: 'right' });
+      doc.text(i18n.t('invoice.concept', { lang }), col1, tableTop);
+      doc.text(i18n.t('invoice.amount', { lang }), col2, tableTop, {
+        width: 100,
+        align: 'right',
+      });
 
       doc
         .moveTo(col1, tableTop + 15)
@@ -140,7 +159,7 @@ export function generateInvoicePdf(
       let y = tableTop + 25;
 
       // Alquiler
-      doc.text('Alquiler', col1, y);
+      doc.text(i18n.t('invoice.rent', { lang }), col1, y);
       doc.text(
         `${currencySymbol} ${Number(invoice.subtotal).toLocaleString('es-AR', {
           minimumFractionDigits: 2,
@@ -153,7 +172,7 @@ export function generateInvoicePdf(
 
       // Mora
       if (Number(invoice.lateFee) > 0) {
-        doc.text('Mora', col1, y);
+        doc.text(i18n.t('invoice.lateFee', { lang }), col1, y);
         doc.text(
           `${currencySymbol} ${Number(invoice.lateFee).toLocaleString('es-AR', {
             minimumFractionDigits: 2,
@@ -167,7 +186,7 @@ export function generateInvoicePdf(
 
       // Ajustes
       if (Number(invoice.adjustments) !== 0) {
-        doc.text('Ajustes', col1, y);
+        doc.text(i18n.t('invoice.adjustments', { lang }), col1, y);
         doc.text(
           `${currencySymbol} ${Number(invoice.adjustments).toLocaleString(
             'es-AR',
@@ -190,7 +209,7 @@ export function generateInvoicePdf(
       doc
         .fontSize(12)
         .font('Helvetica-Bold')
-        .text('TOTAL', col1, y)
+        .text(i18n.t('invoice.total', { lang }), col1, y)
         .text(
           `${currencySymbol} ${Number(invoice.total).toLocaleString('es-AR', {
             minimumFractionDigits: 2,
@@ -207,16 +226,24 @@ export function generateInvoicePdf(
         .fontSize(11)
         .font('Helvetica')
         .text(
-          `Fecha de vencimiento: ${new Date(invoice.dueDate).toLocaleDateString('es-AR')}`,
+          `${i18n.t('invoice.dueDate', { lang })}: ${formatInvoiceDate(invoice.dueDate, 'es-AR')}`,
           col1,
           y,
         );
 
       // Estado
       y += 20;
-      doc.text(`Estado: ${formatInvoiceStatus(invoice.status)}`, col1, y);
+      doc.text(
+        `${i18n.t('invoice.status', { lang })}: ${i18n.t(`invoice.${invoice.status}`, { lang })}`,
+        col1,
+        y,
+      );
 
       if (paymentUrl) {
+        if (y > doc.page.height - 190) {
+          doc.addPage();
+          y = doc.y - 35;
+        }
         const qrBuffer = await QRCode.toBuffer(paymentUrl, {
           errorCorrectionLevel: 'M',
           margin: 1,
@@ -227,7 +254,7 @@ export function generateInvoicePdf(
           .fontSize(11)
           .font('Helvetica-Bold')
           .fillColor('#111827')
-          .text('PAGAR CON MERCADOPAGO', col1, y);
+          .text(i18n.t('invoice.pay', { lang }), col1, y);
         doc
           .fontSize(8)
           .font('Helvetica')
@@ -242,6 +269,7 @@ export function generateInvoicePdf(
       }
 
       // Footer
+      doc.page.margins.bottom = 0;
       doc
         .fontSize(8)
         .font('Helvetica')
@@ -256,26 +284,6 @@ export function generateInvoicePdf(
   });
 }
 
-/**
- * Formatea el estado de la factura.
- */
-function formatInvoiceStatus(status: string): string {
-  const statuses: Record<string, string> = {
-    draft: 'Borrador',
-    pending: 'Pendiente',
-    sent: 'Enviada',
-    partial: 'Pago parcial',
-    paid: 'Pagada',
-    refunded: 'Reintegrada',
-    cancelled: 'Anulada',
-    overdue: 'Vencida',
-  };
-  return statuses[status] || status;
-}
-
-/**
- * Obtiene el símbolo de la moneda.
- */
 function getCurrencySymbol(code: string): string {
   const symbols: Record<string, string> = {
     ARS: '$',

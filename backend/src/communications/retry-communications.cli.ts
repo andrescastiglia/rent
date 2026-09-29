@@ -7,6 +7,7 @@ export async function processQueues() {
   let documentEffectsFailed = false;
   for (const path of [
     '/payments/internal/process-effects',
+    '/invoices/internal/process-documents',
     '/sales/internal/process-receipts',
     '/leases/internal/process-contracts',
     '/digital-signatures/internal/process-stamps',

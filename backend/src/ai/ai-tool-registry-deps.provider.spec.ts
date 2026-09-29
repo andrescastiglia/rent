@@ -2,7 +2,7 @@ import { AiToolRegistryDepsProvider } from './ai-tool-registry-deps.provider';
 
 describe('AiToolRegistryDepsProvider', () => {
   it('exposes all injected dependencies', () => {
-    const deps = Array.from({ length: 27 }, (_, i) => ({ id: i + 1 }));
+    const deps = Array.from({ length: 26 }, (_, i) => ({ id: i + 1 }));
     const provider = new AiToolRegistryDepsProvider(
       deps[0] as any,
       deps[1] as any,
@@ -30,16 +30,15 @@ describe('AiToolRegistryDepsProvider', () => {
       deps[23] as any,
       deps[24] as any,
       deps[25] as any,
-      deps[26] as any,
     );
 
     expect(provider.authService).toBe(deps[0]);
     expect(provider.usersService).toBe(deps[1]);
-    expect(provider.githubIssuesService).toBe(deps[21]);
-    expect(provider.staffService).toBe(deps[22]);
-    expect(provider.maintenanceService).toBe(deps[23]);
-    expect(provider.bankAccountsService).toBe(deps[24]);
-    expect(provider.settlementsService).toBe(deps[25]);
-    expect(provider.notificationsService).toBe(deps[26]);
+    expect(provider.githubIssuesService).toBe(deps[20]);
+    expect(provider.staffService).toBe(deps[21]);
+    expect(provider.maintenanceService).toBe(deps[22]);
+    expect(provider.bankAccountsService).toBe(deps[23]);
+    expect(provider.settlementsService).toBe(deps[24]);
+    expect(provider.notificationsService).toBe(deps[25]);
   });
 });

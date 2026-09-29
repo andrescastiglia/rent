@@ -12,7 +12,10 @@ export function generateCustomDocumentPdf(
   options: CustomDocumentPdfOptions = {},
 ): Promise<Buffer> {
   return new Promise<Buffer>((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    const doc = new PDFDocument({
+      size: 'A4',
+      margins: { top: 50, bottom: 80, left: 50, right: 50 },
+    });
     const buffers: Buffer[] = [];
 
     doc.on('data', buffers.push.bind(buffers));
@@ -55,6 +58,7 @@ export function generateCustomDocumentPdf(
         doc.fillColor('#000000');
       }
 
+      doc.page.margins.bottom = 0;
       doc
         .fontSize(8)
         .font('Helvetica')

@@ -10,7 +10,6 @@ import { PdfService } from '../leases/pdf.service';
 import { OwnersService } from '../owners/owners.service';
 import { PaymentsService } from '../payments/payments.service';
 import { InvoicesService } from '../payments/invoices.service';
-import { InvoicePdfService } from '../payments/invoice-pdf.service';
 import { TenantAccountsService } from '../payments/tenant-accounts.service';
 import { PaymentDocumentTemplatesService } from '../payments/payment-document-templates.service';
 import { PropertiesService } from '../properties/properties.service';
@@ -43,7 +42,6 @@ export class AiToolRegistryDepsProvider implements AiToolRegistryDeps {
     readonly ownersService: OwnersService,
     readonly paymentsService: PaymentsService,
     readonly invoicesService: InvoicesService,
-    readonly invoicePdfService: InvoicePdfService,
     readonly tenantAccountsService: TenantAccountsService,
     readonly paymentDocumentTemplatesService: PaymentDocumentTemplatesService,
     readonly propertiesService: PropertiesService,

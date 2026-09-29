@@ -23,6 +23,8 @@ import {
 } from '../leases/entities/lease.entity';
 import { TenantAccountsService } from './tenant-accounts.service';
 import { MovementType } from './entities/tenant-account-movement.entity';
+import { InvoicePdfService } from './invoice-pdf.service';
+import { InvoiceDocumentStatusDto } from './dto/invoice-document-status.dto';
 import { CreateInvoiceDto, GenerateInvoiceDto } from './dto';
 import {
   InflationIndex,
@@ -60,6 +62,7 @@ export class InvoicesService {
     private readonly tenantAccountsService: TenantAccountsService,
     @InjectDataSource()
     private readonly dataSource: DataSource,
+    private readonly invoicePdf: InvoicePdfService,
   ) {}
 
   /**
@@ -232,18 +235,58 @@ export class InvoicesService {
 
       await this.createCommissionInvoice(savedInvoice, manager);
 
+      const source = await invoicesRepository.findOneOrFail({
+        where: { id, companyId },
+        relations: [
+          'owner',
+          'owner.user',
+          'lease',
+          'lease.tenant',
+          'lease.tenant.user',
+          'lease.property',
+        ],
+      });
+      if (
+        source.owner?.companyId !== companyId ||
+        source.lease?.companyId !== companyId ||
+        source.lease?.tenant?.companyId !== companyId ||
+        source.lease?.property?.companyId !== companyId ||
+        source.owner?.user?.companyId !== companyId ||
+        source.lease?.tenant?.user?.companyId !== companyId
+      )
+        throw new BadRequestException('Invoice source company mismatch');
+      const snapshot = await this.invoicePdf.captureSnapshot(source, manager);
+      await manager.query(
+        'INSERT INTO invoice_effects_outbox(company_id,invoice_id,snapshot) VALUES($1,$2,$3::jsonb)',
+        [companyId, id, JSON.stringify(snapshot)],
+      );
+
       return savedInvoice;
     });
   }
 
-  async attachPdf(
+  async documentStatus(
     id: string,
-    pdfUrl: string,
-    companyId: string,
-  ): Promise<Invoice> {
-    const invoice = await this.findOne(id, companyId);
-    invoice.pdfUrl = pdfUrl;
-    return this.invoicesRepository.save(invoice);
+    user: RequestUser,
+  ): Promise<InvoiceDocumentStatusDto> {
+    await this.findOneScoped(id, user);
+    const [row] = await this.dataSource.query(
+      `SELECT e.status, (d.id IS NOT NULL) AS available
+       FROM invoices i LEFT JOIN invoice_effects_outbox e ON e.invoice_id=i.id AND e.company_id=i.company_id
+       LEFT JOIN documents d ON d.company_id=i.company_id AND d.entity_type='invoice' AND d.entity_id=i.id
+         AND d.id::text=substring(i.pdf_url from 15) AND i.pdf_url LIKE 'db://document/%'
+         AND (e.id IS NULL OR e.document_id=d.id) AND d.status='approved' AND d.deleted_at IS NULL AND d.file_data IS NOT NULL
+       WHERE i.id=$1 AND i.company_id=$2 AND i.deleted_at IS NULL`,
+      [id, user.companyId],
+    );
+    return {
+      available: Boolean(row?.available),
+      status: row?.available
+        ? 'completed'
+        : ['queued', 'dead_letter'].includes(row?.status)
+          ? row.status
+          : 'unavailable',
+    };
   }
 
   /**
