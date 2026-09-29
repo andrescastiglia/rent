@@ -65,6 +65,8 @@ describe('Mercado Libre durable publications (e2e)', () => {
   let companyId: string;
   let foreignId: string;
   let listingId: string;
+  let adminId: string;
+  let foreignListingId: string;
   let token: string;
   let foreignToken: string;
   let ownerToken: string;
@@ -83,7 +85,9 @@ describe('Mercado Libre durable publications (e2e)', () => {
     request(app.getHttpServer())
       .post(url(suffix))
       .set('Authorization', `Bearer ${auth}`);
-  const jobs = () =>
+  const jobs = (): Promise<
+    Array<{ id: string; status: string; operation: string }>
+  > =>
     db.query(
       'SELECT * FROM portal_publication_outbox WHERE listing_id = $1 ORDER BY created_at',
       [listingId],
@@ -157,6 +161,33 @@ describe('Mercado Libre durable publications (e2e)', () => {
       'INSERT INTO owners(company_id,user_id) VALUES($1,$2) RETURNING id',
       [companyId, user.id],
     );
+    adminId = user.id;
+    const [foreignUser] = await db.query(
+      "SELECT id FROM users WHERE company_id = $1 AND email = company_id::text || '@portals.test'",
+      [foreignId],
+    );
+    const [foreignOwner] = await db.query(
+      'INSERT INTO owners(company_id,user_id) VALUES($1,$2) RETURNING id',
+      [foreignId, foreignUser.id],
+    );
+    const foreignProperty = await db.getRepository(Property).save({
+      companyId: foreignId,
+      ownerId: foreignOwner.id,
+      name: 'Foreign property',
+      propertyType: PropertyType.APARTMENT,
+      addressStreet: 'Other 100',
+      addressCity: 'Buenos Aires',
+      addressState: 'Buenos Aires',
+    });
+    foreignListingId = (
+      await db.getRepository(PortalListing).save({
+        companyId: foreignId,
+        propertyId: foreignProperty.id,
+        portal: PortalName.MERCADOLIBRE,
+        listingData: { item },
+      })
+    ).id;
+
     const property = await db.getRepository(Property).save({
       companyId,
       ownerId: owner.id,
@@ -197,6 +228,14 @@ describe('Mercado Libre durable publications (e2e)', () => {
     update.mockResolvedValue(remote);
     get.mockResolvedValue(remote);
     await db.query(
+      'DELETE FROM portal_publication_resolutions WHERE listing_id = $1',
+      [listingId],
+    );
+    await db.query(
+      'UPDATE portal_listings SET external_id = NULL WHERE id = $1',
+      [foreignListingId],
+    );
+    await db.query(
       'DELETE FROM portal_publication_outbox WHERE listing_id = $1',
       [listingId],
     );
@@ -209,6 +248,7 @@ describe('Mercado Libre durable publications (e2e)', () => {
     jest.restoreAllMocks();
     for (const id of [companyId, foreignId].filter(Boolean)) {
       for (const table of [
+        'portal_publication_resolutions',
         'portal_publication_outbox',
         'portal_listings',
         'properties',
@@ -423,5 +463,216 @@ describe('Mercado Libre durable publications (e2e)', () => {
         delete process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN;
       else process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN = previous;
     }
+  });
+  const review = (jobId: string, body: Record<string, unknown>, auth = token) =>
+    post(`/operations/${jobId}/resolve`, auth).send({
+      reason: 'Reviewed the seller account manually',
+      ...body,
+    });
+  const uncertain = async () => {
+    create.mockRejectedValueOnce(
+      new ProviderRequestError('MERCADOLIBRE', true),
+    );
+    await post('/publish').expect(201);
+    await worker();
+    const [job] = await jobs();
+    expect(job.status).toBe('needs_review');
+    return job.id as string;
+  };
+  const resolutions = () =>
+    db.query(
+      'SELECT * FROM portal_publication_resolutions WHERE listing_id = $1',
+      [listingId],
+    );
+
+  it('gates reviews by role, company and disabled state, while preserving local audit reads', async () => {
+    const jobId = await uncertain();
+    await request(app.getHttpServer())
+      .post(url(`/operations/${jobId}/resolve`))
+      .send({ action: 'retry', reason: 'Review account' })
+      .expect(401);
+    await review(jobId, { action: 'retry' }, ownerToken).expect(403);
+    await review(jobId, { action: 'retry' }, foreignToken).expect(404);
+    await request(app.getHttpServer())
+      .get(url(`/operations/${jobId}/candidate/MLA123`))
+      .set('Authorization', `Bearer ${foreignToken}`)
+      .expect(404);
+    enabled = false;
+    await review(jobId, { action: 'link', externalId: 'MLA123' }).expect(503);
+    await request(app.getHttpServer())
+      .get(url(`/operations/${jobId}/candidate/MLA123`))
+      .set('Authorization', `Bearer ${token}`)
+      .expect(503);
+    await request(app.getHttpServer())
+      .get(url('/resolutions'))
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200, []);
+    await request(app.getHttpServer())
+      .get(url('/resolutions'))
+      .set('Authorization', `Bearer ${foreignToken}`)
+      .expect(404);
+    await request(app.getHttpServer())
+      .get(url('/resolutions'))
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(403);
+    expect(get).not.toHaveBeenCalled();
+    expect(await resolutions()).toHaveLength(0);
+  });
+  it('recovers a lost creation by verified ID without creating or reactivating an item', async () => {
+    const jobId = await uncertain();
+    await review(jobId, { action: 'retry' }).expect(409);
+    get.mockResolvedValue({ ...remote, status: 'paused', title: 'Apartment' });
+    const preview = await request(app.getHttpServer())
+      .get(url(`/operations/${jobId}/candidate/MLA123`))
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(preview.body.title).toBe('Apartment');
+    expect((await listing()).external_id).toBeNull();
+    const result = await review(jobId, {
+      action: 'link',
+      externalId: 'MLA123',
+    }).expect(201);
+    expect(result.body.actorId).toBe(adminId);
+    expect(result.body.followupJobId).toBeTruthy();
+    expect((await listing()).status).toBe('paused');
+    expect((await jobs()).find((j) => j.id === jobId)!.status).toBe('resolved');
+    expect(
+      (await jobs()).find((j) => j.id === result.body.followupJobId)!.operation,
+    ).toBe('refresh');
+    await worker();
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(status).not.toHaveBeenCalled();
+    expect(description).toHaveBeenCalledWith(
+      companyId,
+      'MLA123',
+      'Description',
+    );
+    expect((await listing()).status).toBe('paused');
+    const [audit] = await resolutions();
+    expect(audit.provider_snapshot.id).toBe('MLA123');
+    expect(audit.actor_id).toBe(adminId);
+    await review(jobId, { action: 'link', externalId: 'MLA123' }).expect(409);
+    expect(await resolutions()).toHaveLength(1);
+  });
+  it('requires explicit manual absence review and a separate publication request', async () => {
+    const jobId = await uncertain();
+    await review(jobId, { action: 'confirm_not_created' }).expect(400);
+    await review(jobId, {
+      action: 'confirm_not_created',
+      confirmedNoPublication: false,
+    }).expect(400);
+    await review(jobId, {
+      action: 'confirm_not_created',
+      confirmedNoPublication: true,
+      reason: 'short',
+    }).expect(400);
+    await review(jobId, {
+      action: 'confirm_not_created',
+      confirmedNoPublication: true,
+    }).expect(201);
+    expect(await jobs()).toHaveLength(1);
+    expect((await jobs())[0].status).toBe('resolved');
+    await worker();
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(get).not.toHaveBeenCalled();
+    await post('/publish').expect(201);
+    await worker();
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+  it('serializes competing reviews and records only one followup and audit entry', async () => {
+    const jobId = await uncertain();
+    const responses = await Promise.all([
+      review(jobId, { action: 'link', externalId: 'MLA123' }),
+      review(jobId, { action: 'link', externalId: 'MLA123' }),
+    ]);
+    expect(responses.map((r) => r.status).sort()).toEqual([201, 409]);
+    expect(await resolutions()).toHaveLength(1);
+    expect(await jobs()).toHaveLength(2);
+  });
+  it('rejects an ID already bound to another company and keeps the incident unchanged', async () => {
+    const jobId = await uncertain();
+    await db.query(
+      'UPDATE portal_listings SET external_id = $2 WHERE id = $1',
+      [foreignListingId, 'MLA123'],
+    );
+    await review(jobId, { action: 'link', externalId: 'MLA123' }).expect(409);
+    expect((await listing()).external_id).toBeNull();
+    expect((await jobs())[0].status).toBe('needs_review');
+    expect(await resolutions()).toHaveLength(0);
+  });
+  it('keeps provider lookup failures unresolved and rejects stale results after another review', async () => {
+    const jobId = await uncertain();
+    get.mockRejectedValueOnce(
+      new ProviderRequestError('MERCADOLIBRE', false, 403),
+    );
+    await review(jobId, { action: 'link', externalId: 'MLA123' }).expect(500);
+    expect(await resolutions()).toHaveLength(0);
+    get.mockImplementationOnce(async () => {
+      await review(jobId, {
+        action: 'confirm_not_created',
+        confirmedNoPublication: true,
+      }).expect(201);
+      return remote;
+    });
+    await review(jobId, { action: 'link', externalId: 'MLA123' }).expect(409);
+    expect((await listing()).external_id).toBeNull();
+    expect(await resolutions()).toHaveLength(1);
+  });
+  it('retries operations on known IDs through a fresh job and can instead accept remote state', async () => {
+    await post('/publish').expect(201);
+    await worker();
+    await post('/pause').expect(201);
+    let job = (await jobs()).find((j) => j.operation === 'pause')!;
+    await db.query(
+      "UPDATE portal_publication_outbox SET status = 'needs_review' WHERE id = $1",
+      [job.id],
+    );
+    const retry = await review(job.id, { action: 'retry' }).expect(201);
+    await worker();
+    expect(status).toHaveBeenCalledWith(companyId, 'MLA123', 'paused');
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(
+      (await jobs()).find((j) => j.id === retry.body.followupJobId)!.status,
+    ).toBe('completed');
+    await post('/publish').expect(201);
+    job = (await jobs()).find((j) => j.status === 'queued')!;
+    await db.query(
+      "UPDATE portal_publication_outbox SET status = 'needs_review' WHERE id = $1",
+      [job.id],
+    );
+    get.mockResolvedValue({ ...remote, status: 'closed' });
+    const accepted = await review(job.id, { action: 'accept_remote' }).expect(
+      201,
+    );
+    expect(accepted.body.followupJobId).toBeNull();
+    expect((await listing()).status).toBe('removed');
+    expect((await jobs()).find((j) => j.id === job.id)!.status).toBe(
+      'resolved',
+    );
+  });
+  it('rejects reviews of older failed jobs after a new operation has been queued', async () => {
+    create.mockRejectedValueOnce(
+      new ProviderRequestError('MERCADOLIBRE', false, 400),
+    );
+    await post('/publish').expect(201);
+    await worker();
+    const [failed] = await jobs();
+    await post('/publish').expect(201);
+    await review(failed.id, { action: 'retry' }).expect(409);
+    expect(await resolutions()).toHaveLength(0);
+  });
+  it('queues an authenticated per-listing refresh without creating or changing a publication', async () => {
+    await post('/publish').expect(201);
+    await worker();
+    await post('/refresh', foreignToken).expect(404);
+    await post('/refresh', ownerToken).expect(403);
+    const queued = await post('/refresh').expect(201);
+    expect(queued.body.job.operation).toBe('refresh');
+    await worker();
+    expect(get).toHaveBeenCalledWith(companyId, 'MLA123');
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(status).not.toHaveBeenCalled();
+    enabled = false;
+    await post('/refresh').expect(503);
   });
 });

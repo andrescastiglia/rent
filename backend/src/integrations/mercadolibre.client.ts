@@ -65,6 +65,7 @@ export type MercadoLibreItem = z.infer<typeof itemSchema>;
 const responseSchema = z.object({
   id: z.string().regex(/^MLA\d+$/),
   seller_id: z.number(),
+  title: z.string().optional(),
   permalink: z.string().url(),
   status: z.string(),
 });
@@ -218,7 +219,15 @@ export class MercadoLibreClient {
     const result = responseSchema.safeParse(raw);
     if (!result.success || result.data.seller_id !== seller)
       throw new ProviderRequestError('MERCADOLIBRE', mutating);
-    const host = new URL(result.data.permalink).hostname;
+    const link = new URL(result.data.permalink);
+    if (
+      !['http:', 'https:'].includes(link.protocol) ||
+      link.username ||
+      link.password ||
+      link.port
+    )
+      throw new ProviderRequestError('MERCADOLIBRE', mutating);
+    const host = link.hostname;
     if (
       host !== 'mercadolibre.com.ar' &&
       !host.endsWith('.mercadolibre.com.ar')

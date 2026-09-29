@@ -62,7 +62,8 @@
     "new": "Novo",
     "edit": "Editar",
     "details": "Detalhes",
-    "ariaLabel": "Navegação"
+    "ariaLabel": "Navegação",
+    "portals": "Anúncios"
   },
   "auth": {
     "login": "Entrar",
@@ -1556,6 +1557,55 @@
       "refreshing": "Renovação em andamento",
       "reconnect_required": "Reconexão necessária",
       "disconnected": "Conta desvinculada"
+    }
+  },
+  "portalReview": {
+    "title": "Anúncios no Mercado Libre",
+    "connection": "Gerenciar conexão",
+    "listing": "Anúncio",
+    "externalId": "Anúncio: {id}",
+    "disabled": "Integração desabilitada. Apenas os registros locais estão disponíveis.",
+    "noOperation": "Sem operações pendentes",
+    "error": "Não foi possível confirmar o resultado. Atualize o status local antes de continuar; a operação não será repetida automaticamente.",
+    "loading": "Carregando…",
+    "read": "Atualizar status local",
+    "refresh": "Consultar status no Mercado Libre",
+    "reviewHint": "Revise o anúncio na conta do vendedor antes de resolver. Uma nova publicação pode duplicar um anúncio cuja resposta de criação foi perdida.",
+    "actionLabel": "Resolução",
+    "choose": "Selecione uma resolução",
+    "itemId": "Número do anúncio no Mercado Libre",
+    "verify": "Verificar anúncio",
+    "seller": "Vendedor: {id}",
+    "remoteStatus": "Status do provedor: {status}",
+    "view": "Ver anúncio no Mercado Libre",
+    "reason": "Motivo e evidência da revisão",
+    "absenceConfirmation": "Revisei a conta do vendedor e confirmei que este anúncio não foi criado. Entendo que isso permite solicitar uma nova publicação separadamente.",
+    "linkConfirmation": "Verifiquei que o anúncio selecionado corresponde a este imóvel.",
+    "confirmation": "Revisei o resultado e confirmo esta resolução.",
+    "resolve": "Confirmar resolução",
+    "history": "Últimas 50 resoluções",
+    "noHistory": "Nenhuma resolução registrada.",
+    "empty": "Este imóvel não tem anúncios do Mercado Libre registrados.",
+    "action": {
+      "link": "Vincular um anúncio existente",
+      "retry": "Repetir a operação",
+      "confirm_not_created": "Confirmar que nenhum anúncio foi criado",
+      "accept_remote": "Aceitar o status atual sem repetir a alteração"
+    },
+    "status": {
+      "queued": "Na fila",
+      "dispatching": "Enviando",
+      "retry": "Nova tentativa agendada",
+      "completed": "Operação concluída",
+      "failed": "Operação falhou",
+      "needs_review": "Revisão necessária",
+      "resolved": "Incidente resolvido"
+    },
+    "remoteStates": {
+      "active": "Ativo",
+      "paused": "Pausado",
+      "closed": "Encerrado",
+      "under_review": "Em revisão"
     }
   }
 }

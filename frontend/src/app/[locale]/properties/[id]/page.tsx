@@ -29,7 +29,7 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { useAuth } from "@/contexts/auth-context";
-import { canManageLeasesForUser } from "@/lib/permissions";
+import { canManageLeasesForUser, hasUserRole } from "@/lib/permissions";
 
 const STATUS_COLORS: Record<string, string> = {
   ACTIVE: "bg-green-500",
@@ -388,6 +388,14 @@ export default function PropertyDetailPage() {
   const createLeaseHref = `/${locale}/leases/new?${createLeaseQuery.toString()}`;
   return (
     <div className="container mx-auto px-4 py-8">
+      {hasUserRole(user, "admin") && (
+        <Link
+          href={`/${locale}/properties/${propertyId}/portals`}
+          className="mb-4 inline-block underline"
+        >
+          Mercado Libre
+        </Link>
+      )}
       <div className="mb-6">
         <Link
           href={`/${locale}/properties`}
