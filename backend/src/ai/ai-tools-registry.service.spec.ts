@@ -344,7 +344,9 @@ describe('AiToolsRegistryService', () => {
           description: 'Create user',
           mutability: 'mutable',
           allowedRoles: [UserRole.ADMIN],
-          parameters: z.object({ email: z.email() }).strict(),
+          parameters: z
+            .object({ email: z.string().regex(/^(?!blocked)[a-z]+$/) })
+            .strict(),
           execute: jest.fn(),
         },
       ]),
