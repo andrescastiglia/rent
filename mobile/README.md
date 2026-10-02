@@ -83,12 +83,14 @@ Cobros conservan `Idempotency-Key` después de un fallo de red y al reiniciar la
 El workflow reutilizable `mobile-ios.yml` prepara iOS en macOS y compila una sola vez para simulador. Sobre ese mismo binario ejecuta el arranque y todos los recorridos Detox; conserva logs y capturas por plataforma. CI exige también UT, tipos y lint antes de ejecutar Android/iOS. Se puede ejecutar manualmente. La validación iOS usa Xcode 26.3 (Swift ≥6.2) y un simulador Apple; las pruebas nativas usan datos simulados y la autorización real se comprueba por separado con API/PostgreSQL.
 
 El build se limita a la arquitectura del simulador ejecutado. Se guarda el binario
-firmado en una caché determinada por Node, paquetes/lock, configuración Expo,
-assets, script nativo, Xcode y arquitectura; antes de reutilizarlo se verifican
-esos inputs y la firma. Metro sirve siempre el JavaScript del checkout actual.
+compilado en una caché determinada por Node, paquetes/lock, configuración Expo,
+assets, script nativo, Xcode y arquitectura; antes de ejecutarlo se verifican
+esos inputs, arquitectura y firma. Metro sirve siempre el JavaScript del checkout actual.
 Cambios de JavaScript o pruebas no requieren otro build nativo. La caché se guarda
-antes de Detox y no se usa para producción. Después del login iOS, Detox restaura
-la sincronización para esperar navegación, teclado y animaciones. La ayuda retira
+antes de verificar y ejecutar Detox; no se usa para producción. Un fallo de
+verificación bloquea la ejecución. Cuando login/Inicio están listos, Detox restaura en ambas plataformas
+la sincronización para esperar navegación, teclado y animaciones. Los campos se
+completan con eventos reales de teclado (`clearText/typeText`). La ayuda retira
 su contenido al finalizar el gesto y conserva su geometría durante el toque/scroll.
 
 El binario del simulador usa la firma ad hoc local de Xcode, sin certificado de

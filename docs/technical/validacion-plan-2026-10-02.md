@@ -167,13 +167,26 @@ al final del gesto y se agrega una regresión UT (409 casos móviles aprobados).
 Detox restaura la sincronización normal iOS después del login para esperar
 teclado, animaciones y navegación. El nuevo resultado nativo queda pendiente.
 
-El workflow guarda el binario simulador firmado después de verificar arquitectura
-e inputs nativos: Node, paquetes/lock, configuración Expo, assets y el script
+El workflow guarda el binario simulador compilado, identificado por sus
+inputs nativos: Node, paquetes/lock, configuración Expo, assets y el script
 nativo, además de Xcode/arquitectura. Las ejecuciones con esos inputs idénticos
-verifican la firma antes de reutilizarlo, y Metro sirve el JavaScript del checkout
+verifican inputs, arquitectura y firma antes de ejecutarlo, y Metro sirve el JavaScript del checkout
 actual. Cambios de inputs nativos fuerzan un build. La caché se guarda antes de
 Detox, por lo que corregir JavaScript o pruebas no exige recompilar tras un fallo;
 no se reutiliza para artefactos de producción.
+
+El [CI de `4cd396d`](https://github.com/andrescastiglia/rent/actions/runs/37053386464)
+aprobó 21 jobs. El build/firma iOS terminaron correctamente; la verificación
+falló por el orden de argumentos de `lipo`, antes de ejecutar Detox. Se corrige
+la llamada y se separan compilación, almacenamiento de caché y verificación:
+un control fallido bloquea la ejecución sin perder el binario compilado.
+Android pasó seis casos; la captura del restante mostró una contraseña visible
+que seguía siendo rechazada por la validación después de `replaceText`.
+Las pruebas ahora usan `clearText/typeText`, sincronización normal en ambas
+plataformas apenas login/Inicio están listos, y espera del detalle después de
+guardar. La [documentación de Detox](https://wix.github.io/Detox/docs/api/actions/)
+advierte que `replaceText` puede omitir callbacks; no se cambia la validación
+ni se relajan las expectativas. El nuevo resultado nativo permanece pendiente.
 
 El PR #255 se cerró como duplicado: su SHA `5cd9b8f` es antecesor de `abb45b6`
 y todo su trabajo de adendas permanece incluido en el PR #256.

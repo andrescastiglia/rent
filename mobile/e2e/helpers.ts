@@ -8,9 +8,7 @@ export async function relaunchFreshApp(): Promise<void> {
       detoxEnableSynchronization: '0',
     },
   });
-  if (device.getPlatform() === 'ios') {
-    await device.disableSynchronization();
-  }
+  await device.disableSynchronization();
 }
 
 async function isVisible(testId: string, timeout: number): Promise<boolean> {
@@ -23,9 +21,7 @@ async function isVisible(testId: string, timeout: number): Promise<boolean> {
 
 export async function loginAsAdmin(): Promise<void> {
   if (await isVisible('tab.home', 10000)) {
-    if (device.getPlatform() === 'ios') {
-      await device.enableSynchronization();
-    }
+    await device.enableSynchronization();
     return;
   }
 
@@ -34,9 +30,7 @@ export async function loginAsAdmin(): Promise<void> {
     // Re-establish the Detox instrumentation before retrying the login flow.
     await relaunchFreshApp();
     if (await isVisible('tab.home', 10000)) {
-      if (device.getPlatform() === 'ios') {
-        await device.enableSynchronization();
-      }
+      await device.enableSynchronization();
       return;
     }
   }
@@ -44,18 +38,22 @@ export async function loginAsAdmin(): Promise<void> {
   await waitFor(element(by.id('login.email')))
     .toBeVisible()
     .withTimeout(30000);
-
-  await element(by.id('login.email')).replaceText('admin@example.com');
-  await element(by.id('login.password')).replaceText('admin123');
+  await device.enableSynchronization();
+  await fillField('login.email', 'admin@example.com');
+  await fillField('login.password', 'admin123');
 
   await element(by.id('login.submit')).tap();
 
   await waitFor(element(by.id('tab.home')))
     .toBeVisible()
     .withTimeout(20000);
-  if (device.getPlatform() === 'ios') {
-    await device.enableSynchronization();
-  }
+}
+
+/** Real keyboard events also update React state before the next action. */
+export async function fillField(testId: string, value: string): Promise<void> {
+  const field = element(by.id(testId));
+  await field.clearText();
+  await field.typeText(value);
 }
 
 export async function tapAndConfirmDeletion(

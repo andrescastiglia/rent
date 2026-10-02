@@ -24,8 +24,4 @@ else
   ditto "$built_app" "$app"
 fi
 
-codesign --verify --strict "$app"
-executable="$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$app/Info.plist")"
-lipo -verify_arch "$(uname -m)" "$app/$executable"
-codesign --display --entitlements :- "$app" > artifacts/ios/signing.log 2>&1
 printf '%s\n' "$native_cache_key" > artifacts/ios/native/inputs.txt

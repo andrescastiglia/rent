@@ -1,4 +1,4 @@
-import { openModule, waitForFormControl } from './helpers';
+import { fillField, openModule, waitForFormControl } from './helpers';
 import {
   dismissNativeAlertIfVisible,
   loginAsAdmin,
@@ -21,7 +21,7 @@ describe('Leases and payments critical flows', () => {
     await waitFor(element(by.id('tenantPaymentCreate.amount')))
       .toBeVisible()
       .withTimeout(10000);
-    await element(by.id('tenantPaymentCreate.amount')).replaceText('1234');
+    await fillField('tenantPaymentCreate.amount', '1234');
     await waitForFormControl(
       'tenantPaymentCreate.submit',
       'tenantPaymentCreate.scroll',

@@ -1,4 +1,4 @@
-import { openModule, waitForFormControl } from './helpers';
+import { fillField, openModule, waitForFormControl } from './helpers';
 import {
   loginAsAdmin,
   relaunchFreshApp,
@@ -24,21 +24,21 @@ describe('Properties CRUD', () => {
     await waitFor(element(by.id('propertyCreate.name')))
       .toBeVisible()
       .withTimeout(15000);
-    await element(by.id('propertyCreate.name')).replaceText(uniqueName);
+    await fillField('propertyCreate.name', uniqueName);
     await waitForFormControl('propertyCreate.ownerId', 'propertyCreate.scroll');
-    await element(by.id('propertyCreate.ownerId')).replaceText('owner-1');
+    await fillField('propertyCreate.ownerId', 'owner-1');
     await waitForFormControl('propertyCreate.street', 'propertyCreate.scroll');
-    await element(by.id('propertyCreate.street')).replaceText('Avenida Test');
+    await fillField('propertyCreate.street', 'Avenida Test');
     await waitForFormControl('propertyCreate.number', 'propertyCreate.scroll');
-    await element(by.id('propertyCreate.number')).replaceText('123');
+    await fillField('propertyCreate.number', '123');
     await waitForFormControl('propertyCreate.city', 'propertyCreate.scroll');
-    await element(by.id('propertyCreate.city')).replaceText('CABA');
+    await fillField('propertyCreate.city', 'CABA');
     await waitForFormControl('propertyCreate.state', 'propertyCreate.scroll');
-    await element(by.id('propertyCreate.state')).replaceText('Buenos Aires');
+    await fillField('propertyCreate.state', 'Buenos Aires');
     await waitForFormControl('propertyCreate.zipCode', 'propertyCreate.scroll');
-    await element(by.id('propertyCreate.zipCode')).replaceText('1000');
+    await fillField('propertyCreate.zipCode', '1000');
     await waitForFormControl('propertyCreate.country', 'propertyCreate.scroll');
-    await element(by.id('propertyCreate.country')).replaceText('Argentina');
+    await fillField('propertyCreate.country', 'Argentina');
 
     await waitForFormControl('propertyCreate.submit', 'propertyCreate.scroll');
     await element(by.id('propertyCreate.submit')).tap();
@@ -51,7 +51,7 @@ describe('Properties CRUD', () => {
     await waitFor(element(by.id('propertyEdit.name')))
       .toBeVisible()
       .withTimeout(10000);
-    await element(by.id('propertyEdit.name')).replaceText(updatedName);
+    await fillField('propertyEdit.name', updatedName);
     await waitForFormControl('propertyEdit.submit', 'propertyEdit.scroll');
     await element(by.id('propertyEdit.submit')).tap();
 

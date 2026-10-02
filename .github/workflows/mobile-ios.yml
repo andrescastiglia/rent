@@ -55,18 +55,22 @@ jobs:
       - name: Install native dependencies
         if: steps.native-cache.outputs.cache-hit != 'true'
         run: pod install --project-directory=ios
-      - name: Build or verify the simulator binary once
+      - name: Build or reuse the simulator binary once
         id: native-build
         env:
           RENT_IOS_BINARY_CACHE_HIT: ${{ steps.native-cache.outputs.cache-hit }}
           RENT_IOS_NATIVE_CACHE_KEY: ${{ steps.native-cache.outputs.cache-primary-key }}
         run: bash scripts/build-ios-simulator.sh
-      - name: Save verified native binary before running JavaScript tests
+      - name: Save compiled native binary before validation
         if: steps.native-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
         with:
           path: mobile/artifacts/ios/native
           key: ${{ steps.native-cache.outputs.cache-primary-key }}
+      - name: Verify native inputs, architecture and signature before execution
+        env:
+          RENT_IOS_NATIVE_CACHE_KEY: ${{ steps.native-cache.outputs.cache-primary-key }}
+        run: bash scripts/verify-ios-simulator.sh
       - name: Launch and test the current checkout on an available iPhone simulator
         run: bash scripts/ci-ios-smoke.sh
       - name: Upload iOS validation evidence

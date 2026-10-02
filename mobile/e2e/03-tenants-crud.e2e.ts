@@ -1,4 +1,4 @@
-import { openModule, waitForFormControl } from './helpers';
+import { fillField, openModule, waitForFormControl } from './helpers';
 import {
   loginAsAdmin,
   relaunchFreshApp,
@@ -25,13 +25,11 @@ describe('Tenants CRUD', () => {
       .toBeVisible()
       .withTimeout(15000);
 
-    await element(by.id('tenantCreate.firstName')).replaceText('E2E');
-    await element(by.id('tenantCreate.lastName')).replaceText('Tenant');
-    await element(by.id('tenantCreate.email')).replaceText(email);
-    await element(by.id('tenantCreate.phone')).replaceText('+5491112345678');
-    await element(by.id('tenantCreate.dni')).replaceText(
-      uniqueBase.slice(0, 8),
-    );
+    await fillField('tenantCreate.firstName', 'E2E');
+    await fillField('tenantCreate.lastName', 'Tenant');
+    await fillField('tenantCreate.email', email);
+    await fillField('tenantCreate.phone', '+5491112345678');
+    await fillField('tenantCreate.dni', uniqueBase.slice(0, 8));
     await waitForFormControl('tenantCreate.submit', 'tenantCreate.scroll');
     await element(by.id('tenantCreate.submit')).tap();
 
@@ -43,7 +41,7 @@ describe('Tenants CRUD', () => {
     await waitFor(element(by.id('tenantEdit.email')))
       .toBeVisible()
       .withTimeout(10000);
-    await element(by.id('tenantEdit.email')).replaceText(updatedEmail);
+    await fillField('tenantEdit.email', updatedEmail);
     await waitForFormControl('tenantEdit.submit', 'tenantEdit.scroll');
     await element(by.id('tenantEdit.submit')).tap();
 

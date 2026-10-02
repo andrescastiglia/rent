@@ -1,4 +1,4 @@
-import { openModule, waitForFormControl } from './helpers';
+import { fillField, openModule, waitForFormControl } from './helpers';
 import {
   loginAsAdmin,
   relaunchFreshApp,
@@ -26,12 +26,10 @@ describe('Interested CRUD', () => {
       .toBeVisible()
       .withTimeout(15000);
 
-    await element(by.id('interestedCreate.firstName')).replaceText('E2E');
-    await element(by.id('interestedCreate.lastName')).replaceText('Interested');
-    await element(by.id('interestedCreate.phone')).replaceText(
-      '+5491111111111',
-    );
-    await element(by.id('interestedCreate.email')).replaceText(email);
+    await fillField('interestedCreate.firstName', 'E2E');
+    await fillField('interestedCreate.lastName', 'Interested');
+    await fillField('interestedCreate.phone', '+5491111111111');
+    await fillField('interestedCreate.email', email);
     await waitForFormControl(
       'interestedCreate.operation.sale',
       'interestedCreate.scroll',
@@ -52,7 +50,7 @@ describe('Interested CRUD', () => {
     await waitFor(element(by.id('interestedEdit.email')))
       .toBeVisible()
       .withTimeout(10000);
-    await element(by.id('interestedEdit.email')).replaceText(updatedEmail);
+    await fillField('interestedEdit.email', updatedEmail);
 
     await waitForFormControl('interestedEdit.submit', 'interestedEdit.scroll');
     await element(by.id('interestedEdit.submit')).tap();

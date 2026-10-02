@@ -1,4 +1,5 @@
 import {
+  fillField,
   dismissNativeAlertIfVisible,
   waitForFormControl,
   loginAsAdmin,
@@ -27,11 +28,11 @@ describe('Users and templates critical flows', () => {
       .toBeVisible()
       .withTimeout(15000);
 
-    await element(by.id('userCreate.email')).replaceText(email);
-    await element(by.id('userCreate.password')).replaceText('SecurePass123!');
-    await element(by.id('userCreate.firstName')).replaceText('E2E');
-    await element(by.id('userCreate.lastName')).replaceText('User');
-    await element(by.id('userCreate.phone')).replaceText('+5491100000000');
+    await fillField('userCreate.email', email);
+    await fillField('userCreate.password', 'SecurePass123!');
+    await fillField('userCreate.firstName', 'E2E');
+    await fillField('userCreate.lastName', 'User');
+    await fillField('userCreate.phone', '+5491100000000');
     await waitForFormControl('userCreate.role.owner', 'userCreate.scroll');
     await element(by.id('userCreate.role.owner')).tap();
 
@@ -46,19 +47,23 @@ describe('Users and templates critical flows', () => {
     await waitFor(element(by.id('userResetPassword.newPassword')))
       .toBeVisible()
       .withTimeout(10000);
-    await element(by.id('userResetPassword.newPassword')).replaceText(
-      'SecurePass456!',
-    );
+    await fillField('userResetPassword.newPassword', 'SecurePass456!');
     await element(by.id('userResetPassword.submit')).tap();
     await dismissNativeAlertIfVisible();
 
+    await waitFor(element(by.id('userDetail.toggleActivation')))
+      .toBeVisible()
+      .withTimeout(15000);
     await element(by.id('userDetail.toggleActivation')).tap();
 
+    await waitFor(element(by.id('userDetail.edit')))
+      .toBeVisible()
+      .withTimeout(15000);
     await element(by.id('userDetail.edit')).tap();
     await waitFor(element(by.id('userEdit.firstName')))
       .toBeVisible()
       .withTimeout(10000);
-    await element(by.id('userEdit.firstName')).replaceText('E2EUpdated');
+    await fillField('userEdit.firstName', 'E2EUpdated');
 
     await waitForFormControl('userEdit.submit', 'userEdit.scroll');
     await element(by.id('userEdit.submit')).tap();
@@ -88,8 +93,9 @@ describe('Users and templates critical flows', () => {
       .toBeVisible()
       .withTimeout(15000);
     await element(by.id('templateCreate.paymentType.receipt')).tap();
-    await element(by.id('templateCreate.name')).replaceText(templateName);
-    await element(by.id('templateCreate.templateBody')).replaceText(
+    await fillField('templateCreate.name', templateName);
+    await fillField(
+      'templateCreate.templateBody',
       'Contenido base E2E {{receipt.number}}',
     );
     await waitForFormControl(
@@ -109,7 +115,7 @@ describe('Users and templates critical flows', () => {
     await waitFor(element(by.id('templateEdit.name')))
       .toBeVisible()
       .withTimeout(10000);
-    await element(by.id('templateEdit.name')).replaceText(updatedTemplateName);
+    await fillField('templateEdit.name', updatedTemplateName);
     await waitForFormControl('templateEdit.isActive.no', 'templateEdit.scroll');
     await element(by.id('templateEdit.isActive.no')).tap();
 
