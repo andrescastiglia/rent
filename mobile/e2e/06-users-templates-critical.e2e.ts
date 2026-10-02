@@ -1,5 +1,6 @@
 import {
   fillField,
+  fillPasswordField,
   dismissNativeAlertIfVisible,
   waitForFormControl,
   loginAsAdmin,
@@ -29,7 +30,7 @@ describe('Users and templates critical flows', () => {
       .withTimeout(15000);
 
     await fillField('userCreate.email', email, 'userCreate.scroll');
-    await fillField(
+    await fillPasswordField(
       'userCreate.password',
       'SecurePass123!',
       'userCreate.scroll',
@@ -51,7 +52,11 @@ describe('Users and templates critical flows', () => {
     await waitFor(element(by.id('userResetPassword.newPassword')))
       .toBeVisible()
       .withTimeout(10000);
-    await fillField('userResetPassword.newPassword', 'SecurePass456!');
+    await fillPasswordField(
+      'userResetPassword.newPassword',
+      'SecurePass456!',
+      'userResetPassword.scroll',
+    );
     await element(by.id('userResetPassword.submit')).tap();
     await dismissNativeAlertIfVisible();
 

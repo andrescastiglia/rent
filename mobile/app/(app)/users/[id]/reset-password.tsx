@@ -50,7 +50,10 @@ export default function ResetUserPasswordScreen() {
   };
 
   return (
-    <Screen guidanceBlocked={dialog.open}>
+    <Screen
+      scrollViewTestID="userResetPassword.scroll"
+      guidanceBlocked={dialog.open}
+    >
       <H1>{t('users.resetPasswordDialog.title')}</H1>
       <View style={styles.card}>
         <Field

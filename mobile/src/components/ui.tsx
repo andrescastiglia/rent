@@ -17,6 +17,7 @@ import DateTimePicker, {
   DateTimePickerChangeEvent,
 } from '@react-native-community/datetimepicker';
 import { useSegments } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useMemo, useState } from 'react';
 import { Platform, StyleSheet, type TextInputProps } from 'react-native';
 
@@ -115,6 +116,8 @@ export function Field({
   keyboardType = 'default',
   testID,
 }: Readonly<FieldProps>) {
+  const { t } = useTranslation();
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const interact = useGuidanceInteraction();
   const hinted = useGuidanceControl({
     id: testID ?? `field:${label}`,
@@ -126,28 +129,49 @@ export function Field({
   return (
     <View style={styles.fieldContainer}>
       <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput
-        testID={testID}
-        style={[
-          styles.input,
-          !editable && styles.inputDisabled,
-          hinted && styles.guidanceTarget,
-        ]}
-        value={value}
-        onChangeText={(value) => {
-          interact();
-          onChangeText(value);
-        }}
-        placeholder={placeholder}
-        editable={editable}
-        secureTextEntry={secureTextEntry}
-        autoComplete={autoComplete}
-        textContentType={textContentType}
-        autoCapitalize={autoCapitalize}
-        keyboardType={keyboardType}
-        accessibilityLabel={label}
-        accessibilityState={{ disabled: !editable }}
-      />
+      <View style={styles.inputRow}>
+        <TextInput
+          testID={testID}
+          style={[
+            styles.input,
+            styles.inputFill,
+            !editable && styles.inputDisabled,
+            hinted && styles.guidanceTarget,
+          ]}
+          value={value}
+          onChangeText={(value) => {
+            interact();
+            onChangeText(value);
+          }}
+          placeholder={placeholder}
+          editable={editable}
+          secureTextEntry={secureTextEntry && !passwordVisible}
+          autoComplete={autoComplete}
+          textContentType={textContentType}
+          autoCapitalize={autoCapitalize}
+          keyboardType={keyboardType}
+          accessibilityLabel={label}
+          accessibilityState={{ disabled: !editable }}
+        />
+        {secureTextEntry ? (
+          <Pressable
+            testID={`${testID ?? label}.toggleVisibility`}
+            accessibilityRole="button"
+            accessibilityLabel={t(
+              passwordVisible ? 'common.hidePassword' : 'common.showPassword',
+            )}
+            accessibilityState={{ disabled: !editable }}
+            disabled={!editable}
+            onPress={() => {
+              interact();
+              setPasswordVisible((visible) => !visible);
+            }}
+            style={styles.passwordToggle}
+          >
+            <Text>{t(passwordVisible ? 'common.hide' : 'common.show')}</Text>
+          </Pressable>
+        ) : null}
+      </View>
       <GuidanceControlHint active={hinted} label={label} />
     </View>
   );
@@ -421,6 +445,15 @@ const styles = StyleSheet.create({
   },
   fieldContainer: {
     marginBottom: 16,
+  },
+  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  inputFill: { flex: 1, minWidth: 0 },
+  passwordToggle: {
+    minHeight: tokens.touchTarget,
+    minWidth: tokens.touchTarget,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
   },
   fieldLabel: {
     marginBottom: 8,

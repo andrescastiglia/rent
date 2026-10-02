@@ -18,14 +18,6 @@ if ! xcrun simctl list devices booted | grep -Fq "$simulator"; then
 fi
 xcrun simctl bootstatus "$simulator" -b
 
-# Simulator AutoFill can replace a typed fixture password with its synthetic
-# "Automatic Strong Password" cover. Use the same runtime preference as Appium;
-# secure inputs, real keyboard events and exact-value assertions remain enabled.
-xcrun simctl spawn "$simulator" defaults write com.apple.WebUI AutoFillPasswords -int 0
-xcrun simctl spawn "$simulator" defaults read com.apple.WebUI AutoFillPasswords \
-  > artifacts/ios/autofill-setting.txt
-test "$(cat artifacts/ios/autofill-setting.txt)" = 0
-
 npx expo start --localhost --port 8081 > artifacts/ios/metro.log 2>&1 &
 metro_pid=$!
 metro_ready=false

@@ -39,7 +39,11 @@
     "notImplemented": "Aún no implementado",
     "accessDenied": "Acceso denegado",
     "accessDeniedMessage": "No tienes permiso para acceder a esta sección. Contacta al administrador si crees que esto es un error.",
-    "retry": "Reintentar"
+    "retry": "Reintentar",
+    "show": "Mostrar",
+    "hide": "Ocultar",
+    "showPassword": "Mostrar contraseña",
+    "hidePassword": "Ocultar contraseña"
   },
   "nav": {
     "dashboard": "Panel",

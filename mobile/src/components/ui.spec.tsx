@@ -1,4 +1,5 @@
 import { act } from 'react-test-renderer';
+import { useState } from 'react';
 import { Platform } from 'react-native';
 import { useSegments } from 'expo-router';
 import {
@@ -19,6 +20,49 @@ import {
   textContent,
 } from '../../tests/render';
 afterEach(cleanup);
+it('masks passwords by default and retains their value when revealing and hiding', async () => {
+  function Password() {
+    const [value, setValue] = useState('');
+    return (
+      <Field
+        label="Password"
+        testID="password"
+        value={value}
+        onChangeText={setValue}
+        secureTextEntry
+      />
+    );
+  }
+  const app = await renderApp(
+    <>
+      <Password />
+      <Field
+        label="Locked password"
+        testID="locked"
+        value="locked"
+        onChangeText={jest.fn()}
+        secureTextEntry
+        editable={false}
+      />
+    </>,
+  );
+  expect(control(app, 'password').props.secureTextEntry).toBe(true);
+  expect(control(app, 'locked.toggleVisibility').props.disabled).toBe(true);
+  await press(app, 'password.toggleVisibility');
+  expect(control(app, 'password').props.secureTextEntry).toBe(false);
+  expect(
+    control(app, 'password.toggleVisibility').props.accessibilityLabel,
+  ).toBe('common.hidePassword');
+  await input(app, 'password', 'Typed123!');
+  await press(app, 'password.toggleVisibility');
+  expect(control(app, 'password').props).toMatchObject({
+    secureTextEntry: true,
+    value: 'Typed123!',
+  });
+  expect(
+    control(app, 'password.toggleVisibility').props.accessibilityLabel,
+  ).toBe('common.showPassword');
+});
 it('labels inputs and communicates disabled and busy button states', async () => {
   const submit = jest.fn();
   const change = jest.fn();

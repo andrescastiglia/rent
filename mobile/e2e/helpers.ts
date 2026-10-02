@@ -112,6 +112,26 @@ export async function dismissNativeAlertIfVisible(): Promise<void> {
   }
 }
 
+/** Exercise the user's reveal/type/hide flow and verify masking is restored. */
+export async function fillPasswordField(
+  testId: string,
+  value: string,
+  scrollViewTestId: string,
+): Promise<void> {
+  const toggleId = `${testId}.toggleVisibility`;
+  await waitForFormControl(toggleId, scrollViewTestId);
+  await element(by.id(toggleId)).tap();
+  await fillField(testId, value, scrollViewTestId);
+  await dismissKeyboardIfVisible();
+  await element(by.id(toggleId)).tap();
+  await waitFor(element(by.id(testId)))
+    .toHaveText(value)
+    .withTimeout(5000);
+  await waitFor(element(by.id(toggleId).and(by.label('Mostrar contraseña'))))
+    .toBeVisible()
+    .withTimeout(5000);
+}
+
 export async function openModule(module: string): Promise<void> {
   await element(by.id('tab.more')).tap();
   await waitFor(element(by.id('more.scroll')))
