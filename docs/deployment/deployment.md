@@ -8,7 +8,7 @@
 
 Rent se publica desde un tag SemVer anotado que apunta exactamente al `HEAD` de
 `main`. El flujo vigente construye imágenes ARM64, publica sus digests en GHCR,
-completa el gate Android y despliega con `ansible/deploy-kubernetes.yml` en el
+despliega web/API con `ansible/deploy-kubernetes.yml` en el
 namespace `rent`. El tag, SHA, inventario de imágenes y evidencia CI deben coincidir.
 La verificación y reversión de aplicaciones siguen el [runbook Kubernetes](kubernetes.md).
 El despliegue no compila aplicaciones ni ejecuta pruebas contra datos productivos.
@@ -25,7 +25,7 @@ Antes de crear el tag deben cumplirse todas estas condiciones:
 
 - `main` está sincronizada y es la única rama remota.
 - No hay pull requests abiertos.
-- CI está verde en el SHA que se va a etiquetar.
+- `CI Pipeline` está verde en el SHA que se va a etiquetar; los recorridos nativos se verifican por separado en `Mobile native validation`.
 - El tag anotado cumple `vMAJOR.MINOR.PATCH`.
 - El secreto protegido `PRODUCTION_ENV_FILE` contiene el runtime completo.
 - La migración legada de imágenes fue ejecutada y verificada cuando aplique.
@@ -35,9 +35,18 @@ y exige un run exitoso de `CI Pipeline` disparado por `push` a `main` para el
 SHA exacto. El release reutiliza esa evidencia y no repite la matriz ni ejecuta
 Sonar sobre una referencia de tag. Después de construir el artefacto del
 servidor, valida `PRODUCTION_ENV_FILE` con el mismo código compilado que se
-desplegará y recién entonces inicia Android. Así un secreto incompleto o
+desplegará y recién entonces inicia, en paralelo, el despliegue del servidor y Android. Así un secreto incompleto o
 incompatible falla antes del paso más lento y antes de cualquier cambio en
 producción. No se debe relajar esa comprobación para destrabar un release.
+
+Por autorización del 2026-10-02, los fallos nativos Android/iOS no bloquean el
+merge ni el despliegue web/API. Conservan sus expectativas, logs y capturas en
+un workflow independiente. Lint, tipos y UT móviles continúan en `CI Pipeline`.
+`Deploy server` y `Publish GitHub Release` no dependen de `Deploy Android`;
+la publicación Android exige `Mobile native validation` exitoso para el mismo SHA y sus artefactos se adjuntan únicamente después de publicarse.
+Un fallo Android puede dejar el workflow de release fallido aunque el servidor
+ya esté desplegado: comprobar los jobs del servidor y sus digests. No se publica
+un binario móvil fallido ni se presenta su validación como aprobada.
 
 ## Archivo histórico: estructura del servidor PM2
 

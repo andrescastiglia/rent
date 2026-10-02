@@ -72,7 +72,7 @@ export function Screen({
       <KeyboardAvoidingView
         style={styles.fill}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
+        keyboardVerticalOffset={headerHeight}
       >
         {scrollable ? (
           <ScrollView

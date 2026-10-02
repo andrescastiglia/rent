@@ -122,6 +122,9 @@ describe('Users and templates critical flows', () => {
     await waitForFormControl('templateEdit.submit', 'templateEdit.scroll');
     await element(by.id('templateEdit.submit')).tap();
 
+    await waitFor(element(by.id('templateDetail.delete')))
+      .toBeVisible()
+      .withTimeout(15000);
     await waitFor(element(by.text(updatedTemplateName)))
       .toBeVisible()
       .withTimeout(15000);

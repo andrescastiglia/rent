@@ -195,29 +195,32 @@ it('connects field changes and scrolling to help timing without overlaying form 
     'bottom',
   ]);
 });
-it('supports fixed content and iOS keyboard avoidance', async () => {
-  const original = Platform.OS;
-  Platform.OS = 'ios';
-  try {
-    await mount(
-      <HeaderHeightContext.Provider value={104}>
-        <Screen padded={false} scrollable={false}>
-          <Text>Content</Text>
-        </Screen>
-      </HeaderHeightContext.Provider>,
-    );
-    expect(app.root.findAllByType('ScrollView' as never)).toHaveLength(0);
-    expect(
-      app.root.findByType('KeyboardAvoidingView' as never).props.behavior,
-    ).toBe('padding');
-    expect(
-      app.root.findByType('KeyboardAvoidingView' as never).props
-        .keyboardVerticalOffset,
-    ).toBe(104);
-  } finally {
-    Platform.OS = original;
-  }
-});
+it.each(['ios', 'android'] as const)(
+  'accounts for the native header during %s keyboard avoidance',
+  async (platform) => {
+    const original = Platform.OS;
+    Platform.OS = platform;
+    try {
+      await mount(
+        <HeaderHeightContext.Provider value={104}>
+          <Screen padded={false} scrollable={false}>
+            <Text>Content</Text>
+          </Screen>
+        </HeaderHeightContext.Provider>,
+      );
+      expect(app.root.findAllByType('ScrollView' as never)).toHaveLength(0);
+      expect(
+        app.root.findByType('KeyboardAvoidingView' as never).props.behavior,
+      ).toBe(platform === 'ios' ? 'padding' : 'height');
+      expect(
+        app.root.findByType('KeyboardAvoidingView' as never).props
+          .keyboardVerticalOffset,
+      ).toBe(104);
+    } finally {
+      Platform.OS = original;
+    }
+  },
+);
 
 it('keeps help in place until a touch or drag finishes and lets the action run', async () => {
   const onPress = jest.fn();
